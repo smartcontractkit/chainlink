@@ -1,5 +1,5 @@
 import { Reducer } from 'redux'
-import { Actions } from './actions'
+import { Actions, RouterActionType } from './actions'
 
 export interface State {
   to?: string
@@ -11,9 +11,9 @@ const INITIAL_STATE: State = {
 
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'REDIRECT':
+    case RouterActionType.REDIRECT:
       return { ...state, to: action.to }
-    case 'MATCH_ROUTE':
+    case RouterActionType.MATCH_ROUTE:
       return { ...state, to: undefined }
     default:
       return state

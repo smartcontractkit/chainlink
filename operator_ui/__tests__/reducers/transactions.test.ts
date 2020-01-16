@@ -1,9 +1,13 @@
 import reducer, { INITIAL_STATE } from '../../src/reducers'
-import { ResourceActionType } from '../../src/reducers/actions'
+import {
+  UpsertTransactionAction,
+  UpsertTransactionsAction,
+  ResourceActionType,
+} from '../../src/reducers/actions'
 
 describe('reducers/transactions', () => {
   it('UPSERT_TRANSACTIONS upserts items', () => {
-    const action = {
+    const action: UpsertTransactionsAction = {
       type: ResourceActionType.UPSERT_TRANSACTIONS,
       data: {
         transactions: {
@@ -13,7 +17,7 @@ describe('reducers/transactions', () => {
         meta: {
           currentPageTransactions: {
             data: [],
-            meta: {},
+            meta: { count: 2 },
           },
         },
       },
@@ -27,7 +31,7 @@ describe('reducers/transactions', () => {
   })
 
   it('UPSERT_TRANSACTION upserts items', () => {
-    const action = {
+    const action: UpsertTransactionAction = {
       type: ResourceActionType.UPSERT_TRANSACTION,
       data: {
         transactions: {

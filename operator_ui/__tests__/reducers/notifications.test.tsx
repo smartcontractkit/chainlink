@@ -1,15 +1,28 @@
+import * as React from 'react'
 import * as jsonapi from '@chainlink/json-api-client'
 import reducer, { INITIAL_STATE } from '../../src/reducers'
 import {
   AuthActionType,
   NotifyActionType,
   RouterActionType,
+  ReceiveSigninFailAction,
+  NotifySuccessAction,
+  NotifyErrorAction,
+  NotifyErrorMsgAction,
+  MatchRouteAction,
 } from '../../src/reducers/actions'
 
 describe('reducers/notifications', () => {
+  const props = {}
+  const component: React.FC = () => {
+    return <></>
+  }
+
   describe('RECEIVE_SIGNIN_FAIL', () => {
     it('adds an error', () => {
-      const action = { type: AuthActionType.RECEIVE_SIGNIN_FAIL }
+      const action: ReceiveSigninFailAction = {
+        type: AuthActionType.RECEIVE_SIGNIN_FAIL,
+      }
       const state = reducer(INITIAL_STATE, action)
 
       expect(state.notifications.errors).toEqual([
@@ -19,9 +32,7 @@ describe('reducers/notifications', () => {
   })
 
   describe('NOTIFY_SUCCESS', () => {
-    const component = () => {}
-    const props = {}
-    const action = {
+    const action: NotifySuccessAction = {
       type: NotifyActionType.NOTIFY_SUCCESS,
       component,
       props,
@@ -33,7 +44,9 @@ describe('reducers/notifications', () => {
     })
 
     it('clears errors', () => {
-      const errorAction = { type: AuthActionType.RECEIVE_SIGNIN_FAIL }
+      const errorAction: ReceiveSigninFailAction = {
+        type: AuthActionType.RECEIVE_SIGNIN_FAIL,
+      }
 
       let state = reducer(INITIAL_STATE, errorAction)
       expect(state.notifications.errors.length).toEqual(1)
@@ -44,13 +57,12 @@ describe('reducers/notifications', () => {
   })
 
   describe('NOTIFY_ERROR', () => {
-    const component = () => {}
     const jsonApiErrors: jsonapi.ErrorItem[] = [
       { detail: 'Error 1', status: 400 },
       { detail: 'Error 2', status: 400 },
     ]
     const error = { errors: jsonApiErrors }
-    const action = {
+    const action: NotifyErrorAction = {
       type: NotifyActionType.NOTIFY_ERROR,
       component,
       error,
@@ -66,8 +78,11 @@ describe('reducers/notifications', () => {
     })
 
     it('clears successes', () => {
-      const component = () => {}
-      const successAction = { type: NotifyActionType.NOTIFY_SUCCESS, component }
+      const successAction: NotifySuccessAction = {
+        type: NotifyActionType.NOTIFY_SUCCESS,
+        props,
+        component,
+      }
 
       let state = reducer(INITIAL_STATE, successAction)
       expect(state.notifications.successes.length).toEqual(1)
@@ -78,7 +93,7 @@ describe('reducers/notifications', () => {
   })
 
   describe('NOTIFY_ERROR_MSG', () => {
-    const action = {
+    const action: NotifyErrorMsgAction = {
       type: NotifyActionType.NOTIFY_ERROR_MSG,
       msg: 'Single Error',
     }
@@ -89,8 +104,11 @@ describe('reducers/notifications', () => {
     })
 
     it('clears successes', () => {
-      const component = () => {}
-      const successAction = { type: NotifyActionType.NOTIFY_SUCCESS, component }
+      const successAction: NotifySuccessAction = {
+        type: NotifyActionType.NOTIFY_SUCCESS,
+        props,
+        component,
+      }
 
       let state = reducer(INITIAL_STATE, successAction)
       expect(state.notifications.successes.length).toEqual(1)
@@ -101,17 +119,18 @@ describe('reducers/notifications', () => {
   })
 
   describe('MATCH_ROUTE', () => {
-    const sameUrlAction = {
+    const sameUrlAction: MatchRouteAction = {
       type: RouterActionType.MATCH_ROUTE,
-      match: { url: undefined },
     }
-    const changeUrlAction = {
+    const changeUrlAction: MatchRouteAction = {
       type: RouterActionType.MATCH_ROUTE,
       match: { url: '/to' },
     }
 
     it('clears errors when currentUrl changes', () => {
-      const errorAction = { type: AuthActionType.RECEIVE_SIGNIN_FAIL }
+      const errorAction: ReceiveSigninFailAction = {
+        type: AuthActionType.RECEIVE_SIGNIN_FAIL,
+      }
 
       let state = reducer(INITIAL_STATE, errorAction)
       state = reducer(state, sameUrlAction)
@@ -126,8 +145,11 @@ describe('reducers/notifications', () => {
     })
 
     it('clears success when currentUrl changes', () => {
-      const component = () => {}
-      const successAction = { type: NotifyActionType.NOTIFY_SUCCESS, component }
+      const successAction: NotifySuccessAction = {
+        type: NotifyActionType.NOTIFY_SUCCESS,
+        props,
+        component,
+      }
 
       let state = reducer(INITIAL_STATE, successAction)
       state = reducer(state, sameUrlAction)

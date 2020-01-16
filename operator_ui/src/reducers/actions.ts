@@ -2,6 +2,8 @@ import React from 'react'
 import { Action } from 'redux'
 import * as jsonapi from '@chainlink/json-api-client'
 
+export interface InitialStateAction extends Action<'INITIAL_STATE'> {}
+
 export enum RouterActionType {
   REDIRECT = 'REDIRECT',
   MATCH_ROUTE = 'MATCH_ROUTE',
@@ -11,8 +13,7 @@ export enum RouterActionType {
  * REDIRECT
  */
 
-export interface RedirectAction {
-  type: 'REDIRECT'
+export interface RedirectAction extends Action<RouterActionType.REDIRECT> {
   to: string
 }
 
@@ -20,8 +21,7 @@ export interface RedirectAction {
  * MATCH_ROUTE
  */
 
-export interface MatchRouteAction {
-  type: 'MATCH_ROUTE'
+export interface MatchRouteAction extends Action<RouterActionType.MATCH_ROUTE> {
   match?: {
     url: string
   }
@@ -202,7 +202,6 @@ export interface RequestDeleteAction
 export interface ReceiveDeleteSuccessAction
   extends Action<ResourceActionType.RECEIVE_DELETE_SUCCESS> {
   id: string
-  response: any
 }
 
 /**
@@ -380,6 +379,7 @@ export interface UpsertTransactionAction
 }
 
 export type Actions =
+  | InitialStateAction
   | RedirectAction
   | MatchRouteAction
   | NotifySuccessAction

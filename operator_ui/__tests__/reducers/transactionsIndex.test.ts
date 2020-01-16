@@ -1,11 +1,15 @@
 import reducer, { INITIAL_STATE } from '../../src/reducers'
-import { ResourceActionType } from '../../src/reducers/actions'
+import {
+  ResourceActionType,
+  UpsertTransactionsAction,
+} from '../../src/reducers/actions'
 
 describe('reducers/transactionsIndex', () => {
   it('UPSERT_TRANSACTIONS updates the current page & count from meta', () => {
-    const action = {
+    const action: UpsertTransactionsAction = {
       type: ResourceActionType.UPSERT_TRANSACTIONS,
       data: {
+        transactions: {},
         meta: {
           currentPageTransactions: {
             data: [{ id: 'b' }, { id: 'a' }],

@@ -1,5 +1,5 @@
 import { Reducer } from 'redux'
-import { Actions, ConfigurationAttribute } from './actions'
+import { Actions, ConfigurationAttribute, ResourceActionType } from './actions'
 
 export interface State {
   data: Record<string, ConfigurationAttribute>
@@ -11,7 +11,7 @@ const INITIAL_STATE: State = {
 
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'UPSERT_CONFIGURATION': {
+    case ResourceActionType.UPSERT_CONFIGURATION: {
       const id = Object.keys(action.data.configWhitelists)[0]
       const attributes = action.data.configWhitelists[id].attributes
 

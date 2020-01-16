@@ -1,5 +1,5 @@
 import { Reducer } from 'redux'
-import { Actions } from './actions'
+import { Actions, ResourceActionType } from './actions'
 
 export interface State {
   items: Record<string, object>
@@ -15,7 +15,7 @@ const INITIAL_STATE: State = {
 
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'UPSERT_BRIDGES': {
+    case ResourceActionType.UPSERT_BRIDGES: {
       const { bridges, meta } = action.data
       const items = { ...state.items, ...bridges }
       const currentPage = meta.currentPageBridges.data.map(b => b.id)
@@ -28,7 +28,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
         count,
       }
     }
-    case 'UPSERT_BRIDGE': {
+    case ResourceActionType.UPSERT_BRIDGE: {
       const items = { ...state.items, ...action.data.bridges }
 
       return {

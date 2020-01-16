@@ -27,7 +27,7 @@ const reducer = combineReducers({
   transactionsIndex,
 })
 
-export const INITIAL_STATE = reducer(undefined, { type: 'initial_state' })
+export const INITIAL_STATE = reducer(undefined, { type: 'INITIAL_STATE' })
 export type AppState = typeof INITIAL_STATE
 
 export default reducer

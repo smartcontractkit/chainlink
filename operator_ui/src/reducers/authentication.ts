@@ -1,6 +1,6 @@
 import { Reducer } from 'redux'
 import * as storage from 'utils/storage'
-import { Actions } from './actions'
+import { Actions, AuthActionType } from './actions'
 
 export interface State {
   allowed: boolean
@@ -19,8 +19,8 @@ const reducer: Reducer<State, Actions> = (
   action: Actions,
 ) => {
   switch (action.type) {
-    case 'RECEIVE_SIGNOUT_SUCCESS':
-    case 'RECEIVE_SIGNIN_SUCCESS': {
+    case AuthActionType.RECEIVE_SIGNOUT_SUCCESS:
+    case AuthActionType.RECEIVE_SIGNIN_SUCCESS: {
       const allowed = { allowed: action.authenticated }
       storage.setAuthentication(allowed)
 
@@ -30,7 +30,7 @@ const reducer: Reducer<State, Actions> = (
         errors: [],
       }
     }
-    case 'RECEIVE_SIGNIN_FAIL': {
+    case AuthActionType.RECEIVE_SIGNIN_FAIL: {
       const allowed = { allowed: false }
       storage.setAuthentication(allowed)
 
@@ -40,8 +40,8 @@ const reducer: Reducer<State, Actions> = (
         errors: [],
       }
     }
-    case 'RECEIVE_SIGNIN_ERROR':
-    case 'RECEIVE_SIGNOUT_ERROR': {
+    case AuthActionType.RECEIVE_SIGNIN_ERROR:
+    case AuthActionType.RECEIVE_SIGNOUT_ERROR: {
       const allowed = { allowed: false }
       storage.setAuthentication(allowed)
 
