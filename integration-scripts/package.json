@@ -30,7 +30,7 @@
     "chainlink": "0.7.10",
     "chainlinkv0.5": "0.0.2",
     "chalk": "^2.4.2",
-    "ethers": "^4.0.41",
+    "ethers": "^4.0.43",
     "link_token": "^1.0.6",
     "request-promise": "4.2.5",
     "shelljs": "^0.8.3",
