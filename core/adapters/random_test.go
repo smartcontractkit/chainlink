@@ -1,7 +1,6 @@
 package adapters_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -70,6 +69,5 @@ func TestRandom_Perform(t *testing.T) {
 	require.NoError(t, err)
 	input = models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result = adapter.Perform(*input, store)
-	fmt.Println("result", result.Result().String())
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }
