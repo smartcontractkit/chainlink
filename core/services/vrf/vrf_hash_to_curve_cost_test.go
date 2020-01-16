@@ -3,7 +3,6 @@ package vrf
 import (
 	"context"
 	"crypto/ecdsa"
-	"math"
 	"math/big"
 	"strings"
 	"testing"
@@ -62,43 +61,23 @@ func measureHashToCurveGasCost(t *testing.T, contract contract,
 	require.NoError(t, err)
 	_, err = HashToCurve(Generator, big.NewInt(input),
 		func(*big.Int) { numOrdinates += 1 })
+	require.NoError(t, err)
 	return estimate, numOrdinates
+}
+
+var baseCost uint64 = 22500
+var marginalCost uint64 = 15555
+
+func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
+	return baseCost + marginalCost*numOrdinates
 }
 
 func TestMeasureHashToCurveGasCost(t *testing.T) {
 	contract, owner := deployVRFContract(t)
-	const maxOrds = 20
-	var totalGasCosts [maxOrds]float64
-	var totalGasCostSquareds [maxOrds]float64
-	var ordCounts [maxOrds]float64
-	numSamples := int64(10)
+	numSamples := int64(10) // Holds for first 1,000 samples, but set to 10 for speed.
 	for i := int64(0); i < numSamples; i += 1 {
 		gasCost, numOrdinates := measureHashToCurveGasCost(t, contract, owner, i)
-		totalGasCosts[numOrdinates] += float64(gasCost)
-		totalGasCostSquareds[numOrdinates] += float64(gasCost) * float64(gasCost)
-		ordCounts[numOrdinates] += 1
+		require.Less(t, gasCost, HashToCurveGasCostBound(numOrdinates))
 	}
-	var meanGasCosts [maxOrds]float64
-	var std [maxOrds]float64
-	for numOrdinates := uint64(1); totalGasCosts[numOrdinates] > 0; numOrdinates += 1 {
-		meanGasCosts[numOrdinates] = totalGasCosts[numOrdinates] / ordCounts[numOrdinates]
-		meanSquared := meanGasCosts[numOrdinates] * meanGasCosts[numOrdinates]
-		std[numOrdinates] = math.Sqrt(
-			totalGasCostSquareds[numOrdinates]/ordCounts[numOrdinates] - meanSquared)
-		require.Less(t, std[numOrdinates], 100.0)
-	}
-	var differences [maxOrds]float64
-	totalDifferences := float64(0)
-	totalDifferencesSquared := float64(0)
-	diffCount := float64(0)
-	for numOrdinates := uint64(2); totalGasCosts[numOrdinates] > 0; numOrdinates += 1 {
-		differences[numOrdinates-2] = meanGasCosts[numOrdinates] - meanGasCosts[numOrdinates-1]
-		totalDifferences += differences[numOrdinates-2]
-		totalDifferencesSquared += differences[numOrdinates-2] * differences[numOrdinates-2]
-		diffCount += 1
-	}
-	meanDiff := totalDifferences / diffCount
-	stdDiff := math.Sqrt(totalDifferencesSquared/diffCount - meanDiff*meanDiff)
-	require.Less(t, meanDiff, 15600.0)
-	require.Less(t, stdDiff, 30.0)
+	require.Less(t, HashToCurveGasCostBound(128), uint64(2.014e6))
 }

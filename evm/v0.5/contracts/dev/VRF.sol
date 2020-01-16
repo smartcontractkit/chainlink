@@ -129,14 +129,15 @@ pragma solidity 0.5.0;
   * @dev of work in hashToCurve, by requiring extra rounds of hashing and
   * @dev checking whether that's yielded the x ordinate of a secp256k1 point.
   * @dev However, under the Random Oracle Model the probability of choosing a
-  * @dev point which forces n extra rounds in hashToCurve is 2⁻ⁿ. Each round
-  * @dev costs about 16,000 gas, so to find a seed for which hashToCurve would
-  * @dev cost more than 2,000,000 gas, one would have to try, in expectation,
-  * @dev about 2¹²⁵ seeds, which is infeasible for any forseeable computational
-  * @dev resources. (2,000,000/16,000=125)
+  * @dev point which forces n extra rounds in hashToCurve is 2⁻ⁿ. The base cost
+  * @dev for calling hashToCurve is about 24,000 gas, and each round of checking
+  * @dev for a valid x ordinate costs about 15,555 gas, so to find a seed for
+  * @dev which hashToCurve would cost more than 2,016,000 gas, one would have to
+  * @dev try, in expectation, about 2¹²⁸ seeds, which is infeasible for any
+  * @dev forseeable computational resources. (24000 + 128 * 15_555 < 2,016,000.)
 
   * @dev Since the gas block limit for the Ethereum main net is 10,000,000 gas,
-  * @dev this means it is infeasibly for an adversary to prevent correct
+  * @dev this means it is infeasible for an adversary to prevent correct
   * @dev operation of this contract by choosing an adverse seed.
 
   * @dev (See TestMeasureHashToCurveGasCost for verification of the gas cost for
