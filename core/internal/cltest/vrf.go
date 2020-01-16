@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/store/models/vrfkey"
 )
 
 // StoredVRFKey creates a VRFKeyStore on store, imports a known VRF key into it,
 // and returns the corresponding public key.
-func StoredVRFKey(t *testing.T, store *strpkg.Store) *vrf_key.PublicKey {
+func StoredVRFKey(t *testing.T, store *strpkg.Store) *vrfkey.PublicKey {
 	store.VRFKeyStore = strpkg.NewVRFKeyStore(store)
 	keyFile, err := ioutil.ReadFile("../../tools/clroot/vrfkey.json")
 	require.NoError(t, err)

@@ -6,7 +6,7 @@ import (
 
 	"chainlink/core/store"
 	"chainlink/core/store/models"
-	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/store/models/vrfkey"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -75,12 +75,12 @@ func getSeed(input models.RunInput) (*big.Int, error) {
 }
 
 // getKey returns the public key for the VRF, or an error.
-func getKey(ra *Random, input models.RunInput) (*vrf_key.PublicKey, error) {
+func getKey(ra *Random, input models.RunInput) (*vrfkey.PublicKey, error) {
 	hash, err := extractHex(input, "keyHash")
 	if err != nil {
 		return nil, err
 	}
-	key, err := vrf_key.NewPublicKeyFromHex(ra.PublicKey)
+	key, err := vrfkey.NewPublicKeyFromHex(ra.PublicKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse %v as public key", ra.PublicKey)
 	}
