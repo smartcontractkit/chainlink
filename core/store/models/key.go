@@ -8,7 +8,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 
-	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/store/models/vrfkey"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
@@ -20,8 +20,8 @@ type Key struct {
 	JSON    JSON         `gorm:"type:text"`
 }
 
-type EncryptedSecretVRFKey = vrf_key.EncryptedSecretKey
-type PublicKey = vrf_key.PublicKey
+type EncryptedSecretVRFKey = vrfkey.EncryptedSecretKey
+type PublicKey = vrfkey.PublicKey
 
 // NewKeyFromFile creates an instance in memory from a key file on disk.
 func NewKeyFromFile(path string) (*Key, error) {

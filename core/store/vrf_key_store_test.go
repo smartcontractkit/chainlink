@@ -16,7 +16,7 @@ import (
 	"chainlink/core/services/signatures/secp256k1"
 	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
 	strpkg "chainlink/core/store"
-	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/store/models/vrfkey"
 )
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
@@ -43,7 +43,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ks := strpkg.NewVRFKeyStore(store)
-	key, err := ks.CreateKey(phrase, vrf_key.FastScryptParams) // NB: Varies from run to run. Shouldn't matter, though
+	key, err := ks.CreateKey(phrase, vrfkey.FastScryptParams) // NB: Varies from run to run. Shouldn't matter, though
 	require.NoError(t, err)
 	ks.Forget(key)
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(keys) == 1 && keys[0].PublicKey == *key)
 	ophrase := phrase + "corruption" // Extra key; make sure it's not returned by Get
-	newKey, err := ks.CreateKey(ophrase, vrf_key.FastScryptParams)
+	newKey, err := ks.CreateKey(ophrase, vrfkey.FastScryptParams)
 	require.NoError(t, err)
 	keys, err = ks.Get(key) // Test targeted Get
 	require.NoError(t, err)

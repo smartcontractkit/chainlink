@@ -9,7 +9,7 @@ import (
 	"go.uber.org/multierr"
 
 	"chainlink/core/services/vrf"
-	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/store/models/vrfkey"
 )
 
 // VRFKeyStore tracks auxillary VRF secret keys, and generates their VRF proofs
@@ -24,7 +24,7 @@ type VRFKeyStore struct {
 	store *Store
 }
 
-type InMemoryKeyStore = map[vrf_key.PublicKey]vrf_key.PrivateKey
+type InMemoryKeyStore = map[vrfkey.PublicKey]vrfkey.PrivateKey
 
 // NewVRFKeyStore returns an empty VRFKeyStore
 func NewVRFKeyStore(store *Store) *VRFKeyStore {
@@ -38,7 +38,7 @@ func NewVRFKeyStore(store *Store) *VRFKeyStore {
 // GenerateProof(k, seed) is marshaled randomness proof given k and seed.
 //
 // k must have already been unlocked in ks.
-func (ks *VRFKeyStore) GenerateProof(k *vrf_key.PublicKey, seed *big.Int) (
+func (ks *VRFKeyStore) GenerateProof(k *vrfkey.PublicKey, seed *big.Int) (
 	vrf.MarshaledProof, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
@@ -50,7 +50,7 @@ func (ks *VRFKeyStore) GenerateProof(k *vrf_key.PublicKey, seed *big.Int) (
 }
 
 // Unlock tries to unlock each vrf key in the db, using the given pass phrase
-func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrf_key.PublicKey, merr error) {
+func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrfkey.PublicKey, merr error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	keys, err := ks.get(nil)
@@ -71,7 +71,7 @@ func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrf_key.PublicKey, 
 
 // Forget removes the in-memory copy of the secret key of k, or errors if not
 // present. Caller is responsible for taking ks.lock.
-func (ks *VRFKeyStore) forget(k *vrf_key.PublicKey) error {
+func (ks *VRFKeyStore) forget(k *vrfkey.PublicKey) error {
 	if _, found := ks.keys[*k]; !found {
 		return fmt.Errorf("public key %s is not unlocked; can't forget it", k)
 	} else {
@@ -80,7 +80,7 @@ func (ks *VRFKeyStore) forget(k *vrf_key.PublicKey) error {
 	}
 }
 
-func (ks *VRFKeyStore) Forget(k *vrf_key.PublicKey) error {
+func (ks *VRFKeyStore) Forget(k *vrfkey.PublicKey) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	return ks.forget(k)
