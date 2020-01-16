@@ -11,7 +11,7 @@ import (
 
 	"chainlink/core/logger"
 	"chainlink/core/store"
-	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/store/models/vrfkey"
 	"chainlink/core/utils"
 )
 
@@ -175,11 +175,11 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 	return nil
 }
 
-func getPublicKey(c *clipkg.Context) (*vrf_key.PublicKey, error) {
+func getPublicKey(c *clipkg.Context) (*vrfkey.PublicKey, error) {
 	if !c.IsSet("publicKey") {
 		return nil, fmt.Errorf("must specify public key")
 	}
-	publicKey, err := vrf_key.NewPublicKeyFromHex(c.String("publicKey"))
+	publicKey, err := vrfkey.NewPublicKeyFromHex(c.String("publicKey"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse public key")
 	}
