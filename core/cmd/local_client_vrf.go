@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
@@ -10,14 +12,15 @@ import (
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models/vrf_key"
+	"chainlink/core/utils"
 )
 
 func vRFKeyStore(cli *Client) *store.VRFKeyStore {
 	return cli.AppFactory.NewApplication(cli.Config).GetStore().VRFKeyStore
 }
 
-// CreateVRFKey creates a key in the VRF keystore dir, protected by the password
-// in the password file
+// CreateVRFKey creates a key in the VRF keystore, protected by the password in
+// the password file
 func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	password, err := getPassword(c)
 	if err != nil {
@@ -34,6 +37,30 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	fmt.Println()
 	fmt.Printf("chainlink local vrf export -f <save_path> -pk %s\n", key)
 	return nil
+}
+
+// CreateAndExportWeakVRFKey creates a key in the VRF keystore, protected by the
+// password in the password file, but with weak key-derivation-function
+// parameters, which makes it cheaper for testing, but also more vulnerable to
+// bruteforcing of the encyrpted key material. For testing purposes only!
+//
+// The key is only stored at the specified file location, not stored in the DB.
+func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
+	password, err := getPassword(c)
+	if err != nil {
+		return err
+	}
+	key, err := vRFKeyStore(cli).CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
+		string(password))
+	if err != nil {
+		return errors.Wrapf(err, "while creating testing key")
+	}
+	if !c.IsSet("file") || !noFileToOverwrite(c.String("file")) {
+		errmsg := "must specify path to key file which does not already exist"
+		fmt.Println(errmsg)
+		return fmt.Errorf(errmsg)
+	}
+	return key.WriteToDisk(c.String("file"))
 }
 
 // getPassword retrieves the password from the file specified on the CL, or errors
@@ -74,6 +101,20 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 		return err
 	}
 	if err := vRFKeyStore(cli).Import(keyjson, string(password)); err != nil {
+		if errors.Is(err, store.MatchingVRFKeyError) {
+			fmt.Println(`The database already has an entry for that public key.`)
+			var key struct{ PublicKey string }
+			if err := json.Unmarshal(keyjson, &key); err != nil {
+				fmt.Println("could not extract public key from json input")
+				return errors.Wrapf(err, "while extracting public key from %s", keyjson)
+			}
+			fmt.Println(`If you want to import the new key anyway, delete the old key with the command
+
+` + "`chainlink local delete -pk " + key.PublicKey + "`" + `
+
+(but maybe back it up first, with ` + "chainlink local export -pk <public_key> -f <backup_path>`)")
+			return errors.Wrap(err, "while attempting to import key from CL")
+		}
 		return err
 	}
 	return nil
@@ -126,6 +167,9 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 		return err
 	}
 	if err := vRFKeyStore(cli).Delete(publicKey); err != nil {
+		if errors.Is(err, store.AttemptToDeleteNonExistentKeyFromDB) {
+			fmt.Println("There is already no entry in the DB for " + publicKey.String())
+		}
 		return err
 	}
 	return nil
@@ -158,4 +202,7 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 // Forget removes the key from the in-memory key store, but leaves it in the db
 func (cli *Client) Forget(c *clipkg.Context) error {
 	return nil
+}
+func noFileToOverwrite(path string) bool {
+	return os.IsNotExist(utils.JustError(os.Stat(path)))
 }

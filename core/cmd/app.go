@@ -267,6 +267,19 @@ func NewApp(client *Client) *cli.App {
 							Action: client.CreateVRFKey,
 						},
 						{
+							Name: "createWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
+							Usage: format(`
+               For testing purposes ONLY! DO NOT USE FOR ANY OTHER PURPOSE!
+
+               Creates a key with weak key-devrivation-function parameters, so that it can be
+               decrypted quickly during tests. As a result, it would be cheap to brute-force
+               the encryption password for the key, if the ciphertext fell into the wrong
+               hands!`),
+							Flags:  append(flags("password, p"), flags("file, f")...),
+							Action: client.CreateAndExportWeakVRFKey,
+							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
+						},
+						{
 							Name:   "import",
 							Usage:  "Import key from keyfile.",
 							Flags:  append(flags("password, p"), flags("file, f")...),
