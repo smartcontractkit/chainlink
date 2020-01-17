@@ -136,13 +136,14 @@ func asUint256(x *big.Int) []byte {
 	return common.LeftPadBytes(x.Bytes(), 32)
 }
 
+var zqHashPanicTemplate = "will only work for moduli 256 bits long, and " +
+	"messages at most that long. Have %d-bit modulus, and %d-bit message"
+
 // ZqHash hashes xs uniformly into {0, ..., q-1}. q must be 256 bits long, and
 // msg is assumed to already be a 256-bit hash
 func ZqHash(q *big.Int, msg []byte) (*big.Int, error) {
-	if q.BitLen() != 256 || len(msg) > 256 {
-		panic(fmt.Errorf(
-			"will only work for moduli 256 bits long, need %v",
-			q.BitLen()))
+	if q.BitLen() != 256 || len(msg) > 32 {
+		panic(fmt.Errorf(zqHashPanicTemplate, q.BitLen(), len(msg)*8))
 	}
 	rv := i().SetBytes(msg)
 	// Hash recursively until rv < q. P(success per iteration) >= 0.5, so
