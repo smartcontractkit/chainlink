@@ -30,4 +30,5 @@ GETH_VERSION=$(go list -m github.com/ethereum/go-ethereum | awk '{print $2}')
 echo GETH_VERSION: "${GETH_VERSION//v/}" >> "$VERSION_DB_PATH"
 
 blow_away_version_record "$2"
-echo "$2: $1 $(md5sum "$1" | cut -f 1 -d ' ')" | sort >> "$VERSION_DB_PATH"
+echo "$2: $1 $(md5sum "$1" | cut -f 1 -d ' ')" >> "$VERSION_DB_PATH"
+sort -o "$VERSION_DB_PATH" "$VERSION_DB_PATH"
