@@ -79,7 +79,11 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 	}
 
 	if run.Status.Finished() {
-		logger.Debugw("All tasks complete for run", run.ForLogger()...)
+		if run.Status.Errored() {
+			logger.Warnw("Task failed", run.ForLogger()...)
+		} else {
+			logger.Debugw("All tasks complete for run", run.ForLogger()...)
+		}
 	}
 	return nil
 }
