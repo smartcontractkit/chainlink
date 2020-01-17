@@ -1,0 +1,52 @@
+#!/bin/bash
+
+source $SRCROOT/integration/common
+
+title 'Flux Monitor test.'
+
+flux_monitor_test() {
+  expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
+  initial_job_run_count=$(expr $(chainlink -j runs list | jq length))
+  first_job_run_count=$((initial_job_run_count + 1))
+  second_job_run_count=$((first_job_run_count + 1))
+  local log=$LOG_PATH/flux_monitor.log
+
+  # add flux monitor job to CL node
+  FLUX_MONITOR_JOB=$(cat flux_monitor/fixtures/job.json | jq --arg address $PREPAID_AGGREGATOR_ADDRESS '.initiators[0].params.address = $address')
+  chainlink jobs create "$FLUX_MONITOR_JOB"
+
+  # Check job counts
+  assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
+
+  # Assert one job ran to update price
+  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
+
+  # TODO - once FM's check feed interval is configurable, update this test to change the
+  # feed's price and ensure FM initiates additional job run
+
+  # nominally change price feed
+  # curl \
+  #   -H "Content-Type: application/json" \
+  #   --request PATCH \
+  #   --data '{"result":101}' \
+  #   "$EXTERNAL_ADAPTER_URL/result"
+
+  # sleep 20
+
+  # Assert no jobs ran after nominal update
+  # assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
+
+  # change price feed
+  # curl \
+  #   -H "Content-Type: application/json" \
+  #   --request PATCH \
+  #   --data '{"result":110}' \
+  #   "$EXTERNAL_ADAPTER_URL/result"
+
+  # sleep 20
+
+  # Assert job ran
+  # assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $second_job_run_count
+}
+
+flux_monitor_test

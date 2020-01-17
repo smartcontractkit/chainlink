@@ -8,9 +8,8 @@ import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { RouteComponentProps } from 'react-router'
-import { useEffect, useHooks, useState } from 'use-react-hooks'
 
 const renderFetching = () => (
   <TableRow>
@@ -73,24 +72,23 @@ type RouteProps = RouteComponentProps<{
 
 type Props = OwnProps & RouteProps
 
-// FIXME - remove unused export?
-export const BridgeList = useHooks<Props>(props => {
-  const {
-    bridges,
-    bridgeCount,
-    fetchBridges,
-    pageSize,
-    fetching,
-    error,
-  } = props
+export const BridgeList: React.FC<Props> = ({
+  bridges,
+  bridgeCount,
+  error,
+  fetchBridges,
+  fetching,
+  history,
+  match,
+  pageSize,
+}) => {
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
-    const queryPage =
-      (props.match && parseInt(props.match.params.bridgePage, 10)) || FIRST_PAGE
+    const queryPage = parseInt(match?.params.bridgePage, 10) || FIRST_PAGE
     setPage(queryPage)
     fetchBridges(queryPage, pageSize)
-  }, [])
+  }, [fetchBridges, pageSize, match])
 
   const handleChangePage = (_: never, page: React.SetStateAction<number>) => {
     fetchBridges(page, pageSize)
@@ -99,7 +97,7 @@ export const BridgeList = useHooks<Props>(props => {
 
   const TableButtonsWithProps = () => (
     <TableButtons
-      history={props.history}
+      history={history}
       count={bridgeCount}
       onChangePage={handleChangePage}
       rowsPerPage={pageSize}
@@ -153,6 +151,6 @@ export const BridgeList = useHooks<Props>(props => {
       />
     </Card>
   )
-})
+}
 
 export default BridgeList

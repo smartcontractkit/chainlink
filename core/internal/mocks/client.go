@@ -36,6 +36,29 @@ func (_m *Client) GetAggregatorPrice(address common.Address, precision int32) (d
 	return r0, r1
 }
 
+// GetAggregatorRound provides a mock function with given fields: address
+func (_m *Client) GetAggregatorRound(address common.Address) (*big.Int, error) {
+	ret := _m.Called(address)
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
+		r0 = rf(address)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
+		r1 = rf(address)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetBlockByNumber provides a mock function with given fields: hex
 func (_m *Client) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
 	ret := _m.Called(hex)

@@ -4,6 +4,9 @@
   "version": "0.0.1",
   "main": "./dist/src",
   "types": "./dist/src",
+  "engines": {
+    "node": "~10.16"
+  },
   "scripts": {
     "build": "rimraf -rf dist && tsc",
     "setup": "yarn build",
@@ -13,7 +16,7 @@
   "peerDependencies": {},
   "dependencies": {
     "local-storage-fallback": "^4.1.1",
-    "typescript": "^3.6.3"
+    "typescript": "^3.7.4"
   },
   "devDependencies": {
     "@types/jest": "^24.0.18",

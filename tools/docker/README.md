@@ -200,3 +200,11 @@ echo "ALLOW_ORIGINS=http://localhost:1337" > chainlink-variables.env
 # now the node will allow requests from the origin of http://localhost:1337 rather than the default value of http://localhost:3000,http://localhost:6688
 ./compose acceptance
 ```
+
+# FAQs
+
+## My storage space is full! How do I clean up docker's disk usage?
+
+```
+docker system prune
+```

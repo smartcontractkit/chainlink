@@ -13,7 +13,6 @@ import (
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
-	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
@@ -39,10 +38,10 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	eth.RegisterSubscription("logs")
 
 	var count int32
-	callback := func(*strpkg.Store, services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
+	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	fromBlock := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, jm, fromBlock.NextInt(), callback)
+	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, fromBlock.NextInt(), callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -65,9 +64,9 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	eth.RegisterSubscription("logs")
 
 	var count int32
-	callback := func(*strpkg.Store, services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
+	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, jm, nil, callback)
+	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, nil, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -91,10 +90,10 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	eth.RegisterSubscription("logs", logsChan)
 
 	var count int32
-	callback := func(*strpkg.Store, services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
+	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	head := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, job, store, jm, head.NextInt(), callback)
+	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, head.NextInt(), callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -119,7 +118,7 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 	require.NoError(t, store.CreateJob(&jobSpec))
 
 	log := models.InitiatorLogEvent{
-		JobSpecID: *jobSpec.ID,
+		Initiator: jobSpec.Initiators[0],
 		Log: ethpkg.Log{
 			Removed: true,
 		},
@@ -129,7 +128,7 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 	require.NoError(t, err)
 
 	jm := new(mocks.RunManager)
-	services.ReceiveLogRequest(store, jm, log)
+	services.ReceiveLogRequest(jm, log)
 	jm.AssertExpectations(t)
 }
 

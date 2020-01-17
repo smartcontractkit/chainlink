@@ -89,8 +89,8 @@ contract('PrepaidAggregator', () => {
       'withdraw',
       'withdrawFunds',
       'withdrawable',
-      // Ownable methods:
-      'isOwner',
+      // Owned methods:
+      'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
@@ -725,7 +725,7 @@ contract('PrepaidAggregator', () => {
           aggregator.addOracle(personas.Neil, minAns, maxAns, rrDelay, {
             from: personas.Neil,
           }),
-          'Ownable: caller is not the owner',
+          'Only callable by owner',
         )
       })
     })
@@ -935,7 +935,7 @@ contract('PrepaidAggregator', () => {
           aggregator.removeOracle(personas.Neil, 0, 0, rrDelay, {
             from: personas.Ned,
           }),
-          'Ownable: caller is not the owner',
+          'Only callable by owner',
         )
       })
     })
@@ -1024,7 +1024,7 @@ contract('PrepaidAggregator', () => {
           aggregator.withdrawFunds(personas.Carol, deposit, {
             from: personas.Eddy,
           }),
-          'Ownable: caller is not the owner',
+          'Only callable by owner',
         )
 
         assertBigNum(deposit, await aggregator.availableFunds.call())
@@ -1127,7 +1127,7 @@ contract('PrepaidAggregator', () => {
           updateFutureRounds(aggregator, {
             from: personas.Ned,
           }),
-          'caller is not the owner',
+          'Only callable by owner',
         )
       })
     })
@@ -1172,6 +1172,14 @@ contract('PrepaidAggregator', () => {
 
       const reportedBalance = h.bigNum(tx.receipt.rawLogs[0].topics[1])
       assertBigNum(await aggregator.availableFunds.call(), reportedBalance)
+    })
+
+    context('when the available funds have not changed', () => {
+      it('does not emit a log', async () => {
+        const tx = await aggregator.updateAvailableFunds()
+
+        assert.equal(0, tx.receipt.rawLogs.length)
+      })
     })
   })
 

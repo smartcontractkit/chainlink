@@ -23,12 +23,12 @@ module.exports = {
       },
     ],
     '@typescript-eslint/no-empty-function': 'off',
-
     '@typescript-eslint/no-unused-vars': 'error',
     '@typescript-eslint/no-empty-interface': 'off',
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/ban-ts-ignore': 'warn',
+    '@typescript-eslint/no-non-null-assertion': 'error',
     '@typescript-eslint/no-use-before-define': [
       'error',
       { functions: false, typedefs: false },
@@ -76,9 +76,8 @@ module.exports = {
       },
       rules: {
         'react/prop-types': 'off',
-        // TODO: enable these after removing use-react-hooks package
-        'react-hooks/rules-of-hooks': 'off',
-        'react-hooks/exhaustive-deps': 'off',
+        'react-hooks/rules-of-hooks': 'error',
+        'react-hooks/exhaustive-deps': 'error',
       },
     },
   ],

@@ -5,12 +5,16 @@
   "main": "dist/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "license": "MIT",
+  "engines": {
+    "node": "~10.16"
+  },
   "scripts": {
     "build": "tsc",
-    "start": "node ."
+    "start": "node .",
+    "setup": "echo \"No setup required for @chainlink/cypress-job-server\""
   },
   "devDependencies": {
     "@types/node": "^12.12.20",
-    "typescript": "^3.7.3"
+    "typescript": "^3.7.4"
   }
 }

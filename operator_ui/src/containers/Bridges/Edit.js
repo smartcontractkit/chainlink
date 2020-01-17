@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
@@ -14,7 +14,6 @@ import { fetchBridgeSpec, updateBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
-import { useHooks, useEffect } from 'use-react-hooks'
 
 const SuccessNotification = ({ id }) => {
   return (
@@ -24,13 +23,12 @@ const SuccessNotification = ({ id }) => {
   )
 }
 
-export const Edit = useHooks(props => {
+export const Edit = props => {
+  const { fetchBridgeSpec, match, bridge, updateBridge } = props
   useEffect(() => {
     document.title = 'Edit Bridge'
-    const { fetchBridgeSpec, match } = props
     fetchBridgeSpec(match.params.bridgeId)
-  }, [])
-  const { bridge, updateBridge } = props
+  }, [fetchBridgeSpec, match])
   const checkLoaded = () => bridge
   const onLoad = buildLoadedComponent => {
     if (checkLoaded()) return buildLoadedComponent(props)
@@ -88,7 +86,7 @@ export const Edit = useHooks(props => {
       </Grid>
     </Content>
   )
-})
+}
 
 Edit.propTypes = {
   bridge: PropTypes.object,

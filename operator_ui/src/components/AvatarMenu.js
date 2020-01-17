@@ -1,8 +1,7 @@
-import React from 'react'
+import React, { useState, useRef } from 'react'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { withStyles } from '@material-ui/core/styles'
-import { useHooks, useState, useRef } from 'use-react-hooks'
 import Popper from '@material-ui/core/Popper'
 import Grow from '@material-ui/core/Grow'
 import Fab from '@material-ui/core/Fab'
@@ -46,7 +45,7 @@ const styles = theme => {
   }
 }
 
-const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
+const AvatarMenu = ({ classes, submitSignOut }) => {
   const anchorEl = useRef(null)
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
@@ -109,7 +108,7 @@ const AvatarMenu = useHooks(({ classes, submitSignOut }) => {
       </Popper>
     </React.Fragment>
   )
-})
+}
 
 const mapDispatchToProps = dispatch =>
   bindActionCreators({ submitSignOut }, dispatch)

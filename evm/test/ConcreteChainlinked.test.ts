@@ -58,9 +58,11 @@ describe('ConcreteChainlinked', () => {
       )
       const receipt = await tx.wait()
 
-      assert.equal(1, receipt.logs!.length)
-      const [jId, cbAddr, cbFId, cborData] = h.decodeRunABI(receipt.logs![0])
-      const params = h.decodeDietCBOR(cborData)
+      assert.equal(1, receipt.logs?.length)
+      const [jId, cbAddr, cbFId, cborData] = receipt.logs
+        ? h.decodeRunABI(receipt.logs[0])
+        : []
+      const params = h.decodeDietCBOR(cborData ?? '')
 
       assert.equal(specId, jId)
       assert.equal(gs.address, cbAddr)
@@ -80,10 +82,10 @@ describe('ConcreteChainlinked', () => {
 
       const { events, logs } = await tx.wait()
 
-      assert.equal(4, events!.length)
+      assert.equal(4, events?.length)
 
-      assert.equal(logs![0].address, cc.address)
-      assert.equal(events![0].event, 'ChainlinkRequested')
+      assert.equal(logs?.[0].address, cc.address)
+      assert.equal(events?.[0].event, 'ChainlinkRequested')
     })
   })
 
@@ -98,8 +100,8 @@ describe('ConcreteChainlinked', () => {
       )
       const { events } = await tx.wait()
 
-      assert.equal(4, events!.length)
-      assert.equal(events![0].event, 'ChainlinkRequested')
+      assert.equal(4, events?.length)
+      assert.equal(events?.[0].event, 'ChainlinkRequested')
     })
 
     it('emits an event on the target oracle contract', async () => {
@@ -111,10 +113,10 @@ describe('ConcreteChainlinked', () => {
         0,
       )
       const { logs } = await tx.wait()
-      const event = newoc.interface.parseLog(logs![3])
+      const event = logs && newoc.interface.parseLog(logs[3])
 
-      assert.equal(4, logs!.length)
-      assert.equal(event.name, 'OracleRequest')
+      assert.equal(4, logs?.length)
+      assert.equal(event?.name, 'OracleRequest')
     })
 
     it('does not modify the stored oracle address', async () => {
@@ -151,7 +153,7 @@ describe('ConcreteChainlinked', () => {
         0,
       )
       const { events } = await tx.wait()
-      requestId = (events![0].args as any).id
+      requestId = (events?.[0]?.args as any).id
     })
 
     it('emits an event from the contract showing the run was cancelled', async () => {
@@ -163,9 +165,9 @@ describe('ConcreteChainlinked', () => {
       )
       const { events } = await tx.wait()
 
-      assert.equal(1, events!.length)
-      assert.equal(events![0].event, 'ChainlinkCancelled')
-      assert.equal(requestId, (events![0].args! as any).id)
+      assert.equal(1, events?.length)
+      assert.equal(events?.[0].event, 'ChainlinkCancelled')
+      assert.equal(requestId, (events?.[0].args as any).id)
     })
 
     it('throws if given a bogus event ID', async () => {
@@ -192,7 +194,7 @@ describe('ConcreteChainlinked', () => {
       )
       const { logs } = await tx.wait()
 
-      request = h.decodeRunRequest(logs![3])
+      request = h.decodeRunRequest(logs?.[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
@@ -203,11 +205,11 @@ describe('ConcreteChainlinked', () => {
       )
       const { logs } = await tx.wait()
 
-      const event = cc.interface.parseLog(logs![0])
+      const event = logs && cc.interface.parseLog(logs[0])
 
-      assert.equal(1, logs!.length)
-      assert.equal(event.name, 'ChainlinkFulfilled')
-      assert.equal(request.id, event.values.id)
+      assert.equal(1, logs?.length)
+      assert.equal(event?.name, 'ChainlinkFulfilled')
+      assert.equal(request.id, event?.values.id)
     })
   })
 
@@ -225,7 +227,7 @@ describe('ConcreteChainlinked', () => {
       )
       const { logs } = await tx.wait()
 
-      request = h.decodeRunRequest(logs![3])
+      request = h.decodeRunRequest(logs?.[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
@@ -235,11 +237,11 @@ describe('ConcreteChainlinked', () => {
         ethers.utils.formatBytes32String('hi mom!'),
       )
       const { logs } = await tx.wait()
-      const event = cc.interface.parseLog(logs![0])
+      const event = logs && cc.interface.parseLog(logs[0])
 
-      assert.equal(1, logs!.length)
-      assert.equal(event.name, 'ChainlinkFulfilled')
-      assert.equal(request.id, event.values.id)
+      assert.equal(1, logs?.length)
+      assert.equal(event?.name, 'ChainlinkFulfilled')
+      assert.equal(request.id, event?.values?.id)
     })
   })
 
@@ -267,7 +269,7 @@ describe('ConcreteChainlinked', () => {
       )
       const receipt = await tx.wait()
 
-      request = h.decodeRunRequest(receipt.logs![3])
+      request = h.decodeRunRequest(receipt.logs?.[3])
       await mock.publicAddExternalRequest(oc.address, request.id)
     })
 

@@ -10,6 +10,7 @@
     "tools/json-api-client",
     "tools/redux",
     "tools/echo-server",
+    "tools/external-adapter",
     "tools/cypress-job-server",
     "operator_ui",
     "integration",
@@ -19,6 +20,9 @@
     "explorer",
     "integration-scripts"
   ],
+  "engines": {
+    "node": "~10.16"
+  },
   "scripts": {
     "lint": "eslint  --ext js,jsx,ts,tsx .",
     "setup": "yarn workspace chainlinkv0.5 setup && yarn workspaces run setup"
@@ -32,7 +36,7 @@
     "eslint-plugin-react": "^7.17.0",
     "eslint-plugin-react-hooks": "^2.3.0",
     "prettier": "^1.19.1",
-    "typescript": "^3.7.3"
+    "typescript": "^3.7.4"
   },
   "resolutions": {
     "**/sha3": "^2.0.7"

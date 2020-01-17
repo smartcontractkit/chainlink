@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
@@ -12,7 +12,6 @@ import List from 'components/JobRuns/List'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
-import { useHooks, useEffect, useState } from 'use-react-hooks'
 
 const styles = theme => ({
   breadcrumb: {
@@ -71,18 +70,16 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
-export const Index = useHooks(props => {
-  const { jobSpecId, fetchJobRuns, pageSize } = props
+export const Index = props => {
+  const { jobSpecId, fetchJobRuns, pageSize, match } = props
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
     document.title = 'Job Runs'
-    const queryPage = props.match
-      ? parseInt(props.match.params.jobRunsPage, 10) || FIRST_PAGE
-      : FIRST_PAGE
+    const queryPage = parseInt(match?.params.jobRunsPage, 10) || FIRST_PAGE
     setPage(queryPage)
     fetchJobRuns({ jobSpecId, page: queryPage, size: pageSize })
-  }, [])
+  }, [fetchJobRuns, jobSpecId, pageSize, match])
   const handleChangePage = (_, pageNum) => {
     fetchJobRuns({ jobSpecId, page: pageNum, size: pageSize })
     setPage(pageNum)
@@ -95,7 +92,7 @@ export const Index = useHooks(props => {
       {renderDetails(props, { page }, handleChangePage)}
     </Content>
   )
-})
+}
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,

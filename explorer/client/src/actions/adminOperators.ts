@@ -7,3 +7,9 @@ export const fetchAdminOperators = request(
   api.v1.adminOperators.getOperators,
   json => normalize(json, { endpoint: 'currentPageOperators' }),
 )
+
+export const fetchAdminOperator = request(
+  'ADMIN_OPERATOR',
+  api.v1.adminOperators.getOperator,
+  json => normalize(json, { endpoint: 'node' }),
+)
