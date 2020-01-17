@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 
 	"chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/utils"
 )
 
 func TestVRF_IsSquare(t *testing.T) {
@@ -51,6 +53,12 @@ func TestVRF_ZqHash(t *testing.T) {
 		bigFromHex("1ae61e33ec9365756efc1436222a72df7fdb74651e25c38bde613482291a0c69"),
 		zqHash,
 	)
+	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 1, 24),
+		func() { ZqHash(one, []byte("foo")) })
+	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 257, 24),
+		func() { ZqHash(lsh(P, 1), []byte("foo")) })
+	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 256, 33*8),
+		func() { ZqHash(P, []byte("much, much longer than 32 bytes!!")) })
 }
 
 func address(t *testing.T, p kyber.Point) [20]byte {
