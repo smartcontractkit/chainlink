@@ -59,6 +59,25 @@ export type FetchAdminOperatorsSucceededAction = {
 }
 
 /**
+ * FETCH_ADMIN_OPERATOR_SUCCEEDED
+ */
+export interface AdminOperatorNormalizedMeta {
+  node: {
+    data: any[]
+  }
+}
+
+export interface AdminOperatorNormalizedData {
+  chainlinkNodes: any
+  meta: AdminOperatorNormalizedMeta
+}
+
+export type FetchAdminOperatorSucceededAction = {
+  type: 'FETCH_ADMIN_OPERATOR_SUCCEEDED'
+  data: AdminOperatorNormalizedData
+}
+
+/**
  * FETCH_JOB_RUNS_SUCCEEDED
  */
 
@@ -113,6 +132,7 @@ export type Actions =
   | FetchAdminSigninErrorAction
   | FetchAdminSignoutSucceededAction
   | FetchAdminOperatorsSucceededAction
+  | FetchAdminOperatorSucceededAction
   | FetchJobRunsSucceededAction
   | FetchJobRunSucceededAction
   | UpdateQueryAction

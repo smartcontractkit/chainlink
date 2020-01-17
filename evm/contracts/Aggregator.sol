@@ -37,7 +37,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   mapping(uint256 => int256) private currentAnswers;
   mapping(uint256 => uint256) private updatedTimestamps;
 
-  uint256 constant private MAX_ORACLE_COUNT = 45;
+  uint256 constant private MAX_ORACLE_COUNT = 28;
 
   /**
    * @notice Deploy with the address of the LINK token and arrays of matching
@@ -83,9 +83,10 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     }
     answers[answerCounter].minimumResponses = minimumResponses;
     answers[answerCounter].maxResponses = uint128(oracles.length);
-    answerCounter = answerCounter.add(1);
 
     emit NewRound(answerCounter, msg.sender);
+
+    answerCounter = answerCounter.add(1);
   }
 
   /**

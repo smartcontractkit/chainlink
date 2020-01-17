@@ -139,6 +139,7 @@ func (app *ChainlinkApplication) Stop() error {
 
 		app.Scheduler.Stop()
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
+		app.JobSubscriber.Stop()
 		app.FluxMonitor.Stop()
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.SessionReaper.Stop())

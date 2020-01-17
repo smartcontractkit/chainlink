@@ -7,7 +7,7 @@
   "license": "MIT",
   "keywords": [],
   "engines": {
-    "node": "~10.16.3"
+    "node": "~10.16"
   },
   "scripts": {
     "admin:seed": "ts-node src/bin/admin.ts seed",
@@ -78,6 +78,6 @@
     "supertest": "^4.0.2",
     "ts-jest": "^24.0.0",
     "ts-node-dev": "^1.0.0-pre.40",
-    "typescript": "^3.6.3"
+    "typescript": "^3.7.4"
   }
 }

@@ -4,11 +4,8 @@ import { Connection } from 'typeorm'
 import { getDb } from '../../../database'
 import { clearDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
-import {
-  ADMIN_USERNAME_HEADER,
-  ADMIN_PASSWORD_HEADER,
-} from '../../../utils/constants'
 import { start, stop } from '../../../support/server'
+import { requestBuilder, RequestBuilder } from '../../../support/requestBuilder'
 
 const USERNAME = 'myadmin'
 const PASSWORD = 'validpassword'
@@ -16,19 +13,12 @@ const adminLoginPath = '/api/v1/admin/login'
 
 let server: http.Server
 let db: Connection
-
-function sendPost(path: string, username: string, password: string) {
-  return request(server)
-    .post(adminLoginPath)
-    .set('Accept', 'application/json')
-    .set('Content-Type', 'application/json')
-    .set(ADMIN_USERNAME_HEADER, username)
-    .set(ADMIN_PASSWORD_HEADER, password)
-}
+let rb: RequestBuilder
 
 beforeAll(async () => {
   db = await getDb()
   server = await start()
+  rb = requestBuilder(server)
 })
 afterAll(done => stop(server, done))
 
@@ -39,7 +29,7 @@ describe('POST /api/v1/admin/login', () => {
   })
 
   it('returns a 200 with valid credentials', done => {
-    sendPost(adminLoginPath, USERNAME, PASSWORD)
+    rb.sendPost(adminLoginPath, USERNAME, PASSWORD)
       .expect(200)
       .expect(res => {
         expect(res.body).toEqual({})
@@ -48,11 +38,7 @@ describe('POST /api/v1/admin/login', () => {
   })
 
   it('returns a 401 unauthorized with invalid admin credentials', done => {
-    request(server)
-      .post(adminLoginPath)
-      .set('Content-Type', 'application/json')
-      .set('Explorer-Admin-Username', USERNAME)
-      .set('Explorer-Admin-Password', 'invalidpassword')
+    rb.sendPost(adminLoginPath, USERNAME, 'invalidpassword')
       .expect(401)
       .end(done)
   })

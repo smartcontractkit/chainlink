@@ -119,7 +119,7 @@ describe('Oracle', () => {
         })
         const receipt = await tx.wait()
 
-        assert.equal(3, receipt.logs!.length)
+        assert.equal(3, receipt.logs?.length)
       })
 
       describe('with no data', () => {
@@ -165,8 +165,8 @@ describe('Oracle', () => {
           const tx = await mock.maliciousTargetConsumer(to)
           const receipt = await tx.wait()
 
-          const mockRequestId = receipt.logs![0].data
-          const requestId = (receipt.events![0].args! as any).requestId
+          const mockRequestId = receipt.logs?.[0].data
+          const requestId = (receipt.events?.[0].args as any).requestId
           assert.notEqual(mockRequestId, requestId)
         })
 
@@ -205,24 +205,24 @@ describe('Oracle', () => {
   describe('#oracleRequest', () => {
     describe('when called through the LINK token', () => {
       const paid = 100
-      let log: ethers.providers.Log
+      let log: ethers.providers.Log | undefined
       let receipt: ethers.providers.TransactionReceipt
 
       beforeEach(async () => {
         const args = h.requestDataBytes(specId, to, fHash, 1, '0x0')
         const tx = await h.requestDataFrom(oc, link, paid, args)
         receipt = await tx.wait()
-        assert.equal(3, receipt.logs!.length)
+        assert.equal(3, receipt?.logs?.length)
 
-        log = receipt.logs![2]
+        log = receipt.logs && receipt.logs[2]
       })
 
       it('logs an event', async () => {
-        assert.equal(oc.address, log.address)
+        assert.equal(oc.address, log?.address)
 
-        assert.equal(log.topics[1], specId)
+        assert.equal(log?.topics?.[1], specId)
 
-        const req = h.decodeRunRequest(receipt.logs![2])
+        const req = h.decodeRunRequest(receipt?.logs?.[2])
         assert.equal(roles.defaultAccount.address, req.requester)
         assertBigNum(paid, req.payment)
       })
@@ -231,7 +231,7 @@ describe('Oracle', () => {
         // If updating this test, be sure to update models.RunLogTopic.
         const eventSignature =
           '0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65'
-        assert.equal(eventSignature, log.topics[0])
+        assert.equal(eventSignature, log?.topics?.[0])
       })
 
       it('does not allow the same requestId to be used twice', async () => {
@@ -307,7 +307,7 @@ describe('Oracle', () => {
         const currency = 'USD'
         const tx = await basicConsumer.requestEthereumPrice(currency)
         const receipt = await tx.wait()
-        request = h.decodeRunRequest(receipt.logs![3])
+        request = h.decodeRunRequest(receipt.logs?.[3])
       })
 
       describe('when called by an unauthorized node', () => {
@@ -445,7 +445,7 @@ describe('Oracle', () => {
         it('the oracle uses the amount of LINK actually paid', async () => {
           const tx = await maliciousRequester.maliciousPrice(specId)
           const receipt = await tx.wait()
-          const req = h.decodeRunRequest(receipt.logs![3])
+          const req = h.decodeRunRequest(receipt.logs?.[3])
 
           assert(h.toWei('1').eq(req.payment))
         })
@@ -469,7 +469,7 @@ describe('Oracle', () => {
             ethers.utils.toUtf8Bytes('assertFail(bytes32,bytes32)'),
           )
           const receipt = await tx.wait()
-          request = h.decodeRunRequest(receipt.logs![3])
+          request = h.decodeRunRequest(receipt.logs?.[3])
         })
 
         it('allows the oracle node to receive their payment', async () => {
@@ -516,7 +516,7 @@ describe('Oracle', () => {
             ethers.utils.toUtf8Bytes('doesNothing(bytes32,bytes32)'),
           )
           const receipt = await tx.wait()
-          request = h.decodeRunRequest(receipt.logs![3])
+          request = h.decodeRunRequest(receipt.logs?.[3])
           await maliciousConsumer.remove()
         })
 
@@ -545,7 +545,7 @@ describe('Oracle', () => {
             ethers.utils.toUtf8Bytes('cancelRequestOnFulfill(bytes32,bytes32)'),
           )
           const receipt = await tx.wait()
-          request = h.decodeRunRequest(receipt.logs![3])
+          request = h.decodeRunRequest(receipt.logs?.[3])
 
           assertBigNum(0, await link.balanceOf(maliciousConsumer.address))
         })
@@ -596,7 +596,7 @@ describe('Oracle', () => {
             ethers.utils.toUtf8Bytes('stealEthCall(bytes32,bytes32)'),
           )
           const receipt = await tx.wait()
-          request = h.decodeRunRequest(receipt.logs![3])
+          request = h.decodeRunRequest(receipt.logs?.[3])
 
           await h.fulfillOracleRequest(
             oc.connect(roles.oracleNode),
@@ -613,7 +613,7 @@ describe('Oracle', () => {
             ethers.utils.toUtf8Bytes('stealEthSend(bytes32,bytes32)'),
           )
           const receipt = await tx.wait()
-          request = h.decodeRunRequest(receipt.logs![3])
+          request = h.decodeRunRequest(receipt.logs?.[3])
 
           await h.fulfillOracleRequest(
             oc.connect(roles.oracleNode),
@@ -629,7 +629,7 @@ describe('Oracle', () => {
             ethers.utils.toUtf8Bytes('stealEthTransfer(bytes32,bytes32)'),
           )
           const receipt = await tx.wait()
-          request = h.decodeRunRequest(receipt.logs![3])
+          request = h.decodeRunRequest(receipt.logs?.[3])
 
           await h.fulfillOracleRequest(
             oc.connect(roles.oracleNode),
@@ -668,8 +668,8 @@ describe('Oracle', () => {
         const args = h.requestDataBytes(specId, mock.address, fHash, 0, '0x0')
         const tx = await h.requestDataFrom(oc, link, payment, args)
         const receipt = await tx.wait()
-        assert.equal(3, receipt.logs!.length)
-        request = h.decodeRunRequest(receipt.logs![2])
+        assert.equal(3, receipt.logs?.length)
+        request = h.decodeRunRequest(receipt.logs?.[2])
       })
 
       describe('but not freeing funds w fulfillOracleRequest', () => {
@@ -766,8 +766,8 @@ describe('Oracle', () => {
       const args = h.requestDataBytes(specId, mock.address, fHash, 0, '0x0')
       const tx = await h.requestDataFrom(oc, link, amount, args)
       const receipt = await tx.wait()
-      assert.equal(3, receipt.logs!.length)
-      request = h.decodeRunRequest(receipt.logs![2])
+      assert.equal(3, receipt.logs?.length)
+      request = h.decodeRunRequest(receipt.logs?.[2])
       await h.fulfillOracleRequest(
         oc.connect(roles.oracleNode),
         request,
@@ -828,8 +828,8 @@ describe('Oracle', () => {
           .transferAndCall(oc.address, requestAmount, args)
         receipt = await tx.wait()
 
-        assert.equal(3, receipt.logs!.length)
-        request = h.decodeRunRequest(receipt.logs![2])
+        assert.equal(3, receipt.logs?.length)
+        request = h.decodeRunRequest(receipt.logs?.[2])
       })
 
       it('has correct initial balances', async () => {
@@ -867,8 +867,8 @@ describe('Oracle', () => {
           )
           const receipt = await tx.wait()
 
-          assert.equal(receipt.logs!.length, 2)
-          assert.equal(request.id, receipt.logs![0].topics[1])
+          assert.equal(receipt.logs?.length, 2)
+          assert.equal(request.id, receipt.logs?.[0].topics[1])
         })
 
         it('fails when called twice', async () => {

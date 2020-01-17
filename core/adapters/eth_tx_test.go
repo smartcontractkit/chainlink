@@ -57,7 +57,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			models.RunStatusCompleted,
 		},
 		{
-			"confirmd",
+			"confirmed",
 			"0x19999990",
 			"",
 			strpkg.Confirmed,
@@ -65,7 +65,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			models.RunStatusPendingConfirmations,
 		},
 		{
-			"confirmd with bytes format",
+			"confirmed with bytes format",
 			"cönfirmed",
 			"bytes",
 			strpkg.Confirmed,
@@ -293,6 +293,26 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	require.NoError(t, output.Error())
 	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+
+	txManager.AssertExpectations(t)
+}
+
+func TestEthTxAdapter_Perform_NotConnectedWhenPendingConfirmations(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	txManager := new(mocks.TxManager)
+	txManager.On("Connected").Return(false)
+	store.TxManager = txManager
+
+	adapter := adapters.EthTx{}
+	input := *models.NewRunInput(models.NewID(), models.JSON{}, models.RunStatusPendingConfirmations)
+	data := adapter.Perform(input, store)
+
+	require.NoError(t, data.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status())
 
 	txManager.AssertExpectations(t)
 }

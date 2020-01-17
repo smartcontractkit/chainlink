@@ -1312,12 +1312,19 @@ func TestJobs_All(t *testing.T) {
 	require.NoError(t, store.CreateJob(&fmJob))
 	require.NoError(t, store.CreateJob(&runlogJob))
 
-	var actual []string
+	var returned []*models.JobSpec
 	err := store.Jobs(func(j *models.JobSpec) bool {
-		actual = append(actual, j.ID.String())
+		// deliberately take pointer to ensure we receive new one per callback
+		// checking against go gotcha:
+		// https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
+		returned = append(returned, j)
 		return true
 	})
 	require.NoError(t, err)
+	var actual []string
+	for _, j := range returned {
+		actual = append(actual, j.ID.String())
+	}
 
 	var expectation []string
 	for _, js := range cltest.AllJobs(t, store) {
@@ -1332,9 +1339,13 @@ func TestJobs_ScopedInitiator(t *testing.T) {
 
 	fmJob := cltest.NewJobWithFluxMonitorInitiator()
 	runlogJob := cltest.NewJobWithRunLogInitiator()
+	twoInitrJob := cltest.NewJobWithFluxMonitorInitiator()
+	nextinitr := cltest.NewJobWithFluxMonitorInitiator().Initiators[0]
+	twoInitrJob.Initiators = append(twoInitrJob.Initiators, nextinitr)
 
 	require.NoError(t, store.CreateJob(&fmJob))
 	require.NoError(t, store.CreateJob(&runlogJob))
+	require.NoError(t, store.CreateJob(&twoInitrJob))
 
 	var actual []string
 	err := store.Jobs(func(j *models.JobSpec) bool {
@@ -1343,6 +1354,6 @@ func TestJobs_ScopedInitiator(t *testing.T) {
 	}, models.InitiatorFluxMonitor)
 	require.NoError(t, err)
 
-	expectation := []string{fmJob.ID.String()}
+	expectation := []string{fmJob.ID.String(), twoInitrJob.ID.String()}
 	assert.ElementsMatch(t, expectation, actual)
 }

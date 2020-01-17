@@ -14,12 +14,11 @@ import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
 import { AppState } from 'src/reducers'
 import { JobRuns, JobSpec } from 'operator_ui'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import jobSelector from 'selectors/job'
 import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
 import jobsShowRunCountSelector from 'selectors/jobsShowRunCount'
-import { useEffect, useHooks } from 'use-react-hooks'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
@@ -97,12 +96,12 @@ const ChartArea = withStyles(chartCardStyles)(
   ),
 )
 
-const RecentJobRuns = ({
+const RecentJobRuns: React.FC<RecentJobRunsProps> = ({
   job,
   recentRuns,
   recentRunsCount,
   showJobRunsCount,
-}: RecentJobRunsProps) => {
+}) => {
   return (
     <Card>
       <CardTitle divider>Recent Job Runs</CardTitle>
@@ -124,12 +123,12 @@ interface DetailsProps {
   showJobRunsCount: number
 }
 
-const Details = ({
+const Details: React.FC<DetailsProps> = ({
   job,
   recentRuns,
   recentRunsCount,
   showJobRunsCount,
-}: DetailsProps) => {
+}) => {
   if (job) {
     return (
       <Grid container spacing={24}>
@@ -174,41 +173,39 @@ interface Props {
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
-export const Show = useHooks(
-  ({
-    jobSpecId,
-    job,
-    fetchJob,
-    fetchJobRuns,
-    recentRunsCount,
-    recentRuns = [],
-    showJobRunsCount = 2,
-  }: Props) => {
-    useEffect(() => {
-      document.title = 'Show Job'
-      fetchJob(jobSpecId)
-      fetchJobRuns({
-        jobSpecId,
-        page: DEFAULT_PAGE,
-        size: RECENT_RUNS_COUNT,
-      })
-    }, [])
-    return (
-      <div>
-        {/* TODO: Regional nav should handle job = undefined */}
-        {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
-        <Content>
-          <Details
-            job={job}
-            recentRuns={recentRuns}
-            recentRunsCount={recentRunsCount}
-            showJobRunsCount={showJobRunsCount}
-          />
-        </Content>
-      </div>
-    )
-  },
-)
+export const Show: React.FC<Props> = ({
+  jobSpecId,
+  job,
+  fetchJob,
+  fetchJobRuns,
+  recentRunsCount,
+  recentRuns = [],
+  showJobRunsCount = 2,
+}) => {
+  useEffect(() => {
+    document.title = 'Show Job'
+    fetchJob(jobSpecId)
+    fetchJobRuns({
+      jobSpecId,
+      page: DEFAULT_PAGE,
+      size: RECENT_RUNS_COUNT,
+    })
+  }, [fetchJob, fetchJobRuns, jobSpecId])
+  return (
+    <div>
+      {/* TODO: Regional nav should handle job = undefined */}
+      {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
+      <Content>
+        <Details
+          job={job}
+          recentRuns={recentRuns}
+          recentRunsCount={recentRunsCount}
+          showJobRunsCount={showJobRunsCount}
+        />
+      </Content>
+    </div>
+  )
+}
 
 interface Match {
   params: {

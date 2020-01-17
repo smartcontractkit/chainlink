@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import Card from '@material-ui/core/Card'
 import Table from '@material-ui/core/Table'
@@ -10,7 +10,6 @@ import TablePagination from '@material-ui/core/TablePagination'
 import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import { useHooks, useState, useEffect } from 'use-react-hooks'
 
 const renderBody = (transactions, error) => {
   if (error) {
@@ -57,17 +56,16 @@ const renderBody = (transactions, error) => {
   )
 }
 
-export const List = useHooks(props => {
+export const List = props => {
   const { transactions, count, fetchTransactions, pageSize, error } = props
   const [page, setPage] = useState(FIRST_PAGE)
 
   useEffect(() => {
     const queryPage =
-      (props.match && parseInt(props.match.params.transactionsPage, 10)) ||
-      FIRST_PAGE
+      parseInt(props.match?.params.transactionsPage, 10) || FIRST_PAGE
     setPage(queryPage)
     fetchTransactions(queryPage, pageSize)
-  }, [])
+  }, [fetchTransactions, pageSize, props.match])
 
   const handleChangePage = (e, page) => {
     fetchTransactions(page, pageSize)
@@ -130,7 +128,7 @@ export const List = useHooks(props => {
       />
     </Card>
   )
-})
+}
 
 List.propTypes = {
   count: PropTypes.number.isRequired,

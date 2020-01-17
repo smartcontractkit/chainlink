@@ -167,7 +167,7 @@ func ValidateRun(run *models.JobRun, contractCost *assets.Link) {
 		err := fmt.Errorf(
 			"Rejecting job %s with payment %s below minimum threshold (%s)",
 			run.JobSpecID,
-			run.Payment,
+			run.Payment.Text(10),
 			contractCost.Text(10))
 		run.SetError(err)
 		return

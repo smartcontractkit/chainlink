@@ -111,10 +111,8 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-		cli.renderAPIResponse(resp, nil)
-	}
-	return nil
+	_, err = cli.parseResponse(resp)
+	return err
 }
 
 // ShowJobRun returns the status of the given Jobrun.

@@ -2,11 +2,12 @@ import { ethers } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
-import { CoordinatorFactory } from './generated'
+import { CoordinatorFactory, TypedEventDescription } from './generated'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
 import { OracleFactory } from './generated/OracleFactory'
+import { ContractReceipt } from 'ethers/contract'
 
 const debug = makeDebug('helpers')
 
@@ -184,10 +185,7 @@ export async function assertActionThrows(action: AsyncFunction) {
   assert(e.message, 'Expected an error to contain a message')
 
   const ERROR_MESSAGES = ['invalid opcode', 'revert']
-  const hasErrored = ERROR_MESSAGES.reduce(
-    (prev, next) => prev || e!.message.includes(next),
-    false,
-  )
+  const hasErrored = ERROR_MESSAGES.some(msg => e?.message?.includes(msg))
 
   assert(
     hasErrored,
@@ -533,4 +531,44 @@ export function generateSAID(sa: ServiceAgreement): Hash {
     SERVICE_AGREEMENT_TYPES,
     serviceAgreementValues(sa),
   )
+}
+
+/**
+ * Turn a [x,y] coordinate into an ethereum address
+ * @param pubkey The x,y coordinate to turn into an ethereum address
+ */
+export function pubkeyToAddress(pubkey: ethers.utils.BigNumber[]) {
+  // transform the value according to what ethers expects as a value
+  const concatResult = `0x04${pubkey
+    .map(coord => coord.toHexString())
+    .join('')
+    .replace(/0x/gi, '')}`
+
+  return ethers.utils.computeAddress(concatResult)
+}
+
+interface EventArgsArray extends Array<any> {
+  [key: string]: any
+}
+/**
+ * Typecast an ethers event to its proper type, until
+ * https://github.com/ethers-io/ethers.js/pull/698 is addressed
+ *
+ * @param event The event to typecast
+ */
+export function eventArgs(event?: ethers.Event) {
+  return (event?.args as any) as EventArgsArray
+}
+
+/**
+ * Find an event within a transaction receipt by its event description
+ *
+ * @param receipt The events array to search through
+ * @param eventDescription The event description to pass to check its name by
+ */
+export function findEventIn(
+  receipt: ContractReceipt,
+  eventDescription: TypedEventDescription<any>,
+): ethers.Event | undefined {
+  return receipt.events?.find(e => e.event === eventDescription.name)
 }
