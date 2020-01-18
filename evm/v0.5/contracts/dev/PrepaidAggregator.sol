@@ -63,10 +63,10 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   bytes32 public description;
 
   uint32 private reportingRoundId;
-  uint32 private latestRoundId;
+  uint32 internal latestRoundId;
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
-  mapping(uint32 => Round) private rounds;
+  mapping(uint32 => Round) internal rounds;
 
   event AvailableFundsUpdated(uint256 indexed amount);
   event RoundDetailsUpdated(
