@@ -131,6 +131,43 @@ func TestJsonParse_Perform(t *testing.T) {
 	}
 }
 
+func TestJsonParse_Perform_WithPreParsedJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name            string
+		result          string
+		path            []string
+		wantData        string
+		wantStatus      models.RunStatus
+		wantResultError bool
+	}{
+		{"existing path", `{"high":"11850.00","last":"11779.99"}`, []string{"last"},
+			`{"result":"11779.99"}`, models.RunStatusCompleted, false},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			var parsed models.JSON
+			err := json.Unmarshal([]byte(test.result), &parsed)
+			assert.NoError(t, err)
+
+			input := cltest.NewRunInputWithResult(parsed)
+
+			adapter := adapters.JSONParse{Path: test.path}
+			result := adapter.Perform(input, nil)
+			assert.Equal(t, test.wantData, result.Data().String())
+			assert.Equal(t, test.wantStatus, result.Status())
+
+			if test.wantResultError {
+				assert.Error(t, result.Error())
+			} else {
+				assert.NoError(t, result.Error())
+			}
+		})
+	}
+}
+
 func TestJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
