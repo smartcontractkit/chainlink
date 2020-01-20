@@ -1,6 +1,6 @@
 import { toBuffer } from 'ethereumjs-util'
 import abi from 'ethereumjs-abi'
-import { checkPublicABI, decodeDietCBOR, toHex } from './support/helpers'
+import { checkPublicABI, decodeDietCBOR, toHex } from '../test/support/helpers'
 import { ethers } from 'ethers'
 const Chainlink = artifacts.require('ChainlinkTestHelper.sol')
 
