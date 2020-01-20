@@ -1,18 +1,36 @@
-import { toBuffer } from 'ethereumjs-util'
-import abi from 'ethereumjs-abi'
-import { checkPublicABI, decodeDietCBOR, toHex } from '../test/support/helpers'
+import * as h from '../src/helpers'
 import { ethers } from 'ethers'
-const Chainlink = artifacts.require('ChainlinkTestHelper.sol')
+import { ChainlinkTestHelperFactory } from '../src/generated/ChainlinkTestHelperFactory'
+import { Instance } from '../src/contract'
+import { makeTestProvider } from '../src/provider'
+import { assert } from 'chai'
+import { ContractReceipt } from 'ethers/contract'
 
-contract('Chainlink', () => {
-  let cl
+const chainlinkFactory = new ChainlinkTestHelperFactory()
+const provider = makeTestProvider()
+
+let defaultAccount: ethers.Wallet
+beforeAll(async () => {
+  defaultAccount = await h
+    .initializeRolesAndPersonas(provider)
+    .then(x => x.roles.defaultAccount)
+})
+
+describe('Chainlink', () => {
+  let cl: Instance<ChainlinkTestHelperFactory>
+  let clEvents: Instance<ChainlinkTestHelperFactory>['interface']['events']
+
+  const deployment = h.useSnapshot(provider, async () => {
+    cl = await chainlinkFactory.connect(defaultAccount).deploy()
+    clEvents = cl.interface.events
+  })
 
   beforeEach(async () => {
-    cl = await Chainlink.new()
+    await deployment()
   })
 
   it('has a limited public interface', () => {
-    checkPublicABI(Chainlink, [
+    h.checkPublicABI(chainlinkFactory, [
       'add',
       'addBytes',
       'addInt',
@@ -23,16 +41,20 @@ contract('Chainlink', () => {
     ])
   })
 
-  function parseCLEvent(tx) {
-    const data = toBuffer(tx.receipt.rawLogs[0].data)
-    return abi.rawDecode(['bytes'], data)
+  function getPayloadFrom(receipt: ContractReceipt) {
+    const { payload } = h.eventArgs(
+      h.findEventIn(receipt, clEvents.RequestData),
+    )
+    const decoded = h.decodeDietCBOR(payload)
+    return decoded
   }
 
   describe('#close', () => {
     it('handles empty payloads', async () => {
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
       assert.deepEqual(decoded, {})
     })
   })
@@ -41,8 +63,9 @@ contract('Chainlink', () => {
     it('emits the buffer', async () => {
       await cl.setBuffer('0xA161616162')
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
       assert.deepEqual(decoded, { a: 'b' })
     })
   })
@@ -51,8 +74,9 @@ contract('Chainlink', () => {
     it('stores and logs keys and values', async () => {
       await cl.add('first', 'word!!')
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
       assert.deepEqual(decoded, { first: 'word!!' })
     })
 
@@ -60,8 +84,8 @@ contract('Chainlink', () => {
       await cl.add('first', 'uno')
       await cl.add('second', 'dos')
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
 
       assert.deepEqual(decoded, {
         first: 'uno',
@@ -74,9 +98,10 @@ contract('Chainlink', () => {
     it('stores and logs keys and values', async () => {
       await cl.addBytes('first', '0xaabbccddeeff')
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
-      const expected = toBuffer('0xaabbccddeeff')
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
+      const expected = h.hexToBuf('0xaabbccddeeff')
       assert.deepEqual(decoded, { first: expected })
     })
 
@@ -84,11 +109,11 @@ contract('Chainlink', () => {
       await cl.addBytes('first', '0x756E6F')
       await cl.addBytes('second', '0x646F73')
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
 
-      const expectedFirst = toBuffer('0x756E6F')
-      const expectedSecond = toBuffer('0x646F73')
+      const expectedFirst = h.hexToBuf('0x756E6F')
+      const expectedSecond = h.hexToBuf('0x646F73')
       assert.deepEqual(decoded, {
         first: expectedFirst,
         second: expectedSecond,
@@ -98,8 +123,9 @@ contract('Chainlink', () => {
     it('handles strings', async () => {
       await cl.addBytes('first', ethers.utils.toUtf8Bytes('apple'))
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
       const expected = ethers.utils.toUtf8Bytes('apple')
       assert.deepEqual(decoded, { first: expected })
     })
@@ -109,8 +135,9 @@ contract('Chainlink', () => {
     it('stores and logs keys and values', async () => {
       await cl.addInt('first', 1)
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
       assert.deepEqual(decoded, { first: 1 })
     })
 
@@ -118,8 +145,8 @@ contract('Chainlink', () => {
       await cl.addInt('first', 1)
       await cl.addInt('second', 2)
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
 
       assert.deepEqual(decoded, {
         first: 1,
@@ -132,8 +159,9 @@ contract('Chainlink', () => {
     it('stores and logs keys and values', async () => {
       await cl.addUint('first', 1)
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
       assert.deepEqual(decoded, { first: 1 })
     })
 
@@ -141,8 +169,8 @@ contract('Chainlink', () => {
       await cl.addUint('first', 1)
       await cl.addUint('second', 2)
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
 
       assert.deepEqual(decoded, {
         first: 1,
@@ -154,13 +182,14 @@ contract('Chainlink', () => {
   describe('#addStringArray', () => {
     it('stores and logs keys and values', async () => {
       await cl.addStringArray('word', [
-        toHex('seinfeld'),
-        toHex('"4"'),
-        toHex('LIFE'),
+        ethers.utils.formatBytes32String('seinfeld'),
+        ethers.utils.formatBytes32String('"4"'),
+        ethers.utils.formatBytes32String('LIFE'),
       ])
       const tx = await cl.closeEvent()
-      const [payload] = parseCLEvent(tx)
-      const decoded = await decodeDietCBOR(payload)
+      const receipt = await tx.wait()
+      const decoded = getPayloadFrom(receipt)
+
       assert.deepEqual(decoded, { word: ['seinfeld', '"4"', 'LIFE'] })
     })
   })
