@@ -13,7 +13,7 @@
   },
   "peerDependencies": {},
   "dependencies": {
-    "redux": "^4.0.0"
+    "redux": "^4.0.5"
   },
   "devDependencies": {
     "@types/redux-logger": "^3.0.7",
