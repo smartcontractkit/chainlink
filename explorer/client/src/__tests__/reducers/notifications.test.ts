@@ -1,12 +1,13 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import reducer, { INITIAL_STATE } from '../../reducers'
 import { partialAsFull } from '../support/mocks'
+import { FetchAdminSigninErrorAction } from '../../reducers/actions'
 
 describe('reducers/jobRuns', () => {
   describe('FETCH_ADMIN_SIGNIN_ERROR', () => {
     it('adds a notification for AuthenticationError', () => {
       const response = partialAsFull<Response>({})
-      const action = {
+      const action: FetchAdminSigninErrorAction = {
         type: 'FETCH_ADMIN_SIGNIN_ERROR',
         error: new jsonapi.AuthenticationError(response),
       }
