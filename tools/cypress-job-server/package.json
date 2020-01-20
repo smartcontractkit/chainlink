@@ -14,7 +14,7 @@
     "setup": "echo \"No setup required for @chainlink/cypress-job-server\""
   },
   "devDependencies": {
-    "@types/node": "^12.12.20",
+    "@types/node": "^13.1.8",
     "typescript": "^3.7.4"
   }
 }
