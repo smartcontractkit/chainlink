@@ -1,34 +1,39 @@
 package adapters
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 )
 
-// Dividend represents x where x / y.
-type Dividend float64
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (n *Dividend) UnmarshalJSON(input []byte) error {
-	input = utils.RemoveQuotes(input)
-	dividend, err := strconv.ParseFloat(string(input), 64)
-	if err != nil {
-		return fmt.Errorf("cannot parse into float: %s", input)
-	}
-
-	*n = Dividend(dividend)
-
-	return nil
-}
-
 // Quotient holds the Dividend.
 type Quotient struct {
-	Dividend *Dividend `json:"dividend"`
+	Dividend *big.Float `json:"-"`
+}
+
+type jsonQuotient struct {
+	Dividend *utils.BigFloat `json:"dividend,omitempty"`
+}
+
+// MarshalJSON implements the json.Marshal interface.
+func (q Quotient) MarshalJSON() ([]byte, error) {
+	jsonObj := jsonQuotient{(*utils.BigFloat)(q.Dividend)}
+	return json.Marshal(jsonObj)
+}
+
+// UnmarshalJSON implements the json.Unqrshal interface.
+func (q *Quotient) UnmarshalJSON(buf []byte) error {
+	var jsonObj jsonQuotient
+	err := json.Unmarshal(buf, &jsonObj)
+	if err != nil {
+		return err
+	}
+	q.Dividend = jsonObj.Dividend.Value()
+	return nil
 }
 
 // Perform returns result of dividend / divisor were divisor is
@@ -46,7 +51,7 @@ func (q *Quotient) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 		return models.NewRunOutputError(fmt.Errorf("cannot divide by zero"))
 	}
 	if q.Dividend != nil {
-		i = new(big.Float).Quo(big.NewFloat(float64(*q.Dividend)), i)
+		i = new(big.Float).Quo(q.Dividend, i)
 	}
 	return models.NewRunOutputCompleteWithResult(i.String())
 }
