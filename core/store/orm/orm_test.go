@@ -1361,16 +1361,13 @@ func TestJobs_ScopedInitiator(t *testing.T) {
 func TestJobs_MoreThanBatchWithArchives(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	if store.Config.DatabaseURL() == "" {
-		return // skip if not using postgres
-	}
 
 	archivedJob := cltest.NewJobWithFluxMonitorInitiator()
 	archivedJob.DeletedAt = cltest.NullableTime(time.Now())
 	require.NoError(t, store.CreateJob(&archivedJob))
 
 	jobs := []models.JobSpec{}
-	jobNumber := 1100
+	jobNumber := 202
 	for i := 0; i < jobNumber; i++ {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		require.NoError(t, store.CreateJob(&job))

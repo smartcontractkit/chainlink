@@ -419,7 +419,7 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error {
 	orm.MustEnsureAdvisoryLock()
-	return Batch(1000, func(offset, limit uint) (uint, error) {
+	return Batch(100, func(offset, limit uint) (uint, error) {
 		scope := orm.db.Limit(limit).Offset(offset)
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
