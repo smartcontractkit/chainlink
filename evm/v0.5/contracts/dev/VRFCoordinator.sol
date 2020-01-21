@@ -99,13 +99,7 @@ contract VRFCoordinator is VRF {
     public
     onlyLINK
   {
-    bytes32 keyHash;
-    uint256 seed;
-    require(_data.length == 64, "data is the wrong length");
-    assembly { // solhint-disable-line no-inline-assembly
-      keyHash := mload(add(_data, 0x20)) // Skip past length word of _data
-      seed := mload(add(_data, 0x40)) // Seed is second word in _data
-    }
+    (bytes32 keyHash, uint256 seed) = abi.decode(_data, (bytes32, uint256));
     randomnessRequest(keyHash, seed, _fee, _sender);
   }
 
