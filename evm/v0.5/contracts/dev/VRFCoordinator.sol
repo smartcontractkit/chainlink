@@ -114,10 +114,10 @@ contract VRFCoordinator is VRF {
   )
     internal
     sufficientLINK(_feePaid, _keyHash)
-    isNewSeed(_keyHash, _seed)
+    isFreshSeed(_keyHash, _seed)
   {
     bytes32 requestId = makeRequestId(_keyHash, _seed);
-    assert(callbacks[requestId].callbackContract == address(0)); // Guaranteed by isNewSeed
+    assert(callbacks[requestId].callbackContract == address(0)); // Guaranteed by isFreshSeed
     callbacks[requestId].callbackContract = _sender;
     callbacks[requestId].randomnessFee = _feePaid;
     callbacks[requestId].seed = _seed;
@@ -215,7 +215,7 @@ contract VRFCoordinator is VRF {
    * @param _keyHash on which to check for prior request
    * @param _seed to check for prior request
    */
-  modifier isNewSeed(bytes32 _keyHash, uint256 _seed) {
+  modifier isFreshSeed(bytes32 _keyHash, uint256 _seed) {
     require(!observedSeeds[_keyHash][_seed], "please request a novel seed");
     _;
   }
