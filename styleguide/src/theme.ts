@@ -51,14 +51,6 @@ export const theme: ThemeOptions = {
     MuiGrid: {
       spacing: spacing.unit * 3,
     },
-    MuiButton: {
-      style: {
-        paddingTop: spacing.unit,
-        paddingBottom: spacing.unit,
-        paddingLeft: spacing.unit * 5,
-        paddingRight: spacing.unit * 5,
-      },
-    },
   },
   palette: {
     action: {
@@ -114,6 +106,19 @@ export const theme: ThemeOptions = {
       root: {
         borderRadius: spacing.unit / 2,
         textTransform: 'none',
+      },
+      sizeLarge: {
+        padding: undefined,
+        fontSize: undefined,
+        paddingTop: spacing.unit,
+        paddingBottom: spacing.unit,
+        paddingLeft: spacing.unit * 5,
+        paddingRight: spacing.unit * 5,
+      },
+    },
+    MuiTableCell: {
+      body: {
+        fontSize: '1rem',
       },
     },
   },
