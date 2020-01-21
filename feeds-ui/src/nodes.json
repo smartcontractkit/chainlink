@@ -130,6 +130,11 @@
     "networkId": 1
   },
   {
+    "address": "0x45408418eA69238376fCDa67245d12751Eff5Deb",
+    "name": "easy2stake",
+    "networkId": 1
+  },
+  {
     "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
     "name": "LinkPool",
     "networkId": 3
