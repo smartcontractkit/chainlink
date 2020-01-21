@@ -85,7 +85,7 @@ contract VRFCoordinator is VRF {
    *
    * @dev TODO(alx): Make a VRFClient to take care of the above for the user.
    *
-   * @param _sender address: who sent the link (must be a contract)
+   * @param _sender address: who sent the LINK (must be a contract)
    * @param _fee amount of LINK sent
    * @param _data abi-encoded call to randomnessRequest
    *
