@@ -106,7 +106,6 @@ contract('VRFCoordinator', () => {
       const rREvents = events.filter(e => e.event == 'RandomnessRequest')
       assert.equal(1, rREvents.length)
       const event = rREvents[0].args
-      console.log(rREvents[0])
       assert.equal(keyHash, event.keyHash)
       assert.equal(seed, event.seed)
       assert.equal(jobIDASCIIHex, event.jobID)
