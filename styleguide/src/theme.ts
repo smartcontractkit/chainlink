@@ -51,14 +51,6 @@ export const theme: ThemeOptions = {
     MuiGrid: {
       spacing: spacing.unit * 3,
     },
-    MuiButton: {
-      style: {
-        paddingTop: spacing.unit,
-        paddingBottom: spacing.unit,
-        paddingLeft: spacing.unit * 5,
-        paddingRight: spacing.unit * 5,
-      },
-    },
   },
   palette: {
     action: {
