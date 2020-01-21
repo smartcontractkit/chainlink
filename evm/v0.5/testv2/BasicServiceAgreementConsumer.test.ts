@@ -53,10 +53,9 @@ describe('ServiceAgreementConsumer', () => {
       requestDigest:
         '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5',
     }
-    const oracleSignatures = await h.computeOracleSignature(
-      agreement,
+    const oracleSignatures = await h.generateOracleSignatures(agreement, [
       roles.oracleNode,
-    )
+    ])
 
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     coord = await coordinatorFactory

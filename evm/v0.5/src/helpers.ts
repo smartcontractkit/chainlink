@@ -1,16 +1,17 @@
-import { ethers } from 'ethers'
+import { ethers, utils } from 'ethers'
 import { createFundedWallet } from './wallet'
 import { assert } from 'chai'
 import { Oracle } from './generated/Oracle'
 import { CoordinatorFactory, TypedEventDescription } from './generated'
+import { Instance } from './contract'
 import { LinkToken } from './generated/LinkToken'
 import { makeDebug } from './debug'
 import cbor from 'cbor'
 import { OracleFactory } from './generated/OracleFactory'
 import { ContractReceipt } from 'ethers/contract'
+import { assertBigNum } from './matchers'
 
 const debug = makeDebug('helpers')
-export const { utils } = ethers
 
 export interface Roles {
   defaultAccount: ethers.Wallet
@@ -39,9 +40,9 @@ interface RolesAndPersonas {
 
 // duplicated in evm/v0.5/test/support/helpers.ts (kinda)
 export interface ServiceAgreement {
-  payment: ethers.utils.BigNumberish // uint256
-  expiration: ethers.utils.BigNumberish // uint256
-  endAt: ethers.utils.BigNumberish // uint256
+  payment: utils.BigNumberish // uint256
+  expiration: utils.BigNumberish // uint256
+  endAt: utils.BigNumberish // uint256
   oracles: string[] // 0x hex representation of oracle addresses (uint160's)
   requestDigest: string // 0x hex representation of bytes32
   aggregator: string // 0x hex representation of aggregator address
@@ -50,10 +51,14 @@ export interface ServiceAgreement {
 }
 
 // duplicated in evm/v0.5/test/support/helpers.ts
-export interface OracleSignature {
-  vs: ethers.utils.BigNumberish[] // uint8[]
+export interface OracleSignatures {
+  vs: utils.BigNumberish[] // uint8[]
   rs: string[] // bytes32[]
   ss: string[] // bytes32[]
+}
+
+export interface Signature extends utils.Signature {
+  v: number
 }
 
 // duplicated in evm/v0.5/test/support/helpers.ts
@@ -186,6 +191,20 @@ export function evmWordToAddress(hex?: string): string {
   return utils.getAddress(hex.slice(26))
 }
 
+export function getWallet(
+  address: string,
+  rolesOrPersonas: Roles | Personas,
+): ethers.Wallet {
+  for (const name in rolesOrPersonas) {
+    // @ts-ignore
+    if (rolesOrPersonas[name].address === address) {
+      // @ts-ignore
+      return rolesOrPersonas[name]
+    }
+  }
+  throw `could not find wallet for address ${address}`
+}
+
 export async function assertActionThrows(
   action: (() => Promise<any>) | Promise<any>,
   msg?: string,
@@ -248,6 +267,14 @@ export function checkPublicABI(
 }
 
 /**
+ * Convert a value to an ethers BigNum
+ * @param num Value to convert to a BigNum
+ */
+export function bigNum(num: utils.BigNumberish): utils.BigNumber {
+  return utils.bigNumberify(num)
+}
+
+/**
  * Convert a value to a hex string
  * @param args Value to convert to a hex string
  */
@@ -255,6 +282,26 @@ export function toHex(
   ...args: Parameters<typeof utils.hexlify>
 ): ReturnType<typeof utils.hexlify> {
   return utils.hexlify(...args)
+}
+
+/**
+ * Convert a value to a hex string
+ * @param args Value to convert to a hex string
+ */
+export function toBytes32String(
+  ...args: Parameters<typeof utils.formatBytes32String>
+): ReturnType<typeof utils.formatBytes32String> {
+  return utils.formatBytes32String(...args)
+}
+
+/**
+ * Convert a value to a hex string
+ * @param args Value to convert to a hex string
+ */
+export function parseBytes32String(
+  ...args: Parameters<typeof utils.parseBytes32String>
+): ReturnType<typeof utils.parseBytes32String> {
+  return utils.parseBytes32String(...args)
 }
 
 /**
@@ -291,7 +338,7 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     expiration,
     version,
     data,
-  ] = ethers.utils.defaultAbiCoder.decode(types, log.data)
+  ] = utils.defaultAbiCoder.decode(types, log.data)
 
   return {
     callbackAddr: callbackAddress,
@@ -319,7 +366,7 @@ export function decodeRunABI(
   d('params %o', log)
 
   const types = ['bytes32', 'address', 'bytes4', 'bytes']
-  const decodedValue = ethers.utils.defaultAbiCoder.decode(types, log.data)
+  const decodedValue = utils.defaultAbiCoder.decode(types, log.data)
   d('decoded value %o', decodedValue)
 
   return decodedValue
@@ -382,7 +429,7 @@ export function addHexPrefix(hex: string): string {
 }
 
 export function stripHexPrefix(hex: string): string {
-  if (!ethers.utils.isHexString(hex)) {
+  if (!utils.isHexString(hex)) {
     throw Error(`Expected valid hex string, got: "${hex}"`)
   }
 
@@ -394,10 +441,8 @@ export function stripHexPrefix(hex: string): string {
  *
  * @param num The number value to convert to bytes32 format
  */
-export function numToBytes32(
-  num: Parameters<typeof ethers.utils.hexlify>[0],
-): string {
-  const hexNum = ethers.utils.hexlify(num)
+export function numToBytes32(num: Parameters<typeof utils.hexlify>[0]): string {
+  const hexNum = utils.hexlify(num)
   const strippedNum = stripHexPrefix(hexNum)
   if (strippedNum.length > 32 * 2) {
     throw Error(
@@ -408,9 +453,9 @@ export function numToBytes32(
 }
 
 export function toUtf8(
-  ...args: Parameters<typeof ethers.utils.toUtf8Bytes>
-): ReturnType<typeof ethers.utils.toUtf8Bytes> {
-  return ethers.utils.toUtf8Bytes(...args)
+  ...args: Parameters<typeof utils.toUtf8Bytes>
+): ReturnType<typeof utils.toUtf8Bytes> {
+  return utils.toUtf8Bytes(...args)
 }
 
 /**
@@ -419,9 +464,19 @@ export function toUtf8(
  * @param args The data to compute the keccak256 hash of
  */
 export function keccak(
-  ...args: Parameters<typeof ethers.utils.keccak256>
-): ReturnType<typeof ethers.utils.keccak256> {
+  ...args: Parameters<typeof utils.keccak256>
+): ReturnType<typeof utils.keccak256> {
   return utils.keccak256(...args)
+}
+
+// True if h is a standard representation of a byte array, false otherwise
+export const isByteRepresentation = (h: any): boolean => {
+  return (
+    h instanceof Buffer ||
+    h instanceof utils.BigNumber ||
+    h instanceof Uint8Array ||
+    utils.isHexString(h)
+  )
 }
 
 type TxOptions = Omit<ethers.providers.TransactionRequest, 'to' | 'from'>
@@ -440,7 +495,7 @@ export async function fulfillOracleRequest(
   const bytes32Len = 32 * 2 + 2
   const convertedResponse =
     response.length < bytes32Len
-      ? ethers.utils.formatBytes32String(response)
+      ? utils.formatBytes32String(response)
       : response
   d('Converted Response param: %s', convertedResponse)
 
@@ -490,13 +545,24 @@ export function requestDataBytes(
   ])
 }
 
+export function depositFundsBytes(
+  to: string,
+  amount: utils.BigNumberish,
+): Uint8Array {
+  const types = ['address', 'uint256']
+  const values = [to, amount]
+  const encodedArgs = utils.defaultAbiCoder.encode(types, values)
+  const funcSelector = encodeFunctionSignature('depositFunds(address,uint256)')
+  return utils.concat([funcSelector, encodedArgs])
+}
+
 interface Callable {
   address: string
 }
 export function requestDataFrom(
   callable: Callable,
   link: LinkToken,
-  amount: ethers.utils.BigNumberish,
+  amount: utils.BigNumberish,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
 ): ReturnType<typeof link.transferAndCall> {
@@ -538,7 +604,31 @@ export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
 
-type Hash = ReturnType<typeof ethers.utils.keccak256>
+type Hash = ReturnType<typeof utils.keccak256>
+
+export async function newServiceAgreement(
+  params: Partial<ServiceAgreement>,
+): Promise<ServiceAgreement> {
+  const agreement: Partial<ServiceAgreement> = {}
+  params = params || {}
+  agreement.payment = params.payment || bigNum('1000000000000000000')
+  agreement.expiration = params.expiration || bigNum(300)
+  agreement.endAt = params.endAt || sixMonthsFromNow()
+  agreement.oracles = params.oracles
+  agreement.requestDigest =
+    params.requestDigest ||
+    '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5'
+  agreement.aggregator =
+    params.aggregator || '0x3141592653589793238462643383279502884197'
+  agreement.aggInitiateJobSelector =
+    params.aggInitiateJobSelector || '0x12345678'
+  agreement.aggFulfillSelector = params.aggFulfillSelector || '0x87654321'
+  return agreement as ServiceAgreement
+}
+
+export function sixMonthsFromNow(): utils.BigNumber {
+  return bigNum(Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60)
+}
 
 const serviceAgreementValues = (sa: ServiceAgreement) => {
   return [
@@ -554,43 +644,15 @@ const serviceAgreementValues = (sa: ServiceAgreement) => {
 }
 
 export function encodeServiceAgreement(sa: ServiceAgreement) {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     SERVICE_AGREEMENT_TYPES,
     serviceAgreementValues(sa),
   )
 }
 
-export function encodeOracleSignatures(os: OracleSignature) {
+export function encodeOracleSignatures(os: OracleSignatures) {
   const osValues = [os.vs, os.rs, os.ss]
-  return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
-}
-
-export async function computeOracleSignature(
-  agreement: ServiceAgreement,
-  oracle: ethers.Wallet,
-): Promise<OracleSignature> {
-  const said = generateSAID(agreement)
-  const oracleSignatures: OracleSignature[] = []
-
-  for (let i = 0; i < agreement.oracles.length; i++) {
-    const oracleSignature = await oracle.signMessage(
-      ethers.utils.arrayify(said),
-    )
-
-    const sig = ethers.utils.splitSignature(oracleSignature)
-    if (!sig.v) {
-      throw Error(`Could not extract v from signature`)
-    }
-    const convertedOracleSignature: OracleSignature = {
-      vs: [sig.v],
-      rs: [sig.r],
-      ss: [sig.s],
-    }
-    oracleSignatures.push(convertedOracleSignature)
-  }
-
-  // TODO: this should be an array!
-  return oracleSignatures[0]
+  return utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
 }
 
 /**
@@ -603,9 +665,168 @@ export function generateSAID(sa: ServiceAgreement): Hash {
       `extracted wrong params: ${saParam} from coordinatorFactory.interface.functions.getId`,
     )
   }
-  return ethers.utils.solidityKeccak256(
+  return utils.solidityKeccak256(
     SERVICE_AGREEMENT_TYPES,
     serviceAgreementValues(sa),
+  )
+}
+
+/**
+ * Generates the bytes to call and execute the oracleRequest() function
+ * @param sAID The service agreement ID
+ * @param callbackAddr The callback contract address
+ * @param callbackFunctionId The callback function id
+ * @param nonce The nonce
+ * @param data optional data
+ */
+export function executeServiceAgreementBytes(
+  sAID: string,
+  callbackAddr: string,
+  callbackFunctionId: any,
+  nonce: utils.BigNumberish,
+  data?: any,
+): any {
+  const types = [
+    'address',
+    'uint256',
+    'bytes32',
+    'address',
+    'bytes4',
+    'uint256',
+    'uint256',
+    'bytes',
+  ]
+  const values = [
+    ethers.constants.AddressZero,
+    0,
+    sAID,
+    callbackAddr,
+    callbackFunctionId,
+    nonce,
+    1,
+    data || '0x',
+  ]
+  const encodedArgs = utils.defaultAbiCoder.encode(types, values)
+  const funcSelector = encodeFunctionSignature(
+    'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)',
+  )
+  return utils.concat([funcSelector, encodedArgs])
+}
+
+/**
+ * Generates the oracle signatures on a ServiceAgreement
+ * @param serviceAgreement The service agreement to sign
+ * @param signers The list oracles that will sign the service agreement
+ */
+export async function generateOracleSignatures(
+  serviceAgreement: ServiceAgreement,
+  signers: ethers.Wallet[],
+): Promise<OracleSignatures> {
+  // require signing wallets match oracle addresses in SA
+  assert.deepEqual(
+    serviceAgreement.oracles,
+    signers.map(w => w.address),
+    'oracle wallets do not match list of oracles on service agreement',
+  )
+
+  const sAID = generateSAID(serviceAgreement)
+  const signatures = []
+
+  for (let i = 0; i < signers.length; i++) {
+    const signer = signers[i]
+    const oracle = serviceAgreement.oracles[i]
+    const oracleSignature = await personalSign(sAID, signer)
+    const requestDigestAddr = recoverPersonalSignature(sAID, oracleSignature)
+    assert.equal(oracle, requestDigestAddr)
+    signatures.push(oracleSignature)
+  }
+
+  return combineOracleSignatures(signatures)
+}
+
+/**
+ * Combine v, r, and s params of multiple signatures into format expected by contracts
+ * @param signatures The list of signatures to combine
+ */
+export function combineOracleSignatures(
+  signatures: Signature[],
+): OracleSignatures {
+  return {
+    vs: signatures.map(os => os.v),
+    rs: signatures.map(os => os.r),
+    ss: signatures.map(os => os.s),
+  }
+}
+
+/**
+ * Signs a message
+ * @param message The message to sign signed
+ * @param wallet The wallet of the signer
+ */
+export async function personalSign(
+  message: any,
+  wallet: ethers.Wallet,
+): Promise<Signature> {
+  const eMsg =
+    `Message ${message} is not a recognized representation of a ` +
+    'byte array. (Can be Buffer, BigNumber, Uint8Array, 0x-prepended ' +
+    'hexadecimal string.)'
+  assert(isByteRepresentation(message), eMsg)
+  const flatSig = await wallet.signMessage(utils.arrayify(message))
+  const splitSignature = utils.splitSignature(flatSig)
+  const { v, r, s } = splitSignature
+  if (!v) {
+    throw Error(`Could not extract v from signature`)
+  } else {
+    return { v, r, s }
+  }
+}
+
+/**
+ * Recovers the address of the signer of a message
+ * @param message The message that was signed
+ * @param signature The signature on the message
+ */
+export function recoverPersonalSignature(
+  message: any,
+  signature: Signature,
+): any {
+  const digest = utils.arrayify(message)
+  return utils.verifyMessage(digest, signature)
+}
+
+/** Check thathe given service agreement was stored at the correct location */
+export const checkServiceAgreementPresent = async (
+  coordinator: Instance<CoordinatorFactory>,
+  serviceAgreement: ServiceAgreement,
+) => {
+  const sAID = generateSAID(serviceAgreement)
+  const sa = await coordinator.serviceAgreements(sAID)
+  assertBigNum(sa[0], bigNum(serviceAgreement.payment), 'expected payment')
+  assertBigNum(
+    sa[1],
+    bigNum(serviceAgreement.expiration),
+    'expected expiration',
+  )
+  assertBigNum(sa[2], bigNum(serviceAgreement.endAt), 'expected endAt date')
+  assert.equal(sa[3], serviceAgreement.requestDigest, 'expected requestDigest')
+}
+
+// Check that all values for the struct at this SAID have default values. I.e.
+// nothing was changed due to invalid request
+export const checkServiceAgreementAbsent = async (
+  coordinator: Instance<CoordinatorFactory>,
+  serviceAgreementID: string,
+) => {
+  const sa = await coordinator.serviceAgreements(
+    toHex(serviceAgreementID).slice(0, 66),
+  )
+  assertBigNum(sa[0], bigNum(0), 'service agreement is not absent')
+  assertBigNum(sa[1], bigNum(0), 'service agreement is not absent')
+  assertBigNum(sa[2], bigNum(0), 'service agreement is not absent')
+  assert.equal(
+    sa[3],
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
   )
 }
 
@@ -613,14 +834,14 @@ export function generateSAID(sa: ServiceAgreement): Hash {
  * Turn a [x,y] coordinate into an ethereum address
  * @param pubkey The x,y coordinate to turn into an ethereum address
  */
-export function pubkeyToAddress(pubkey: ethers.utils.BigNumber[]) {
+export function pubkeyToAddress(pubkey: utils.BigNumber[]) {
   // transform the value according to what ethers expects as a value
   const concatResult = `0x04${pubkey
     .map(coord => coord.toHexString())
     .join('')
     .replace(/0x/gi, '')}`
 
-  return ethers.utils.computeAddress(concatResult)
+  return utils.computeAddress(concatResult)
 }
 
 interface EventArgsArray extends Array<any> {
@@ -637,6 +858,36 @@ export function eventArgs(event?: ethers.Event) {
 }
 
 /**
+ * Extract array of logs from a transaction
+ * @param tx The transaction to wait for, then extract logs from
+ */
+export async function getLogs(
+  tx: ethers.ContractTransaction,
+): Promise<ethers.providers.Log[]> {
+  const receipt = await tx.wait()
+  if (!receipt.logs) {
+    throw Error('unable to extract logs from transaction receipt')
+  }
+  return receipt.logs
+}
+
+/**
+ * Retrieve single log from transaction
+ * @param tx The transaction to wait for, then extract logs from
+ * @param index The index of the log to retrieve
+ */
+export async function getLog(
+  tx: ethers.ContractTransaction,
+  index: number,
+): Promise<ethers.providers.Log> {
+  const logs = await getLogs(tx)
+  if (!logs[index]) {
+    throw Error('unable to extract log from transaction receipt')
+  }
+  return logs[index]
+}
+
+/**
  * Find an event within a transaction receipt by its event description
  *
  * @param receipt The events array to search through
@@ -650,10 +901,21 @@ export function findEventIn(
 }
 
 /**
- * Calculate six months from the current date in seconds
+ * Compute function signature hash for a function on an ethersjs Contract instance
+ * @param contract ethersjs contract
+ * @param functionName The function name
  */
-export function sixMonthsFromNow(): ethers.utils.BigNumber {
-  return ethers.utils.bigNumberify(
-    Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60,
-  )
+export function getFunctionSignature(
+  contract: ethers.Contract | ethers.ContractFactory,
+  functionName: string,
+): string {
+  return contract.interface.functions[functionName].sighash
+}
+
+/**
+ * Compute function signature hash for an arbitrary string function
+ * @param functionName The function name ex: "funName(uint256,bytes32)"
+ */
+export function encodeFunctionSignature(functionName: string) {
+  return utils.id(functionName).slice(0, 10)
 }
