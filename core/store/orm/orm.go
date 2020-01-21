@@ -440,12 +440,15 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		}
 
 		jobs := []models.JobSpec{}
-		err = orm.preloadJobs().Find(&jobs, "id IN (?)", ids).Error
+		err = orm.preloadJobs().Unscoped().Find(&jobs, "id IN (?)", ids).Error
 		if err != nil {
 			return 0, err
 		}
 		for _, j := range jobs {
 			temp := j
+			if temp.DeletedAt.Valid {
+				continue
+			}
 			if !cb(&temp) {
 				return 0, nil
 			}
