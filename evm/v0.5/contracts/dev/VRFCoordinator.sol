@@ -6,12 +6,14 @@ pragma solidity 0.5.0; // solhint-disable-line compiler-version
 
 import "../interfaces/LinkTokenInterface.sol";
 import "./VRF.sol";
+import "./VRFRequestIDBase.sol";
+import "./VRFConsumerBase.sol";
 
 /**
  * @title VRFCoordinator coordinates on-chain verifiable-randomness requests
  * @title with off-chain responses
  */
-contract VRFCoordinator is VRF {
+contract VRFCoordinator is VRF, VRFRequestIDBase {
 
   LinkTokenInterface internal LINK;
 
@@ -70,30 +72,17 @@ contract VRFCoordinator is VRF {
   /**
    * @notice Called by LINK.transferAndCall, on successful LINK transfer
    *
-   * @notice To invoke this, send LINK using transferAndCall. E.g.
-   * @notice
-   * @notice   LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, _seed));
-   * @notice
-   * @notice where LINK is the address of the LINK contract, wrapped in
-   * @notice LinkTokenInterface.
-   * @notice
-   * @notice The VRFCoordinator will call back to the calling contract when the
-   * @notice oracle responds, on the method fulfillRandomness. See
-   * @notice callbackMethod for its signature. Make sure to implement
-   * @notice fulfillRandomness on your calling contract, or your request will
-   * @notice fail.
+   * @dev To invoke this, use the requestRandomness method in VRFConsumerBase.
    *
-   * @dev TODO(alx): Make a VRFClient to take care of the above for the user.
+   * @dev The VRFCoordinator will call back to the calling contract when the
+   * @dev oracle responds, on the method fulfillRandomness. See
+   * @dev VRFConsumerBase.fullfilRandomnessRequest for its signature. Your
+   * @dev consuming contract should inherit from VRFConsumerBase, and implement
+   * @dev fullfilRandomnessRequest.
    *
    * @param _sender address: who sent the LINK (must be a contract)
    * @param _fee amount of LINK sent
    * @param _data abi-encoded call to randomnessRequest
-   *
-   * @dev Memory layout of _data, as an abi-encoding of a call to randomnessRequest:
-   *
-   * @dev uint256 _data.length (32 bytes)
-   * @dev bytes32 keyHash (32 bytes)
-   * @dev uint256 seed (32 bytes)
    */
   function onTokenTransfer(address _sender, uint256 _fee, bytes memory _data)
     public
@@ -105,6 +94,11 @@ contract VRFCoordinator is VRF {
 
   /**
    * @notice creates the chainlink request for randomness
+   *
+   * @param _keyHash ID of the VRF public key against which to generate output
+   * @param _seed Input to the VRF, from which randomness is generated
+   * @param _feePaid Amount of LINK sent with request. Must exceed fee for key
+   * @param _sender Requesting contract; to be called back with VRF output
    */
   function randomnessRequest(
     bytes32 _keyHash,
@@ -154,7 +148,11 @@ contract VRFCoordinator is VRF {
     uint256 randomness = VRF.randomValueFromVRFProof(_proof); // Reverts on failure
     observedSeeds[currentKeyHash][seed] = true;
     withdrawableTokens[serviceAgreements[currentKeyHash].vRFOracle] += callback.randomnessFee;
-    bytes memory resp = abi.encodeWithSelector(callbackMethod, requestId, randomness);
+    // Dummy variable; allows access to method selector in next line. See
+    // https://github.com/ethereum/solidity/issues/3506#issuecomment-553727797
+    VRFConsumerBase v; 
+    bytes memory resp = abi.encodeWithSelector(
+      v.fulfillRandomness.selector, requestId, randomness);
     // solhint-disable-next-line avoid-low-level-calls
     (bool success,) = callback.callbackContract.call(resp);
     return success;
@@ -171,19 +169,6 @@ contract VRFCoordinator is VRF {
   {
     withdrawableTokens[msg.sender] -= _amount;
     assert(LINK.transfer(_recipient, _amount));
-  }
-
-  // web3.utils.sha3("fulfillRandomness(bytes32,uint256)").slice(0, 10)
-  bytes4 callbackMethod = 0x1f1f897f;
-
-  /**
-   * @notice Returns the id for this request
-   * @param _keyHash The serviceAgreement ID to be used for this request
-   * @param _seed The seed to be used in generating this randomness.
-   */
-  function makeRequestId(
-    bytes32 _keyHash, uint256 _seed) public pure returns (bytes32) {
-    return keccak256(abi.encodePacked(_keyHash, _seed));
   }
 
   /**
