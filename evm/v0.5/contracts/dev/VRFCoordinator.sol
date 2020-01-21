@@ -136,8 +136,10 @@ contract VRFCoordinator is VRF {
     // TODO(alx): Replace the public key out in the above proof with an argument
     // specifying the keyHash. Splice the key in here before sending it to
     // VRF.sol. Should be able to save about 2,000 gas that way.
+    // https://www.pivotaltracker.com/story/show/170828567
     //
     // TODO(alx): Move this parsing into VRF.sol, where the bytes layout is recorded.
+    // https://www.pivotaltracker.com/story/show/170828697
     uint256[2] memory publicKey;
     uint256 seed;
     // solhint-disable-next-line no-inline-assembly
