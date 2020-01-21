@@ -105,6 +105,10 @@ const NODE_NAMES = [
     address: '0x85aEace84a130bC1AcCcE2a9F4F933F6765b0B9B',
     name: 'Everstake',
   },
+  {
+    address: '0x45408418eA69238376fCDa67245d12751Eff5Deb',
+    name: 'easy2stake',
+  },
 
   // ROPSTEN
 
