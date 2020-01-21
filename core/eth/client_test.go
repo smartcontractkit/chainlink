@@ -221,6 +221,9 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 		{"zero", "0", big.NewInt(0)},
 		{"small", "12", big.NewInt(12)},
 		{"large", "52050000000000000000", large},
+		{"hex zero default", "0x", big.NewInt(0)},
+		{"hex zero", "0x0", big.NewInt(0)},
+		{"hex", "0x0100", big.NewInt(256)},
 	}
 
 	for _, test := range tests {
