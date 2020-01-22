@@ -1,11 +1,11 @@
-import TokenBalanceCard from 'components/Cards/TokenBalance'
-import { mount } from 'enzyme'
 import React from 'react'
+import TokenBalanceCard from '../../../src/components/Cards/TokenBalance'
+import { mount } from 'enzyme'
 
 describe('components/Cards/TokenBalance', () => {
   it('renders the title and a loading indicator when it is fetching', () => {
     const wrapper = mount(
-      <TokenBalanceCard title="Ether Balance" value={null} />,
+      <TokenBalanceCard title="Ether Balance" value={undefined} />,
     )
 
     expect(wrapper.text()).toContain('Ether Balance...')

@@ -1,8 +1,8 @@
 import { mount } from 'enzyme'
 import React from 'react'
-import Details from '../../../components/JobRuns/Details'
+import { partialAsFull } from '@chainlink/ts-test-helpers'
 import { JobRun, ChainlinkNode } from 'explorer/models'
-import { partialAsFull } from '../../support/mocks'
+import Details from '../../../components/JobRuns/Details'
 
 describe('components/JobRuns/Details', () => {
   it('hides error when not present', () => {

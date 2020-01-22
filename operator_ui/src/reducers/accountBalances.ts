@@ -1,15 +1,14 @@
 import { Reducer } from 'redux'
+import { Actions, ResourceActionType } from './actions'
 
-const initialState = {}
+export type State = Record<string, object>
 
-export const UPSERT_ACCOUNT_BALANCE = 'UPSERT_ACCOUNT_BALANCE'
+const INITIAL_STATE: State = {}
 
-type Action = { type: 'UPSERT_ACCOUNT_BALANCE' }
-
-const reducer: Reducer = (state = initialState, action) => {
+const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case UPSERT_ACCOUNT_BALANCE:
-      return Object.assign({}, state, action.data.accountBalances)
+    case ResourceActionType.UPSERT_ACCOUNT_BALANCE:
+      return { ...state, ...action.data.accountBalances }
     default:
       return state
   }

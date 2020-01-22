@@ -1,16 +1,14 @@
-import reducer from 'reducers'
-import { UPSERT_TRANSACTIONS, UPSERT_TRANSACTION } from 'reducers/transactions'
+import reducer, { INITIAL_STATE } from '../../src/reducers'
+import {
+  UpsertTransactionAction,
+  UpsertTransactionsAction,
+  ResourceActionType,
+} from '../../src/reducers/actions'
 
 describe('reducers/transactions', () => {
-  it('should return the initial state', () => {
-    const state = reducer(undefined, {})
-
-    expect(state.transactions).toEqual({ items: {} })
-  })
-
   it('UPSERT_TRANSACTIONS upserts items', () => {
-    const action = {
-      type: UPSERT_TRANSACTIONS,
+    const action: UpsertTransactionsAction = {
+      type: ResourceActionType.UPSERT_TRANSACTIONS,
       data: {
         transactions: {
           a: { id: 'a' },
@@ -19,12 +17,12 @@ describe('reducers/transactions', () => {
         meta: {
           currentPageTransactions: {
             data: [],
-            meta: {},
+            meta: { count: 2 },
           },
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.transactions.items).toEqual({
       a: { id: 'a' },
@@ -33,15 +31,15 @@ describe('reducers/transactions', () => {
   })
 
   it('UPSERT_TRANSACTION upserts items', () => {
-    const action = {
-      type: UPSERT_TRANSACTION,
+    const action: UpsertTransactionAction = {
+      type: ResourceActionType.UPSERT_TRANSACTION,
       data: {
         transactions: {
           a: { id: 'a' },
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.transactions.items).toEqual({ a: { id: 'a' } })
   })

@@ -1,26 +1,17 @@
-import reducer from 'reducers'
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import reducer, { INITIAL_STATE } from '../../src/reducers'
 import {
-  UPSERT_JOBS,
-  UPSERT_RECENTLY_CREATED_JOBS,
-  UPSERT_JOB,
-} from 'reducers/jobs'
-import { RECEIVE_DELETE_SUCCESS } from 'actions'
+  UpsertJobAction,
+  UpsertJobsAction,
+  UpsertRecentlyCreatedJobsAction,
+  ReceiveDeleteSuccessAction,
+  ResourceActionType,
+} from '../../src/reducers/actions'
 
 describe('reducers/jobs', () => {
-  it('should return the initial state', () => {
-    const state = reducer(undefined, {})
-
-    expect(state.jobs).toEqual({
-      items: {},
-      currentPage: null,
-      recentlyCreated: null,
-      count: 0,
-    })
-  })
-
   it('UPSERT_JOBS upserts items along with the current page & count from meta', () => {
-    const action = {
-      type: UPSERT_JOBS,
+    const action: UpsertJobsAction = {
+      type: ResourceActionType.UPSERT_JOBS,
       data: {
         specs: {
           a: { id: 'a' },
@@ -36,7 +27,7 @@ describe('reducers/jobs', () => {
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.jobs.items).toEqual({
       a: { id: 'a' },
@@ -47,8 +38,8 @@ describe('reducers/jobs', () => {
   })
 
   it('UPSERT_RECENTLY_CREATED_JOBS upserts items along with the current page & count from meta', () => {
-    const action = {
-      type: UPSERT_RECENTLY_CREATED_JOBS,
+    const action: UpsertRecentlyCreatedJobsAction = {
+      type: ResourceActionType.UPSERT_RECENTLY_CREATED_JOBS,
       data: {
         specs: {
           c: { id: 'c' },
@@ -61,7 +52,7 @@ describe('reducers/jobs', () => {
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.jobs.items).toEqual({
       c: { id: 'c' },
@@ -71,30 +62,32 @@ describe('reducers/jobs', () => {
   })
 
   it('UPSERT_JOB upserts items', () => {
-    const action = {
-      type: UPSERT_JOB,
+    const action: UpsertJobAction = {
+      type: ResourceActionType.UPSERT_JOB,
       data: {
         specs: {
           a: { id: 'a' },
         },
       },
     }
-    const state = reducer(undefined, action)
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.jobs.items).toEqual({ a: { id: 'a' } })
   })
 
   it('RECEIVE_DELETE_SUCCESS deletes items', () => {
-    const upsertAction = {
-      type: UPSERT_JOB,
+    const deleteAction = partialAsFull<ReceiveDeleteSuccessAction>({
+      type: ResourceActionType.RECEIVE_DELETE_SUCCESS,
+      id: 'b',
+    })
+    const upsertAction: UpsertJobAction = {
+      type: ResourceActionType.UPSERT_JOB,
       data: { specs: { b: { id: 'b' } } },
     }
-    const preDeleteState = reducer(undefined, upsertAction)
+
+    const preDeleteState = reducer(INITIAL_STATE, upsertAction)
     expect(preDeleteState.jobs.items).toEqual({ b: { id: 'b' } })
-    const deleteAction = {
-      type: RECEIVE_DELETE_SUCCESS,
-      id: 'b',
-    }
+
     const postDeleteState = reducer(preDeleteState, deleteAction)
     expect(postDeleteState.jobs.items).toEqual({})
   })

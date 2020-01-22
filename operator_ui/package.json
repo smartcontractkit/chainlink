@@ -17,6 +17,8 @@
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
     "setup": "echo \"No setup required for @chainlink/operator-ui\"",
+    "setup:test": "yarn workspace @chainlink/ts-test-helpers run setup && yarn workspace @chainlink/operator-ui run setup:dependencies",
+    "setup:dependencies": "yarn workspace @chainlink/json-api-client run build && yarn workspace @chainlink/redux run build && yarn workspace @chainlink/local-storage run build && yarn workspace @chainlink/styleguide run build",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
@@ -67,6 +69,7 @@
     "@babel/preset-env": "7.8.2",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.1.0",
+    "@chainlink/ts-test-helpers": "0.0.1",
     "@types/classnames": "^2.2.8",
     "@types/cookie": "^0.3.3",
     "@types/enzyme": "^3.10.3",
@@ -98,6 +101,7 @@
     "redux-devtools-extension": "^2.13.8",
     "redux-mock-store": "^1.5.3",
     "serve": "^11.2.0",
+    "ts-jest": "^24.1.0",
     "typescript": "^3.7.4"
   }
 }

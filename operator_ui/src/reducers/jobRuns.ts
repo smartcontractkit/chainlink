@@ -1,50 +1,49 @@
+import { Reducer } from 'redux'
 import pickBy from 'lodash/pickBy'
+import { Actions, ResourceActionType } from './actions'
 
 export interface State {
-  items: { [k: string]: any }
-  currentPage?: number
+  items: Record<string, any>
+  currentPage?: string[]
   currentJobRunsCount?: number
 }
 
-const initialState: State = {
+const INITIAL_STATE: State = {
   items: {},
   currentPage: undefined,
   currentJobRunsCount: undefined,
 }
 
-export type Action =
-  | { type: 'UPSERT_JOB_RUNS'; data: any }
-  | { type: 'UPSERT_RECENT_JOB_RUNS'; data: any }
-  | { type: 'UPSERT_JOB_RUN'; data: any }
-  | { type: 'RECEIVE_DELETE_SUCCESS'; response: any }
-
-export default (state: State = initialState, action: Action) => {
+const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'UPSERT_JOB_RUNS': {
+    case ResourceActionType.UPSERT_JOB_RUNS: {
+      const data = action.data
+      const metaCurrentPage = data.meta.currentPageJobRuns
+
+      return {
+        ...state,
+        items: { ...state.items, ...data.runs },
+        currentPage: metaCurrentPage.data.map(r => r.id),
+        currentJobRunsCount: metaCurrentPage.meta.count,
+      }
+    }
+    case ResourceActionType.UPSERT_RECENT_JOB_RUNS:
+    case ResourceActionType.UPSERT_JOB_RUN: {
       return {
         ...state,
         items: { ...state.items, ...action.data.runs },
-        currentPage: action.data.meta.currentPageJobRuns.data.map(
-          (r: { id: string }) => r.id,
-        ),
-        currentJobRunsCount: action.data.meta.currentPageJobRuns.meta.count,
       }
     }
-    case 'UPSERT_RECENT_JOB_RUNS':
-    case 'UPSERT_JOB_RUN': {
-      return {
-        ...state,
-        items: { ...state.items, ...action.data.runs },
-      }
-    }
-    case 'RECEIVE_DELETE_SUCCESS': {
-      const cleanUpRuns = pickBy(
+    case ResourceActionType.RECEIVE_DELETE_SUCCESS: {
+      const remainingItems = pickBy(
         state.items,
-        item => item.attributes.jobId !== action.response,
+        ({ attributes }) => attributes.jobId !== action.id,
       )
-      return { ...state, items: cleanUpRuns }
+      return { ...state, items: remainingItems }
     }
     default:
       return state
   }
 }
+
+export default reducer

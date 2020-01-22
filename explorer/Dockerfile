@@ -7,9 +7,7 @@ ENV PATH /usr/src/app/node_modules/.bin:$PATH
 ADD . .
 
 RUN yarn install
-RUN yarn workspace @chainlink/json-api-client run build
-RUN yarn workspace @chainlink/styleguide run build
-RUN yarn workspace @chainlink/redux run build
+RUN yarn workspace @chainlink/explorer-client run setup:dependencies
 RUN yarn workspace @chainlink/explorer run build
 
 FROM node:10.16.3-alpine
