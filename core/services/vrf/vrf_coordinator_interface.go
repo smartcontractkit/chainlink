@@ -114,9 +114,5 @@ func (l *RandomnessRequestLog) RequestID() common.Hash {
 	if err != nil {
 		panic(errors.Wrapf(err, "vrf seed out of bounds in %#+v", l))
 	}
-	hash, err := utils.Keccak256(append(l.KeyHash[:], soliditySeed...))
-	if err != nil {
-		panic(errors.Wrapf(err, "this should never happen"))
-	}
-	return common.BytesToHash(hash)
+	return utils.MustHash(string(append(l.KeyHash[:], soliditySeed...)))
 }
