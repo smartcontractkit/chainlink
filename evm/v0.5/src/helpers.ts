@@ -463,9 +463,11 @@ export function requestDataBytes(
   ])
 }
 
-// link param must be from linkContract(), if amount is a BN
+interface Callable {
+  address: string
+}
 export function requestDataFrom(
-  oc: Oracle,
+  callable: Callable,
   link: LinkToken,
   amount: ethers.utils.BigNumberish,
   args: string,
@@ -475,7 +477,7 @@ export function requestDataFrom(
     options = { value: 0 }
   }
 
-  return link.transferAndCall(oc.address, amount, args, options)
+  return link.transferAndCall(callable.address, amount, args, options)
 }
 
 export async function increaseTime5Minutes(
