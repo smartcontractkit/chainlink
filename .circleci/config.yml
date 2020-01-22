@@ -158,6 +158,7 @@ jobs:
             - /usr/local/share/.cache/yarn
       - run: yarn workspace @chainlink/json-api-client run test
   operator-ui:
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
@@ -208,8 +209,8 @@ jobs:
           name: Run Server Tests
           command: yarn workspace @chainlink/explorer run test-ci:silent
       - run:
-          name: Build json-api-client package
-          command: yarn workspace @chainlink/json-api-client run build
+          name: Run Client dependency setup
+          command: yarn workspace @chainlink/explorer-client run setup:test
       - run:
           name: Run Client Tests
           command: yarn workspace @chainlink/explorer-client run test-ci:silent

@@ -3,7 +3,8 @@
 set -e
 
 cd operator_ui
-yarn test:ci
+yarn run setup:test
+yarn run test:ci
 
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then
   cc-test-reporter format-coverage --output "coverage/codeclimate.operator_ui.json"

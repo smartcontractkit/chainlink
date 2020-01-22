@@ -7,25 +7,30 @@
     "declaration": true,
     "target": "es2015",
     "module": "esnext",
-    "lib": ["dom"],
+    "lib": [
+      "es2018",
+      "dom"
+    ],
     "outDir": "./dist",
     "moduleResolution": "node",
     "skipLibCheck": true,
     "isolatedModules": false,
     "noEmit": true,
     "allowJs": true,
-    "jsx": "preserve",
+    "jsx": "react",
     "sourceMap": true,
     "removeComments": false,
     "strict": true,
     "esModuleInterop": true
   },
-  "include": ["src", "./@types"],
+
+  "include": ["src", "@types", "test"],
 
   "references": [
     { "path": "../styleguide" },
     { "path": "../tools/json-api-client" },
     { "path": "../tools/local-storage" },
-    { "path": "../tools/redux" }
+    { "path": "../tools/redux" },
+    { "path": "../tools/ts-test-helpers" }
   ]
 }

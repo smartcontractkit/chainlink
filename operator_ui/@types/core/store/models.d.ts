@@ -188,19 +188,6 @@ declare module 'core/store/models' {
 
   //#region common.go
   /**
-   * RunStatus is a string that represents the run status
-   */
-  export enum RunStatus {
-    IN_PROGRESS = 'in_progress',
-    PENDING_CONFIRMATIONS = 'pending_confirmations',
-    PENDING_CONNECTION = 'pending_connection',
-    PENDING_BRIDGE = 'pending_bridge',
-    PENDING_SLEEP = 'pending_sleep',
-    ERRORED = 'errored',
-    COMPLETED = 'completed',
-  }
-
-  /**
    * WebURL contains the URL of the endpoint.
    */
   type WebURL = url.URL
