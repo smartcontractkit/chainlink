@@ -41,24 +41,8 @@ func TestVRF_CoordsFromPoint(t *testing.T) {
 }
 
 func TestVRF_ZqHash(t *testing.T) {
-	var log2Mod uint = 256
-	modulus := lsh(one, log2Mod-1)
-	hash := sub(lsh(one, log2Mod), one)
-	assert.Equal(t, 1, hash.Cmp(modulus),
-		`need an example which hashes to something bigger than the modulus, to test the rehash logic.`)
-	zqHash, err := ZqHash(modulus, hash.Bytes())
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		bigFromHex("1ae61e33ec9365756efc1436222a72df7fdb74651e25c38bde613482291a0c69"),
-		zqHash,
-	)
-	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 1, 24),
-		func() { ZqHash(one, []byte("foo")) })
-	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 257, 24),
-		func() { ZqHash(lsh(fieldSize, 1), []byte("foo")) })
-	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 256, 33*8),
-		func() { ZqHash(fieldSize, []byte("much, much longer than 32 bytes!!")) })
+	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 33*8),
+		func() { ZqHash([]byte("much, much longer than 32 bytes!!")) })
 }
 
 func address(t *testing.T, p kyber.Point) [20]byte {
