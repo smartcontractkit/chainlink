@@ -10,6 +10,7 @@ import { OracleTable } from 'components/oracleTable'
 
 const NetworkPage = ({ initContract, clearState, options }) => {
   useEffect(() => {
+    /* eslint-disable-next-line @typescript-eslint/no-empty-function */
     initContract(options).catch(() => {})
     return () => {
       clearState()
