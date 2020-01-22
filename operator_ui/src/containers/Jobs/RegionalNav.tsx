@@ -39,7 +39,7 @@ const styles = (theme: Theme) =>
     actions: {
       textAlign: 'right',
     },
-    duplicate: {
+    regionalNavButton: {
       marginLeft: theme.spacing.unit,
       marginRight: theme.spacing.unit,
     },
@@ -237,13 +237,18 @@ const RegionalNav = ({
               </Grid>
               <Grid item xs={5} className={classes.actions}>
                 <Button
-                  className={classes.duplicate}
+                  className={classes.regionalNavButton}
                   onClick={() => setModalOpen(true)}
                 >
                   Archive
                 </Button>
                 {job && isWebInitiator(job.initiators) && (
-                  <Button onClick={handleRun}>Run</Button>
+                  <Button
+                    onClick={handleRun}
+                    className={classes.regionalNavButton}
+                  >
+                    Run
+                  </Button>
                 )}
                 {definition && (
                   <Button
@@ -252,12 +257,17 @@ const RegionalNav = ({
                       state: { definition },
                     }}
                     component={BaseLink}
-                    className={classes.duplicate}
+                    className={classes.regionalNavButton}
                   >
                     Duplicate
                   </Button>
                 )}
-                {definition && <CopyJobSpec JobSpec={definition} />}
+                {definition && (
+                  <CopyJobSpec
+                    JobSpec={definition}
+                    className={classes.regionalNavButton}
+                  />
+                )}
               </Grid>
             </Grid>
           </Grid>
