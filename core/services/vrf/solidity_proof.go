@@ -29,7 +29,7 @@ func (p *SolidityProof) String() string {
 }
 
 func point() kyber.Point {
-	return rcurve.Point()
+	return secp256k1Curve.Point()
 }
 
 // SolidityPrecalculations returns the precomputed values needed by the solidity
