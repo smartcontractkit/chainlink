@@ -16,13 +16,13 @@ import (
 type fieldElt = *big.Int
 
 // neg(f) is the negation of f in the base field
-func neg(f fieldElt) fieldElt { return sub(P, f) }
+func neg(f fieldElt) fieldElt { return sub(fieldSize, f) }
 
 // projectiveSub(x1, z1, x2, z2) is the projective coordinates of x1/z1 - x2/z2
 func projectiveSub(x1, z1, x2, z2 fieldElt) (fieldElt, fieldElt) {
 	num1 := mul(z2, x1)
 	num2 := neg(mul(z1, x2))
-	return mod(add(num1, num2), P), mod(mul(z1, z2), P)
+	return mod(add(num1, num2), fieldSize), mod(mul(z1, z2), fieldSize)
 }
 
 // projectiveMul(x1, z1, x2, z2) is projective coordinates of (x1/z1)×(x2/z2)
@@ -56,5 +56,5 @@ func ProjectiveECAdd(p, q kyber.Point) (x, y, z fieldElt) {
 	} else {
 		sz = dx
 	}
-	return mod(sx, P), mod(sy, P), mod(sz, P)
+	return mod(sx, fieldSize), mod(sy, fieldSize), mod(sz, fieldSize)
 }

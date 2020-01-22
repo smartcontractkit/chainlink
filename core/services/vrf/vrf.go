@@ -48,8 +48,8 @@ func bigFromHex(s string) *big.Int {
 	return n
 }
 
-// P is number of elements in the Galois field over which secp256k1 is defined
-var P = bigFromHex(
+// fieldSize is number of elements in secp256k1's base field, i.e. GF(fieldSize)
+var fieldSize = bigFromHex(
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F")
 
 // Order is the number of rational points on the curve in GF(P) (group size)
@@ -71,24 +71,24 @@ func sub(minuend, subtrahend *big.Int) *big.Int      { return i().Sub(minuend, s
 
 var (
 	// (P-1)/2: Half Fermat's Little Theorem exponent
-	eulersCriterionPower = div(sub(P, one), two)
+	eulersCriterionPower = div(sub(fieldSize, one), two)
 	// (P+1)/4: As long as P%4==3 and n=x^2 in GF(P), n^((P+1)/4)=±x
-	sqrtPower = div(add(P, one), four)
+	sqrtPower = div(add(fieldSize, one), four)
 )
 
 // IsSquare returns true iff x = y^2 for some y in GF(p)
 func IsSquare(x *big.Int) bool {
-	return equal(one, exp(x, eulersCriterionPower, P))
+	return equal(one, exp(x, eulersCriterionPower, fieldSize))
 }
 
 // SquareRoot returns a s.t. a^2=x. Assumes x is a square
 func SquareRoot(x *big.Int) *big.Int {
-	return exp(x, sqrtPower, P)
+	return exp(x, sqrtPower, fieldSize)
 }
 
 // YSquared returns x^3+7 mod P
 func YSquared(x *big.Int) *big.Int {
-	return mod(add(exp(x, three, P), seven), P)
+	return mod(add(exp(x, three, fieldSize), seven), fieldSize)
 }
 
 // IsCurveXOrdinate returns true iff there is y s.t. y^2=x^3+7
@@ -167,7 +167,7 @@ func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "while attempting initial hash")
 	}
-	x, err := ZqHash(P, iHash)
+	x, err := ZqHash(fieldSize, iHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "vrf.HashToCurve#ZqHash")
 	}
@@ -189,7 +189,7 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 		if err != nil {
 			return nil, errors.Wrap(err, "while attempting to rehash x")
 		}
-		nx, err := ZqHash(P, nHash)
+		nx, err := ZqHash(fieldSize, nHash)
 		if err != nil {
 			return nil, err
 		}

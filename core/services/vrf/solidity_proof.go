@@ -52,7 +52,7 @@ func (p *Proof) SolidityPrecalculations() (*SolidityProof, error) {
 	}
 	rv.SHashWitness = point().Mul(s, hash)
 	_, _, z := ProjectiveECAdd(rv.CGammaWitness, rv.SHashWitness)
-	rv.ZInv = z.ModInverse(z, P)
+	rv.ZInv = z.ModInverse(z, fieldSize)
 	return &rv, nil
 }
 
