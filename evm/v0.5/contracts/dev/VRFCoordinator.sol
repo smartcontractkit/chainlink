@@ -44,8 +44,12 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   // key as well prevents a malicious oracle from inducing VRF outputs from
   // another oracle by reusing the jobID. The sender will be useful later, for
   // whitelisting randomness requests.
-  event RandomnessRequest(bytes32 keyHash, uint256 seed, bytes32 jobID,
-    address sender, uint256 fee);
+  event RandomnessRequest(
+    bytes32 keyHash,
+    uint256 seed,
+    bytes32 indexed jobID,
+    address sender,
+    uint256 fee);
   event NewServiceAgreement(bytes32 keyHash, uint256 fee);
 
   /**
