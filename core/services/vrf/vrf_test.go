@@ -15,7 +15,7 @@ import (
 
 func TestVRF_IsSquare(t *testing.T) {
 	assert.True(t, IsSquare(four))
-	minusOneModP := new(big.Int).Sub(P, one)
+	minusOneModP := new(big.Int).Sub(fieldSize, one)
 	assert.False(t, IsSquare(minusOneModP))
 }
 
@@ -56,9 +56,9 @@ func TestVRF_ZqHash(t *testing.T) {
 	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 1, 24),
 		func() { ZqHash(one, []byte("foo")) })
 	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 257, 24),
-		func() { ZqHash(lsh(P, 1), []byte("foo")) })
+		func() { ZqHash(lsh(fieldSize, 1), []byte("foo")) })
 	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 256, 33*8),
-		func() { ZqHash(P, []byte("much, much longer than 32 bytes!!")) })
+		func() { ZqHash(fieldSize, []byte("much, much longer than 32 bytes!!")) })
 }
 
 func address(t *testing.T, p kyber.Point) [20]byte {

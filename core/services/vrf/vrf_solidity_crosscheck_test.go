@@ -94,9 +94,9 @@ func TestVRF_CompareBigModExpToVerifier(t *testing.T) {
 		exponent := randomUint256(t, r)
 		actual, err := verifier.BigModExp(nil, base, exponent)
 		require.NoError(t, err, "while computing bigmodexp")
-		expected := i().Exp(base, exponent, P)
+		expected := i().Exp(base, exponent, fieldSize)
 		require.Equal(t, expected, actual, "%d ** %d %% %d = %d ≠ %d",
-			base, exponent, P, expected, actual)
+			base, exponent, fieldSize, expected, actual)
 	}
 }
 
@@ -131,15 +131,15 @@ func TestVRF_CompareZqHash(t *testing.T) {
 		msgAsNum := i().SetBytes(msg)
 		actual, err := verifier.ZqHash(nil, msgAsNum)
 		require.NoError(t, err)
-		expected, err := ZqHash(P, msg)
+		expected, err := ZqHash(fieldSize, msg)
 		require.NoError(t, err)
 		require.Equal(t, expected, actual)
 	}
 }
 
 func randomKey(t *testing.T, r *mrand.Rand) *ecdsa.PrivateKey {
-	secretKey := P
-	for secretKey.Cmp(P) != -1 { // Keep picking until secretKey < P
+	secretKey := fieldSize
+	for secretKey.Cmp(fieldSize) != -1 { // Keep picking until secretKey < P
 		secretKey = randomUint256(t, r)
 	}
 	cKey := crypto.ToECDSAUnsafe(secretKey.Bytes())
@@ -197,8 +197,8 @@ func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 		p2x, p2y := secp256k1.Coordinates(p2)
 		_, _, psz, err := verifier.ProjectiveECAdd(nil, p1x, p1y, p2x, p2y)
 		require.NoError(t, err)
-		zInv := i().ModInverse(psz, P)
-		require.Equal(t, i().Mod(i().Mul(psz, zInv), P), one) // (sz * zInv) % P = 1
+		zInv := i().ModInverse(psz, fieldSize)
+		require.Equal(t, i().Mod(i().Mul(psz, zInv), fieldSize), one) // (sz * zInv) % fieldSize = 1
 		actualSum, err := verifier.AffineECAdd(
 			nil, pair(p1x, p1y), pair(p2x, p2y), zInv)
 		actual := secp256k1.SetCoordinates(actualSum[0], actualSum[1])
@@ -267,7 +267,7 @@ func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 		expected := point().Add(cp1, sp2)
 		_, _, z, err := verifier.ProjectiveECAdd(nil, cp1x, cp1y, sp2x, sp2y)
 		require.NoError(t, err)
-		zInv := i().ModInverse(z, P)
+		zInv := i().ModInverse(z, fieldSize)
 		actual, err := verifier.LinearCombination(nil, cNum, p1Pair, cp1Pair, sNum,
 			p2Pair, sp2Pair, zInv)
 		require.NoError(t, err)
