@@ -32,6 +32,7 @@ export function formatAnswer(value, multiply, decimalPlaces) {
 
 export async function getLogs(
   { provider, filter, eventInterface },
+  /* eslint-disable-next-line @typescript-eslint/no-empty-function */
   cb = () => {},
 ) {
   const logs = await provider.getLogs(filter)
@@ -43,6 +44,7 @@ export async function getLogs(
   return result
 }
 
+/* eslint-disable-next-line @typescript-eslint/no-empty-function */
 export function decodeLog({ log, eventInterface }, cb = () => {}) {
   const decodedLog = eventInterface.decode(log.data, log.topics)
   const meta = {

@@ -38,7 +38,7 @@ module.exports = {
   overrides: [
     // enable jest for tests
     {
-      files: ['**/*.test.ts', '**/*.test.js'],
+      files: ['**/*.test.ts', '**/*.test.js', '**/__mocks__/**/*.js'],
       env: {
         jest: true,
       },
@@ -58,6 +58,7 @@ module.exports = {
       files: [
         'explorer/client/**/*',
         'operator_ui/**/*',
+        'feeds_ui/**/*',
         'styleguide/**/*',
         'tools/json-api-client/**/*',
         'tools/local-storage/**/*',

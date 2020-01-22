@@ -28,7 +28,7 @@ const OracleTable = ({
       .map(oracle => {
         const state = _.find(networkGraphState, { sender: oracle.address })
         return {
-          oracle: oracle,
+          oracle,
           state,
           key: oracle.id,
         }
