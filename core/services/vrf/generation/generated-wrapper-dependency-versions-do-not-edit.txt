@@ -1,4 +1,4 @@
 
 GETH_VERSION: 1.9.10
 solidity_verifier_wrapper: ../../../evm/v0.5/dist/artifacts/VRFTestHelper.json ee62e93b5501e40c633e004fe921e9c7
-solidity_vrf_coordinator_interface: ../../../evm/v0.5/dist/artifacts/VRFCoordinator.json a04e2116fa1325810dd23caeca6db180
+solidity_vrf_coordinator_interface: ../../../evm/v0.5/dist/artifacts/VRFCoordinator.json 3524f6859c418e01e8e73958f83811f7
