@@ -17,6 +17,7 @@ export interface Roles {
   oracleNode1: ethers.Wallet
   oracleNode2: ethers.Wallet
   oracleNode3: ethers.Wallet
+  oracleNode4: ethers.Wallet
   stranger: ethers.Wallet
   consumer: ethers.Wallet
 }
@@ -142,7 +143,7 @@ export async function initializeRolesAndPersonas(
   provider: ethers.providers.JsonRpcProvider,
 ): Promise<RolesAndPersonas> {
   const accounts = await Promise.all(
-    Array(6)
+    Array(7)
       .fill(null)
       .map(async (_, i) => createFundedWallet(provider, i).then(w => w.wallet)),
   )
@@ -162,8 +163,9 @@ export async function initializeRolesAndPersonas(
     oracleNode1: accounts[1],
     oracleNode2: accounts[2],
     oracleNode3: accounts[3],
-    stranger: accounts[4],
-    consumer: accounts[5],
+    oracleNode4: accounts[4],
+    stranger: accounts[5],
+    consumer: accounts[6],
   }
 
   return { personas, roles }
