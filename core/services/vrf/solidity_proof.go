@@ -86,14 +86,14 @@ func (p *SolidityProof) MarshalForSolidityVerifier() (MarshaledProof, error) {
 	write := func(b []byte) { cursor = append(cursor, b...) }
 	write(secp256k1.LongMarshal(p.P.PublicKey))
 	write(secp256k1.LongMarshal(p.P.Gamma))
-	write(asUint256(p.P.C))
-	write(asUint256(p.P.S))
-	write(asUint256(p.P.Seed))
+	write(uint256ToBytes32(p.P.C))
+	write(uint256ToBytes32(p.P.S))
+	write(uint256ToBytes32(p.P.Seed))
 	write(make([]byte, 12)) // Left-pad address to 32 bytes, with zeros
 	write(p.UWitness[:])
 	write(secp256k1.LongMarshal(p.CGammaWitness))
 	write(secp256k1.LongMarshal(p.SHashWitness))
-	write(asUint256(p.ZInv))
+	write(uint256ToBytes32(p.ZInv))
 	if len(cursor) != ProofLength {
 		return MarshaledProof{}, fmt.Errorf("wrong proof length: %d", len(rv))
 	}

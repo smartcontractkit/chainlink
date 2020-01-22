@@ -128,9 +128,9 @@ func HashUint256s(xs ...*big.Int) (*big.Int, error) {
 	return i().SetBytes(hash), nil
 }
 
-func asUint256(x *big.Int) []byte {
+func uint256ToBytes32(x *big.Int) []byte {
 	if x.BitLen() > 256 {
-		panic("vrf.asUint256: too big to marshal to uint256")
+		panic("vrf.uint256ToBytes32: too big to marshal to uint256")
 	}
 	return common.LeftPadBytes(x.Bytes(), 32)
 }
@@ -148,7 +148,7 @@ func ZqHash(q *big.Int, msg []byte) (*big.Int, error) {
 	// Hash recursively until rv < q. P(success per iteration) >= 0.5, so
 	// number of extra hashes is geometrically distributed, with mean < 1.
 	for rv.Cmp(q) != -1 {
-		hash, err := utils.Keccak256(asUint256(rv))
+		hash, err := utils.Keccak256(uint256ToBytes32(rv))
 		if err != nil {
 			return nil, errors.Wrap(err, "vrf.ZqHash#Keccak256.loop")
 		}
@@ -162,7 +162,7 @@ func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
 		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
 	}
 	iHash, err := utils.Keccak256(
-		append(secp256k1.LongMarshal(p), asUint256(input)...))
+		append(secp256k1.LongMarshal(p), uint256ToBytes32(input)...))
 	if err != nil {
 		return nil, errors.Wrap(err, "while attempting initial hash")
 	}
@@ -184,7 +184,7 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 	}
 	ordinates(x)
 	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+7 is a square
-		nHash, err := utils.Keccak256(asUint256(x))
+		nHash, err := utils.Keccak256(uint256ToBytes32(x))
 		if err != nil {
 			return nil, errors.Wrap(err, "while attempting to rehash x")
 		}
