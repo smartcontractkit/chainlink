@@ -28,6 +28,7 @@
     "@chainlink/styleguide": "0.0.1",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
+    "babel-plugin-universal-import": "^3.0.0",
     "bignumber.js": "^9.0.0",
     "change-case": "^4.1.1",
     "classnames": "^2.2.6",
@@ -102,6 +103,7 @@
     "redux-mock-store": "^1.5.3",
     "serve": "^11.2.0",
     "ts-jest": "^24.1.0",
-    "typescript": "^3.7.4"
+    "typescript": "^3.7.4",
+    "webpack": "4.41.2"
   }
 }
