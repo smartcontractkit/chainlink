@@ -201,6 +201,17 @@ echo "ALLOW_ORIGINS=http://localhost:1337" > chainlink-variables.env
 ./compose acceptance
 ```
 
+# Following logs
+
+The `logs` command will allow you to follow the logs of any running service. For example:
+
+```bash
+./compose up node # starts the node service and all it's dependencies, including devnet, explorer, the DB...
+./compose logs devnet # shows the blockchain logs
+# ^C to exit
+./compose logs # shows the combined logs of all running services
+```
+
 # FAQs
 
 ## My storage space is full! How do I clean up docker's disk usage?
