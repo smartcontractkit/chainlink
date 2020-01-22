@@ -15,6 +15,9 @@ set -e
 # are checked in the golang test TestCheckContractHashesFromLastGoGenerate, to
 # ensure that the golang wrappers are current.
 CDIR=$(dirname "$0")
+# shellcheck source=common.sh
+source "$CDIR/common.sh"
+
 VERSION_DB_PATH="$CDIR/generated-wrapper-dependency-versions-do-not-edit.txt"
 touch "$VERSION_DB_PATH"
 
