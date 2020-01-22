@@ -198,6 +198,14 @@ func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) err
 	return fe.CoerceEmptyToNil()
 }
 
+func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	if len(j.Initiators) != 1 {
+		fe.Add("randomness log should have at most one initiator")
+	}
+	return fe.CoerceEmptyToNil()
+}
+
 func validateTask(task models.TaskSpec, store *store.Store) error {
 	adapter, err := adapters.For(task, store.Config, store.ORM)
 	if !store.Config.Dev() {
