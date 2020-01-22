@@ -1,6 +1,6 @@
-/* eslint-ignore-next-line @typescript-eslint/no-var-requires */
+/* eslint-disable-next-line @typescript-eslint/no-var-requires */
 const express = require('express')
-/* eslint-ignore-next-line @typescript-eslint/no-var-requires */
+/* eslint-disable-next-line @typescript-eslint/no-var-requires */
 const path = require('path')
 
 const port = process.env.PORT || 8080

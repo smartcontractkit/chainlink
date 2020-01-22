@@ -5,6 +5,7 @@
     "evm",
     "evm/box",
     "evm/v0.5",
+    "feeds_ui",
     "tools",
     "tools/local-storage",
     "tools/json-api-client",

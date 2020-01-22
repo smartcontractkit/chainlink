@@ -58,6 +58,7 @@ module.exports = {
       files: [
         'explorer/client/**/*',
         'operator_ui/**/*',
+        'feeds_ui/**/*',
         'styleguide/**/*',
         'tools/json-api-client/**/*',
         'tools/local-storage/**/*',

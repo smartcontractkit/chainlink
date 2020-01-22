@@ -15,6 +15,7 @@ COPY yarn.lock package.json ./
 COPY explorer/client/package.json ./explorer/client/
 COPY explorer/package.json ./explorer/
 COPY operator_ui/package.json ./operator_ui/
+COPY feeds_ui/package.json ./feeds_ui/
 COPY styleguide/package.json ./styleguide/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
