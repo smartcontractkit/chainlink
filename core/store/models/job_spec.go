@@ -183,8 +183,6 @@ const (
 	// InitiatorFluxMonitor for tasks in a job to be run on price deviation
 	// or request for a new round of prices.
 	InitiatorFluxMonitor = "fluxmonitor"
-	// InitiatorVRFLog for tasks from a VRF specific contract
-	InitiatorVRFLog = "vrflog"
 	// InitiatorRandomnessLog for tasks from a VRF specific contract
 	InitiatorRandomnessLog = "randomnesslog"
 )
