@@ -109,11 +109,10 @@ func packUint256s(xs ...*big.Int) ([]byte, error) {
 	return mem, nil
 }
 
-var curve = secp256k1.Secp256k1{}
-var rcurve = &curve
+var secp256k1Curve = &secp256k1.Secp256k1{}
 
 // Generator is the generator point of secp256k1
-var Generator = rcurve.Point().Base()
+var Generator = secp256k1Curve.Point().Base()
 
 // HashUint256s returns a uint256 representing the hash of the concatenated byte
 // representations of the inputs
@@ -232,9 +231,9 @@ func ScalarFromCurvePoints(
 // linearComination returns c*p1+s*p2
 func linearCombination(c *big.Int, p1 kyber.Point,
 	s *big.Int, p2 kyber.Point) kyber.Point {
-	return rcurve.Point().Add(
-		rcurve.Point().Mul(secp256k1.IntToScalar(c), p1),
-		rcurve.Point().Mul(secp256k1.IntToScalar(s), p2))
+	return secp256k1Curve.Point().Add(
+		secp256k1Curve.Point().Mul(secp256k1.IntToScalar(c), p1),
+		secp256k1Curve.Point().Mul(secp256k1.IntToScalar(s), p2))
 }
 
 // Proof represents a proof that Gamma was constructed from the Seed
@@ -267,8 +266,8 @@ func (p *Proof) WellFormed() bool {
 // verifier
 func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 	hash kyber.Point) error {
-	cGamma := rcurve.Point().Mul(secp256k1.IntToScalar(c), gamma)
-	sHash := rcurve.Point().Mul(secp256k1.IntToScalar(s), hash)
+	cGamma := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(c), gamma)
+	sHash := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(s), hash)
 	if cGamma.Equal(sHash) {
 		return fmt.Errorf(
 			"pick a different nonce; c*gamma = s*hash, with this one")
@@ -314,19 +313,19 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
 		return nil, fmt.Errorf("badly-formatted key or seed")
 	}
-	publicKey := rcurve.Point().Mul(secp256k1.IntToScalar(secretKey), nil)
+	publicKey := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(secretKey), nil)
 	h, err := HashToCurve(publicKey, seed, func(*big.Int) {})
 	if err != nil {
 		return &Proof{}, errors.Wrap(err, "vrf.makeProof#HashToCurve")
 	}
-	gamma := rcurve.Point().Mul(secp256k1.IntToScalar(secretKey), h)
+	gamma := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(secretKey), h)
 	sm := secp256k1.IntToScalar(nonce)
-	u := rcurve.Point().Mul(sm, Generator)
+	u := secp256k1Curve.Point().Mul(sm, Generator)
 	uWitness, err := secp256k1.EthereumAddress(u)
 	if err != nil {
 		panic(errors.Wrap(err, "while computing Ethereum Address for proof"))
 	}
-	v := rcurve.Point().Mul(sm, h)
+	v := secp256k1Curve.Point().Mul(sm, h)
 	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
 	s := mod(sub(nonce, mul(c, secretKey)), Order) // (m - c*secretKey) % Order
 	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
