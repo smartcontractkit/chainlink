@@ -39,7 +39,6 @@ func TestQuotient_Perform_Success(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Quotient{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
@@ -66,7 +65,6 @@ func TestQuotient_Perform_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Quotient{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
@@ -88,7 +86,6 @@ func TestQuotient_Perform_JSONParseError(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			adapter := adapters.Quotient{}
 			jsonErr := json.Unmarshal([]byte(test.params), &adapter)
 			assert.Error(t, jsonErr)
