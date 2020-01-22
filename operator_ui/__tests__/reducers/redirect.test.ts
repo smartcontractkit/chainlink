@@ -1,8 +1,8 @@
 import reducer, { INITIAL_STATE } from '../../src/reducers'
-import { RouterActionType } from '../../src/reducers/actions'
+import { RouterActionType, RedirectAction } from '../../src/reducers/actions'
 
 describe('reducers/redirect', () => {
-  const redirectAction = {
+  const redirectAction: RedirectAction = {
     type: RouterActionType.REDIRECT,
     to: '/foo',
   }

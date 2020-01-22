@@ -11,6 +11,7 @@ import {
   NotifyActionType,
   AuthActionType,
   ResourceActionType,
+  RedirectAction,
 } from './reducers/actions'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
@@ -30,7 +31,7 @@ const createErrorAction = (error: Error, type: string) => ({
   error: error.stack,
 })
 
-const REDIRECT_TO_SIGNOUT_ACTION = {
+const REDIRECT_TO_SIGNOUT_ACTION: RedirectAction = {
   type: RouterActionType.REDIRECT,
   to: '/signout',
 }
