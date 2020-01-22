@@ -43,9 +43,9 @@ ABIGEN_ARGS=(
 )
 
 # Geth version from which native abigen was built, or empty string.
-NATIVE_ABIGEN_VERSION=v"$((
+NATIVE_ABIGEN_VERSION=v"$( (
     abigen --version 2> /dev/null | \
-    egrep -o '([0-9]+\.[0-9]+\.[0-9]+)'
+    grep -E -o '([0-9]+\.[0-9]+\.[0-9]+)'
   ) || true
 )"
 
