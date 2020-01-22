@@ -131,7 +131,7 @@ func TestVRF_CompareZqHash(t *testing.T) {
 		msgAsNum := i().SetBytes(msg)
 		actual, err := verifier.ZqHash(nil, msgAsNum)
 		require.NoError(t, err)
-		expected, err := ZqHash(fieldSize, msg)
+		expected, err := ZqHash(msg)
 		require.NoError(t, err)
 		require.Equal(t, expected, actual)
 	}
@@ -182,8 +182,10 @@ func randomPoint(t *testing.T, r *mrand.Rand) kyber.Point {
 //
 // Never use this if cryptographic security is required
 func randomScalar(t *testing.T, r *mrand.Rand) kyber.Scalar {
-	s, err := ZqHash(Order, randomUint256(t, r).Bytes())
-	require.NoError(t, err)
+	s := randomUint256(t, r)
+	for s.Cmp(Order) >= 0 {
+		s = randomUint256(t, r)
+	}
 	return secp256k1.IntToScalar(s)
 }
 

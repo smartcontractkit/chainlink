@@ -393,12 +393,11 @@ contract VRF {
       return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
 
-  // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurve, and
-  // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 . The
-  // draft calls (in section 5.3 step 5 and section 5.4.2 steps 3-5) for
-  // taking the first hash without checking that it corresponds to a number
-  // less than the group order, which will lead to a slight bias in the
-  // sample.
+  // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurvePoints, and
+  // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 . The draft
+  // calls (in section 5.3 step 5 and section 5.4.2 steps 3-5) for taking the
+  // first hash without checking that it corresponds to a number less than the
+  // group order, which will lead to a slight bias in the sample.
   function scalarFromCurve(
     uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
     address uWitness, uint256[2] memory v)

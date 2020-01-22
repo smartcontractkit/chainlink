@@ -135,24 +135,20 @@ func uint256ToBytes32(x *big.Int) []byte {
 	return common.LeftPadBytes(x.Bytes(), 32)
 }
 
-var zqHashPanicTemplate = "will only work for moduli 256 bits long, and " +
-	"messages at most that long. Have %d-bit modulus, and %d-bit message"
+var zqHashPanicTemplate = "will only work for messages of at most that long, " +
+	"but message is %d bits"
 
 // ZqHash hashes xs uniformly into {0, ..., q-1}. q must be 256 bits long, and
 // msg is assumed to already be a 256-bit hash
-func ZqHash(q *big.Int, msg []byte) (*big.Int, error) {
-	if q.BitLen() != 256 || len(msg) > 32 {
-		panic(fmt.Errorf(zqHashPanicTemplate, q.BitLen(), len(msg)*8))
+func ZqHash(msg []byte) (*big.Int, error) {
+	if len(msg) > 32 {
+		panic(fmt.Errorf(zqHashPanicTemplate, len(msg)*8))
 	}
 	rv := i().SetBytes(msg)
 	// Hash recursively until rv < q. P(success per iteration) >= 0.5, so
 	// number of extra hashes is geometrically distributed, with mean < 1.
-	for rv.Cmp(q) != -1 {
-		hash, err := utils.Keccak256(uint256ToBytes32(rv))
-		if err != nil {
-			return nil, errors.Wrap(err, "vrf.ZqHash#Keccak256.loop")
-		}
-		rv.SetBytes(hash)
+	for rv.Cmp(fieldSize) >= 0 {
+		rv.SetBytes(utils.MustHash(string(uint256ToBytes32(rv))).Bytes())
 	}
 	return rv, nil
 }
@@ -166,7 +162,7 @@ func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "while attempting initial hash")
 	}
-	x, err := ZqHash(fieldSize, iHash)
+	x, err := ZqHash(iHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "vrf.HashToCurve#ZqHash")
 	}
@@ -188,7 +184,7 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 		if err != nil {
 			return nil, errors.Wrap(err, "while attempting to rehash x")
 		}
-		nx, err := ZqHash(fieldSize, nHash)
+		nx, err := ZqHash(nHash)
 		if err != nil {
 			return nil, err
 		}
@@ -204,7 +200,7 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 }
 
 // ScalarFromCurvePoints returns a hash for the curve points. Corresponds to the
-// hash computed in Curve.sol#scalarFromCurve
+// hash computed in VRF.sol#scalarFromCurve
 func ScalarFromCurvePoints(
 	hash, pk, gamma kyber.Point, uWitness [20]byte, v kyber.Point) *big.Int {
 	if !(secp256k1.ValidPublicKey(hash) && secp256k1.ValidPublicKey(pk) &&
@@ -217,15 +213,7 @@ func ScalarFromCurvePoints(
 	msg = append(msg, secp256k1.LongMarshal(gamma)...)
 	msg = append(msg, secp256k1.LongMarshal(v)...)
 	msg = append(msg, uWitness[:]...)
-	preHash, err := utils.Keccak256(msg)
-	if err != nil {
-		panic(err)
-	}
-	h, err := ZqHash(Order, preHash)
-	if err != nil {
-		panic(err)
-	}
-	return h
+	return i().SetBytes(utils.MustHash(string(msg)).Bytes())
 }
 
 // linearComination returns c*p1+s*p2
