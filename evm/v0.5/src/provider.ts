@@ -26,7 +26,7 @@ export function makeTestProvider(): ethers.providers.JsonRpcProvider {
   )
 
   const providerEngine = new Web3ProviderEngine()
-  providerEngine.addProvider(new FakeGasEstimateSubprovider(4 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
+  providerEngine.addProvider(new FakeGasEstimateSubprovider(5 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
   providerEngine.addProvider(revertTraceSubprovider)
   providerEngine.addProvider(new GanacheSubprovider({}))
   providerEngine.start()
