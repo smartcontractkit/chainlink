@@ -3,6 +3,7 @@
 if [ -z "$GCLOUD_SERVICE_KEY" ]
 then
   echo "Skipping report generation because no gcloud service key is set"
+  exit 0
 else
   mkdir -p coverage
   gsutil rsync gs://codeclimate-aggregation/${CIRCLE_WORKFLOW_ID} coverage
