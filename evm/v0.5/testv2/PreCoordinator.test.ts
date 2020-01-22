@@ -1,87 +1,116 @@
 import cbor from 'cbor'
-import * as h from './support/helpers'
-import { BN, expectEvent, expectRevert, time } from 'openzeppelin-test-helpers'
+import * as h from '../src/helpers'
+import {
+  OracleFactory,
+  PreCoordinatorFactory,
+  BasicConsumerFactory,
+  LinkTokenFactory,
+} from '../src/generated'
+import { makeTestProvider } from '../src/provider'
+import { Instance } from '../src/contract'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
 
-contract('PreCoordinator', accounts => {
-  const Oracle = artifacts.require('Oracle.sol')
-  const PreCoordinator = artifacts.require('PreCoordinator.sol')
-  const RequesterConsumer = artifacts.require('BasicConsumer.sol')
+const provider = makeTestProvider()
+const oracleFactory = new OracleFactory()
+const preCoordinatorFactory = new PreCoordinatorFactory()
+const requesterConsumerFactory = new BasicConsumerFactory()
+const linkTokenFactory = new LinkTokenFactory()
 
-  const defaultAccount = accounts[0]
-  const oracleNode1 = accounts[1]
-  const oracleNode2 = accounts[2]
-  const oracleNode3 = accounts[3]
-  const oracleNode4 = accounts[4]
-  const stranger = accounts[5]
-  const consumer = accounts[6]
+let roles: h.Roles
+beforeAll(async () => {
+  roles = await h.initializeRolesAndPersonas(provider).then(x => x.roles)
+})
 
+describe('PreCoordinator', () => {
   // These parameters are used to validate the data was received
   // on the deployed oracle contract. The Job ID only represents
   // the type of data, but will not work on a public testnet.
   // For the latest JobIDs, visit our docs here:
   // https://docs.chain.link/docs/testnet-oracles
-  const job1 = web3.utils.toHex('4c7b7ffb66b344fbaa64995af81e355a')
-  const job2 = web3.utils.toHex('4c7b7ffb66b344fbaa64995af81e355b')
-  const job3 = web3.utils.toHex('4c7b7ffb66b344fbaa64995af81e355c')
-  const job4 = web3.utils.toHex('4c7b7ffb66b344fbaa64995af81e355d')
+  const job1 =
+    '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
+  const job2 =
+    '0x4c7b7ffb66b344fbaa64995af81e355b00000000000000000000000000000000'
+  const job3 =
+    '0x4c7b7ffb66b344fbaa64995af81e355c00000000000000000000000000000000'
+  const job4 =
+    '0x4c7b7ffb66b344fbaa64995af81e355d00000000000000000000000000000000'
   const currency = 'USD'
 
   // Represents 1 LINK for testnet requests
-  const payment = web3.utils.toWei('1')
-  const totalPayment = web3.utils.toWei('4')
+  const payment = h.toWei('1')
+  const totalPayment = h.toWei('4')
 
-  const fulfilledEventSig = web3.utils.soliditySha3(
-    'ChainlinkFulfilled(bytes32)',
-  )
+  let link: Instance<LinkTokenFactory>
+  let oc1: Instance<OracleFactory>
+  let oc2: Instance<OracleFactory>
+  let oc3: Instance<OracleFactory>
+  let oc4: Instance<OracleFactory>
+  let rc: Instance<BasicConsumerFactory>
+  let pc: Instance<PreCoordinatorFactory>
 
-  let link, oc1, oc2, oc3, oc4, rc, pc
+  const deployment = h.useSnapshot(provider, async () => {
+    link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
+    oc1 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
+    oc2 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
+    oc3 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
+    oc4 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
+    pc = await preCoordinatorFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address)
 
-  beforeEach(async () => {
-    link = await h.linkContract(defaultAccount)
-    oc1 = await Oracle.new(link.address, { from: defaultAccount })
-    oc2 = await Oracle.new(link.address, { from: defaultAccount })
-    oc3 = await Oracle.new(link.address, { from: defaultAccount })
-    oc4 = await Oracle.new(link.address, { from: defaultAccount })
-    pc = await PreCoordinator.new(link.address, { from: defaultAccount })
-    await oc1.setFulfillmentPermission(oracleNode1, true, {
-      from: defaultAccount,
-    })
-    await oc2.setFulfillmentPermission(oracleNode2, true, {
-      from: defaultAccount,
-    })
-    await oc3.setFulfillmentPermission(oracleNode3, true, {
-      from: defaultAccount,
-    })
-    await oc4.setFulfillmentPermission(oracleNode4, true, {
-      from: defaultAccount,
-    })
+    await oc1
+      .connect(roles.defaultAccount)
+      .setFulfillmentPermission(roles.oracleNode1.address, true)
+    await oc2
+      .connect(roles.defaultAccount)
+      .setFulfillmentPermission(roles.oracleNode2.address, true)
+    await oc3
+      .connect(roles.defaultAccount)
+      .setFulfillmentPermission(roles.oracleNode3.address, true)
+    await oc4
+      .connect(roles.defaultAccount)
+      .setFulfillmentPermission(roles.oracleNode4.address, true)
   })
 
+  beforeEach(deployment)
+
   describe('#createServiceAgreement', () => {
-    context('when called by the owner', () => {
+    describe('when called by the owner', () => {
       it('emits the NewServiceAgreement log', async () => {
-        const { logs } = await pc.createServiceAgreement(
-          3,
-          [oc1.address, oc2.address, oc3.address, oc4.address],
-          [job1, job2, job3, job4],
-          [payment, payment, payment, payment],
-          { from: defaultAccount },
-        )
-        expectEvent.inLogs(logs, 'NewServiceAgreement')
+        const tx = await pc
+          .connect(roles.defaultAccount)
+          .createServiceAgreement(
+            3,
+            [oc1.address, oc2.address, oc3.address, oc4.address],
+            [job1, job2, job3, job4],
+            [payment, payment, payment, payment],
+          )
+        const receipt = await tx.wait()
+
+        expect(
+          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+        ).toBeDefined()
       })
 
       it('creates a service agreement', async () => {
-        const tx = await pc.createServiceAgreement(
-          3,
-          [oc1.address, oc2.address, oc3.address, oc4.address],
-          [job1, job2, job3, job4],
-          [payment, payment, payment, payment],
-          { from: defaultAccount },
+        const tx = await pc
+          .connect(roles.defaultAccount)
+          .createServiceAgreement(
+            3,
+            [oc1.address, oc2.address, oc3.address, oc4.address],
+            [job1, job2, job3, job4],
+            [payment, payment, payment, payment],
+          )
+        const receipt = await tx.wait()
+        const { saId } = h.eventArgs(
+          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
         )
-        const saId = tx.receipt.rawLogs[0].topics[1]
-        const sa = await pc.getServiceAgreement.call(saId)
-        assert.equal(sa.totalPayment.toString(), totalPayment)
-        assert.equal(sa.minResponses.toString(), 3)
+
+        const sa = await pc.getServiceAgreement(saId)
+        assert.isTrue(sa.totalPayment.eq(totalPayment))
+        assert.equal(sa.minResponses.toNumber(), 3)
         assert.deepEqual(sa.oracles, [
           oc1.address,
           oc2.address,
@@ -89,192 +118,208 @@ contract('PreCoordinator', accounts => {
           oc4.address,
         ])
         assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
-        assert.equal(sa.payments.toString(), [
-          payment,
-          payment,
-          payment,
-          payment,
-        ])
+        assert.deepEqual(sa.payments, [payment, payment, payment, payment])
       })
 
-      it('does not allow service agreements with 0 minResponses', async () => {
-        await expectRevert(
-          pc.createServiceAgreement(
-            0,
-            [oc1.address, oc2.address, oc3.address, oc4.address],
-            [job1, job2, job3, job4],
-            [payment, payment, payment, payment],
-            { from: defaultAccount },
-          ),
-          'Min responses must be > 0',
-        )
-      })
-    })
+      it('does not allow service agreements with 0 minResponses', async () =>
+        await h.assertActionThrows(async () => {
+          await pc
+            .connect(roles.defaultAccount)
+            .createServiceAgreement(
+              0,
+              [oc1.address, oc2.address, oc3.address, oc4.address],
+              [job1, job2, job3, job4],
+              [payment, payment, payment, payment],
+            )
+          // 'Min responses must be > 0',
+        }))
 
-    context('when called by a stranger', () => {
-      it('reverts', async () => {
-        await expectRevert.unspecified(
-          pc.createServiceAgreement(
-            3,
-            [oc1.address, oc2.address, oc3.address, oc4.address],
-            [job1, job2, job3, job4],
-            [payment, payment, payment, payment],
-            { from: stranger },
-          ),
-        )
+      describe('when called by a stranger', () => {
+        it('reverts', async () =>
+          h.assertActionThrows(async () => {
+            await pc
+              .connect(roles.stranger)
+              .createServiceAgreement(
+                3,
+                [oc1.address, oc2.address, oc3.address, oc4.address],
+                [job1, job2, job3, job4],
+                [payment, payment, payment, payment],
+              )
+          }))
       })
-    })
 
-    context('when the array lengths are not equal', () => {
-      it('reverts', async () => {
-        await expectRevert(
-          pc.createServiceAgreement(
-            3,
-            [oc1.address, oc2.address, oc3.address, oc4.address],
-            [job1, job2, job3],
-            [payment, payment, payment, payment],
-            { from: defaultAccount },
-          ),
-          'Unmet length',
-        )
+      describe('when the array lengths are not equal', () => {
+        it('reverts', async () =>
+          h.assertActionThrows(async () => {
+            await pc
+              .connect(roles.defaultAccount)
+              .createServiceAgreement(
+                3,
+                [oc1.address, oc2.address, oc3.address, oc4.address],
+                [job1, job2, job3],
+                [payment, payment, payment, payment],
+              )
+            // 'Unmet length',
+          }))
       })
-    })
 
-    context('when the min responses is greater than the oracles', () => {
-      it('reverts', async () => {
-        await expectRevert(
-          pc.createServiceAgreement(
-            5,
-            [oc1.address, oc2.address, oc3.address, oc4.address],
-            [job1, job2, job3, job4],
-            [payment, payment, payment, payment],
-            { from: defaultAccount },
-          ),
-          'Invalid min responses',
-        )
+      describe('when the min responses is greater than the oracles', () => {
+        it('reverts', async () =>
+          h.assertActionThrows(async () => {
+            await pc
+              .connect(roles.defaultAccount)
+              .createServiceAgreement(
+                5,
+                [oc1.address, oc2.address, oc3.address, oc4.address],
+                [job1, job2, job3, job4],
+                [payment, payment, payment, payment],
+              )
+            // 'Invalid min responses',
+          }))
       })
     })
   })
 
   describe('#deleteServiceAgreement', () => {
-    let saId
+    let saId: string
 
     beforeEach(async () => {
-      const tx = await pc.createServiceAgreement(
-        3,
-        [oc1.address, oc2.address, oc3.address, oc4.address],
-        [job1, job2, job3, job4],
-        [payment, payment, payment, payment],
-        { from: defaultAccount },
-      )
-      saId = tx.receipt.rawLogs[0].topics[1]
+      const tx = await pc
+        .connect(roles.defaultAccount)
+        .createServiceAgreement(
+          3,
+          [oc1.address, oc2.address, oc3.address, oc4.address],
+          [job1, job2, job3, job4],
+          [payment, payment, payment, payment],
+        )
+      const receipt = await tx.wait()
+
+      saId = h.eventArgs(
+        h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+      ).saId
     })
 
-    context('when called by a stranger', () => {
+    describe('when called by a stranger', () => {
       it('reverts', async () => {
-        await expectRevert.unspecified(
-          pc.deleteServiceAgreement(saId, { from: stranger }),
-        )
+        await h.assertActionThrows(async () => {
+          await pc.connect(roles.stranger).deleteServiceAgreement(saId)
+        })
       })
     })
 
-    context('when called by the owner', () => {
+    describe('when called by the owner', () => {
       it('deletes the service agreement', async () => {
-        await pc.deleteServiceAgreement(saId, { from: defaultAccount })
+        await pc.connect(roles.defaultAccount).deleteServiceAgreement(saId)
         const sa = await pc.getServiceAgreement(saId)
-        assert.equal(sa.totalPayment, 0)
-        assert.equal(sa.minResponses, 0)
+        assert.equal(sa.totalPayment.toNumber(), 0)
+        assert.equal(sa.minResponses.toNumber(), 0)
         assert.deepEqual(sa.oracles, [])
         assert.deepEqual(sa.jobIds, [])
         assert.deepEqual(sa.payments, [])
       })
     })
 
-    context('when the service agreement is still active', () => {
+    describe('when the service agreement is still active', () => {
       beforeEach(async () => {
-        rc = await RequesterConsumer.new(link.address, pc.address, saId, {
-          from: consumer,
-        })
+        rc = await requesterConsumerFactory
+          .connect(roles.consumer)
+          .deploy(link.address, pc.address, saId)
         await link.transfer(rc.address, totalPayment)
-        await rc.requestEthereumPrice(currency, totalPayment, {
-          from: consumer,
-        })
+        await rc
+          .connect(roles.consumer)
+          .requestEthereumPrice(currency, totalPayment)
       })
 
-      it('reverts', async () => {
-        await expectRevert(
-          pc.deleteServiceAgreement(saId, { from: defaultAccount }),
-          'Cannot delete while active',
-        )
-      })
+      it('reverts', async () =>
+        await h.assertActionThrows(
+          async () => {
+            await pc.connect(roles.defaultAccount).deleteServiceAgreement(saId)
+          },
+          // 'Cannot delete while active',
+        ))
     })
   })
 
   describe('#onTokenTransfer', () => {
-    context('when called by an address other than the LINK token', () => {
+    describe('when called by an address other than the LINK token', () => {
       it('reverts', async () => {
-        const notLink = await h.linkContract(defaultAccount)
-        const saId = await pc.createServiceAgreement.call(
-          3,
-          [oc1.address, oc2.address, oc3.address, oc4.address],
-          [job1, job2, job3, job4],
-          [payment, payment, payment, payment],
-          { from: defaultAccount },
-        )
-        const badRc = await RequesterConsumer.new(
-          notLink.address,
-          pc.address,
-          saId,
-          { from: consumer },
-        )
-        await notLink.transfer(badRc.address, totalPayment, {
-          from: defaultAccount,
+        const notLink = await linkTokenFactory
+          .connect(roles.defaultAccount)
+          .deploy()
+
+        const tx = await pc
+          .connect(roles.defaultAccount)
+          .createServiceAgreement(
+            3,
+            [oc1.address, oc2.address, oc3.address, oc4.address],
+            [job1, job2, job3, job4],
+            [payment, payment, payment, payment],
+          )
+        const receipt = await tx.wait()
+        const saId = h.eventArgs(
+          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+        ).saId
+
+        const badRc = await requesterConsumerFactory
+          .connect(roles.consumer)
+          .deploy(notLink.address, pc.address, saId)
+
+        await notLink
+          .connect(roles.defaultAccount)
+          .transfer(badRc.address, totalPayment)
+
+        await h.assertActionThrows(async () => {
+          await badRc
+            .connect(roles.consumer)
+            .requestEthereumPrice(currency, totalPayment, {})
         })
-        await expectRevert.unspecified(
-          badRc.requestEthereumPrice(currency, totalPayment, {
-            from: consumer,
-          }),
-        )
       })
     })
 
-    context('when called by the LINK token', () => {
-      let saId
+    describe('when called by the LINK token', () => {
+      let saId: string
       beforeEach(async () => {
-        const tx = await pc.createServiceAgreement(
-          3,
-          [oc1.address, oc2.address, oc3.address, oc4.address],
-          [job1, job2, job3, job4],
-          [payment, payment, payment, payment],
-          { from: defaultAccount },
-        )
-        saId = tx.receipt.rawLogs[0].topics[1]
-        rc = await RequesterConsumer.new(link.address, pc.address, saId, {
-          from: consumer,
-        })
+        const tx = await pc
+          .connect(roles.defaultAccount)
+          .createServiceAgreement(
+            3,
+            [oc1.address, oc2.address, oc3.address, oc4.address],
+            [job1, job2, job3, job4],
+            [payment, payment, payment, payment],
+          )
+        const receipt = await tx.wait()
+        saId = h.eventArgs(
+          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+        ).saId
+
+        rc = await requesterConsumerFactory
+          .connect(roles.consumer)
+          .deploy(link.address, pc.address, saId)
         await link.transfer(rc.address, totalPayment)
       })
 
       it('creates Chainlink requests', async () => {
-        const tx = await rc.requestEthereumPrice(currency, totalPayment, {
-          from: consumer,
-        })
-        const log1 = tx.receipt.rawLogs[7]
-        assert.equal(oc1.address, log1.address)
+        const tx = await rc
+          .connect(roles.consumer)
+          .requestEthereumPrice(currency, totalPayment)
+        const receipt = await tx.wait()
+
+        const log1 = receipt.logs?.[7]
+        assert.equal(oc1.address, log1?.address)
         const request1 = h.decodeRunRequest(log1)
-        assert.equal(request1.requester, pc.address.toLowerCase())
-        const log2 = tx.receipt.rawLogs[11]
-        assert.equal(oc2.address, log2.address)
+        assert.equal(request1.requester, pc.address)
+        const log2 = receipt.logs?.[11]
+        assert.equal(oc2.address, log2?.address)
         const request2 = h.decodeRunRequest(log2)
-        assert.equal(request2.requester, pc.address.toLowerCase())
-        const log3 = tx.receipt.rawLogs[15]
-        assert.equal(oc3.address, log3.address)
+        assert.equal(request2.requester, pc.address)
+        const log3 = receipt.logs?.[15]
+        assert.equal(oc3.address, log3?.address)
         const request3 = h.decodeRunRequest(log3)
-        assert.equal(request3.requester, pc.address.toLowerCase())
-        const log4 = tx.receipt.rawLogs[19]
-        assert.equal(oc4.address, log4.address)
+        assert.equal(request3.requester, pc.address)
+        const log4 = receipt.logs?.[19]
+        assert.equal(oc4.address, log4?.address)
         const request4 = h.decodeRunRequest(log4)
-        assert.equal(request4.requester, pc.address.toLowerCase())
+        assert.equal(request4.requester, pc.address)
         const expected = {
           path: ['USD'],
           get:
@@ -285,238 +330,268 @@ contract('PreCoordinator', accounts => {
         assert.deepEqual(expected, await cbor.decodeFirst(request3.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request4.data))
         const serviceAgreement = await pc.getServiceAgreement(saId)
-        assert.isTrue(new BN(1).eq(serviceAgreement.activeRequests))
+        assert.isTrue(ethers.constants.One.eq(serviceAgreement.activeRequests))
       })
 
-      context('when insufficient payment is supplied', () => {
+      describe('when insufficient payment is supplied', () => {
         it('reverts', async () => {
-          await expectRevert.unspecified(
-            rc.requestEthereumPrice(currency, payment, { from: consumer }),
-          )
+          await h.assertActionThrows(async () => {
+            await rc
+              .connect(roles.consumer)
+              .requestEthereumPrice(currency, payment)
+          })
         })
       })
 
-      context('when the same nonce is used twice', () => {
+      describe('when the same nonce is used twice', () => {
         const nonce = 1
         const fHash = '0xabcd1234'
-        let args
+        let args: string
         beforeEach(async () => {
-          args = h.requestDataBytes(saId, rc.address, fHash, nonce, '')
+          args = h.requestDataBytes(saId, rc.address, fHash, nonce, '0x0')
           await h.requestDataFrom(pc, link, totalPayment, args)
         })
 
-        it('reverts', async () => {
-          await expectRevert.unspecified(
-            h.requestDataFrom(pc, link, totalPayment, args),
-          )
-        })
+        it('reverts', async () =>
+          h.assertActionThrows(async () => {
+            await h.requestDataFrom(pc, link, totalPayment, args)
+          }))
       })
 
-      context('when too much payment is supplied', () => {
+      describe('when too much payment is supplied', () => {
         it('sends the extra back to the requester', async () => {
           await link.transfer(rc.address, payment)
-          const extraPayment = web3.utils.toWei('5')
+          const extraPayment = h.toWei('5')
           const beforeBalance = await link.balanceOf(rc.address)
-          assert.equal(beforeBalance, extraPayment)
-          await rc.requestEthereumPrice(currency, extraPayment, {
-            from: consumer,
-          })
+          expect(beforeBalance.eq(extraPayment)).toBeTruthy()
+
+          await rc
+            .connect(roles.consumer)
+            .requestEthereumPrice(currency, extraPayment)
           const afterBalance = await link.balanceOf(rc.address)
-          assert.equal(afterBalance, payment)
+          expect(afterBalance.eq(payment)).toBeTruthy()
         })
       })
     })
   })
 
   describe('#chainlinkCallback', () => {
-    let saId, request1, request2, request3, request4
-    const expected1 = 100
-    const expected2 = 101
-    const expected3 = 102
-    const expected4 = 103
-    const response1 = h.Ox(h.encodeInt256(expected1))
-    const response2 = h.Ox(h.encodeInt256(expected2))
-    const response3 = h.Ox(h.encodeInt256(expected3))
-    const response4 = h.Ox(h.encodeInt256(expected4))
+    let saId: string
+    let request1: h.RunRequest
+    let request2: h.RunRequest
+    let request3: h.RunRequest
+    let request4: h.RunRequest
+    const response1 = h.numToBytes32(100)
+    const response2 = h.numToBytes32(101)
+    const response3 = h.numToBytes32(102)
+    const response4 = h.numToBytes32(103)
 
     beforeEach(async () => {
-      const tx = await pc.createServiceAgreement(
-        3,
-        [oc1.address, oc2.address, oc3.address, oc4.address],
-        [job1, job2, job3, job4],
-        [payment, payment, payment, payment],
-        { from: defaultAccount },
-      )
-      saId = tx.receipt.rawLogs[0].topics[1]
-      rc = await RequesterConsumer.new(link.address, pc.address, saId, {
-        from: consumer,
-      })
+      const tx = await pc
+        .connect(roles.defaultAccount)
+        .createServiceAgreement(
+          3,
+          [oc1.address, oc2.address, oc3.address, oc4.address],
+          [job1, job2, job3, job4],
+          [payment, payment, payment, payment],
+        )
+      const receipt = await tx.wait()
+
+      saId = h.eventArgs(
+        h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+      ).saId
+      rc = await requesterConsumerFactory
+        .connect(roles.consumer)
+        .deploy(link.address, pc.address, saId)
       await link.transfer(rc.address, totalPayment)
     })
 
-    context('when the requester and consumer are the same', () => {
+    describe('when the requester and consumer are the same', () => {
       beforeEach(async () => {
-        const reqTx = await rc.requestEthereumPrice(currency, totalPayment, {
-          from: consumer,
-        })
-        const log1 = reqTx.receipt.rawLogs[7]
+        const reqTx = await rc
+          .connect(roles.consumer)
+          .requestEthereumPrice(currency, totalPayment)
+        const receipt = await reqTx.wait()
+
+        const log1 = receipt.logs?.[7]
         request1 = h.decodeRunRequest(log1)
-        const log2 = reqTx.receipt.rawLogs[11]
+        const log2 = receipt.logs?.[11]
         request2 = h.decodeRunRequest(log2)
-        const log3 = reqTx.receipt.rawLogs[15]
+        const log3 = receipt.logs?.[15]
         request3 = h.decodeRunRequest(log3)
-        const log4 = reqTx.receipt.rawLogs[19]
+        const log4 = receipt.logs?.[19]
         request4 = h.decodeRunRequest(log4)
       })
 
-      context('when called by a stranger', () => {
-        it('reverts', async () => {
-          await expectRevert(
-            pc.chainlinkCallback(saId, response1),
-            'Source must be the oracle of the request',
-          )
-        })
+      describe('when called by a stranger', () => {
+        it('reverts', async () =>
+          h.assertActionThrows(
+            async () => {
+              await pc.chainlinkCallback(saId, response1)
+            },
+            // 'Source must be the oracle of the request',
+          ))
       })
 
-      context('when called by the oracle contract', () => {
+      describe('when called by the oracle contract', () => {
         it('records the answer', async () => {
-          const tx = await oc1.fulfillOracleRequest(
-            request1.id,
-            request1.payment,
-            request1.callbackAddr,
-            request1.callbackFunc,
-            request1.expiration,
-            response1,
-            { from: oracleNode1 },
-          )
-          assert.equal(tx.receipt.rawLogs[0].topics[0], fulfilledEventSig)
+          const tx = await oc1
+            .connect(roles.oracleNode1)
+            .fulfillOracleRequest(
+              request1.id,
+              request1.payment,
+              request1.callbackAddr,
+              request1.callbackFunc,
+              request1.expiration,
+              response1,
+            )
+          const receipt = await tx.wait()
+
+          expect(
+            receipt.events?.[0].topics.find(
+              t => t === pc.interface.events.ChainlinkFulfilled.topic,
+            ),
+          ).toBeDefined()
         })
       })
 
-      context('when the minimum number of responses have returned', () => {
+      describe('when the minimum number of responses have returned', () => {
         beforeEach(async () => {
-          await oc1.fulfillOracleRequest(
-            request1.id,
-            request1.payment,
-            request1.callbackAddr,
-            request1.callbackFunc,
-            request1.expiration,
-            response1,
-            { from: oracleNode1 },
-          )
-          await oc2.fulfillOracleRequest(
-            request2.id,
-            request2.payment,
-            request2.callbackAddr,
-            request2.callbackFunc,
-            request2.expiration,
-            response2,
-            { from: oracleNode2 },
-          )
-          await oc3.fulfillOracleRequest(
-            request3.id,
-            request3.payment,
-            request3.callbackAddr,
-            request3.callbackFunc,
-            request3.expiration,
-            response3,
-            { from: oracleNode3 },
-          )
+          await oc1
+            .connect(roles.oracleNode1)
+            .fulfillOracleRequest(
+              request1.id,
+              request1.payment,
+              request1.callbackAddr,
+              request1.callbackFunc,
+              request1.expiration,
+              response1,
+            )
+          await oc2
+            .connect(roles.oracleNode2)
+            .fulfillOracleRequest(
+              request2.id,
+              request2.payment,
+              request2.callbackAddr,
+              request2.callbackFunc,
+              request2.expiration,
+              response2,
+            )
+          await oc3
+            .connect(roles.oracleNode3)
+            .fulfillOracleRequest(
+              request3.id,
+              request3.payment,
+              request3.callbackAddr,
+              request3.callbackFunc,
+              request3.expiration,
+              response3,
+            )
         })
 
         it('returns the median to the requesting contract', async () => {
-          const currentPrice = await rc.currentPrice.call()
-          assert.equal(currentPrice.toString(), expected2)
+          const currentPrice = await rc.currentPrice()
+          assert.equal(currentPrice, response2)
         })
 
-        context('when an oracle responds after aggregation', () => {
+        describe('when an oracle responds after aggregation', () => {
           it('does not update the requesting contract', async () => {
-            await oc4.fulfillOracleRequest(
+            await oc4
+              .connect(roles.oracleNode4)
+              .fulfillOracleRequest(
+                request4.id,
+                request4.payment,
+                request4.callbackAddr,
+                request4.callbackFunc,
+                request4.expiration,
+                response4,
+              )
+            const currentPrice = await rc.currentPrice()
+            assert.equal(currentPrice, response2)
+          })
+        })
+      })
+    })
+
+    describe('when consumer is different than requester', () => {
+      let cc: Instance<BasicConsumerFactory>
+      let request1: h.RunRequest
+      let request2: h.RunRequest
+      let request3: h.RunRequest
+      let request4: h.RunRequest
+      let localRequestId: string
+
+      beforeEach(async () => {
+        cc = await requesterConsumerFactory
+          .connect(roles.consumer)
+          .deploy(link.address, pc.address, saId)
+        const reqTx = await rc
+          .connect(roles.consumer)
+          .requestEthereumPriceByCallback(currency, totalPayment, cc.address)
+        const receipt = await reqTx.wait()
+
+        localRequestId = h.eventArgs(receipt.events?.[0]).id
+        const log1 = receipt.logs?.[7]
+        request1 = h.decodeRunRequest(log1)
+        const log2 = receipt.logs?.[11]
+        request2 = h.decodeRunRequest(log2)
+        const log3 = receipt.logs?.[15]
+        request3 = h.decodeRunRequest(log3)
+        const log4 = receipt.logs?.[19]
+        request4 = h.decodeRunRequest(log4)
+
+        await cc
+          .connect(roles.consumer)
+          .addExternalRequest(pc.address, localRequestId)
+      })
+
+      describe('and the number of responses have been met', () => {
+        beforeEach(async () => {
+          await oc1
+            .connect(roles.oracleNode1)
+            .fulfillOracleRequest(
+              request1.id,
+              request1.payment,
+              request1.callbackAddr,
+              request1.callbackFunc,
+              request1.expiration,
+              response1,
+            )
+          await oc2
+            .connect(roles.oracleNode2)
+            .fulfillOracleRequest(
+              request2.id,
+              request2.payment,
+              request2.callbackAddr,
+              request2.callbackFunc,
+              request2.expiration,
+              response2,
+            )
+          await oc3
+            .connect(roles.oracleNode3)
+            .fulfillOracleRequest(
+              request3.id,
+              request3.payment,
+              request3.callbackAddr,
+              request3.callbackFunc,
+              request3.expiration,
+              response3,
+            )
+          await oc4
+            .connect(roles.oracleNode4)
+            .fulfillOracleRequest(
               request4.id,
               request4.payment,
               request4.callbackAddr,
               request4.callbackFunc,
               request4.expiration,
               response4,
-              { from: oracleNode4 },
             )
-            const currentPrice = await rc.currentPrice.call()
-            assert.equal(currentPrice.toString(), expected2)
-          })
-        })
-      })
-    })
-
-    context('when consumer is different than requester', () => {
-      let cc, request1, request2, request3, request4, localRequestId
-      beforeEach(async () => {
-        cc = await RequesterConsumer.new(link.address, pc.address, saId, {
-          from: consumer,
-        })
-        const reqTx = await rc.requestEthereumPriceByCallback(
-          currency,
-          totalPayment,
-          cc.address,
-          { from: consumer },
-        )
-        localRequestId = reqTx.logs[0].args.id
-        const log1 = reqTx.receipt.rawLogs[7]
-        request1 = h.decodeRunRequest(log1)
-        const log2 = reqTx.receipt.rawLogs[11]
-        request2 = h.decodeRunRequest(log2)
-        const log3 = reqTx.receipt.rawLogs[15]
-        request3 = h.decodeRunRequest(log3)
-        const log4 = reqTx.receipt.rawLogs[19]
-        request4 = h.decodeRunRequest(log4)
-
-        await cc.addExternalRequest(pc.address, localRequestId, {
-          from: consumer,
-        })
-      })
-
-      context('and the number of responses have been met', () => {
-        beforeEach(async () => {
-          await oc1.fulfillOracleRequest(
-            request1.id,
-            request1.payment,
-            request1.callbackAddr,
-            request1.callbackFunc,
-            request1.expiration,
-            response1,
-            { from: oracleNode1 },
-          )
-          await oc2.fulfillOracleRequest(
-            request2.id,
-            request2.payment,
-            request2.callbackAddr,
-            request2.callbackFunc,
-            request2.expiration,
-            response2,
-            { from: oracleNode2 },
-          )
-          await oc3.fulfillOracleRequest(
-            request3.id,
-            request3.payment,
-            request3.callbackAddr,
-            request3.callbackFunc,
-            request3.expiration,
-            response3,
-            { from: oracleNode3 },
-          )
-          await oc4.fulfillOracleRequest(
-            request4.id,
-            request4.payment,
-            request4.callbackAddr,
-            request4.callbackFunc,
-            request4.expiration,
-            response4,
-            { from: oracleNode4 },
-          )
         })
 
         it('sends the answer to the consumer', async () => {
-          const currentPrice = await cc.currentPrice.call()
-          assert.equal(currentPrice.toString(), expected2)
+          const currentPrice = await cc.currentPrice()
+          assert.equal(currentPrice, response2)
         })
       })
     })
@@ -525,94 +600,112 @@ contract('PreCoordinator', accounts => {
   describe('#withdrawLink', () => {
     beforeEach(async () => {
       await link.transfer(pc.address, payment)
-      assert.equal(await link.balanceOf(pc.address), payment)
+
+      const actual = await link.balanceOf(pc.address)
+      const expected = payment
+      expect(actual.eq(expected)).toBeTruthy()
     })
 
-    context('when called by a stranger', () => {
-      it('reverts', async () => {
-        await expectRevert.unspecified(pc.withdrawLink({ from: stranger }))
-      })
+    describe('when called by a stranger', () => {
+      it('reverts', () =>
+        h.assertActionThrows(async () => {
+          await pc.connect(roles.stranger).withdrawLink()
+        }))
     })
 
-    context('when called by the owner', () => {
+    describe('when called by the owner', () => {
       it('allows the owner to withdraw LINK', async () => {
-        await pc.withdrawLink({ from: defaultAccount })
-        assert.equal(await link.balanceOf(pc.address), 0)
+        await pc.connect(roles.defaultAccount).withdrawLink()
+
+        const actual = await link.balanceOf(pc.address)
+        expect(actual.eq(ethers.constants.Zero)).toBeTruthy()
       })
     })
   })
 
   describe('#cancelOracleRequest', () => {
-    let request
+    let request: h.RunRequest
 
     beforeEach(async () => {
-      const tx = await pc.createServiceAgreement(
-        3,
-        [oc1.address, oc2.address, oc3.address, oc4.address],
-        [job1, job2, job3, job4],
-        [payment, payment, payment, payment],
-        { from: defaultAccount },
-      )
-      const saId = tx.receipt.rawLogs[0].topics[1]
-      rc = await RequesterConsumer.new(link.address, pc.address, saId, {
-        from: consumer,
-      })
+      const tx = await pc
+        .connect(roles.defaultAccount)
+        .createServiceAgreement(
+          3,
+          [oc1.address, oc2.address, oc3.address, oc4.address],
+          [job1, job2, job3, job4],
+          [payment, payment, payment, payment],
+        )
+      const receipt = await tx.wait()
+
+      const saId = h.eventArgs(
+        h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+      ).saId
+
+      rc = await requesterConsumerFactory
+        .connect(roles.consumer)
+        .deploy(link.address, pc.address, saId)
       await link.transfer(rc.address, totalPayment)
 
-      const reqTx = await rc.requestEthereumPrice(currency, totalPayment, {
-        from: consumer,
-      })
+      const reqTx = await rc
+        .connect(roles.consumer)
+        .requestEthereumPrice(currency, totalPayment)
+      const reqReceipt = await reqTx.wait()
 
-      const log1 = reqTx.receipt.rawLogs[7]
+      const log1 = reqReceipt.logs?.[7]
       request = h.decodeRunRequest(log1)
     })
 
-    context('before the minimum required time', () => {
-      it('does not allow requests to be cancelled', async () => {
-        await expectRevert(
-          rc.cancelRequest(
+    describe('before the minimum required time', () => {
+      it('does not allow requests to be cancelled', () =>
+        h.assertActionThrows(
+          async () => {
+            await rc
+              .connect(roles.consumer)
+              .cancelRequest(
+                pc.address,
+                request.id,
+                request.payment,
+                request.callbackFunc,
+                request.expiration,
+              )
+          },
+          // 'Request is not expired',
+        ))
+    })
+
+    describe('after the minimum required time', () => {
+      beforeEach(async () => {
+        await h.increaseTime5Minutes(provider)
+      })
+
+      it('allows the requester to cancel', async () => {
+        await rc
+          .connect(roles.consumer)
+          .cancelRequest(
             pc.address,
             request.id,
             request.payment,
             request.callbackFunc,
             request.expiration,
-            { from: consumer },
-          ),
-          'Request is not expired',
-        )
-      })
-    })
-
-    context('after the minimum required time', () => {
-      beforeEach(async () => {
-        await time.increase(300)
-      })
-
-      it('allows the requester to cancel', async () => {
-        await rc.cancelRequest(
-          pc.address,
-          request.id,
-          request.payment,
-          request.callbackFunc,
-          request.expiration,
-          { from: consumer },
-        )
+          )
         const balance = await link.balanceOf(rc.address)
-        assert.equal(balance.toString(), payment)
+        expect(balance.eq(payment)).toBeTruthy()
       })
 
-      it('does not allow others to call', async () => {
-        await expectRevert(
-          pc.cancelOracleRequest(
-            request.id,
-            request.payment,
-            request.callbackFunc,
-            request.expiration,
-            { from: stranger },
-          ),
-          'Only requester can cancel',
-        )
-      })
+      it('does not allow others to call', () =>
+        h.assertActionThrows(
+          async () => {
+            await pc
+              .connect(roles.stranger)
+              .cancelOracleRequest(
+                request.id,
+                request.payment,
+                request.callbackFunc,
+                request.expiration,
+              )
+          },
+          // 'Only requester can cancel',
+        ))
     })
   })
 })
