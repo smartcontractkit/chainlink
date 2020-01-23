@@ -308,7 +308,7 @@ func TestVRF_CompareSolidityScalarFromCurve(t *testing.T) {
 		require.NoError(t, err)
 		v := randomPoint(t, r)
 		vPair := asPair(v)
-		expected := ScalarFromCurvePoints(hash, pk, gamma, uWitness, v)
+		expected := ScalarFromCurve(hash, pk, gamma, uWitness, v)
 		actual, err := verifier.ScalarFromCurve(nil, hashPair, pkPair, gammaPair,
 			uWitness, vPair)
 		require.Equal(t, expected, actual)
