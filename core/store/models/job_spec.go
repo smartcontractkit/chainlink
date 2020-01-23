@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"chainlink/core/assets"
+	"chainlink/core/logger"
 	clnull "chainlink/core/null"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/imdario/mergo"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	null "gopkg.in/guregu/null.v3"
@@ -213,10 +215,26 @@ type InitiatorParams struct {
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
 
-	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
-	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
-	Threshold   float32 `json:"threshold,omitempty" gorm:"type:float"`
-	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
+	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
+	Feeds           Feeds    `json:"feeds,omitempty" gorm:"type:text"`
+	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
+	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
+	PollingInterval Duration `json:"pollingInterval,omitempty"`
+}
+
+// FluxMonitorDefaultInitiatorParams are the default parameters for Flux
+// Monitor Job Specs.
+var FluxMonitorDefaultInitiatorParams = InitiatorParams{
+	PollingInterval: Duration(time.Minute),
+}
+
+// SetDefaultValues returns a InitiatorParams with empty fields set to their
+// default value.
+func (i *InitiatorParams) SetDefaultValues(typ string) {
+	if typ == InitiatorFluxMonitor {
+		err := mergo.Merge(i, &FluxMonitorDefaultInitiatorParams)
+		logger.PanicIf(errors.Wrap(err, "type level dependent error covered by tests"))
+	}
 }
 
 // Topics handle the serialization of ethereum log topics to and from the data store.
@@ -315,6 +333,7 @@ func NewInitiatorFromRequest(
 		Type:            strings.ToLower(initr.Type),
 		InitiatorParams: initr.InitiatorParams,
 	}
+	ret.InitiatorParams.SetDefaultValues(ret.Type)
 	return ret
 }
 

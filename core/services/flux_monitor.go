@@ -20,6 +20,13 @@ import (
 
 //go:generate mockery -name FluxMonitor -output ../internal/mocks/ -case=underscore
 
+// defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
+const defaultHTTPTimeout = 5 * time.Second
+
+// MinimumPollingInterval is the smallest possible polling interval the Flux
+// Monitor supports.
+const MinimumPollingInterval = models.Duration(defaultHTTPTimeout)
+
 // FluxMonitor is the interface encapsulating all functionality
 // needed to listen to price deviations and new round requests.
 type FluxMonitor interface {
@@ -205,6 +212,13 @@ type DeviationCheckerFactory interface {
 type pollingDeviationCheckerFactory struct{}
 
 func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager) (DeviationChecker, error) {
+	if initr.InitiatorParams.PollingInterval < MinimumPollingInterval {
+		return nil, fmt.Errorf(
+			"pollingInterval must be equal or greater than %s",
+			MinimumPollingInterval,
+		)
+	}
+
 	fetcher, err := newMedianFetcherFromURLs(
 		defaultHTTPTimeout,
 		initr.InitiatorParams.RequestData.String(),
@@ -214,7 +228,12 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		return nil, err
 	}
 
-	return NewPollingDeviationChecker(initr, runManager, fetcher, 1*time.Minute)
+	return NewPollingDeviationChecker(
+		initr,
+		runManager,
+		fetcher,
+		initr.InitiatorParams.PollingInterval.Duration(),
+	)
 }
 
 //go:generate mockery -name DeviationChecker -output ../internal/mocks/ -case=underscore
@@ -241,9 +260,6 @@ type PollingDeviationChecker struct {
 	cancel       context.CancelFunc
 	newRounds    chan eth.Log
 }
-
-// defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
-const defaultHTTPTimeout = 5 * time.Second
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
 func NewPollingDeviationChecker(
