@@ -9,6 +9,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/logger"
 	clnull "chainlink/core/null"
+	"chainlink/core/services/synchronization"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -71,11 +72,12 @@ type RunManager interface {
 
 // runManager implements RunManager
 type runManager struct {
-	orm       *orm.ORM
-	runQueue  RunQueue
-	txManager store.TxManager
-	config    orm.ConfigReader
-	clock     utils.AfterNower
+	orm         *orm.ORM
+	statsPusher synchronization.StatsPusher
+	runQueue    RunQueue
+	txManager   store.TxManager
+	config      orm.ConfigReader
+	clock       utils.AfterNower
 }
 
 func runCost(job *models.JobSpec, config orm.ConfigReader, adapters []*adapters.PipelineAdapter) *assets.Link {
@@ -179,14 +181,16 @@ func NewRunManager(
 	runQueue RunQueue,
 	config orm.ConfigReader,
 	orm *orm.ORM,
+	statsPusher synchronization.StatsPusher,
 	txManager store.TxManager,
 	clock utils.AfterNower) RunManager {
 	return &runManager{
-		orm:       orm,
-		runQueue:  runQueue,
-		txManager: txManager,
-		config:    config,
-		clock:     clock,
+		orm:         orm,
+		statsPusher: statsPusher,
+		runQueue:    runQueue,
+		txManager:   txManager,
+		config:      config,
+		clock:       clock,
 	}
 }
 
@@ -211,6 +215,7 @@ func (jm *runManager) CreateErrored(
 		InitiatorID: initiator.ID,
 	}
 	run.SetError(runErr)
+	defer jm.statsPusher.PushNow()
 	return &run, jm.orm.CreateJobRun(&run)
 }
 
@@ -263,6 +268,7 @@ func (jm *runManager) Create(
 	if err := jm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
+	jm.statsPusher.PushNow()
 
 	if run.Status.Runnable() {
 		logger.Debugw(
@@ -378,6 +384,7 @@ func (jm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 
 	run.Cancel()
 	numberRunsCancelled.Inc()
+	defer jm.statsPusher.PushNow()
 	return &run, jm.orm.SaveJobRun(&run)
 }
 
@@ -389,13 +396,16 @@ func (jm *runManager) updateWithError(run *models.JobRun, msg string, args ...in
 		logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		return err
 	}
+	jm.statsPusher.PushNow()
 	return nil
 }
 
 func (jm *runManager) updateAndTrigger(run *models.JobRun) error {
+	defer jm.statsPusher.PushNow()
 	if err := jm.orm.SaveJobRun(run); err != nil {
 		return err
 	}
+	jm.statsPusher.PushNow()
 	if run.Status == models.RunStatusInProgress {
 		numberRunsResumed.Inc()
 		jm.runQueue.Run(run)

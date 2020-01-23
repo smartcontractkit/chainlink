@@ -16,6 +16,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/logger"
+	"chainlink/core/services/synchronization"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -681,12 +682,11 @@ type ExplorerStatus struct {
 }
 
 // NewExplorerStatus returns an initialized ExplorerStatus from the store
-func NewExplorerStatus(store *store.Store) ExplorerStatus {
-	client := store.StatsPusher.WSClient
-	url := client.Url()
+func NewExplorerStatus(statsPusher synchronization.StatsPusher) ExplorerStatus {
+	url := statsPusher.GetURL()
 
 	return ExplorerStatus{
-		Status: string(client.Status()),
+		Status: string(statsPusher.GetStatus()),
 		Url:    url.String(),
 	}
 }
