@@ -23,6 +23,7 @@
 
   "references": [
     { "path": "../../tools/json-api-client" },
-    { "path": "../../tools/redux" }
+    { "path": "../../tools/redux" },
+    { "path": "../../tools/ts-test-helpers" }
   ]
 }

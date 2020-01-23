@@ -17,7 +17,8 @@
     "prepublishOnly": "yarn setup && yarn lint && yarn test",
     "test": "yarn test:v1 && yarn test:v2",
     "test:v1": "tsc && truffle test ./dist/test/*_test.js",
-    "test:v2": "jest --testTimeout 80000",
+    "_comment_:test:v2": "# we force exit because the subprovider holds onto resources and doesn't release them",
+    "test:v2": "jest --testTimeout 80000 --detectOpenHandles --forceExit",
     "tsc": "tsc"
   },
   "dependencies": {
@@ -31,8 +32,9 @@
   },
   "devDependencies": {
     "@0x/sol-compiler": "^4.0.3",
-    "@types/bn.js": "^4.11.5",
-    "@types/cbor": "^2.0.0",
+    "@0x/sol-trace": "^3.0.3",
+    "@types/bn.js": "^4.11.6",
+    "@types/cbor": "^5.0.0",
     "@types/chai": "^4.2.7",
     "@types/ethereumjs-abi": "^0.6.3",
     "@types/ganache-core": "^2.7.0",

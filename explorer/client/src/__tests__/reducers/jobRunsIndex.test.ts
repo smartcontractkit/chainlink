@@ -1,3 +1,4 @@
+import { partialAsFull } from '@chainlink/ts-test-helpers'
 import reducer, {
   INITIAL_STATE as initialRootState,
   AppState,
@@ -7,7 +8,6 @@ import {
   FetchJobRunSucceededAction,
   JobRunNormalizedData,
 } from '../../reducers/actions'
-import { partialAsFull } from '../support/mocks'
 
 const INITIAL_STATE: AppState = {
   ...initialRootState,

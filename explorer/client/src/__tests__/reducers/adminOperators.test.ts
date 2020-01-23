@@ -1,10 +1,10 @@
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import { ChainlinkNode } from 'explorer/models'
 import reducer, {
   INITIAL_STATE as initialRootState,
   AppState,
 } from '../../reducers'
 import { FetchAdminOperatorsSucceededAction } from '../../reducers/actions'
-import { partialAsFull } from '../support/mocks'
-import { ChainlinkNode } from 'explorer/models'
 
 const ADMIN_OPERATOR_ID = 5555555
 const INITIAL_ADMIN_OPERATOR = partialAsFull<ChainlinkNode>({

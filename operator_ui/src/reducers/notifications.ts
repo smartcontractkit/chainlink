@@ -1,5 +1,13 @@
+import { PropsWithChildren } from 'react'
+import { Reducer } from 'redux'
 import * as jsonapi from '@chainlink/json-api-client'
-import { Actions, NotifyErrorAction } from 'reducers/actions'
+import {
+  Actions,
+  NotifyErrorAction,
+  AuthActionType,
+  RouterActionType,
+  NotifyActionType,
+} from 'reducers/actions'
 
 export interface State {
   errors: Notification[]
@@ -7,34 +15,25 @@ export interface State {
   currentUrl?: string
 }
 
-const initialState: State = {
+const INITIAL_STATE: State = {
   errors: [],
   successes: [],
   currentUrl: undefined,
 }
 
-export type TextNotification = string
-
-export interface ComponentNotification {
-  component: React.FC<any>
-  props: any
-}
-
-export type Notification = TextNotification | ComponentNotification
-
-export default function(state: State = initialState, action: Actions) {
+const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'MATCH_ROUTE': {
+    case RouterActionType.MATCH_ROUTE: {
       if (action.match && state.currentUrl !== action.match.url) {
         return {
-          ...initialState,
+          ...INITIAL_STATE,
           currentUrl: action.match.url,
         }
       }
 
       return state
     }
-    case 'NOTIFY_SUCCESS': {
+    case NotifyActionType.NOTIFY_SUCCESS: {
       const success: ComponentNotification = {
         component: action.component,
         props: action.props,
@@ -46,15 +45,16 @@ export default function(state: State = initialState, action: Actions) {
         errors: [],
       }
     }
-    case 'NOTIFY_SUCCESS_MSG': {
+    case NotifyActionType.NOTIFY_SUCCESS_MSG: {
       return {
         ...state,
         successes: [action.msg],
         errors: [],
       }
     }
-    case 'NOTIFY_ERROR': {
-      const notifications = action.error.errors.map(e =>
+    case NotifyActionType.NOTIFY_ERROR: {
+      const errors = action.error.errors
+      const notifications = errors.map(e =>
         buildJsonApiErrorNotification(action, e),
       )
 
@@ -64,14 +64,14 @@ export default function(state: State = initialState, action: Actions) {
         errors: notifications,
       }
     }
-    case 'NOTIFY_ERROR_MSG': {
+    case NotifyActionType.NOTIFY_ERROR_MSG: {
       return {
         ...state,
         successes: [],
         errors: [action.msg],
       }
     }
-    case 'RECEIVE_SIGNIN_FAIL': {
+    case AuthActionType.RECEIVE_SIGNIN_FAIL: {
       return {
         ...state,
         successes: [],
@@ -83,6 +83,15 @@ export default function(state: State = initialState, action: Actions) {
   }
 }
 
+export type TextNotification = string
+
+export interface ComponentNotification {
+  component: React.FC<any>
+  props: PropsWithChildren<{ msg?: string }>
+}
+
+export type Notification = TextNotification | ComponentNotification
+
 function buildJsonApiErrorNotification(
   action: NotifyErrorAction,
   e: jsonapi.ErrorItem,
@@ -92,3 +101,5 @@ function buildJsonApiErrorNotification(
     props: { msg: e.detail },
   }
 }
+
+export default reducer

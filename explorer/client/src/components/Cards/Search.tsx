@@ -57,7 +57,12 @@ const Search = ({ classes }: Props) => {
                       <SearchBox />
                     </Grid>
                     <Grid item>
-                      <Button variant="contained" color="primary" type="submit">
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        type="submit"
+                        size="large"
+                      >
                         Search
                       </Button>
                     </Grid>

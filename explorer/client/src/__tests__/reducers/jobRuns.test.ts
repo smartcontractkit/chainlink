@@ -1,3 +1,5 @@
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import { JobRun } from 'explorer/models'
 import reducer, {
   INITIAL_STATE as initialRootState,
   AppState,
@@ -8,8 +10,6 @@ import {
   FetchJobRunsSucceededAction,
   FetchJobRunSucceededAction,
 } from '../../reducers/actions'
-import { JobRun } from 'explorer/models'
-import { partialAsFull } from '../support/mocks'
 
 const INITIAL_JOB_RUN = { id: 'replace-me' } as JobRun
 

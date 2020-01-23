@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"chainlink/core/assets"
 	"chainlink/core/utils"
@@ -71,7 +72,7 @@ type CallerSubscriber interface {
 // GetNonce returns the nonce (transaction count) for a given address.
 func (client *CallerSubscriberClient) GetNonce(address common.Address) (uint64, error) {
 	result := ""
-	err := client.Call(&result, "eth_getTransactionCount", address.Hex(), "latest")
+	err := client.Call(&result, "eth_getTransactionCount", address.Hex(), "pending")
 	if err != nil {
 		return 0, err
 	}
@@ -118,6 +119,30 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 
 var dec10 = decimal.NewFromInt(10)
 
+func newBigIntFromString(arg string) (*big.Int, error) {
+	if arg == "0x" {
+		// Oddly a legal value for zero
+		arg = "0x0"
+	}
+	ret, ok := new(big.Int).SetString(arg, 0)
+	if !ok {
+		return nil, fmt.Errorf("cannot convert '%s' to big int", arg)
+	}
+	return ret, nil
+}
+
+func newDecimalFromString(arg string) (decimal.Decimal, error) {
+	if strings.HasPrefix(arg, "0x") {
+		// decimal package does not parse Hex values
+		value, err := newBigIntFromString(arg)
+		if err != nil {
+			return decimal.Zero, fmt.Errorf("cannot convert '%s' to decimal", arg)
+		}
+		return decimal.NewFromString(value.Text(10))
+	}
+	return decimal.NewFromString(arg)
+}
+
 // GetAggregatorPrice returns the current price at the given address.
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
 	aggregator, err := GetV5Contract(PrepaidAggregatorName)
@@ -138,21 +163,12 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
-	raw, err := parseHexOrDecimal(result)
+	raw, err := newDecimalFromString(result)
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
 	}
 	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
 	return raw.Div(precisionDivisor), nil
-}
-
-func parseHexOrDecimal(input string) (decimal.Decimal, error) {
-	if utils.HasHexPrefix(input) {
-		if value, ok := (&big.Int{}).SetString(input[2:], 16); ok {
-			return decimal.NewFromString(value.Text(10))
-		}
-	}
-	return decimal.NewFromString(input)
 }
 
 // GetAggregatorRound returns the latest round at the given address.
@@ -173,8 +189,8 @@ func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address)
 		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
 	}
 
-	round, ok := new(big.Int).SetString(result, 0)
-	if !ok {
+	round, err := newBigIntFromString(result)
+	if err != nil {
 		return nil, errors.Wrapf(
 			fmt.Errorf("unable to parse int from %s", result),
 			"unable to fetch aggregator round from %s", address.Hex())

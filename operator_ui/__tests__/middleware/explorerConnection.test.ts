@@ -1,7 +1,7 @@
 import { createStore, applyMiddleware, Middleware } from 'redux'
-import reducer, { AppState } from 'reducers'
-import { MatchRouteAction } from 'reducers/actions'
-import { createExplorerConnectionMiddleware } from 'middleware/explorerConnection'
+import reducer, { AppState } from '../../src/reducers'
+import { MatchRouteAction, RouterActionType } from '../../src/reducers/actions'
+import { createExplorerConnectionMiddleware } from '../../src/middleware/explorerConnection'
 
 const WS_ERROR_COOKIE =
   'explorer=%7B%22status%22%3A%22error%22%2C%22url%22%3A%22ws%3A%2F%2Flocalhost%3A8081%22%7D'
@@ -15,7 +15,7 @@ describe('middleware/explorerConnection', () => {
       createExplorerConnectionMiddleware(WS_ERROR_COOKIE),
     ]
     const store = createStore(reducer, applyMiddleware(...middleware))
-    const action: MatchRouteAction = { type: 'MATCH_ROUTE' }
+    const action: MatchRouteAction = { type: RouterActionType.MATCH_ROUTE }
 
     store.dispatch(action)
     const state: AppState = store.getState()
@@ -31,7 +31,7 @@ describe('middleware/explorerConnection', () => {
       createExplorerConnectionMiddleware(PARSE_ERROR_COOKIE),
     ]
     const store = createStore(reducer, applyMiddleware(...middleware))
-    const action: MatchRouteAction = { type: 'MATCH_ROUTE' }
+    const action: MatchRouteAction = { type: RouterActionType.MATCH_ROUTE }
 
     store.dispatch(action)
     const state: AppState = store.getState()
@@ -45,7 +45,7 @@ describe('middleware/explorerConnection', () => {
       createExplorerConnectionMiddleware(HTTP_ERROR_COOKIE),
     ]
     const store = createStore(reducer, applyMiddleware(...middleware))
-    const action: MatchRouteAction = { type: 'MATCH_ROUTE' }
+    const action: MatchRouteAction = { type: RouterActionType.MATCH_ROUTE }
 
     store.dispatch(action)
     const state: AppState = store.getState()
@@ -62,7 +62,7 @@ describe('middleware/explorerConnection', () => {
     ]
     const store = createStore(reducer, applyMiddleware(...middleware))
     const action: MatchRouteAction = {
-      type: 'MATCH_ROUTE',
+      type: RouterActionType.MATCH_ROUTE,
       match: { url: '/signin' },
     }
 

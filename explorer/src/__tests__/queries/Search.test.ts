@@ -3,7 +3,7 @@ import { closeDbConnection, getDb } from '../../database'
 import { Connection } from 'typeorm'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString } from '../../entity/JobRun'
-import { search } from '../../queries/search'
+import { search, count } from '../../queries/search'
 
 let db: Connection
 
@@ -13,7 +13,7 @@ beforeAll(async () => {
 
 afterAll(async () => closeDbConnection())
 
-describe('search', () => {
+describe('search and count', () => {
   beforeEach(async () => {
     const [chainlinkNode] = await createChainlinkNode(
       db,
@@ -175,5 +175,10 @@ describe('search', () => {
     expect(resultsPrefixedTxHash).toHaveLength(1)
     expect(resultsPrefixedRequester).toHaveLength(1)
     expect(resultsPrefixedRequestId).toHaveLength(1)
+  })
+
+  it('returns the number of results matching the search query', async () => {
+    const countResult = await count(db, { searchQuery: 'runB runC' })
+    expect(countResult).toEqual(2)
   })
 })

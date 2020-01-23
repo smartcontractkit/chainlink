@@ -1,5 +1,5 @@
-import { AppState } from 'reducers'
-import bridgesSelector from 'selectors/bridges'
+import { AppState } from '../../src/reducers'
+import bridgesSelector from '../../src/selectors/bridges'
 
 describe('selectors - bridges', () => {
   it('returns the current page of bridges', () => {

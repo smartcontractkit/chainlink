@@ -7,3 +7,11 @@ services:
   devnet:
     container_name: parity
     image: smartcontract/devnet
+    user: root
+    command: --config /devnet/miner.toml --db-path /devnet/database
+    ports:
+      - 8545:8545
+    volumes:
+      - parity-db-data:/devnet/database
+volumes:
+  parity-db-data:
