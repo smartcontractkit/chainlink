@@ -29,6 +29,7 @@ usage="compose -- A helper script for running common docker-compose commands\
 Commands:
     help                  Displays this help menu
     clean                 Remove any containers and volumes related to compose files
+    logs                  Display the logs of any service(s) by name
 
     cld                   Runs the chainlink node container in dev mode
     cldo                  cld in addition to operator-ui in dev mode
@@ -57,6 +58,9 @@ case "$1" in
     $test down -v
     $deps down -v
     $dev_integration down -v
+    ;;
+  logs)
+    $base logs -f ${@:2}
     ;;
 
   cld)
