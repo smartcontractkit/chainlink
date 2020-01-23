@@ -9,9 +9,9 @@
     "contractVersion": 1,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 3,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix", "Loopring"]
   },
   {
     "contractAddress": "0xF5fff180082d6017036B771bA883025c654BC935",
@@ -23,9 +23,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 3,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
   {
     "contractAddress": "0x05cf62c4ba0ccea3da680f9a8744ac51116d6231",
@@ -37,9 +37,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 3,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
   {
     "contractAddress": "0x25Fa978ea1a7dc9bDc33a2959B9053EaE57169B5",
@@ -51,9 +51,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 6,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
   {
     "contractAddress": "0x02d5c618dbc591544b19d0bf13543c0728a3c4ec",
@@ -65,9 +65,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 3,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
   {
     "contractAddress": "0x151445852b0cfdf6a4cc81440f2af99176e8ad08",
@@ -79,9 +79,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 3,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
   {
     "contractAddress": "0xe1407BfAa6B5965BAd1C9f38316A3b655A09d8A6",
@@ -93,9 +93,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
   {
     "contractAddress": "0x8946a183bfafa95becf57c5e08fe5b7654d2807b",
@@ -107,9 +107,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 3,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
   {
     "contractAddress": "0xafce0c7b7fe3425adb3871eae5c0ec6d93e01935",
@@ -121,9 +121,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": true,
-    "bollinger": false,
     "decimalPlaces": 3,
-    "multiply": "100000000"
+    "multiply": "100000000",
+    "supported": ["Synthetix"]
   },
 
   {
@@ -134,10 +134,10 @@
     "path": "lrc-eth",
     "contractVersion": 2,
     "networkId": 1,
-    "history": true,
-    "bollinger": false,
+    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Loopring"]
   },
   {
     "contractAddress": "0x1EeaF25f2ECbcAf204ECADc8Db7B0db9DA845327",
@@ -148,9 +148,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xF17BE6Ea8506980D0c6832EdE67e337F1684Ae02",
@@ -161,9 +161,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0x0133Aa47B6197D0BA090Bf2CD96626Eb71fFd13c",
@@ -174,9 +174,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xda3d675d50ff6c555973c4f0424964e1f6a4e7d3",
@@ -187,9 +187,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xc89c4ed8f52Bb17314022f6c0dCB26210C905C97",
@@ -200,9 +200,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xd0e785973390fF8E77a83961efDb4F271E6B8152",
@@ -213,9 +213,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xeCfA53A8bdA4F0c4dd39c55CC8deF3757aCFDD07",
@@ -226,9 +226,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xdE54467873c3BCAA76421061036053e371721708",
@@ -239,9 +239,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xb8b513d9cf440C1b6f5C7142120d611C94fC220c",
@@ -252,9 +252,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xA0F9D94f060836756FFC84Db4C78d097cA8C23E8",
@@ -265,9 +265,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0x9b4e2579895efa2b4765063310Dc4109a7641129",
@@ -278,9 +278,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0x037E8F2125bF532F3e228991e051c8A7253B642c",
@@ -291,9 +291,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0x73ead35fd6A572EF763B13Be65a9db96f7643577",
@@ -304,9 +304,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xa874fe207DF445ff19E7482C746C4D3fD0CB9AcE",
@@ -317,9 +317,9 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0x6d626Ff97f0E89F6f983dE425dc5B24A18DE26Ea",
@@ -330,9 +330,22 @@
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
-    "bollinger": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000"
+    "multiply": "1000000000000000000",
+    "supported": ["Aave"]
+  },
+  {
+    "contractAddress": "0xE23d1142dE4E83C08bb048bcab54d50907390828",
+    "name": "SNX / ETH",
+    "valuePrefix": "Ξ",
+    "pair": ["SNX", "ETH"],
+    "path": "snx-usd",
+    "contractVersion": 2,
+    "networkId": 1,
+    "history": false,
+    "multiply": "1000000000000000000",
+    "decimalPlaces": 9,
+    "supported": ["Aave"]
   },
   {
     "contractAddress": "0xEa7302472d58761582408F8512C24fc5bb8DBB70",
@@ -342,8 +355,7 @@
     "counter": 1800,
     "path": "bnb-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractAddress": "0x1c44616CdB7FAe1ba69004ce6010248147CE019e",
@@ -353,8 +365,7 @@
     "counter": 3600,
     "path": "btc-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractAddress": "0x46aD082e62D86089b7365320081685115F50d8B3",
@@ -364,8 +375,7 @@
     "counter": 1800,
     "path": "snx-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -376,8 +386,7 @@
     "counter": 1800,
     "path": "xtz-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractAddress": "0x0Be00A19538Fac4BE07AC360C69378B870c412BF",
@@ -386,8 +395,7 @@
     "valuePrefix": "$",
     "path": "eth-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -398,8 +406,7 @@
     "counter": 1800,
     "path": "mkr-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -410,8 +417,7 @@
     "counter": 1800,
     "path": "trx-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -422,8 +428,7 @@
     "counter": 3600,
     "path": "aud-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -434,8 +439,7 @@
     "counter": 3600,
     "path": "xag-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -446,8 +450,7 @@
     "counter": 3600,
     "path": "chf-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -458,8 +461,7 @@
     "counter": 3600,
     "path": "gbp-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -470,8 +472,7 @@
     "counter": 3600,
     "path": "xau-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -482,8 +483,7 @@
     "counter": 3600,
     "path": "eur-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   },
   {
     "contractVersion": 2,
@@ -494,7 +494,6 @@
     "counter": 3600,
     "path": "jpy-usd",
     "networkId": 3,
-    "history": true,
-    "bollinger": false
+    "history": true
   }
 ]

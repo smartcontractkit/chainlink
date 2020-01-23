@@ -1,8 +1,22 @@
-@import url('https://fonts.googleapis.com/css?family=Cabin:400,500,600,700&display=swap');
+@font-face {
+  font-family: 'circular';
+  src: url('./assets/Circular/CircularStd-Book.woff') format('woff'),
+    url('./assets/Circular/CircularStd-Book.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'circular';
+  src: url('./assets/Circular/CircularStd-Bold.woff') format('woff'),
+    url('./assets/Circular/CircularStd-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
 
 body {
-  font-family: 'Cabin', sans-serif;
-  background: #f1f1f1;
+  font: 'circular', 'Arial', 'Helvetica Neue', 'Helvetica', sans-serif;
+  background: #fff;
 }
 
 .page-wrapper {
@@ -16,4 +30,29 @@ hr {
   color: #e0e0e0;
   background-color: #e0e0e0;
   margin: 20px 0;
+}
+
+.page-container {
+  width: 610px;
+  margin: 0 auto;
+}
+
+.page-container-full-width {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 60px;
+}
+
+@media (max-width: @screen-md) {
+  #root {
+    width: auto;
+  }
+
+  .page-wrapper {
+    margin: 0 20px;
+  }
+
+  .page-container {
+    width: auto;
+  }
 }

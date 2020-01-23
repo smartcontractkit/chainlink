@@ -1,9 +1,9 @@
 import React from 'react'
 import { ethers } from 'ethers'
-
 import { Form, Select, Input, Button, InputNumber } from 'antd'
 import { withRouter } from 'react-router'
-import queryString from 'query-string'
+import { ROPSTEN_ID, MAINNET_ID } from 'utils'
+import { stringifyQuery } from 'utils'
 
 const { Option } = Select
 
@@ -30,7 +30,7 @@ const Create = ({ form, history }) => {
       if (!err) {
         history.push({
           pathname: 'custom',
-          search: `?${queryString.stringify(values)}`,
+          search: `?${stringifyQuery(values)}`,
         })
       }
     })
@@ -41,7 +41,7 @@ const Create = ({ form, history }) => {
   return (
     <>
       <Form.Item {...formTailLayout}>
-        <h2>Create Aggregation Chart</h2>
+        <h2>Create Visualisation</h2>
       </Form.Item>
 
       <Form {...formItemLayout}>
@@ -70,20 +70,34 @@ const Create = ({ form, history }) => {
 
         <Form.Item label="Counter (seconds)">
           {getFieldDecorator('counter')(
-            <InputNumber placeholder="300" style={{ width: '100%' }} />,
+            <InputNumber placeholder="600" style={{ width: '100%' }} />,
           )}
         </Form.Item>
 
         <Form.Item label="Network">
-          {getFieldDecorator('network', {
+          {getFieldDecorator('networkId', {
             rules: [{ required: true }],
-            initialValue: 'mainnet',
+            initialValue: MAINNET_ID,
           })(
             <Select placeholder="Select a Network">
-              <Option value="mainnet">Mainnet</Option>
-              <Option value="ropsten">Ropsten</Option>
+              <Option value={MAINNET_ID}>Mainnet</Option>
+              <Option value={ROPSTEN_ID}>Ropsten</Option>
             </Select>,
           )}
+        </Form.Item>
+
+        <Form.Item label="Answer decimal places">
+          {getFieldDecorator('decimalPlaces', {
+            rules: [{ required: true }],
+            initialValue: 6,
+          })(<InputNumber placeholder="6" style={{ width: '100%' }} />)}
+        </Form.Item>
+
+        <Form.Item label="Answer multiply">
+          {getFieldDecorator('multiply', {
+            rules: [{ required: true }],
+            initialValue: 1000000000000000000,
+          })(<Input placeholder="1000000000000000000" />)}
         </Form.Item>
 
         <Form.Item {...formTailLayout}>

@@ -1,0 +1,98 @@
+.landing-page {
+  .head {
+    height: 217px;
+    margin: 0px auto 60px;
+    padding-top: 30px;
+    max-width: 1251px;
+    background-image: url(assets/head-background.svg);
+    background-size: 100% 100%;
+    -o-background-size: 100% 100%;
+    -webkit-background-size: 100% 100%;
+    background-size: cover;
+    background-position: center center;
+
+    .square {
+      margin-left: 3px;
+      width: 28px;
+      height: 6px;
+      background-color: @primary-color;
+    }
+
+    &__title {
+      width: 610px;
+      margin: 0 auto;
+      h1 {
+        font-size: 46px;
+        line-height: 50px;
+        font-weight: 700;
+        color: @primary-color;
+        margin-bottom: 8px;
+        text-align: left;
+      }
+      h2 {
+        color: #878e9e;
+        font-size: 18px;
+        text-align: left;
+        font-weight: 400;
+        text-transform: uppercase;
+      }
+    }
+  }
+
+  section {
+    margin-bottom: 50px;
+
+    h3 {
+      margin-bottom: 22px;
+      font-weight: 500;
+      font-size: 21px;
+    }
+
+    p {
+      font-size: 15px;
+      color: #6c7281;
+      line-height: 27px;
+    }
+  }
+
+  .supporters {
+    &-wrapper {
+      text-align: center;
+      max-width: 800px;
+      margin: 120px auto 0;
+    }
+    margin: 40px 0;
+    display: flex;
+    justify-items: center;
+    justify-content: space-between;
+    align-items: center;
+
+    .ampleforth {
+      width: 190px;
+    }
+
+    .loopring {
+      top: -10px;
+      position: relative;
+    }
+
+    & > svg,
+    & > img {
+      margin: 20px 0;
+    }
+  }
+
+  @media (max-width: @screen-md) {
+    .head__title {
+      width: auto;
+    }
+
+    .supporters {
+      flex-direction: column;
+      align-items: center;
+      svg {
+        margin-bottom: 30px;
+      }
+    }
+  }
+}

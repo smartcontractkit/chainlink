@@ -1,0 +1,55 @@
+.listing {
+  padding-top: 15px;
+
+  &-grid {
+    &__item {
+      background-color: #f4f5f6;
+      display: block;
+      text-align: center;
+      min-height: 125px;
+      margin-bottom: 18px;
+      padding: 15px 0;
+      line-height: 1.8;
+
+      &:hover {
+        background-color: #e0e6e8;
+      }
+
+      &--supported {
+        text-align: center;
+        span {
+          color: #484c57;
+          font-size: 13px;
+          font-weight: bold;
+        }
+        &-title {
+          color: #484c57;
+          margin-top: 25px;
+        }
+        &-popover {
+          text-align: center;
+        }
+      }
+
+      &--name {
+        font-size: 15px;
+        font-weight: bold;
+        color: @primary-color;
+      }
+
+      &--answer {
+        color: #484c57;
+        font-size: 15px;
+        min-height: 27px;
+      }
+    }
+
+    &__group {
+      margin-bottom: 40px;
+    }
+
+    &__header {
+      margin-bottom: 32px !important;
+    }
+  }
+}
