@@ -140,7 +140,7 @@ var fieldHashPanicTemplate = "will only work for messages of at most 256 " +
 
 // fieldHash hashes xs uniformly into {0, ..., q-1}. q must be 256 bits long, and
 // msg is assumed to already be a 256-bit hash
-func fieldHash(msg []byte) (*big.Int, error) {
+func fieldHash(msg []byte) *big.Int {
 	if len(msg) > 32 {
 		panic(fmt.Errorf(fieldHashPanicTemplate, len(msg)*8))
 	}
@@ -150,23 +150,7 @@ func fieldHash(msg []byte) (*big.Int, error) {
 	for rv.Cmp(fieldSize) >= 0 {
 		rv.SetBytes(utils.MustHash(string(uint256ToBytes32(rv))).Bytes())
 	}
-	return rv, nil
-}
-
-func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
-	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256) {
-		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
-	}
-	iHash, err := utils.Keccak256(
-		append(secp256k1.LongMarshal(p), uint256ToBytes32(input)...))
-	if err != nil {
-		return nil, errors.Wrap(err, "while attempting initial hash")
-	}
-	x, err := fieldHash(iHash)
-	if err != nil {
-		return nil, errors.Wrap(err, "vrf.HashToCurve#fieldHash")
-	}
-	return x, nil
+	return rv
 }
 
 // HashToCurve is a one-way hash function onto the curve. Returns the curve
@@ -174,21 +158,14 @@ func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
 // error. It passes each candidate x ordinate to ordinates.
 func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 ) (kyber.Point, error) {
-	x, err := initialXOrdinate(p, input)
-	if err != nil {
-		return nil, err
+	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(zero) >= 0) {
+		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
 	}
+	x := fieldHash(utils.MustHash(
+		string(append(secp256k1.LongMarshal(p), uint256ToBytes32(input)...))).Bytes())
 	ordinates(x)
 	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+7 is a square
-		nHash, err := utils.Keccak256(uint256ToBytes32(x))
-		if err != nil {
-			return nil, errors.Wrap(err, "while attempting to rehash x")
-		}
-		nx, err := fieldHash(nHash)
-		if err != nil {
-			return nil, err
-		}
-		x.Set(nx)
+		x.Set(fieldHash(utils.MustHash(string(uint256ToBytes32(x))).Bytes()))
 		ordinates(x)
 	}
 	y := SquareRoot(YSquared(x))
