@@ -242,7 +242,7 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 
 // VerifyProof is true iff gamma was generated in the mandated way from the
 // given publicKey and seed, and no error was encountered
-func (proof *Proof) Verify() (bool, error) {
+func (proof *Proof) VerifyVRFProof() (bool, error) {
 	if !proof.WellFormed() {
 		return false, fmt.Errorf("badly-formatted proof")
 	}
@@ -308,7 +308,7 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 		Seed:      seed,
 		Output:    i().SetBytes(outputHash),
 	}
-	valid, err := rv.Verify()
+	valid, err := rv.VerifyVRFProof()
 	if !valid || err != nil {
 		panic("constructed invalid proof")
 	}
