@@ -52,8 +52,8 @@ func bigFromHex(s string) *big.Int {
 var fieldSize = bigFromHex(
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F")
 
-// Order is the number of rational points on the curve in GF(P) (group size)
-var Order = secp256k1.GroupOrder
+// groupOrder is the number of rational points on the curve in GF(P) (group size)
+var groupOrder = secp256k1.GroupOrder
 
 var bi = big.NewInt
 var zero, one, two, three, four, seven = bi(0), bi(1), bi(2), bi(3), bi(4), bi(7)
@@ -292,7 +292,7 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	}
 	v := secp256k1Curve.Point().Mul(sm, h)
 	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
-	s := mod(sub(nonce, mul(c, secretKey)), Order) // (m - c*secretKey) % Order
+	s := mod(sub(nonce, mul(c, secretKey)), groupOrder) // (m - c*secretKey) % Order
 	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
 		return nil, err
 	}
@@ -325,10 +325,10 @@ func GenerateProof(secretKey, seed *big.Int) (*Proof, error) {
 	if secretKey.Cmp(zero) == -1 || seed.Cmp(zero) == -1 {
 		return nil, fmt.Errorf("seed and/or secret key must be non-negative")
 	}
-	if secretKey.Cmp(Order) != -1 || seed.Cmp(Order) != -1 {
+	if secretKey.Cmp(groupOrder) != -1 || seed.Cmp(groupOrder) != -1 {
 		return nil, fmt.Errorf("seed and/or secret key must be less than group order")
 	}
-	nonce, err := rand.Int(rand.Reader, Order)
+	nonce, err := rand.Int(rand.Reader, groupOrder)
 	if err != nil {
 		return nil, err
 	}

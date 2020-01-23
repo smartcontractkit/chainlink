@@ -193,7 +193,7 @@ func randomPoint(t *testing.T, r *mrand.Rand) kyber.Point {
 // Never use this if cryptographic security is required
 func randomScalar(t *testing.T, r *mrand.Rand) kyber.Scalar {
 	s := randomUint256(t, r)
-	for s.Cmp(Order) >= 0 {
+	for s.Cmp(groupOrder) >= 0 {
 		s = randomUint256(t, r)
 	}
 	return secp256k1.IntToScalar(s)
