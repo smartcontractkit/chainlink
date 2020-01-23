@@ -66,12 +66,18 @@ func randomUint256(t *testing.T, r *mrand.Rand) *big.Int {
 	return i().SetBytes(b)
 }
 
-var numSamples = 10
+func numSamples() int {
+	if testing.Short() {
+		return 10
+	}
+	return 1000
+}
 
 func TestVRF_CompareProjectiveECAddToVerifier(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(11))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		p := randomPoint(t, r)
 		q := randomPoint(t, r)
 		px, py := secp256k1.Coordinates(p)
@@ -89,7 +95,8 @@ func TestVRF_CompareProjectiveECAddToVerifier(t *testing.T) {
 func TestVRF_CompareBigModExpToVerifier(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(0))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		base := randomUint256(t, r)
 		exponent := randomUint256(t, r)
 		actual, err := verifier.BigModExp(nil, base, exponent)
@@ -103,7 +110,8 @@ func TestVRF_CompareBigModExpToVerifier(t *testing.T) {
 func TestVRF_CompareSquareRoot(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(1))
-	for i := 0; i < numSamples; i++ {
+	numSamps := numSamples()
+	for i := 0; i < numSamps; i++ {
 		square := randomUint256(t, r)
 		squareRoot, err := verifier.SquareRoot(nil, square)
 		require.NoError(t, err)
@@ -114,7 +122,8 @@ func TestVRF_CompareSquareRoot(t *testing.T) {
 func TestVRF_CompareYSquared(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(2))
-	for i := 0; i < numSamples; i++ {
+	numSamps := numSamples()
+	for i := 0; i < numSamps; i++ {
 		x := randomUint256(t, r)
 		actual, err := verifier.YSquared(nil, x)
 		require.NoError(t, err)
@@ -126,7 +135,8 @@ func TestVRF_CompareFieldHash(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(3))
 	msg := make([]byte, 32)
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		r.Read(msg)
 		msgAsNum := i().SetBytes(msg)
 		actual, err := verifier.FieldHash(nil, msgAsNum)
@@ -150,7 +160,8 @@ func pair(x, y *big.Int) [2]*big.Int { return [2]*big.Int{x, y} }
 func TestVRF_CompareHashToCurve(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(4))
-	for i := 0; i < numSamples; i++ {
+	numSamps := numSamples()
+	for i := 0; i < numSamps; i++ {
 		input := randomUint256(t, r)
 		cKey := randomKey(t, r)
 		pubKeyCoords := pair(cKey.X, cKey.Y)
@@ -191,7 +202,8 @@ func randomScalar(t *testing.T, r *mrand.Rand) kyber.Scalar {
 func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(5))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		p1 := randomPoint(t, r)
 		p2 := randomPoint(t, r)
 		p1x, p1y := secp256k1.Coordinates(p1)
@@ -211,7 +223,8 @@ func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 func TestVRF_CheckSolidityECMulVerify(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(6))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		p := randomPoint(t, r)
 		x, y := secp256k1.Coordinates(p)
 		s := randomScalar(t, r)
@@ -227,7 +240,8 @@ func TestVRF_CheckSolidityECMulVerify(t *testing.T) {
 func TestVRF_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(7))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		c := randomScalar(t, r)
 		s := randomScalar(t, r)
 		p := randomPoint(t, r)
@@ -250,7 +264,8 @@ func asPair(p kyber.Point) [2]*big.Int {
 func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(8))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		c := randomScalar(t, r)
 		cNum := secp256k1.ToInt(c)
 		p1 := randomPoint(t, r)
@@ -280,7 +295,8 @@ func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 func TestVRF_CompareSolidityScalarFromCurve(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(9))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		hash := randomPoint(t, r)
 		hashPair := asPair(hash)
 		pk := randomPoint(t, r)
@@ -302,7 +318,8 @@ func TestVRF_CompareSolidityScalarFromCurve(t *testing.T) {
 func TestVRF_MarshalProof(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(10))
-	for j := 0; j < numSamples; j++ {
+	numSamps := numSamples()
+	for j := 0; j < numSamps; j++ {
 		sk := randomScalar(t, r)
 		skNum := secp256k1.ToInt(sk)
 		nonce := randomScalar(t, r)
