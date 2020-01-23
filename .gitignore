@@ -1,6 +1,8 @@
 # dependencies
 node_modules/
 tmp/
+.pnp
+.pnp.js
 
 /chainlink
 core/chainlink
@@ -22,7 +24,9 @@ tools/clroot/db.sqlite3-wal
 *.log
 
 # misc
+.DS_Store
 .envrc
+.env*
 
 # codeship
 *.aes
