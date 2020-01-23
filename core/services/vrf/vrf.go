@@ -176,9 +176,9 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 	return rv, nil
 }
 
-// ScalarFromCurvePoints returns a hash for the curve points. Corresponds to the
+// ScalarFromCurve returns a hash for the curve points. Corresponds to the
 // hash computed in VRF.sol#scalarFromCurve
-func ScalarFromCurvePoints(
+func ScalarFromCurve(
 	hash, pk, gamma kyber.Point, uWitness [20]byte, v kyber.Point) *big.Int {
 	if !(secp256k1.ValidPublicKey(hash) && secp256k1.ValidPublicKey(pk) &&
 		secp256k1.ValidPublicKey(gamma) && secp256k1.ValidPublicKey(v)) {
@@ -263,7 +263,7 @@ func (proof *Proof) Verify() (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "vrf.VerifyProof#EthereumAddress")
 	}
-	cPrime := ScalarFromCurvePoints(h, proof.PublicKey, proof.Gamma, uWitness, vPrime)
+	cPrime := ScalarFromCurve(h, proof.PublicKey, proof.Gamma, uWitness, vPrime)
 	output, err := utils.Keccak256(secp256k1.LongMarshal(proof.Gamma))
 	if err != nil {
 		panic(errors.Wrap(err, "while hashing to compute proof output"))
@@ -291,7 +291,7 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 		panic(errors.Wrap(err, "while computing Ethereum Address for proof"))
 	}
 	v := secp256k1Curve.Point().Mul(sm, h)
-	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
+	c := ScalarFromCurve(h, publicKey, gamma, uWitness, v)
 	s := mod(sub(nonce, mul(c, secretKey)), groupOrder) // (m - c*secretKey) % Order
 	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
 		return nil, err
