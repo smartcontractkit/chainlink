@@ -6,6 +6,7 @@ import (
 
 	"chainlink/core/adapters"
 	"chainlink/core/logger"
+	"chainlink/core/services/synchronization"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -21,13 +22,15 @@ type RunExecutor interface {
 }
 
 type runExecutor struct {
-	store *store.Store
+	store       *store.Store
+	statsPusher synchronization.StatsPusher
 }
 
 // NewRunExecutor initializes a RunExecutor.
-func NewRunExecutor(store *store.Store) RunExecutor {
+func NewRunExecutor(store *store.Store, statsPusher synchronization.StatsPusher) RunExecutor {
 	return &runExecutor{
-		store: store,
+		store:       store,
+		statsPusher: statsPusher,
 	}
 }
 
@@ -44,6 +47,7 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 			logger.Debugw("Run execution blocked", run.ForLogger("task", taskRun.ID.String())...)
 			break
 		}
+		je.statsPusher.PushNow()
 
 		if taskRun.Status.Completed() {
 			continue
@@ -85,6 +89,8 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 			logger.Debugw("All tasks complete for run", run.ForLogger()...)
 		}
 	}
+
+	je.statsPusher.PushNow()
 	return nil
 }
 
