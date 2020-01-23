@@ -122,16 +122,16 @@ func TestVRF_CompareYSquared(t *testing.T) {
 	}
 }
 
-func TestVRF_CompareZqHash(t *testing.T) {
+func TestVRF_CompareFieldHash(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(3))
 	msg := make([]byte, 32)
 	for j := 0; j < numSamples; j++ {
 		r.Read(msg)
 		msgAsNum := i().SetBytes(msg)
-		actual, err := verifier.ZqHash(nil, msgAsNum)
+		actual, err := verifier.FieldHash(nil, msgAsNum)
 		require.NoError(t, err)
-		expected, err := ZqHash(msg)
+		expected, err := fieldHash(msg)
 		require.NoError(t, err)
 		require.Equal(t, expected, actual)
 	}

@@ -40,9 +40,9 @@ func TestVRF_CoordsFromPoint(t *testing.T) {
 		"483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"))
 }
 
-func TestVRF_ZqHash(t *testing.T) {
-	utils.PanicsWithError(t, fmt.Sprintf(zqHashPanicTemplate, 33*8),
-		func() { ZqHash([]byte("much, much longer than 32 bytes!!")) })
+func TestVRF_fieldHash(t *testing.T) {
+	utils.PanicsWithError(t, fmt.Sprintf(fieldHashPanicTemplate, 33*8),
+		func() { fieldHash([]byte("much, much longer than 32 bytes!!")) })
 }
 
 func address(t *testing.T, p kyber.Point) [20]byte {

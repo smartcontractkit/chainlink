@@ -135,14 +135,14 @@ func uint256ToBytes32(x *big.Int) []byte {
 	return common.LeftPadBytes(x.Bytes(), 32)
 }
 
-var zqHashPanicTemplate = "will only work for messages of at most that long, " +
-	"but message is %d bits"
+var fieldHashPanicTemplate = "will only work for messages of at most 256 " +
+	"bits long, but message is %d bits"
 
-// ZqHash hashes xs uniformly into {0, ..., q-1}. q must be 256 bits long, and
+// fieldHash hashes xs uniformly into {0, ..., q-1}. q must be 256 bits long, and
 // msg is assumed to already be a 256-bit hash
-func ZqHash(msg []byte) (*big.Int, error) {
+func fieldHash(msg []byte) (*big.Int, error) {
 	if len(msg) > 32 {
-		panic(fmt.Errorf(zqHashPanicTemplate, len(msg)*8))
+		panic(fmt.Errorf(fieldHashPanicTemplate, len(msg)*8))
 	}
 	rv := i().SetBytes(msg)
 	// Hash recursively until rv < q. P(success per iteration) >= 0.5, so
@@ -162,9 +162,9 @@ func initialXOrdinate(p kyber.Point, input *big.Int) (*big.Int, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "while attempting initial hash")
 	}
-	x, err := ZqHash(iHash)
+	x, err := fieldHash(iHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "vrf.HashToCurve#ZqHash")
+		return nil, errors.Wrap(err, "vrf.HashToCurve#fieldHash")
 	}
 	return x, nil
 }
@@ -184,7 +184,7 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 		if err != nil {
 			return nil, errors.Wrap(err, "while attempting to rehash x")
 		}
-		nx, err := ZqHash(nHash)
+		nx, err := fieldHash(nHash)
 		if err != nil {
 			return nil, err
 		}

@@ -202,7 +202,7 @@ contract VRF {
   }
 
   // Hash x uniformly into {0, ..., FIELD_SIZE-1}.
-  function zqHash(uint256 x) internal pure returns (uint256 x_) {
+  function fieldHash(uint256 x) internal pure returns (uint256 x_) {
     x_ = x;
     // Rejecting if x >= FIELD_SIZE corresponds to step 1 in section 2.3.6 of
     // http://www.secg.org/sec1-v2.pdf , which is part of the definition of
@@ -216,11 +216,11 @@ contract VRF {
   // One-way hash function onto the curve.
   function hashToCurve(uint256[2] memory pk, uint256 input)
     internal view returns (uint256[2] memory rv) {
-      rv[0] = zqHash(uint256(keccak256(abi.encodePacked(pk, input))));
+      rv[0] = fieldHash(uint256(keccak256(abi.encodePacked(pk, input))));
       rv[1] = squareRoot(ySquared(rv[0]));
       // Keep re-hashing until rv[1]^2 = rv[0]^3 + 7 mod P
       while (mulmod(rv[1], rv[1], FIELD_SIZE) != ySquared(rv[0])) {
-        rv[0] = zqHash(uint256(keccak256(abi.encodePacked(rv[0]))));
+        rv[0] = fieldHash(uint256(keccak256(abi.encodePacked(rv[0]))));
         rv[1] = squareRoot(ySquared(rv[0]));
       }
       // See
