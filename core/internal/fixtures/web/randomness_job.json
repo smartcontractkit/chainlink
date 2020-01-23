@@ -4,17 +4,22 @@
     {
       "type": "random",
       "params": {
+        "_comment": "Note: the following key is ONLY AN EXAMPLE, and not secure.",
+        "_comment2": "Use the public key reported when you ran `chainlink local vrf create`, instead",
         "publicKey":
         "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
-        "_comment2": "corresponds to a secret key of 1",
-        "_comment": "XXX: Use a public key the node actually knows the secret key for"
+        "_comment3": "Corresponds to a secret key of 1. (So not secure at all!)"
       }
     },
     {
       "type": "ethtx",
       "params": {
         "format": "preformatted",
-        "_comment": "XXX: Fill these params in with the values for the oracle and fulfillOracleRequest"
+        "comment": "ethereum address of the VRF coordinator contract goes in 'address' field:",
+        "address": "0x0000000000000000000000000000000000000000",
+        "comment2": "functionSelector from VRFCoordinator.sol, and javascript call:",
+        "comment3": "web3.eth.abi.encodeFunctionSignature('fulfillRandomnessRequest(bytes)')",
+        "functionSelector": "0x5e1c1059"
       }
     }
   ]
