@@ -70,7 +70,9 @@ const Listing = ({ fetchAnswers, groups }) => {
     <div className="listing">
       {groups.map(group => (
         <div className="listing-grid__group" key={group.name}>
-          <h3 className="listing-grid__header">{group.name} Pairs</h3>
+          <h3 className="listing-grid__header">
+            Decentralized Price Reference for {group.name} Pairs
+          </h3>
           <Row gutter={18} className="listing-grid">
             <ListingGrid list={group.list} />
           </Row>

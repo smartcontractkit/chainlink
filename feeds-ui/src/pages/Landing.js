@@ -6,6 +6,7 @@ import { ReactComponent as Synthetix } from 'assets/synthetix.svg'
 import ampleforth from 'assets/ampleforth.png'
 import { Button } from 'antd'
 import { Header } from 'components/header'
+import ReactGA from 'react-ga'
 
 const LangingPage = () => (
   <div className="page-wrapper landing-page">
@@ -47,9 +48,20 @@ const LangingPage = () => (
           using them here.
         </p>
         <br />
-        <a href="mailto:support@smartcontract.com?subject=Price Reference Data">
+        <a
+          onClick={() =>
+            ReactGA.event({
+              category: 'Conversion',
+              action: 'Click on Email Button',
+              label: 'Integrate with Chainlink',
+            })
+          }
+          href="https://chainlink.typeform.com/to/gEwrPO"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <Button type="primary" shape="round" size="large">
-            Access Chainlink Oracles
+            Integrate with Chainlink
           </Button>
         </a>
       </section>
@@ -85,7 +97,12 @@ const LangingPage = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          <img alt="Ampleforth" src={ampleforth} className="ampleforth" />
+          <img
+            alt="Ampleforth"
+            title="Ampleforth"
+            src={ampleforth}
+            className="ampleforth"
+          />
         </a>
       </div>
     </section>

@@ -5,8 +5,10 @@ import * as serviceWorker from './serviceWorker'
 import { Provider as ReduxProvider } from 'react-redux'
 import { store, persistor } from './state/store'
 import { PersistGate } from 'redux-persist/integration/react'
-
+import ReactGA from 'react-ga'
 import './theme.css'
+
+ReactGA.initialize(process.env.REACT_APP_GA_ID)
 
 ReactDOM.render(
   <ReduxProvider store={store}>
