@@ -37,6 +37,26 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				JobSpecID: job.ID,
 			},
 		},
+		{
+			name: models.InitiatorWeb,
+			initrReq: models.InitiatorRequest{
+				Type: models.InitiatorFluxMonitor,
+				InitiatorParams: models.InitiatorParams{
+					Threshold: 5,
+					Precision: 2,
+				},
+			},
+			jobSpec: job,
+			want: models.Initiator{
+				Type:      models.InitiatorFluxMonitor,
+				JobSpecID: job.ID,
+				InitiatorParams: models.InitiatorParams{
+					Threshold:       5,
+					Precision:       2,
+					PollingInterval: models.FluxMonitorDefaultInitiatorParams.PollingInterval,
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
