@@ -131,8 +131,7 @@ func TestVRF_CompareFieldHash(t *testing.T) {
 		msgAsNum := i().SetBytes(msg)
 		actual, err := verifier.FieldHash(nil, msgAsNum)
 		require.NoError(t, err)
-		expected, err := fieldHash(msg)
-		require.NoError(t, err)
+		expected := fieldHash(msg)
 		require.Equal(t, expected, actual)
 	}
 }
