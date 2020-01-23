@@ -10,6 +10,7 @@ import { OracleFactory } from './generated/OracleFactory'
 import { ContractReceipt } from 'ethers/contract'
 
 const debug = makeDebug('helpers')
+export const { utils } = ethers
 
 export interface Roles {
   defaultAccount: ethers.Wallet
@@ -143,7 +144,7 @@ export async function initializeRolesAndPersonas(
   provider: ethers.providers.JsonRpcProvider,
 ): Promise<RolesAndPersonas> {
   const accounts = await Promise.all(
-    Array(7)
+    Array(8)
       .fill(null)
       .map(async (_, i) => createFundedWallet(provider, i).then(w => w.wallet)),
   )
@@ -160,15 +161,29 @@ export async function initializeRolesAndPersonas(
   const roles: Roles = {
     defaultAccount: accounts[0],
     oracleNode: accounts[1],
-    oracleNode1: accounts[1],
-    oracleNode2: accounts[2],
-    oracleNode3: accounts[3],
-    oracleNode4: accounts[4],
-    stranger: accounts[5],
-    consumer: accounts[6],
+    oracleNode1: accounts[2],
+    oracleNode2: accounts[3],
+    oracleNode3: accounts[4],
+    oracleNode4: accounts[5],
+    stranger: accounts[6],
+    consumer: accounts[7],
   }
 
   return { personas, roles }
+}
+
+/**
+ * Parse out an evm word (32 bytes) into an address (20 bytes) representation
+ * @param hex The evm word in hex string format to parse the address
+ * out of.
+ */
+export function evmWordToAddress(hex?: string): string {
+  if (!hex) {
+    throw Error('Input not defined')
+  }
+
+  assert.equal(hex.slice(0, 26), '0x000000000000000000000000')
+  return utils.getAddress(hex.slice(26))
 }
 
 export async function assertActionThrows(
@@ -232,7 +247,6 @@ export function checkPublicABI(
   }
 }
 
-export const { utils } = ethers
 /**
  * Convert a value to a hex string
  * @param args Value to convert to a hex string
@@ -493,10 +507,27 @@ export function requestDataFrom(
   return link.transferAndCall(callable.address, amount, args, options)
 }
 
+/**
+ * Increase the current time within the evm to "n" seconds past the current time
+ * @param seconds The number of seconds to increase to the current time by
+ * @param provider The ethers provider to send the time increase request to
+ */
+export async function increaseTimeBy(
+  seconds: number,
+  provider: ethers.providers.JsonRpcProvider,
+) {
+  await provider.send('evm_increaseTime', [seconds])
+}
+
+/**
+ * Increase the current time within the evm to 5 minutes past the current time
+ *
+ * @param provider The ethers provider to send the time increase request to
+ */
 export async function increaseTime5Minutes(
   provider: ethers.providers.JsonRpcProvider,
 ): Promise<void> {
-  await provider.send('evm_increaseTime', [300])
+  await increaseTimeBy(5 * 600, provider)
 }
 
 /**
