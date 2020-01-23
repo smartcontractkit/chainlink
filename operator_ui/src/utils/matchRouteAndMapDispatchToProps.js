@@ -5,9 +5,18 @@
 // We need to handle this manually. mapDispatchToProps provides the props of
 // the matched URL. We can dispatch this url and parse it in a reducer.
 import { bindActionCreators } from 'redux'
-import { matchRoute } from 'actions'
+import { RouterActionType } from '../reducers/actions'
 
-export default actionCreators => (dispatch, ownProps) => {
-  dispatch(matchRoute(ownProps.match))
+const matchRouteAndMapDispatchToProps = actionCreators => (
+  dispatch,
+  ownProps,
+) => {
+  dispatch({
+    type: RouterActionType.MATCH_ROUTE,
+    match: ownProps.match,
+  })
+
   return bindActionCreators(actionCreators, dispatch)
 }
+
+export default matchRouteAndMapDispatchToProps

@@ -1,0 +1,23 @@
+{
+  "name": "@chainlink/ts-test-helpers",
+  "private": true,
+  "version": "0.0.1",
+  "main": "./dist/src",
+  "types": "./dist/src",
+  "engines": {
+    "node": "~10.16"
+  },
+  "scripts": {
+    "build": "rimraf -rf dist && tsc",
+    "setup": "yarn build",
+    "test": "echo \"No tests required for @chainlink/ts-test-helpers\"",
+    "test:ci": "echo \"No tests required for @chainlink/ts-test-helpers\""
+  },
+  "peerDependencies": {},
+  "dependencies": {
+    "typescript": "^3.7.4"
+  },
+  "devDependencies": {
+    "rimraf": "^3.0.0"
+  }
+}

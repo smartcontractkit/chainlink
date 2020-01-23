@@ -178,6 +178,7 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 		precision      int32
 		expectation    decimal.Decimal
 	}{
+		{"hex - Zero", "0x", 2, decimal.NewFromFloat(0)},
 		{"hex", "0x0100", 2, decimal.NewFromFloat(2.56)},
 		{"decimal", "10000000000000", 11, decimal.NewFromInt(100)},
 		{"large decimal", "52050000000000000000", 11, decimal.RequireFromString("520500000")},
@@ -220,6 +221,9 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 		{"zero", "0", big.NewInt(0)},
 		{"small", "12", big.NewInt(12)},
 		{"large", "52050000000000000000", large},
+		{"hex zero default", "0x", big.NewInt(0)},
+		{"hex zero", "0x0", big.NewInt(0)},
+		{"hex", "0x0100", big.NewInt(256)},
 	}
 
 	for _, test := range tests {

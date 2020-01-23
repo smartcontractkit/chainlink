@@ -359,6 +359,9 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 		return err
 	}
 
+	jobSpecID := p.initr.JobSpecID.String()
+	promSetBigInt(promFMSeenRound.WithLabelValues(jobSpecID), requestedRound)
+
 	// skip if requested is not greater than current.
 	if requestedRound.Cmp(p.currentRound) < 1 {
 		logger.Infow(
@@ -379,6 +382,7 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 		"jobID", p.initr.JobSpecID,
 	)
 	p.currentRound = requestedRound
+
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
 		return err
@@ -397,10 +401,13 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 // is not met, or triggering a new job run if deviation is met.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) poll() error {
+	jobSpecID := p.initr.JobSpecID.String()
+
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
 		return err
 	}
+	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), nextPrice)
 
 	if !OutsideDeviation(p.currentPrice, nextPrice, p.threshold) {
 		return nil // early exit since deviation criteria not met.
@@ -419,6 +426,10 @@ func (p *PollingDeviationChecker) poll() error {
 
 	p.currentPrice = nextPrice
 	p.currentRound = nextRound
+
+	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), p.currentPrice)
+	promSetBigInt(promFMReportedRound.WithLabelValues(jobSpecID), p.currentRound)
+
 	return nil
 }
 

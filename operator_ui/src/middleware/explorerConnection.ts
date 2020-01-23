@@ -8,7 +8,7 @@ import { Actions } from 'reducers/actions'
  * cookie after every MATCH_ROUTE action
  */
 export function createExplorerConnectionMiddleware(
-  cookie: string = (global.document && global.document.cookie) || '',
+  cookie?: string,
 ): Middleware {
   const explorerConnectionMiddleware: Middleware = store => next => (
     action: Actions,
@@ -16,12 +16,16 @@ export function createExplorerConnectionMiddleware(
     // dispatch original action right away
     next(action)
 
+    // DEV NOTE:
+    // `document` can't be accessed in the NodeJS build environment of the parent closure.
+    const initCookie: string = cookie || (document && document.cookie) || ''
     const state: AppState = store.getState()
+
     if (
       action.type === 'MATCH_ROUTE' &&
       state.notifications.currentUrl !== '/signin'
     ) {
-      const cookies = parse(cookie)
+      const cookies = parse(initCookie)
 
       if (cookies.explorer) {
         try {
