@@ -21344,31 +21344,26 @@ hr {
 .header {
   padding: 30px 0;
   display: flex;
+  justify-content: space-between;
 }
-.header-logotype {
+.header__logotype {
   display: flex;
   align-items: center;
 }
 .header h1 {
+  color: #375bd2;
   font-size: 18px;
-  font-family: Helvetica, sans-serif;
   margin: 0 13px;
   display: block;
-  font-weight: 400;
+  font-weight: 500;
 }
-.header-menu {
+.header__main-nav {
   display: flex;
   align-items: center;
 }
-.header-menu--link a {
-  padding: 10px;
-  color: #272727;
-}
-.header .ant-input-suffix {
-  right: 0 !important;
-}
-.header .ant-input {
-  padding-right: 60px !important;
+.header__secondary-nav {
+  display: flex;
+  align-items: center;
 }
 @keyframes dash-animation {
   to {

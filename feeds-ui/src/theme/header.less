@@ -1,35 +1,28 @@
 .header {
   padding: 30px 0;
   display: flex;
-}
+  justify-content: space-between;
 
-.header-logotype {
-  display: flex;
-  align-items: center;
-}
+  &__logotype {
+    display: flex;
+    align-items: center;
+  }
 
-.header h1 {
-  font-size: 18px;
-  font-family: Helvetica, sans-serif;
-  margin: 0 13px;
-  display: block;
-  font-weight: 400;
-}
+  h1 {
+    color: @primary-color;
+    font-size: 18px;
+    margin: 0 13px;
+    display: block;
+    font-weight: 500;
+  }
 
-.header-menu {
-  display: flex;
-  align-items: center;
-}
+  &__main-nav {
+    display: flex;
+    align-items: center;
+  }
 
-.header-menu--link a {
-  padding: 10px;
-  color: #272727;
-}
-
-.header .ant-input-suffix {
-  right: 0 !important;
-}
-
-.header .ant-input {
-  padding-right: 60px !important;
+  &__secondary-nav {
+    display: flex;
+    align-items: center;
+  }
 }

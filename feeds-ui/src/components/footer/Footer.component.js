@@ -17,12 +17,26 @@ const Footer = () => (
           <p>
             Chainlink<sup>®</sup>
             <br />
-            <br />© 2019 SmartContract Chainlink Ltd SEZC
+            <br />© 2020 SmartContract Chainlink Ltd SEZC
             <br />
             <br />
-            <a href="/terms"> Terms of Use</a>
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://chain.link/terms/"
+            >
+              {' '}
+              Terms of Use
+            </a>
             <br />
-            <a href="/privacy-policy"> Privacy Policy</a>
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://chain.link/privacy-policy/"
+            >
+              {' '}
+              Privacy Policy
+            </a>
           </p>
         </Col>
         <Col {...grid}>
@@ -180,16 +194,6 @@ const Footer = () => (
                 target="_blank"
               >
                 <span className="icon-discord"></span>Discord
-              </a>
-            </li>
-            <li>
-              <a
-                href="https://eth-usd-aggregator.chain.link/"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <span className="icon-new-window"></span>Chainlink Reference
-                Data
               </a>
             </li>
           </ul>
