@@ -3,6 +3,7 @@ import { Drawer, Button } from 'antd'
 import { etherscanAddress, humanizeUnixTimestamp } from 'utils'
 import { connect } from 'react-redux'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
+import { MAINNET_ID } from 'utils'
 
 const NodeDetailsModal = ({ options, fetchJobId, sideDrawer, setDrawer }) => {
   const [jobId, setJobId] = useState()
@@ -63,7 +64,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
 
       <div>
         <h4>Find out more in:</h4>
-        {options.network === 'mainnet' && (
+        {options.networkId === MAINNET_ID && (
           <>
             <Button
               style={{ marginRight: 10 }}
@@ -94,7 +95,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={etherscanAddress(options.network, data.address)}
+            href={etherscanAddress(options.networkId, data.address)}
           >
             Etherscan
           </a>
@@ -142,7 +143,7 @@ const ContractDetailsContent = ({ data = {}, options }) => {
 
       <div>
         <h4>Find out more in:</h4>
-        {options.network === 'mainnet' && (
+        {options.networkId === MAINNET_ID && (
           <Button style={{ marginRight: 10 }} ghost type="primary">
             <a
               target="_BLANK"
@@ -157,7 +158,7 @@ const ContractDetailsContent = ({ data = {}, options }) => {
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={etherscanAddress(options.network, options.contractAddress)}
+            href={etherscanAddress(options.networkId, options.contractAddress)}
           >
             Etherscan
           </a>

@@ -3,7 +3,8 @@ import { Icon } from 'antd'
 import CountDown from './CountDown.component'
 import Legend from './Legend.component'
 import TooltipQuestion from 'components/shared/TooltipQuestion'
-import { humanizeUnixTimestamp } from 'utils'
+import { humanizeUnixTimestamp, networkName } from 'utils'
+import { MAINNET_ID } from 'utils'
 
 function NetworkGraphInfo({
   currentAnswer,
@@ -39,15 +40,18 @@ function NetworkGraphInfo({
     <div className="network-graph-info__wrapper">
       <div className="network-graph-info__title">
         <h4 className="network-graph-info__title--address">
-          {options.network !== 'mainnet' && (
+          {options.networkId !== MAINNET_ID && (
             <div style={{ color: '#ff6300' }}>
-              <Icon type="warning" /> {options.network.toUpperCase()} NETWORK
+              <Icon type="warning" />{' '}
+              {networkName(options.networkId).toUpperCase()} NETWORK
             </div>
           )}
           {options.contractAddress}{' '}
           <TooltipQuestion title={'Ethereum contract address'} />
         </h4>
-        <h2 className="network-graph-info__title--name">{options.name}</h2>
+        <h1 className="network-graph-info__title--name">
+          {options.name} aggregation
+        </h1>
       </div>
 
       <div className="network-graph-info__item">

@@ -18,7 +18,7 @@ export default class AggregationContract {
   contract
 
   constructor(options, abi) {
-    this.provider = createInfuraProvider(options.network)
+    this.provider = createInfuraProvider(options.networkId)
     this.contract = createContract(options.contractAddress, this.provider, abi)
     this.address = options.contractAddress
     this.alive = true
