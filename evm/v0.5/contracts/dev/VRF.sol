@@ -16,6 +16,8 @@ pragma solidity 0.5.0;
   * @dev draft-irtf-cfrg-vrf-05, IETF, Aug 11 2019,
   * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05
 
+  XXX: Fix up references to latest version of the draft.
+
   * @dev Papadopoulos, et al., "Making NSEC5 Practical for DNSSEC", Cryptology
   * @dev ePrint Archive, Report 2017/099, 2017
   * ****************************************************************************
