@@ -1357,3 +1357,29 @@ func TestJobs_ScopedInitiator(t *testing.T) {
 	expectation := []string{fmJob.ID.String(), twoInitrJob.ID.String()}
 	assert.ElementsMatch(t, expectation, actual)
 }
+
+func TestJobs_MoreThanBatchWithArchives(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	archivedJob := cltest.NewJobWithFluxMonitorInitiator()
+	archivedJob.DeletedAt = cltest.NullableTime(time.Now())
+	require.NoError(t, store.CreateJob(&archivedJob))
+
+	jobs := []models.JobSpec{}
+	jobNumber := 202
+	for i := 0; i < jobNumber; i++ {
+		job := cltest.NewJobWithFluxMonitorInitiator()
+		require.NoError(t, store.CreateJob(&job))
+		jobs = append(jobs, job)
+	}
+
+	counter := 0
+	err := store.Jobs(func(j *models.JobSpec) bool {
+		counter += 1
+		return true
+	}, models.InitiatorFluxMonitor)
+	require.NoError(t, err)
+
+	assert.Equal(t, jobNumber, counter)
+}
