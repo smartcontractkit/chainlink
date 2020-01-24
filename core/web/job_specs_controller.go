@@ -37,6 +37,18 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
+// requireImplented verifies if a Job Spec's feature is enabled according to
+// configured policy.
+func (jsc *JobSpecsController) requireImplented(js models.JobSpec) error {
+	cfg := jsc.App.GetStore().Config
+	if !cfg.Dev() && !cfg.FeatureFluxMonitor() {
+		if intrs := js.InitiatorsFor(models.InitiatorFluxMonitor); len(intrs) > 0 {
+			return errors.New("The Flux Monitor feature is disabled by configuration")
+		}
+	}
+	return nil
+}
+
 // Create adds validates, saves, and starts a new JobSpec.
 // Example:
 //  "<application>/specs"
@@ -45,6 +57,8 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&jsr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if js := models.NewJobFromRequest(jsr); false {
+	} else if err := jsc.requireImplented(js); err != nil {
+		jsonAPIError(c, http.StatusNotImplemented, err)
 	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 	} else if err := NotifyExternalInitiator(js, jsc.App.GetStore()); err != nil {

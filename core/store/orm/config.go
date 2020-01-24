@@ -143,6 +143,11 @@ func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
 }
 
+// FeatureFluxMonitor enables the Flux Monitor feature.
+func (c Config) FeatureFluxMonitor() bool {
+	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
+}
+
 // MaxRPCCallsPerSecond returns the rate at which RPC calls can be fired
 func (c Config) MaxRPCCallsPerSecond() uint64 {
 	return c.viper.GetUint64(EnvVarName("MaxRPCCallsPerSecond"))
