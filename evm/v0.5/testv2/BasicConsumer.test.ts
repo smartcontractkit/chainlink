@@ -54,11 +54,8 @@ describe('BasicConsumer', () => {
 
   describe('#requestEthereumPrice', () => {
     describe('without LINK', () => {
-      it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await cc.requestEthereumPrice(currency, payment)
-        })
-      })
+      it('reverts', () =>
+        h.assertActionThrows(cc.requestEthereumPrice(currency, payment)))
     })
 
     describe('with LINK', () => {
@@ -170,9 +167,9 @@ describe('BasicConsumer', () => {
 
     describe('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
-        await h.assertActionThrows(async () => {
-          await cc.connect(roles.oracleNode).fulfill(request.id, response)
-        })
+        await h.assertActionThrows(
+          cc.connect(roles.oracleNode).fulfill(request.id, response),
+        )
 
         const received = await cc.currentPrice()
         assert.equal(ethers.utils.parseBytes32String(received), '')
@@ -193,9 +190,9 @@ describe('BasicConsumer', () => {
     })
 
     describe('before 5 minutes', () => {
-      it('cant cancel the request', async () => {
-        await h.assertActionThrows(async () => {
-          await cc
+      it('cant cancel the request', () =>
+        h.assertActionThrows(
+          cc
             .connect(roles.consumer)
             .cancelRequest(
               oc.address,
@@ -203,9 +200,8 @@ describe('BasicConsumer', () => {
               request.payment,
               request.callbackFunc,
               request.expiration,
-            )
-        })
-      })
+            ),
+        ))
     })
 
     describe('after 5 minutes', () => {

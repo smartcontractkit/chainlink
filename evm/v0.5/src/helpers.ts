@@ -171,14 +171,23 @@ export async function initializeRolesAndPersonas(
   return { personas, roles }
 }
 
-type AsyncFunction = () => Promise<void>
-export async function assertActionThrows(action: AsyncFunction) {
+export async function assertActionThrows(
+  action: (() => Promise<any>) | Promise<any>,
+  msg?: string,
+) {
+  const d = debug.extend('assertActionThrows')
   let e: Error | undefined = undefined
+
   try {
-    await action()
+    if (typeof action === 'function') {
+      await action()
+    } else {
+      await action
+    }
   } catch (error) {
     e = error
   }
+  d(e)
   if (!e) {
     assert.exists(e, 'Expected an error to be raised')
     return
@@ -188,6 +197,10 @@ export async function assertActionThrows(action: AsyncFunction) {
 
   const ERROR_MESSAGES = ['invalid opcode', 'revert']
   const hasErrored = ERROR_MESSAGES.some(msg => e?.message?.includes(msg))
+
+  if (msg) {
+    expect(e.message).toMatch(msg)
+  }
 
   assert(
     hasErrored,

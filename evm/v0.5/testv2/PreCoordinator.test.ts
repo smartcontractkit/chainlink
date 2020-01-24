@@ -121,61 +121,61 @@ describe('PreCoordinator', () => {
         assert.deepEqual(sa.payments, [payment, payment, payment, payment])
       })
 
-      it('does not allow service agreements with 0 minResponses', async () =>
-        await h.assertActionThrows(async () => {
-          await pc
+      it('does not allow service agreements with 0 minResponses', () =>
+        h.assertActionThrows(
+          pc
             .connect(roles.defaultAccount)
             .createServiceAgreement(
               0,
               [oc1.address, oc2.address, oc3.address, oc4.address],
               [job1, job2, job3, job4],
               [payment, payment, payment, payment],
-            )
-          // 'Min responses must be > 0',
-        }))
+            ),
+          'Min responses must be > 0',
+        ))
 
       describe('when called by a stranger', () => {
-        it('reverts', async () =>
-          h.assertActionThrows(async () => {
-            await pc
+        it('reverts', () =>
+          h.assertActionThrows(
+            pc
               .connect(roles.stranger)
               .createServiceAgreement(
                 3,
                 [oc1.address, oc2.address, oc3.address, oc4.address],
                 [job1, job2, job3, job4],
                 [payment, payment, payment, payment],
-              )
-          }))
+              ),
+          ))
       })
 
       describe('when the array lengths are not equal', () => {
-        it('reverts', async () =>
-          h.assertActionThrows(async () => {
-            await pc
+        it('reverts', () =>
+          h.assertActionThrows(
+            pc
               .connect(roles.defaultAccount)
               .createServiceAgreement(
                 3,
                 [oc1.address, oc2.address, oc3.address, oc4.address],
                 [job1, job2, job3],
                 [payment, payment, payment, payment],
-              )
-            // 'Unmet length',
-          }))
+              ),
+            'Unmet length',
+          ))
       })
 
       describe('when the min responses is greater than the oracles', () => {
-        it('reverts', async () =>
-          h.assertActionThrows(async () => {
-            await pc
+        it('reverts', () =>
+          h.assertActionThrows(
+            pc
               .connect(roles.defaultAccount)
               .createServiceAgreement(
                 5,
                 [oc1.address, oc2.address, oc3.address, oc4.address],
                 [job1, job2, job3, job4],
                 [payment, payment, payment, payment],
-              )
-            // 'Invalid min responses',
-          }))
+              ),
+            'Invalid min responses',
+          ))
       })
     })
   })
@@ -200,11 +200,10 @@ describe('PreCoordinator', () => {
     })
 
     describe('when called by a stranger', () => {
-      it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await pc.connect(roles.stranger).deleteServiceAgreement(saId)
-        })
-      })
+      it('reverts', () =>
+        h.assertActionThrows(
+          pc.connect(roles.stranger).deleteServiceAgreement(saId),
+        ))
     })
 
     describe('when called by the owner', () => {
@@ -230,12 +229,10 @@ describe('PreCoordinator', () => {
           .requestEthereumPrice(currency, totalPayment)
       })
 
-      it('reverts', async () =>
-        await h.assertActionThrows(
-          async () => {
-            await pc.connect(roles.defaultAccount).deleteServiceAgreement(saId)
-          },
-          // 'Cannot delete while active',
+      it('reverts', () =>
+        h.assertActionThrows(
+          pc.connect(roles.defaultAccount).deleteServiceAgreement(saId),
+          'Cannot delete while active',
         ))
     })
   })
@@ -268,11 +265,11 @@ describe('PreCoordinator', () => {
           .connect(roles.defaultAccount)
           .transfer(badRc.address, totalPayment)
 
-        await h.assertActionThrows(async () => {
-          await badRc
+        await h.assertActionThrows(
+          badRc
             .connect(roles.consumer)
-            .requestEthereumPrice(currency, totalPayment, {})
-        })
+            .requestEthereumPrice(currency, totalPayment, {}),
+        )
       })
     })
 
@@ -334,13 +331,10 @@ describe('PreCoordinator', () => {
       })
 
       describe('when insufficient payment is supplied', () => {
-        it('reverts', async () => {
-          await h.assertActionThrows(async () => {
-            await rc
-              .connect(roles.consumer)
-              .requestEthereumPrice(currency, payment)
-          })
-        })
+        it('reverts', () =>
+          h.assertActionThrows(
+            rc.connect(roles.consumer).requestEthereumPrice(currency, payment),
+          ))
       })
 
       describe('when the same nonce is used twice', () => {
@@ -352,10 +346,8 @@ describe('PreCoordinator', () => {
           await h.requestDataFrom(pc, link, totalPayment, args)
         })
 
-        it('reverts', async () =>
-          h.assertActionThrows(async () => {
-            await h.requestDataFrom(pc, link, totalPayment, args)
-          }))
+        it('reverts', () =>
+          h.assertActionThrows(h.requestDataFrom(pc, link, totalPayment, args)))
       })
 
       describe('when too much payment is supplied', () => {
@@ -424,12 +416,10 @@ describe('PreCoordinator', () => {
       })
 
       describe('when called by a stranger', () => {
-        it('reverts', async () =>
+        it('reverts', () =>
           h.assertActionThrows(
-            async () => {
-              await pc.chainlinkCallback(saId, response1)
-            },
-            // 'Source must be the oracle of the request',
+            pc.chainlinkCallback(saId, response1),
+            'Source must be the oracle of the request',
           ))
       })
 
@@ -608,9 +598,7 @@ describe('PreCoordinator', () => {
 
     describe('when called by a stranger', () => {
       it('reverts', () =>
-        h.assertActionThrows(async () => {
-          await pc.connect(roles.stranger).withdrawLink()
-        }))
+        h.assertActionThrows(pc.connect(roles.stranger).withdrawLink()))
     })
 
     describe('when called by the owner', () => {
@@ -658,18 +646,16 @@ describe('PreCoordinator', () => {
     describe('before the minimum required time', () => {
       it('does not allow requests to be cancelled', () =>
         h.assertActionThrows(
-          async () => {
-            await rc
-              .connect(roles.consumer)
-              .cancelRequest(
-                pc.address,
-                request.id,
-                request.payment,
-                request.callbackFunc,
-                request.expiration,
-              )
-          },
-          // 'Request is not expired',
+          rc
+            .connect(roles.consumer)
+            .cancelRequest(
+              pc.address,
+              request.id,
+              request.payment,
+              request.callbackFunc,
+              request.expiration,
+            ),
+          'Request is not expired',
         ))
     })
 
@@ -694,17 +680,15 @@ describe('PreCoordinator', () => {
 
       it('does not allow others to call', () =>
         h.assertActionThrows(
-          async () => {
-            await pc
-              .connect(roles.stranger)
-              .cancelOracleRequest(
-                request.id,
-                request.payment,
-                request.callbackFunc,
-                request.expiration,
-              )
-          },
-          // 'Only requester can cancel',
+          pc
+            .connect(roles.stranger)
+            .cancelOracleRequest(
+              request.id,
+              request.payment,
+              request.callbackFunc,
+              request.expiration,
+            ),
+          'Only requester can cancel',
         ))
     })
   })
