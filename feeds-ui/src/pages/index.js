@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react'
 import { Route, Router, Switch } from 'react-router-dom'
-import { Footer } from 'components/footer'
 import Landing from './Landing'
 import CreatePage from './Create'
 import CustomPage from './Custom'
@@ -39,7 +38,6 @@ const AppRoutes = () => {
         <Route path="/address/:address" component={configWrapper()} />
         <Route path="/:pair" component={configWrapper(MAINNET_ID)} />
       </Switch>
-      <Footer />
     </Router>
   )
 }
