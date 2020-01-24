@@ -2,7 +2,7 @@ import React from 'react'
 import { ethers } from 'ethers'
 import { Form, Select, Input, Button, InputNumber } from 'antd'
 import { withRouter } from 'react-router'
-import { ROPSTEN_ID, MAINNET_ID, stringifyQuery } from 'utils/'
+import { Networks, stringifyQuery } from 'utils'
 
 const { Option } = Select
 
@@ -76,11 +76,11 @@ const Create = ({ form, history }) => {
         <Form.Item label="Network">
           {getFieldDecorator('networkId', {
             rules: [{ required: true }],
-            initialValue: MAINNET_ID,
+            initialValue: Networks.MAINNET,
           })(
             <Select placeholder="Select a Network">
-              <Option value={MAINNET_ID}>Mainnet</Option>
-              <Option value={ROPSTEN_ID}>Ropsten</Option>
+              <Option value={Networks.MAINNET}>Mainnet</Option>
+              <Option value={Networks.ROPSTEN}>Ropsten</Option>
             </Select>,
           )}
         </Form.Item>
