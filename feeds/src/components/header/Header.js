@@ -2,8 +2,8 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from 'antd'
 import { withRouter } from 'react-router'
-import ChainlinkLogo from 'components/shared/ChainlinkLogo'
 import ReactGA from 'react-ga'
+import ChainlinkLogo from '../shared/ChainlinkLogo'
 
 const Header = ({ location }) => {
   return (
