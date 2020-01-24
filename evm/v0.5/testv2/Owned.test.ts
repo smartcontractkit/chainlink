@@ -61,11 +61,8 @@ describe('Owned', () => {
     })
 
     describe('when called by anyone but the owner', () => {
-      it('reverts', async () => {
-        await h.assertActionThrows(async () => {
-          await owned.connect(nonOwner).modifierOnlyOwner()
-        })
-      })
+      it('reverts', () =>
+        h.assertActionThrows(owned.connect(nonOwner).modifierOnlyOwner()))
     })
   })
 
@@ -88,11 +85,10 @@ describe('Owned', () => {
   })
 
   describe('when called by anyone but the owner', () => {
-    it('successfully calls the method', async () => {
-      await h.assertActionThrows(async () => {
-        await owned.connect(nonOwner).transferOwnership(newOwner.address)
-      })
-    })
+    it('successfully calls the method', () =>
+      h.assertActionThrows(
+        owned.connect(nonOwner).transferOwnership(newOwner.address),
+      ))
   })
 
   describe('#acceptOwnership', () => {
@@ -110,11 +106,8 @@ describe('Owned', () => {
         expect(h.eventArgs(event).from).toEqual(owner.address)
       })
 
-      it('does not allow a non-recipient to call it', async () => {
-        await h.assertActionThrows(async () => {
-          await owned.connect(nonOwner).acceptOwnership()
-        })
-      })
+      it('does not allow a non-recipient to call it', () =>
+        h.assertActionThrows(owned.connect(nonOwner).acceptOwnership()))
     })
   })
 })
