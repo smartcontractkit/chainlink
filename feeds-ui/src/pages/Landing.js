@@ -43,9 +43,12 @@ const LangingPage = () => (
           networks.
         </p>
         <p>
-          Please feel free to look into the operational details of each
-          Chainlink Decentralized Oracle Network on this page and easily start
-          using them here.
+          Please feel free to look into the details of each Decentralized Oracle
+          Network on this page. You can easily start using these oracle networks
+          to securely launch your DeFi smart contract, add more markets/features
+          to an existing smart contract and/or just greatly improve the security
+          of your existing DeFi smart contract. We&apos;ve built all this to
+          help you make a great smart contract.
         </p>
         <br />
         <a

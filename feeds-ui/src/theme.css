@@ -21745,7 +21745,7 @@ hr {
 .landing-page .supporters-wrapper {
   text-align: center;
   max-width: 800px;
-  margin: 120px auto 0;
+  margin: 120px auto 120px;
 }
 .landing-page .supporters .ampleforth {
   width: 190px;
