@@ -246,6 +246,17 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     view
     returns (int256)
   {
+    return _latestAnswer();
+  }
+
+  /**
+   * @dev Internal implementation for latestAnswer
+   */
+  function _latestAnswer()
+    internal
+    view
+    returns (int256)
+  {
     return rounds[latestRoundId].answer;
   }
 
@@ -254,6 +265,17 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
    */
   function latestTimestamp()
     external
+    view
+    returns (uint256)
+  {
+    return _latestTimestamp();
+  }
+
+  /**
+   * @dev Internal implementation of latestTimestamp
+   */
+  function _latestTimestamp()
+    internal
     view
     returns (uint256)
   {
@@ -291,6 +313,17 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     view
     returns (int256)
   {
+    return _getAnswer(_roundId);
+  }
+
+  /**
+   * @dev Internal implementation of getAnswer
+   */
+  function _getAnswer(uint256 _roundId)
+    internal
+    view
+    returns (int256)
+  {
     return rounds[uint32(_roundId)].answer;
   }
 
@@ -300,6 +333,17 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
+    returns (uint256)
+  {
+    return _getTimestamp(_roundId);
+  }
+
+  /**
+   * @dev Internal implementation of getTimestamp
+   */
+  function _getTimestamp(uint256 _roundId)
+    internal
     view
     returns (uint256)
   {
