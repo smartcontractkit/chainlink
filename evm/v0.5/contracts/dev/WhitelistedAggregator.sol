@@ -34,7 +34,7 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
     view
     returns (int256)
   {
-    return rounds[latestRoundId].answer;
+    return _latestAnswer();
   }
 
   /**
@@ -47,7 +47,7 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
     isWhitelisted()
     returns (uint256)
   {
-    return rounds[latestRoundId].updatedAt;
+    return _latestTimestamp();
   }
 
   /**
@@ -61,7 +61,7 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
     isWhitelisted()
     returns (int256)
   {
-    return rounds[uint32(_roundId)].answer;
+    return _getAnswer(_roundId);
   }
 
   /**
@@ -75,6 +75,6 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
     view
     returns (uint256)
   {
-    return rounds[uint32(_roundId)].updatedAt;
+    return _getTimestamp(_roundId);
   }
 }
