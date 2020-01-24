@@ -13,7 +13,7 @@ export function createInfuraProvider() {
 }
 
 export function createContract(address, provider, abi) {
-  return new Contract(address, abi, provider)
+  return new Contract(address, abi)
 }
 
 export function formatAnswer() {

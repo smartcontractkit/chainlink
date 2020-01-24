@@ -3,8 +3,8 @@ import { Icon } from 'antd'
 import CountDown from './CountDown.component'
 import Percent from './Percent.component'
 import Legend from './Legend.component'
-import TooltipQuestion from 'components/shared/TooltipQuestion'
-import { humanizeUnixTimestamp, networkName, MAINNET_ID } from 'utils/'
+import TooltipQuestion from '../shared/TooltipQuestion'
+import { humanizeUnixTimestamp, networkName, Networks } from 'utils'
 
 function NetworkGraphInfo({
   currentAnswer,
@@ -40,7 +40,7 @@ function NetworkGraphInfo({
     <div className="network-graph-info__wrapper">
       <div className="network-graph-info__title">
         <h4 className="network-graph-info__title--address">
-          {options.networkId !== MAINNET_ID && (
+          {options.networkId !== Networks.MAINNET && (
             <div style={{ color: '#ff6300' }}>
               <Icon type="warning" />{' '}
               {networkName(options.networkId).toUpperCase()} NETWORK

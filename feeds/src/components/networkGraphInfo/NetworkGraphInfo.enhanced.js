@@ -1,6 +1,6 @@
-import NetworkGraphInfo from './NetworkGraphInfo.component'
 import { compose } from 'recompose'
 import { connect } from 'react-redux'
+import NetworkGraphInfo from './NetworkGraphInfo.component'
 
 const mapStateToProps = state => ({
   currentAnswer: state.aggregation.currentAnswer,

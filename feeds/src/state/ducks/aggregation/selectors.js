@@ -1,5 +1,5 @@
 import { createSelector } from 'reselect'
-import nodes from 'nodes.json'
+import nodes from '../../../nodes.json'
 
 const oracles = state => state.aggregation.oracles
 const oracleResponse = state => state.aggregation.oracleResponse

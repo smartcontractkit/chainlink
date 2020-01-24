@@ -1,10 +1,9 @@
-import NetworkGraph from './NetworkGraph.component'
 import { connect } from 'react-redux'
-
 import {
   aggregationSelectors,
   aggregationOperations,
 } from 'state/ducks/aggregation'
+import NetworkGraph from './NetworkGraph.component'
 
 const mapStateToProps = state => ({
   updateHeight: state.aggregation.updateHeight,

@@ -1,6 +1,5 @@
-import OracleTable from './OracleTable.component'
 import { connect } from 'react-redux'
-
+import OracleTable from './OracleTable.component'
 import {
   aggregationSelectors,
   aggregationOperations,

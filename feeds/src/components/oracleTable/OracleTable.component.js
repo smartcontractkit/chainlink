@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { humanizeUnixTimestamp } from 'utils/'
 import _ from 'lodash'
 import { Table, Icon } from 'antd'
+import { humanizeUnixTimestamp } from 'utils'
 
 const OracleTable = ({
   networkGraphState,
