@@ -29,6 +29,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+// BatchSize is the safe number of records to cache during Batch calls for
+// SQLite without causing load problems.
+const BatchSize = 100
+
 var (
 	// ErrorNotFound is returned when finding a single value fails.
 	ErrorNotFound = gorm.ErrRecordNotFound
@@ -281,7 +285,7 @@ func (orm *ORM) FindJobRun(id *models.ID) (models.JobRun, error) {
 // AllSyncEvents returns all sync events
 func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 	orm.MustEnsureAdvisoryLock()
-	return Batch(1000, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		var events []models.SyncEvent
 		err := orm.db.
 			Limit(limit).
@@ -419,7 +423,7 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error {
 	orm.MustEnsureAdvisoryLock()
-	return Batch(100, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		scope := orm.db.Limit(limit).Offset(offset)
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
@@ -587,7 +591,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 		return errors.Wrap(err, "finding job ids")
 	}
 
-	return Batch(100, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		batchIDs := runIDs[offset:utils.MinUint(limit, uint(len(runIDs)))]
 		var runs []models.JobRun
 		err := orm.Unscoped().
