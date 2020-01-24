@@ -125,7 +125,6 @@
     "multiply": "100000000",
     "supported": ["Synthetix"]
   },
-
   {
     "contractAddress": "0x8770Afe90c52Fd117f29192866DE705F63e59407",
     "name": "LRC / ETH",
@@ -145,19 +144,6 @@
     "valuePrefix": "Ξ",
     "pair": ["LEND", "ETH"],
     "path": "lend-eth",
-    "contractVersion": 2,
-    "networkId": 1,
-    "history": false,
-    "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "supported": ["Aave"]
-  },
-  {
-    "contractAddress": "0xF17BE6Ea8506980D0c6832EdE67e337F1684Ae02",
-    "name": "AMPL / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["AMPL", "ETH"],
-    "path": "ampl-eth",
     "contractVersion": 2,
     "networkId": 1,
     "history": false,
