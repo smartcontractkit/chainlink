@@ -9,6 +9,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
+	"chainlink/core/services/vrf"
 	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -57,6 +58,9 @@ var (
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
 	// https://chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
+	// RandomnessRequestLogTopic is the signature for the event log
+	// VRFCoordinator.RandomnessRequest.
+	RandomnessRequestLogTopic = vrf.RandomnessRequestLogTopic
 	// OracleFullfillmentFunctionID0original is the original function selector for fulfilling Ethereum requests.
 	OracleFullfillmentFunctionID0original = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
 	// OracleFulfillmentFunctionID20190123withFulfillmentParams is the function selector for fulfilling Ethereum requests,

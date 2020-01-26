@@ -1,17 +1,20 @@
 package vrf
 
 import (
-	"bytes"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	"chainlink/core/assets"
+	"chainlink/core/eth"
+	"chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
 	coord "chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
 	"chainlink/core/utils"
 )
@@ -30,9 +33,11 @@ var FulfillSelector string
 // RandomnessRequestLogTopic is the signature of the RandomnessRequest log
 var RandomnessRequestLogTopic common.Hash
 var RandomnessRequestABI abi.Event
+var randomnessRequestRawDataArgs abi.Arguments
 
 func init() {
-	CoordinatorABI, err := abi.JSON(strings.NewReader(coord.VRFCoordinatorABI))
+	var err error
+	CoordinatorABI, err = abi.JSON(strings.NewReader(coord.VRFCoordinatorABI))
 	if err != nil {
 		panic(err)
 	}
@@ -47,6 +52,11 @@ func init() {
 	}
 	RandomnessRequestABI = CoordinatorABI.Events["RandomnessRequest"]
 	RandomnessRequestLogTopic = RandomnessRequestABI.ID()
+	for _, arg := range RandomnessRequestABI.Inputs {
+		if !arg.Indexed {
+			randomnessRequestRawDataArgs = append(randomnessRequestRawDataArgs, arg)
+		}
+	}
 }
 
 // RandomnessRequestLog contains the data for a RandomnessRequest log,
@@ -57,34 +67,42 @@ type RandomnessRequestLog struct {
 	JobID   common.Hash
 	Sender  common.Address
 	Fee     *assets.Link
+	Raw     RawRandomnessRequestLog
 }
 
 // rawRandomnessRequestLog is used to parse a RandomnessRequest log into types
 // go-ethereum knows about.
-type rawRandomnessRequestLog struct {
-	KeyHash common.Hash
-	Seed    *big.Int
-	JobID   common.Hash
-	Sender  common.Address
-	Fee     *big.Int
+type RawRandomnessRequestLog solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
+
+// ethLogToTypesLog converts an eth.Log to a types.Log.
+func ethLogToTypesLog(log eth.Log) types.Log {
+	return types.Log{
+		Address:     log.Address,
+		Topics:      log.Topics,
+		Data:        log.Data,
+		BlockNumber: log.BlockNumber,
+		TxHash:      log.TxHash,
+		TxIndex:     log.TxIndex,
+		BlockHash:   log.BlockHash,
+		Index:       log.Index,
+		Removed:     log.Removed,
+	}
 }
 
 // ParseRandomnessRequestLog returns the RandomnessRequestLog corresponding to
 // the raw logData
-func ParseRandomnessRequestLog(logData []byte) (*RandomnessRequestLog, error) {
-	rawRV := rawRandomnessRequestLog{}
-	if err := RandomnessRequestABI.Inputs.Unpack(&rawRV, logData); err != nil {
-		return nil, errors.Wrapf(err, "while unpacking RandomnessRequest log data")
+func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
+	rawRV := solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}
+	contract := bind.NewBoundContract(common.Address{}, CoordinatorABI, nil, nil, nil)
+	if err := contract.UnpackLog(&rawRV, "RandomnessRequest", ethLogToTypesLog(log)); err != nil {
+		return nil, errors.Wrapf(err, "while parsing %x as RandomnessRequestLog", log.Data)
 	}
+	rRRL := RawRandomnessRequestLog(rawRV)
+	rRRL.Raw = types.Log(log)
 	rv := RandomnessRequestLog{
-		KeyHash: rawRV.KeyHash,
-		Seed:    rawRV.Seed,
-		JobID:   rawRV.JobID,
-		Sender:  rawRV.Sender,
-		Fee:     (*assets.Link)(rawRV.Fee),
+		rawRV.KeyHash, rawRV.Seed, rawRV.JobID, rawRV.Sender,
+		(*assets.Link)(rawRV.Fee), rRRL,
 	}
-	checkUint256(rv.Seed)
-	checkUint256((*big.Int)(rv.Fee))
 	return &rv, nil
 }
 
@@ -96,17 +114,18 @@ func checkUint256(n *big.Int) {
 }
 
 // RawLog returns the raw bytes corresponding to l in a solidity log
-func (l *RandomnessRequestLog) RawLog() ([]byte, error) {
-	return RandomnessRequestABI.Inputs.Pack(l.KeyHash, l.Seed, l.JobID, l.Sender,
+//
+// This serialization does not include the JobID, because that's an indexed field.
+func (l *RandomnessRequestLog) RawData() ([]byte, error) {
+	return randomnessRequestRawDataArgs.Pack(l.KeyHash, l.Seed, l.Sender,
 		(*big.Int)(l.Fee))
 }
 
 // Equal(ol) is true iff l is the same log as ol, and both represent valid
 // RandomnessRequest logs.
 func (l *RandomnessRequestLog) Equal(ol RandomnessRequestLog) bool {
-	lR, err := l.RawLog()
-	oR, oErr := ol.RawLog()
-	return bytes.Equal(lR, oR) && err == nil && oErr == nil
+	return l.KeyHash == ol.KeyHash && l.Seed.Cmp(ol.Seed) == 0 &&
+		l.JobID == ol.JobID && l.Sender == ol.Sender && l.Fee.Cmp(ol.Fee) == 0
 }
 
 func (l *RandomnessRequestLog) RequestID() common.Hash {
