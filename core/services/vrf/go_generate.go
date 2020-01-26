@@ -7,6 +7,18 @@ package vrf
 //go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFCoordinator.json solidity_vrf_coordinator_interface
 //go:generate ./generation/generate_link.sh
 
+// To run these commands, you must either install docker, or the correct version
+// of abigen. The latter can be installed with these commands, at least on linux:
+//
+//   git clone https://github.com/ethereum/go-ethereum
+//   cd go-ethereum/cmd/abigen
+//   git checkout v<version-needed>
+//   go install
+//
+// Here, <version-needed> is the version of go-ethereum specified in chainlink's
+// go.mod. This will install abigen in "$GOPATH/bin", which you should add to
+// your $PATH.
+//
 // To reduce explicit dependencies, and in case the system does not have the
 // correct version of abigen installed , the above commands spin up docker
 // containers. In my hands, total running time including compilation is about
