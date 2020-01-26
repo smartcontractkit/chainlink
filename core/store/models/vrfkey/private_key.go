@@ -77,8 +77,12 @@ func CreateKey() (key *PrivateKey) {
 }
 
 // NewPrivateKeyXXXTestingOnly is for testing purposes only!
-func NewPrivateKeyXXXTestingOnly(k *big.Int) (*PrivateKey, error) {
-	return newPrivateKey(k)
+func NewPrivateKeyXXXTestingOnly(k *big.Int) *PrivateKey {
+	rv, err := newPrivateKey(k)
+	if err != nil {
+		panic(err)
+	}
+	return rv
 }
 
 // String reduces the risk of accidentally logging the private key
