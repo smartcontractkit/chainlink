@@ -18,6 +18,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
+	"chainlink/core/services/vrf"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -356,6 +357,22 @@ func NewRunLog(
 			models.RunLogTopic20190207withoutIndexes,
 			models.IDToTopic(jobID),
 		},
+	}
+}
+
+// NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
+// the randomness request log represented by r.
+func NewRandomnessRequestLog(t *testing.T, r vrf.RandomnessRequestLog,
+	emitter common.Address, blk int) eth.Log {
+	rawData, err := r.RawData()
+	require.NoError(t, err)
+	return eth.Log{
+		Address:     emitter,
+		BlockNumber: uint64(blk),
+		Data:        rawData,
+		TxHash:      NewHash(),
+		BlockHash:   NewHash(),
+		Topics:      []common.Hash{models.RandomnessRequestLogTopic, r.JobID},
 	}
 }
 
