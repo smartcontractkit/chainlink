@@ -1,4 +1,5 @@
 GETH_VERSION: 1.9.10
 link_token_interface: ./generation/../../../../evm/src/LinkToken.json a60381733f9484789e2e3df3530743e1
 solidity_verifier_wrapper: ../../../evm/v0.5/dist/artifacts/VRFTestHelper.json ee62e93b5501e40c633e004fe921e9c7
+solidity_vrf_consumer_interface: ../../../evm/v0.5/dist/artifacts/VRFConsumer.json f2caf0bd86ee1437cf4c5ff551948f94
 solidity_vrf_coordinator_interface: ../../../evm/v0.5/dist/artifacts/VRFCoordinator.json f8fa77095850d9b450ebf37fed4b6a44
