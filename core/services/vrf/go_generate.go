@@ -7,7 +7,8 @@ package vrf
 //go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFCoordinator.json solidity_vrf_coordinator_interface
 //go:generate ./generation/generate_link.sh
 
-// To reduce explicit dependencies, the above commands spin up docker
+// To reduce explicit dependencies, and in case the system does not have the
+// correct version of abigen installed , the above commands spin up docker
 // containers. In my hands, total running time including compilation is about
 // 8s. If you're modifying solidity code and testing against go code a lot, it
 // might be worthwhile to generate the the wrappers using a static container
