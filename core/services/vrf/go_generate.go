@@ -5,6 +5,7 @@ package vrf
 
 //go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFTestHelper.json solidity_verifier_wrapper
 //go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFCoordinator.json solidity_vrf_coordinator_interface
+//go:generate ./generation/generate_link.sh
 
 // To reduce explicit dependencies, the above commands spin up docker
 // containers. In my hands, total running time including compilation is about
