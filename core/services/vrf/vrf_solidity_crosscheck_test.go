@@ -38,12 +38,15 @@ var verifier *solidity_verifier_wrapper.VRFTestHelper
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
 func init() {
-	key, _ := crypto.GenerateKey()
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		panic(err)
+	}
 	auth := bind.NewKeyedTransactor(key)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: bi(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
-	var err error // Without this, golang infers local scope for verifier below
+	// err must already be declared, or next line will shadow global verifier
 	_, _, verifier, err = solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	if err != nil {
 		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
