@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@0x/sol-compiler": "^4.0.3",
-    "@0x/sol-trace": "^2.0.20",
+    "@0x/sol-trace": "^3.0.4",
     "chainlink": "0.7.10",
     "chainlinkv0.5": "0.0.2",
     "chalk": "^2.4.2",
