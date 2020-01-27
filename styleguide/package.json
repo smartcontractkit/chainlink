@@ -44,7 +44,7 @@
     "@testing-library/react": "^9.4.0",
     "@types/react": "^16.9.17",
     "@types/react-dom": "^16.7.0",
-    "@types/storybook__addon-links": "^3.3.5",
+    "@types/storybook__addon-links": "^5.2.1",
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
     "depcheck": "^0.9.1",
