@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "0.7.10",
+  "version": "0.8.0",
   "license": "MIT",
   "main": "./dist/src",
   "scripts": {
@@ -56,6 +56,7 @@
   "files": [
     "contracts",
     "v0.5/contracts",
+    "v0.6/contracts",
     "dist",
     "zos.json",
     "zos.rinkeby.json",
