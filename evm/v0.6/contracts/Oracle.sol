@@ -74,6 +74,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
     uint256 _dataVersion,
     bytes calldata _data
   )
+    override
     external
     onlyLINK
     checkCallbackAddress(_callbackAddress)
@@ -125,6 +126,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
     uint256 _expiration,
     bytes32 _data
   )
+    override
     external
     onlyAuthorizedNode
     isValidRequest(_requestId)
@@ -154,7 +156,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
    * @param _node The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function getAuthorizationStatus(address _node) external view returns (bool) {
+  function getAuthorizationStatus(address _node) override external view returns (bool) {
     return authorizedNodes[_node];
   }
 
@@ -163,7 +165,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
    * @param _node The address of the Chainlink node
    * @param _allowed Bool value to determine if the node can fulfill requests
    */
-  function setFulfillmentPermission(address _node, bool _allowed) external onlyOwner {
+  function setFulfillmentPermission(address _node, bool _allowed) override external onlyOwner {
     authorizedNodes[_node] = _allowed;
   }
 
@@ -174,6 +176,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
    * @param _amount The amount to send (specified in wei)
    */
   function withdraw(address _recipient, uint256 _amount)
+    override(OracleInterface, WithdrawalInterface)
     external
     onlyOwner
     hasAvailableFunds(_amount)
@@ -187,7 +190,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
    * @dev We use `ONE_FOR_CONSISTENT_GAS_COST` in place of 0 in storage
    * @return The amount of withdrawable LINK on the contract
    */
-  function withdrawable() external view onlyOwner returns (uint256) {
+  function withdrawable() override(OracleInterface, WithdrawalInterface) external view onlyOwner returns (uint256) {
     return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
@@ -206,7 +209,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
     uint256 _payment,
     bytes4 _callbackFunc,
     uint256 _expiration
-  ) external {
+  ) override external {
     bytes32 paramsHash = keccak256(
       abi.encodePacked(
         _payment,
@@ -229,7 +232,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
    * @dev This is the public implementation for chainlinkTokenAddress, which is
    * an internal method of the ChainlinkClient contract
    */
-  function getChainlinkToken() public view returns (address) {
+  function getChainlinkToken() override public view returns (address) {
     return address(LinkToken);
   }
 
