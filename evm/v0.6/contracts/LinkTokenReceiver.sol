@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-contract LinkTokenReceiver {
+abstract contract LinkTokenReceiver {
 
   bytes4 constant private ORACLE_REQUEST_SELECTOR = 0x40429946;
   uint256 constant private SELECTOR_LENGTH = 4;
@@ -35,7 +35,7 @@ contract LinkTokenReceiver {
     require(success, "Unable to create request");
   }
 
-  function getChainlinkToken() public view returns (address);
+  function getChainlinkToken() virtual public view returns (address);
 
   /**
    * @dev Reverts if not sent from the LINK token
