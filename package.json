@@ -5,6 +5,7 @@
     "evm",
     "evm/box",
     "evm/v0.5",
+    "evm/v0.6",
     "examples/*",
     "explorer",
     "explorer/client",

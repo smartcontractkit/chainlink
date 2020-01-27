@@ -1,0 +1,16 @@
+{
+  "name": "chainlinkv0.6",
+  "version": "0.0.1",
+  "description": "Chainlink contracts compiled with Solidity v0.6",
+  "main": "dist/index.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "author": "Chainlink Devs",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "sol-compiler"
+  },
+  "devDependencies": {
+    "sol-compiler": "^0.0.1-alpha"
+  }
+}
