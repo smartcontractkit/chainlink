@@ -212,7 +212,7 @@ The `logs` command will allow you to follow the logs of any running service. For
 ./compose logs # shows the combined logs of all running services
 ```
 
-# FAQs
+# Troubleshooting
 
 ## My storage space is full! How do I clean up docker's disk usage?
 
@@ -227,6 +227,21 @@ The default configuration tries to build everything in parallel.  You can avoid 
 ```
 # Use docker compose's default build configuration
 export DOCKER_COMPOSE_BUILD_OPTS=""
+```
+
+## Logging from a container is hidden
+
+Sometimes docker-compose does not show logging from some docker containers.  This can be solved by using the docker command directly.
+
+```
+# List docker instances
+docker ps
+# CONTAINER ID        IMAGE                     COMMAND                  CREATED             STATUS              PORTS                                                                                                 NAMES
+# 41410c9d79d8        smartcontract/chainlink   "chainlink node star…"   2 minutes ago       Up 2 minutes        0.0.0.0:6688->6688/tcp                                                                                chainlink-node
+# f7e657e101d8        smartcontract/devnet      "/bin/parity --confi…"   47 hours ago        Up 2 minutes        5001/tcp, 8080/tcp, 8082-8083/tcp, 8180/tcp, 8546/tcp, 30303/tcp, 0.0.0.0:8545->8545/tcp, 30303/udp   parity
+
+# Follow logs using name of container
+docker logs -f chainlink-node
 ```
 
 ## Logging into via the frontend results in HTTP Status Forbidden (403)
