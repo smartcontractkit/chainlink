@@ -17,7 +17,7 @@
   "dependencies": {
     "isomorphic-unfetch": "^3.0.0",
     "json-api-normalizer": "^0.4.13",
-    "path-to-regexp": "^3.0.0",
+    "path-to-regexp": "^5.0.0",
     "typescript": "^3.7.4",
     "url": "^0.11.0"
   },
