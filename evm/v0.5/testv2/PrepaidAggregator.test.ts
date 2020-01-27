@@ -423,22 +423,15 @@ describe('PrepaidAggregator', () => {
 
     describe('when an oracle starts a round before the restart delay is over', () => {
       beforeEach(async () => {
-        console.log(
-          '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
-        )
-
         await updateFutureRounds(aggregator.connect(personas.Carol))
 
         oracleAddresses = [personas.Neil, personas.Ned, personas.Nelly]
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!SSSSSSSSSSSSSSSSSs')
-
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(oracleAddresses[i])
             .updateAnswer(nextRound, answer)
           nextRound++
         }
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
         const newDelay = 2
         // Since Ned and Nelly have answered recently, and we set the delay
@@ -448,7 +441,6 @@ describe('PrepaidAggregator', () => {
           maxAnswers: oracleAddresses.length,
           restartDelay: newDelay,
         })
-        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~')
       })
 
       describe('when called by an oracle who has not answered recently', () => {
