@@ -20,7 +20,7 @@
     "@material-ui/core": "^3.9.2",
     "change-case": "^4.1.1",
     "core-js": "^3.4.0",
-    "javascript-time-ago": "^2.0.1",
+    "javascript-time-ago": "^2.0.6",
     "moment": "^2.24.0",
     "prop-types": "^15.6.2",
     "react": "^16.12.0",
