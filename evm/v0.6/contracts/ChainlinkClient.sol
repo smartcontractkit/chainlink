@@ -57,7 +57,7 @@ contract ChainlinkClient {
    * @dev Calls `chainlinkRequestTo` with the stored oracle address
    * @param _req The initialized Chainlink Request
    * @param _payment The amount of LINK to send for the request
-   * @return The request ID
+   * @return requestId The request ID
    */
   function sendChainlinkRequest(Chainlink.Request memory _req, uint256 _payment)
     internal
@@ -74,7 +74,7 @@ contract ChainlinkClient {
    * @param _oracle The address of the oracle for the request
    * @param _req The initialized Chainlink Request
    * @param _payment The amount of LINK to send for the request
-   * @return The request ID
+   * @return requestId The request ID
    */
   function sendChainlinkRequestTo(address _oracle, Chainlink.Request memory _req, uint256 _payment)
     internal
