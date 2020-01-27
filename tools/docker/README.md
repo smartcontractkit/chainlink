@@ -212,7 +212,7 @@ The `logs` command will allow you to follow the logs of any running service. For
 ./compose logs # shows the combined logs of all running services
 ```
 
-# FAQs
+# Troubleshooting
 
 ## My storage space is full! How do I clean up docker's disk usage?
 
