@@ -1,2 +1,2 @@
-GETH_VERSION: 1.9.9
+GETH_VERSION: 1.9.10
 solidity_verifier_wrapper: ../../../evm/v0.5/dist/artifacts/VRFTestHelper.json ee62e93b5501e40c633e004fe921e9c7
