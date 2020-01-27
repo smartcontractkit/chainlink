@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/stretchr/testify/require"
 
+	"chainlink/core/assets"
+	chainlink_eth "chainlink/core/eth"
 	"chainlink/core/services/signatures/secp256k1"
 	"chainlink/core/utils"
 
@@ -120,7 +122,7 @@ func TestRegisterProvingKey(t *testing.T) {
 	require.True(t, fee.Cmp(serviceAgreement.Fee) == 0)
 }
 
-func TestRandomnessRequest(t *testing.T) {
+func TestRandomnessRequestLog(t *testing.T) {
 	coordinator := deployCoordinator(t)
 	keyHash, jobID, fee := registerProvingKey(t, coordinator)
 	coordinator.backend.Commit()
@@ -141,4 +143,9 @@ func TestRandomnessRequest(t *testing.T) {
 		require.Equal(t, fee, log.Event.Fee)
 	}
 	require.Equal(t, 1, logCount)
+	parsedLog, err := ParseRandomnessRequestLog(chainlink_eth.Log(log.Event.Raw))
+	require.NoError(t, err)
+	require.True(t, parsedLog.Equal(RandomnessRequestLog{keyHash, seed, jobID,
+		coordinator.consumerContractAddress, (*assets.Link)(fee),
+		RawRandomnessRequestLog(*log.Event)}))
 }

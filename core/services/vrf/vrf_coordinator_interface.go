@@ -59,6 +59,10 @@ func init() {
 	}
 }
 
+// rawRandomnessRequestLog is used to parse a RandomnessRequest log into types
+// go-ethereum knows about.
+type RawRandomnessRequestLog solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
+
 // RandomnessRequestLog contains the data for a RandomnessRequest log,
 // represented as compatible golang types.
 type RandomnessRequestLog struct {
@@ -70,40 +74,16 @@ type RandomnessRequestLog struct {
 	Raw     RawRandomnessRequestLog
 }
 
-// rawRandomnessRequestLog is used to parse a RandomnessRequest log into types
-// go-ethereum knows about.
-type RawRandomnessRequestLog solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
-
-// ethLogToTypesLog converts an eth.Log to a types.Log.
-func ethLogToTypesLog(log eth.Log) types.Log {
-	return types.Log{
-		Address:     log.Address,
-		Topics:      log.Topics,
-		Data:        log.Data,
-		BlockNumber: log.BlockNumber,
-		TxHash:      log.TxHash,
-		TxIndex:     log.TxIndex,
-		BlockHash:   log.BlockHash,
-		Index:       log.Index,
-		Removed:     log.Removed,
-	}
-}
-
 // ParseRandomnessRequestLog returns the RandomnessRequestLog corresponding to
 // the raw logData
 func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
-	rawRV := solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}
+	l := solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}
 	contract := bind.NewBoundContract(common.Address{}, CoordinatorABI, nil, nil, nil)
-	if err := contract.UnpackLog(&rawRV, "RandomnessRequest", ethLogToTypesLog(log)); err != nil {
+	if err := contract.UnpackLog(&l, "RandomnessRequest", types.Log(log)); err != nil {
 		return nil, errors.Wrapf(err, "while parsing %x as RandomnessRequestLog", log.Data)
 	}
-	rRRL := RawRandomnessRequestLog(rawRV)
-	rRRL.Raw = types.Log(log)
-	rv := RandomnessRequestLog{
-		rawRV.KeyHash, rawRV.Seed, rawRV.JobID, rawRV.Sender,
-		(*assets.Link)(rawRV.Fee), rRRL,
-	}
-	return &rv, nil
+	return &RandomnessRequestLog{l.KeyHash, l.Seed, l.JobID, l.Sender,
+		(*assets.Link)(l.Fee), RawRandomnessRequestLog(l)}, nil
 }
 
 func checkUint256(n *big.Int) {
