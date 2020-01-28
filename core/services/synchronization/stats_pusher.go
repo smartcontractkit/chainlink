@@ -28,7 +28,9 @@ var (
 
 //go:generate mockery -name StatsPusher -output ../../internal/mocks/ -case=underscore
 
-// statsPusher polls for events and pushes them via a WebSocketClient
+// StatsPusher polls for events and pushes them via a WebSocketClient. Events
+// are consumed by the Explorer. Currently there is only one event type: an
+// encoding of a JobRun.
 type StatsPusher interface {
 	Start() error
 	Close() error
@@ -245,7 +247,7 @@ func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Sco
 		}
 		err = scope.DB().Create(&event).Error
 		if err != nil {
-			scope.Err(errors.Wrap(err, "createSyncEvent#Save failed"))
+			scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
 			return
 		}
 	}
