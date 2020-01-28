@@ -24,7 +24,6 @@ let roles: h.Roles
 
 beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-
   roles = rolesAndPersonas.roles
 })
 
@@ -40,32 +39,15 @@ describe('ServiceAgreementConsumer', () => {
     const meanAggregator = await meanAggregatorFactory
       .connect(roles.defaultAccount)
       .deploy()
-
-    agreement = {
-      oracles: [roles.oracleNode.address],
+    agreement = await h.newServiceAgreement({
       aggregator: meanAggregator.address,
-      aggInitiateJobSelector:
-        meanAggregator.interface.functions.initiateJob.sighash,
-      aggFulfillSelector: meanAggregator.interface.functions.fulfill.sighash,
-      endAt: h.sixMonthsFromNow(),
-      expiration: ethers.utils.bigNumberify(300),
-      payment: ethers.utils.bigNumberify('1000000000000000000'),
-      requestDigest:
-        '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5',
-    }
-    const oracleSignatures = await h.generateOracleSignatures(agreement, [
-      roles.oracleNode,
-    ])
-
+      oracles: [roles.oracleNode],
+    })
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     coord = await coordinatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address)
-
-    await coord.initiateServiceAgreement(
-      h.encodeServiceAgreement(agreement),
-      h.encodeOracleSignatures(oracleSignatures),
-    )
+    await h.initiateServiceAgreement(coord, agreement)
     cc = await serviceAgreementConsumerFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, coord.address, h.generateSAID(agreement))
