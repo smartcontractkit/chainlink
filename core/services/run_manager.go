@@ -197,11 +197,11 @@ func NewRunManager(
 // CreateErrored creates a run that is in the errored state. This is a
 // special case where this job cannot run but we want to create the run record
 // so the error is more visible to the node operator.
-func (jm *runManager) CreateErrored(
+func (rm *runManager) CreateErrored(
 	jobSpecID *models.ID,
 	initiator models.Initiator,
 	runErr error) (*models.JobRun, error) {
-	job, err := jm.orm.Unscoped().FindJob(jobSpecID)
+	job, err := rm.orm.Unscoped().FindJob(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}
@@ -215,13 +215,13 @@ func (jm *runManager) CreateErrored(
 		InitiatorID: initiator.ID,
 	}
 	run.SetError(runErr)
-	defer jm.statsPusher.PushNow()
-	return &run, jm.orm.CreateJobRun(&run)
+	defer rm.statsPusher.PushNow()
+	return &run, rm.orm.CreateJobRun(&run)
 }
 
 // Create immediately persists a JobRun and sends it to the RunQueue for
 // execution.
-func (jm *runManager) Create(
+func (rm *runManager) Create(
 	jobSpecID *models.ID,
 	initiator *models.Initiator,
 	data *models.JSON,
@@ -233,7 +233,7 @@ func (jm *runManager) Create(
 		"creation_height", creationHeight.String(),
 	)
 
-	job, err := jm.orm.Unscoped().FindJob(jobSpecID)
+	job, err := rm.orm.Unscoped().FindJob(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}
@@ -244,7 +244,7 @@ func (jm *runManager) Create(
 		}
 	}
 
-	now := jm.clock.Now()
+	now := rm.clock.Now()
 	if !job.Started(now) {
 		return nil, RecurringScheduleJobError{
 			msg: fmt.Sprintf("Job runner: Job %v unstarted: %v before job's start time %v", job.ID, now, job.EndAt),
@@ -261,21 +261,21 @@ func (jm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
-	run, adapters := NewRun(&job, initiator, data, creationHeight, runRequest, jm.config, jm.orm, now)
-	runCost := runCost(&job, jm.config, adapters)
+	run, adapters := NewRun(&job, initiator, data, creationHeight, runRequest, rm.config, rm.orm, now)
+	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
 
-	if err := jm.orm.CreateJobRun(run); err != nil {
+	if err := rm.orm.CreateJobRun(run); err != nil {
 		return nil, errors.Wrap(err, "CreateJobRun failed")
 	}
-	jm.statsPusher.PushNow()
+	rm.statsPusher.PushNow()
 
 	if run.Status.Runnable() {
 		logger.Debugw(
 			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
 		)
-		jm.runQueue.Run(run)
+		rm.runQueue.Run(run)
 		numberRunsExecuted.Inc()
 	}
 	return run, nil
@@ -283,20 +283,20 @@ func (jm *runManager) Create(
 
 // ResumeAllConfirming wakes up all jobs that were sleeping because they were
 // waiting for block confirmations.
-func (jm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
-	return jm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
+func (rm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
+	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			jm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
+			rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
 			return
 		}
 
 		run.ObservedHeight = utils.NewBig(currentBlockHeight)
 		logger.Debugw(fmt.Sprintf("New head #%s resuming run", currentBlockHeight), run.ForLogger()...)
 
-		validateMinimumConfirmations(run, currentTaskRun, run.ObservedHeight, jm.txManager)
+		validateMinimumConfirmations(run, currentTaskRun, run.ObservedHeight, rm.txManager)
 
-		err := jm.updateAndTrigger(run)
+		err := rm.updateAndTrigger(run)
 		if err != nil {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
@@ -305,19 +305,19 @@ func (jm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 
 // ResumeAllConnecting wakes up all tasks that have gone to sleep because they
 // needed an ethereum client connection.
-func (jm *runManager) ResumeAllConnecting() error {
-	return jm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
+func (rm *runManager) ResumeAllConnecting() error {
+	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		logger.Debugw("New connection resuming run", run.ForLogger()...)
 
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			jm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
+			rm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
 			return
 		}
 
 		currentTaskRun.Status = models.RunStatusInProgress
 		run.Status = models.RunStatusInProgress
-		err := jm.updateAndTrigger(run)
+		err := rm.updateAndTrigger(run)
 		if err != nil {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
@@ -325,11 +325,11 @@ func (jm *runManager) ResumeAllConnecting() error {
 }
 
 // ResumePendingTask wakes up a task that required a response from a bridge adapter.
-func (jm *runManager) ResumePending(
+func (rm *runManager) ResumePending(
 	runID *models.ID,
 	input models.BridgeRunResult,
 ) error {
-	run, err := jm.orm.Unscoped().FindJobRun(runID)
+	run, err := rm.orm.Unscoped().FindJobRun(runID)
 	if err != nil {
 		return err
 	}
@@ -342,19 +342,19 @@ func (jm *runManager) ResumePending(
 
 	currentTaskRun := run.NextTaskRun()
 	if currentTaskRun == nil {
-		return jm.updateWithError(&run, "Attempting to resume pending run with no remaining tasks %s", run.ID)
+		return rm.updateWithError(&run, "Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
 	data, err := models.Merge(run.Overrides, input.Data)
 	if err != nil {
-		return jm.updateWithError(&run, "Error while merging onto overrides for run %s", run.ID)
+		return rm.updateWithError(&run, "Error while merging onto overrides for run %s", run.ID)
 	}
 	run.Overrides = data
 
 	currentTaskRun.ApplyBridgeRunResult(input)
 	run.ApplyBridgeRunResult(input)
 
-	return jm.updateAndTrigger(&run)
+	return rm.updateAndTrigger(&run)
 }
 
 // ResumeAllInProgress queries the db for job runs that should be resumed
@@ -366,13 +366,13 @@ func (jm *runManager) ResumePending(
 //
 // To recap: This must run before anything else writes job run status to the db,
 // ie. tries to run a job.
-func (jm *runManager) ResumeAllInProgress() error {
-	return jm.orm.UnscopedJobRunsWithStatus(jm.runQueue.Run, models.RunStatusInProgress, models.RunStatusPendingSleep)
+func (rm *runManager) ResumeAllInProgress() error {
+	return rm.orm.UnscopedJobRunsWithStatus(rm.runQueue.Run, models.RunStatusInProgress, models.RunStatusPendingSleep)
 }
 
 // Cancel suspends a running task.
-func (jm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
-	run, err := jm.orm.FindJobRun(runID)
+func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
+	run, err := rm.orm.FindJobRun(runID)
 	if err != nil {
 		return nil, err
 	}
@@ -384,31 +384,31 @@ func (jm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 
 	run.Cancel()
 	numberRunsCancelled.Inc()
-	defer jm.statsPusher.PushNow()
-	return &run, jm.orm.SaveJobRun(&run)
+	defer rm.statsPusher.PushNow()
+	return &run, rm.orm.SaveJobRun(&run)
 }
 
-func (jm *runManager) updateWithError(run *models.JobRun, msg string, args ...interface{}) error {
+func (rm *runManager) updateWithError(run *models.JobRun, msg string, args ...interface{}) error {
 	run.SetError(fmt.Errorf(msg, args...))
 	logger.Error(fmt.Sprintf(msg, args...))
 
-	if err := jm.orm.SaveJobRun(run); err != nil {
+	if err := rm.orm.SaveJobRun(run); err != nil {
 		logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		return err
 	}
-	jm.statsPusher.PushNow()
+	rm.statsPusher.PushNow()
 	return nil
 }
 
-func (jm *runManager) updateAndTrigger(run *models.JobRun) error {
-	defer jm.statsPusher.PushNow()
-	if err := jm.orm.SaveJobRun(run); err != nil {
+func (rm *runManager) updateAndTrigger(run *models.JobRun) error {
+	defer rm.statsPusher.PushNow()
+	if err := rm.orm.SaveJobRun(run); err != nil {
 		return err
 	}
-	jm.statsPusher.PushNow()
+	rm.statsPusher.PushNow()
 	if run.Status == models.RunStatusInProgress {
 		numberRunsResumed.Inc()
-		jm.runQueue.Run(run)
+		rm.runQueue.Run(run)
 	}
 	return nil
 }
