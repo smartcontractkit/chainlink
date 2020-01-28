@@ -145,6 +145,10 @@ $ yarn install
 $ yarn run test-sol
 ```
 
+### Use of Go Generate
+
+Go generate is used to generate mocks in this project. Mocks are generate with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
+
 ### Development Tips
 
 For more tips on how to build and test Chainlink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
