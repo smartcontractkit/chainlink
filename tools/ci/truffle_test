@@ -16,8 +16,10 @@ yarn workspace @chainlink/box run lint
 #   `cd evm/v0.5 && yarn build && slither --triage-mode .`
 
 yarn workspace chainlinkv0.5 build
+yarn workspace chainlinkv0.6 build
 
 # These should be merged into a global test command
 yarn workspace chainlink test
 yarn workspace chainlinkv0.5 test
+yarn workspace chainlinkv0.6 test
 yarn workspace @chainlink/box test
