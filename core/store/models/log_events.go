@@ -383,7 +383,15 @@ func ParseRunLog(log eth.Log) (JSON, error) {
 	if err != nil {
 		return JSON{}, err
 	}
-	return parser.parseJSON(log)
+	js, err := parser.parseJSON(log)
+	if err != nil {
+		return js, err
+	}
+	js, err = js.Add("transactionHash", log.TxHash)
+	if err != nil {
+		return js, err
+	}
+	return js, nil
 }
 
 // parseRunLog0original parses the original OracleRequest log format.
