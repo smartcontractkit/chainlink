@@ -4,15 +4,16 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"chainlink/core/store"
+	"chainlink/core/utils"
 )
 
 // KeyStoreAuthenticator implements the Authenticate method for the store and
 // a password string.
 type KeyStoreAuthenticator interface {
 	Authenticate(*store.Store, string) (string, error)
+	AuthenticateVRFKey(*store.Store, string) error
 }
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -51,8 +52,7 @@ func (auth TerminalKeyStoreAuthenticator) authenticateWithPwd(store *store.Store
 }
 
 func checkPassword(store *store.Store, phrase string) error {
-	_, err := store.VRFKeyStore.Unlock(phrase)
-	return multierr.Append(err, store.KeyStore.Unlock(phrase))
+	return store.KeyStore.Unlock(phrase)
 }
 
 func (auth TerminalKeyStoreAuthenticator) promptAndCheckPasswordLoop(store *store.Store) string {
@@ -82,9 +82,32 @@ func createAccount(store *store.Store, password string) error {
 	if err != nil {
 		return errors.Wrapf(err, "while creating ethereum keys")
 	}
-	_, err = store.VRFKeyStore.CreateKey(password)
-	if err != nil {
-		return errors.Wrapf(err, "while creating vrf keys")
-	}
 	return checkPassword(store, password)
+}
+
+// AuthenticateVRFKey creates an encrypted VRF key protected by password in
+// store's db if db store has no extant keys. It unlocks at least one VRF key
+// with given password, or returns an error. password must be non-trivial, as an
+// empty password signifies that the VRF oracle functionality is disabled.
+func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
+	password string) error {
+	if password == "" {
+		return fmt.Errorf("VRF password must be non-trivial")
+	}
+	keys, err := store.VRFKeyStore.Get(nil)
+	if err != nil {
+		return errors.Wrapf(err, "while checking for extant VRF keys")
+	}
+	if len(keys) == 0 {
+		fmt.Println(
+			"There are no VRF keys; creating a new key encrypted with given password")
+		if _, err := store.VRFKeyStore.CreateKey(password); err != nil {
+			return errors.Wrapf(err, "while creating a new encrypted VRF key")
+		}
+	}
+	return errors.Wrapf(utils.JustError(store.VRFKeyStore.Unlock(password)),
+		"there are VRF keys in the DB, but that password did not unlock any of "+
+			"them... please check the password in the file specified by vrfpassword"+
+			". You can add and delete VRF keys in the DB using the "+
+			"`chainlink local vrf` subcommands")
 }

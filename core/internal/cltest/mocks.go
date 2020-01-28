@@ -478,6 +478,12 @@ func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (str
 	return a.Callback(store, pwd)
 }
 
+func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
+	return nil
+}
+
+var _ cmd.KeyStoreAuthenticator = CallbackAuthenticator{}
+
 // BlockedRunner is a Runner that blocks until its channel is posted to
 type BlockedRunner struct {
 	Done chan struct{}
