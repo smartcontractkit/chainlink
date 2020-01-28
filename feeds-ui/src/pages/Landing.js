@@ -54,8 +54,8 @@ const LangingPage = () => (
         <a
           onClick={() =>
             ReactGA.event({
-              category: 'Conversion',
-              action: 'Click on Email Button',
+              category: 'Form Conversion',
+              action: 'Click on Button',
               label: 'Integrate with Chainlink',
             })
           }
