@@ -35,7 +35,7 @@ abstract contract LinkTokenReceiver {
     require(success, "Unable to create request");
   }
 
-  function getChainlinkToken() virtual public view returns (address);
+  function getChainlinkToken() public view virtual returns (address);
 
   /**
    * @dev Reverts if not sent from the LINK token
