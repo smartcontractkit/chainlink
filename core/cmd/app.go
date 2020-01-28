@@ -243,6 +243,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "password, p",
 							Usage: "text file holding the password for the node's account",
 						},
+						cli.StringFlag{
+							Name:  "vrfpassword, vp",
+							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
+						},
 						cli.Int64Flag{
 							Name:  "replay-from-block, r",
 							Usage: "historical block height from which to replay log-initiated jobs",

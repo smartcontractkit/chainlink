@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"chainlink/core/logger"
 	"chainlink/core/services"
@@ -44,6 +45,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
+	}
+	if len(c.String("vrfpassword")) != 0 {
+		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
+		if err != nil {
+			return cli.errorOut(fmt.Errorf(
+				"error reading VRF password from vrfpassword file \"%s\": %+v",
+				c.String("vrfpassword"), err))
+		}
+		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
+			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
+		}
 	}
 
 	var user models.User
