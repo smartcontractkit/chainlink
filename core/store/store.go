@@ -11,7 +11,6 @@ import (
 
 	"chainlink/core/eth"
 	"chainlink/core/logger"
-	"chainlink/core/services/synchronization"
 	"chainlink/core/store/migrations"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -29,12 +28,11 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      *orm.Config
-	Clock       utils.AfterNower
-	KeyStore    *KeyStore
-	TxManager   TxManager
-	StatsPusher *synchronization.StatsPusher
-	closeOnce   sync.Once
+	Config    *orm.Config
+	Clock     utils.AfterNower
+	KeyStore  *KeyStore
+	TxManager TxManager
+	closeOnce sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -172,16 +170,12 @@ func newStoreWithDialerAndKeyStore(
 	keyStore := keyStoreGenerator()
 	callerSubscriberClient := &eth.CallerSubscriberClient{CallerSubscriber: ethrpc}
 	txManager := NewEthTxManager(callerSubscriberClient, config, keyStore, orm)
-	statsPusher := synchronization.NewStatsPusher(
-		orm, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
-	)
 	store := &Store{
-		Clock:       utils.Clock{},
-		Config:      config,
-		KeyStore:    keyStore,
-		ORM:         orm,
-		TxManager:   txManager,
-		StatsPusher: statsPusher,
+		Clock:     utils.Clock{},
+		Config:    config,
+		KeyStore:  keyStore,
+		ORM:       orm,
+		TxManager: txManager,
 	}
 	return store
 }
@@ -189,20 +183,16 @@ func newStoreWithDialerAndKeyStore(
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
 	s.TxManager.Register(s.KeyStore.Accounts())
-	return multierr.Combine(
-		s.SyncDiskKeyStoreToDB(),
-		s.StatsPusher.Start(),
-	)
+	return s.SyncDiskKeyStoreToDB()
 }
 
 // Close shuts down all of the working parts of the store.
 func (s *Store) Close() error {
-	var err1, err2 error
+	var err error
 	s.closeOnce.Do(func() {
-		err1 = s.StatsPusher.Close()
-		err2 = s.ORM.Close()
+		err = s.ORM.Close()
 	})
-	return multierr.Combine(err1, err2)
+	return err
 }
 
 // Unscoped returns a shallow copy of the store, with an unscoped ORM allowing

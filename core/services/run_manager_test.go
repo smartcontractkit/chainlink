@@ -28,10 +28,13 @@ func TestRunManager_ResumePending(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
 	runQueue := new(mocks.RunQueue)
 	runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 
 	job := cltest.NewJob()
 	require.NoError(t, store.CreateJob(&job))
@@ -125,10 +128,13 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
 	runQueue := new(mocks.RunQueue)
 	runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 
 	job := cltest.NewJob()
 	require.NoError(t, store.CreateJob(&job))
@@ -208,10 +214,13 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
 	runQueue := new(mocks.RunQueue)
 	runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 
 	job := cltest.NewJob()
 	require.NoError(t, store.CreateJob(&job))
@@ -715,10 +724,13 @@ func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
 			run.Status = test.status
 			require.NoError(t, store.CreateJobRun(&run))
 
+			pusher := new(mocks.StatsPusher)
+			pusher.On("PushNow").Return(nil)
+
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 			runManager.ResumeAllConfirming(big.NewInt(3821))
 
 			runQueue.AssertExpectations(t)
@@ -747,10 +759,12 @@ func TestRunManager_ResumeAllInProgress(t *testing.T) {
 			run.Status = test.status
 			require.NoError(t, store.CreateJobRun(&run))
 
+			pusher := new(mocks.StatsPusher)
+
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
@@ -781,10 +795,12 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 			run.DeletedAt = null.TimeFrom(time.Now())
 			require.NoError(t, store.CreateJobRun(&run))
 
+			pusher := new(mocks.StatsPusher)
+
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
@@ -816,10 +832,12 @@ func TestRunManager_ResumeAllInProgress_NotInProgress(t *testing.T) {
 			run.Status = test.status
 			require.NoError(t, store.CreateJobRun(&run))
 
+			pusher := new(mocks.StatsPusher)
+
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
@@ -852,10 +870,12 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 			run.DeletedAt = null.TimeFrom(time.Now())
 			require.NoError(t, store.CreateJobRun(&run))
 
+			pusher := new(mocks.StatsPusher)
+
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)

@@ -61,7 +61,7 @@ const (
 
 func explorerStatus(app services.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		es := presenters.NewExplorerStatus(app.GetStore())
+		es := presenters.NewExplorerStatus(app.GetStatsPusher())
 		b, err := json.Marshal(es)
 		if err != nil {
 			panic(err)

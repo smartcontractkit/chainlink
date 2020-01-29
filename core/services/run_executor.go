@@ -6,6 +6,7 @@ import (
 
 	"chainlink/core/adapters"
 	"chainlink/core/logger"
+	"chainlink/core/services/synchronization"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -21,19 +22,21 @@ type RunExecutor interface {
 }
 
 type runExecutor struct {
-	store *store.Store
+	store       *store.Store
+	statsPusher synchronization.StatsPusher
 }
 
 // NewRunExecutor initializes a RunExecutor.
-func NewRunExecutor(store *store.Store) RunExecutor {
+func NewRunExecutor(store *store.Store, statsPusher synchronization.StatsPusher) RunExecutor {
 	return &runExecutor{
-		store: store,
+		store:       store,
+		statsPusher: statsPusher,
 	}
 }
 
 // Execute performs the work associate with a job run
-func (je *runExecutor) Execute(runID *models.ID) error {
-	run, err := je.store.Unscoped().FindJobRun(runID)
+func (re *runExecutor) Execute(runID *models.ID) error {
+	run, err := re.store.Unscoped().FindJobRun(runID)
 	if err != nil {
 		return errors.Wrapf(err, "error finding run %s", runID)
 	}
@@ -52,7 +55,7 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 		if meetsMinimumConfirmations(&run, taskRun, run.ObservedHeight) {
 			start := time.Now()
 
-			result := je.executeTask(&run, taskRun)
+			result := re.executeTask(&run, taskRun)
 
 			taskRun.ApplyOutput(result)
 			run.ApplyOutput(result)
@@ -70,12 +73,14 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 
 		}
 
-		if err := je.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.OptimisticUpdateConflictError {
+		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.OptimisticUpdateConflictError {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {
 			return err
 		}
+
+		re.statsPusher.PushNow()
 	}
 
 	if run.Status.Finished() {
@@ -88,7 +93,7 @@ func (je *runExecutor) Execute(runID *models.ID) error {
 	return nil
 }
 
-func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) models.RunOutput {
+func (re *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) models.RunOutput {
 	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
 
 	params, err := models.Merge(run.Overrides, taskCopy.Params)
@@ -97,7 +102,7 @@ func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 	}
 	taskCopy.Params = params
 
-	adapter, err := adapters.For(taskCopy, je.store.Config, je.store.ORM)
+	adapter, err := adapters.For(taskCopy, re.store.Config, re.store.ORM)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -115,6 +120,6 @@ func (je *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 	}
 
 	input := *models.NewRunInput(run.ID, data, taskRun.Status)
-	result := adapter.Perform(input, je.store)
+	result := adapter.Perform(input, re.store)
 	return result
 }

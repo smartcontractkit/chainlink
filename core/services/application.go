@@ -8,6 +8,7 @@ import (
 
 	"chainlink/core/gracefulpanic"
 	"chainlink/core/logger"
+	"chainlink/core/services/synchronization"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -24,6 +25,7 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *store.Store
+	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
 	ArchiveJob(*models.ID) error
@@ -38,6 +40,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter      func(int)
 	HeadTracker *HeadTracker
+	StatsPusher synchronization.StatsPusher
 	RunManager
 	RunQueue                 RunQueue
 	JobSubscriber            JobSubscriber
@@ -57,9 +60,12 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	store := store.NewStore(config)
 	config.SetRuntimeStore(store.ORM)
 
-	runExecutor := NewRunExecutor(store)
+	statsPusher := synchronization.NewStatsPusher(
+		store.ORM, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
+	)
+	runExecutor := NewRunExecutor(store, statsPusher)
 	runQueue := NewRunQueue(runExecutor)
-	runManager := NewRunManager(runQueue, config, store.ORM, store.TxManager, store.Clock)
+	runManager := NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
 	jobSubscriber := NewJobSubscriber(store, runManager)
 	fluxMonitor := NewFluxMonitor(store, runManager)
 
@@ -68,6 +74,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	app := &ChainlinkApplication{
 		JobSubscriber:            jobSubscriber,
 		FluxMonitor:              fluxMonitor,
+		StatsPusher:              statsPusher,
 		RunManager:               runManager,
 		RunQueue:                 runQueue,
 		Scheduler:                NewScheduler(store, runManager),
@@ -114,6 +121,7 @@ func (app *ChainlinkApplication) Start() error {
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
 		app.Store.Start(),
+		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
 		app.FluxMonitor.Start(),
@@ -142,6 +150,7 @@ func (app *ChainlinkApplication) Stop() error {
 		app.JobSubscriber.Stop()
 		app.FluxMonitor.Stop()
 		app.RunQueue.Stop()
+		app.StatsPusher.Close()
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		merr = multierr.Append(merr, app.Store.Close())
 	})
@@ -151,6 +160,10 @@ func (app *ChainlinkApplication) Stop() error {
 // GetStore returns the pointer to the store for the ChainlinkApplication.
 func (app *ChainlinkApplication) GetStore() *store.Store {
 	return app.Store
+}
+
+func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
+	return app.StatsPusher
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.
