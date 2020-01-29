@@ -121,6 +121,9 @@
 // E.g. `chainlink local vrf create -p <password-file>` will log the public key
 // under the field "public id".
 //
+// To see the public keys which have already been imported, use the command
+// `chainlink local vrf list`.
+//
 // The adapter output should be passed via EthTx to VRFCoordinator.sol's method
 // fulfillRandomnessRequest.
 //
