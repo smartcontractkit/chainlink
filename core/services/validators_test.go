@@ -248,8 +248,8 @@ func TestValidateExternalInitiator(t *testing.T) {
 	}{
 		{"basic", `{"name":"bitcoin","url":"https://test.url"}`, false},
 		{"basic w/ underscore", `{"name":"bit_coin","url":"https://test.url"}`, false},
+		{"basic w/ underscore in url", `{"name":"bitcoin","url":"https://chainlink_bit-coin_1.url"}`, false},
 		{"missing url", `{"name":"missing_url"}`, false},
-		{"bad url", `{"name":"bitcoin","url":"//test.url"}`, true},
 		{"duplicate name", `{"name":"duplicate","url":"https://test.url"}`, true},
 		{"invalid name characters", `{"name":"<invalid>","url":"https://test.url"}`, true},
 		{"missing name", `{"url":"https://test.url"}`, true},
