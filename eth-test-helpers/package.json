@@ -1,0 +1,32 @@
+{
+  "name": "@chainlink/eth-test-helpers",
+  "version": "0.0.1",
+  "description": "A collection of test helpers to facilitate testing chainlink's smart contracts",
+  "main": "dist/index.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "author": "Chainlink Devs",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "cbor": "^5.0.1",
+    "ethers": "^4.0.41",
+    "chalk": "^2.4.2",
+    "bn.js": "^4.11.0",
+    "chai": "^4.2.0",
+    "debug": "^4.1.1"
+  },
+  "devDependencies": {
+    "@types/cbor": "^5.0.0",
+    "@types/chai": "^4.2.4",
+    "@types/debug": "^4.1.5",
+    "@types/ganache-core": "^2.7.0",
+    "@types/jest": "^24.0.25",
+    "@types/node": "^12.7.5",
+    "jest": "^24.9.0",
+    "jest-circus": "^24.9.0",
+    "ts-jest": "^24.1.0",
+    "typescript": "^3.7.4"
+  }
+}
