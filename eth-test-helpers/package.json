@@ -2,7 +2,7 @@
   "name": "@chainlink/eth-test-helpers",
   "version": "0.0.1",
   "description": "A collection of test helpers to facilitate testing chainlink's smart contracts",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "author": "Chainlink Devs",
   "license": "MIT",
