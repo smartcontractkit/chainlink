@@ -1,14 +1,16 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
-import { makeTestProvider } from '../src/provider'
-import { Instance } from '../src/contract'
-import { PrepaidAggregatorFactory, LinkTokenFactory } from '../src/generated'
 import { randomBytes } from 'crypto'
+import { ethers } from 'ethers'
+import { LinkTokenFactory, PrepaidAggregatorFactory } from '../src/generated'
 
 let personas: h.Personas
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 const linkTokenFactory = new LinkTokenFactory()
 const prepaidAggregatorFactory = new PrepaidAggregatorFactory()
 
@@ -27,13 +29,13 @@ describe('PrepaidAggregator', () => {
   const decimals = 18
   const description = 'LINK/USD'
 
-  let aggregator: Instance<PrepaidAggregatorFactory>
-  let link: Instance<LinkTokenFactory>
+  let aggregator: contract.Instance<PrepaidAggregatorFactory>
+  let link: contract.Instance<LinkTokenFactory>
   let nextRound: number
   let oracleAddresses: ethers.Wallet[]
 
   async function updateFutureRounds(
-    aggregator: Instance<PrepaidAggregatorFactory>,
+    aggregator: contract.Instance<PrepaidAggregatorFactory>,
     overrides: {
       minAnswers?: ethers.utils.BigNumberish
       maxAnswers?: ethers.utils.BigNumberish
@@ -72,7 +74,7 @@ describe('PrepaidAggregator', () => {
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
-    assertBigNum(deposit, await link.balanceOf(aggregator.address))
+    matchers.assertBigNum(deposit, await link.balanceOf(aggregator.address))
   })
 
   beforeEach(async () => {
@@ -119,21 +121,21 @@ describe('PrepaidAggregator', () => {
 
   describe('#constructor', () => {
     it('sets the paymentAmount', async () => {
-      assertBigNum(
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(paymentAmount),
         await aggregator.paymentAmount(),
       )
     })
 
     it('sets the timeout', async () => {
-      assertBigNum(
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(timeout),
         await aggregator.timeout(),
       )
     })
 
     it('sets the decimals', async () => {
-      assertBigNum(
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(decimals),
         await aggregator.decimals(),
       )
@@ -161,20 +163,23 @@ describe('PrepaidAggregator', () => {
     })
 
     it('updates the allocated and available funds counters', async () => {
-      assertBigNum(0, await aggregator.allocatedFunds())
+      matchers.assertBigNum(0, await aggregator.allocatedFunds())
 
       const tx = await aggregator
         .connect(personas.Neil)
         .updateAnswer(nextRound, answer)
       const receipt = await tx.wait()
 
-      assertBigNum(paymentAmount, await aggregator.allocatedFunds())
+      matchers.assertBigNum(paymentAmount, await aggregator.allocatedFunds())
       const expectedAvailable = deposit.sub(paymentAmount)
-      assertBigNum(expectedAvailable, await aggregator.availableFunds())
+      matchers.assertBigNum(
+        expectedAvailable,
+        await aggregator.availableFunds(),
+      )
       const logged = ethers.utils.bigNumberify(
         receipt.logs?.[1].topics[1] ?? ethers.utils.bigNumberify(-1),
       )
-      assertBigNum(expectedAvailable, logged)
+      matchers.assertBigNum(expectedAvailable, logged)
     })
 
     it('updates the latest submission record for the oracle', async () => {
@@ -192,26 +197,41 @@ describe('PrepaidAggregator', () => {
 
     describe('when the minimum oracles have not reported', () => {
       it('pays the oracles that have reported', async () => {
-        assertBigNum(0, await aggregator.connect(personas.Neil).withdrawable())
+        matchers.assertBigNum(
+          0,
+          await aggregator.connect(personas.Neil).withdrawable(),
+        )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
 
-        assertBigNum(
+        matchers.assertBigNum(
           paymentAmount,
           await aggregator.connect(personas.Neil).withdrawable(),
         )
-        assertBigNum(0, await aggregator.connect(personas.Ned).withdrawable())
-        assertBigNum(0, await aggregator.connect(personas.Nelly).withdrawable())
+        matchers.assertBigNum(
+          0,
+          await aggregator.connect(personas.Ned).withdrawable(),
+        )
+        matchers.assertBigNum(
+          0,
+          await aggregator.connect(personas.Nelly).withdrawable(),
+        )
       })
 
       it('does not update the answer', async () => {
-        assertBigNum(ethers.constants.Zero, await aggregator.latestAnswer())
+        matchers.assertBigNum(
+          ethers.constants.Zero,
+          await aggregator.latestAnswer(),
+        )
 
         // Not updated because of changes by the owner setting minAnswerCount to 3
         await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
-        assertBigNum(ethers.constants.Zero, await aggregator.latestAnswer())
+        matchers.assertBigNum(
+          ethers.constants.Zero,
+          await aggregator.latestAnswer(),
+        )
       })
     })
 
@@ -236,14 +256,14 @@ describe('PrepaidAggregator', () => {
       })
 
       it('updates the answer with the median', async () => {
-        assertBigNum(0, await aggregator.latestAnswer())
+        matchers.assertBigNum(0, await aggregator.latestAnswer())
 
         await aggregator.connect(personas.Ned).updateAnswer(nextRound, 99)
-        assertBigNum(99, await aggregator.latestAnswer()) // ((100+99) / 2).to_i
+        matchers.assertBigNum(99, await aggregator.latestAnswer()) // ((100+99) / 2).to_i
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, 101)
 
-        assertBigNum(100, await aggregator.latestAnswer())
+        matchers.assertBigNum(100, await aggregator.latestAnswer())
       })
 
       it('updates the updated timestamp', async () => {
@@ -311,13 +331,19 @@ describe('PrepaidAggregator', () => {
 
     describe('when a new highest round number is passed in', () => {
       it('increments the answer round', async () => {
-        assertBigNum(ethers.constants.Zero, await aggregator.reportingRound())
+        matchers.assertBigNum(
+          ethers.constants.Zero,
+          await aggregator.reportingRound(),
+        )
 
         for (const oracle of oracleAddresses) {
           await aggregator.connect(oracle).updateAnswer(nextRound, answer)
         }
 
-        assertBigNum(ethers.constants.One, await aggregator.reportingRound())
+        matchers.assertBigNum(
+          ethers.constants.One,
+          await aggregator.reportingRound(),
+        )
       })
 
       it('announces a new round by emitting a log', async () => {
@@ -330,8 +356,8 @@ describe('PrepaidAggregator', () => {
         const roundNumber = ethers.utils.bigNumberify(topics[1])
         const startedBy = h.evmWordToAddress(topics[2])
 
-        assertBigNum(nextRound, roundNumber.toNumber())
-        assertBigNum(startedBy, personas.Neil.address)
+        matchers.assertBigNum(nextRound, roundNumber.toNumber())
+        matchers.assertBigNum(startedBy, personas.Neil.address)
       })
     })
 
@@ -372,8 +398,14 @@ describe('PrepaidAggregator', () => {
       const newAmount = h.toWei('50')
 
       it('pays the same amount to all oracles per round', async () => {
-        assertBigNum(0, await aggregator.connect(personas.Neil).withdrawable())
-        assertBigNum(0, await aggregator.connect(personas.Nelly).withdrawable())
+        matchers.assertBigNum(
+          0,
+          await aggregator.connect(personas.Neil).withdrawable(),
+        )
+        matchers.assertBigNum(
+          0,
+          await aggregator.connect(personas.Nelly).withdrawable(),
+        )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
 
@@ -381,11 +413,11 @@ describe('PrepaidAggregator', () => {
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
-        assertBigNum(
+        matchers.assertBigNum(
           paymentAmount,
           await aggregator.connect(personas.Neil).withdrawable(),
         )
-        assertBigNum(
+        matchers.assertBigNum(
           paymentAmount,
           await aggregator.connect(personas.Nelly).withdrawable(),
         )
@@ -521,7 +553,10 @@ describe('PrepaidAggregator', () => {
 
           updated = await aggregator.getTimestamp(previousRound)
           ans = await aggregator.getAnswer(previousRound)
-          assertBigNum(ethers.utils.bigNumberify(block.timestamp), updated)
+          matchers.assertBigNum(
+            ethers.utils.bigNumberify(block.timestamp),
+            updated,
+          )
           assert.equal(answer, ans.toNumber())
         })
 
@@ -607,7 +642,7 @@ describe('PrepaidAggregator', () => {
     it('retrieves the answer recorded for past rounds', async () => {
       for (let i = nextRound; i < nextRound; i++) {
         const answer = await aggregator.getAnswer(i)
-        assertBigNum(ethers.utils.bigNumberify(answers[i - 1]), answer)
+        matchers.assertBigNum(ethers.utils.bigNumberify(answers[i - 1]), answer)
       }
     })
   })
@@ -643,7 +678,7 @@ describe('PrepaidAggregator', () => {
         .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
       const currentCount = await aggregator.oracleCount()
 
-      assertBigNum(currentCount, pastCount + 1)
+      matchers.assertBigNum(currentCount, pastCount + 1)
     })
 
     it('updates the round details', async () => {
@@ -651,12 +686,18 @@ describe('PrepaidAggregator', () => {
         .connect(personas.Carol)
         .addOracle(personas.Neil.address, 0, 1, 0)
 
-      assertBigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
-      assertBigNum(
+      matchers.assertBigNum(
+        ethers.constants.Zero,
+        await aggregator.minAnswerCount(),
+      )
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(1),
         await aggregator.maxAnswerCount(),
       )
-      assertBigNum(ethers.constants.Zero, await aggregator.restartDelay())
+      matchers.assertBigNum(
+        ethers.constants.Zero,
+        await aggregator.restartDelay(),
+      )
     })
 
     it('emits a log', async () => {
@@ -666,7 +707,7 @@ describe('PrepaidAggregator', () => {
       const receipt = await tx.wait()
 
       const added = h.evmWordToAddress(receipt.logs?.[0].topics[1])
-      assertBigNum(added, personas.Neil.address)
+      matchers.assertBigNum(added, personas.Neil.address)
     })
 
     describe('when the oracle has already been added', () => {
@@ -827,12 +868,18 @@ describe('PrepaidAggregator', () => {
         .connect(personas.Carol)
         .removeOracle(personas.Neil.address, 0, 1, 0)
 
-      assertBigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
-      assertBigNum(
+      matchers.assertBigNum(
+        ethers.constants.Zero,
+        await aggregator.minAnswerCount(),
+      )
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(1),
         await aggregator.maxAnswerCount(),
       )
-      assertBigNum(ethers.constants.Zero, await aggregator.restartDelay())
+      matchers.assertBigNum(
+        ethers.constants.Zero,
+        await aggregator.restartDelay(),
+      )
     })
 
     it('emits a log', async () => {
@@ -842,7 +889,7 @@ describe('PrepaidAggregator', () => {
       const receipt = await tx.wait()
 
       const added = h.evmWordToAddress(receipt.logs?.[0].topics[1])
-      assertBigNum(added, personas.Neil.address)
+      matchers.assertBigNum(added, personas.Neil.address)
     })
 
     describe('when the oracle is not currently added', () => {
@@ -914,8 +961,11 @@ describe('PrepaidAggregator', () => {
           .connect(personas.Carol)
           .withdrawFunds(personas.Carol.address, deposit)
 
-        assertBigNum(0, await aggregator.availableFunds())
-        assertBigNum(deposit, await link.balanceOf(personas.Carol.address))
+        matchers.assertBigNum(0, await aggregator.availableFunds())
+        matchers.assertBigNum(
+          deposit,
+          await link.balanceOf(personas.Carol.address),
+        )
       })
 
       it('does not let withdrawals happen multiple times', async () => {
@@ -949,7 +999,7 @@ describe('PrepaidAggregator', () => {
             'Insufficient funds',
           )
 
-          assertBigNum(
+          matchers.assertBigNum(
             deposit.sub(paymentAmount),
             await aggregator.availableFunds(),
           )
@@ -966,7 +1016,7 @@ describe('PrepaidAggregator', () => {
           'Only callable by owner',
         )
 
-        assertBigNum(deposit, await aggregator.availableFunds())
+        matchers.assertBigNum(deposit, await aggregator.availableFunds())
       })
     })
   })
@@ -989,7 +1039,7 @@ describe('PrepaidAggregator', () => {
       minAnswerCount = oracleAddresses.length
       maxAnswerCount = oracleAddresses.length
 
-      assertBigNum(paymentAmount, await aggregator.paymentAmount())
+      matchers.assertBigNum(paymentAmount, await aggregator.paymentAmount())
       assert.equal(minAnswerCount, await aggregator.minAnswerCount())
       assert.equal(maxAnswerCount, await aggregator.maxAnswerCount())
     })
@@ -1002,16 +1052,16 @@ describe('PrepaidAggregator', () => {
         restartDelay: newDelay,
       })
 
-      assertBigNum(newPaymentAmount, await aggregator.paymentAmount())
-      assertBigNum(
+      matchers.assertBigNum(newPaymentAmount, await aggregator.paymentAmount())
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(newMin),
         await aggregator.minAnswerCount(),
       )
-      assertBigNum(
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(newMax),
         await aggregator.maxAnswerCount(),
       )
-      assertBigNum(
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(newDelay),
         await aggregator.restartDelay(),
       )
@@ -1028,7 +1078,7 @@ describe('PrepaidAggregator', () => {
       const receipt = await tx.wait()
       const round = h.eventArgs(receipt.events?.[0])
 
-      assertBigNum(newPaymentAmount, round.paymentAmount)
+      matchers.assertBigNum(newPaymentAmount, round.paymentAmount)
       assert.equal(newMin, round.minAnswerCount)
       assert.equal(newMax, round.maxAnswerCount)
       assert.equal(newDelay, round.restartDelay)
@@ -1085,13 +1135,13 @@ describe('PrepaidAggregator', () => {
 
       await aggregator.updateAvailableFunds()
 
-      assertBigNum(originalBalance, await aggregator.availableFunds())
+      matchers.assertBigNum(originalBalance, await aggregator.availableFunds())
 
       await link.transfer(aggregator.address, deposit)
       await aggregator.updateAvailableFunds()
 
       const newBalance = await aggregator.availableFunds()
-      assertBigNum(originalBalance.add(deposit), newBalance)
+      matchers.assertBigNum(originalBalance.add(deposit), newBalance)
     })
 
     it('removes allocated funds from the available balance', async () => {
@@ -1106,7 +1156,7 @@ describe('PrepaidAggregator', () => {
 
       const expected = originalBalance.add(deposit).sub(paymentAmount)
       const newBalance = await aggregator.availableFunds()
-      assertBigNum(expected, newBalance)
+      matchers.assertBigNum(expected, newBalance)
     })
 
     it('emits a log', async () => {
@@ -1118,7 +1168,7 @@ describe('PrepaidAggregator', () => {
       const reportedBalance = ethers.utils.bigNumberify(
         receipt.logs?.[0].topics[1] ?? -1,
       )
-      assertBigNum(await aggregator.availableFunds(), reportedBalance)
+      matchers.assertBigNum(await aggregator.availableFunds(), reportedBalance)
     })
 
     describe('when the available funds have not changed', () => {
@@ -1141,17 +1191,20 @@ describe('PrepaidAggregator', () => {
 
     it('transfers LINK to the caller', async () => {
       const originalBalance = await link.balanceOf(aggregator.address)
-      assertBigNum(0, await link.balanceOf(personas.Neil.address))
+      matchers.assertBigNum(0, await link.balanceOf(personas.Neil.address))
 
       await aggregator
         .connect(personas.Neil)
         .withdraw(personas.Neil.address, paymentAmount)
 
-      assertBigNum(
+      matchers.assertBigNum(
         originalBalance.sub(paymentAmount),
         await link.balanceOf(aggregator.address),
       )
-      assertBigNum(paymentAmount, await link.balanceOf(personas.Neil.address))
+      matchers.assertBigNum(
+        paymentAmount,
+        await link.balanceOf(personas.Neil.address),
+      )
     })
 
     it('decrements the allocated funds counter', async () => {
@@ -1161,7 +1214,7 @@ describe('PrepaidAggregator', () => {
         .connect(personas.Neil)
         .withdraw(personas.Neil.address, paymentAmount)
 
-      assertBigNum(
+      matchers.assertBigNum(
         originalAllocation.sub(paymentAmount),
         await aggregator.allocatedFunds(),
       )
@@ -1188,14 +1241,14 @@ describe('PrepaidAggregator', () => {
 
       await aggregator.updateAvailableFunds()
 
-      assertBigNum(originalBalance, await aggregator.availableFunds())
+      matchers.assertBigNum(originalBalance, await aggregator.availableFunds())
 
       await link.transferAndCall(aggregator.address, deposit, '0x', {
         value: 0,
       })
 
       const newBalance = await aggregator.availableFunds()
-      assertBigNum(originalBalance.add(deposit), newBalance)
+      matchers.assertBigNum(originalBalance.add(deposit), newBalance)
     })
   })
 })

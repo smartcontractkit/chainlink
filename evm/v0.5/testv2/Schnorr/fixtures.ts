@@ -1,8 +1,7 @@
-import * as h from '../../src/helpers'
+import { extensions, helpers as h } from '@chainlink/eth-test-helpers'
 import { ethers } from 'ethers'
-import '../../src/extensions/ethers/BigNumber'
-
 export const { bigNumberify: bn } = ethers.utils
+extensions.ethers.BigNumber.extend()
 
 // Number of points in secp256k1
 export const groupOrder = bn(

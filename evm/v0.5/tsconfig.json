@@ -19,5 +19,6 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["test", "testv2", "src", "@types"]
+  "include": ["test", "testv2", "src", "@types"],
+  "references": [{ "path": "../../eth-test-helpers" }]
 }

@@ -1,16 +1,18 @@
-import * as h from '../src/helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
-import { assertBigNum } from '../src/matchers'
-import { makeTestProvider } from '../src/provider'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
 import {
   CoordinatorFactory,
+  LinkTokenFactory,
   MeanAggregatorFactory,
   ServiceAgreementConsumerFactory,
-  LinkTokenFactory,
 } from '../src/generated'
-import { Instance } from '../src/contract'
-import { ethers } from 'ethers'
-import { assert } from 'chai'
 
 const coordinatorFactory = new CoordinatorFactory()
 const meanAggregatorFactory = new MeanAggregatorFactory()
@@ -18,7 +20,7 @@ const serviceAgreementConsumerFactory = new ServiceAgreementConsumerFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let roles: h.Roles
 
@@ -30,9 +32,9 @@ beforeAll(async () => {
 describe('ServiceAgreementConsumer', () => {
   const currency = 'USD'
 
-  let link: Instance<LinkTokenFactory>
-  let coord: Instance<CoordinatorFactory>
-  let cc: Instance<ServiceAgreementConsumerFactory>
+  let link: contract.Instance<LinkTokenFactory>
+  let coord: contract.Instance<CoordinatorFactory>
+  let cc: contract.Instance<ServiceAgreementConsumerFactory>
   let agreement: h.ServiceAgreement
 
   beforeEach(async () => {
@@ -84,7 +86,7 @@ describe('ServiceAgreementConsumer', () => {
         const request = h.decodeRunRequest(log)
 
         assert.equal(h.generateSAID(agreement), request.jobId)
-        assertBigNum(paymentAmount, request.payment)
+        matchers.assertBigNum(paymentAmount, request.payment)
         assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assert.equal(1, request.dataVersion)
 

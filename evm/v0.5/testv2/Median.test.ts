@@ -1,12 +1,14 @@
-import * as h from '../src/helpers'
-import { MedianTestHelperFactory } from '../src/generated'
-import { makeTestProvider } from '../src/provider'
-import { Instance } from '../src/contract'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { ethers } from 'ethers'
-import { assertBigNum } from '../src/matchers'
+import { MedianTestHelperFactory } from '../src/generated'
 
 const medianTestHelperFactory = new MedianTestHelperFactory()
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
@@ -15,7 +17,7 @@ beforeAll(async () => {
 })
 
 describe('Median', () => {
-  let median: Instance<MedianTestHelperFactory>
+  let median: contract.Instance<MedianTestHelperFactory>
 
   beforeEach(async () => {
     median = await medianTestHelperFactory.connect(defaultAccount).deploy()
@@ -105,7 +107,7 @@ describe('Median', () => {
 
     for (const test of tests) {
       it(test.name, async () => {
-        assertBigNum(test.want, await median.publicGet(test.responses))
+        matchers.assertBigNum(test.want, await median.publicGet(test.responses))
       })
     }
   })
