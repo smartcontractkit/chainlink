@@ -40,7 +40,7 @@ describe('AggregatorProxy', () => {
   let aggregator2: contract.Instance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
   let proxy: contract.Instance<AggregatorProxyFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     aggregator = await aggregatorFactory

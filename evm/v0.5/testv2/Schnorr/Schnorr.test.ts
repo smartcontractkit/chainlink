@@ -22,7 +22,7 @@ beforeAll(async () => {
 
 describe('SchnorrSECP256K1', () => {
   let c: contract.Instance<SchnorrSECP256K1Factory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     c = await schnorrSECP256K1Factory.connect(defaultAccount).deploy()
   })
 

@@ -48,7 +48,7 @@ describe('PreCoordinator', () => {
   let rc: contract.Instance<BasicConsumerFactory>
   let pc: contract.Instance<PreCoordinatorFactory>
 
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc1 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     oc2 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)

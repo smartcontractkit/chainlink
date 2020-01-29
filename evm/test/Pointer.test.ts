@@ -18,7 +18,7 @@ beforeAll(async () => {
 describe('Pointer', () => {
   let pointer: contract.Instance<PointerFactory>
   let link: contract.Instance<LinkTokenFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     pointer = await pointerFactory
       .connect(roles.defaultAccount)

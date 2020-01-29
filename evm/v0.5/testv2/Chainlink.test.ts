@@ -20,7 +20,7 @@ describe('Chainlink', () => {
     ChainlinkTestHelperFactory
   >['interface']['events']
 
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     cl = await chainlinkFactory.connect(defaultAccount).deploy()
     clEvents = cl.interface.events
   })

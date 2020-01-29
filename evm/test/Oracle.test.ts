@@ -36,7 +36,7 @@ describe('Oracle', () => {
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link: contract.Instance<LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     await oc.setFulfillmentPermission(roles.oracleNode.address, true)

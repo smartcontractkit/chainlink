@@ -51,7 +51,7 @@ describe('UpdatableConsumer', () => {
   let link: contract.Instance<LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
   let uc: contract.Instance<UpdatableConsumerFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     ens = await ensRegistryFactory.connect(roles.defaultAccount).deploy()

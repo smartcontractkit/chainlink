@@ -36,7 +36,7 @@ beforeAll(async () => {
 
 describe('VRF', () => {
   let VRF: contract.Instance<VRFFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     VRF = await vrfFactory.connect(defaultAccount).deploy()
   })
 

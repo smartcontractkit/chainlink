@@ -20,7 +20,7 @@ describe('GetterSetter', () => {
   const bytes32 = ethers.utils.formatBytes32String('Hi Mom!')
   const uint256 = ethers.utils.bigNumberify(645746535432)
   let gs: contract.Instance<GetterSetterFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     gs = await GetterSetterContract.connect(roles.defaultAccount).deploy()
   })
 

@@ -25,7 +25,7 @@ describe('GetterSetter', () => {
   const uint256 = ethers.utils.bigNumberify(645746535432)
 
   let gs: contract.Instance<GetterSetterFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     gs = await getterSetterFactory.connect(roles.defaultAccount).deploy()
   })
 
