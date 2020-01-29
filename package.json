@@ -7,6 +7,7 @@
     "evm/v0.5",
     "evm/v0.6",
     "feeds",
+    "eth-test-helpers",
     "examples/*",
     "explorer",
     "explorer/client",
