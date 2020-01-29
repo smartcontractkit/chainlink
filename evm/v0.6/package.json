@@ -20,11 +20,12 @@
     "test": "jest --testTimeout 80000 --forceExit"
   },
   "dependencies": {
+    "@chainlink/eth-test-helpers": "0.0.1",
     "cbor": "^5.0.1",
     "ethers": "^4.0.41"
   },
   "devDependencies": {
-    "sol-compiler": "^0.0.1-alpha",
+    "@0x/sol-compiler": "^4.0.4",
     "@0x/sol-trace": "^3.0.4",
     "@types/cbor": "^5.0.0",
     "@types/chai": "^4.2.7",
