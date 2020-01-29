@@ -1,12 +1,14 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
-import { ethers } from 'ethers'
-import { Instance } from '../src/contract'
-import { OracleFactory } from '../src/generated/OracleFactory'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { AggregatorFactory } from '../src/generated/AggregatorFactory'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
-import { makeTestProvider } from '../src/provider'
+import { ethers } from 'ethers'
+import { AggregatorFactory } from '../src/generated/AggregatorFactory'
+import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
+import { OracleFactory } from '../src/generated/OracleFactory'
 
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
@@ -14,7 +16,7 @@ const linkTokenFactory = new LinkTokenFactory()
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
@@ -34,13 +36,13 @@ describe('Aggregator', () => {
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000004'
   const deposit = h.toWei('100')
   const basePayment = h.toWei('1')
-  let link: Instance<LinkTokenFactory>
-  let rate: Instance<AggregatorFactory>
-  let oc1: Instance<OracleFactory>
-  let oc2: Instance<OracleFactory>
-  let oc3: Instance<OracleFactory>
-  let oc4: Instance<OracleFactory>
-  let oracles: Instance<OracleFactory>[]
+  let link: contract.Instance<LinkTokenFactory>
+  let rate: contract.Instance<AggregatorFactory>
+  let oc1: contract.Instance<OracleFactory>
+  let oc2: contract.Instance<OracleFactory>
+  let oc3: contract.Instance<OracleFactory>
+  let oc4: contract.Instance<OracleFactory>
+  let oracles: contract.Instance<OracleFactory>[]
   let jobIds: string[] = []
   const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
@@ -93,7 +95,7 @@ describe('Aggregator', () => {
         await link.transfer(rate.address, deposit)
 
         const current = await rate.latestAnswer()
-        assertBigNum(ethers.constants.Zero, current)
+        matchers.assertBigNum(ethers.constants.Zero, current)
       })
 
       it('emits a new round log', async () => {
@@ -117,12 +119,12 @@ describe('Aggregator', () => {
 
         const current = await rate.latestAnswer()
 
-        assertBigNum(response, current)
+        matchers.assertBigNum(response, current)
 
         const answerId = await rate.latestRound()
         const currentMappingValue = await rate.getAnswer(answerId)
 
-        assertBigNum(current, currentMappingValue)
+        matchers.assertBigNum(current, currentMappingValue)
       })
 
       it('change the updatedAt record', async () => {
@@ -140,7 +142,7 @@ describe('Aggregator', () => {
         const answerId = await rate.latestRound()
         const timestampMappingValue = await rate.getTimestamp(answerId)
 
-        assertBigNum(updatedAt, timestampMappingValue)
+        matchers.assertBigNum(updatedAt, timestampMappingValue)
       })
 
       it('emits a log with the response, answer ID, and sender', async () => {
@@ -200,7 +202,7 @@ describe('Aggregator', () => {
         await link.transfer(rate.address, deposit)
 
         const current = await rate.latestAnswer()
-        assertBigNum(ethers.constants.Zero, current)
+        matchers.assertBigNum(ethers.constants.Zero, current)
       })
 
       it('triggers requests to the oracles and the median of the responses', async () => {
@@ -219,19 +221,19 @@ describe('Aggregator', () => {
         }
 
         const current = await rate.latestAnswer()
-        assertBigNum(h.numToBytes32(77), current)
+        matchers.assertBigNum(h.numToBytes32(77), current)
 
         const answerId = await rate.latestRound()
         const currentMappingValue = await rate.getAnswer(answerId)
 
-        assertBigNum(current, currentMappingValue)
+        matchers.assertBigNum(current, currentMappingValue)
 
         const updatedAt = await rate.latestTimestamp()
         assert.notEqual('0', updatedAt.toString())
 
         const timestampMappingValue = await rate.getTimestamp(answerId)
 
-        assertBigNum(updatedAt, timestampMappingValue)
+        matchers.assertBigNum(updatedAt, timestampMappingValue)
       })
 
       it('does not accept old responses', async () => {
@@ -255,13 +257,13 @@ describe('Aggregator', () => {
           const request = h.decodeRunRequest(log)
           await h.fulfillOracleRequest(oracles[i], request, response2)
         }
-        assertBigNum(response2, await rate.latestAnswer())
+        matchers.assertBigNum(response2, await rate.latestAnswer())
 
         for (let i = 0; i < oracles.length; i++) {
           await h.fulfillOracleRequest(oracles[i], requests[i], response1)
         }
 
-        assertBigNum(response2, await rate.latestAnswer())
+        matchers.assertBigNum(response2, await rate.latestAnswer())
       })
     })
 
@@ -279,7 +281,7 @@ describe('Aggregator', () => {
         await link.transfer(rate.address, deposit)
 
         const current = await rate.latestAnswer()
-        assertBigNum(ethers.constants.Zero, current)
+        matchers.assertBigNum(ethers.constants.Zero, current)
       })
 
       it('triggers requests to the oracles and the median of the responses', async () => {
@@ -298,7 +300,7 @@ describe('Aggregator', () => {
         }
 
         const current = await rate.latestAnswer()
-        assertBigNum(77, current)
+        matchers.assertBigNum(77, current)
       })
     })
   })
@@ -313,7 +315,7 @@ describe('Aggregator', () => {
       await link.transfer(rate.address, deposit)
 
       const current = await rate.latestAnswer()
-      assertBigNum(ethers.constants.Zero, current)
+      matchers.assertBigNum(ethers.constants.Zero, current)
     })
 
     describe('when called by the owner', () => {
@@ -325,7 +327,7 @@ describe('Aggregator', () => {
 
         await rate.connect(personas.Carol).requestRateUpdate()
 
-        assertBigNum(uniquePayment, await link.balanceOf(oc2.address))
+        matchers.assertBigNum(uniquePayment, await link.balanceOf(oc2.address))
       })
 
       it('can be configured to accept fewer responses than oracles', async () => {
@@ -345,7 +347,7 @@ describe('Aggregator', () => {
 
         const response1 = h.numToBytes32(100)
         await h.fulfillOracleRequest(oc1, request1, response1)
-        assertBigNum(response1, await rate.latestAnswer())
+        matchers.assertBigNum(response1, await rate.latestAnswer())
 
         const response2 = h.numToBytes32(200)
         await h.fulfillOracleRequest(oc2, request2, response2)
@@ -432,13 +434,13 @@ describe('Aggregator', () => {
         // fulfill request 1
         const response1 = h.numToBytes32(100)
         await h.fulfillOracleRequest(oc1, request1, response1)
-        assertBigNum(response1, await rate.latestAnswer())
+        matchers.assertBigNum(response1, await rate.latestAnswer())
 
         // fulfill request 2
         const responses2 = [202, 222].map(h.numToBytes32)
         await h.fulfillOracleRequest(oc2, request2, responses2[0])
         await h.fulfillOracleRequest(oc3, request3, responses2[1])
-        assertBigNum(212, await rate.latestAnswer())
+        matchers.assertBigNum(212, await rate.latestAnswer())
       })
     })
 
@@ -495,7 +497,7 @@ describe('Aggregator', () => {
         .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
       await rate.transferOwnership(personas.Carol.address)
       await link.transfer(rate.address, deposit)
-      assertBigNum(deposit, await link.balanceOf(rate.address))
+      matchers.assertBigNum(deposit, await link.balanceOf(rate.address))
     })
 
     describe('when called by the owner', () => {
@@ -504,8 +506,11 @@ describe('Aggregator', () => {
           .connect(personas.Carol)
           .transferLINK(personas.Carol.address, deposit)
 
-        assertBigNum(0, await link.balanceOf(rate.address))
-        assertBigNum(deposit, await link.balanceOf(personas.Carol.address))
+        matchers.assertBigNum(0, await link.balanceOf(rate.address))
+        matchers.assertBigNum(
+          deposit,
+          await link.balanceOf(personas.Carol.address),
+        )
       })
 
       describe('with a number higher than the LINK balance', () => {
@@ -516,7 +521,7 @@ describe('Aggregator', () => {
               .transferLINK(personas.Carol.address, deposit.add(basePayment))
           })
 
-          assertBigNum(deposit, await link.balanceOf(rate.address))
+          matchers.assertBigNum(deposit, await link.balanceOf(rate.address))
         })
       })
     })
@@ -529,7 +534,7 @@ describe('Aggregator', () => {
             .transferLINK(personas.Carol.address, deposit)
         })
 
-        assertBigNum(deposit, await link.balanceOf(rate.address))
+        matchers.assertBigNum(deposit, await link.balanceOf(rate.address))
       })
     })
   })
@@ -541,15 +546,18 @@ describe('Aggregator', () => {
         .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
       await rate.transferOwnership(personas.Carol.address)
       await link.transfer(rate.address, deposit)
-      assertBigNum(deposit, await link.balanceOf(rate.address))
+      matchers.assertBigNum(deposit, await link.balanceOf(rate.address))
     })
 
     describe('when called by the owner', () => {
       it('succeeds', async () => {
         await rate.connect(personas.Carol).destroy()
 
-        assertBigNum(0, await link.balanceOf(rate.address))
-        assertBigNum(deposit, await link.balanceOf(personas.Carol.address))
+        matchers.assertBigNum(0, await link.balanceOf(rate.address))
+        matchers.assertBigNum(
+          deposit,
+          await link.balanceOf(personas.Carol.address),
+        )
 
         assert.equal('0x', await provider.getCode(rate.address))
       })
@@ -561,7 +569,7 @@ describe('Aggregator', () => {
           await rate.connect(personas.Eddy).destroy()
         })
 
-        assertBigNum(deposit, await link.balanceOf(rate.address))
+        matchers.assertBigNum(deposit, await link.balanceOf(rate.address))
         assert.notEqual('0x', await provider.getCode(rate.address))
       })
     })
@@ -627,15 +635,15 @@ describe('Aggregator', () => {
 
       await link.transfer(rate.address, basePayment)
 
-      assertBigNum(basePayment, await link.balanceOf(rate.address))
-      assertBigNum(0, await link.balanceOf(oc1.address))
+      matchers.assertBigNum(basePayment, await link.balanceOf(rate.address))
+      matchers.assertBigNum(0, await link.balanceOf(oc1.address))
 
       const requestTx = await rate.requestRateUpdate()
       const receipt = await requestTx.wait()
       request = h.decodeRunRequest(receipt.logs?.[3])
 
-      assertBigNum(0, await link.balanceOf(rate.address))
-      assertBigNum(basePayment, await link.balanceOf(oc1.address))
+      matchers.assertBigNum(0, await link.balanceOf(rate.address))
+      matchers.assertBigNum(basePayment, await link.balanceOf(oc1.address))
 
       await h.increaseTime5Minutes(provider) // wait for request to expire
     })
@@ -648,7 +656,10 @@ describe('Aggregator', () => {
         const request2 = h.decodeRunRequest(receipt.logs?.[3])
         await h.fulfillOracleRequest(oc1, request2, '17')
 
-        assertBigNum(basePayment.mul(2), await link.balanceOf(oc1.address))
+        matchers.assertBigNum(
+          basePayment.mul(2),
+          await link.balanceOf(oc1.address),
+        )
       })
 
       it('gets the LINK deposited back from the oracle', async () => {
@@ -658,8 +669,8 @@ describe('Aggregator', () => {
           request.expiration,
         )
 
-        assertBigNum(basePayment, await link.balanceOf(rate.address))
-        assertBigNum(basePayment, await link.balanceOf(oc1.address))
+        matchers.assertBigNum(basePayment, await link.balanceOf(rate.address))
+        matchers.assertBigNum(basePayment, await link.balanceOf(oc1.address))
       })
     })
 
@@ -673,8 +684,8 @@ describe('Aggregator', () => {
           )
         })
 
-        assertBigNum(0, await link.balanceOf(rate.address))
-        assertBigNum(basePayment, await link.balanceOf(oc1.address))
+        matchers.assertBigNum(0, await link.balanceOf(rate.address))
+        matchers.assertBigNum(basePayment, await link.balanceOf(oc1.address))
       })
     })
   })
@@ -745,7 +756,7 @@ describe('Aggregator', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const test of tests) {
       const responses = test.responses
-      const oracles: Instance<OracleFactory>[] = []
+      const oracles: contract.Instance<OracleFactory>[] = []
       const jobIds: string[] = []
 
       it(test.name, async () => {
@@ -775,7 +786,7 @@ describe('Aggregator', () => {
           await h.fulfillOracleRequest(oracle, request, responses[i])
         }
 
-        assertBigNum(test.want, await rate.latestAnswer())
+        matchers.assertBigNum(test.want, await rate.latestAnswer())
       })
     }
   })

@@ -1,25 +1,27 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+  wallet as w,
+} from '@chainlink/eth-test-helpers'
 import { ethers } from 'ethers'
-import { createFundedWallet } from '../src/wallet'
 import { ConcreteSignedSafeMathFactory } from '../src/generated/ConcreteSignedSafeMathFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
 
 const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let defaultAccount: ethers.Wallet
 
 beforeAll(async () => {
-  const { wallet } = await createFundedWallet(provider, 0)
+  const { wallet } = await w.createFundedWallet(provider, 0)
   defaultAccount = wallet
 })
 
 describe('SignedSafeMath', () => {
   // a version of the adder contract where we make all ABI exposed functions constant
   // TODO: submit upstream PR to support constant contract type generation
-  let adder: Instance<ConcreteSignedSafeMathFactory>
+  let adder: contract.Instance<ConcreteSignedSafeMathFactory>
   let response: ethers.utils.BigNumber
   const INT256_MAX = ethers.utils.bigNumberify(
     '57896044618658097711785492504343953926634992332820282019728792003956564819967',
@@ -39,12 +41,12 @@ describe('SignedSafeMath', () => {
     describe('given a positive and positive', () => {
       it('works', async () => {
         response = await adder.testAdd(1, 2)
-        assertBigNum(3, response)
+        matchers.assertBigNum(3, response)
       })
 
       it('works with zero', async () => {
         response = await adder.testAdd(INT256_MAX, 0)
-        assertBigNum(INT256_MAX, response)
+        matchers.assertBigNum(INT256_MAX, response)
       })
 
       describe('when both are large enough to overflow', () => {
@@ -59,12 +61,12 @@ describe('SignedSafeMath', () => {
     describe('given a negative and negative', () => {
       it('works', async () => {
         response = await adder.testAdd(-1, -2)
-        assertBigNum(-3, response)
+        matchers.assertBigNum(-3, response)
       })
 
       it('works with zero', async () => {
         response = await adder.testAdd(INT256_MIN, 0)
-        assertBigNum(INT256_MIN, response)
+        matchers.assertBigNum(INT256_MIN, response)
       })
 
       describe('when both are large enough to overflow', () => {
@@ -79,14 +81,14 @@ describe('SignedSafeMath', () => {
     describe('given a positive and negative', () => {
       it('works', async () => {
         response = await adder.testAdd(1, -2)
-        assertBigNum(-1, response)
+        matchers.assertBigNum(-1, response)
       })
     })
 
     describe('given a negative and positive', () => {
       it('works', async () => {
         response = await adder.testAdd(-1, 2)
-        assertBigNum(1, response)
+        matchers.assertBigNum(1, response)
       })
     })
   })

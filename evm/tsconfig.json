@@ -16,5 +16,6 @@
     "moduleResolution": "node",
     "esModuleInterop": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "references": [{ "path": "../eth-test-helpers" }]
 }

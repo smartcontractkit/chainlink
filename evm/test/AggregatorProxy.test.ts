@@ -1,18 +1,20 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
-import { ethers } from 'ethers'
-import { Instance } from '../src/contract'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { AggregatorFactory } from '../src/generated/AggregatorFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
-import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
-import { makeTestProvider } from '../src/provider'
+import { ethers } from 'ethers'
+import { AggregatorFactory } from '../src/generated/AggregatorFactory'
+import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
+import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
+import { OracleFactory } from '../src/generated/OracleFactory'
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
 
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 const linkTokenFactory = new LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
@@ -33,11 +35,11 @@ describe('AggregatorProxy', () => {
   const response = h.numToBytes32(54321)
   const response2 = h.numToBytes32(67890)
 
-  let link: Instance<LinkTokenFactory>
-  let aggregator: Instance<AggregatorFactory>
-  let aggregator2: Instance<AggregatorFactory>
-  let oc1: Instance<OracleFactory>
-  let proxy: Instance<AggregatorProxyFactory>
+  let link: contract.Instance<LinkTokenFactory>
+  let aggregator: contract.Instance<AggregatorFactory>
+  let aggregator2: contract.Instance<AggregatorFactory>
+  let oc1: contract.Instance<OracleFactory>
+  let proxy: contract.Instance<AggregatorProxyFactory>
   const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
@@ -78,16 +80,16 @@ describe('AggregatorProxy', () => {
 
       const request = h.decodeRunRequest(receipt.logs?.[3])
       await h.fulfillOracleRequest(oc1, request, response)
-      assertBigNum(
+      matchers.assertBigNum(
         ethers.utils.bigNumberify(response),
         await aggregator.latestAnswer(),
       )
     })
 
     it('pulls the rate from the aggregator', async () => {
-      assertBigNum(response, await proxy.latestAnswer())
+      matchers.assertBigNum(response, await proxy.latestAnswer())
       const latestRound = await proxy.latestRound()
-      assertBigNum(response, await proxy.getAnswer(latestRound))
+      matchers.assertBigNum(response, await proxy.getAnswer(latestRound))
     })
 
     describe('after being updated to another contract', () => {
@@ -101,15 +103,15 @@ describe('AggregatorProxy', () => {
         const request = h.decodeRunRequest(receipt.logs?.[3])
 
         await h.fulfillOracleRequest(oc1, request, response2)
-        assertBigNum(response2, await aggregator2.latestAnswer())
+        matchers.assertBigNum(response2, await aggregator2.latestAnswer())
 
         await proxy.setAggregator(aggregator2.address)
       })
 
       it('pulls the rate from the new aggregator', async () => {
-        assertBigNum(response2, await proxy.latestAnswer())
+        matchers.assertBigNum(response2, await proxy.latestAnswer())
         const latestRound = await proxy.latestRound()
-        assertBigNum(response2, await proxy.getAnswer(latestRound))
+        matchers.assertBigNum(response2, await proxy.getAnswer(latestRound))
       })
     })
   })
@@ -126,12 +128,12 @@ describe('AggregatorProxy', () => {
     })
 
     it('pulls the height from the aggregator', async () => {
-      assertBigNum(
+      matchers.assertBigNum(
         await aggregator.latestTimestamp(),
         await proxy.latestTimestamp(),
       )
       const latestRound = await proxy.latestRound()
-      assertBigNum(
+      matchers.assertBigNum(
         await aggregator.latestTimestamp(),
         await proxy.getTimestamp(latestRound),
       )
@@ -159,12 +161,12 @@ describe('AggregatorProxy', () => {
       })
 
       it('pulls the height from the new aggregator', async () => {
-        assertBigNum(
+        matchers.assertBigNum(
           await aggregator2.latestTimestamp(),
           await proxy.latestTimestamp(),
         )
         const latestRound = await proxy.latestRound()
-        assertBigNum(
+        matchers.assertBigNum(
           await aggregator2.latestTimestamp(),
           await proxy.getTimestamp(latestRound),
         )

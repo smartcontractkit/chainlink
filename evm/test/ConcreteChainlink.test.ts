@@ -1,17 +1,19 @@
-import * as h from '../src/helpers'
-import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
-import { Instance } from '../src/contract'
-import { ethers } from 'ethers'
+import {
+  contract,
+  debug as d,
+  helpers as h,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
-import { makeDebug } from '../src/debug'
-import { makeTestProvider } from '../src/provider'
+import { ethers } from 'ethers'
+import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
 
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 const concreteChainlinkFactory = new ConcreteChainlinkFactory()
-const debug = makeDebug('ConcreteChainlink')
+const debug = d.makeDebug('ConcreteChainlink')
 
 describe('ConcreteChainlink', () => {
-  let ccl: Instance<ConcreteChainlinkFactory>
+  let ccl: contract.Instance<ConcreteChainlinkFactory>
   let defaultAccount: ethers.Wallet
   const deployment = h.useSnapshot(provider, async () => {
     defaultAccount = await h

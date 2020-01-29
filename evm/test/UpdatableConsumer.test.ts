@@ -1,14 +1,16 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
-import { ENSRegistryFactory } from '../src/generated/ENSRegistryFactory'
-import { PublicResolverFactory } from '../src/generated/PublicResolverFactory'
-import { UpdatableConsumerFactory } from '../src/generated/UpdatableConsumerFactory'
-import { ethers } from 'ethers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
+import { ENSRegistryFactory } from '../src/generated/ENSRegistryFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
+import { PublicResolverFactory } from '../src/generated/PublicResolverFactory'
+import { UpdatableConsumerFactory } from '../src/generated/UpdatableConsumerFactory'
 
 const linkTokenFactory = new LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
@@ -16,7 +18,7 @@ const oracleFactory = new OracleFactory()
 const publicResolverFacotory = new PublicResolverFactory()
 const updatableConsumerFactory = new UpdatableConsumerFactory()
 
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let roles: h.Roles
 
@@ -44,11 +46,11 @@ describe('UpdatableConsumer', () => {
   const specId = ethers.utils.formatBytes32String('someSpecID')
   const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
 
-  let ens: Instance<ENSRegistryFactory>
-  let ensResolver: Instance<PublicResolverFactory>
-  let link: Instance<LinkTokenFactory>
-  let oc: Instance<OracleFactory>
-  let uc: Instance<UpdatableConsumerFactory>
+  let ens: contract.Instance<ENSRegistryFactory>
+  let ensResolver: contract.Instance<PublicResolverFactory>
+  let link: contract.Instance<LinkTokenFactory>
+  let oc: contract.Instance<OracleFactory>
+  let uc: contract.Instance<UpdatableConsumerFactory>
   const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
@@ -194,7 +196,7 @@ describe('UpdatableConsumer', () => {
 
       it('still allows funds to be withdrawn from the oracle', async () => {
         await h.increaseTime5Minutes(provider)
-        assertBigNum(
+        matchers.assertBigNum(
           0,
           await link.balanceOf(uc.address),
           'Initial balance should be 0',
@@ -207,7 +209,7 @@ describe('UpdatableConsumer', () => {
           request.expiration,
         )
 
-        assertBigNum(
+        matchers.assertBigNum(
           paymentAmount,
           await link.balanceOf(uc.address),
           'Oracle should have been repaid on cancellation.',
