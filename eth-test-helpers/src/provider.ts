@@ -1,13 +1,13 @@
-import { ethers } from 'ethers'
 import {
+  RevertTraceSubprovider,
   SolCompilerArtifactAdapter,
   Web3ProviderEngine,
-  RevertTraceSubprovider,
 } from '@0x/sol-trace'
 import {
   FakeGasEstimateSubprovider,
   GanacheSubprovider,
 } from '@0x/subproviders'
+import { ethers } from 'ethers'
 import * as path from 'path'
 
 /**
