@@ -1,10 +1,10 @@
-import { ethers } from 'ethers'
-import { createFundedWallet } from './wallet'
-import { assert } from 'chai'
-import { makeDebug } from './debug'
 import cbor from 'cbor'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
 import { ContractReceipt, ContractTransaction } from 'ethers/contract'
 import { EventDescription } from 'ethers/utils'
+import { makeDebug } from './debug'
+import { createFundedWallet } from './wallet'
 
 const debug = makeDebug('helpers')
 export const { utils } = ethers
@@ -67,48 +67,6 @@ const SERVICE_AGREEMENT_TYPES = [
 
 // duplicated in /test/support/helpers.ts
 const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
-
-/**
- * This helper function allows us to make use of ganache snapshots,
- * which allows us to snapshot one state instance and revert back to it.
- *
- * This is used to memoize expensive setup calls typically found in beforeEach hooks when we
- * need to setup our state with contract deployments before running assertions.
- *
- * @param provider The provider that's used within the tests
- * @param cb The callback to execute that generates the state we want to snapshot
- */
-export function useSnapshot(
-  provider: ethers.providers.JsonRpcProvider,
-  cb: () => Promise<void>,
-) {
-  const d = debug.extend('memoizeDeploy')
-  let hasDeployed = false
-  let snapshotId = ''
-
-  return async () => {
-    if (!hasDeployed) {
-      d('executing deployment..')
-      await cb()
-
-      d('snapshotting...')
-      /* eslint-disable-next-line require-atomic-updates */
-      snapshotId = await provider.send('evm_snapshot', undefined)
-      d('snapshot id:%s', snapshotId)
-
-      /* eslint-disable-next-line require-atomic-updates */
-      hasDeployed = true
-    } else {
-      d('reverting to snapshot: %s', snapshotId)
-      await provider.send('evm_revert', snapshotId)
-
-      d('re-creating snapshot..')
-      /* eslint-disable-next-line require-atomic-updates */
-      snapshotId = await provider.send('evm_snapshot', undefined)
-      d('recreated snapshot id:%s', snapshotId)
-    }
-  }
-}
 
 /**
  * A wrapper function to make generated contracts compatible with truffle test suites.

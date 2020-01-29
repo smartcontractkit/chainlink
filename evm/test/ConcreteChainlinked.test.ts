@@ -31,7 +31,7 @@ describe('ConcreteChainlinked', () => {
   let oc: contract.Instance<OracleFactory | EmptyOracleFactory>
   let newoc: contract.Instance<OracleFactory>
   let link: contract.Instance<LinkTokenFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     newoc = await oracleFactory

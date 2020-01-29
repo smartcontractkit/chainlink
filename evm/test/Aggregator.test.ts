@@ -44,7 +44,7 @@ describe('Aggregator', () => {
   let oc4: contract.Instance<OracleFactory>
   let oracles: contract.Instance<OracleFactory>[]
   let jobIds: string[] = []
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     oc2 = await oracleFactory.connect(defaultAccount).deploy(link.address)

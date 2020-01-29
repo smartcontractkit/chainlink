@@ -61,7 +61,7 @@ describe('PrepaidAggregator', () => {
       round.timeout,
     )
   }
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
     aggregator = await prepaidAggregatorFactory
       .connect(personas.Carol)

@@ -15,7 +15,7 @@ const debug = d.makeDebug('ConcreteChainlink')
 describe('ConcreteChainlink', () => {
   let ccl: contract.Instance<ConcreteChainlinkFactory>
   let defaultAccount: ethers.Wallet
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     defaultAccount = await h
       .initializeRolesAndPersonas(provider)
       .then(r => r.roles.defaultAccount)

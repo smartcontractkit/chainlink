@@ -32,7 +32,7 @@ describe('BasicConsumer', () => {
   let link: contract.Instance<LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
   let cc: contract.Instance<BasicConsumerFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     cc = await basicConsumerFactory

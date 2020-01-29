@@ -17,7 +17,7 @@
     "setup": "ts-node ./scripts/build",
     "prepublishOnly": "yarn setup && yarn test",
     "_comment_:test": "# we force exit because the subprovider holds onto resources and doesn't release them",
-    "test": "jest --testTimeout 80000 --detectOpenHandles --forceExit"
+    "test": "jest --testTimeout 80000 --forceExit"
   },
   "dependencies": {
     "cbor": "^5.0.1",

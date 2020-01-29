@@ -16,7 +16,7 @@
     "setup": "ts-node ./scripts/build",
     "prepublishOnly": "yarn setup && yarn lint && yarn test",
     "_comment_:test:v2": "# we force exit because the subprovider holds onto resources and doesn't release them",
-    "test": "jest --testTimeout 80000 --detectOpenHandles --forceExit",
+    "test:v2": "jest --testTimeout 80000 --forceExit",
     "tsc": "tsc"
   },
   "dependencies": {

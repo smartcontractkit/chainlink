@@ -1,14 +1,14 @@
 import cbor from 'cbor'
-import * as h from '../src/helpers'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
+import { Instance } from '../src/contract'
 import { makeDebug } from '../src/debug'
-import { assertBigNum } from '../src/matchers'
+import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
-import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
-import { Instance } from '../src/contract'
+import * as h from '../src/helpers'
+import { assertBigNum } from '../src/matchers'
 import { makeTestProvider } from '../src/provider'
-import { ethers } from 'ethers'
-import { assert } from 'chai'
 
 const d = makeDebug('BasicConsumer')
 const basicConsumerFactory = new BasicConsumerFactory()
@@ -33,7 +33,7 @@ describe('BasicConsumer', () => {
   let link: Instance<LinkTokenFactory>
   let oc: Instance<OracleFactory>
   let cc: Instance<BasicConsumerFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     cc = await basicConsumerFactory
