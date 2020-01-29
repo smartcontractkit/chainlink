@@ -60,13 +60,17 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusForbidden, err)
 	} else if data, err := getRunData(c); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if jr, err := jrc.App.Create(j.ID, initiator, &data, nil, &models.RunRequest{}); errors.Cause(err) == orm.ErrorNotFound {
+	} else if jr, err := jrc.App.Create(j.ID, initiator, &data, webInitiatedMeta(), nil, &models.RunRequest{}); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 	} else if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 	} else {
 		jsonAPIResponse(c, presenters.JobRun{JobRun: *jr}, "job run")
 	}
+}
+
+func webInitiatedMeta() *models.JSON {
+	return &models.JSON{}
 }
 
 // getInitiator returns the Job Spec's initiator for the given web context.

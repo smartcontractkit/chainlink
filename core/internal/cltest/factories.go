@@ -609,16 +609,21 @@ func CreateServiceAgreementViaWeb(
 
 func NewRunInput(value models.JSON) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, value, TestMeta(), models.RunStatusUnstarted)
 }
 
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
 	jobRunID := models.NewID()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, data, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, data, TestMeta(), models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+	return *models.NewRunInputWithResult(jobRunID, value, TestMeta(), models.RunStatusUnstarted)
+}
+
+func TestMeta() models.JSON {
+	meta, _ := models.JSON{}.Add("test", true)
+	return meta
 }

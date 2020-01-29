@@ -10,20 +10,22 @@ import (
 type RunInput struct {
 	jobRunID ID
 	data     JSON
+	Meta     JSON
 	status   RunStatus
 }
 
 // NewRunInput creates a new RunInput with arbitrary data
-func NewRunInput(jobRunID *ID, data JSON, status RunStatus) *RunInput {
+func NewRunInput(jobRunID *ID, data JSON, meta JSON, status RunStatus) *RunInput {
 	return &RunInput{
 		jobRunID: *jobRunID,
 		data:     data,
+		Meta:     meta,
 		status:   status,
 	}
 }
 
 // NewRunInputWithResult creates a new RunInput with a value in the "result" field
-func NewRunInputWithResult(jobRunID *ID, value interface{}, status RunStatus) *RunInput {
+func NewRunInputWithResult(jobRunID *ID, value interface{}, meta JSON, status RunStatus) *RunInput {
 	data, err := JSON{}.Add("result", value)
 	if err != nil {
 		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
@@ -31,6 +33,7 @@ func NewRunInputWithResult(jobRunID *ID, value interface{}, status RunStatus) *R
 	return &RunInput{
 		jobRunID: *jobRunID,
 		data:     data,
+		Meta:     meta,
 		status:   status,
 	}
 }

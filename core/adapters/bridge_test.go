@@ -55,7 +55,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
-	input := *models.NewRunInput(jobRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
+	input := *models.NewRunInput(jobRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), cltest.TestMeta(), models.RunStatusUnstarted)
 	result := ba.Perform(input, store)
 	require.NoError(t, result.Error())
 	assert.Equal(t, "251990120", result.Result().String())
@@ -84,7 +84,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: *bt}
 
-			input := *models.NewRunInputWithResult(models.NewID(), "100", test.status)
+			input := *models.NewRunInputWithResult(models.NewID(), "100", cltest.TestMeta(), test.status)
 			result := ba.Perform(input, store)
 
 			assert.Equal(t, test.result, result.Data().String())
@@ -116,7 +116,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
 	runID := models.NewID()
-	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"result":"lot 49"}}`, runID)
+	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"result":"lot 49"},"meta":{"test":true}}`, runID)
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: *bt}
 
-			input := *models.NewRunInput(runID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
+			input := *models.NewRunInput(runID, cltest.JSONFromString(t, `{"result": "lot 49"}`), cltest.TestMeta(), models.RunStatusUnstarted)
 			result := eb.Perform(input, store)
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
@@ -151,12 +151,12 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		{
 			name:          "basic URL",
 			configuredURL: cltest.WebURL(t, "https://chain.link"),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"},"responseURL":"https://chain.link/v2/runs/%s"}`, input.JobRunID().String(), input.JobRunID().String()),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}, "meta":{"test":true},"responseURL":"https://chain.link/v2/runs/%s"}`, input.JobRunID().String(), input.JobRunID().String()),
 		},
 		{
 			name:          "blank URL",
 			configuredURL: cltest.WebURL(t, ""),
-			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}}`, input.JobRunID().String()),
+			want:          fmt.Sprintf(`{"id":"%s","data":{"result":"lot 49"}, "meta":{"test":true}}`, input.JobRunID().String()),
 		},
 	}
 

@@ -146,6 +146,7 @@ type LogRequest interface {
 
 	Validate() bool
 	JSON() (JSON, error)
+	Meta() JSON
 	ToDebug()
 	ForLogger(kvs ...interface{}) []interface{}
 	ValidateRequester() error
@@ -252,6 +253,19 @@ func (le InitiatorLogEvent) JSON() (JSON, error) {
 		return out, err
 	}
 	return out, json.Unmarshal(b, &out)
+}
+
+// Meta returns metadata about the eth log
+func (le InitiatorLogEvent) Meta() JSON {
+	el := le.Log
+	meta := make(map[string]interface{})
+	meta["initiator"] = map[string]interface{}{
+		"transactionHash": el.TxHash,
+	}
+	var out JSON
+	b, _ := json.Marshal(meta)
+	json.Unmarshal(b, &out)
+	return out
 }
 
 // EthLogEvent provides functionality specific to a log event emitted

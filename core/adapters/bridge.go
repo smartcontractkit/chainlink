@@ -53,7 +53,7 @@ func (ba *Bridge) handleNewRun(input models.RunInput, bridgeResponseURL *url.URL
 		return models.NewRunOutputError(baRunResultError("post to external adapter", err))
 	}
 
-	input = *models.NewRunInput(input.JobRunID(), data, input.Status())
+	input = *models.NewRunInput(input.JobRunID(), data, input.Meta, input.Status())
 	return ba.responseToRunResult(body, input)
 }
 
@@ -72,6 +72,7 @@ func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models
 		return models.NewRunOutputPendingBridge()
 	}
 
+	// FIXME: Super weird handling of bridge return result??
 	if brr.Data.IsObject() {
 		data, err := models.Merge(ba.Params, brr.Data)
 		if err != nil {
@@ -90,7 +91,7 @@ func (ba *Bridge) postToExternalAdapter(input models.RunInput, bridgeResponseURL
 		return nil, errors.Wrap(err, "error merging bridge params with input params")
 	}
 
-	outgoing := bridgeOutgoing{JobRunID: input.JobRunID().String(), Data: data}
+	outgoing := bridgeOutgoing{JobRunID: input.JobRunID().String(), Data: data, Meta: input.Meta}
 	if bridgeResponseURL != nil {
 		outgoing.ResponseURL = bridgeResponseURL.String()
 	}
@@ -129,6 +130,7 @@ func baRunResultError(str string, err error) error {
 type bridgeOutgoing struct {
 	JobRunID    string      `json:"id"`
 	Data        models.JSON `json:"data"`
+	Meta        models.JSON `json:"meta"`
 	ResponseURL string      `json:"responseURL,omitempty"`
 }
 

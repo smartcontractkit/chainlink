@@ -149,7 +149,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash(), cltest.TestMeta(), models.RunStatusPendingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -174,7 +174,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_Safe(t *testing.T) {
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash(), cltest.TestMeta(), models.RunStatusPendingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -213,7 +213,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 		"result":"0x3f839aaf5915da8714313a57b9c0a362d1a9a3fac1210190ace5cf3b008d780f"
 	}`)
 	input := *models.NewRunInput(
-		models.NewID(), data, models.RunStatusPendingConfirmations,
+		models.NewID(), data, cltest.TestMeta(), models.RunStatusPendingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -264,7 +264,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash().String(), cltest.TestMeta(), models.RunStatusPendingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -287,7 +287,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash().String(), cltest.TestMeta(), models.RunStatusPendingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -308,7 +308,7 @@ func TestEthTxAdapter_Perform_NotConnectedWhenPendingConfirmations(t *testing.T)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
-	input := *models.NewRunInput(models.NewID(), models.JSON{}, models.RunStatusPendingConfirmations)
+	input := *models.NewRunInput(models.NewID(), models.JSON{}, cltest.TestMeta(), models.RunStatusPendingConfirmations)
 	data := adapter.Perform(input, store)
 
 	require.NoError(t, data.Error())
@@ -423,7 +423,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	txManager.On("Connected").Return(true)
 	txManager.On("BumpGasUntilSafe", mock.Anything).Return(nil, strpkg.Unknown, badResponseErr)
 
-	input := *models.NewRunInput(models.NewID(), output.Data(), output.Status())
+	input := *models.NewRunInput(models.NewID(), output.Data(), cltest.TestMeta(), output.Status())
 	output = adapter.Perform(input, store)
 	require.NoError(t, output.Error())
 	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())

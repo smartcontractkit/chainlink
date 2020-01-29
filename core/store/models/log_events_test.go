@@ -122,6 +122,30 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	}
 }
 
+func TestEthLogEvent_Meta(t *testing.T) {
+	t.Parallel()
+
+	hwLog := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
+	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	tests := []struct {
+		name     string
+		el       eth.Log
+		wantMeta models.JSON
+	}{
+		{"example", exampleLog, cltest.JSONFromString(t, `{"initiatorEthLog": {"transactionHash": "0xe044554a0a55067caafd07f8020ab9f2af60bdfe337e395ecd84b4877a3d1ab4"}}`)},
+		{"hello world", hwLog, cltest.JSONFromString(t, `{"initiatorEthLog": {"transactionHash": "0xe05b171038320aca6634ce50de669bd0baa337130269c3ce3594ce4d45fc342a"}}`)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			initr := models.Initiator{Type: models.InitiatorEthLog}
+			le := models.InitiatorLogEvent{Initiator: initr, Log: test.el}.LogRequest()
+			meta := le.Meta()
+			assert.JSONEq(t, strings.ToLower(test.wantMeta.String()), strings.ToLower(meta.String()))
+		})
+	}
+}
+
 func TestRequestLogEvent_Validate(t *testing.T) {
 	t.Parallel()
 

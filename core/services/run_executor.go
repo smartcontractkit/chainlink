@@ -119,7 +119,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 		return models.NewRunOutputError(err)
 	}
 
-	input := *models.NewRunInput(run.ID, data, taskRun.Status)
+	input := *models.NewRunInput(run.ID, data, run.InitialMeta, taskRun.Status)
 	result := adapter.Perform(input, re.store)
 	return result
 }

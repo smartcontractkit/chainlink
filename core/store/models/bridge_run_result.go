@@ -10,6 +10,7 @@ import (
 // BridgeRunResult handles the parsing of RunResults from external adapters.
 type BridgeRunResult struct {
 	Data            JSON        `json:"data"`
+	Meta            JSON        `json:"meta"`
 	Status          RunStatus   `json:"status"`
 	ErrorMessage    null.String `json:"error"`
 	ExternalPending bool        `json:"pending"`

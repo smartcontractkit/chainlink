@@ -131,7 +131,7 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 				return
 			}
 
-			_, err := r.runManager.Create(job.ID, &initr, &models.JSON{}, nil, &models.RunRequest{})
+			_, err := r.runManager.Create(job.ID, &initr, &models.JSON{}, &models.JSON{}, nil, &models.RunRequest{})
 			if err != nil && !ExpectedRecurringScheduleJobError(err) {
 				logger.Errorw(err.Error())
 			}
@@ -181,7 +181,7 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 			return
 		}
 
-		_, err := ot.RunManager.Create(job.ID, &initiator, &models.JSON{}, nil, &models.RunRequest{})
+		_, err := ot.RunManager.Create(job.ID, &initiator, &models.JSON{}, &models.JSON{}, nil, &models.RunRequest{})
 		if err != nil && !ExpectedRecurringScheduleJobError(err) {
 			logger.Error(err.Error())
 			return
