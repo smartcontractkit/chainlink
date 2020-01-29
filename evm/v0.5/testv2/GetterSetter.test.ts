@@ -1,14 +1,15 @@
-import { assertBigNum } from '../src/matchers'
-import * as h from '../src/helpers'
-import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { makeTestProvider } from '../src/provider'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
-import { Instance } from '../src/contract'
 import { ethers } from 'ethers'
-
+import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 const getterSetterFactory = new GetterSetterFactory()
 
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 let roles: h.Roles
 
 beforeAll(async () => {
@@ -23,7 +24,7 @@ describe('GetterSetter', () => {
   const bytes32 = ethers.utils.formatBytes32String('Hi Mom!')
   const uint256 = ethers.utils.bigNumberify(645746535432)
 
-  let gs: Instance<GetterSetterFactory>
+  let gs: contract.Instance<GetterSetterFactory>
   const deployment = h.useSnapshot(provider, async () => {
     gs = await getterSetterFactory.connect(roles.defaultAccount).deploy()
   })
@@ -99,7 +100,7 @@ describe('GetterSetter', () => {
       assert.equal(currentRequestId, requestId)
 
       const currentUint256 = await gs.getUint256()
-      assertBigNum(currentUint256, uint256)
+      matchers.assertBigNum(currentUint256, uint256)
     })
   })
 })

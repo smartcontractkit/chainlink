@@ -1,15 +1,18 @@
-import * as f from './fixtures'
-import * as h from '../../src/helpers'
-import { SchnorrSECP256K1Factory } from '../../src/generated/SchnorrSECP256K1Factory'
+import {
+  contract,
+  extensions,
+  helpers as h,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { makeTestProvider } from '../../src/provider'
-import { Instance } from '../../src/contract'
-import '../../src/extensions/ethers/BigNumber'
+import { SchnorrSECP256K1Factory } from '../../src/generated/SchnorrSECP256K1Factory'
+import * as f from './fixtures'
+extensions.ethers.BigNumber.extend()
 const { bigNumberify: bn } = ethers.utils
 
 const schnorrSECP256K1Factory = new SchnorrSECP256K1Factory()
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
@@ -18,7 +21,7 @@ beforeAll(async () => {
 })
 
 describe('SchnorrSECP256K1', () => {
-  let c: Instance<SchnorrSECP256K1Factory>
+  let c: contract.Instance<SchnorrSECP256K1Factory>
   const deployment = h.useSnapshot(provider, async () => {
     c = await schnorrSECP256K1Factory.connect(defaultAccount).deploy()
   })

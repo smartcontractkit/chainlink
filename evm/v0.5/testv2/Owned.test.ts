@@ -1,12 +1,10 @@
-import * as h from '../src/helpers'
-import { OwnedTestHelperFactory } from '../src/generated'
-import { makeTestProvider } from '../src/provider'
-import { Instance } from '../src/contract'
-import { ethers } from 'ethers'
+import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
+import { OwnedTestHelperFactory } from '../src/generated'
 
 const ownedTestHelperFactory = new OwnedTestHelperFactory()
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let personas: h.Personas
 let owner: ethers.Wallet
@@ -22,7 +20,7 @@ beforeAll(async () => {
 })
 
 describe('Owned', () => {
-  let owned: Instance<OwnedTestHelperFactory>
+  let owned: contract.Instance<OwnedTestHelperFactory>
   const ownedEvents = ownedTestHelperFactory.interface.events
 
   beforeEach(async () => {

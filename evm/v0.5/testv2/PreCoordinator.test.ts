@@ -1,17 +1,15 @@
+import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
-import * as h from '../src/helpers'
-import {
-  OracleFactory,
-  PreCoordinatorFactory,
-  BasicConsumerFactory,
-  LinkTokenFactory,
-} from '../src/generated'
-import { makeTestProvider } from '../src/provider'
-import { Instance } from '../src/contract'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import {
+  BasicConsumerFactory,
+  LinkTokenFactory,
+  OracleFactory,
+  PreCoordinatorFactory,
+} from '../src/generated'
 
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 const oracleFactory = new OracleFactory()
 const preCoordinatorFactory = new PreCoordinatorFactory()
 const requesterConsumerFactory = new BasicConsumerFactory()
@@ -42,13 +40,13 @@ describe('PreCoordinator', () => {
   const payment = h.toWei('1')
   const totalPayment = h.toWei('4')
 
-  let link: Instance<LinkTokenFactory>
-  let oc1: Instance<OracleFactory>
-  let oc2: Instance<OracleFactory>
-  let oc3: Instance<OracleFactory>
-  let oc4: Instance<OracleFactory>
-  let rc: Instance<BasicConsumerFactory>
-  let pc: Instance<PreCoordinatorFactory>
+  let link: contract.Instance<LinkTokenFactory>
+  let oc1: contract.Instance<OracleFactory>
+  let oc2: contract.Instance<OracleFactory>
+  let oc3: contract.Instance<OracleFactory>
+  let oc4: contract.Instance<OracleFactory>
+  let rc: contract.Instance<BasicConsumerFactory>
+  let pc: contract.Instance<PreCoordinatorFactory>
 
   const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
@@ -504,7 +502,7 @@ describe('PreCoordinator', () => {
     })
 
     describe('when consumer is different than requester', () => {
-      let cc: Instance<BasicConsumerFactory>
+      let cc: contract.Instance<BasicConsumerFactory>
       let request1: h.RunRequest
       let request2: h.RunRequest
       let request3: h.RunRequest
