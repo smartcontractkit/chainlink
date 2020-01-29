@@ -1,13 +1,11 @@
-import * as h from '../src/helpers'
-import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { EmptyOracleFactory } from '../src/generated/EmptyOracleFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
-import { ConcreteChainlinkedFactory } from '../src/generated/ConcreteChainlinkedFactory'
+import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { ConcreteChainlinkedFactory } from '../src/generated/ConcreteChainlinkedFactory'
+import { EmptyOracleFactory } from '../src/generated/EmptyOracleFactory'
+import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
+import { OracleFactory } from '../src/generated/OracleFactory'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()
@@ -15,7 +13,7 @@ const getterSetterFactory = new GetterSetterFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let roles: h.Roles
 
@@ -28,11 +26,11 @@ beforeAll(async () => {
 describe('ConcreteChainlinked', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
-  let cc: Instance<ConcreteChainlinkedFactory>
-  let gs: Instance<GetterSetterFactory>
-  let oc: Instance<OracleFactory | EmptyOracleFactory>
-  let newoc: Instance<OracleFactory>
-  let link: Instance<LinkTokenFactory>
+  let cc: contract.Instance<ConcreteChainlinkedFactory>
+  let gs: contract.Instance<GetterSetterFactory>
+  let oc: contract.Instance<OracleFactory | EmptyOracleFactory>
+  let newoc: contract.Instance<OracleFactory>
+  let link: contract.Instance<LinkTokenFactory>
   const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
@@ -136,7 +134,7 @@ describe('ConcreteChainlinked', () => {
   describe('#cancelChainlinkRequest', () => {
     let requestId: string
     // a concrete chainlink attached to an empty oracle
-    let ecc: Instance<ConcreteChainlinkedFactory>
+    let ecc: contract.Instance<ConcreteChainlinkedFactory>
 
     beforeEach(async () => {
       const emptyOracle = await emptyOracleFactory
@@ -253,7 +251,7 @@ describe('ConcreteChainlinked', () => {
   })
 
   describe('#addExternalRequest', () => {
-    let mock: Instance<ConcreteChainlinkedFactory>
+    let mock: contract.Instance<ConcreteChainlinkedFactory>
     let request: h.RunRequest
 
     beforeEach(async () => {

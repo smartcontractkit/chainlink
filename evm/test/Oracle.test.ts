@@ -1,15 +1,17 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { MaliciousRequesterFactory } from '../src/generated/MaliciousRequesterFactory'
-import { MaliciousConsumerFactory } from '../src/generated/MaliciousConsumerFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { Instance } from '../src/contract'
-import { ethers } from 'ethers'
-import { assert } from 'chai'
-import { makeTestProvider } from '../src/provider'
+import { MaliciousConsumerFactory } from '../src/generated/MaliciousConsumerFactory'
+import { MaliciousRequesterFactory } from '../src/generated/MaliciousRequesterFactory'
+import { OracleFactory } from '../src/generated/OracleFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const getterSetterFactory = new GetterSetterFactory()
@@ -19,7 +21,7 @@ const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
 let roles: h.Roles
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 beforeAll(async () => {
   const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
@@ -32,8 +34,8 @@ describe('Oracle', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-  let link: Instance<LinkTokenFactory>
-  let oc: Instance<OracleFactory>
+  let link: contract.Instance<LinkTokenFactory>
+  let oc: contract.Instance<OracleFactory>
   const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
@@ -134,8 +136,8 @@ describe('Oracle', () => {
     })
 
     describe('malicious requester', () => {
-      let mock: Instance<MaliciousRequesterFactory>
-      let requester: Instance<BasicConsumerFactory>
+      let mock: contract.Instance<MaliciousRequesterFactory>
+      let requester: contract.Instance<BasicConsumerFactory>
       const paymentAmount = h.toWei('1')
 
       beforeEach(async () => {
@@ -156,8 +158,8 @@ describe('Oracle', () => {
         const ocNewBalance = await link.balanceOf(oc.address)
         const mockNewBalance = await link.balanceOf(mock.address)
 
-        assertBigNum(ocOriginalBalance, ocNewBalance)
-        assertBigNum(mockNewBalance, mockOriginalBalance)
+        matchers.assertBigNum(ocOriginalBalance, ocNewBalance)
+        matchers.assertBigNum(mockNewBalance, mockOriginalBalance)
       })
 
       describe('if the requester tries to create a requestId for another contract', () => {
@@ -224,7 +226,7 @@ describe('Oracle', () => {
 
         const req = h.decodeRunRequest(receipt?.logs?.[2])
         assert.equal(roles.defaultAccount.address, req.requester)
-        assertBigNum(paid, req.payment)
+        matchers.assertBigNum(paid, req.payment)
       })
 
       it('uses the expected event signature', async () => {
@@ -292,9 +294,9 @@ describe('Oracle', () => {
 
   describe('#fulfillOracleRequest', () => {
     const response = 'Hi Mom!'
-    let maliciousRequester: Instance<MaliciousRequesterFactory>
-    let basicConsumer: Instance<BasicConsumerFactory>
-    let maliciousConsumer: Instance<MaliciousConsumerFactory>
+    let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
+    let basicConsumer: contract.Instance<BasicConsumerFactory>
+    let maliciousConsumer: contract.Instance<MaliciousConsumerFactory>
     let request: ReturnType<typeof h.decodeRunRequest>
 
     describe('cooperative consumer', () => {
@@ -380,7 +382,7 @@ describe('Oracle', () => {
         const defaultGasLimit = 500000
 
         beforeEach(async () => {
-          assertBigNum(0, await oc.withdrawable())
+          matchers.assertBigNum(0, await oc.withdrawable())
         })
 
         it('does not allow the oracle to withdraw the payment', async () => {
@@ -395,7 +397,7 @@ describe('Oracle', () => {
             )
           })
 
-          assertBigNum(0, await oc.withdrawable())
+          matchers.assertBigNum(0, await oc.withdrawable())
         })
 
         it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
@@ -408,7 +410,7 @@ describe('Oracle', () => {
             },
           )
 
-          assertBigNum(request.payment, await oc.withdrawable())
+          matchers.assertBigNum(request.payment, await oc.withdrawable())
         })
       })
     })
@@ -480,14 +482,14 @@ describe('Oracle', () => {
           )
 
           const balance = await link.balanceOf(roles.oracleNode.address)
-          assertBigNum(balance, 0)
+          matchers.assertBigNum(balance, 0)
 
           await oc
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
 
           const newBalance = await link.balanceOf(roles.oracleNode.address)
-          assertBigNum(paymentAmount, newBalance)
+          matchers.assertBigNum(paymentAmount, newBalance)
         })
 
         it("can't fulfill the data again", async () => {
@@ -528,13 +530,13 @@ describe('Oracle', () => {
           )
 
           const balance = await link.balanceOf(roles.oracleNode.address)
-          assertBigNum(balance, 0)
+          matchers.assertBigNum(balance, 0)
 
           await oc
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
           const newBalance = await link.balanceOf(roles.oracleNode.address)
-          assertBigNum(paymentAmount, newBalance)
+          matchers.assertBigNum(paymentAmount, newBalance)
         })
       })
 
@@ -547,7 +549,10 @@ describe('Oracle', () => {
           const receipt = await tx.wait()
           request = h.decodeRunRequest(receipt.logs?.[3])
 
-          assertBigNum(0, await link.balanceOf(maliciousConsumer.address))
+          matchers.assertBigNum(
+            0,
+            await link.balanceOf(maliciousConsumer.address),
+          )
         })
 
         it('allows the oracle node to receive their payment', async () => {
@@ -558,16 +563,16 @@ describe('Oracle', () => {
           )
 
           const mockBalance = await link.balanceOf(maliciousConsumer.address)
-          assertBigNum(mockBalance, 0)
+          matchers.assertBigNum(mockBalance, 0)
 
           const balance = await link.balanceOf(roles.oracleNode.address)
-          assertBigNum(balance, 0)
+          matchers.assertBigNum(balance, 0)
 
           await oc
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
           const newBalance = await link.balanceOf(roles.oracleNode.address)
-          assertBigNum(paymentAmount, newBalance)
+          matchers.assertBigNum(paymentAmount, newBalance)
         })
 
         it("can't fulfill the data again", async () => {
@@ -604,7 +609,10 @@ describe('Oracle', () => {
             response,
           )
 
-          assertBigNum(0, await provider.getBalance(maliciousConsumer.address))
+          matchers.assertBigNum(
+            0,
+            await provider.getBalance(maliciousConsumer.address),
+          )
         })
 
         it('is not successful with send', async () => {
@@ -620,7 +628,10 @@ describe('Oracle', () => {
             request,
             response,
           )
-          assertBigNum(0, await provider.getBalance(maliciousConsumer.address))
+          matchers.assertBigNum(
+            0,
+            await provider.getBalance(maliciousConsumer.address),
+          )
         })
 
         it('is not successful with transfer', async () => {
@@ -636,7 +647,10 @@ describe('Oracle', () => {
             request,
             response,
           )
-          assertBigNum(0, await provider.getBalance(maliciousConsumer.address))
+          matchers.assertBigNum(
+            0,
+            await provider.getBalance(maliciousConsumer.address),
+          )
         })
       })
     })
@@ -777,7 +791,7 @@ describe('Oracle', () => {
 
     it('returns the correct value', async () => {
       const withdrawAmount = await oc.withdrawable()
-      assertBigNum(withdrawAmount, request.payment)
+      matchers.assertBigNum(withdrawAmount, request.payment)
     })
   })
 
@@ -834,7 +848,7 @@ describe('Oracle', () => {
 
       it('has correct initial balances', async () => {
         const oracleBalance = await link.balanceOf(oc.address)
-        assertBigNum(request.payment, oracleBalance)
+        matchers.assertBigNum(request.payment, oracleBalance)
 
         const consumerAmount = await link.balanceOf(roles.consumer.address)
         assert.equal(

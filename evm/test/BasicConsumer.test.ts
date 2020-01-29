@@ -1,20 +1,22 @@
+import {
+  contract,
+  helpers as h,
+  matchers,
+  providers,
+} from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
-import { ethers } from 'ethers'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
+import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
-import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = makeTestProvider()
+const provider = providers.makeTestProvider()
 
 let roles: h.Roles
 
@@ -27,9 +29,9 @@ beforeAll(async () => {
 describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
   const currency = 'USD'
-  let link: Instance<LinkTokenFactory>
-  let oc: Instance<OracleFactory>
-  let cc: Instance<BasicConsumerFactory>
+  let link: contract.Instance<LinkTokenFactory>
+  let oc: contract.Instance<OracleFactory>
+  let cc: contract.Instance<BasicConsumerFactory>
   const deployment = h.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
@@ -77,7 +79,7 @@ describe('BasicConsumer', () => {
         }
 
         assert.equal(h.toHex(specId), request.jobId)
-        assertBigNum(h.toWei('1'), request.payment)
+        matchers.assertBigNum(h.toWei('1'), request.payment)
         assert.equal(cc.address, request.requester)
         assert.equal(1, request.dataVersion)
         assert.deepEqual(expected, cbor.decodeFirstSync(request.data))
@@ -215,7 +217,7 @@ describe('BasicConsumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
       const balance = await link.balanceOf(cc.address)
-      assertBigNum(balance, depositAmount)
+      matchers.assertBigNum(balance, depositAmount)
     })
 
     it('transfers LINK out of the contract', async () => {
@@ -224,8 +226,8 @@ describe('BasicConsumer', () => {
       const consumerBalance = ethers.utils.bigNumberify(
         await link.balanceOf(roles.consumer.address),
       )
-      assertBigNum(ccBalance, 0)
-      assertBigNum(consumerBalance, depositAmount)
+      matchers.assertBigNum(ccBalance, 0)
+      matchers.assertBigNum(consumerBalance, depositAmount)
     })
   })
 })
