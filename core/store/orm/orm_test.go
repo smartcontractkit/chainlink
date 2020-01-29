@@ -12,6 +12,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
 	"chainlink/core/services/synchronization"
 	"chainlink/core/store/models"
@@ -643,7 +644,10 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	run := cltest.NewJobRun(job)
 	require.NoError(t, store.CreateJobRun(&run))
 
-	executor := services.NewRunExecutor(store)
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	executor := services.NewRunExecutor(store, pusher)
 	require.NoError(t, executor.Execute(run.ID))
 
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
