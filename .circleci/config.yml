@@ -234,8 +234,6 @@ jobs:
       - run:
           name: Run Tests
           command: yarn workspace @chainlink/feeds run test
-      - store_artifacts:
-          path: ./integration/logs
   forks:
     machine:
       image: ubuntu-1604:201903-01
