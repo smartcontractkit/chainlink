@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { humanizeUnixTimestamp } from 'utils'
+import { humanizeUnixTimestamp } from 'utils/'
 import { connect } from 'react-redux'
 
 const positionTypes = {

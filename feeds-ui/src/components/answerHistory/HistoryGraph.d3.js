@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { formatAnswer } from 'contracts/utils'
 import { ethers } from 'ethers'
-import { humanizeUnixTimestamp } from 'utils'
+import { humanizeUnixTimestamp } from 'utils/'
 
 export default class HistoryGraph {
   margin = { top: 30, right: 30, bottom: 30, left: 50 }

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Drawer, Button } from 'antd'
-import { etherscanAddress, humanizeUnixTimestamp } from 'utils'
+import { etherscanAddress, humanizeUnixTimestamp, MAINNET_ID } from 'utils/'
 import { connect } from 'react-redux'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
-import { MAINNET_ID } from 'utils'
 
 const NodeDetailsModal = ({ options, fetchJobId, sideDrawer, setDrawer }) => {
   const [jobId, setJobId] = useState()

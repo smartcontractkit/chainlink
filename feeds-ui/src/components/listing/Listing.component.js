@@ -45,10 +45,16 @@ const ListingGridRow = ({ item }) => (
             </>
           )}
         </div>
-        <div className="listing-grid__item--supported-title">Supported by</div>
-        <div className="listing-grid__item--supported">
-          <Supported data={item.config.supported || []} />
-        </div>
+        {item.config.supported.length > 0 && (
+          <>
+            <div className="listing-grid__item--supported-title">
+              Supported by
+            </div>
+            <div className="listing-grid__item--supported">
+              <Supported data={item.config.supported} />
+            </div>
+          </>
+        )}
       </div>
     </Link>
   </Col>

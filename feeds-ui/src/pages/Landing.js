@@ -50,7 +50,14 @@ const LangingPage = () => (
           of your existing DeFi smart contract. We&apos;ve built all this to
           help you make a great smart contract.
         </p>
-        <br />
+      </section>
+      <section>
+        <Listing />
+      </section>
+    </div>
+
+    <section className="supporters-wrapper">
+      <div className="cta-integrate">
         <a
           onClick={() =>
             ReactGA.event({
@@ -59,7 +66,7 @@ const LangingPage = () => (
               label: 'Integrate with Chainlink',
             })
           }
-          href="https://chainlink.typeform.com/to/gEwrPO"
+          href="https://chainlinkcommunity.typeform.com/to/XcgLVP"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -67,13 +74,7 @@ const LangingPage = () => (
             Integrate with Chainlink
           </Button>
         </a>
-      </section>
-      <section>
-        <Listing />
-      </section>
-    </div>
-
-    <section className="supporters-wrapper">
+      </div>
       <h3>Made possible and supported by</h3>
       <div className="supporters">
         <a

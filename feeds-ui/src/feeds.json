@@ -136,7 +136,7 @@
     "history": false,
     "decimalPlaces": 6,
     "multiply": "100000000",
-    "supported": ["Bancor"]
+    "supported": []
   },
   {
     "contractAddress": "0x8770Afe90c52Fd117f29192866DE705F63e59407",
@@ -338,7 +338,7 @@
     "name": "SNX / ETH",
     "valuePrefix": "Ξ",
     "pair": ["SNX", "ETH"],
-    "path": "snx-usd",
+    "path": "snx-eth",
     "contractVersion": 2,
     "networkId": 1,
     "history": false,

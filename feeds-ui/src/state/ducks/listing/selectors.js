@@ -1,6 +1,6 @@
 import { createSelector } from 'reselect'
 import feeds from 'feeds.json'
-import { MAINNET_ID } from 'utils'
+import { MAINNET_ID } from 'utils/'
 
 const answers = state => state.listing.answers
 

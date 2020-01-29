@@ -23,25 +23,26 @@ const Header = ({ location }) => {
           </Link>
         )}
       </div>
-      <div className="header__secondary-nav"></div>
-      {location.pathname !== '/' && (
-        <a
-          onClick={() =>
-            ReactGA.event({
-              category: 'Form Conversion',
-              action: 'Click on Button',
-              label: 'Integrate with Chainlink',
-            })
-          }
-          href="https://chainlink.typeform.com/to/gEwrPO"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Button type="primary" shape="round">
-            Integrate with Chainlink
-          </Button>
-        </a>
-      )}
+      <div className="header__secondary-nav">
+        {location.pathname !== '/' && (
+          <a
+            onClick={() =>
+              ReactGA.event({
+                category: 'Form Conversion',
+                action: 'Click on Button',
+                label: 'Integrate with Chainlink',
+              })
+            }
+            href="https://chainlinkcommunity.typeform.com/to/XcgLVP"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button type="primary" shape="round">
+              Integrate with Chainlink
+            </Button>
+          </a>
+        )}
+      </div>
     </header>
   )
 }

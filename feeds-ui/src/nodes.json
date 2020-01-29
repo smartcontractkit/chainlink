@@ -135,6 +135,16 @@
     "networkId": 1
   },
   {
+    "address": "0xa8049b0f1c409a58d378e0e41469e824b1bb6e73",
+    "name": "Paradigm Citadel",
+    "networkId": 1
+  },
+  {
+    "address": "0x737424bfef17e9883b57ee17de230523e871c5f5",
+    "name": "B Harvest",
+    "networkId": 1
+  },
+  {
     "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
     "name": "LinkPool",
     "networkId": 3

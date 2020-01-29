@@ -2,8 +2,7 @@ import React from 'react'
 import { ethers } from 'ethers'
 import { Form, Select, Input, Button, InputNumber } from 'antd'
 import { withRouter } from 'react-router'
-import { ROPSTEN_ID, MAINNET_ID } from 'utils'
-import { stringifyQuery } from 'utils'
+import { ROPSTEN_ID, MAINNET_ID, stringifyQuery } from 'utils/'
 
 const { Option } = Select
 

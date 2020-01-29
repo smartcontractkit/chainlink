@@ -4,7 +4,7 @@ import * as types from 'state/ducks/listing/types'
 import { initialState } from 'state/ducks/listing/reducers'
 import * as operations from 'state/ducks/listing/operations'
 import feeds from 'feeds.json'
-import { MAINNET_ID } from 'utils'
+import { MAINNET_ID } from 'utils/'
 
 const mainnetContracts = feeds.filter(config => config.networkId === MAINNET_ID)
 

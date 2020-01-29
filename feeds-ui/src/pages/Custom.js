@@ -7,7 +7,7 @@ import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
 import { OracleTable } from 'components/oracleTable'
 import { Header } from 'components/header'
-import { parseQuery, uIntFrom } from 'utils'
+import { parseQuery, uIntFrom } from 'utils/'
 
 function formatOptions(options) {
   return {
