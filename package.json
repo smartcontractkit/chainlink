@@ -29,7 +29,7 @@
   },
   "scripts": {
     "lint": "eslint  --ext js,jsx,ts,tsx .",
-    "setup": "yarn workspace chainlinkv0.5 setup && yarn workspaces run setup"
+    "setup": "yarn workspaces run setup"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.15.0",
