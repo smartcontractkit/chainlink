@@ -5,9 +5,10 @@ import CreatePage from './Create'
 import CustomPage from './Custom'
 import DetailsPage from './Details'
 import WithConfig from 'enhancers/withConfig'
-import { ROPSTEN_ID, MAINNET_ID } from 'utils'
+import { ROPSTEN_ID, MAINNET_ID } from 'utils/'
 import { createBrowserHistory } from 'history'
 import ReactGA from 'react-ga'
+import { Footer } from 'components/footer'
 
 const history = createBrowserHistory()
 
@@ -38,6 +39,7 @@ const AppRoutes = () => {
         <Route path="/address/:address" component={configWrapper()} />
         <Route path="/:pair" component={configWrapper(MAINNET_ID)} />
       </Switch>
+      <Footer />
     </Router>
   )
 }

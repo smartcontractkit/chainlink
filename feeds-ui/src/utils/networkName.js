@@ -1,4 +1,4 @@
-import { ROPSTEN_ID, MAINNET_ID } from 'utils'
+import { ROPSTEN_ID, MAINNET_ID } from 'utils/'
 
 export const networkName = networkId => {
   switch (networkId) {

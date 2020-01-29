@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { humanizeUnixTimestamp } from 'utils'
+import { humanizeUnixTimestamp } from 'utils/'
 
 export default class DeviationGraph {
   margin = { top: 30, right: 30, bottom: 30, left: 50 }

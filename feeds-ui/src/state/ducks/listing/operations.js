@@ -5,7 +5,7 @@ import {
   createInfuraProvider,
 } from 'contracts/utils'
 import feeds from 'feeds.json'
-import { MAINNET_ID } from 'utils'
+import { MAINNET_ID } from 'utils/'
 
 const answerContract = (contractAddress, provider) => {
   return createContract(contractAddress, provider, [
