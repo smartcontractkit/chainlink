@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -333,7 +334,11 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
-	require.Equal(t, http.StatusText(http.StatusOK), http.StatusText(resp.StatusCode))
+	body, _ := ioutil.ReadAll(resp.Body)
+	require.Equal(
+		t, http.StatusText(http.StatusOK), http.StatusText(resp.StatusCode),
+		string(body),
+	)
 }
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
