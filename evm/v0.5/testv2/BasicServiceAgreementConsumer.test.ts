@@ -1,5 +1,6 @@
 import {
   contract,
+  coordinator,
   helpers as h,
   matchers,
   oracle,
@@ -36,7 +37,7 @@ describe('ServiceAgreementConsumer', () => {
   let link: contract.Instance<contract.LinkTokenFactory>
   let coord: contract.Instance<CoordinatorFactory>
   let cc: contract.Instance<ServiceAgreementConsumerFactory>
-  let agreement: h.ServiceAgreement
+  let agreement: coordinator.ServiceAgreement
 
   beforeEach(async () => {
     const meanAggregator = await meanAggregatorFactory
@@ -53,7 +54,7 @@ describe('ServiceAgreementConsumer', () => {
     await h.initiateServiceAgreement(coord, agreement)
     cc = await serviceAgreementConsumerFactory
       .connect(roles.defaultAccount)
-      .deploy(link.address, coord.address, h.generateSAID(agreement))
+      .deploy(link.address, coord.address, coordinator.generateSAID(agreement))
   })
 
   it('gas price of contract deployment is predictable', async () => {
@@ -86,7 +87,7 @@ describe('ServiceAgreementConsumer', () => {
 
         const request = oracle.decodeRunRequest(log)
 
-        assert.equal(h.generateSAID(agreement), request.jobId)
+        assert.equal(coordinator.generateSAID(agreement), request.jobId)
         matchers.bigNum(paymentAmount, request.payment)
         assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assert.equal(1, request.dataVersion)
@@ -138,7 +139,7 @@ describe('ServiceAgreementConsumer', () => {
           // fulfillment of this request, even though the oracle will faithfully
           // forward the fulfillment to it.
           const args = oracle.encodeOracleRequest(
-            h.generateSAID(agreement),
+            coordinator.generateSAID(agreement),
             cc.address,
             serviceAgreementConsumerFactory.interface.functions.fulfill.sighash,
             48,
