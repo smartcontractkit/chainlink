@@ -33,8 +33,31 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 
 Launches the expressjs server that serve the `/build` folder
 
-## Env variables
+## **DEPRECATED** Original non-monorepo Heroku env variables
 
 ```
 REACT_APP_INFURA_KEY="yourkey"
+```
+
+## Deploy Monorepo to Heroku
+
+Enable Docker container builds on the application
+
+```
+$ heroku stack:set container -a the-app-name
+
+```
+
+Login to the Heroku Docker container registry
+
+```
+$ heroku container:login
+
+```
+
+Deploy new changes from the root of the monorepo
+
+```
+$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=the-infura-key -a the-app-name
+$ heroku container:release web -a the-app-name
 ```
