@@ -29,6 +29,7 @@
     "@0x/sol-trace": "^3.0.4",
     "@types/cbor": "^5.0.0",
     "@types/chai": "^4.2.7",
+    "execa": "^4.0.0",
     "jest": "^24.9.0",
     "jest-circus": "^24.9.0",
     "truffle": "^5.0.25",
