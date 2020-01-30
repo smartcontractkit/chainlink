@@ -65,7 +65,7 @@ describe('ServiceAgreementConsumer', () => {
   describe('#requestEthereumPrice', () => {
     describe('without LINK', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await cc.requestEthereumPrice(currency)
         })
       })
@@ -86,7 +86,7 @@ describe('ServiceAgreementConsumer', () => {
         const request = h.decodeRunRequest(log)
 
         assert.equal(h.generateSAID(agreement), request.jobId)
-        matchers.assertBigNum(paymentAmount, request.payment)
+        matchers.bigNum(paymentAmount, request.payment)
         assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assert.equal(1, request.dataVersion)
 
@@ -166,7 +166,7 @@ describe('ServiceAgreementConsumer', () => {
 
       describe('when called by anyone other than the oracle contract', () => {
         it('does not accept the data provided', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await cc.connect(roles.oracleNode).fulfill(request.id, response)
           })
           const received = await cc.currentPrice()

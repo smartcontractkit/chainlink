@@ -1,6 +1,5 @@
 import {
   contract,
-  helpers as h,
   matchers,
   setup,
   wallet as w,
@@ -41,17 +40,17 @@ describe('SignedSafeMath', () => {
     describe('given a positive and positive', () => {
       it('works', async () => {
         response = await adder.testAdd(1, 2)
-        matchers.assertBigNum(3, response)
+        matchers.bigNum(3, response)
       })
 
       it('works with zero', async () => {
         response = await adder.testAdd(INT256_MAX, 0)
-        matchers.assertBigNum(INT256_MAX, response)
+        matchers.bigNum(INT256_MAX, response)
       })
 
       describe('when both are large enough to overflow', () => {
         it('throws', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             response = await adder.testAdd(INT256_MAX, 1)
           })
         })
@@ -61,17 +60,17 @@ describe('SignedSafeMath', () => {
     describe('given a negative and negative', () => {
       it('works', async () => {
         response = await adder.testAdd(-1, -2)
-        matchers.assertBigNum(-3, response)
+        matchers.bigNum(-3, response)
       })
 
       it('works with zero', async () => {
         response = await adder.testAdd(INT256_MIN, 0)
-        matchers.assertBigNum(INT256_MIN, response)
+        matchers.bigNum(INT256_MIN, response)
       })
 
       describe('when both are large enough to overflow', () => {
         it('throws', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await adder.testAdd(INT256_MIN, -1)
           })
         })
@@ -81,14 +80,14 @@ describe('SignedSafeMath', () => {
     describe('given a positive and negative', () => {
       it('works', async () => {
         response = await adder.testAdd(1, -2)
-        matchers.assertBigNum(-1, response)
+        matchers.bigNum(-1, response)
       })
     })
 
     describe('given a negative and positive', () => {
       it('works', async () => {
         response = await adder.testAdd(-1, 2)
-        matchers.assertBigNum(1, response)
+        matchers.bigNum(1, response)
       })
     })
   })

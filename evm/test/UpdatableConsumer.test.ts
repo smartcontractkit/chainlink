@@ -183,7 +183,7 @@ describe('UpdatableConsumer', () => {
       })
 
       it('does not accept responses from the new oracle for the old requests', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await uc
             .connect(roles.oracleNode)
             .fulfill(request.id, h.toHex(response))
@@ -195,7 +195,7 @@ describe('UpdatableConsumer', () => {
 
       it('still allows funds to be withdrawn from the oracle', async () => {
         await h.increaseTime5Minutes(provider)
-        matchers.assertBigNum(
+        matchers.bigNum(
           0,
           await link.balanceOf(uc.address),
           'Initial balance should be 0',
@@ -208,7 +208,7 @@ describe('UpdatableConsumer', () => {
           request.expiration,
         )
 
-        matchers.assertBigNum(
+        matchers.bigNum(
           paymentAmount,
           await link.balanceOf(uc.address),
           'Oracle should have been repaid on cancellation.',

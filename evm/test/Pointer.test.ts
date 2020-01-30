@@ -1,4 +1,4 @@
-import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
+import { contract, matchers, setup } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { PointerFactory } from '../src/generated/PointerFactory'
 
@@ -29,7 +29,7 @@ describe('Pointer', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(pointer, ['getAddress'])
+    matchers.publicAbi(pointer, ['getAddress'])
   })
 
   describe('#getAddress', () => {

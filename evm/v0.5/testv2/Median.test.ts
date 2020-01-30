@@ -102,7 +102,7 @@ describe('Median', () => {
 
     for (const test of tests) {
       it(test.name, async () => {
-        matchers.assertBigNum(test.want, await median.publicGet(test.responses))
+        matchers.bigNum(test.want, await median.publicGet(test.responses))
       })
     }
   })

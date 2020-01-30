@@ -2,6 +2,7 @@ import {
   contract,
   debug as d,
   helpers as h,
+  matchers,
   setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
@@ -27,7 +28,7 @@ describe('ConcreteChainlink', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(concreteChainlinkFactory, [
+    matchers.publicAbi(concreteChainlinkFactory, [
       'add',
       'addBytes',
       'addInt',

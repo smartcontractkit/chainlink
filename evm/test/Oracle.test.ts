@@ -46,7 +46,7 @@ describe('Oracle', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(oracleFactory, [
+    matchers.publicAbi(oracleFactory, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
       'fulfillOracleRequest',
@@ -91,7 +91,7 @@ describe('Oracle', () => {
 
     describe('when called by a non-owner', () => {
       it('cannot add an authorized node', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await oc
             .connect(roles.stranger)
             .setFulfillmentPermission(roles.stranger.address, true)
@@ -105,7 +105,7 @@ describe('Oracle', () => {
       it('triggers the intended method', async () => {
         const callData = h.requestDataBytes(specId, to, fHash, 0, '0x0')
 
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await oc.onTokenTransfer(roles.defaultAccount.address, 0, callData)
         })
       })
@@ -125,7 +125,7 @@ describe('Oracle', () => {
 
       describe('with no data', () => {
         it('reverts', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await link.transferAndCall(oc.address, 0, '0x', {
               value: 0,
             })
@@ -150,15 +150,15 @@ describe('Oracle', () => {
         const ocOriginalBalance = await link.balanceOf(oc.address)
         const mockOriginalBalance = await link.balanceOf(mock.address)
 
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await mock.maliciousWithdraw()
         })
 
         const ocNewBalance = await link.balanceOf(oc.address)
         const mockNewBalance = await link.balanceOf(mock.address)
 
-        matchers.assertBigNum(ocOriginalBalance, ocNewBalance)
-        matchers.assertBigNum(mockNewBalance, mockOriginalBalance)
+        matchers.bigNum(ocOriginalBalance, ocNewBalance)
+        matchers.bigNum(mockNewBalance, mockOriginalBalance)
       })
 
       describe('if the requester tries to create a requestId for another contract', () => {
@@ -195,7 +195,7 @@ describe('Oracle', () => {
 
       const maliciousPayload = ottSelector + header + requestPayload.slice(2)
 
-      await h.assertActionThrows(async () => {
+      await matchers.evmRevert(async () => {
         await link.transferAndCall(oc.address, 0, maliciousPayload, {
           value: 0,
         })
@@ -225,7 +225,7 @@ describe('Oracle', () => {
 
         const req = h.decodeRunRequest(receipt?.logs?.[2])
         assert.equal(roles.defaultAccount.address, req.requester)
-        matchers.assertBigNum(paid, req.payment)
+        matchers.bigNum(paid, req.payment)
       })
 
       it('uses the expected event signature', async () => {
@@ -237,7 +237,7 @@ describe('Oracle', () => {
 
       it('does not allow the same requestId to be used twice', async () => {
         const args2 = h.requestDataBytes(specId, to, fHash, 1, '0x0')
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await h.requestDataFrom(oc, link, paid, args2)
         })
       })
@@ -250,7 +250,7 @@ describe('Oracle', () => {
           '0000000000000000000000000000000000000000000000000000000000000000000'
 
         it('throws an error', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.requestDataFrom(oc, link, paid, maliciousData)
           })
         })
@@ -264,7 +264,7 @@ describe('Oracle', () => {
           '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
 
         it('throws an error', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.requestDataFrom(oc, link, paid, maliciousData)
           })
         })
@@ -273,7 +273,7 @@ describe('Oracle', () => {
 
     describe('when not called through the LINK token', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await oc
             .connect(roles.oracleNode)
             .oracleRequest(
@@ -320,7 +320,7 @@ describe('Oracle', () => {
         })
 
         it('raises an error', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.fulfillOracleRequest(
               oc.connect(roles.stranger),
               request,
@@ -333,7 +333,7 @@ describe('Oracle', () => {
       describe('when called by an authorized node', () => {
         it('raises an error if the request ID does not exist', async () => {
           request.id = ethers.utils.formatBytes32String('DOESNOTEXIST')
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.fulfillOracleRequest(
               oc.connect(roles.oracleNode),
               request,
@@ -362,7 +362,7 @@ describe('Oracle', () => {
             response,
           )
 
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.fulfillOracleRequest(
               oc.connect(roles.oracleNode),
               request,
@@ -381,11 +381,11 @@ describe('Oracle', () => {
         const defaultGasLimit = 500000
 
         beforeEach(async () => {
-          matchers.assertBigNum(0, await oc.withdrawable())
+          matchers.bigNum(0, await oc.withdrawable())
         })
 
         it('does not allow the oracle to withdraw the payment', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.fulfillOracleRequest(
               oc.connect(roles.oracleNode),
               request,
@@ -396,7 +396,7 @@ describe('Oracle', () => {
             )
           })
 
-          matchers.assertBigNum(0, await oc.withdrawable())
+          matchers.bigNum(0, await oc.withdrawable())
         })
 
         it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
@@ -409,7 +409,7 @@ describe('Oracle', () => {
             },
           )
 
-          matchers.assertBigNum(request.payment, await oc.withdrawable())
+          matchers.bigNum(request.payment, await oc.withdrawable())
         })
       })
     })
@@ -424,7 +424,7 @@ describe('Oracle', () => {
       })
 
       it('cannot cancel before the expiration', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await maliciousRequester.maliciousRequestCancel(
             specId,
             ethers.utils.toUtf8Bytes('doesNothing(bytes32,bytes32)'),
@@ -433,7 +433,7 @@ describe('Oracle', () => {
       })
 
       it('cannot call functions on the LINK token through callbacks', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await maliciousRequester.request(
             specId,
             link.address,
@@ -481,14 +481,14 @@ describe('Oracle', () => {
           )
 
           const balance = await link.balanceOf(roles.oracleNode.address)
-          matchers.assertBigNum(balance, 0)
+          matchers.bigNum(balance, 0)
 
           await oc
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
 
           const newBalance = await link.balanceOf(roles.oracleNode.address)
-          matchers.assertBigNum(paymentAmount, newBalance)
+          matchers.bigNum(paymentAmount, newBalance)
         })
 
         it("can't fulfill the data again", async () => {
@@ -500,7 +500,7 @@ describe('Oracle', () => {
             response,
           )
 
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.fulfillOracleRequest(
               oc.connect(roles.oracleNode),
               request,
@@ -529,13 +529,13 @@ describe('Oracle', () => {
           )
 
           const balance = await link.balanceOf(roles.oracleNode.address)
-          matchers.assertBigNum(balance, 0)
+          matchers.bigNum(balance, 0)
 
           await oc
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
           const newBalance = await link.balanceOf(roles.oracleNode.address)
-          matchers.assertBigNum(paymentAmount, newBalance)
+          matchers.bigNum(paymentAmount, newBalance)
         })
       })
 
@@ -548,10 +548,7 @@ describe('Oracle', () => {
           const receipt = await tx.wait()
           request = h.decodeRunRequest(receipt.logs?.[3])
 
-          matchers.assertBigNum(
-            0,
-            await link.balanceOf(maliciousConsumer.address),
-          )
+          matchers.bigNum(0, await link.balanceOf(maliciousConsumer.address))
         })
 
         it('allows the oracle node to receive their payment', async () => {
@@ -562,16 +559,16 @@ describe('Oracle', () => {
           )
 
           const mockBalance = await link.balanceOf(maliciousConsumer.address)
-          matchers.assertBigNum(mockBalance, 0)
+          matchers.bigNum(mockBalance, 0)
 
           const balance = await link.balanceOf(roles.oracleNode.address)
-          matchers.assertBigNum(balance, 0)
+          matchers.bigNum(balance, 0)
 
           await oc
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
           const newBalance = await link.balanceOf(roles.oracleNode.address)
-          matchers.assertBigNum(paymentAmount, newBalance)
+          matchers.bigNum(paymentAmount, newBalance)
         })
 
         it("can't fulfill the data again", async () => {
@@ -583,7 +580,7 @@ describe('Oracle', () => {
             response,
           )
 
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.fulfillOracleRequest(
               oc.connect(roles.oracleNode),
               request,
@@ -608,7 +605,7 @@ describe('Oracle', () => {
             response,
           )
 
-          matchers.assertBigNum(
+          matchers.bigNum(
             0,
             await provider.getBalance(maliciousConsumer.address),
           )
@@ -627,7 +624,7 @@ describe('Oracle', () => {
             request,
             response,
           )
-          matchers.assertBigNum(
+          matchers.bigNum(
             0,
             await provider.getBalance(maliciousConsumer.address),
           )
@@ -646,7 +643,7 @@ describe('Oracle', () => {
             request,
             response,
           )
-          matchers.assertBigNum(
+          matchers.bigNum(
             0,
             await provider.getBalance(maliciousConsumer.address),
           )
@@ -660,7 +657,7 @@ describe('Oracle', () => {
       it('does nothing', async () => {
         let balance = await link.balanceOf(roles.oracleNode.address)
         assert.equal(0, balance.toNumber())
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await oc
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, h.toWei('1'))
@@ -687,7 +684,7 @@ describe('Oracle', () => {
 
       describe('but not freeing funds w fulfillOracleRequest', () => {
         it('does not transfer funds', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await oc
               .connect(roles.defaultAccount)
               .withdraw(roles.oracleNode.address, payment)
@@ -714,7 +711,7 @@ describe('Oracle', () => {
           const withdrawalAmount = payment + 1
 
           assert.isAbove(withdrawalAmount, originalOracleBalance.toNumber())
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await oc
               .connect(roles.defaultAccount)
               .withdraw(roles.stranger.address, withdrawalAmount)
@@ -756,7 +753,7 @@ describe('Oracle', () => {
         })
 
         it('does not allow a transfer of funds by non-owner', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await oc
               .connect(roles.stranger)
               .withdraw(roles.stranger.address, payment)
@@ -790,7 +787,7 @@ describe('Oracle', () => {
 
     it('returns the correct value', async () => {
       const withdrawAmount = await oc.withdrawable()
-      matchers.assertBigNum(withdrawAmount, request.payment)
+      matchers.bigNum(withdrawAmount, request.payment)
     })
   })
 
@@ -813,7 +810,7 @@ describe('Oracle', () => {
         }
         await h.increaseTime5Minutes(provider)
 
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await h.cancelOracleRequest(oc.connect(roles.stranger), fakeRequest)
         })
       })
@@ -847,7 +844,7 @@ describe('Oracle', () => {
 
       it('has correct initial balances', async () => {
         const oracleBalance = await link.balanceOf(oc.address)
-        matchers.assertBigNum(request.payment, oracleBalance)
+        matchers.bigNum(request.payment, oracleBalance)
 
         const consumerAmount = await link.balanceOf(roles.consumer.address)
         assert.equal(
@@ -858,7 +855,7 @@ describe('Oracle', () => {
 
       describe('from a stranger', () => {
         it('fails', async () => {
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.cancelOracleRequest(oc.connect(roles.consumer), request)
           })
         })
@@ -888,7 +885,7 @@ describe('Oracle', () => {
           await h.increaseTime5Minutes(provider)
           await h.cancelOracleRequest(oc.connect(roles.consumer), request)
 
-          await h.assertActionThrows(async () => {
+          await matchers.evmRevert(async () => {
             await h.cancelOracleRequest(oc.connect(roles.consumer), request)
           })
         })

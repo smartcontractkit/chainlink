@@ -1,4 +1,9 @@
-import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
@@ -28,7 +33,7 @@ describe('Chainlink', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(chainlinkFactory, [
+    matchers.publicAbi(chainlinkFactory, [
       'add',
       'addBytes',
       'addInt',

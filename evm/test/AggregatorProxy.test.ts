@@ -56,7 +56,7 @@ describe('AggregatorProxy', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(aggregatorProxyFactory, [
+    matchers.publicAbi(aggregatorProxyFactory, [
       'aggregator',
       'latestAnswer',
       'latestRound',
@@ -79,16 +79,16 @@ describe('AggregatorProxy', () => {
 
       const request = h.decodeRunRequest(receipt.logs?.[3])
       await h.fulfillOracleRequest(oc1, request, response)
-      matchers.assertBigNum(
+      matchers.bigNum(
         ethers.utils.bigNumberify(response),
         await aggregator.latestAnswer(),
       )
     })
 
     it('pulls the rate from the aggregator', async () => {
-      matchers.assertBigNum(response, await proxy.latestAnswer())
+      matchers.bigNum(response, await proxy.latestAnswer())
       const latestRound = await proxy.latestRound()
-      matchers.assertBigNum(response, await proxy.getAnswer(latestRound))
+      matchers.bigNum(response, await proxy.getAnswer(latestRound))
     })
 
     describe('after being updated to another contract', () => {
@@ -102,15 +102,15 @@ describe('AggregatorProxy', () => {
         const request = h.decodeRunRequest(receipt.logs?.[3])
 
         await h.fulfillOracleRequest(oc1, request, response2)
-        matchers.assertBigNum(response2, await aggregator2.latestAnswer())
+        matchers.bigNum(response2, await aggregator2.latestAnswer())
 
         await proxy.setAggregator(aggregator2.address)
       })
 
       it('pulls the rate from the new aggregator', async () => {
-        matchers.assertBigNum(response2, await proxy.latestAnswer())
+        matchers.bigNum(response2, await proxy.latestAnswer())
         const latestRound = await proxy.latestRound()
-        matchers.assertBigNum(response2, await proxy.getAnswer(latestRound))
+        matchers.bigNum(response2, await proxy.getAnswer(latestRound))
       })
     })
   })
@@ -127,12 +127,12 @@ describe('AggregatorProxy', () => {
     })
 
     it('pulls the height from the aggregator', async () => {
-      matchers.assertBigNum(
+      matchers.bigNum(
         await aggregator.latestTimestamp(),
         await proxy.latestTimestamp(),
       )
       const latestRound = await proxy.latestRound()
-      matchers.assertBigNum(
+      matchers.bigNum(
         await aggregator.latestTimestamp(),
         await proxy.getTimestamp(latestRound),
       )
@@ -160,12 +160,12 @@ describe('AggregatorProxy', () => {
       })
 
       it('pulls the height from the new aggregator', async () => {
-        matchers.assertBigNum(
+        matchers.bigNum(
           await aggregator2.latestTimestamp(),
           await proxy.latestTimestamp(),
         )
         const latestRound = await proxy.latestRound()
-        matchers.assertBigNum(
+        matchers.bigNum(
           await aggregator2.latestTimestamp(),
           await proxy.getTimestamp(latestRound),
         )
@@ -194,7 +194,7 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('does not update', async () => {
-        h.assertActionThrows(async () => {
+        matchers.evmRevert(async () => {
           await proxy.connect(personas.Neil).setAggregator(aggregator2.address)
         })
 
@@ -218,7 +218,7 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('fails', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await proxy.connect(personas.Eddy).destroy()
         })
 

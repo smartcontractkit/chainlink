@@ -1,4 +1,9 @@
-import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import {
@@ -170,7 +175,7 @@ describe('ConcreteChainlinked', () => {
     })
 
     it('throws if given a bogus event ID', async () => {
-      await h.assertActionThrows(async () => {
+      await matchers.evmRevert(async () => {
         await ecc.publicCancelRequest(
           ethers.utils.formatBytes32String('bogusId'),
           0,
@@ -281,7 +286,7 @@ describe('ConcreteChainlinked', () => {
     })
 
     it('does not allow the same requestId to be used', async () => {
-      await h.assertActionThrows(async () => {
+      await matchers.evmRevert(async () => {
         await cc.publicAddExternalRequest(newoc.address, request.id)
       })
     })

@@ -80,67 +80,6 @@ export function evmWordToAddress(hex?: string): string {
   return utils.getAddress(hex.slice(26))
 }
 
-export async function assertActionThrows(
-  action: (() => Promise<any>) | Promise<any>,
-  msg?: string,
-) {
-  const d = debug.extend('assertActionThrows')
-  let e: Error | undefined = undefined
-
-  try {
-    if (typeof action === 'function') {
-      await action()
-    } else {
-      await action
-    }
-  } catch (error) {
-    e = error
-  }
-  d(e)
-  if (!e) {
-    assert.exists(e, 'Expected an error to be raised')
-    return
-  }
-
-  assert(e.message, 'Expected an error to contain a message')
-
-  const ERROR_MESSAGES = ['invalid opcode', 'revert']
-  const hasErrored = ERROR_MESSAGES.some(msg => e?.message?.includes(msg))
-
-  if (msg) {
-    expect(e.message).toMatch(msg)
-  }
-
-  assert(
-    hasErrored,
-    `expected following error message to include ${ERROR_MESSAGES.join(
-      ' or ',
-    )}. Got: "${e.message}"`,
-  )
-}
-
-export function checkPublicABI(
-  contract: ethers.Contract | ethers.ContractFactory,
-  expectedPublic: string[],
-) {
-  const actualPublic = []
-  for (const method of contract.interface.abi) {
-    if (method.type === 'function') {
-      actualPublic.push(method.name)
-    }
-  }
-
-  for (const method of actualPublic) {
-    const index = expectedPublic.indexOf(method)
-    assert.isAtLeast(index, 0, `#${method} is NOT expected to be public`)
-  }
-
-  for (const method of expectedPublic) {
-    const index = actualPublic.indexOf(method)
-    assert.isAtLeast(index, 0, `#${method} is expected to be public`)
-  }
-}
-
 /**
  * Convert a value to a hex string
  * @param args Value to convert to a hex string
