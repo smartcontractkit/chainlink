@@ -43,7 +43,7 @@ describe('ServiceAgreementConsumer', () => {
     const meanAggregator = await meanAggregatorFactory
       .connect(roles.defaultAccount)
       .deploy()
-    agreement = await h.newServiceAgreement({
+    agreement = await coordinator.newServiceAgreement({
       aggregator: meanAggregator.address,
       oracles: [roles.oracleNode],
     })
@@ -51,7 +51,7 @@ describe('ServiceAgreementConsumer', () => {
     coord = await coordinatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address)
-    await h.initiateServiceAgreement(coord, agreement)
+    await coordinator.initiateServiceAgreement(coord, agreement)
     cc = await serviceAgreementConsumerFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, coord.address, coordinator.generateSAID(agreement))

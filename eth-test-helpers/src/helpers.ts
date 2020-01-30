@@ -1,10 +1,8 @@
 import cbor from 'cbor'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
+import { ethers, utils } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
 import { EventDescription } from 'ethers/utils'
-
-export const { utils } = ethers
 
 /**
  * A wrapper function to make generated contracts compatible with truffle test suites.
@@ -65,6 +63,14 @@ export function toWei(
 }
 
 /**
+ * Convert a value to an ethers BigNum
+ * @param num Value to convert to a BigNum
+ */
+export function bigNum(num: utils.BigNumberish): utils.BigNumber {
+  return utils.bigNumberify(num)
+}
+
+/**
  * Decodes a CBOR hex string, and adds opening and closing brackets to the CBOR if they are not present.
  *
  * @param hexstr The hex string to decode
@@ -120,10 +126,8 @@ export function stripHexPrefix(hex: string): string {
  *
  * @param num The number value to convert to bytes32 format
  */
-export function numToBytes32(
-  num: Parameters<typeof ethers.utils.hexlify>[0],
-): string {
-  const hexNum = ethers.utils.hexlify(num)
+export function numToBytes32(num: Parameters<typeof utils.hexlify>[0]): string {
+  const hexNum = utils.hexlify(num)
   const strippedNum = stripHexPrefix(hexNum)
   if (strippedNum.length > 32 * 2) {
     throw Error(
@@ -133,10 +137,30 @@ export function numToBytes32(
   return addHexPrefix(strippedNum.padStart(32 * 2, '0'))
 }
 
+/**
+ * Convert a value to a hex string
+ * @param args Value to convert to a hex string
+ */
+export function toBytes32String(
+  ...args: Parameters<typeof utils.formatBytes32String>
+): ReturnType<typeof utils.formatBytes32String> {
+  return utils.formatBytes32String(...args)
+}
+
+/**
+ * Convert a value to a hex string
+ * @param args Value to convert to a hex string
+ */
+export function parseBytes32String(
+  ...args: Parameters<typeof utils.parseBytes32String>
+): ReturnType<typeof utils.parseBytes32String> {
+  return utils.parseBytes32String(...args)
+}
+
 export function toUtf8(
-  ...args: Parameters<typeof ethers.utils.toUtf8Bytes>
-): ReturnType<typeof ethers.utils.toUtf8Bytes> {
-  return ethers.utils.toUtf8Bytes(...args)
+  ...args: Parameters<typeof utils.toUtf8Bytes>
+): ReturnType<typeof utils.toUtf8Bytes> {
+  return utils.toUtf8Bytes(...args)
 }
 
 /**
@@ -145,8 +169,8 @@ export function toUtf8(
  * @param args The data to compute the keccak256 hash of
  */
 export function keccak(
-  ...args: Parameters<typeof ethers.utils.keccak256>
-): ReturnType<typeof ethers.utils.keccak256> {
+  ...args: Parameters<typeof utils.keccak256>
+): ReturnType<typeof utils.keccak256> {
   return utils.keccak256(...args)
 }
 
@@ -185,14 +209,14 @@ export function hexToBuf(hexstr: string): Buffer {
  * Turn a [x,y] coordinate into an ethereum address
  * @param pubkey The x,y coordinate to turn into an ethereum address
  */
-export function pubkeyToAddress(pubkey: ethers.utils.BigNumber[]) {
+export function pubkeyToAddress(pubkey: utils.BigNumber[]) {
   // transform the value according to what ethers expects as a value
   const concatResult = `0x04${pubkey
     .map(coord => coord.toHexString())
     .join('')
     .replace(/0x/gi, '')}`
 
-  return ethers.utils.computeAddress(concatResult)
+  return utils.computeAddress(concatResult)
 }
 
 interface EventArgsArray extends Array<any> {
@@ -224,14 +248,49 @@ export function findEventIn(
   receipt: ContractReceipt,
   eventDescription: TypedEventDescription<any>,
 ): ethers.Event | undefined {
-  return receipt.events?.find(e => e.event === eventDescription.name)
+  // the first topic of a log is always the keccak-256 hash of the event signature
+  const event = receipt.events?.find(
+    e => e.topics[0] === eventDescription.topic,
+  )
+
+  return event
 }
 
 /**
  * Calculate six months from the current date in seconds
  */
-export function sixMonthsFromNow(): ethers.utils.BigNumber {
-  return ethers.utils.bigNumberify(
+export function sixMonthsFromNow(): utils.BigNumber {
+  return utils.bigNumberify(
     Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60,
   )
+}
+
+/**
+ * Extract array of logs from a transaction
+ * @param tx The transaction to wait for, then extract logs from
+ */
+export async function getLogs(
+  tx: ethers.ContractTransaction,
+): Promise<ethers.providers.Log[]> {
+  const receipt = await tx.wait()
+  if (!receipt.logs) {
+    throw Error('unable to extract logs from transaction receipt')
+  }
+  return receipt.logs
+}
+
+/**
+ * Retrieve single log from transaction
+ * @param tx The transaction to wait for, then extract logs from
+ * @param index The index of the log to retrieve
+ */
+export async function getLog(
+  tx: ethers.ContractTransaction,
+  index: number,
+): Promise<ethers.providers.Log> {
+  const logs = await getLogs(tx)
+  if (!logs[index]) {
+    throw Error('unable to extract log from transaction receipt')
+  }
+  return logs[index]
 }

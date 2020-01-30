@@ -1,4 +1,5 @@
 import { ContractTransaction, ethers } from 'ethers'
+import { BigNumberish } from 'ethers/utils'
 import { makeDebug } from '../debug'
 import { addCBORMapDelimiters, stripHexPrefix, toHex } from '../helpers'
 
@@ -90,12 +91,21 @@ export async function cancelOracleRequest(
   )
 }
 
+/**
+ * Abi encode the oracleRequest() function
+ *
+ * @param specId The Job Specification ID
+ * @param callbackAddr The callback contract address for the response
+ * @param callbackFunctionId The callback function id for the response
+ * @param nonce The nonce sent by the requester
+ * @param data The CBOR payload of the request
+ */
 export function encodeOracleRequest(
   specId: string,
-  to: string,
-  fHash: string,
+  callbackAddr: string,
+  callbackFunctionId: string,
   nonce: number,
-  dataBytes: string,
+  data: BigNumberish,
 ): string {
   // 'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
   const oracleRequestSighash = '0x40429946'
@@ -112,7 +122,16 @@ export function encodeOracleRequest(
 
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
     oracleRequestInputs.map(i => i.type),
-    [ethers.constants.AddressZero, 0, specId, to, fHash, nonce, 1, dataBytes],
+    [
+      ethers.constants.AddressZero,
+      0,
+      specId,
+      callbackAddr,
+      callbackFunctionId,
+      nonce,
+      1,
+      data,
+    ],
   )
 
   return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`

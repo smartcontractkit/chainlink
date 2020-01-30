@@ -23,7 +23,7 @@
     "bn.js": "^4.11.0",
     "cbor": "^5.0.1",
     "ethereumjs-abi": "^0.6.8",
-    "ethereumjs-util": "^6.1.0",
+    "ethereumjs-util": "^6.2.0",
     "ethers": "^4.0.41",
     "truffle-contract": "^4.0.31",
     "typescript": "^3.7.4"

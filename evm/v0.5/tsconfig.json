@@ -20,6 +20,6 @@
     "noFallthroughCasesInSwitch": true,
     "composite": true
   },
-  "include": ["test", "testv2", "src", "@types"],
+  "include": ["test", "testv2", "src", "test/**/*.json", "@types"],
   "references": [{ "path": "../../eth-test-helpers" }]
 }
