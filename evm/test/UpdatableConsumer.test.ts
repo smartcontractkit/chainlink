@@ -7,12 +7,11 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ENSRegistryFactory } from '../src/generated/ENSRegistryFactory'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 import { PublicResolverFactory } from '../src/generated/PublicResolverFactory'
 import { UpdatableConsumerFactory } from '../src/generated/UpdatableConsumerFactory'
 
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
 const oracleFactory = new OracleFactory()
 const publicResolverFacotory = new PublicResolverFactory()
@@ -48,7 +47,7 @@ describe('UpdatableConsumer', () => {
 
   let ens: contract.Instance<ENSRegistryFactory>
   let ensResolver: contract.Instance<PublicResolverFactory>
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
   let uc: contract.Instance<UpdatableConsumerFactory>
   const deployment = providers.useSnapshot(provider, async () => {

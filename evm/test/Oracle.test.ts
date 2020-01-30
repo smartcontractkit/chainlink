@@ -8,7 +8,6 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { MaliciousConsumerFactory } from '../src/generated/MaliciousConsumerFactory'
 import { MaliciousRequesterFactory } from '../src/generated/MaliciousRequesterFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
@@ -18,7 +17,7 @@ const getterSetterFactory = new GetterSetterFactory()
 const maliciousRequesterFactory = new MaliciousRequesterFactory()
 const maliciousConsumerFactory = new MaliciousConsumerFactory()
 const oracleFactory = new OracleFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 let roles: h.Roles
 const provider = providers.makeTestProvider()
@@ -34,7 +33,7 @@ describe('Oracle', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
   const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()

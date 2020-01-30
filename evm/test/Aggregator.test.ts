@@ -7,12 +7,11 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { AggregatorFactory } from '../src/generated/AggregatorFactory'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
@@ -36,7 +35,7 @@ describe('Aggregator', () => {
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000004'
   const deposit = h.toWei('100')
   const basePayment = h.toWei('1')
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let rate: contract.Instance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
   let oc2: contract.Instance<OracleFactory>

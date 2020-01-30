@@ -8,12 +8,11 @@ import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 // create ethers provider from that web3js instance
 const provider = providers.makeTestProvider()
@@ -29,7 +28,7 @@ beforeAll(async () => {
 describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
   const currency = 'USD'
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
   let cc: contract.Instance<BasicConsumerFactory>
   const deployment = providers.useSnapshot(provider, async () => {

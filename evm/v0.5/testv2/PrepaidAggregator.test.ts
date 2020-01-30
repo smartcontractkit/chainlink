@@ -7,11 +7,11 @@ import {
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
-import { LinkTokenFactory, PrepaidAggregatorFactory } from '../src/generated'
+import { PrepaidAggregatorFactory } from '../src/generated'
 
 let personas: h.Personas
 const provider = providers.makeTestProvider()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 const prepaidAggregatorFactory = new PrepaidAggregatorFactory()
 
 beforeAll(async () => {
@@ -30,7 +30,7 @@ describe('PrepaidAggregator', () => {
   const description = 'LINK/USD'
 
   let aggregator: contract.Instance<PrepaidAggregatorFactory>
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let nextRound: number
   let oracleAddresses: ethers.Wallet[]
 

@@ -7,7 +7,10 @@
   "author": "Chainlink Devs",
   "license": "MIT",
   "scripts": {
-    "build": "tsc"
+    "export-typings": "node ./dist/src/scripts/export-generated-contract-factories",
+    "generate-typings": "typechain --target ethers --outDir src/generated src/LinkToken.json",
+    "postgenerate-typings": "yarn export-typings src/generated dist/src/generated",
+    "build": "yarn generate-typings && tsc"
   },
   "dependencies": {
     "@0x/sol-trace": "^3.0.4",
@@ -29,6 +32,8 @@
     "jest": "^24.9.0",
     "jest-circus": "^24.9.0",
     "ts-jest": "^24.1.0",
+    "typechain": "^1.0.4",
+    "typechain-target-ethers": "^1.0.3",
     "typescript": "^3.7.4"
   }
 }
