@@ -9,8 +9,8 @@
   "scripts": {
     "export-typings": "node ./dist/src/scripts/export-generated-contract-factories",
     "generate-typings": "typechain --target ethers --outDir src/generated src/LinkToken.json",
-    "postgenerate-typings": "yarn export-typings src/generated dist/src/generated",
-    "build": "yarn generate-typings && tsc"
+    "build": "yarn generate-typings && tsc && yarn export-typings src/generated dist/src/generated",
+    "setup": "yarn build"
   },
   "dependencies": {
     "@0x/sol-trace": "^3.0.4",
