@@ -29,7 +29,7 @@ func (p *PollingDeviationChecker) ExportedRespondToNewRound(log eth.Log) error {
 }
 
 func (p *PollingDeviationChecker) ExportedPoll() error {
-	return p.poll()
+	return p.poll(p.threshold)
 }
 
 // ExportedCurrentPrice returns the private current price for assertions;

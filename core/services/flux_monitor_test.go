@@ -20,6 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type successFetcher decimal.Decimal
+
+func (f *successFetcher) Fetch() (decimal.Decimal, error) {
+	return decimal.Decimal(*f), nil
+}
+
 func fakeSubscription() *mocks.Subscription {
 	sub := new(mocks.Subscription)
 	sub.On("Unsubscribe").Return()
@@ -211,6 +217,54 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	rm.AssertExpectations(t)
 	assert.Equal(t, decimal.NewFromInt(102), checker.ExportedCurrentPrice())
 	assert.Equal(t, big.NewInt(2), checker.ExportedCurrentRound())
+}
+
+func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+	initr.PollingInterval = models.Duration(24 * time.Hour)
+	initr.IdleThreshold = models.Duration(10 * time.Millisecond)
+
+	jobRun := cltest.NewJobRun(job)
+
+	runManager := new(mocks.RunManager)
+
+	randomLargeNumber := 100
+	jobRunCreated := make(chan struct{}, randomLargeNumber)
+	runManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(&jobRun, nil).
+		Run(func(args mock.Arguments) {
+			jobRunCreated <- struct{}{}
+		})
+
+	fetcher := successFetcher(decimal.NewFromInt(100))
+	deviationChecker, err := services.NewPollingDeviationChecker(
+		initr,
+		runManager,
+		&fetcher,
+		time.Second,
+	)
+	require.NoError(t, err)
+
+	ethClient := new(mocks.Client)
+	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(1), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
+
+	err = deviationChecker.Start(context.Background(), ethClient)
+	require.NoError(t, err)
+	require.Len(t, jobRunCreated, 0, "no Job Runs created")
+
+	require.Eventually(t, func() bool { return len(jobRunCreated) >= 1 }, time.Second, time.Millisecond, "idleThreshold triggers Job Run")
+	require.Eventually(t, func() bool { return len(jobRunCreated) >= 5 }, time.Second, time.Millisecond, "idleThreshold triggers succeeding Job Runs")
+
+	deviationChecker.Stop()
+
+	assert.Equal(t, decimal.NewFromInt(100).String(), deviationChecker.ExportedCurrentPrice().String())
 }
 
 func TestPollingDeviationChecker_StartError(t *testing.T) {
@@ -427,6 +481,7 @@ func TestOutsideDeviation(t *testing.T) {
 		{"inside deviation", decimal.NewFromInt(100), decimal.NewFromInt(101), 2, false},
 		{"equal to deviation", decimal.NewFromInt(100), decimal.NewFromInt(102), 2, true},
 		{"outside deviation", decimal.NewFromInt(100), decimal.NewFromInt(103), 2, true},
+		{"outside deviation zero", decimal.NewFromInt(100), decimal.NewFromInt(0), 2, true},
 	}
 
 	for _, test := range tests {
