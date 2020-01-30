@@ -11,7 +11,7 @@ export interface ServiceAgreement {
   aggFulfillSelector: string // function selector for aggregator.fulfill
 }
 
-export interface OracleSignature {
+export interface OracleSignatures {
   vs: ethers.utils.BigNumberish[] // uint8[]
   rs: string[] // bytes32[]
   ss: string[] // bytes32[]
@@ -50,7 +50,7 @@ export function encodeServiceAgreement(sa: ServiceAgreement) {
   )
 }
 
-export function encodeOracleSignatures(os: OracleSignature) {
+export function encodeOracleSignatures(os: OracleSignatures) {
   const osValues = [os.vs, os.rs, os.ss]
   return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
 }
@@ -58,9 +58,9 @@ export function encodeOracleSignatures(os: OracleSignature) {
 export async function computeOracleSignature(
   agreement: ServiceAgreement,
   oracle: ethers.Wallet,
-): Promise<OracleSignature> {
+): Promise<OracleSignatures> {
   const said = generateSAID(agreement)
-  const oracleSignatures: OracleSignature[] = []
+  const oracleSignatures: OracleSignatures[] = []
 
   for (let i = 0; i < agreement.oracles.length; i++) {
     const oracleSignature = await oracle.signMessage(
@@ -71,7 +71,7 @@ export async function computeOracleSignature(
     if (!sig.v) {
       throw Error(`Could not extract v from signature`)
     }
-    const convertedOracleSignature: OracleSignature = {
+    const convertedOracleSignature: OracleSignatures = {
       vs: [sig.v],
       rs: [sig.r],
       ss: [sig.s],
