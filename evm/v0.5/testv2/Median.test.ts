@@ -1,19 +1,14 @@
-import {
-  contract,
-  helpers as h,
-  matchers,
-  providers,
-} from '@chainlink/eth-test-helpers'
+import { contract, matchers, setup } from '@chainlink/eth-test-helpers'
 import { ethers } from 'ethers'
 import { MedianTestHelperFactory } from '../src/generated'
 
 const medianTestHelperFactory = new MedianTestHelperFactory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  defaultAccount = rolesAndPersonas.roles.defaultAccount
+  const users = await setup.users(provider)
+  defaultAccount = users.roles.defaultAccount
 })
 
 describe('Median', () => {

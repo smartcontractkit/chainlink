@@ -2,22 +2,22 @@ import {
   contract,
   debug as d,
   helpers as h,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
 
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 const concreteChainlinkFactory = new ConcreteChainlinkFactory()
 const debug = d.makeDebug('ConcreteChainlink')
 
 describe('ConcreteChainlink', () => {
   let ccl: contract.Instance<ConcreteChainlinkFactory>
   let defaultAccount: ethers.Wallet
-  const deployment = providers.useSnapshot(provider, async () => {
-    defaultAccount = await h
-      .initializeRolesAndPersonas(provider)
+  const deployment = setup.snapshot(provider, async () => {
+    defaultAccount = await setup
+      .users(provider)
       .then(r => r.roles.defaultAccount)
     ccl = await concreteChainlinkFactory.connect(defaultAccount).deploy()
   })

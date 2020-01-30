@@ -1,19 +1,19 @@
-import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
+import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { OwnedTestHelperFactory } from '../src/generated'
 
 const ownedTestHelperFactory = new OwnedTestHelperFactory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
-let personas: h.Personas
+let personas: setup.Personas
 let owner: ethers.Wallet
 let nonOwner: ethers.Wallet
 let newOwner: ethers.Wallet
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  personas = rolesAndPersonas.personas
+  const users = await setup.users(provider)
+  personas = users.personas
   owner = personas.Carol
   nonOwner = personas.Neil
   newOwner = personas.Ned

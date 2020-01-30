@@ -2,7 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
 import { assert } from 'chai'
@@ -19,13 +19,14 @@ const serviceAgreementConsumerFactory = new ServiceAgreementConsumerFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  roles = rolesAndPersonas.roles
+  const users = await setup.users(provider)
+
+  roles = users.roles
 })
 
 describe('ServiceAgreementConsumer', () => {

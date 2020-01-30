@@ -2,7 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -10,20 +10,20 @@ import { AggregatorFactory } from '../src/generated/AggregatorFactory'
 import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 
-let personas: h.Personas
+let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  personas = rolesAndPersonas.personas
-  defaultAccount = rolesAndPersonas.roles.defaultAccount
+  personas = users.personas
+  defaultAccount = users.roles.defaultAccount
 })
 
 describe('AggregatorProxy', () => {
@@ -39,7 +39,7 @@ describe('AggregatorProxy', () => {
   let aggregator2: contract.Instance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
   let proxy: contract.Instance<AggregatorProxyFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     aggregator = await aggregatorFactory

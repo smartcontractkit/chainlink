@@ -2,14 +2,14 @@ import {
   contract,
   helpers as h,
   matchers,
-  providers,
+  setup,
   wallet as w,
 } from '@chainlink/eth-test-helpers'
 import { ethers } from 'ethers'
 import { ConcreteSignedSafeMathFactory } from '../src/generated/ConcreteSignedSafeMathFactory'
 
 const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 
@@ -29,7 +29,7 @@ describe('SignedSafeMath', () => {
   const INT256_MIN = ethers.utils.bigNumberify(
     '-57896044618658097711785492504343953926634992332820282019728792003956564819968',
   )
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     adder = await concreteSignedSafeMathFactory.connect(defaultAccount).deploy()
   })
 

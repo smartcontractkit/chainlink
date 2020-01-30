@@ -2,7 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -19,13 +19,13 @@ const maliciousConsumerFactory = new MaliciousConsumerFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
-let roles: h.Roles
-const provider = providers.makeTestProvider()
+let roles: setup.Roles
+const provider = setup.provider()
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('Oracle', () => {
@@ -35,7 +35,7 @@ describe('Oracle', () => {
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link: contract.Instance<contract.LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     await oc.setFulfillmentPermission(roles.oracleNode.address, true)
