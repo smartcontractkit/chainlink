@@ -101,6 +101,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     timeout = _timeout;
     decimals = _decimals;
     description = _description;
+    rounds[0].updatedAt = uint64(block.timestamp.sub(uint256(_timeout)));
   }
 
   /**

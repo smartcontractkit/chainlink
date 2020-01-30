@@ -247,8 +247,9 @@ describe('PrepaidAggregator', () => {
       })
 
       it('updates the updated timestamp', async () => {
+        const deployTime = aggregator.deployTransaction.chainId / 1000
         const originalTimestamp = await aggregator.latestTimestamp()
-        assert.equal(0, originalTimestamp.toNumber())
+        assert.closeTo(deployTime, originalTimestamp.toNumber(), timeout)
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
@@ -467,12 +468,27 @@ describe('PrepaidAggregator', () => {
     })
 
     describe('when the price is not updated for a round', () => {
+      describe('before the third round', () => {
+        beforeEach(async () => {
+          await aggregator
+            .connect(personas.Neil)
+            .updateAnswer(nextRound, answer)
+          await h.increaseTimeBy(timeout + 1, provider)
+          nextRound++
+        })
+
+        it('allows a new round to be started', async () => {
+          await aggregator
+            .connect(personas.Nelly)
+            .updateAnswer(nextRound, answer)
+        })
+      })
+
       // For a round to timeout, it needs a previous round to pull an answer
       // from, so the second round is the earliest round that can timeout,
       // pulling its answer from the first. The start of the third round is
       // the trigger that timesout the second round, so the start of the
       // third round is the earliest we can test a timeout.
-
       describe('on the third round or later', () => {
         beforeEach(async () => {
           await updateFutureRounds(aggregator, {
@@ -558,33 +574,6 @@ describe('PrepaidAggregator', () => {
           await aggregator
             .connect(personas.Nelly)
             .updateAnswer(nextRound, answer)
-        })
-      })
-
-      describe('earlier than the third round', () => {
-        beforeEach(async () => {
-          await aggregator
-            .connect(personas.Neil)
-            .updateAnswer(nextRound, answer)
-          await aggregator
-            .connect(personas.Nelly)
-            .updateAnswer(nextRound, answer)
-          assert.equal(
-            nextRound,
-            (await aggregator.reportingRound()).toNumber(),
-          )
-
-          await h.increaseTimeBy(timeout + 1, provider)
-
-          nextRound++
-          assert.equal(2, nextRound)
-        })
-
-        it('does not allow a round to be started', async () => {
-          await h.assertActionThrows(
-            aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
-            'Must have a previous answer to pull from',
-          )
         })
       })
     })
