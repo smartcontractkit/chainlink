@@ -43,8 +43,8 @@ type concreteFluxMonitor struct {
 }
 
 type addEntry struct {
-	job   *models.JobSpec
-	rchan chan error
+	job     *models.JobSpec
+	errChan chan error
 }
 
 // NewFluxMonitor creates a service that manages a collection of DeviationCheckers,
@@ -66,10 +66,10 @@ func (fm *concreteFluxMonitor) Start() error {
 
 	go fm.actionConsumer(fm.ctx) // start single goroutine consumer
 
-	rchan := make(chan error, 1)
+	errChan := make(chan error, 1)
 	count := 0
 	err := fm.store.Jobs(func(j *models.JobSpec) bool { // add persisted jobs
-		fm.adds <- addEntry{j, rchan}
+		fm.adds <- addEntry{j, errChan}
 		count++
 		return true
 	}, models.InitiatorFluxMonitor)
@@ -77,7 +77,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	// Block until jobs have been added, returning errors if any.
 	var merr error
 	for i := 0; i < count; i++ {
-		merr = multierr.Combine(merr, <-rchan)
+		merr = multierr.Combine(merr, <-errChan)
 	}
 	return multierr.Append(err, merr)
 }
@@ -111,7 +111,7 @@ func (fm *concreteFluxMonitor) actionConsumer(ctx context.Context) {
 			cancelConnection()
 			connected = false
 		case entry := <-fm.adds:
-			entry.rchan <- fm.addAction(connectionCtx, connected, entry.job, jobMap)
+			entry.errChan <- fm.addAction(connectionCtx, connected, entry.job, jobMap)
 		case jobID := <-fm.removes:
 			for _, checker := range jobMap[jobID.String()] {
 				checker.Stop()
@@ -139,9 +139,9 @@ func (fm *concreteFluxMonitor) OnNewHead(*models.Head) {}
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
-	rchan := make(chan error)
-	fm.adds <- addEntry{&job, rchan}
-	return <-rchan
+	errChan := make(chan error)
+	fm.adds <- addEntry{&job, errChan}
+	return <-errChan
 }
 
 func connectCheckers(ctx context.Context, jobMap map[string][]DeviationChecker, client eth.Client) {
