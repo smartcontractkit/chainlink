@@ -1,11 +1,9 @@
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ContractReceipt, ContractTransaction } from 'ethers/contract'
+import { ContractReceipt } from 'ethers/contract'
 import { EventDescription } from 'ethers/utils'
-import { makeDebug } from './debug'
 
-const debug = makeDebug('helpers')
 export const { utils } = ethers
 
 // duplicated in evm/v0.5/test/support/helpers.ts (kinda)
@@ -100,64 +98,6 @@ export function toWei(
   return utils.parseEther(...args)
 }
 
-export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
-  if (!log) {
-    throw Error('No logs found to decode')
-  }
-
-  const types = [
-    'address',
-    'bytes32',
-    'uint256',
-    'address',
-    'bytes4',
-    'uint256',
-    'uint256',
-    'bytes',
-  ]
-  const [
-    requester,
-    requestId,
-    payment,
-    callbackAddress,
-    callbackFunc,
-    expiration,
-    version,
-    data,
-  ] = ethers.utils.defaultAbiCoder.decode(types, log.data)
-
-  return {
-    callbackAddr: callbackAddress,
-    callbackFunc: toHex(callbackFunc),
-    data: addCBORMapDelimiters(Buffer.from(stripHexPrefix(data), 'hex')),
-    dataVersion: version.toNumber(),
-    expiration: toHex(expiration),
-    id: toHex(requestId),
-    jobId: log.topics[1],
-    payment: toHex(payment),
-    requester,
-    topic: log.topics[0],
-  }
-}
-
-/**
- * Decode a log into a run
- * @param log The log to decode
- * @todo Do we really need this?
- */
-export function decodeRunABI(
-  log: ethers.providers.Log,
-): [string, string, string, string] {
-  const d = debug.extend('decodeRunABI')
-  d('params %o', log)
-
-  const types = ['bytes32', 'address', 'bytes4', 'bytes']
-  const decodedValue = ethers.utils.defaultAbiCoder.decode(types, log.data)
-  d('decoded value %o', decodedValue)
-
-  return decodedValue
-}
-
 /**
  * Decodes a CBOR hex string, and adds opening and closing brackets to the CBOR if they are not present.
  *
@@ -169,23 +109,10 @@ export function decodeDietCBOR(hexstr: string) {
   return cbor.decodeFirstSync(addCBORMapDelimiters(buf))
 }
 
-export interface RunRequest {
-  callbackAddr: string
-  callbackFunc: string
-  data: Buffer
-  dataVersion: number
-  expiration: string
-  id: string
-  jobId: string
-  payment: string
-  requester: string
-  topic: string
-}
-
 /**
  * Add a starting and closing map characters to a CBOR encoding if they are not already present.
  */
-function addCBORMapDelimiters(buffer: Buffer): Buffer {
+export function addCBORMapDelimiters(buffer: Buffer): Buffer {
   if (buffer[0] >> 5 === 5) {
     return buffer
   }
@@ -255,133 +182,6 @@ export function keccak(
   ...args: Parameters<typeof ethers.utils.keccak256>
 ): ReturnType<typeof ethers.utils.keccak256> {
   return utils.keccak256(...args)
-}
-
-type TxOptions = Omit<ethers.providers.TransactionRequest, 'to' | 'from'>
-
-// TODO find ethers equivalent
-class TransactionOverrides {
-  nonce?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  gasLimit?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  gasPrice?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  value?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  chainId?: number | Promise<number>
-}
-
-interface Fulfillable {
-  fulfillOracleRequest(
-    _requestId: ethers.utils.Arrayish,
-    _payment: ethers.utils.BigNumberish,
-    _callbackAddress: string,
-    _callbackFunctionId: ethers.utils.Arrayish,
-    _expiration: ethers.utils.BigNumberish,
-    _data: ethers.utils.Arrayish,
-    overrides?: TransactionOverrides,
-  ): Promise<ContractTransaction>
-}
-export async function fulfillOracleRequest(
-  oracleContract: Fulfillable,
-  runRequest: RunRequest,
-  response: string,
-  options: TxOptions = {
-    gasLimit: 1000000, // FIXME: incorrect gas estimation
-  },
-): ReturnType<typeof oracleContract.fulfillOracleRequest> {
-  const d = debug.extend('fulfillOracleRequest')
-  d('Response param: %s', response)
-
-  const bytes32Len = 32 * 2 + 2
-  const convertedResponse =
-    response.length < bytes32Len
-      ? ethers.utils.formatBytes32String(response)
-      : response
-  d('Converted Response param: %s', convertedResponse)
-
-  return oracleContract.fulfillOracleRequest(
-    runRequest.id,
-    runRequest.payment,
-    runRequest.callbackAddr,
-    runRequest.callbackFunc,
-    runRequest.expiration,
-    convertedResponse,
-    options,
-  )
-}
-
-interface Cancellable {
-  cancelOracleRequest(
-    _requestId: ethers.utils.Arrayish,
-    _payment: ethers.utils.BigNumberish,
-    _callbackFunc: ethers.utils.Arrayish,
-    _expiration: ethers.utils.BigNumberish,
-    overrides?: TransactionOverrides,
-  ): Promise<ContractTransaction>
-}
-export async function cancelOracleRequest(
-  oracleContract: Cancellable,
-  request: RunRequest,
-  options: TxOptions = {},
-): ReturnType<typeof oracleContract.cancelOracleRequest> {
-  return oracleContract.cancelOracleRequest(
-    request.id,
-    request.payment,
-    request.callbackFunc,
-    request.expiration,
-    options,
-  )
-}
-
-export function requestDataBytes(
-  specId: string,
-  to: string,
-  fHash: string,
-  nonce: number,
-  dataBytes: string,
-): string {
-  // 'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
-  const oracleRequestSighash = '0x40429946'
-  const oracleRequestInputs = [
-    { name: '_sender', type: 'address' },
-    { name: '_payment', type: 'uint256' },
-    { name: '_specId', type: 'bytes32' },
-    { name: '_callbackAddress', type: 'address' },
-    { name: '_callbackFunctionId', type: 'bytes4' },
-    { name: '_nonce', type: 'uint256' },
-    { name: '_dataVersion', type: 'uint256' },
-    { name: '_data', type: 'bytes' },
-  ]
-
-  const encodedParams = ethers.utils.defaultAbiCoder.encode(
-    oracleRequestInputs.map(i => i.type),
-    [ethers.constants.AddressZero, 0, specId, to, fHash, nonce, 1, dataBytes],
-  )
-
-  return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`
-}
-
-interface Callable {
-  address: string
-}
-interface Transferable {
-  transferAndCall(
-    _to: string,
-    _value: ethers.utils.BigNumberish,
-    _data: ethers.utils.Arrayish,
-    overrides?: TransactionOverrides,
-  ): Promise<ContractTransaction>
-}
-export function requestDataFrom(
-  callable: Callable,
-  link: Transferable,
-  amount: ethers.utils.BigNumberish,
-  args: string,
-  options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
-): ReturnType<typeof link.transferAndCall> {
-  if (!options) {
-    options = { value: 0 }
-  }
-
-  return link.transferAndCall(callable.address, amount, args, options)
 }
 
 /**

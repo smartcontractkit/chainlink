@@ -1,4 +1,4 @@
-import { matchers } from '@chainlink/eth-test-helpers/src'
+import { matchers } from '@chainlink/eth-test-helpers'
 import { ChainlinkedFactory } from '../src/generated/ChainlinkedFactory'
 
 const chainlinkedFactory = new ChainlinkedFactory()
