@@ -1,5 +1,7 @@
-import { createProvider, DEVNET_ADDRESS, deployContract } from './common'
-import { contract, generated as chainlink } from 'chainlink'
+import { contract } from '@chainlink/eth-test-helpers'
+import { generated as chainlink } from 'chainlink'
+import { createProvider, deployContract, DEVNET_ADDRESS } from './common'
+
 const { LinkTokenFactory } = chainlink
 
 export async function deployLinkTokenContract(): Promise<
