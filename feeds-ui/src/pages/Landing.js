@@ -28,27 +28,17 @@ const LangingPage = () => (
         <h3>Decentralized Oracle Networks for Price Reference Data</h3>
         <p>
           The Chainlink Network provides the largest collection of secure and
-          decentralized on-chain price reference data available.
-          Chainlink&apos;s decentralized oracle networks are composed of
+          decentralized on-chain price reference data available. Composed of
           security reviewed, sybil resistant and fully independent nodes which
-          are run by leading blockchain devops and security teams.
-        </p>
-        <p> </p>
-        <p>
-          Chainlink Decentralized Oracle Networks for Price Reference Data are a
-          shared community resource supported by its users, who pay less for
-          using these oracle networks than it would take for them to broadcast
-          the same data individually, while benefiting from a twenty times
-          increase in the security created by the decentralization of oracle
-          networks.
+          are run by leading blockchain devops and security teams. Creating a
+          shared global resource which is supported by a growing list of top
+          DeFi Dapps.
         </p>
         <p>
           Please feel free to look into the details of each Decentralized Oracle
-          Network on this page. You can easily start using these oracle networks
-          to securely launch your DeFi smart contract, add more markets/features
-          to an existing smart contract and/or just greatly improve the security
-          of your existing DeFi smart contract. We&apos;ve built all this to
-          help you make a great smart contract.
+          Network listed below. You can easily use these oracle networks to
+          quickly and securely launch, add more capabilities to and/or just
+          greatly improve the security of your smart contracts.
         </p>
       </section>
       <section>

@@ -126,19 +126,6 @@
     "supported": ["Synthetix"]
   },
   {
-    "contractAddress": "0x560b06e8897a0e52dbd5723271886bbcc5c1f52a",
-    "name": "BNT / USD",
-    "valuePrefix": "$",
-    "pair": ["BNT", "USD"],
-    "path": "bnt-usd",
-    "contractVersion": 2,
-    "networkId": 1,
-    "history": false,
-    "decimalPlaces": 6,
-    "multiply": "100000000",
-    "supported": []
-  },
-  {
     "contractAddress": "0x8770Afe90c52Fd117f29192866DE705F63e59407",
     "name": "LRC / ETH",
     "valuePrefix": "Ξ",
