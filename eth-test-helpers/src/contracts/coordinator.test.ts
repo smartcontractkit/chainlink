@@ -1,7 +1,7 @@
-import { generateSAID, ServiceAgreement } from './helpers'
+import { generateSAID, ServiceAgreement } from './coordinator'
 
 describe('generateSAID test', () => {
-  it('should the hashed result of the abi encoded service agreement', () => {
+  it('should return the hashed result of the abi encoded service agreement', () => {
     const sa: ServiceAgreement = {
       payment: '1000000000000000000',
       expiration: 300,
