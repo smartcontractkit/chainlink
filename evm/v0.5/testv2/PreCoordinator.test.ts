@@ -4,7 +4,6 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import {
   BasicConsumerFactory,
-  LinkTokenFactory,
   OracleFactory,
   PreCoordinatorFactory,
 } from '../src/generated'
@@ -13,7 +12,7 @@ const provider = providers.makeTestProvider()
 const oracleFactory = new OracleFactory()
 const preCoordinatorFactory = new PreCoordinatorFactory()
 const requesterConsumerFactory = new BasicConsumerFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 let roles: h.Roles
 beforeAll(async () => {
@@ -40,7 +39,7 @@ describe('PreCoordinator', () => {
   const payment = h.toWei('1')
   const totalPayment = h.toWei('4')
 
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let oc1: contract.Instance<OracleFactory>
   let oc2: contract.Instance<OracleFactory>
   let oc3: contract.Instance<OracleFactory>

@@ -1,17 +1,18 @@
 import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ConcreteChainlinkedFactory } from '../src/generated/ConcreteChainlinkedFactory'
-import { EmptyOracleFactory } from '../src/generated/EmptyOracleFactory'
-import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
+import {
+  ConcreteChainlinkedFactory,
+  EmptyOracleFactory,
+  GetterSetterFactory,
+  OracleFactory,
+} from '../src/generated'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()
 const getterSetterFactory = new GetterSetterFactory()
 const oracleFactory = new OracleFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 const provider = providers.makeTestProvider()
 
@@ -30,7 +31,7 @@ describe('ConcreteChainlinked', () => {
   let gs: contract.Instance<GetterSetterFactory>
   let oc: contract.Instance<OracleFactory | EmptyOracleFactory>
   let newoc: contract.Instance<OracleFactory>
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   const deployment = providers.useSnapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)

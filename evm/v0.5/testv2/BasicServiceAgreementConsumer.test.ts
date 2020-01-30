@@ -9,7 +9,6 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import {
   CoordinatorFactory,
-  LinkTokenFactory,
   MeanAggregatorFactory,
   ServiceAgreementConsumerFactory,
 } from '../src/generated'
@@ -17,7 +16,7 @@ import {
 const coordinatorFactory = new CoordinatorFactory()
 const meanAggregatorFactory = new MeanAggregatorFactory()
 const serviceAgreementConsumerFactory = new ServiceAgreementConsumerFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 // create ethers provider from that web3js instance
 const provider = providers.makeTestProvider()
@@ -32,7 +31,7 @@ beforeAll(async () => {
 describe('ServiceAgreementConsumer', () => {
   const currency = 'USD'
 
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let coord: contract.Instance<CoordinatorFactory>
   let cc: contract.Instance<ServiceAgreementConsumerFactory>
   let agreement: h.ServiceAgreement

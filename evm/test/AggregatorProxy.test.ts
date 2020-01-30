@@ -8,14 +8,13 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { AggregatorFactory } from '../src/generated/AggregatorFactory'
 import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
 import { OracleFactory } from '../src/generated/OracleFactory'
 
 let personas: h.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = providers.makeTestProvider()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
@@ -35,7 +34,7 @@ describe('AggregatorProxy', () => {
   const response = h.numToBytes32(54321)
   const response2 = h.numToBytes32(67890)
 
-  let link: contract.Instance<LinkTokenFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<AggregatorFactory>
   let aggregator2: contract.Instance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>

@@ -1,3 +1,5 @@
+export * from './generated'
+
 /**
  * The type of any function that is deployable
  */
