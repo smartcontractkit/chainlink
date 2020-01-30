@@ -1,16 +1,20 @@
-import { ethers } from 'ethers'
-import { createFundedWallet } from './wallet'
-import { assert } from 'chai'
-import { Oracle } from './generated/Oracle'
-import { CoordinatorFactory, TypedEventDescription } from './generated'
-import { LinkToken } from './generated/LinkToken'
-import { makeDebug } from './debug'
-import cbor from 'cbor'
-import { OracleFactory } from './generated/OracleFactory'
+import { ethers, utils } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
+import { assert } from 'chai'
+import cbor from 'cbor'
+import { createFundedWallet } from './wallet'
+import { Instance } from './contract'
+import { makeDebug } from './debug'
+import { assertBigNum } from './matchers'
+import { Oracle } from './generated/Oracle'
+import { LinkToken } from './generated/LinkToken'
+import {
+  CoordinatorFactory,
+  TypedEventDescription,
+  OracleFactory,
+} from './generated'
 
 const debug = makeDebug('helpers')
-export const { utils } = ethers
 
 export interface Roles {
   defaultAccount: ethers.Wallet
@@ -37,12 +41,12 @@ interface RolesAndPersonas {
   personas: Personas
 }
 
-// duplicated in evm/v0.5/test/support/helpers.ts (kinda)
+// duplicated in evm/v0.5/test/support/helpers.ts
 export interface ServiceAgreement {
-  payment: ethers.utils.BigNumberish // uint256
-  expiration: ethers.utils.BigNumberish // uint256
-  endAt: ethers.utils.BigNumberish // uint256
-  oracles: string[] // 0x hex representation of oracle addresses (uint160's)
+  payment: utils.BigNumberish // uint256
+  expiration: utils.BigNumberish // uint256
+  endAt: utils.BigNumberish // uint256
+  oracles: string[] | ethers.Wallet[] // 0x hex representation of oracle addresses (uint160's) or wallet instances to map to addresses
   requestDigest: string // 0x hex representation of bytes32
   aggregator: string // 0x hex representation of aggregator address
   aggInitiateJobSelector: string // 0x hex representation of aggregator.initiateAggregatorForJob function selector (uint32)
@@ -50,10 +54,14 @@ export interface ServiceAgreement {
 }
 
 // duplicated in evm/v0.5/test/support/helpers.ts
-export interface OracleSignature {
-  vs: ethers.utils.BigNumberish[] // uint8[]
+export interface OracleSignatures {
+  vs: utils.BigNumberish[] // uint8[]
   rs: string[] // bytes32[]
   ss: string[] // bytes32[]
+}
+
+export interface Signature extends utils.Signature {
+  v: number
 }
 
 // duplicated in evm/v0.5/test/support/helpers.ts
@@ -70,6 +78,9 @@ const SERVICE_AGREEMENT_TYPES = [
 
 // duplicated in /test/support/helpers.ts
 const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
+
+const oracleFactory = new OracleFactory()
+const coordinatorFactory = new CoordinatorFactory()
 
 /**
  * This helper function allows us to make use of ganache snapshots,
@@ -248,6 +259,14 @@ export function checkPublicABI(
 }
 
 /**
+ * Convert a value to an ethers BigNum
+ * @param num Value to convert to a BigNum
+ */
+export function bigNum(num: utils.BigNumberish): utils.BigNumber {
+  return utils.bigNumberify(num)
+}
+
+/**
  * Convert a value to a hex string
  * @param args Value to convert to a hex string
  */
@@ -255,6 +274,26 @@ export function toHex(
   ...args: Parameters<typeof utils.hexlify>
 ): ReturnType<typeof utils.hexlify> {
   return utils.hexlify(...args)
+}
+
+/**
+ * Convert a value to a hex string
+ * @param args Value to convert to a hex string
+ */
+export function toBytes32String(
+  ...args: Parameters<typeof utils.formatBytes32String>
+): ReturnType<typeof utils.formatBytes32String> {
+  return utils.formatBytes32String(...args)
+}
+
+/**
+ * Convert a value to a hex string
+ * @param args Value to convert to a hex string
+ */
+export function parseBytes32String(
+  ...args: Parameters<typeof utils.parseBytes32String>
+): ReturnType<typeof utils.parseBytes32String> {
+  return utils.parseBytes32String(...args)
 }
 
 /**
@@ -291,7 +330,7 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     expiration,
     version,
     data,
-  ] = ethers.utils.defaultAbiCoder.decode(types, log.data)
+  ] = utils.defaultAbiCoder.decode(types, log.data)
 
   return {
     callbackAddr: callbackAddress,
@@ -319,7 +358,7 @@ export function decodeRunABI(
   d('params %o', log)
 
   const types = ['bytes32', 'address', 'bytes4', 'bytes']
-  const decodedValue = ethers.utils.defaultAbiCoder.decode(types, log.data)
+  const decodedValue = utils.defaultAbiCoder.decode(types, log.data)
   d('decoded value %o', decodedValue)
 
   return decodedValue
@@ -382,7 +421,7 @@ export function addHexPrefix(hex: string): string {
 }
 
 export function stripHexPrefix(hex: string): string {
-  if (!ethers.utils.isHexString(hex)) {
+  if (!utils.isHexString(hex)) {
     throw Error(`Expected valid hex string, got: "${hex}"`)
   }
 
@@ -394,10 +433,8 @@ export function stripHexPrefix(hex: string): string {
  *
  * @param num The number value to convert to bytes32 format
  */
-export function numToBytes32(
-  num: Parameters<typeof ethers.utils.hexlify>[0],
-): string {
-  const hexNum = ethers.utils.hexlify(num)
+export function numToBytes32(num: Parameters<typeof utils.hexlify>[0]): string {
+  const hexNum = utils.hexlify(num)
   const strippedNum = stripHexPrefix(hexNum)
   if (strippedNum.length > 32 * 2) {
     throw Error(
@@ -408,9 +445,9 @@ export function numToBytes32(
 }
 
 export function toUtf8(
-  ...args: Parameters<typeof ethers.utils.toUtf8Bytes>
-): ReturnType<typeof ethers.utils.toUtf8Bytes> {
-  return ethers.utils.toUtf8Bytes(...args)
+  ...args: Parameters<typeof utils.toUtf8Bytes>
+): ReturnType<typeof utils.toUtf8Bytes> {
+  return utils.toUtf8Bytes(...args)
 }
 
 /**
@@ -419,8 +456,8 @@ export function toUtf8(
  * @param args The data to compute the keccak256 hash of
  */
 export function keccak(
-  ...args: Parameters<typeof ethers.utils.keccak256>
-): ReturnType<typeof ethers.utils.keccak256> {
+  ...args: Parameters<typeof utils.keccak256>
+): ReturnType<typeof utils.keccak256> {
   return utils.keccak256(...args)
 }
 
@@ -440,7 +477,7 @@ export async function fulfillOracleRequest(
   const bytes32Len = 32 * 2 + 2
   const convertedResponse =
     response.length < bytes32Len
-      ? ethers.utils.formatBytes32String(response)
+      ? utils.formatBytes32String(response)
       : response
   d('Converted Response param: %s', convertedResponse)
 
@@ -476,9 +513,7 @@ export function requestDataBytes(
   nonce: number,
   dataBytes: string,
 ): string {
-  const ocFactory = new OracleFactory()
-
-  return ocFactory.interface.functions.oracleRequest.encode([
+  return oracleFactory.interface.functions.oracleRequest.encode([
     ethers.constants.AddressZero,
     0,
     specId,
@@ -496,7 +531,7 @@ interface Callable {
 export function requestDataFrom(
   callable: Callable,
   link: LinkToken,
-  amount: ethers.utils.BigNumberish,
+  amount: utils.BigNumberish,
   args: string,
   options: Omit<ethers.providers.TransactionRequest, 'to' | 'from'> = {},
 ): ReturnType<typeof link.transferAndCall> {
@@ -538,14 +573,60 @@ export function hexToBuf(hexstr: string): Buffer {
   return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
 
-type Hash = ReturnType<typeof ethers.utils.keccak256>
+type Hash = ReturnType<typeof utils.keccak256>
+
+export async function initiateServiceAgreement(
+  coordinator: Instance<CoordinatorFactory>,
+  serviceAgreementParams: Partial<ServiceAgreement>,
+) {
+  const serviceAgreement = await newServiceAgreement(serviceAgreementParams)
+  const signatures = await generateOracleSignatures(serviceAgreement)
+  return coordinator.initiateServiceAgreement(
+    encodeServiceAgreement(serviceAgreement),
+    encodeOracleSignatures(signatures),
+  )
+}
+
+export async function newServiceAgreement(
+  params: Partial<ServiceAgreement>,
+): Promise<ServiceAgreement> {
+  const agreement: ServiceAgreement = {
+    payment: bigNum('1000000000000000000'),
+    expiration: bigNum(300),
+    endAt: sixMonthsFromNow(),
+    oracles: [],
+    requestDigest:
+      '0xbadc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5',
+    aggregator: '0x3141592653589793238462643383279502884197',
+    aggInitiateJobSelector: '0xd43a12f6', // initiateJob()
+    aggFulfillSelector: '0x9760168f', // fulfill()
+    ...params,
+  }
+  return agreement
+}
+
+export function sixMonthsFromNow(): utils.BigNumber {
+  return bigNum(Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60)
+}
+
+function oracleAddresses(oracles: string[] | ethers.Wallet[]): string[] {
+  const oracleAddresses: string[] = []
+  oracles.forEach((oracle: string | ethers.Wallet) => {
+    if (oracle instanceof ethers.Wallet) {
+      oracleAddresses.push(oracle.address)
+    } else {
+      oracleAddresses.push(oracle)
+    }
+  })
+  return oracleAddresses
+}
 
 const serviceAgreementValues = (sa: ServiceAgreement) => {
   return [
     sa.payment,
     sa.expiration,
     sa.endAt,
-    sa.oracles,
+    oracleAddresses(sa.oracles),
     sa.requestDigest,
     sa.aggregator,
     sa.aggInitiateJobSelector,
@@ -554,58 +635,180 @@ const serviceAgreementValues = (sa: ServiceAgreement) => {
 }
 
 export function encodeServiceAgreement(sa: ServiceAgreement) {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     SERVICE_AGREEMENT_TYPES,
     serviceAgreementValues(sa),
   )
 }
 
-export function encodeOracleSignatures(os: OracleSignature) {
+export function encodeOracleSignatures(os: OracleSignatures) {
   const osValues = [os.vs, os.rs, os.ss]
-  return ethers.utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
-}
-
-export async function computeOracleSignature(
-  agreement: ServiceAgreement,
-  oracle: ethers.Wallet,
-): Promise<OracleSignature> {
-  const said = generateSAID(agreement)
-  const oracleSignatures: OracleSignature[] = []
-
-  for (let i = 0; i < agreement.oracles.length; i++) {
-    const oracleSignature = await oracle.signMessage(
-      ethers.utils.arrayify(said),
-    )
-
-    const sig = ethers.utils.splitSignature(oracleSignature)
-    if (!sig.v) {
-      throw Error(`Could not extract v from signature`)
-    }
-    const convertedOracleSignature: OracleSignature = {
-      vs: [sig.v],
-      rs: [sig.r],
-      ss: [sig.s],
-    }
-    oracleSignatures.push(convertedOracleSignature)
-  }
-
-  // TODO: this should be an array!
-  return oracleSignatures[0]
+  return utils.defaultAbiCoder.encode(ORACLE_SIGNATURES_TYPES, osValues)
 }
 
 /**
  * Digest of the ServiceAgreement.
  */
 export function generateSAID(sa: ServiceAgreement): Hash {
-  const [saParam] = new CoordinatorFactory().interface.functions.getId.inputs
+  const [saParam] = coordinatorFactory.interface.functions.getId.inputs
   if (saParam.name !== '_agreementData' || saParam.type !== 'bytes') {
     throw Error(
       `extracted wrong params: ${saParam} from coordinatorFactory.interface.functions.getId`,
     )
   }
-  return ethers.utils.solidityKeccak256(
+  return utils.solidityKeccak256(
     SERVICE_AGREEMENT_TYPES,
     serviceAgreementValues(sa),
+  )
+}
+
+/**
+ * Generates the bytes to call and execute the oracleRequest() function
+ * @param sAID The service agreement ID
+ * @param callbackAddr The callback contract address
+ * @param callbackFunctionId The callback function id
+ * @param nonce The nonce
+ * @param data optional data
+ */
+export function executeServiceAgreementBytes(
+  sAID: string,
+  callbackAddr: string,
+  callbackFunctionId: any,
+  nonce: utils.BigNumberish,
+  data?: any,
+): any {
+  const values = [
+    ethers.constants.AddressZero,
+    0,
+    sAID,
+    callbackAddr,
+    callbackFunctionId,
+    nonce,
+    1,
+    data || '0x',
+  ]
+  return oracleFactory.interface.functions.oracleRequest.encode(values)
+}
+
+/**
+ * Generates the oracle signatures on a ServiceAgreement
+ * @param serviceAgreement The service agreement to sign
+ * @param signers The list oracles that will sign the service agreement
+ */
+export async function generateOracleSignatures(
+  serviceAgreement: ServiceAgreement,
+): Promise<OracleSignatures> {
+  const sAID = generateSAID(serviceAgreement)
+  const signatures = []
+
+  for (let i = 0; i < serviceAgreement.oracles.length; i++) {
+    const oracle = serviceAgreement.oracles[i]
+    if (!(oracle instanceof ethers.Wallet)) {
+      throw Error('cannot generate signatures without oracle wallets')
+    }
+    const oracleSignature = await personalSign(sAID, oracle)
+    const requestDigestAddr = recoverAddressFromSignature(sAID, oracleSignature)
+    assert.equal(oracle.address, requestDigestAddr)
+    signatures.push(oracleSignature)
+  }
+
+  return combineOracleSignatures(signatures)
+}
+
+/**
+ * Combine v, r, and s params of multiple signatures into format expected by contracts
+ * @param signatures The list of signatures to combine
+ */
+export function combineOracleSignatures(
+  signatures: Signature[],
+): OracleSignatures {
+  return signatures.reduce<OracleSignatures>(
+    (prev, { v, r, s }) => {
+      prev.vs.push(v)
+      prev.rs.push(r)
+      prev.ss.push(s)
+
+      return prev
+    },
+    { vs: [], rs: [], ss: [] },
+  )
+}
+
+/**
+ * Signs a message according to ethereum specs by first appending
+ * "\x19Ethereum Signed Message:\n' + <message.length>" to the message
+ * @param message The message to sign - either a Buffer or a hex string
+ * @param wallet The wallet of the signer
+ */
+export async function personalSign(
+  message: Buffer | string,
+  wallet: ethers.Wallet,
+): Promise<Signature> {
+  function assertIsSignature(sig: utils.Signature): asserts sig is Signature {
+    if (!sig.v) throw Error(`Could not extract v from signature`)
+  }
+  if (message instanceof String && !utils.isHexString(message)) {
+    throw Error(`The message ${message} is not a valid hex string`)
+  }
+  const flatSig = await wallet.signMessage(utils.arrayify(message))
+  const splitSignature = utils.splitSignature(flatSig)
+  assertIsSignature(splitSignature)
+  return splitSignature
+}
+
+/**
+ * Recovers the address of the signer of a message
+ * @param message The message that was signed
+ * @param signature The signature on the message
+ */
+export function recoverAddressFromSignature(
+  message: string | Buffer,
+  signature: Signature,
+): string {
+  const messageBuff = utils.arrayify(message)
+  return utils.verifyMessage(messageBuff, signature)
+}
+
+/**
+ * Check that the given service agreement was stored at the correct location
+ * @param coordinator The coordinator contract
+ * @param serviceAgreement The service agreement
+ */
+export async function assertServiceAgreementPresent(
+  coordinator: Instance<CoordinatorFactory>,
+  serviceAgreement: ServiceAgreement,
+) {
+  const sAID = generateSAID(serviceAgreement)
+  const sa = await coordinator.serviceAgreements(sAID)
+  assertBigNum(sa[0], bigNum(serviceAgreement.payment), 'expected payment')
+  assertBigNum(
+    sa[1],
+    bigNum(serviceAgreement.expiration),
+    'expected expiration',
+  )
+  assertBigNum(sa[2], bigNum(serviceAgreement.endAt), 'expected endAt date')
+  assert.equal(sa[3], serviceAgreement.requestDigest, 'expected requestDigest')
+}
+
+/**
+ * Check that all values for the struct at this SAID have default values. I.e.
+ * nothing was changed due to invalid request
+ * @param coordinator The coordinator contract
+ * @param serviceAgreementID The service agreement ID
+ */
+export async function assertServiceAgreementEmpty(
+  coordinator: Instance<CoordinatorFactory>,
+  serviceAgreementID: string,
+) {
+  const sa = await coordinator.serviceAgreements(
+    toHex(serviceAgreementID).slice(0, 66), // serviceAggrementId is contained within the highest 32 bytes
+  )
+  assertBigNum(sa[0], bigNum(0), 'service agreement is not absent')
+  assertBigNum(sa[1], bigNum(0), 'service agreement is not absent')
+  assertBigNum(sa[2], bigNum(0), 'service agreement is not absent')
+  assert.equal(
+    sa[3],
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
   )
 }
 
@@ -613,14 +816,14 @@ export function generateSAID(sa: ServiceAgreement): Hash {
  * Turn a [x,y] coordinate into an ethereum address
  * @param pubkey The x,y coordinate to turn into an ethereum address
  */
-export function pubkeyToAddress(pubkey: ethers.utils.BigNumber[]) {
+export function pubkeyToAddress(pubkey: utils.BigNumber[]) {
   // transform the value according to what ethers expects as a value
   const concatResult = `0x04${pubkey
     .map(coord => coord.toHexString())
     .join('')
     .replace(/0x/gi, '')}`
 
-  return ethers.utils.computeAddress(concatResult)
+  return utils.computeAddress(concatResult)
 }
 
 interface EventArgsArray extends Array<any> {
@@ -637,6 +840,36 @@ export function eventArgs(event?: ethers.Event) {
 }
 
 /**
+ * Extract array of logs from a transaction
+ * @param tx The transaction to wait for, then extract logs from
+ */
+export async function getLogs(
+  tx: ethers.ContractTransaction,
+): Promise<ethers.providers.Log[]> {
+  const receipt = await tx.wait()
+  if (!receipt.logs) {
+    throw Error('unable to extract logs from transaction receipt')
+  }
+  return receipt.logs
+}
+
+/**
+ * Retrieve single log from transaction
+ * @param tx The transaction to wait for, then extract logs from
+ * @param index The index of the log to retrieve
+ */
+export async function getLog(
+  tx: ethers.ContractTransaction,
+  index: number,
+): Promise<ethers.providers.Log> {
+  const logs = await getLogs(tx)
+  if (!logs[index]) {
+    throw Error('unable to extract log from transaction receipt')
+  }
+  return logs[index]
+}
+
+/**
  * Find an event within a transaction receipt by its event description
  *
  * @param receipt The events array to search through
@@ -645,15 +878,14 @@ export function eventArgs(event?: ethers.Event) {
 export function findEventIn(
   receipt: ContractReceipt,
   eventDescription: TypedEventDescription<any>,
-): ethers.Event | undefined {
-  return receipt.events?.find(e => e.event === eventDescription.name)
-}
-
-/**
- * Calculate six months from the current date in seconds
- */
-export function sixMonthsFromNow(): ethers.utils.BigNumber {
-  return ethers.utils.bigNumberify(
-    Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60,
+): ethers.Event {
+  const event = receipt.events?.find(
+    e => e.topics[0] === eventDescription.topic,
   )
+  if (!event) {
+    throw Error(
+      `Unable to find ${eventDescription.name} in transaction receipt`,
+    )
+  }
+  return event
 }
