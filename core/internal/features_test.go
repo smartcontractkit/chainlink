@@ -1074,4 +1074,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, proof, vrf.ProofLength)
 	require.Equal(t, proof[:64], provingKey.PublicKey[:])
+	goProof, err := vrf.UnmarshalSolidityProof(proof)
+	require.NoError(t, err, "problem parsing solidity proof")
+	proofValid, err := goProof.VerifyVRFProof()
+	require.NoError(t, err, "problem verifying solidity proof")
+	require.True(t, proofValid)
 }

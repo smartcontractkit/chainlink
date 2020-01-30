@@ -8,8 +8,10 @@ import (
 	"math/big"
 
 	"chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"go.dedis.ch/kyber/v3"
 )
 
@@ -111,5 +113,26 @@ func (p *Proof) MarshalForSolidityVerifier() (MarshaledProof, error) {
 	if err != nil {
 		return rv, err
 	}
+	return rv, nil
+}
+
+func UnmarshalSolidityProof(proof []byte) (rv Proof, err error) {
+	failedProof := Proof{}
+	if len(proof) != ProofLength {
+		return failedProof, fmt.Errorf(
+			"VRF proof is %d bytes long, should be %d: \"%x\"", len(proof),
+			ProofLength, proof)
+	}
+	if rv.PublicKey, err = secp256k1.LongUnmarshal(proof[:64]); err != nil {
+		return failedProof, errors.Wrapf(err, "while reading proof public key")
+	}
+	rawGamma := proof[64:128]
+	if rv.Gamma, err = secp256k1.LongUnmarshal(rawGamma); err != nil {
+		return failedProof, errors.Wrapf(err, "while reading proof gamma")
+	}
+	rv.C = i().SetBytes(proof[128:160])
+	rv.S = i().SetBytes(proof[160:192])
+	rv.Seed = i().SetBytes(proof[192:224])
+	rv.Output = utils.MustHash(string(rawGamma)).Big()
 	return rv, nil
 }
