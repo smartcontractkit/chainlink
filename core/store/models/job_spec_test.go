@@ -249,6 +249,16 @@ func TestFeeds_Value(t *testing.T) {
 			`["https://lambda.staging.devnet.tools/bnc/call","https://lambda.staging.devnet.tools/cc/call"]`,
 		},
 		{
+			"bridge",
+			[]string{`{"bridge": "cmc"}`},
+			`["{\"bridge\": \"cmc\"}"]`,
+		},
+		{
+			"mixed",
+			[]string{"https://lambda.staging.devnet.tools/bnc/call", `{"bridge": "cmc"}`},
+			`["https://lambda.staging.devnet.tools/bnc/call","{\"bridge\": \"cmc\"}"]`,
+		},
+		{
 			"empty",
 			[]string{},
 			nil,
