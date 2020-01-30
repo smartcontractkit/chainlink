@@ -375,6 +375,7 @@ const validInitiator = `{
 			"https://lambda.staging.devnet.tools/cc/call",
 			"https://lambda.staging.devnet.tools/cmc/call"
 		],
+		"idleThreshold": "1m",
 		"threshold": 0.5,
 		"precision": 2,
 		"pollingInterval": "1m"
@@ -402,6 +403,7 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 		{"requestdata", cltest.MustJSONDel(t, validInitiator, "params.requestdata")},
 		{"pollingInterval", cltest.MustJSONDel(t, validInitiator, "params.pollingInterval")},
 		{"pollingInterval", cltest.MustJSONSet(t, validInitiator, "params.pollingInterval", "1s")},
+		{"idleThreshold", cltest.MustJSONSet(t, validInitiator, "params.idleThreshold", "30s")},
 	}
 	for _, test := range tests {
 		t.Run("bad "+test.Field, func(t *testing.T) {

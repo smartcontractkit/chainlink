@@ -208,6 +208,56 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	assert.Equal(t, big.NewInt(2), checker.ExportedCurrentRound())
 }
 
+func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+	initr.PollingInterval = models.Duration(24 * time.Hour)
+	initr.IdleThreshold = models.Duration(time.Millisecond)
+
+	jobRun := cltest.NewJobRun(job)
+	mockRunManager := new(mocks.RunManager)
+	mockRunManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Twice().Return(&jobRun, nil)
+
+	fetcher := new(mocks.Fetcher)
+
+	deviationChecker, err := services.NewPollingDeviationChecker(
+		initr,
+		mockRunManager,
+		fetcher,
+		time.Second,
+	)
+	require.NoError(t, err)
+
+	ethClient := new(mocks.Client)
+	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+		Return(decimal.NewFromInt(100), nil)
+	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(1), nil)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+		Return(fakeSubscription(), nil)
+
+	fetchCalled := make(chan struct{}, 1)
+	fetcher.On("Fetch").
+		Return(decimal.NewFromFloat(102), nil).
+		Return(decimal.NewFromFloat(103), nil).
+		Run(func(mock.Arguments) {
+			fetchCalled <- struct{}{}
+		})
+
+	err = deviationChecker.Start(context.Background(), ethClient)
+	require.NoError(t, err)
+
+	<-fetchCalled // Called on start
+	<-fetchCalled // Triggered by IdleThreshold
+
+	deviationChecker.Stop()
+
+	fetcher.AssertExpectations(t)
+	mockRunManager.AssertExpectations(t)
+	assert.Equal(t, decimal.NewFromInt(103).String(), deviationChecker.ExportedCurrentPrice().String())
+}
+
 func TestPollingDeviationChecker_StartError(t *testing.T) {
 	rm := new(mocks.RunManager)
 	job := cltest.NewJobWithFluxMonitorInitiator()
@@ -421,6 +471,7 @@ func TestOutsideDeviation(t *testing.T) {
 		{"inside deviation", decimal.NewFromInt(100), decimal.NewFromInt(101), 2, false},
 		{"equal to deviation", decimal.NewFromInt(100), decimal.NewFromInt(102), 2, true},
 		{"outside deviation", decimal.NewFromInt(100), decimal.NewFromInt(103), 2, true},
+		{"outside deviation zero", decimal.NewFromInt(100), decimal.NewFromInt(0), 2, true},
 	}
 
 	for _, test := range tests {

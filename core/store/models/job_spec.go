@@ -217,6 +217,7 @@ type InitiatorParams struct {
 
 	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
 	Feeds           Feeds    `json:"feeds,omitempty" gorm:"type:text"`
+	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
 	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
 	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
 	PollingInterval Duration `json:"pollingInterval,omitempty"`

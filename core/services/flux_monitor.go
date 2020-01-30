@@ -8,6 +8,7 @@ import (
 	"chainlink/core/utils"
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -247,18 +248,21 @@ type DeviationChecker interface {
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	initr        models.Initiator
-	address      common.Address
-	requestData  models.JSON
-	threshold    float64
-	precision    int32
-	runManager   RunManager
-	currentPrice decimal.Decimal
-	currentRound *big.Int
-	fetcher      Fetcher
-	delay        time.Duration
-	cancel       context.CancelFunc
-	newRounds    chan eth.Log
+	initr         models.Initiator
+	address       common.Address
+	requestData   models.JSON
+	idleThreshold time.Duration
+	threshold     float64
+	precision     int32
+	runManager    RunManager
+	currentPrice  decimal.Decimal
+	currentRound  *big.Int
+	fetcher       Fetcher
+	delay         time.Duration
+	cancel        context.CancelFunc
+	newRounds     chan eth.Log
+
+	stopC chan struct{}
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -269,17 +273,20 @@ func NewPollingDeviationChecker(
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
-		initr:        initr,
-		address:      initr.InitiatorParams.Address,
-		requestData:  initr.InitiatorParams.RequestData,
-		threshold:    float64(initr.InitiatorParams.Threshold),
-		precision:    initr.InitiatorParams.Precision,
-		runManager:   runManager,
-		currentPrice: decimal.NewFromInt(0),
-		currentRound: big.NewInt(0),
-		fetcher:      fetcher,
-		delay:        delay,
-		newRounds:    make(chan eth.Log),
+		initr:         initr,
+		address:       initr.InitiatorParams.Address,
+		requestData:   initr.InitiatorParams.RequestData,
+		idleThreshold: initr.InitiatorParams.IdleThreshold.Duration(),
+		threshold:     float64(initr.InitiatorParams.Threshold),
+		precision:     initr.InitiatorParams.Precision,
+		runManager:    runManager,
+		currentPrice:  decimal.NewFromInt(0),
+		currentRound:  big.NewInt(0),
+		fetcher:       fetcher,
+		delay:         delay,
+		newRounds:     make(chan eth.Log),
+
+		stopC: make(chan struct{}),
 	}, nil
 }
 
@@ -299,7 +306,7 @@ func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) 
 		return err
 	}
 
-	err = p.poll()
+	err = p.poll(p.threshold)
 	if err != nil {
 		return err
 	}
@@ -309,18 +316,39 @@ func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) 
 	return nil
 }
 
+// stopTimer stops and clears the timer as suggested by the documentation.
+func stopTimer(arg *time.Timer) {
+	if !arg.Stop() && len(arg.C) > 0 {
+		// timer's channel may have backlog
+		// refer to: https://developpaper.com/detailed-explanation-of-the-trap-of-timer-in-golang/
+		<-arg.C
+	}
+}
+
 func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription eth.Subscription) {
 	defer roundSubscription.Unsubscribe()
+
+	idleThreshold := time.NewTimer(math.MaxInt64)
+	defer stopTimer(idleThreshold)
+
 	for {
+		if p.idleThreshold > 0 {
+			stopTimer(idleThreshold) // Reset expects stopped or expired timer.
+			idleThreshold.Reset(p.idleThreshold)
+		}
+
 		select {
 		case <-ctx.Done():
+			close(p.stopC)
 			return
 		case err := <-roundSubscription.Err():
 			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
 		case log := <-p.newRounds:
 			logger.ErrorIf(p.respondToNewRound(log), "checker unable to respond to new round")
 		case <-time.After(p.delay):
-			logger.ErrorIf(p.poll(), "checker unable to poll")
+			logger.ErrorIf(p.poll(p.threshold), "checker unable to poll")
+		case <-idleThreshold.C:
+			logger.ErrorIf(p.poll(0), "checker unable to poll")
 		}
 	}
 }
@@ -329,6 +357,7 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 func (p *PollingDeviationChecker) Stop() {
 	if p.cancel != nil {
 		p.cancel()
+		<-p.stopC
 	}
 }
 
@@ -416,7 +445,7 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 // poll walks through the steps to check for a deviation, early exiting if deviation
 // is not met, or triggering a new job run if deviation is met.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) poll() error {
+func (p *PollingDeviationChecker) poll(threshold float64) error {
 	jobSpecID := p.initr.JobSpecID.String()
 
 	nextPrice, err := p.fetchPrices()
@@ -425,7 +454,7 @@ func (p *PollingDeviationChecker) poll() error {
 	}
 	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), nextPrice)
 
-	if !OutsideDeviation(p.currentPrice, nextPrice, p.threshold) {
+	if !OutsideDeviation(p.currentPrice, nextPrice, threshold) {
 		return nil // early exit since deviation criteria not met.
 	}
 
