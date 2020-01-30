@@ -2,6 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
+  oracle,
   setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
@@ -64,7 +65,7 @@ describe('ConcreteChainlinked', () => {
 
       assert.equal(1, receipt.logs?.length)
       const [jId, cbAddr, cbFId, cborData] = receipt.logs
-        ? h.decodeRunABI(receipt.logs[0])
+        ? oracle.decodeRunABI(receipt.logs[0])
         : []
       const params = h.decodeDietCBOR(cborData ?? '')
 
@@ -187,7 +188,7 @@ describe('ConcreteChainlinked', () => {
   })
 
   describe('#recordChainlinkFulfillment(modifier)', () => {
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       const tx = await cc.publicRequest(
@@ -198,11 +199,11 @@ describe('ConcreteChainlinked', () => {
       )
       const { logs } = await tx.wait()
 
-      request = h.decodeRunRequest(logs?.[3])
+      request = oracle.decodeRunRequest(logs?.[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      const tx = await h.fulfillOracleRequest(
+      const tx = await oracle.fulfillOracleRequest(
         oc,
         request,
         ethers.utils.formatBytes32String('hi mom!'),
@@ -218,7 +219,7 @@ describe('ConcreteChainlinked', () => {
   })
 
   describe('#fulfillChainlinkRequest(function)', () => {
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       const tx = await cc.publicRequest(
@@ -231,11 +232,11 @@ describe('ConcreteChainlinked', () => {
       )
       const { logs } = await tx.wait()
 
-      request = h.decodeRunRequest(logs?.[3])
+      request = oracle.decodeRunRequest(logs?.[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      const tx = await h.fulfillOracleRequest(
+      const tx = await oracle.fulfillOracleRequest(
         oc,
         request,
         ethers.utils.formatBytes32String('hi mom!'),
@@ -258,7 +259,7 @@ describe('ConcreteChainlinked', () => {
 
   describe('#addExternalRequest', () => {
     let mock: contract.Instance<ConcreteChainlinkedFactory>
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       mock = await concreteChainlinkedFactory
@@ -273,12 +274,12 @@ describe('ConcreteChainlinked', () => {
       )
       const receipt = await tx.wait()
 
-      request = h.decodeRunRequest(receipt.logs?.[3])
+      request = oracle.decodeRunRequest(receipt.logs?.[3])
       await mock.publicAddExternalRequest(oc.address, request.id)
     })
 
     it('allows the external request to be fulfilled', async () => {
-      await h.fulfillOracleRequest(
+      await oracle.fulfillOracleRequest(
         oc,
         request,
         ethers.utils.formatBytes32String('hi mom!'),

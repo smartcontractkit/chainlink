@@ -2,6 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
+  oracle,
   setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
@@ -77,8 +78,8 @@ describe('AggregatorProxy', () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
 
-      const request = h.decodeRunRequest(receipt.logs?.[3])
-      await h.fulfillOracleRequest(oc1, request, response)
+      const request = oracle.decodeRunRequest(receipt.logs?.[3])
+      await oracle.fulfillOracleRequest(oc1, request, response)
       matchers.bigNum(
         ethers.utils.bigNumberify(response),
         await aggregator.latestAnswer(),
@@ -99,9 +100,9 @@ describe('AggregatorProxy', () => {
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs?.[3])
+        const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-        await h.fulfillOracleRequest(oc1, request, response2)
+        await oracle.fulfillOracleRequest(oc1, request, response2)
         matchers.bigNum(response2, await aggregator2.latestAnswer())
 
         await proxy.setAggregator(aggregator2.address)
@@ -119,9 +120,9 @@ describe('AggregatorProxy', () => {
     beforeEach(async () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
-      const request = h.decodeRunRequest(receipt.logs?.[3])
+      const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-      await h.fulfillOracleRequest(oc1, request, response)
+      await oracle.fulfillOracleRequest(oc1, request, response)
       const height = await aggregator.latestTimestamp()
       assert.notEqual('0', height.toString())
     })
@@ -147,9 +148,9 @@ describe('AggregatorProxy', () => {
 
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs?.[3])
+        const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-        await h.fulfillOracleRequest(oc1, request, response2)
+        await oracle.fulfillOracleRequest(oc1, request, response2)
         const height2 = await aggregator2.latestTimestamp()
         assert.notEqual('0', height2.toString())
 

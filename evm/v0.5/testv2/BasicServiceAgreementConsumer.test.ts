@@ -2,6 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
+  oracle,
   setup,
 } from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
@@ -83,7 +84,7 @@ describe('ServiceAgreementConsumer', () => {
         const log = receipt?.logs?.[3]
         assert.equal(log?.address.toLowerCase(), coord.address.toLowerCase())
 
-        const request = h.decodeRunRequest(log)
+        const request = oracle.decodeRunRequest(log)
 
         assert.equal(h.generateSAID(agreement), request.jobId)
         matchers.bigNum(paymentAmount, request.payment)
@@ -108,7 +109,7 @@ describe('ServiceAgreementConsumer', () => {
 
     describe('#fulfillOracleRequest', () => {
       const response = ethers.utils.formatBytes32String('1,000,000.00')
-      let request: h.RunRequest
+      let request: oracle.RunRequest
 
       beforeEach(async () => {
         await link.transfer(cc.address, h.toWei('1'))
@@ -117,7 +118,7 @@ describe('ServiceAgreementConsumer', () => {
         const log = receipt?.logs?.[3]
         assert.equal(log?.address.toLowerCase(), coord.address.toLowerCase())
 
-        request = h.decodeRunRequest(log)
+        request = oracle.decodeRunRequest(log)
       })
 
       it('records the data given to it by the oracle', async () => {
@@ -129,14 +130,14 @@ describe('ServiceAgreementConsumer', () => {
       })
 
       describe('when the consumer does not recognize the request ID', () => {
-        let request2: h.RunRequest
+        let request2: oracle.RunRequest
 
         beforeEach(async () => {
           // Create a request directly via the oracle, rather than through the
           // chainlink client (consumer). The client should not respond to
           // fulfillment of this request, even though the oracle will faithfully
           // forward the fulfillment to it.
-          const args = h.requestDataBytes(
+          const args = oracle.encodeOracleRequest(
             h.generateSAID(agreement),
             cc.address,
             serviceAgreementConsumerFactory.interface.functions.fulfill.sighash,
@@ -151,7 +152,7 @@ describe('ServiceAgreementConsumer', () => {
           )
           const receipt = await tx.wait()
 
-          request2 = h.decodeRunRequest(receipt?.logs?.[2])
+          request2 = oracle.decodeRunRequest(receipt?.logs?.[2])
         })
 
         it('does not accept the data provided', async () => {

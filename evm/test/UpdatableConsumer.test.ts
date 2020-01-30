@@ -2,6 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
+  oracle,
   setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
@@ -145,7 +146,7 @@ describe('UpdatableConsumer', () => {
     const response = ethers.utils.formatBytes32String('1,000,000.00')
     const currency = 'USD'
     const paymentAmount = h.toWei('1')
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       await link.transfer(uc.address, paymentAmount)
@@ -153,11 +154,11 @@ describe('UpdatableConsumer', () => {
         h.toHex(ethers.utils.toUtf8Bytes(currency)),
       )
       const receipt = await tx.wait()
-      request = h.decodeRunRequest(receipt.logs?.[3])
+      request = oracle.decodeRunRequest(receipt.logs?.[3])
     })
 
     it('records the data given to it by the oracle', async () => {
-      await h.fulfillOracleRequest(oc, request, response)
+      await oracle.fulfillOracleRequest(oc, request, response)
 
       const currentPrice = await uc.currentPrice()
       assert.equal(currentPrice, response)
@@ -176,7 +177,7 @@ describe('UpdatableConsumer', () => {
       })
 
       it('records the data given to it by the old oracle contract', async () => {
-        await h.fulfillOracleRequest(oc, request, response)
+        await oracle.fulfillOracleRequest(oc, request, response)
 
         const currentPrice = await uc.currentPrice()
         assert.equal(currentPrice, response)

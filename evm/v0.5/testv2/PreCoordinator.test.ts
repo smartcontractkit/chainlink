@@ -2,6 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
+  oracle,
   setup,
 } from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
@@ -305,19 +306,19 @@ describe('PreCoordinator', () => {
 
         const log1 = receipt.logs?.[7]
         assert.equal(oc1.address, log1?.address)
-        const request1 = h.decodeRunRequest(log1)
+        const request1 = oracle.decodeRunRequest(log1)
         assert.equal(request1.requester, pc.address)
         const log2 = receipt.logs?.[11]
         assert.equal(oc2.address, log2?.address)
-        const request2 = h.decodeRunRequest(log2)
+        const request2 = oracle.decodeRunRequest(log2)
         assert.equal(request2.requester, pc.address)
         const log3 = receipt.logs?.[15]
         assert.equal(oc3.address, log3?.address)
-        const request3 = h.decodeRunRequest(log3)
+        const request3 = oracle.decodeRunRequest(log3)
         assert.equal(request3.requester, pc.address)
         const log4 = receipt.logs?.[19]
         assert.equal(oc4.address, log4?.address)
-        const request4 = h.decodeRunRequest(log4)
+        const request4 = oracle.decodeRunRequest(log4)
         assert.equal(request4.requester, pc.address)
         const expected = {
           path: ['USD'],
@@ -344,12 +345,20 @@ describe('PreCoordinator', () => {
         const fHash = '0xabcd1234'
         let args: string
         beforeEach(async () => {
-          args = h.requestDataBytes(saId, rc.address, fHash, nonce, '0x0')
-          await h.requestDataFrom(pc, link, totalPayment, args)
+          args = oracle.encodeOracleRequest(
+            saId,
+            rc.address,
+            fHash,
+            nonce,
+            '0x0',
+          )
+          await link.transferAndCall(pc.address, totalPayment, args)
         })
 
         it('reverts', () =>
-          matchers.evmRevert(h.requestDataFrom(pc, link, totalPayment, args)))
+          matchers.evmRevert(
+            link.transferAndCall(pc.address, totalPayment, args),
+          ))
       })
 
       describe('when too much payment is supplied', () => {
@@ -371,10 +380,10 @@ describe('PreCoordinator', () => {
 
   describe('#chainlinkCallback', () => {
     let saId: string
-    let request1: h.RunRequest
-    let request2: h.RunRequest
-    let request3: h.RunRequest
-    let request4: h.RunRequest
+    let request1: oracle.RunRequest
+    let request2: oracle.RunRequest
+    let request3: oracle.RunRequest
+    let request4: oracle.RunRequest
     const response1 = h.numToBytes32(100)
     const response2 = h.numToBytes32(101)
     const response3 = h.numToBytes32(102)
@@ -408,13 +417,13 @@ describe('PreCoordinator', () => {
         const receipt = await reqTx.wait()
 
         const log1 = receipt.logs?.[7]
-        request1 = h.decodeRunRequest(log1)
+        request1 = oracle.decodeRunRequest(log1)
         const log2 = receipt.logs?.[11]
-        request2 = h.decodeRunRequest(log2)
+        request2 = oracle.decodeRunRequest(log2)
         const log3 = receipt.logs?.[15]
-        request3 = h.decodeRunRequest(log3)
+        request3 = oracle.decodeRunRequest(log3)
         const log4 = receipt.logs?.[19]
-        request4 = h.decodeRunRequest(log4)
+        request4 = oracle.decodeRunRequest(log4)
       })
 
       describe('when called by a stranger', () => {
@@ -507,10 +516,10 @@ describe('PreCoordinator', () => {
 
     describe('when consumer is different than requester', () => {
       let cc: contract.Instance<BasicConsumerFactory>
-      let request1: h.RunRequest
-      let request2: h.RunRequest
-      let request3: h.RunRequest
-      let request4: h.RunRequest
+      let request1: oracle.RunRequest
+      let request2: oracle.RunRequest
+      let request3: oracle.RunRequest
+      let request4: oracle.RunRequest
       let localRequestId: string
 
       beforeEach(async () => {
@@ -524,13 +533,13 @@ describe('PreCoordinator', () => {
 
         localRequestId = h.eventArgs(receipt.events?.[0]).id
         const log1 = receipt.logs?.[7]
-        request1 = h.decodeRunRequest(log1)
+        request1 = oracle.decodeRunRequest(log1)
         const log2 = receipt.logs?.[11]
-        request2 = h.decodeRunRequest(log2)
+        request2 = oracle.decodeRunRequest(log2)
         const log3 = receipt.logs?.[15]
-        request3 = h.decodeRunRequest(log3)
+        request3 = oracle.decodeRunRequest(log3)
         const log4 = receipt.logs?.[19]
-        request4 = h.decodeRunRequest(log4)
+        request4 = oracle.decodeRunRequest(log4)
 
         await cc
           .connect(roles.consumer)
@@ -614,7 +623,7 @@ describe('PreCoordinator', () => {
   })
 
   describe('#cancelOracleRequest', () => {
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       const tx = await pc
@@ -642,7 +651,7 @@ describe('PreCoordinator', () => {
       const reqReceipt = await reqTx.wait()
 
       const log1 = reqReceipt.logs?.[7]
-      request = h.decodeRunRequest(log1)
+      request = oracle.decodeRunRequest(log1)
     })
 
     describe('before the minimum required time', () => {
