@@ -74,7 +74,7 @@ describe('PrepaidAggregator', () => {
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
-    matchers.assertBigNum(deposit, await link.balanceOf(aggregator.address))
+    matchers.bigNum(deposit, await link.balanceOf(aggregator.address))
   })
 
   beforeEach(async () => {
@@ -83,7 +83,7 @@ describe('PrepaidAggregator', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(prepaidAggregatorFactory, [
+    matchers.publicAbi(prepaidAggregatorFactory, [
       'addOracle',
       'allocatedFunds',
       'availableFunds',
@@ -121,21 +121,21 @@ describe('PrepaidAggregator', () => {
 
   describe('#constructor', () => {
     it('sets the paymentAmount', async () => {
-      matchers.assertBigNum(
+      matchers.bigNum(
         ethers.utils.bigNumberify(paymentAmount),
         await aggregator.paymentAmount(),
       )
     })
 
     it('sets the timeout', async () => {
-      matchers.assertBigNum(
+      matchers.bigNum(
         ethers.utils.bigNumberify(timeout),
         await aggregator.timeout(),
       )
     })
 
     it('sets the decimals', async () => {
-      matchers.assertBigNum(
+      matchers.bigNum(
         ethers.utils.bigNumberify(decimals),
         await aggregator.decimals(),
       )
@@ -163,23 +163,20 @@ describe('PrepaidAggregator', () => {
     })
 
     it('updates the allocated and available funds counters', async () => {
-      matchers.assertBigNum(0, await aggregator.allocatedFunds())
+      matchers.bigNum(0, await aggregator.allocatedFunds())
 
       const tx = await aggregator
         .connect(personas.Neil)
         .updateAnswer(nextRound, answer)
       const receipt = await tx.wait()
 
-      matchers.assertBigNum(paymentAmount, await aggregator.allocatedFunds())
+      matchers.bigNum(paymentAmount, await aggregator.allocatedFunds())
       const expectedAvailable = deposit.sub(paymentAmount)
-      matchers.assertBigNum(
-        expectedAvailable,
-        await aggregator.availableFunds(),
-      )
+      matchers.bigNum(expectedAvailable, await aggregator.availableFunds())
       const logged = ethers.utils.bigNumberify(
         receipt.logs?.[1].topics[1] ?? ethers.utils.bigNumberify(-1),
       )
-      matchers.assertBigNum(expectedAvailable, logged)
+      matchers.bigNum(expectedAvailable, logged)
     })
 
     it('updates the latest submission record for the oracle', async () => {
@@ -197,41 +194,35 @@ describe('PrepaidAggregator', () => {
 
     describe('when the minimum oracles have not reported', () => {
       it('pays the oracles that have reported', async () => {
-        matchers.assertBigNum(
+        matchers.bigNum(
           0,
           await aggregator.connect(personas.Neil).withdrawable(),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
 
-        matchers.assertBigNum(
+        matchers.bigNum(
           paymentAmount,
           await aggregator.connect(personas.Neil).withdrawable(),
         )
-        matchers.assertBigNum(
+        matchers.bigNum(
           0,
           await aggregator.connect(personas.Ned).withdrawable(),
         )
-        matchers.assertBigNum(
+        matchers.bigNum(
           0,
           await aggregator.connect(personas.Nelly).withdrawable(),
         )
       })
 
       it('does not update the answer', async () => {
-        matchers.assertBigNum(
-          ethers.constants.Zero,
-          await aggregator.latestAnswer(),
-        )
+        matchers.bigNum(ethers.constants.Zero, await aggregator.latestAnswer())
 
         // Not updated because of changes by the owner setting minAnswerCount to 3
         await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
-        matchers.assertBigNum(
-          ethers.constants.Zero,
-          await aggregator.latestAnswer(),
-        )
+        matchers.bigNum(ethers.constants.Zero, await aggregator.latestAnswer())
       })
     })
 
@@ -242,7 +233,7 @@ describe('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.updateAnswer(nextRound + 1, answer),
           'Not eligible to bump round',
         )
@@ -256,14 +247,14 @@ describe('PrepaidAggregator', () => {
       })
 
       it('updates the answer with the median', async () => {
-        matchers.assertBigNum(0, await aggregator.latestAnswer())
+        matchers.bigNum(0, await aggregator.latestAnswer())
 
         await aggregator.connect(personas.Ned).updateAnswer(nextRound, 99)
-        matchers.assertBigNum(99, await aggregator.latestAnswer()) // ((100+99) / 2).to_i
+        matchers.bigNum(99, await aggregator.latestAnswer()) // ((100+99) / 2).to_i
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, 101)
 
-        matchers.assertBigNum(100, await aggregator.latestAnswer())
+        matchers.bigNum(100, await aggregator.latestAnswer())
       })
 
       it('updates the updated timestamp', async () => {
@@ -308,7 +299,7 @@ describe('PrepaidAggregator', () => {
       it('reverts', async () => {
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
 
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
           'Cannot update round reports',
         )
@@ -322,7 +313,7 @@ describe('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
           'Round not currently eligible for reporting',
         )
@@ -331,7 +322,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when a new highest round number is passed in', () => {
       it('increments the answer round', async () => {
-        matchers.assertBigNum(
+        matchers.bigNum(
           ethers.constants.Zero,
           await aggregator.reportingRound(),
         )
@@ -340,10 +331,7 @@ describe('PrepaidAggregator', () => {
           await aggregator.connect(oracle).updateAnswer(nextRound, answer)
         }
 
-        matchers.assertBigNum(
-          ethers.constants.One,
-          await aggregator.reportingRound(),
-        )
+        matchers.bigNum(ethers.constants.One, await aggregator.reportingRound())
       })
 
       it('announces a new round by emitting a log', async () => {
@@ -356,14 +344,14 @@ describe('PrepaidAggregator', () => {
         const roundNumber = ethers.utils.bigNumberify(topics[1])
         const startedBy = h.evmWordToAddress(topics[2])
 
-        matchers.assertBigNum(nextRound, roundNumber.toNumber())
-        matchers.assertBigNum(startedBy, personas.Neil.address)
+        matchers.bigNum(nextRound, roundNumber.toNumber())
+        matchers.bigNum(startedBy, personas.Neil.address)
       })
     })
 
     describe('when a round is passed in higher than expected', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound + 1, answer),
           'Must report on current round',
         )
@@ -372,7 +360,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when called by a non-oracle', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Carol).updateAnswer(nextRound, answer),
           'Only updatable by whitelisted oracles',
         )
@@ -387,7 +375,7 @@ describe('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
           'SafeMath: subtraction overflow',
         )
@@ -398,11 +386,11 @@ describe('PrepaidAggregator', () => {
       const newAmount = h.toWei('50')
 
       it('pays the same amount to all oracles per round', async () => {
-        matchers.assertBigNum(
+        matchers.bigNum(
           0,
           await aggregator.connect(personas.Neil).withdrawable(),
         )
-        matchers.assertBigNum(
+        matchers.bigNum(
           0,
           await aggregator.connect(personas.Nelly).withdrawable(),
         )
@@ -413,11 +401,11 @@ describe('PrepaidAggregator', () => {
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
-        matchers.assertBigNum(
+        matchers.bigNum(
           paymentAmount,
           await aggregator.connect(personas.Neil).withdrawable(),
         )
-        matchers.assertBigNum(
+        matchers.bigNum(
           paymentAmount,
           await aggregator.connect(personas.Nelly).withdrawable(),
         )
@@ -446,7 +434,7 @@ describe('PrepaidAggregator', () => {
 
         nextRound++
 
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
           'Not eligible to bump round',
         )
@@ -485,12 +473,12 @@ describe('PrepaidAggregator', () => {
 
       describe('when called by an oracle who answered recently', () => {
         it('reverts', async () => {
-          await h.assertActionThrows(
+          await matchers.evmRevert(
             aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
             'Round not currently eligible for reporting',
           )
 
-          await h.assertActionThrows(
+          await matchers.evmRevert(
             aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
             'Round not currently eligible for reporting',
           )
@@ -553,10 +541,7 @@ describe('PrepaidAggregator', () => {
 
           updated = await aggregator.getTimestamp(previousRound)
           ans = await aggregator.getAnswer(previousRound)
-          matchers.assertBigNum(
-            ethers.utils.bigNumberify(block.timestamp),
-            updated,
-          )
+          matchers.bigNum(ethers.utils.bigNumberify(block.timestamp), updated)
           assert.equal(answer, ans.toNumber())
         })
 
@@ -579,7 +564,7 @@ describe('PrepaidAggregator', () => {
 
         it('still respects the delay restriction', async () => {
           // expected to revert because the sender started the last round
-          await h.assertActionThrows(
+          await matchers.evmRevert(
             aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
             'Round not currently eligible for reporting',
           )
@@ -616,7 +601,7 @@ describe('PrepaidAggregator', () => {
         })
 
         it('does not allow a round to be started', async () => {
-          await h.assertActionThrows(
+          await matchers.evmRevert(
             aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
             'Must have a previous answer to pull from',
           )
@@ -642,7 +627,7 @@ describe('PrepaidAggregator', () => {
     it('retrieves the answer recorded for past rounds', async () => {
       for (let i = nextRound; i < nextRound; i++) {
         const answer = await aggregator.getAnswer(i)
-        matchers.assertBigNum(ethers.utils.bigNumberify(answers[i - 1]), answer)
+        matchers.bigNum(ethers.utils.bigNumberify(answers[i - 1]), answer)
       }
     })
   })
@@ -678,7 +663,7 @@ describe('PrepaidAggregator', () => {
         .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
       const currentCount = await aggregator.oracleCount()
 
-      matchers.assertBigNum(currentCount, pastCount + 1)
+      matchers.bigNum(currentCount, pastCount + 1)
     })
 
     it('updates the round details', async () => {
@@ -686,18 +671,12 @@ describe('PrepaidAggregator', () => {
         .connect(personas.Carol)
         .addOracle(personas.Neil.address, 0, 1, 0)
 
-      matchers.assertBigNum(
-        ethers.constants.Zero,
-        await aggregator.minAnswerCount(),
-      )
-      matchers.assertBigNum(
+      matchers.bigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
+      matchers.bigNum(
         ethers.utils.bigNumberify(1),
         await aggregator.maxAnswerCount(),
       )
-      matchers.assertBigNum(
-        ethers.constants.Zero,
-        await aggregator.restartDelay(),
-      )
+      matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
     })
 
     it('emits a log', async () => {
@@ -707,7 +686,7 @@ describe('PrepaidAggregator', () => {
       const receipt = await tx.wait()
 
       const added = h.evmWordToAddress(receipt.logs?.[0].topics[1])
-      matchers.assertBigNum(added, personas.Neil.address)
+      matchers.bigNum(added, personas.Neil.address)
     })
 
     describe('when the oracle has already been added', () => {
@@ -718,7 +697,7 @@ describe('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
             .addOracle(personas.Neil.address, minAns, maxAns, rrDelay),
@@ -729,7 +708,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when called by anyone but the owner', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
             .addOracle(personas.Neil.address, minAns, maxAns, rrDelay),
@@ -755,7 +734,7 @@ describe('PrepaidAggregator', () => {
       })
 
       it('does not allow the oracle to update the round', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
           'New oracles cannot participate in in-progress rounds',
         )
@@ -833,7 +812,7 @@ describe('PrepaidAggregator', () => {
             .connect(personas.Carol)
             .addOracle(fakeAddress, minMax, minMax, rrDelay)
         }
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
             .addOracle(personas.Neil.address, limit + 1, limit + 1, rrDelay),
@@ -868,18 +847,12 @@ describe('PrepaidAggregator', () => {
         .connect(personas.Carol)
         .removeOracle(personas.Neil.address, 0, 1, 0)
 
-      matchers.assertBigNum(
-        ethers.constants.Zero,
-        await aggregator.minAnswerCount(),
-      )
-      matchers.assertBigNum(
+      matchers.bigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
+      matchers.bigNum(
         ethers.utils.bigNumberify(1),
         await aggregator.maxAnswerCount(),
       )
-      matchers.assertBigNum(
-        ethers.constants.Zero,
-        await aggregator.restartDelay(),
-      )
+      matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
     })
 
     it('emits a log', async () => {
@@ -889,7 +862,7 @@ describe('PrepaidAggregator', () => {
       const receipt = await tx.wait()
 
       const added = h.evmWordToAddress(receipt.logs?.[0].topics[1])
-      matchers.assertBigNum(added, personas.Neil.address)
+      matchers.bigNum(added, personas.Neil.address)
     })
 
     describe('when the oracle is not currently added', () => {
@@ -900,7 +873,7 @@ describe('PrepaidAggregator', () => {
       })
 
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
             .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay),
@@ -923,7 +896,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when called by anyone but the owner', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Ned)
             .removeOracle(personas.Neil.address, 0, 0, rrDelay),
@@ -946,7 +919,7 @@ describe('PrepaidAggregator', () => {
         nextRound++
 
         // cannot participate in future rounds
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
           'Oracle has been removed from whitelist',
         )
@@ -961,11 +934,8 @@ describe('PrepaidAggregator', () => {
           .connect(personas.Carol)
           .withdrawFunds(personas.Carol.address, deposit)
 
-        matchers.assertBigNum(0, await aggregator.availableFunds())
-        matchers.assertBigNum(
-          deposit,
-          await link.balanceOf(personas.Carol.address),
-        )
+        matchers.bigNum(0, await aggregator.availableFunds())
+        matchers.bigNum(deposit, await link.balanceOf(personas.Carol.address))
       })
 
       it('does not let withdrawals happen multiple times', async () => {
@@ -973,7 +943,7 @@ describe('PrepaidAggregator', () => {
           .connect(personas.Carol)
           .withdrawFunds(personas.Carol.address, deposit)
 
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
             .withdrawFunds(personas.Carol.address, deposit),
@@ -992,14 +962,14 @@ describe('PrepaidAggregator', () => {
         })
 
         it('fails', async () => {
-          await h.assertActionThrows(
+          await matchers.evmRevert(
             aggregator
               .connect(personas.Carol)
               .withdrawFunds(personas.Carol.address, deposit),
             'Insufficient funds',
           )
 
-          matchers.assertBigNum(
+          matchers.bigNum(
             deposit.sub(paymentAmount),
             await aggregator.availableFunds(),
           )
@@ -1009,14 +979,14 @@ describe('PrepaidAggregator', () => {
 
     describe('when called by a non-owner', () => {
       it('fails', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Eddy)
             .withdrawFunds(personas.Carol.address, deposit),
           'Only callable by owner',
         )
 
-        matchers.assertBigNum(deposit, await aggregator.availableFunds())
+        matchers.bigNum(deposit, await aggregator.availableFunds())
       })
     })
   })
@@ -1039,7 +1009,7 @@ describe('PrepaidAggregator', () => {
       minAnswerCount = oracleAddresses.length
       maxAnswerCount = oracleAddresses.length
 
-      matchers.assertBigNum(paymentAmount, await aggregator.paymentAmount())
+      matchers.bigNum(paymentAmount, await aggregator.paymentAmount())
       assert.equal(minAnswerCount, await aggregator.minAnswerCount())
       assert.equal(maxAnswerCount, await aggregator.maxAnswerCount())
     })
@@ -1052,16 +1022,16 @@ describe('PrepaidAggregator', () => {
         restartDelay: newDelay,
       })
 
-      matchers.assertBigNum(newPaymentAmount, await aggregator.paymentAmount())
-      matchers.assertBigNum(
+      matchers.bigNum(newPaymentAmount, await aggregator.paymentAmount())
+      matchers.bigNum(
         ethers.utils.bigNumberify(newMin),
         await aggregator.minAnswerCount(),
       )
-      matchers.assertBigNum(
+      matchers.bigNum(
         ethers.utils.bigNumberify(newMax),
         await aggregator.maxAnswerCount(),
       )
-      matchers.assertBigNum(
+      matchers.bigNum(
         ethers.utils.bigNumberify(newDelay),
         await aggregator.restartDelay(),
       )
@@ -1078,7 +1048,7 @@ describe('PrepaidAggregator', () => {
       const receipt = await tx.wait()
       const round = h.eventArgs(receipt.events?.[0])
 
-      matchers.assertBigNum(newPaymentAmount, round.paymentAmount)
+      matchers.bigNum(newPaymentAmount, round.paymentAmount)
       assert.equal(newMin, round.minAnswerCount)
       assert.equal(newMax, round.maxAnswerCount)
       assert.equal(newDelay, round.restartDelay)
@@ -1087,7 +1057,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when it is set to higher than the number or oracles', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           updateFutureRounds(aggregator, {
             maxAnswers: 4,
           }),
@@ -1098,7 +1068,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when it sets the min higher than the max', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           updateFutureRounds(aggregator, {
             minAnswers: 3,
             maxAnswers: 2,
@@ -1110,7 +1080,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when delay equal or greater the oracle count', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           updateFutureRounds(aggregator, {
             restartDelay: 3,
           }),
@@ -1121,7 +1091,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when called by anyone but the owner', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           updateFutureRounds(aggregator.connect(personas.Ned)),
           'Only callable by owner',
         )
@@ -1135,13 +1105,13 @@ describe('PrepaidAggregator', () => {
 
       await aggregator.updateAvailableFunds()
 
-      matchers.assertBigNum(originalBalance, await aggregator.availableFunds())
+      matchers.bigNum(originalBalance, await aggregator.availableFunds())
 
       await link.transfer(aggregator.address, deposit)
       await aggregator.updateAvailableFunds()
 
       const newBalance = await aggregator.availableFunds()
-      matchers.assertBigNum(originalBalance.add(deposit), newBalance)
+      matchers.bigNum(originalBalance.add(deposit), newBalance)
     })
 
     it('removes allocated funds from the available balance', async () => {
@@ -1156,7 +1126,7 @@ describe('PrepaidAggregator', () => {
 
       const expected = originalBalance.add(deposit).sub(paymentAmount)
       const newBalance = await aggregator.availableFunds()
-      matchers.assertBigNum(expected, newBalance)
+      matchers.bigNum(expected, newBalance)
     })
 
     it('emits a log', async () => {
@@ -1168,7 +1138,7 @@ describe('PrepaidAggregator', () => {
       const reportedBalance = ethers.utils.bigNumberify(
         receipt.logs?.[0].topics[1] ?? -1,
       )
-      matchers.assertBigNum(await aggregator.availableFunds(), reportedBalance)
+      matchers.bigNum(await aggregator.availableFunds(), reportedBalance)
     })
 
     describe('when the available funds have not changed', () => {
@@ -1191,17 +1161,17 @@ describe('PrepaidAggregator', () => {
 
     it('transfers LINK to the caller', async () => {
       const originalBalance = await link.balanceOf(aggregator.address)
-      matchers.assertBigNum(0, await link.balanceOf(personas.Neil.address))
+      matchers.bigNum(0, await link.balanceOf(personas.Neil.address))
 
       await aggregator
         .connect(personas.Neil)
         .withdraw(personas.Neil.address, paymentAmount)
 
-      matchers.assertBigNum(
+      matchers.bigNum(
         originalBalance.sub(paymentAmount),
         await link.balanceOf(aggregator.address),
       )
-      matchers.assertBigNum(
+      matchers.bigNum(
         paymentAmount,
         await link.balanceOf(personas.Neil.address),
       )
@@ -1214,7 +1184,7 @@ describe('PrepaidAggregator', () => {
         .connect(personas.Neil)
         .withdraw(personas.Neil.address, paymentAmount)
 
-      matchers.assertBigNum(
+      matchers.bigNum(
         originalAllocation.sub(paymentAmount),
         await aggregator.allocatedFunds(),
       )
@@ -1222,7 +1192,7 @@ describe('PrepaidAggregator', () => {
 
     describe('when the caller withdraws more than they have', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
             .withdraw(
@@ -1241,14 +1211,14 @@ describe('PrepaidAggregator', () => {
 
       await aggregator.updateAvailableFunds()
 
-      matchers.assertBigNum(originalBalance, await aggregator.availableFunds())
+      matchers.bigNum(originalBalance, await aggregator.availableFunds())
 
       await link.transferAndCall(aggregator.address, deposit, '0x', {
         value: 0,
       })
 
       const newBalance = await aggregator.availableFunds()
-      matchers.assertBigNum(originalBalance.add(deposit), newBalance)
+      matchers.bigNum(originalBalance.add(deposit), newBalance)
     })
   })
 })

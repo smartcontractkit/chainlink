@@ -100,7 +100,7 @@ describe('GetterSetter', () => {
       assert.equal(currentRequestId, requestId)
 
       const currentUint256 = await gs.getUint256()
-      matchers.assertBigNum(currentUint256, uint256)
+      matchers.bigNum(currentUint256, uint256)
     })
   })
 })

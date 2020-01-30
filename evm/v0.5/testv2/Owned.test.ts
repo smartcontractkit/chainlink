@@ -1,4 +1,9 @@
-import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { OwnedTestHelperFactory } from '../src/generated'
@@ -28,7 +33,7 @@ describe('Owned', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(ownedTestHelperFactory, [
+    matchers.publicAbi(ownedTestHelperFactory, [
       'acceptOwnership',
       'owner',
       'transferOwnership',
@@ -60,7 +65,7 @@ describe('Owned', () => {
 
     describe('when called by anyone but the owner', () => {
       it('reverts', () =>
-        h.assertActionThrows(owned.connect(nonOwner).modifierOnlyOwner()))
+        matchers.evmRevert(owned.connect(nonOwner).modifierOnlyOwner()))
     })
   })
 
@@ -84,7 +89,7 @@ describe('Owned', () => {
 
   describe('when called by anyone but the owner', () => {
     it('successfully calls the method', () =>
-      h.assertActionThrows(
+      matchers.evmRevert(
         owned.connect(nonOwner).transferOwnership(newOwner.address),
       ))
   })
@@ -105,7 +110,7 @@ describe('Owned', () => {
       })
 
       it('does not allow a non-recipient to call it', () =>
-        h.assertActionThrows(owned.connect(nonOwner).acceptOwnership()))
+        matchers.evmRevert(owned.connect(nonOwner).acceptOwnership()))
     })
   })
 })

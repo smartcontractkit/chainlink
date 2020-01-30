@@ -56,7 +56,7 @@ describe('BasicConsumer', () => {
   describe('#requestEthereumPrice', () => {
     describe('without LINK', () => {
       it('reverts', () =>
-        h.assertActionThrows(cc.requestEthereumPrice(currency, payment)))
+        matchers.evmRevert(cc.requestEthereumPrice(currency, payment)))
     })
 
     describe('with LINK', () => {
@@ -79,7 +79,7 @@ describe('BasicConsumer', () => {
         }
 
         assert.equal(h.toHex(specId), request.jobId)
-        matchers.assertBigNum(h.toWei('1'), request.payment)
+        matchers.bigNum(h.toWei('1'), request.payment)
         assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assert.equal(1, request.dataVersion)
         assert.deepEqual(expected, cbor.decodeFirstSync(request.data))
@@ -168,7 +168,7 @@ describe('BasicConsumer', () => {
 
     describe('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           cc.connect(roles.oracleNode).fulfill(request.id, response),
         )
 
@@ -192,7 +192,7 @@ describe('BasicConsumer', () => {
 
     describe('before 5 minutes', () => {
       it('cant cancel the request', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           cc
             .connect(roles.consumer)
             .cancelRequest(
@@ -228,7 +228,7 @@ describe('BasicConsumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
       const balance = await link.balanceOf(cc.address)
-      matchers.assertBigNum(balance, depositAmount)
+      matchers.bigNum(balance, depositAmount)
     })
 
     it('transfers LINK out of the contract', async () => {
@@ -237,8 +237,8 @@ describe('BasicConsumer', () => {
       const consumerBalance = ethers.utils.bigNumberify(
         await link.balanceOf(roles.consumer.address),
       )
-      matchers.assertBigNum(ccBalance, 0)
-      matchers.assertBigNum(consumerBalance, depositAmount)
+      matchers.bigNum(ccBalance, 0)
+      matchers.bigNum(consumerBalance, depositAmount)
     })
   })
 })

@@ -21,8 +21,8 @@ function assertPointsEqual(
   x: ethers.utils.BigNumber[],
   y: ethers.utils.BigNumber[],
 ) {
-  matchers.assertBigNum(x[0], y[0])
-  matchers.assertBigNum(x[1], y[1])
+  matchers.bigNum(x[0], y[0])
+  matchers.bigNum(x[1], y[1])
 }
 
 const vrfFactory = new VRFFactory()
@@ -46,7 +46,7 @@ describe('VRF', () => {
 
   it('Accurately calculates simple and obvious bigModExp test inputs', async () => {
     const rawExp = 3 ** 2 // Appease prettier but clarify operator precedence
-    matchers.assertBigNum(await VRF.bigModExp(3, 2, 5), rawExp % 5)
+    matchers.bigNum(await VRF.bigModExp(3, 2, 5), rawExp % 5)
   })
 
   it('accurately calculates the sum of g and 2g (i.e., 3g)', async () => {
@@ -70,16 +70,16 @@ describe('VRF', () => {
   })
 
   it('Can compute square roots', async () => {
-    matchers.assertBigNum(2, await VRF.squareRoot(4), '4=2^2') // 4**((fieldSize-1)/2)
+    matchers.bigNum(2, await VRF.squareRoot(4), '4=2^2') // 4**((fieldSize-1)/2)
   })
 
   it('Can compute the square of the y ordinate given the x ordinate', async () => {
-    matchers.assertBigNum(8, await VRF.ySquared(1), '8=1^3+7')
+    matchers.bigNum(8, await VRF.ySquared(1), '8=1^3+7')
   })
 
   it('Hashes to the curve with the same results as the golang code', async () => {
     let result = await VRF.hashToCurve(f.generator, 1)
-    matchers.assertBigNum(
+    matchers.bigNum(
       bn(result[0])
         .pow(big3)
         .add(bn(7))
@@ -91,12 +91,12 @@ describe('VRF', () => {
     )
     // See golang code
     result = await VRF.hashToCurve(f.generator, 1)
-    matchers.assertBigNum(
+    matchers.bigNum(
       result[0],
       '0x530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4',
       'mismatch with output from services/vrf/vrf_test.go/TestVRF_HashToCurve',
     )
-    matchers.assertBigNum(
+    matchers.bigNum(
       result[1],
       '0x6fd4ee394bf2a3de542c0e5f3c86fc8f75b278a017701a59d69bdf5134dd6b70',
       'mismatch with output from services/vrf/vrf_test.go/TestVRF_HashToCurve',
@@ -147,7 +147,7 @@ describe('VRF', () => {
       h.pubkeyToAddress(f.generator),
       f.generator,
     )
-    matchers.assertBigNum(
+    matchers.bigNum(
       '0x2b1049accb1596a24517f96761b22600a690ee5c6b6cadae3fa522e7d95ba338',
       scalar,
       'mismatch with output from services/vrf/vrf_test.go/TestVRF_ScalarFromCurve',

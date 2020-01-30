@@ -1,4 +1,9 @@
-import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -119,7 +124,7 @@ describe('PreCoordinator', () => {
       })
 
       it('does not allow service agreements with 0 minResponses', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc
             .connect(roles.defaultAccount)
             .createServiceAgreement(
@@ -133,7 +138,7 @@ describe('PreCoordinator', () => {
 
       describe('when called by a stranger', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc
               .connect(roles.stranger)
               .createServiceAgreement(
@@ -147,7 +152,7 @@ describe('PreCoordinator', () => {
 
       describe('when the array lengths are not equal', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc
               .connect(roles.defaultAccount)
               .createServiceAgreement(
@@ -162,7 +167,7 @@ describe('PreCoordinator', () => {
 
       describe('when the min responses is greater than the oracles', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc
               .connect(roles.defaultAccount)
               .createServiceAgreement(
@@ -198,7 +203,7 @@ describe('PreCoordinator', () => {
 
     describe('when called by a stranger', () => {
       it('reverts', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc.connect(roles.stranger).deleteServiceAgreement(saId),
         ))
     })
@@ -227,7 +232,7 @@ describe('PreCoordinator', () => {
       })
 
       it('reverts', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc.connect(roles.defaultAccount).deleteServiceAgreement(saId),
           'Cannot delete while active',
         ))
@@ -262,7 +267,7 @@ describe('PreCoordinator', () => {
           .connect(roles.defaultAccount)
           .transfer(badRc.address, totalPayment)
 
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           badRc
             .connect(roles.consumer)
             .requestEthereumPrice(currency, totalPayment, {}),
@@ -329,7 +334,7 @@ describe('PreCoordinator', () => {
 
       describe('when insufficient payment is supplied', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             rc.connect(roles.consumer).requestEthereumPrice(currency, payment),
           ))
       })
@@ -344,7 +349,7 @@ describe('PreCoordinator', () => {
         })
 
         it('reverts', () =>
-          h.assertActionThrows(h.requestDataFrom(pc, link, totalPayment, args)))
+          matchers.evmRevert(h.requestDataFrom(pc, link, totalPayment, args)))
       })
 
       describe('when too much payment is supplied', () => {
@@ -414,7 +419,7 @@ describe('PreCoordinator', () => {
 
       describe('when called by a stranger', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc.chainlinkCallback(saId, response1),
             'Source must be the oracle of the request',
           ))
@@ -595,7 +600,7 @@ describe('PreCoordinator', () => {
 
     describe('when called by a stranger', () => {
       it('reverts', () =>
-        h.assertActionThrows(pc.connect(roles.stranger).withdrawLink()))
+        matchers.evmRevert(pc.connect(roles.stranger).withdrawLink()))
     })
 
     describe('when called by the owner', () => {
@@ -642,7 +647,7 @@ describe('PreCoordinator', () => {
 
     describe('before the minimum required time', () => {
       it('does not allow requests to be cancelled', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           rc
             .connect(roles.consumer)
             .cancelRequest(
@@ -676,7 +681,7 @@ describe('PreCoordinator', () => {
       })
 
       it('does not allow others to call', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc
             .connect(roles.stranger)
             .cancelOracleRequest(
