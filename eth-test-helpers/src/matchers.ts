@@ -4,8 +4,10 @@
  */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BigNumberish } from 'ethers/utils'
+import { ContractReceipt } from 'ethers/contract'
+import { BigNumberish, EventDescription } from 'ethers/utils'
 import { makeDebug } from './debug'
+import { findEventIn } from './helpers'
 const debug = makeDebug('helpers')
 
 /**
@@ -97,5 +99,23 @@ export function publicAbi(
   for (const method of expectedPublic) {
     const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is expected to be public`)
+  }
+}
+
+/**
+ * Assert that an event exists
+ *
+ * @param receipt The contract receipt to find the event in
+ * @param eventDescription A description of the event to search by
+ */
+export function eventExists(
+  receipt: ContractReceipt,
+  eventDescription: EventDescription,
+) {
+  const event = findEventIn(receipt, eventDescription)
+  if (!event) {
+    throw Error(
+      `Unable to find ${eventDescription.name} in transaction receipt`,
+    )
   }
 }
