@@ -20,5 +20,9 @@
     "resolveJsonModule": true
   },
   "include": ["src"],
-  "references": [{ "path": "../eth-test-helpers" }]
+  "references": [
+    { "path": "../eth-test-helpers" },
+    { "path": "../evm" },
+    { "path": "../evm/v0.5" }
+  ]
 }
