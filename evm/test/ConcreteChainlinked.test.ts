@@ -1,4 +1,4 @@
-import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
+import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import {
@@ -14,14 +14,14 @@ const getterSetterFactory = new GetterSetterFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('ConcreteChainlinked', () => {
@@ -32,7 +32,7 @@ describe('ConcreteChainlinked', () => {
   let oc: contract.Instance<OracleFactory | EmptyOracleFactory>
   let newoc: contract.Instance<OracleFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     newoc = await oracleFactory

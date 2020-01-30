@@ -1,17 +1,17 @@
-import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
+import { contract, setup } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 
 const GetterSetterContract = new GetterSetterFactory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('GetterSetter', () => {
@@ -20,7 +20,7 @@ describe('GetterSetter', () => {
   const bytes32 = ethers.utils.formatBytes32String('Hi Mom!')
   const uint256 = ethers.utils.bigNumberify(645746535432)
   let gs: contract.Instance<GetterSetterFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     gs = await GetterSetterContract.connect(roles.defaultAccount).deploy()
   })
 

@@ -2,7 +2,7 @@ import {
   contract,
   extensions,
   helpers as h,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -12,17 +12,17 @@ extensions.ethers.BigNumber.extend()
 const { bigNumberify: bn } = ethers.utils
 
 const schnorrSECP256K1Factory = new SchnorrSECP256K1Factory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  defaultAccount = rolesAndPersonas.roles.defaultAccount
+  const users = await setup.users(provider)
+  defaultAccount = users.roles.defaultAccount
 })
 
 describe('SchnorrSECP256K1', () => {
   let c: contract.Instance<SchnorrSECP256K1Factory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     c = await schnorrSECP256K1Factory.connect(defaultAccount).deploy()
   })
 

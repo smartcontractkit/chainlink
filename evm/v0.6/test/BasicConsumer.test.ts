@@ -3,7 +3,7 @@ import {
   debug,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
 import { assert } from 'chai'
@@ -17,14 +17,14 @@ const oracleFactory = new OracleFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('BasicConsumer', () => {
@@ -34,7 +34,7 @@ describe('BasicConsumer', () => {
   let link: contract.Instance<contract.LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
   let cc: contract.Instance<BasicConsumerFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     cc = await basicConsumerFactory

@@ -3,7 +3,7 @@ import {
   extensions,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -26,17 +26,17 @@ function assertPointsEqual(
 }
 
 const vrfFactory = new VRFFactory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  defaultAccount = rolesAndPersonas.roles.defaultAccount
+  const users = await setup.users(provider)
+  defaultAccount = users.roles.defaultAccount
 })
 
 describe('VRF', () => {
   let VRF: contract.Instance<VRFFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     VRF = await vrfFactory.connect(defaultAccount).deploy()
   })
 

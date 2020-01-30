@@ -1,17 +1,15 @@
-import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
+import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
 import { ChainlinkTestHelperFactory } from '../src/generated/ChainlinkTestHelperFactory'
 
 const chainlinkFactory = new ChainlinkTestHelperFactory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
-  defaultAccount = await h
-    .initializeRolesAndPersonas(provider)
-    .then(x => x.roles.defaultAccount)
+  defaultAccount = await setup.users(provider).then(x => x.roles.defaultAccount)
 })
 
 describe('Chainlink', () => {
@@ -20,7 +18,7 @@ describe('Chainlink', () => {
     ChainlinkTestHelperFactory
   >['interface']['events']
 
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     cl = await chainlinkFactory.connect(defaultAccount).deploy()
     clEvents = cl.interface.events
   })

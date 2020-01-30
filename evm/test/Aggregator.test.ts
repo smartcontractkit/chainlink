@@ -2,7 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -13,15 +13,15 @@ const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
-let personas: h.Personas
+let personas: setup.Personas
 let defaultAccount: ethers.Wallet
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  personas = rolesAndPersonas.personas
-  defaultAccount = rolesAndPersonas.roles.defaultAccount
+  personas = users.personas
+  defaultAccount = users.roles.defaultAccount
 })
 
 describe('Aggregator', () => {
@@ -43,7 +43,7 @@ describe('Aggregator', () => {
   let oc4: contract.Instance<OracleFactory>
   let oracles: contract.Instance<OracleFactory>[]
   let jobIds: string[] = []
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     oc2 = await oracleFactory.connect(defaultAccount).deploy(link.address)

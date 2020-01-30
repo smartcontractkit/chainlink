@@ -2,7 +2,7 @@ import {
   contract,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -17,14 +17,14 @@ const oracleFactory = new OracleFactory()
 const publicResolverFacotory = new PublicResolverFactory()
 const updatableConsumerFactory = new UpdatableConsumerFactory()
 
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('UpdatableConsumer', () => {
@@ -50,7 +50,7 @@ describe('UpdatableConsumer', () => {
   let link: contract.Instance<contract.LinkTokenFactory>
   let oc: contract.Instance<OracleFactory>
   let uc: contract.Instance<UpdatableConsumerFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     ens = await ensRegistryFactory.connect(roles.defaultAccount).deploy()

@@ -2,20 +2,20 @@ import {
   contract,
   helpers as h,
   matchers,
-  providers,
+  setup,
 } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
 import { PrepaidAggregatorFactory } from '../src/generated'
 
-let personas: h.Personas
-const provider = providers.makeTestProvider()
+let personas: setup.Personas
+const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const prepaidAggregatorFactory = new PrepaidAggregatorFactory()
 
 beforeAll(async () => {
-  personas = await h.initializeRolesAndPersonas(provider).then(x => x.personas)
+  personas = await setup.users(provider).then(x => x.personas)
 })
 
 describe('PrepaidAggregator', () => {
@@ -61,7 +61,7 @@ describe('PrepaidAggregator', () => {
       round.timeout,
     )
   }
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
     aggregator = await prepaidAggregatorFactory
       .connect(personas.Carol)

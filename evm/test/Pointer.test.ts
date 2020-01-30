@@ -1,23 +1,23 @@
-import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
+import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { PointerFactory } from '../src/generated/PointerFactory'
 
 const pointerFactory = new PointerFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('Pointer', () => {
   let pointer: contract.Instance<PointerFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     pointer = await pointerFactory
       .connect(roles.defaultAccount)

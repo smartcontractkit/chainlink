@@ -3,7 +3,7 @@ import * as debug from './debug'
 import * as extensions from './extensions'
 import * as helpers from './helpers'
 import * as matchers from './matchers'
-import * as providers from './provider'
+import * as setup from './setup'
 import * as wallet from './wallet'
 
-export { contract, helpers, debug, wallet, matchers, providers, extensions }
+export { contract, helpers, debug, wallet, matchers, setup, extensions }

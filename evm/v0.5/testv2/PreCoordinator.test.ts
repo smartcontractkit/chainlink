@@ -1,4 +1,4 @@
-import { contract, helpers as h, providers } from '@chainlink/eth-test-helpers'
+import { contract, helpers as h, setup } from '@chainlink/eth-test-helpers'
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -8,15 +8,15 @@ import {
   PreCoordinatorFactory,
 } from '../src/generated'
 
-const provider = providers.makeTestProvider()
+const provider = setup.provider()
 const oracleFactory = new OracleFactory()
 const preCoordinatorFactory = new PreCoordinatorFactory()
 const requesterConsumerFactory = new BasicConsumerFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
-let roles: h.Roles
+let roles: setup.Roles
 beforeAll(async () => {
-  roles = await h.initializeRolesAndPersonas(provider).then(x => x.roles)
+  roles = await setup.users(provider).then(x => x.roles)
 })
 
 describe('PreCoordinator', () => {
@@ -47,7 +47,7 @@ describe('PreCoordinator', () => {
   let rc: contract.Instance<BasicConsumerFactory>
   let pc: contract.Instance<PreCoordinatorFactory>
 
-  const deployment = providers.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc1 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     oc2 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)

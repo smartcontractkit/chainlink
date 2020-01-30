@@ -4,35 +4,9 @@ import { ethers } from 'ethers'
 import { ContractReceipt, ContractTransaction } from 'ethers/contract'
 import { EventDescription } from 'ethers/utils'
 import { makeDebug } from './debug'
-import { createFundedWallet } from './wallet'
 
 const debug = makeDebug('helpers')
 export const { utils } = ethers
-
-export interface Roles {
-  defaultAccount: ethers.Wallet
-  oracleNode: ethers.Wallet
-  oracleNode1: ethers.Wallet
-  oracleNode2: ethers.Wallet
-  oracleNode3: ethers.Wallet
-  oracleNode4: ethers.Wallet
-  stranger: ethers.Wallet
-  consumer: ethers.Wallet
-}
-
-export interface Personas {
-  Default: ethers.Wallet
-  Neil: ethers.Wallet
-  Ned: ethers.Wallet
-  Nelly: ethers.Wallet
-  Carol: ethers.Wallet
-  Eddy: ethers.Wallet
-}
-
-interface RolesAndPersonas {
-  roles: Roles
-  personas: Personas
-}
 
 // duplicated in evm/v0.5/test/support/helpers.ts (kinda)
 export interface ServiceAgreement {
@@ -90,41 +64,6 @@ export function create<T extends new (...args: any[]) => any>(
   const factory = new contractFactory(signer)
 
   return factory
-}
-
-/**
- * Generate roles and personas for tests along with their corrolated account addresses
- */
-export async function initializeRolesAndPersonas(
-  provider: ethers.providers.JsonRpcProvider,
-): Promise<RolesAndPersonas> {
-  const accounts = await Promise.all(
-    Array(8)
-      .fill(null)
-      .map(async (_, i) => createFundedWallet(provider, i).then(w => w.wallet)),
-  )
-
-  const personas: Personas = {
-    Default: accounts[0],
-    Neil: accounts[1],
-    Ned: accounts[2],
-    Nelly: accounts[3],
-    Carol: accounts[4],
-    Eddy: accounts[5],
-  }
-
-  const roles: Roles = {
-    defaultAccount: accounts[0],
-    oracleNode: accounts[1],
-    oracleNode1: accounts[2],
-    oracleNode2: accounts[3],
-    oracleNode3: accounts[4],
-    oracleNode4: accounts[5],
-    stranger: accounts[6],
-    consumer: accounts[7],
-  }
-
-  return { personas, roles }
 }
 
 /**
