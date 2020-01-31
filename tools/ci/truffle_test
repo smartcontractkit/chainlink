@@ -14,7 +14,7 @@ yarn workspace @chainlink/box run lint
 #yarn workspace chainlinkv0.5 run slither
 # if the above fails, you can mark it in the db by running:
 #   `cd evm/v0.5 && yarn build && slither --triage-mode .`
-
+yarn workspace @chainlink/eth-test-helpers build
 yarn workspace chainlinkv0.5 build
 yarn workspace chainlinkv0.6 build
 
