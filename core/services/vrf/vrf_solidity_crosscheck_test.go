@@ -2,7 +2,6 @@ package vrf
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"testing"
@@ -331,16 +330,4 @@ func TestVRF_MarshalProof(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, response.Cmp(proof.Output) == 0)
 	}
-}
-
-func ExampleUsedInTruffleTest() {
-	secretKeyHaHaNeverDoThis := one
-	seed := one
-	nonce := one
-	proof, err := generateProofWithNonce(secretKeyHaHaNeverDoThis, seed, nonce)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("0x%x\n", proof.Output)
-	// Output: 0x7c8bf11f27437d2ced1f68cb3a9125a45a5046e22ab062af2a31fb676cdd161b
 }
