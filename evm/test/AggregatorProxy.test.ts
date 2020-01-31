@@ -79,7 +79,9 @@ describe('AggregatorProxy', () => {
       const receipt = await requestTx.wait()
 
       const request = oracle.decodeRunRequest(receipt.logs?.[3])
-      await oracle.fulfillOracleRequest(oc1, request, response)
+      await oc1.fulfillOracleRequest(
+        ...oracle.convertFufillParams(request, response),
+      )
       matchers.bigNum(
         ethers.utils.bigNumberify(response),
         await aggregator.latestAnswer(),
@@ -102,7 +104,9 @@ describe('AggregatorProxy', () => {
         const receipt = await requestTx.wait()
         const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-        await oracle.fulfillOracleRequest(oc1, request, response2)
+        await oc1.fulfillOracleRequest(
+          ...oracle.convertFufillParams(request, response2),
+        )
         matchers.bigNum(response2, await aggregator2.latestAnswer())
 
         await proxy.setAggregator(aggregator2.address)
@@ -122,7 +126,9 @@ describe('AggregatorProxy', () => {
       const receipt = await requestTx.wait()
       const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-      await oracle.fulfillOracleRequest(oc1, request, response)
+      await oc1.fulfillOracleRequest(
+        ...oracle.convertFufillParams(request, response),
+      )
       const height = await aggregator.latestTimestamp()
       assert.notEqual('0', height.toString())
     })
@@ -150,7 +156,9 @@ describe('AggregatorProxy', () => {
         const receipt = await requestTx.wait()
         const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-        await oracle.fulfillOracleRequest(oc1, request, response2)
+        await oc1.fulfillOracleRequest(
+          ...oracle.convertFufillParams(request, response2),
+        )
         const height2 = await aggregator2.latestTimestamp()
         assert.notEqual('0', height2.toString())
 

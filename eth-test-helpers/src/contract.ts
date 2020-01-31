@@ -1,3 +1,8 @@
+/**
+ * @packageDocumentation
+ *
+ * This file deals with contract helpers to deal with ethers.js contract abstractions
+ */
 export * from './generated'
 
 /**

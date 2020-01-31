@@ -1,8 +1,135 @@
+/**
+ * @packageDocumentation
+ *
+ * This file provides common utility functions to perform ethereum related tasks, like
+ * data format manipulation of buffers and hex strings,
+ * finding, accessing logs and events,
+ * and increasing test evm time.
+ */
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers, utils } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
 import { EventDescription } from 'ethers/utils'
+
+/**
+ * Parse out an evm word (32 bytes) into an address (20 bytes) representation
+ *
+ * @param hex The evm word in hex string format to parse the address
+ * out of.
+ */
+export function evmWordToAddress(hex?: string): string {
+  if (!hex) {
+    throw Error('Input not defined')
+  }
+
+  assert.equal(hex.slice(0, 26), '0x000000000000000000000000')
+  return utils.getAddress(hex.slice(26))
+}
+
+/**
+ * Convert a number value to bytes32 format
+ *
+ * @param num The number value to convert to bytes32 format
+ */
+export function numToBytes32(num: Parameters<typeof utils.hexlify>[0]): string {
+  const hexNum = utils.hexlify(num)
+  const strippedNum = stripHexPrefix(hexNum)
+  if (strippedNum.length > 32 * 2) {
+    throw Error(
+      'Cannot convert number to bytes32 format, value is greater than maximum bytes32 value',
+    )
+  }
+  return addHexPrefix(strippedNum.padStart(32 * 2, '0'))
+}
+
+/**
+ * Convert a value to a hex string
+ *
+ * @param args Value to convert to a hex string
+ */
+export function toBytes32String(
+  ...args: Parameters<typeof utils.formatBytes32String>
+): ReturnType<typeof utils.formatBytes32String> {
+  return utils.formatBytes32String(...args)
+}
+
+/**
+ * Convert a value to a hex string
+ *
+ * @param args Value to convert to a hex string
+ */
+export function parseBytes32String(
+  ...args: Parameters<typeof utils.parseBytes32String>
+): ReturnType<typeof utils.parseBytes32String> {
+  return utils.parseBytes32String(...args)
+}
+
+/**
+ * Convert a value to a hex string
+ *
+ * @param args Value to convert to a hex string
+ */
+export function toHex(
+  ...args: Parameters<typeof utils.hexlify>
+): ReturnType<typeof utils.hexlify> {
+  return utils.hexlify(...args)
+}
+
+/**
+ * Convert a buffer to a hex string
+ *
+ * @param hexstr The hex string to convert to a buffer
+ */
+export function hexToBuf(hexstr: string): Buffer {
+  return Buffer.from(stripHexPrefix(hexstr), 'hex')
+}
+
+/**
+ * Convert an Ether value to a wei amount
+ *
+ * @param args Ether value to convert to an Ether amount
+ */
+export function toWei(
+  ...args: Parameters<typeof utils.parseEther>
+): ReturnType<typeof utils.parseEther> {
+  return utils.parseEther(...args)
+}
+
+/**
+ * Convert a value to an ethers BigNum
+ *
+ * @param num Value to convert to a BigNum
+ */
+export function bigNum(num: utils.BigNumberish): utils.BigNumber {
+  return utils.bigNumberify(num)
+}
+
+/**
+ * Convert a UTF-8 string into a bytearray
+ *
+ * @param args The values needed to convert a string into a bytearray
+ */
+export function toUtf8Bytes(
+  ...args: Parameters<typeof utils.toUtf8Bytes>
+): ReturnType<typeof utils.toUtf8Bytes> {
+  return utils.toUtf8Bytes(...args)
+}
+
+/**
+ * Turn a [x,y] coordinate into an ethereum address
+ *
+ * @param pubkey The x,y coordinate to turn into an ethereum address
+ */
+export function pubkeyToAddress(pubkey: utils.BigNumber[]) {
+  // transform the value according to what ethers expects as a value
+  const concatResult = `0x04${pubkey
+    .map(coord => coord.toHexString())
+    .join('')
+    .replace(/0x/gi, '')}`
+
+  return utils.computeAddress(concatResult)
+}
 
 /**
  * A wrapper function to make generated contracts compatible with truffle test suites.
@@ -26,48 +153,6 @@ export function create<T extends new (...args: any[]) => any>(
   const factory = new contractFactory(signer)
 
   return factory
-}
-
-/**
- * Parse out an evm word (32 bytes) into an address (20 bytes) representation
- * @param hex The evm word in hex string format to parse the address
- * out of.
- */
-export function evmWordToAddress(hex?: string): string {
-  if (!hex) {
-    throw Error('Input not defined')
-  }
-
-  assert.equal(hex.slice(0, 26), '0x000000000000000000000000')
-  return utils.getAddress(hex.slice(26))
-}
-
-/**
- * Convert a value to a hex string
- * @param args Value to convert to a hex string
- */
-export function toHex(
-  ...args: Parameters<typeof utils.hexlify>
-): ReturnType<typeof utils.hexlify> {
-  return utils.hexlify(...args)
-}
-
-/**
- * Convert an Ether value to a wei amount
- * @param args Ether value to convert to an Ether amount
- */
-export function toWei(
-  ...args: Parameters<typeof utils.parseEther>
-): ReturnType<typeof utils.parseEther> {
-  return utils.parseEther(...args)
-}
-
-/**
- * Convert a value to an ethers BigNum
- * @param num Value to convert to a BigNum
- */
-export function bigNum(num: utils.BigNumberish): utils.BigNumber {
-  return utils.bigNumberify(num)
 }
 
 /**
@@ -107,6 +192,7 @@ export function addCBORMapDelimiters(buffer: Buffer): Buffer {
 
 /**
  * Add a hex prefix to a hex string
+ *
  * @param hex The hex string to prepend the hex prefix to
  */
 export function addHexPrefix(hex: string): string {
@@ -122,50 +208,9 @@ export function stripHexPrefix(hex: string): string {
 }
 
 /**
- * Convert a number value to bytes32 format
- *
- * @param num The number value to convert to bytes32 format
- */
-export function numToBytes32(num: Parameters<typeof utils.hexlify>[0]): string {
-  const hexNum = utils.hexlify(num)
-  const strippedNum = stripHexPrefix(hexNum)
-  if (strippedNum.length > 32 * 2) {
-    throw Error(
-      'Cannot convert number to bytes32 format, value is greater than maximum bytes32 value',
-    )
-  }
-  return addHexPrefix(strippedNum.padStart(32 * 2, '0'))
-}
-
-/**
- * Convert a value to a hex string
- * @param args Value to convert to a hex string
- */
-export function toBytes32String(
-  ...args: Parameters<typeof utils.formatBytes32String>
-): ReturnType<typeof utils.formatBytes32String> {
-  return utils.formatBytes32String(...args)
-}
-
-/**
- * Convert a value to a hex string
- * @param args Value to convert to a hex string
- */
-export function parseBytes32String(
-  ...args: Parameters<typeof utils.parseBytes32String>
-): ReturnType<typeof utils.parseBytes32String> {
-  return utils.parseBytes32String(...args)
-}
-
-export function toUtf8(
-  ...args: Parameters<typeof utils.toUtf8Bytes>
-): ReturnType<typeof utils.toUtf8Bytes> {
-  return utils.toUtf8Bytes(...args)
-}
-
-/**
  * Compute the keccak256 cryptographic hash of a value, returned as a hex string.
  * (Note: often Ethereum documentation refers to this, incorrectly, as SHA3)
+ *
  * @param args The data to compute the keccak256 hash of
  */
 export function keccak(
@@ -176,6 +221,7 @@ export function keccak(
 
 /**
  * Increase the current time within the evm to "n" seconds past the current time
+ *
  * @param seconds The number of seconds to increase to the current time by
  * @param provider The ethers provider to send the time increase request to
  */
@@ -195,28 +241,6 @@ export async function increaseTime5Minutes(
   provider: ethers.providers.JsonRpcProvider,
 ): Promise<void> {
   await increaseTimeBy(5 * 600, provider)
-}
-
-/**
- * Convert a buffer to a hex string
- * @param hexstr The hex string to convert to a buffer
- */
-export function hexToBuf(hexstr: string): Buffer {
-  return Buffer.from(stripHexPrefix(hexstr), 'hex')
-}
-
-/**
- * Turn a [x,y] coordinate into an ethereum address
- * @param pubkey The x,y coordinate to turn into an ethereum address
- */
-export function pubkeyToAddress(pubkey: utils.BigNumber[]) {
-  // transform the value according to what ethers expects as a value
-  const concatResult = `0x04${pubkey
-    .map(coord => coord.toHexString())
-    .join('')
-    .replace(/0x/gi, '')}`
-
-  return utils.computeAddress(concatResult)
 }
 
 interface EventArgsArray extends Array<any> {
@@ -267,6 +291,7 @@ export function sixMonthsFromNow(): utils.BigNumber {
 
 /**
  * Extract array of logs from a transaction
+ *
  * @param tx The transaction to wait for, then extract logs from
  */
 export async function getLogs(
@@ -281,6 +306,7 @@ export async function getLogs(
 
 /**
  * Retrieve single log from transaction
+ *
  * @param tx The transaction to wait for, then extract logs from
  * @param index The index of the log to retrieve
  */

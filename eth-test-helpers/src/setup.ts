@@ -1,4 +1,6 @@
 /**
+ * @packageDocumentation
+ *
  * This file provides utility functions related to test setup, such as creating a test provider,
  * optimizing test times via snapshots, and making test accounts.
  */

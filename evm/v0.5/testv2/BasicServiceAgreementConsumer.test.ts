@@ -43,7 +43,7 @@ describe('ServiceAgreementConsumer', () => {
     const meanAggregator = await meanAggregatorFactory
       .connect(roles.defaultAccount)
       .deploy()
-    agreement = await coordinator.newServiceAgreement({
+    agreement = await coordinator.serviceAgreement({
       aggregator: meanAggregator.address,
       oracles: [roles.oracleNode],
     })
@@ -51,7 +51,9 @@ describe('ServiceAgreementConsumer', () => {
     coord = await coordinatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address)
-    await coordinator.initiateServiceAgreement(coord, agreement)
+    await coord.initiateServiceAgreement(
+      ...(await coordinator.initiateSAParams(agreement)),
+    )
     cc = await serviceAgreementConsumerFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, coord.address, coordinator.generateSAID(agreement))
@@ -87,7 +89,7 @@ describe('ServiceAgreementConsumer', () => {
 
         const request = oracle.decodeRunRequest(log)
 
-        assert.equal(coordinator.generateSAID(agreement), request.jobId)
+        assert.equal(coordinator.generateSAID(agreement), request.specId)
         matchers.bigNum(paymentAmount, request.payment)
         assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assert.equal(1, request.dataVersion)
@@ -125,7 +127,7 @@ describe('ServiceAgreementConsumer', () => {
       it('records the data given to it by the oracle', async () => {
         await coord
           .connect(roles.oracleNode)
-          .fulfillOracleRequest(request.id, response)
+          .fulfillOracleRequest(request.requestId, response)
         const currentPrice = await cc.currentPrice()
         assert.equal(currentPrice, response)
       })
@@ -159,7 +161,7 @@ describe('ServiceAgreementConsumer', () => {
         it('does not accept the data provided', async () => {
           await coord
             .connect(roles.oracleNode)
-            .fulfillOracleRequest(request2.id, response)
+            .fulfillOracleRequest(request2.requestId, response)
 
           const received = await cc.currentPrice()
           assert.equal(ethers.utils.parseBytes32String(received), '')
@@ -169,7 +171,9 @@ describe('ServiceAgreementConsumer', () => {
       describe('when called by anyone other than the oracle contract', () => {
         it('does not accept the data provided', async () => {
           await matchers.evmRevert(async () => {
-            await cc.connect(roles.oracleNode).fulfill(request.id, response)
+            await cc
+              .connect(roles.oracleNode)
+              .fulfill(request.requestId, response)
           })
           const received = await cc.currentPrice()
           assert.equal(ethers.utils.parseBytes32String(received), '')

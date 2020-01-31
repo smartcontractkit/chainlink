@@ -1,6 +1,9 @@
 /**
+ * @packageDocumentation
+ *
  * This file contains a number of matcher functions meant to perform common assertions for
- * ethereum based tests.
+ * ethereum based tests. Specific assertion functions targeting chainlink smart contracts live in
+ * their respective contracts/<contract>.ts file.
  */
 import { assert } from 'chai'
 import { ethers } from 'ethers'

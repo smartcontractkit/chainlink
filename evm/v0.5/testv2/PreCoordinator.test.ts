@@ -439,7 +439,7 @@ describe('PreCoordinator', () => {
           const tx = await oc1
             .connect(roles.oracleNode1)
             .fulfillOracleRequest(
-              request1.id,
+              request1.requestId,
               request1.payment,
               request1.callbackAddr,
               request1.callbackFunc,
@@ -461,7 +461,7 @@ describe('PreCoordinator', () => {
           await oc1
             .connect(roles.oracleNode1)
             .fulfillOracleRequest(
-              request1.id,
+              request1.requestId,
               request1.payment,
               request1.callbackAddr,
               request1.callbackFunc,
@@ -471,7 +471,7 @@ describe('PreCoordinator', () => {
           await oc2
             .connect(roles.oracleNode2)
             .fulfillOracleRequest(
-              request2.id,
+              request2.requestId,
               request2.payment,
               request2.callbackAddr,
               request2.callbackFunc,
@@ -481,7 +481,7 @@ describe('PreCoordinator', () => {
           await oc3
             .connect(roles.oracleNode3)
             .fulfillOracleRequest(
-              request3.id,
+              request3.requestId,
               request3.payment,
               request3.callbackAddr,
               request3.callbackFunc,
@@ -500,7 +500,7 @@ describe('PreCoordinator', () => {
             await oc4
               .connect(roles.oracleNode4)
               .fulfillOracleRequest(
-                request4.id,
+                request4.requestId,
                 request4.payment,
                 request4.callbackAddr,
                 request4.callbackFunc,
@@ -551,7 +551,7 @@ describe('PreCoordinator', () => {
           await oc1
             .connect(roles.oracleNode1)
             .fulfillOracleRequest(
-              request1.id,
+              request1.requestId,
               request1.payment,
               request1.callbackAddr,
               request1.callbackFunc,
@@ -561,7 +561,7 @@ describe('PreCoordinator', () => {
           await oc2
             .connect(roles.oracleNode2)
             .fulfillOracleRequest(
-              request2.id,
+              request2.requestId,
               request2.payment,
               request2.callbackAddr,
               request2.callbackFunc,
@@ -571,7 +571,7 @@ describe('PreCoordinator', () => {
           await oc3
             .connect(roles.oracleNode3)
             .fulfillOracleRequest(
-              request3.id,
+              request3.requestId,
               request3.payment,
               request3.callbackAddr,
               request3.callbackFunc,
@@ -581,7 +581,7 @@ describe('PreCoordinator', () => {
           await oc4
             .connect(roles.oracleNode4)
             .fulfillOracleRequest(
-              request4.id,
+              request4.requestId,
               request4.payment,
               request4.callbackAddr,
               request4.callbackFunc,
@@ -661,7 +661,7 @@ describe('PreCoordinator', () => {
             .connect(roles.consumer)
             .cancelRequest(
               pc.address,
-              request.id,
+              request.requestId,
               request.payment,
               request.callbackFunc,
               request.expiration,
@@ -680,7 +680,7 @@ describe('PreCoordinator', () => {
           .connect(roles.consumer)
           .cancelRequest(
             pc.address,
-            request.id,
+            request.requestId,
             request.payment,
             request.callbackFunc,
             request.expiration,
@@ -694,7 +694,7 @@ describe('PreCoordinator', () => {
           pc
             .connect(roles.stranger)
             .cancelOracleRequest(
-              request.id,
+              request.requestId,
               request.payment,
               request.callbackFunc,
               request.expiration,

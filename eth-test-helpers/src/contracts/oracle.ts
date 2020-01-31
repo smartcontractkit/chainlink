@@ -1,53 +1,128 @@
-import { ContractTransaction, ethers } from 'ethers'
+/**
+ * @packageDocumentation
+ *
+ * This file provides convenience functions to interact with existing solidity contract abstraction libraries, such as
+ * @truffle/contract and ethers.js specifically for our `Oracle.sol` solidity smart contract.
+ */
+import { ethers } from 'ethers'
 import { BigNumberish } from 'ethers/utils'
 import { makeDebug } from '../debug'
 import { addCBORMapDelimiters, stripHexPrefix, toHex } from '../helpers'
-
 const debug = makeDebug('oracle')
+
+/**
+ * Transaction options such as gasLimit, gasPrice, data, ...
+ */
 type TxOptions = Omit<ethers.providers.TransactionRequest, 'to' | 'from'>
 
-// TODO find ethers equivalent
-class TransactionOverrides {
-  nonce?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  gasLimit?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  gasPrice?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  value?: ethers.utils.BigNumberish | Promise<ethers.utils.BigNumberish>
-  chainId?: number | Promise<number>
-}
-
+/**
+ * A run request is an event emitted by `Oracle.sol` which triggers a job run
+ * on a receiving chainlink node watching for RunRequests coming from that
+ * specId + optionally requester.
+ */
 export interface RunRequest {
-  callbackAddr: string
-  callbackFunc: string
-  data: Buffer
-  dataVersion: number
-  expiration: string
-  id: string
-  jobId: string
-  payment: string
+  /**
+   * The ID of the job spec this request is targeting
+   *
+   * @solformat bytes32
+   */
+  specId: string
+  /**
+   * The requester of the run
+   *
+   * @solformat address
+   */
   requester: string
+  /**
+   * The ID of the request, check Oracle.sol#oracleRequest to see how its computed
+   *
+   * @solformat bytes32
+   */
+  requestId: string
+  /**
+   * The amount of LINK used for payment
+   *
+   * @solformat uint256
+   */
+  payment: string
+  /**
+   * The address of the contract instance to callback with the fulfillment result
+   *
+   * @solformat address
+   */
+  callbackAddr: string
+  /**
+   * The function selector of the method that the oracle should call after fulfillment
+   *
+   * @solformat bytes4
+   */
+  callbackFunc: string
+  /**
+   * The expiration that the node should respond by before the requester can cancel
+   *
+   * @solformat uint256
+   */
+  expiration: string
+  /**
+   * The specified data version
+   *
+   * @solformat uint256
+   */
+  dataVersion: number
+  /**
+   * The CBOR encoded payload of the request
+   *
+   * @solformat bytes
+   */
+  data: Buffer
+
+  /**
+   * The hash of the signature of the OracleRequest event.
+   * ```solidity
+   *  event OracleRequest(
+   *    bytes32 indexed specId,
+   *    address requester,
+   *    bytes32 requestId,
+   *    uint256 payment,
+   *    address callbackAddr,
+   *    bytes4 callbackFunctionId,
+   *    uint256 cancelExpiration,
+   *    uint256 dataVersion,
+   *    bytes data
+   *  );
+   * ```
+   * Note: this is a property used for testing purposes only.
+   * It is not part of the actual run request.
+   *
+   * @solformat bytes32
+   */
   topic: string
 }
 
-interface Fulfillable {
-  fulfillOracleRequest(
-    _requestId: ethers.utils.Arrayish,
-    _payment: ethers.utils.BigNumberish,
-    _callbackAddress: string,
-    _callbackFunctionId: ethers.utils.Arrayish,
-    _expiration: ethers.utils.BigNumberish,
-    _data: ethers.utils.Arrayish,
-    overrides?: TransactionOverrides,
-  ): Promise<ContractTransaction>
-}
-export async function fulfillOracleRequest(
-  oracleContract: Fulfillable,
+/**
+ * Convert the javascript format of the parameters needed to call the
+ * ```solidity
+ *  function fulfillOracleRequest(
+ *    bytes32 _requestId,
+ *    uint256 _payment,
+ *    address _callbackAddress,
+ *    bytes4 _callbackFunctionId,
+ *    uint256 _expiration,
+ *    bytes32 _data
+ *  )
+ * ```
+ * method on an Oracle.sol contract.
+ *
+ * @param runRequest The run request to flatten into the correct order to perform the `fulfillOracleRequest` function
+ * @param response The response to fulfill the run request with, if it is an ascii string, it is converted to bytes32 string
+ * @param txOpts Additional ethereum tx options
+ */
+export function convertFufillParams(
   runRequest: RunRequest,
   response: string,
-  options: TxOptions = {
-    gasLimit: 1000000, // FIXME: incorrect gas estimation
-  },
-): ReturnType<typeof oracleContract.fulfillOracleRequest> {
-  const d = debug.extend('fulfillOracleRequest')
+  txOpts: TxOptions = {},
+): [string, string, string, string, string, string, TxOptions] {
+  const d = debug.extend('fulfillOracleRequestParams')
   d('Response param: %s', response)
 
   const bytes32Len = 32 * 2 + 2
@@ -57,42 +132,59 @@ export async function fulfillOracleRequest(
       : response
   d('Converted Response param: %s', convertedResponse)
 
-  return oracleContract.fulfillOracleRequest(
-    runRequest.id,
+  return [
+    runRequest.requestId,
     runRequest.payment,
     runRequest.callbackAddr,
     runRequest.callbackFunc,
     runRequest.expiration,
     convertedResponse,
-    options,
-  )
-}
-
-interface Cancellable {
-  cancelOracleRequest(
-    _requestId: ethers.utils.Arrayish,
-    _payment: ethers.utils.BigNumberish,
-    _callbackFunc: ethers.utils.Arrayish,
-    _expiration: ethers.utils.BigNumberish,
-    overrides?: TransactionOverrides,
-  ): Promise<ContractTransaction>
-}
-export async function cancelOracleRequest(
-  oracleContract: Cancellable,
-  request: RunRequest,
-  options: TxOptions = {},
-): ReturnType<typeof oracleContract.cancelOracleRequest> {
-  return oracleContract.cancelOracleRequest(
-    request.id,
-    request.payment,
-    request.callbackFunc,
-    request.expiration,
-    options,
-  )
+    txOpts,
+  ]
 }
 
 /**
- * Abi encode the oracleRequest() function
+ * Convert the javascript format of the parameters needed to call the
+ * ```solidity
+ *  function cancelOracleRequest(
+ *    bytes32 _requestId,
+ *    uint256 _payment,
+ *    bytes4 _callbackFunc,
+ *    uint256 _expiration
+ *  )
+ * ```
+ * method on an Oracle.sol contract.
+ *
+ * @param runRequest The run request to flatten into the correct order to perform the `cancelOracleRequest` function
+ * @param txOpts Additional ethereum tx options
+ */
+export function convertCancelParams(
+  runRequest: RunRequest,
+  txOpts: TxOptions = {},
+): [string, string, string, string, TxOptions] {
+  return [
+    runRequest.requestId,
+    runRequest.payment,
+    runRequest.callbackFunc,
+    runRequest.expiration,
+    txOpts,
+  ]
+}
+
+/**
+ * Abi encode parameters to call the `oracleRequest` method on the [Oracle.sol](../../../evm/contracts/Oracle.sol) contract.
+ * ```solidity
+ *  function oracleRequest(
+ *    address _sender,
+ *    uint256 _payment,
+ *    bytes32 _specId,
+ *    address _callbackAddress,
+ *    bytes4 _callbackFunctionId,
+ *    uint256 _nonce,
+ *    uint256 _dataVersion,
+ *    bytes _data
+ *  )
+ * ```
  *
  * @param specId The Job Specification ID
  * @param callbackAddr The callback contract address for the response
@@ -107,7 +199,6 @@ export function encodeOracleRequest(
   nonce: number,
   data: BigNumberish,
 ): string {
-  // 'oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)'
   const oracleRequestSighash = '0x40429946'
   const oracleRequestInputs = [
     { name: '_sender', type: 'address' },
@@ -137,6 +228,25 @@ export function encodeOracleRequest(
   return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`
 }
 
+/**
+ * Extract a javascript representation of a run request from the data
+ * contained within a EVM log.
+ * ```solidity
+ *  event OracleRequest(
+ *    bytes32 indexed specId,
+ *    address requester,
+ *    bytes32 requestId,
+ *    uint256 payment,
+ *    address callbackAddr,
+ *    bytes4 callbackFunctionId,
+ *    uint256 cancelExpiration,
+ *    uint256 dataVersion,
+ *    bytes data
+ *  );
+ * ```
+ *
+ * @param log The log to extract the run request from
+ */
 export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
   if (!log) {
     throw Error('No logs found to decode')
@@ -164,25 +274,36 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
   ] = ethers.utils.defaultAbiCoder.decode(types, log.data)
 
   return {
+    specId: log.topics[1],
+    requester,
+    requestId: toHex(requestId),
+    payment: toHex(payment),
     callbackAddr: callbackAddress,
     callbackFunc: toHex(callbackFunc),
+    expiration: toHex(expiration),
     data: addCBORMapDelimiters(Buffer.from(stripHexPrefix(data), 'hex')),
     dataVersion: version.toNumber(),
-    expiration: toHex(expiration),
-    id: toHex(requestId),
-    jobId: log.topics[1],
-    payment: toHex(payment),
-    requester,
+
     topic: log.topics[0],
   }
 }
 
 /**
- * Decode a log into a run
+ * Extract a javascript representation of a ConcreteChainlinked#Request event
+ * from an EVM log.
+ * ```solidity
+ *  event Request(
+ *    bytes32 id,
+ *    address callbackAddress,
+ *    bytes4 callbackfunctionSelector,
+ *    bytes data
+ *  );
+ * ```
+ * The request event is emitted from the `ConcreteChainlinked.sol` testing contract.
+ *
  * @param log The log to decode
- * @todo Do we really need this?
  */
-export function decodeRunABI(
+export function decodeCCRequest(
   log: ethers.providers.Log,
 ): [string, string, string, string] {
   const d = debug.extend('decodeRunABI')
