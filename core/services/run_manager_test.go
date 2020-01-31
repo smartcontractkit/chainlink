@@ -308,7 +308,8 @@ func TestRunManager_Create(t *testing.T) {
 	rr := models.NewRunRequest()
 	rr.RequestID = &requestID
 	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	jr, err := app.RunManager.Create(job.ID, &initiator, &data, nil, rr)
+	meta := cltest.JSONFromString(t, `{"random": "meta"}`)
+	jr, err := app.RunManager.Create(job.ID, &initiator, &data, &meta, nil, rr)
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
@@ -331,7 +332,8 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 
 	initiator := job.Initiators[0]
 	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	jr, err := app.RunManager.Create(job.ID, &initiator, &data, nil, &models.RunRequest{})
+	meta := cltest.JSONFromString(t, `{"random": "meta"}`)
+	jr, err := app.RunManager.Create(job.ID, &initiator, &data, &meta, nil, &models.RunRequest{})
 	require.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, store, *jr)
 
@@ -398,7 +400,8 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			rr.TxHash = &initiatingTxHash
 			rr.BlockHash = &test.logBlockHash
 			data := cltest.JSONFromString(t, `{"random": "input"}`)
-			jr, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, rr)
+			meta := cltest.JSONFromString(t, `{"random": "meta"}`)
+			jr, err := app.RunManager.Create(job.ID, &initiator, &data, &meta, creationHeight, rr)
 			require.NoError(t, err)
 
 			run := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
@@ -646,12 +649,13 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			initiator := job.Initiators[0]
 
 			data := cltest.JSONFromString(t, `{"random": "input"}`)
+			meta := cltest.JSONFromString(t, `{"random": "meta"}`)
 			creationHeight := big.NewInt(1)
 
 			runRequest := models.NewRunRequest()
 			runRequest.Payment = test.inputPayment
 
-			run, err := app.RunManager.Create(job.ID, &initiator, &data, creationHeight, runRequest)
+			run, err := app.RunManager.Create(job.ID, &initiator, &data, &meta, creationHeight, runRequest)
 			require.NoError(t, err)
 
 			assert.Equal(t, test.jobStatus, run.Status)
@@ -691,7 +695,8 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	pastCurrentHeight := big.NewInt(1)
 
 	data := cltest.JSONFromString(t, `{"random": "input"}`)
-	jr, err := app.RunManager.Create(job.ID, &initiator, &data, futureCreationHeight, rr)
+	meta := cltest.JSONFromString(t, `{"random": "meta"}`)
+	jr, err := app.RunManager.Create(job.ID, &initiator, &data, &meta, futureCreationHeight, rr)
 	require.NoError(t, err)
 	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 

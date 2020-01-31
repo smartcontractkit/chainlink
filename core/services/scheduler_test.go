@@ -28,7 +28,7 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 
 	executeJobChannel := make(chan struct{})
 	runManager := new(mocks.RunManager)
-	runManager.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	runManager.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, nil).
 		Twice().
 		Run(func(mock.Arguments) {
@@ -51,7 +51,7 @@ func TestScheduler_Start_LoadingRecurringJobs(t *testing.T) {
 func TestRecurring_AddJob(t *testing.T) {
 	executeJobChannel := make(chan struct{}, 1)
 	runManager := new(mocks.RunManager)
-	runManager.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	runManager.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, nil).
 		Run(func(mock.Arguments) {
 			executeJobChannel <- struct{}{}
@@ -138,7 +138,7 @@ func TestOneTime_AddJob(t *testing.T) {
 
 	executeJobChannel := make(chan struct{})
 	runManager := new(mocks.RunManager)
-	runManager.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	runManager.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, nil).
 		Once().
 		Run(func(mock.Arguments) {

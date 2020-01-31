@@ -31,6 +31,7 @@ type JobRun struct {
 	CreationHeight *utils.Big   `json:"creationHeight"`
 	ObservedHeight *utils.Big   `json:"observedHeight"`
 	Overrides      JSON         `json:"overrides"`
+	InitialMeta    JSON         `json:"initialMeta" gorm:"default:'{}'"`
 	DeletedAt      null.Time    `json:"-" gorm:"index"`
 	Payment        *assets.Link `json:"payment,omitempty"`
 }

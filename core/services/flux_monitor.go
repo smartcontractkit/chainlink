@@ -483,7 +483,7 @@ func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRo
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to start chainlink run with payload %s", payload))
 	}
-	_, err = p.runManager.Create(p.initr.JobSpecID, &p.initr, &runData, nil, models.NewRunRequest())
+	_, err = p.runManager.Create(p.initr.JobSpecID, &p.initr, &runData, &models.JSON{}, nil, models.NewRunRequest())
 	return err
 }
 

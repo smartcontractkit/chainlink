@@ -85,13 +85,13 @@ func (_m *Application) Cancel(runID *models.ID) (*models.JobRun, error) {
 	return r0, r1
 }
 
-// Create provides a mock function with given fields: jobSpecID, initiator, data, creationHeight, runRequest
-func (_m *Application) Create(jobSpecID *models.ID, initiator *models.Initiator, data *models.JSON, creationHeight *big.Int, runRequest *models.RunRequest) (*models.JobRun, error) {
-	ret := _m.Called(jobSpecID, initiator, data, creationHeight, runRequest)
+// Create provides a mock function with given fields: jobSpecID, initiator, data, meta, creationHeight, runRequest
+func (_m *Application) Create(jobSpecID *models.ID, initiator *models.Initiator, data *models.JSON, meta *models.JSON, creationHeight *big.Int, runRequest *models.RunRequest) (*models.JobRun, error) {
+	ret := _m.Called(jobSpecID, initiator, data, meta, creationHeight, runRequest)
 
 	var r0 *models.JobRun
-	if rf, ok := ret.Get(0).(func(*models.ID, *models.Initiator, *models.JSON, *big.Int, *models.RunRequest) *models.JobRun); ok {
-		r0 = rf(jobSpecID, initiator, data, creationHeight, runRequest)
+	if rf, ok := ret.Get(0).(func(*models.ID, *models.Initiator, *models.JSON, *models.JSON, *big.Int, *models.RunRequest) *models.JobRun); ok {
+		r0 = rf(jobSpecID, initiator, data, meta, creationHeight, runRequest)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.JobRun)
@@ -99,8 +99,8 @@ func (_m *Application) Create(jobSpecID *models.ID, initiator *models.Initiator,
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*models.ID, *models.Initiator, *models.JSON, *big.Int, *models.RunRequest) error); ok {
-		r1 = rf(jobSpecID, initiator, data, creationHeight, runRequest)
+	if rf, ok := ret.Get(1).(func(*models.ID, *models.Initiator, *models.JSON, *models.JSON, *big.Int, *models.RunRequest) error); ok {
+		r1 = rf(jobSpecID, initiator, data, meta, creationHeight, runRequest)
 	} else {
 		r1 = ret.Error(1)
 	}

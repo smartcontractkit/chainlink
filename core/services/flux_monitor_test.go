@@ -183,7 +183,7 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000002"
 	}`, initr.InitiatorParams.Address.Hex())))
 	require.NoError(t, err)
-	rm.On("Create", job.ID, &initr, &data, mock.Anything, mock.Anything).
+	rm.On("Create", job.ID, &initr, &data, mock.Anything, mock.Anything, mock.Anything).
 		Return(&run, nil)
 
 	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Second)
@@ -400,7 +400,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 	// Set up fetcher for 100; even if within deviation, forces the creation of run.
 	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe()
 
-	rm.On("Create", mock.Anything, mock.Anything, &data, mock.Anything, mock.Anything).
+	rm.On("Create", mock.Anything, mock.Anything, &data, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, nil) // only round 6 triggers run.
 
 	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")

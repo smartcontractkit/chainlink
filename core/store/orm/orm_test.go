@@ -154,8 +154,9 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 
 	rr := models.NewRunRequest()
 	data := cltest.JSONFromString(t, `{"random": "input"}`)
+	meta := cltest.JSONFromString(t, `{"random": "meta"}`)
 	currentHeight := big.NewInt(0)
-	run, _ := services.NewRun(&job, &job.Initiators[0], &data, currentHeight, rr, store.Config, store.ORM, time.Now())
+	run, _ := services.NewRun(&job, &job.Initiators[0], &data, &meta, currentHeight, rr, store.Config, store.ORM, time.Now())
 	require.NoError(t, store.CreateJobRun(run))
 
 	requestCount, err := store.ORM.CountOf(&models.RunRequest{})

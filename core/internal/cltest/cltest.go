@@ -398,6 +398,19 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	return client
 }
 
+func (ta *TestApplication) MustCreateJobRun(initialMeta models.JSON) *models.JobRun {
+	job := NewJobWithWebInitiator()
+	err := ta.Store.CreateJob(&job)
+	require.NoError(ta.t, err)
+
+	jr := NewJobRun(job)
+	jr.InitialMeta = initialMeta
+	err = ta.Store.CreateJobRun(&jr)
+	require.NoError(ta.t, err)
+
+	return &jr
+}
+
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 	cleanupDB := PrepareTestDB(config)

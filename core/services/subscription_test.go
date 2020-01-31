@@ -226,7 +226,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			executeJobChannel := make(chan struct{})
 
 			runManager := new(mocks.RunManager)
-			runManager.On("Create", job.ID, mock.Anything, mock.Anything, big.NewInt(0), mock.Anything).
+			runManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, big.NewInt(0), mock.Anything).
 				Return(nil, nil).
 				Run(func(mock.Arguments) {
 					executeJobChannel <- struct{}{}
@@ -361,7 +361,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			executeJobChannel := make(chan struct{})
 
 			runManager := new(mocks.RunManager)
-			runManager.On("Create", job.ID, mock.Anything, mock.Anything, big.NewInt(int64(log.BlockNumber)), mock.Anything).
+			runManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, big.NewInt(int64(log.BlockNumber)), mock.Anything).
 				Return(nil, nil).
 				Run(func(mock.Arguments) {
 					executeJobChannel <- struct{}{}
@@ -424,7 +424,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			executeJobChannel := make(chan struct{})
 
 			runManager := new(mocks.RunManager)
-			runManager.On("Create", job.ID, mock.Anything, mock.Anything, big.NewInt(int64(log.BlockNumber)), mock.Anything).
+			runManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, big.NewInt(int64(log.BlockNumber)), mock.Anything).
 				Return(nil, nil).
 				Run(func(mock.Arguments) {
 					executeJobChannel <- struct{}{}
