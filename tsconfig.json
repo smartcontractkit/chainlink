@@ -1,20 +1,14 @@
 {
-  "compilerOptions": {
-    "lib": [
-      "es5",
-      "es6"
-    ],
-    "incremental": true,
-    "target": "es6",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "noEmit": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "noImplicitAny": true,
-    "baseUrl": "."
-  }
+  "files": [],
+  "references": [
+    { "path": "./evm" },
+    { "path": "./evm/v0.5" },
+    { "path": "./eth-test-helpers" },
+    // { "path": "./integration" },
+    { "path": "./styleguide" },
+    { "path": "./tools/json-api-client" },
+    { "path": "./tools/local-storage" },
+    { "path": "./tools/redux" },
+    { "path": "./tools/ts-test-helpers" }
+  ]
 }

@@ -1,9 +1,13 @@
-// An extension to ether's bignumber library that manually
-// polyfills any methods we need for tests by converting the
-// numbers back and forth between ethers.utils.BigNumber and
-// bn.js. If we end up having to replace a ton of methods in the
-// future this way, it might be worth creating a proxy object
-// that automatically does these method polyfills for us.
+/**
+ * @packageDocumentation
+ *
+ * An extension to ether's bignumber library that manually
+ * polyfills any methods we need for tests by converting the
+ * numbers back and forth between ethers.utils.BigNumber and
+ * bn.js. If we end up having to replace a ton of methods in the
+ * future this way, it might be worth creating a proxy object
+ * that automatically does these method polyfills for us.
+ */
 
 import { ethers } from 'ethers'
 import BN = require('bn.js')

@@ -158,7 +158,9 @@ describe('UpdatableConsumer', () => {
     })
 
     it('records the data given to it by the oracle', async () => {
-      await oracle.fulfillOracleRequest(oc, request, response)
+      await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(request, response),
+      )
 
       const currentPrice = await uc.currentPrice()
       assert.equal(currentPrice, response)
@@ -177,7 +179,9 @@ describe('UpdatableConsumer', () => {
       })
 
       it('records the data given to it by the old oracle contract', async () => {
-        await oracle.fulfillOracleRequest(oc, request, response)
+        await oc.fulfillOracleRequest(
+          ...oracle.convertFufillParams(request, response),
+        )
 
         const currentPrice = await uc.currentPrice()
         assert.equal(currentPrice, response)
@@ -187,7 +191,7 @@ describe('UpdatableConsumer', () => {
         await matchers.evmRevert(async () => {
           await uc
             .connect(roles.oracleNode)
-            .fulfill(request.id, h.toHex(response))
+            .fulfill(request.requestId, h.toHex(response))
         })
 
         const currentPrice = await uc.currentPrice()
@@ -203,7 +207,7 @@ describe('UpdatableConsumer', () => {
         )
 
         await uc.cancelRequest(
-          request.id,
+          request.requestId,
           request.payment,
           request.callbackFunc,
           request.expiration,

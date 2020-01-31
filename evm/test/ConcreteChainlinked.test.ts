@@ -65,7 +65,7 @@ describe('ConcreteChainlinked', () => {
 
       assert.equal(1, receipt.logs?.length)
       const [jId, cbAddr, cbFId, cborData] = receipt.logs
-        ? oracle.decodeRunABI(receipt.logs[0])
+        ? oracle.decodeCCRequest(receipt.logs[0])
         : []
       const params = h.decodeDietCBOR(cborData ?? '')
 
@@ -203,10 +203,11 @@ describe('ConcreteChainlinked', () => {
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      const tx = await oracle.fulfillOracleRequest(
-        oc,
-        request,
-        ethers.utils.formatBytes32String('hi mom!'),
+      const tx = await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(
+          request,
+          ethers.utils.formatBytes32String('hi mom!'),
+        ),
       )
       const { logs } = await tx.wait()
 
@@ -214,7 +215,7 @@ describe('ConcreteChainlinked', () => {
 
       assert.equal(1, logs?.length)
       assert.equal(event?.name, 'ChainlinkFulfilled')
-      assert.equal(request.id, event?.values.id)
+      assert.equal(request.requestId, event?.values.id)
     })
   })
 
@@ -236,17 +237,18 @@ describe('ConcreteChainlinked', () => {
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      const tx = await oracle.fulfillOracleRequest(
-        oc,
-        request,
-        ethers.utils.formatBytes32String('hi mom!'),
+      const tx = await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(
+          request,
+          ethers.utils.formatBytes32String('hi mom!'),
+        ),
       )
       const { logs } = await tx.wait()
       const event = logs && cc.interface.parseLog(logs[0])
 
       assert.equal(1, logs?.length)
       assert.equal(event?.name, 'ChainlinkFulfilled')
-      assert.equal(request.id, event?.values?.id)
+      assert.equal(request.requestId, event?.values?.id)
     })
   })
 
@@ -275,20 +277,21 @@ describe('ConcreteChainlinked', () => {
       const receipt = await tx.wait()
 
       request = oracle.decodeRunRequest(receipt.logs?.[3])
-      await mock.publicAddExternalRequest(oc.address, request.id)
+      await mock.publicAddExternalRequest(oc.address, request.requestId)
     })
 
     it('allows the external request to be fulfilled', async () => {
-      await oracle.fulfillOracleRequest(
-        oc,
-        request,
-        ethers.utils.formatBytes32String('hi mom!'),
+      await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(
+          request,
+          ethers.utils.formatBytes32String('hi mom!'),
+        ),
       )
     })
 
     it('does not allow the same requestId to be used', async () => {
       await matchers.evmRevert(async () => {
-        await cc.publicAddExternalRequest(newoc.address, request.id)
+        await cc.publicAddExternalRequest(newoc.address, request.requestId)
       })
     })
   })

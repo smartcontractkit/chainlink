@@ -78,7 +78,7 @@ describe('BasicConsumer', () => {
             'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY',
         }
 
-        assert.equal(h.toHex(specId), request.jobId)
+        assert.equal(h.toHex(specId), request.specId)
         matchers.bigNum(h.toWei('1'), request.payment)
         assert.equal(cc.address, request.requester)
         assert.equal(1, request.dataVersion)
@@ -105,22 +105,18 @@ describe('BasicConsumer', () => {
     })
 
     it('records the data given to it by the oracle', async () => {
-      await oracle.fulfillOracleRequest(
-        oc.connect(roles.oracleNode),
-        request,
-        response,
-      )
+      await oc
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(...oracle.convertFufillParams(request, response))
 
       const currentPrice = await cc.currentPrice()
       assert.equal(currentPrice, response)
     })
 
     it('logs the data given to it by the oracle', async () => {
-      const tx = await oracle.fulfillOracleRequest(
-        oc.connect(roles.oracleNode),
-        request,
-        response,
-      )
+      const tx = await oc
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(...oracle.convertFufillParams(request, response))
       const receipt = await tx.wait()
       assert.equal(2, receipt.logs?.length)
       const log = receipt.logs?.[1]
@@ -145,11 +141,11 @@ describe('BasicConsumer', () => {
       })
 
       it('does not accept the data provided', async () => {
-        await oracle.fulfillOracleRequest(
-          oc.connect(roles.oracleNode),
-          otherRequest,
-          response,
-        )
+        await oc
+          .connect(roles.oracleNode)
+          .fulfillOracleRequest(
+            ...oracle.convertFufillParams(otherRequest, response),
+          )
 
         const received = await cc.currentPrice()
 
@@ -160,7 +156,9 @@ describe('BasicConsumer', () => {
     describe('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
         await matchers.evmRevert(async () => {
-          await cc.connect(roles.oracleNode).fulfill(request.id, response)
+          await cc
+            .connect(roles.oracleNode)
+            .fulfill(request.requestId, response)
         })
 
         const received = await cc.currentPrice()
@@ -186,7 +184,7 @@ describe('BasicConsumer', () => {
           await cc
             .connect(roles.consumer)
             .cancelRequest(
-              request.id,
+              request.requestId,
               request.payment,
               request.callbackFunc,
               request.expiration,
@@ -202,7 +200,7 @@ describe('BasicConsumer', () => {
         await cc
           .connect(roles.consumer)
           .cancelRequest(
-            request.id,
+            request.requestId,
             request.payment,
             request.callbackFunc,
             request.expiration,

@@ -38,7 +38,7 @@ describe('GetterSetter', () => {
       await gs.setBytes32(bytes32)
 
       const currentBytes32 = await gs.getBytes32()
-      assert.deepEqual(h.toUtf8(currentBytes32), h.toUtf8(bytes32))
+      assert.deepEqual(h.toUtf8Bytes(currentBytes32), h.toUtf8Bytes(bytes32))
     })
 
     it('logs an event', async () => {
@@ -66,7 +66,7 @@ describe('GetterSetter', () => {
       assert.equal(currentRequestId, requestId)
 
       const currentBytes32 = await gs.getBytes32()
-      assert.deepEqual(h.toUtf8(currentBytes32), h.toUtf8(bytes32))
+      assert.deepEqual(h.toUtf8Bytes(currentBytes32), h.toUtf8Bytes(bytes32))
     })
   })
 
