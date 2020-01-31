@@ -35,6 +35,7 @@
     "@types/cbor": "^5.0.0",
     "@types/chai": "^4.2.7",
     "@types/ethereumjs-abi": "^0.6.3",
+    "@types/ethereumjs-util": "^6.1.0",
     "@types/ganache-core": "^2.7.0",
     "chai": "^4.2.0",
     "cross-env": "^6.0.3",
