@@ -212,6 +212,7 @@ func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 		require.Equal(t, i().Mod(i().Mul(psz, zInv), fieldSize), one) // (sz * zInv) % fieldSize = 1
 		actualSum, err := verifier.AffineECAdd(
 			nil, pair(p1x, p1y), pair(p2x, p2y), zInv)
+		require.NoError(t, err)
 		actual := secp256k1.SetCoordinates(actualSum[0], actualSum[1])
 		expected := point().Add(p1, p2)
 		require.Equal(t, expected, actual)
@@ -309,6 +310,7 @@ func TestVRF_CompareSolidityScalarFromCurve(t *testing.T) {
 		expected := ScalarFromCurve(hash, pk, gamma, uWitness, v)
 		actual, err := verifier.ScalarFromCurve(nil, hashPair, pkPair, gammaPair,
 			uWitness, vPair)
+		require.NoError(t, err)
 		require.Equal(t, expected, actual)
 	}
 }
