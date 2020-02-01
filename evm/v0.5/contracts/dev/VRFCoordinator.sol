@@ -24,7 +24,12 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   struct Callback { // Tracks an ongoing request
     address callbackContract; // Requesting contract, which will receive response
     uint256 randomnessFee; // Amount of LINK paid at request time
-    uint256 seed; // Seed to use in generating this random value
+    // Seed for the *oracle* to use in generating this random value. Hash of the
+    // seed provided as input during a randomnessRequest, plus the address of
+    // the contract making the request, plus an increasing nonce specific to the
+    // VRF proving key and the calling contract. Including this extra data in
+    // the VRF input seed helps prevent against replay attacks.
+    uint256 seed;
   }
 
   struct ServiceAgreement { // Tracks oracle commitments to VRF service
@@ -36,9 +41,10 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   mapping(bytes32 /* (provingKey, seed) */ => Callback) public callbacks;
   mapping(bytes32 /* provingKey */ => ServiceAgreement)
     public serviceAgreements;
-  mapping(address => uint256) public withdrawableTokens; // Oracle LINK balances
-  mapping(bytes32 /* provingKey */ => mapping(uint256 /* seed */ => bool))
-    private observedSeeds;
+  mapping(address /* oracle */ => uint256 /* LINK balance */)
+    public withdrawableTokens;
+  mapping(bytes32 /* provingKey */ => mapping(address /* consumer */ => uint256))
+    private nonces;
 
   // The oracle only needs the jobID to look up the VRF, but specifying public
   // key as well prevents a malicious oracle from inducing VRF outputs from
@@ -112,22 +118,25 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   )
     internal
     sufficientLINK(_feePaid, _keyHash)
-    isFreshSeed(_keyHash, _seed)
   {
-    bytes32 requestId = makeRequestId(_keyHash, _seed);
-    assert(callbacks[requestId].callbackContract == address(0)); // Guaranteed by isFreshSeed
+    uint256 nonce = nonces[_keyHash][_sender];
+    uint256 seed = makeVRFInputSeed(_keyHash, _seed, _sender, nonce);
+    bytes32 requestId = makeRequestId(_keyHash, seed);
+    // Cryptographically guaranteed by seed including an increasing nonce
+    assert(callbacks[requestId].callbackContract == address(0));
     callbacks[requestId].callbackContract = _sender;
     callbacks[requestId].randomnessFee = _feePaid;
-    callbacks[requestId].seed = _seed;
-    emit RandomnessRequest(_keyHash, _seed, serviceAgreements[_keyHash].jobID,
+    callbacks[requestId].seed = seed;
+    emit RandomnessRequest(_keyHash, seed, serviceAgreements[_keyHash].jobID,
       _sender, _feePaid);
+    nonces[_keyHash][_sender] += 1;
   }
 
   /**
    * @notice Called by the chainlink node to fullfil requests
    * @param _proof the proof of randomness. Actual random output built from this
    *
-   * @dev This is the main entrypoint for chainlink. If you change this, you 
+   * @dev This is the main entrypoint for chainlink. If you change this, you
    * @dev should also change the solidityABISstring in solidity_proof.go.
    */
   function fulfillRandomnessRequest(bytes memory _proof) public returns (bool) {
@@ -150,15 +159,15 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     Callback memory callback = callbacks[requestId];
     require(callback.callbackContract != address(0), "no corresponding request");
     uint256 randomness = VRF.randomValueFromVRFProof(_proof); // Reverts on failure
-    observedSeeds[currentKeyHash][seed] = true;
     withdrawableTokens[serviceAgreements[currentKeyHash].vRFOracle] += callback.randomnessFee;
     // Dummy variable; allows access to method selector in next line. See
     // https://github.com/ethereum/solidity/issues/3506#issuecomment-553727797
-    VRFConsumerBase v; 
+    VRFConsumerBase v;
     bytes memory resp = abi.encodeWithSelector(
       v.fulfillRandomness.selector, requestId, randomness);
     // solhint-disable-next-line avoid-low-level-calls
     (bool success,) = callback.callbackContract.call(resp);
+    delete callbacks[requestId]; // Be a good ethereum citizen
     return success;
   }
 
@@ -198,16 +207,6 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
    */
   modifier onlyLINK() {
     require(msg.sender == address(LINK), "Must use LINK token");
-    _;
-  }
-
-  /**
-   * @dev Reverts if the seed has been seen before, for this proving key.
-   * @param _keyHash on which to check for prior request
-   * @param _seed to check for prior request
-   */
-  modifier isFreshSeed(bytes32 _keyHash, uint256 _seed) {
-    require(!observedSeeds[_keyHash][_seed], "please request a novel seed");
     _;
   }
 
