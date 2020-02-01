@@ -26,7 +26,7 @@ func (parseRandomnessRequest) parseJSON(log eth.Log) (js JSON, err error) {
 	}
 	add := func(k, v string) { js = mustAdd(js, k, v) }
 	add("address", log.Address.String())
-	add("functionSelector", vrf.FulfillSelector)
+	add("functionSelector", vrf.FulfillSelector())
 	add("keyHash", parsedLog.KeyHash.Hex())
 	add("seed", fullSeedString)
 	add("jobID", parsedLog.JobID.Hex())
