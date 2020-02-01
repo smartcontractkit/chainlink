@@ -42,10 +42,10 @@ import "./VRFRequestIDBase.sol";
  * @dev   }
  *
  * @dev The oracle will have given you an ID for the VRF keypair they have
- * @dev committed to, call it keyHash, and have told you the minimum LINK price
- * @dev for VRF service. Make sure your contract has sufficient LINK, and call
- * @dev requestRandomness(keyHash, fee, seed), where seed is the input you want
- * @dev to generate randomness from.
+ * @dev committed to (let's call it keyHash), and have told you the minimum LINK
+ * @dev price for VRF service. Make sure your contract has sufficient LINK, and
+ * @dev call requestRandomness(keyHash, fee, seed), where seed is the input you
+ * @dev want to generate randomness from.
  *
  * @dev Once the VRFCoordinator has received and validated the oracle's response
  * @dev to your request, it will call your contract's fulfillRandomness method.
@@ -56,20 +56,26 @@ import "./VRFRequestIDBase.sol";
  * @dev The requestId argument is generated from the keyHash and the seed by
  * @dev makeRequestId(keyHash, seed). If your contract could have concurrent
  * @dev requests open, you can use the requestId to track which seed is
- * @dev associated with which randomness. Collision of requestId's is
- * @dev cryptographically impossible. See VRFRequestIDBase.sol for more details.
+ * @dev associated with which randomness. See VRFRequestIDBase.sol for more
+ * @dev details.
+ *
+ * @dev Colliding `requestId`s are cryptographically impossible as long as seeds
+ * @dev differ. (Which is critical to making unpredictable randomness! See the
+ * @dev next section.)
+ *
  * *****************************************************************************
  * @dev SECURITY CONSIDERATIONS
  *
  * @dev To increase trust in your contract, the source of your seeds should be
- * @dev hard for anyone to influence. Any party who can influence them could in
- * @dev principle collude with the oracle (who can instantly compute the VRF
- * @dev output for any given seed) to bias the outcomes from your contract in
- * @dev their favor. For instance, the block hash is a natural choice of seed
- * @dev for many applications, but miners in control of a substantial fraction
- * @dev of hashing power and with access to VRF outputs could check the result
- * @dev of prospective block hashes as they are mined, and decide not to publish
- * @dev a block if they don't like the outcome it will lead to.
+ * @dev hard for anyone to influence or predict. Any party who can influence
+ * @dev them could in principle collude with the oracle (who can instantly
+ * @dev compute the VRF output for any given seed) to bias the outcomes from
+ * @dev your contract in their favor. For instance, the block hash is a natural
+ * @dev choice of seed for many applications, but miners in control of a
+ * @dev substantial fraction of hashing power and with access to VRF outputs
+ * @dev could check the result of prospective block hashes as they are mined,
+ * @dev and decide not to publish a block if they don't like the outcome it will
+ * @dev lead to.
  *
  * @dev On the other hand, using block hashes as the seed makes it particularly
  * @dev easy to estimate the economic cost to a miner for this kind of cheating
@@ -77,6 +83,7 @@ import "./VRFRequestIDBase.sol";
  * @dev from publishing a block.)
  */
 contract VRFConsumerBase is VRFRequestIDBase {
+
   /**
    * @notice fulfillRandomness handles the VRF response. Your contract must
    * @notice implement it.
@@ -85,12 +92,16 @@ contract VRFConsumerBase is VRFRequestIDBase {
    * @dev this signature, and will call it once it has verified the proof
    * @dev associated with the randomness.
    *
-   * @param requestId keccak256(abi.encodePacked(keyHash, seed))
+   * @param requestId The Id initially returned by requestRandomness
    * @param randomness the VRF output
    */
   function fulfillRandomness(bytes32 requestId, uint256 randomness) external;
+
   /**
    * @notice requestRandomness initiates a request for VRF output given _seed
+   *
+   * @dev The source of the seed data must be something which the oracle
+   * @dev cannot anticipate. See "SECURITY CONSIDERATIONS" above.
    *
    * @dev The fulfillRandomness method receives the output, once it's provided
    * @dev by the Oracle, and verified by the vrfCoordinator.
@@ -101,17 +112,34 @@ contract VRFConsumerBase is VRFRequestIDBase {
    *
    * @param _keyHash ID of public key against which randomness is generated
    * @param _fee The amount of LINK to send with the request
-   * @param _seed Random seed to input to VRF, from which output is determined
+   * @param _seed Random seed from which output randomness is determined
+   *
+   * @return Id which will be returned with the response to this request
+   *
+   * @dev The returned requestId can be used to distinguish responses to *
+   * @dev concurrent requests. It is passed as the first argument to
+   * @dev fulfillRandomness.
    */
   function requestRandomness(bytes32 _keyHash, uint256 _fee, uint256 _seed)
-    external
+    public returns (bytes32 requestId)
   {
     LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, _seed));
+    // This is the seed actually passed to the VRF in VRFCoordinator
+    uint256 vRFSeed  = makeVRFInputSeed(_keyHash, _seed, address(this), nonces[_keyHash]);
+    // nonces[_keyHash] must stay in sync with
+    // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
+    // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest)
+    nonces[_keyHash] += 1; 
+    return makeRequestId(_keyHash, vRFSeed);
   }
 
   LinkTokenInterface LINK;
   address vrfCoordinator;
 
+  // Nonces for each VRF key from which randomness has been requested.
+  //
+  // Must stay in sync with VRFCoordinator[_keyHash][this]
+  mapping(bytes32 /* keyHash */ => uint256 /* nonce */) public nonces;
   constructor(address _vrfCoordinator, address _link) public {
     vrfCoordinator = _vrfCoordinator;
     LINK = LinkTokenInterface(_link);
