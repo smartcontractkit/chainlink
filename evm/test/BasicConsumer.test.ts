@@ -88,7 +88,7 @@ describe('BasicConsumer', () => {
       it('has a reasonable gas cost', async () => {
         const tx = await cc.requestEthereumPrice(currency)
         const receipt = await tx.wait()
-        assert.isBelow(receipt.gasUsed?.toNumber() ?? 0, 120000)
+        assert.isBelow(receipt.gasUsed?.toNumber() ?? 0, 130000)
       })
     })
   })
