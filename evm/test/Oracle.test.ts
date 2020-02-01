@@ -1,4 +1,10 @@
-import { contract, helpers as h, matchers, oracle, setup } from '@chainlink/eth-test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  oracle,
+  setup,
+} from '@chainlink/eth-test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
