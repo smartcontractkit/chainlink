@@ -3,61 +3,17 @@ package vrf
 import (
 	"fmt"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
-	coord "chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
 	"chainlink/core/utils"
 )
-
-var fulfillMethodName = "fulfillRandomnessRequest"
-
-// CoordinatorABI is the ABI of the VRFCoordinator
-var CoordinatorABI abi.ABI
-
-var FulfillMethod abi.Method
-
-// FulfillSelector is the function selector of fulfillRandomness, the main
-// entrypoint to the VRFCoordinator.
-var FulfillSelector string
-
-// RandomnessRequestLogTopic is the signature of the RandomnessRequest log
-var RandomnessRequestLogTopic common.Hash
-var RandomnessRequestABI abi.Event
-var randomnessRequestRawDataArgs abi.Arguments
-
-func init() {
-	var err error
-	CoordinatorABI, err = abi.JSON(strings.NewReader(coord.VRFCoordinatorABI))
-	if err != nil {
-		panic(err)
-	}
-	for methodName, method := range CoordinatorABI.Methods {
-		if methodName == fulfillMethodName {
-			FulfillMethod = method
-			FulfillSelector = hexutil.Encode(method.ID())
-		}
-	}
-	if FulfillSelector == "" {
-		panic("failed to find fulfill method")
-	}
-	RandomnessRequestABI = CoordinatorABI.Events["RandomnessRequest"]
-	RandomnessRequestLogTopic = RandomnessRequestABI.ID()
-	for _, arg := range RandomnessRequestABI.Inputs {
-		if !arg.Indexed {
-			randomnessRequestRawDataArgs = append(randomnessRequestRawDataArgs, arg)
-		}
-	}
-}
 
 // rawRandomnessRequestLog is used to parse a RandomnessRequest log into types
 // go-ethereum knows about.
@@ -78,9 +34,12 @@ type RandomnessRequestLog struct {
 // the raw logData
 func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
 	l := solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}
-	contract := bind.NewBoundContract(common.Address{}, CoordinatorABI, nil, nil, nil)
-	if err := contract.UnpackLog(&l, "RandomnessRequest", types.Log(log)); err != nil {
-		return nil, errors.Wrapf(err, "while parsing %x as RandomnessRequestLog", log.Data)
+	coordABI := CoordinatorABI()
+	contract := bind.NewBoundContract(common.Address{}, coordABI, nil, nil, nil)
+	ethLog := types.Log(log)
+	if err := contract.UnpackLog(&l, "RandomnessRequest", ethLog); err != nil {
+		return nil, errors.Wrapf(err,
+			"while parsing %x as RandomnessRequestLog", log.Data)
 	}
 	return &RandomnessRequestLog{l.KeyHash, l.Seed, l.JobID, l.Sender,
 		(*assets.Link)(l.Fee), RawRandomnessRequestLog(l)}, nil
@@ -97,8 +56,8 @@ func checkUint256(n *big.Int) {
 //
 // This serialization does not include the JobID, because that's an indexed field.
 func (l *RandomnessRequestLog) RawData() ([]byte, error) {
-	return randomnessRequestRawDataArgs.Pack(l.KeyHash, l.Seed, l.Sender,
-		(*big.Int)(l.Fee))
+	return randomnessRequestRawDataArgs().Pack(l.KeyHash,
+		l.Seed, l.Sender, (*big.Int)(l.Fee))
 }
 
 // Equal(ol) is true iff l is the same log as ol, and both represent valid
