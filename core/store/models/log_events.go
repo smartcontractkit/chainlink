@@ -107,7 +107,7 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 	case InitiatorEthLog:
 		if from == nil {
 			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
-		} else if from != nil && i.InitiatorParams.FromBlock != nil {
+		} else if i.InitiatorParams.FromBlock != nil { // Know from != nil
 			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
 		}
 		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
