@@ -1,3 +1,4 @@
+// solhint-disable-next-line compiler-version
 pragma solidity 0.5.0;
 
 import "../dev/VRFRequestIDBase.sol";
@@ -7,8 +8,8 @@ contract VRFRequestIDBaseTestHelper is VRFRequestIDBase {
   function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed,
                             address _requester, uint256 _nonce)
     public pure returns (uint256) {
-    return makeVRFInputSeed(_keyHash, _userSeed, _requester, _nonce);
-  }
+      return makeVRFInputSeed(_keyHash, _userSeed, _requester, _nonce);
+    }
 
   function makeRequestId_(
     bytes32 _keyHash, uint256 _vRFInputSeed) public pure returns (bytes32) {
