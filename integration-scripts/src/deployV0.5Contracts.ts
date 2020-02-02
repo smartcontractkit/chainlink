@@ -1,18 +1,17 @@
-import { ethers } from 'ethers'
-import { generated as chainlink } from 'chainlinkv0.5'
 import {
-  registerPromiseHandler,
-  DEVNET_ADDRESS,
-  createProvider,
-  deployContract,
-  getArgs,
-} from './common'
-import { deployLinkTokenContract } from './deployLinkTokenContract'
-const {
   CoordinatorFactory,
   MeanAggregatorFactory,
   PrepaidAggregatorFactory,
-} = chainlink
+} from 'chainlinkv0.5'
+import { ethers } from 'ethers'
+import {
+  createProvider,
+  deployContract,
+  DEVNET_ADDRESS,
+  getArgs,
+  registerPromiseHandler,
+} from './common'
+import { deployLinkTokenContract } from './deployLinkTokenContract'
 
 async function main() {
   registerPromiseHandler()

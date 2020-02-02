@@ -1,11 +1,8 @@
 import { contract } from '@chainlink/eth-test-helpers'
-import { generated as chainlink } from 'chainlink'
 import { createProvider, deployContract, DEVNET_ADDRESS } from './common'
 
-const { LinkTokenFactory } = chainlink
-
 export async function deployLinkTokenContract(): Promise<
-  contract.Instance<chainlink.LinkTokenFactory>
+  contract.Instance<contract.LinkTokenFactory>
 > {
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
@@ -13,7 +10,7 @@ export async function deployLinkTokenContract(): Promise<
     console.log(
       `LinkToken already deployed at: ${process.env.LINK_TOKEN_ADDRESS}, fetching contract...`,
     )
-    const factory = new LinkTokenFactory(signer)
+    const factory = new contract.LinkTokenFactory(signer)
     const linkToken = factory.attach(process.env.LINK_TOKEN_ADDRESS)
     console.log(`Deployed LinkToken at: ${linkToken.address}`)
 
@@ -21,7 +18,7 @@ export async function deployLinkTokenContract(): Promise<
   }
 
   const linkToken = await deployContract({
-    Factory: LinkTokenFactory,
+    Factory: contract.LinkTokenFactory,
     name: 'LinkToken',
     signer,
   })

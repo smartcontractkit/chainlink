@@ -1,8 +1,11 @@
 {
   "files": [],
+  "include": [],
   "references": [
     { "path": "./evm" },
     { "path": "./evm/v0.5" },
+    { "path": "./evm/v0.6" },
+
     { "path": "./eth-test-helpers" },
     // { "path": "./integration" },
     { "path": "./styleguide" },
