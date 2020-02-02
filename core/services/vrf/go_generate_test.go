@@ -78,9 +78,9 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	_, err = io.WriteString(hasher, string(compilerJSON))
 	require.NoError(t, err, "failed to hash compiler artifact %s", path)
 	recompileCommand := "`yarn workspace chainlinkv0.5 compile; go generate`"
-	require.Equal(t, fmt.Sprintf("%x", hasher.Sum(nil)), versionInfo.hash,
-		"compiler artifact %s has changed; please rerun %s for the vrf package",
-		path, recompileCommand)
+	require.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
+		"compiler artifact %s has changed; please rerun %s for the vrf package\nArtifact output:\n%s",
+		path, recompileCommand, compilerJSON)
 
 	var artifact struct {
 		Sources map[string]string `json:"sourceCodes"`
