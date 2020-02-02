@@ -2,6 +2,14 @@
 
 set -e
 
+sudo apt install -y curl
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+REPO="deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo add-apt-repository -y "$REPO"
+sudo apt update
+sudo apt install -y docker-ce
+sudo /etc/init.d/docker start
+
 # Generate contract artifacts
 yarn install
 yarn workspace chainlinkv0.5 setup

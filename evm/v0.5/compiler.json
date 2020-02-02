@@ -3,7 +3,7 @@
   "artifactsDir": "dist/artifacts",
   "contracts": "*",
   "solcVersion": "0.5.0",
-  "useDockerisedSolc": false,
+  "useDockerisedSolc": true,
   "compilerSettings": {
     "outputSelection": {
       "*": {
