@@ -1,5 +1,5 @@
 import * as t from '@chainlink/eth-test-helpers'
-import { generated as chainlink } from 'chainlinkv0.5'
+import { CoordinatorFactory } from 'chainlinkv0.5'
 import { ethers } from 'ethers'
 import {
   createProvider,
@@ -7,7 +7,7 @@ import {
   getArgs,
   registerPromiseHandler,
 } from './common'
-const { CoordinatorFactory } = chainlink
+
 type OracleSignatures = t.coordinator.OracleSignatures
 type ServiceAgreement = t.coordinator.ServiceAgreement
 

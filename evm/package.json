@@ -2,9 +2,9 @@
   "name": "chainlink",
   "version": "0.8.1",
   "license": "MIT",
-  "main": "./dist/src",
+  "main": "./dist/src/generated",
   "scripts": {
-    "generate-typings": "typechain --target ethers --outDir src/generated \"{src/LinkToken*,dist/artifacts/*}\"",
+    "generate-typings": "typechain --target ethers --outDir src/generated dist/artifacts/**/*",
     "postgenerate-typings": "yarn workspace @chainlink/eth-test-helpers export-typings ../evm/src/generated ../evm/dist/src/generated",
     "build": "sol-compiler && yarn generate-typings && tsc -b",
     "build:windows": "truffle.cmd build",
@@ -14,7 +14,7 @@
     "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "pretest": "yarn build",
     "test": "jest --testTimeout 80000",
-    "prepublishOnly": "yarn workspace chainlinkv0.5 setup && yarn setup && yarn lint && yarn test",
+    "prepublishOnly": "yarn setup && yarn lint && yarn test",
     "setup": "ts-node ./scripts/build",
     "truffle:migrate:cldev": "truffle migrate --network cldev"
   },

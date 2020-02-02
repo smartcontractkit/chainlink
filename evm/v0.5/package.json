@@ -2,8 +2,7 @@
   "name": "chainlinkv0.5",
   "version": "0.0.2",
   "license": "MIT",
-  "main": "./dist/src",
-  "typings": "./dist/src",
+  "main": "./dist/src/generated",
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated \"{test/support/LinkToken*,dist/artifacts/*}\"",
     "postgenerate-typings": "yarn workspace @chainlink/eth-test-helpers export-typings ../evm/v0.5/src/generated ../evm/v0.5/dist/src/generated",
