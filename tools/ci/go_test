@@ -7,6 +7,10 @@ yarn install
 yarn workspace chainlinkv0.5 setup
 yarn workspace chainlink setup
 
+echo "solc_bin directory contents:"
+find "$(dirname $0)/../../" -name sol-compiler -o -name solc_bin | xargs ls -lt
+echo "done with solc_bin directory contents"
+
 # Run golang coverage
 go get -u github.com/smartcontractkit/goverage
 goverage -v -parallel 2 -coverprofile=c.out ./...
