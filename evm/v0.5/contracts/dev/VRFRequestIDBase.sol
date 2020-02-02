@@ -1,3 +1,4 @@
+// solhint-disable-next-line compiler-version
 pragma solidity 0.5.0;
 
 contract VRFRequestIDBase {

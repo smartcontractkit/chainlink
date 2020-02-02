@@ -1,3 +1,4 @@
+// solhint-disable-next-line compiler-version
 pragma solidity 0.5.0;
 
 import "../interfaces/LinkTokenInterface.sol";
@@ -9,13 +10,12 @@ contract VRFConsumer is VRFConsumerBase {
   uint256 public randomnessOutput;
   bytes32 public requestId;
 
-  constructor(address _vrfCoordinator, address _link)
-    VRFConsumerBase(_vrfCoordinator, _link) public {
-
-  }
+  constructor(address _vrfCoordinator, address _link) public
+    // solhint-disable-next-line no-empty-blocks
+    VRFConsumerBase(_vrfCoordinator, _link) { /* empty */ }
 
   function fulfillRandomness(bytes32 _requestId, uint256 _randomness) external {
     randomnessOutput = _randomness;
-    requestId =_requestId;
+    requestId = _requestId;
   }
 }
