@@ -1,7 +1,3 @@
-// This is somewhat redundant with the sol-compiler outputs in
-// evm/v0.5/dist/artifacts, but it's hard to use those directly with abiggen.
-// https://chainlink-core.slack.com/archives/CJCJX5Q5A/p1577220404089300
-
 package vrf
 
 import (
