@@ -250,17 +250,6 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   }
 
   /**
-   * @dev Internal implementation for latestAnswer
-   */
-  function _latestAnswer()
-    internal
-    view
-    returns (int256)
-  {
-    return rounds[latestRoundId].answer;
-  }
-
-  /**
    * @notice get the most recent updated at timestamp
    */
   function latestTimestamp()
@@ -269,17 +258,6 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     returns (uint256)
   {
     return _latestTimestamp();
-  }
-
-  /**
-   * @dev Internal implementation of latestTimestamp
-   */
-  function _latestTimestamp()
-    internal
-    view
-    returns (uint256)
-  {
-    return rounds[latestRoundId].updatedAt;
   }
 
   /**
@@ -317,17 +295,6 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   }
 
   /**
-   * @dev Internal implementation of getAnswer
-   */
-  function _getAnswer(uint256 _roundId)
-    internal
-    view
-    returns (int256)
-  {
-    return rounds[uint32(_roundId)].answer;
-  }
-
-  /**
    * @notice get timestamp when an answer was last updated
    * @param _roundId the round number to retrieve the updated timestamp for
    */
@@ -337,17 +304,6 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     returns (uint256)
   {
     return _getTimestamp(_roundId);
-  }
-
-  /**
-   * @dev Internal implementation of getTimestamp
-   */
-  function _getTimestamp(uint256 _roundId)
-    internal
-    view
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].updatedAt;
   }
 
   /**
@@ -426,6 +382,54 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
    */
   function onTokenTransfer(address, uint256, bytes memory) public {
     updateAvailableFunds();
+  }
+
+  /**
+   * Internal
+   */
+
+  /**
+   * @dev Internal implementation for latestAnswer
+   */
+  function _latestAnswer()
+    internal
+    view
+    returns (int256)
+  {
+    return rounds[latestRoundId].answer;
+  }
+
+  /**
+   * @dev Internal implementation of latestTimestamp
+   */
+  function _latestTimestamp()
+    internal
+    view
+    returns (uint256)
+  {
+    return rounds[latestRoundId].updatedAt;
+  }
+
+  /**
+   * @dev Internal implementation of getAnswer
+   */
+  function _getAnswer(uint256 _roundId)
+    internal
+    view
+    returns (int256)
+  {
+    return rounds[uint32(_roundId)].answer;
+  }
+
+  /**
+   * @dev Internal implementation of getTimestamp
+   */
+  function _getTimestamp(uint256 _roundId)
+    internal
+    view
+    returns (uint256)
+  {
+    return rounds[uint32(_roundId)].updatedAt;
   }
 
   /**
