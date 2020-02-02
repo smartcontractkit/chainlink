@@ -154,7 +154,9 @@ func requestRandomness(t *testing.T, coordinator coordinator,
 
 func TestRandomnessRequestLog(t *testing.T) {
 	coordinator := deployCoordinator()
-	keyHash, jobID, fee := registerProvingKey(coordinator)
+	keyHash_, jobID_, fee := registerProvingKey(coordinator)
+	keyHash := common.BytesToHash(keyHash_[:])
+	jobID := common.BytesToHash(jobID_[:])
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
 	require.Equal(t, keyHash, log.KeyHash)
 	actualSeed, err := coordinator.requestIDBase.MakeVRFInputSeed(nil, keyHash,
@@ -163,7 +165,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 	require.True(t, actualSeed.Cmp(log.Seed) == 0)
 	require.Equal(t, jobID, log.JobID)
 	require.Equal(t, coordinator.consumerContractAddress, log.Sender)
-	require.Equal(t, fee, log.Fee)
+	require.True(t, fee.Cmp((*big.Int)(log.Fee)) == 0)
 	parsedLog, err := ParseRandomnessRequestLog(chainlink_eth.Log(log.Raw.Raw))
 	require.NoError(t, err)
 	require.True(t, parsedLog.Equal(log))
@@ -207,6 +209,7 @@ func TestWithdraw(t *testing.T) {
 	payment := big.NewInt(5)
 	peteThePunter := common.HexToAddress("0xdeadfa11deadfa11deadfa11deadfa11deadfa11")
 	_, err := coordinator.rootContract.Withdraw(coordinator.neil, peteThePunter, payment)
+	coordinator.backend.Commit()
 	require.NoError(t, err)
 	peteBalance, err := coordinator.linkContract.BalanceOf(nil, peteThePunter)
 	require.NoError(t, err)

@@ -10,12 +10,16 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
+	"chainlink/core/utils"
+
 	gethParams "github.com/ethereum/go-ethereum/params"
+	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/require"
 )
@@ -97,6 +101,20 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	}
 }
 
+func versionsDBLineReader() (*bufio.Scanner, error) {
+	dirOfThisTest, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	dBPath := "generated-wrapper-dependency-versions-do-not-edit.txt"
+	versionsDBFile, err := os.Open(filepath.Join(dirOfThisTest, "generation", dBPath))
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not open versions database")
+	}
+	return bufio.NewScanner(versionsDBFile), nil
+
+}
+
 var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 
 // readVersionsDB populates an integratedVersion with all the info in the
@@ -104,16 +122,10 @@ var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 func readVersionsDB(t *testing.T) integratedVersion {
 	rv := integratedVersion{}
 	rv.contractVersions = make(map[string]contractVersion)
-
-	dirOfThisTest, err := os.Getwd()
+	db, err := versionsDBLineReader()
 	require.NoError(t, err)
-	dBPath := "generated-wrapper-dependency-versions-do-not-edit.txt"
-	versionsDBFile, err := os.Open(filepath.Join(dirOfThisTest, "generation", dBPath))
-	require.NoError(t, err, "could not open versions database")
-	versionsDBLineReader := bufio.NewScanner(versionsDBFile)
-
-	for versionsDBLineReader.Scan() {
-		line := strings.Fields(versionsDBLineReader.Text())
+	for db.Scan() {
+		line := strings.Fields(db.Text())
 		require.True(t, strings.HasSuffix(line[0], ":"),
 			`each line in versions.txt should start with "$TOPIC:"`)
 		topic := stripTrailingColon(line[0], "")
@@ -125,7 +137,7 @@ func readVersionsDB(t *testing.T) integratedVersion {
 		} else { // It's a wrapper from a json compiler artifact
 			require.Len(t, line, 3,
 				`"%s" should have three elements "<pkgname>: <compiler-artifact-path> <compiler-artifact-hash>"`,
-				versionsDBLineReader.Text())
+				db.Text())
 			_, alreadyExists := rv.contractVersions[topic]
 			require.False(t, alreadyExists, `topic "%s" already mentioned!`, topic)
 			rv.contractVersions[topic] = contractVersion{
@@ -134,4 +146,36 @@ func readVersionsDB(t *testing.T) integratedVersion {
 		}
 	}
 	return rv
+}
+
+func panicErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Ensure that solidity compiler artifacts are present before running this test,
+// by compiling them if necessary.
+func init() {
+	db, err := versionsDBLineReader()
+	panicErr(err)
+	var solidityArtifactsMissing []string
+	for db.Scan() {
+		line := strings.Fields(db.Text())
+		if stripTrailingColon(line[0], "") != "GETH_VERSION" {
+			if os.IsNotExist(utils.JustError(os.Stat(line[1]))) {
+				solidityArtifactsMissing = append(solidityArtifactsMissing, line[1])
+			}
+		}
+	}
+	if len(solidityArtifactsMissing) == 0 {
+		return
+	}
+	fmt.Printf("some solidity artifacts missing (%s); rebuilding...",
+		solidityArtifactsMissing)
+	yarnArgs := strings.Fields("workspace chainlinkv0.5 compile")
+	cmd := exec.Command("yarn", yarnArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	panicErr(cmd.Run())
 }
