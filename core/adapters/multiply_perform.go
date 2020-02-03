@@ -22,7 +22,7 @@ func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOut
 	}
 
 	if ma.Times != nil {
-		i.Mul(i, big.NewFloat(float64(*ma.Times)))
+		i.Mul(i, ma.Times)
 	}
 	return models.NewRunOutputCompleteWithResult(i.String())
 }
