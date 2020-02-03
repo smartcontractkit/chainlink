@@ -1,4 +1,4 @@
-pragma solidity 0.5.0; // solhint-disable-line compiler-version
+pragma solidity 0.6.2; // solhint-disable-line compiler-version
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////// DO NOT USE THIS IN PRODUCTION UNTIL IT HAS BEEN AUDITED /////////////
