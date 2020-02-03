@@ -1,12 +1,12 @@
 package vrf
 
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
-//go:generate sh -c "out=\"$(yarn workspace chainlinkv0.5 compile)\" || (echo \"$out\" ; exit 1)"
+//go:generate sh -c "out=\"$(yarn workspace chainlinkv0.6 compile)\" || (echo \"$out\" ; exit 1)"
 
-//go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFTestHelper.json solidity_verifier_wrapper
-//go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFCoordinator.json solidity_vrf_coordinator_interface
-//go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFConsumer.json solidity_vrf_consumer_interface
-//go:generate ./generation/generate.sh ../../../evm/v0.5/dist/artifacts/VRFRequestIDBaseTestHelper.json solidity_request_id
+//go:generate ./generation/generate.sh ../../../evm/v0.6/dist/artifacts/VRFTestHelper.json solidity_verifier_wrapper
+//go:generate ./generation/generate.sh ../../../evm/v0.6/dist/artifacts/VRFCoordinator.json solidity_vrf_coordinator_interface
+//go:generate ./generation/generate.sh ../../../evm/v0.6/dist/artifacts/VRFConsumer.json solidity_vrf_consumer_interface
+//go:generate ./generation/generate.sh ../../../evm/v0.6/dist/artifacts/VRFRequestIDBaseTestHelper.json solidity_request_id
 //go:generate ./generation/generate_link.sh
 
 // To run these commands, you must either install docker, or the correct version
