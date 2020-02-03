@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
 	"chainlink/core/adapters"
@@ -10,6 +11,66 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestQuotient_Marshal(t *testing.T) {
+	tests := []struct {
+		name string
+		obj  adapters.Quotient
+		exp  string
+	}{
+		{
+			"w/ value",
+			adapters.Quotient{Dividend: big.NewFloat(3.142)},
+			`{"dividend":"3.142"}`,
+		},
+		{
+			"w/ value",
+			adapters.Quotient{Dividend: big.NewFloat(5)},
+			`{"dividend":"5"}`,
+		},
+		{
+			"w/o value",
+			adapters.Quotient{Dividend: nil},
+			`{}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buf, err := json.Marshal(tc.obj)
+			require.NoError(t, err)
+			require.Equal(t, tc.exp, string(buf))
+		})
+	}
+}
+
+func TestQuotient_Unmarshal(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload string
+		exp     adapters.Quotient
+	}{
+		{
+			"w/ value",
+			`{"dividend": 5}`,
+			adapters.Quotient{Dividend: big.NewFloat(5)},
+		},
+		{
+			"w/o value",
+			`{}`,
+			adapters.Quotient{Dividend: nil},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var m adapters.Quotient
+			err := json.Unmarshal([]byte(tc.payload), &m)
+			require.NoError(t, err)
+			require.Equal(t, tc.exp, m)
+		})
+	}
+}
 
 func TestQuotient_Perform_Success(t *testing.T) {
 	tests := []struct {
