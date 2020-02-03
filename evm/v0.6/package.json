@@ -15,12 +15,11 @@
     "depcheck": "echo \"chainlinkv0.6\" && depcheck --ignore-dirs=build/contracts || true",
     "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "setup": "ts-node ./scripts/build",
-    "prepublishOnly": "yarn setup && yarn test",
     "_comment_:test": "# we force exit because the subprovider holds onto resources and doesn't release them",
     "test": "jest --testTimeout 80000 --forceExit"
   },
   "dependencies": {
-    "@chainlink/test-helpers": "0.0.1",
+    "@chainlink/test-helpers": "0.0.1-beta",
     "cbor": "^5.0.1",
     "ethers": "^4.0.41"
   },

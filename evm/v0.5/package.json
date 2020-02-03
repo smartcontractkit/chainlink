@@ -20,7 +20,7 @@
     "test:v2": "jest --testTimeout 80000 --forceExit"
   },
   "dependencies": {
-    "@chainlink/test-helpers": "0.0.1",
+    "@chainlink/test-helpers": "0.0.1-beta",
     "bn.js": "^4.11.0",
     "cbor": "^5.0.1",
     "ethereumjs-abi": "^0.6.8",
