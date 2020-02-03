@@ -1,6 +1,7 @@
 {
   "name": "@chainlink/test-helpers",
-  "version": "0.0.1",
+  "private": false,
+  "version": "0.0.1-beta",
   "description": "A collection of test helpers to facilitate testing chainlink's smart contracts",
   "main": "dist/src/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
@@ -10,8 +11,10 @@
     "export-typings": "node ./dist/src/scripts/export-generated-contract-factories",
     "generate-typings": "typechain --target ethers --outDir src/generated src/LinkToken.json",
     "_comment_:build": "Need to do two-pass compile due to https://www.pivotaltracker.com/story/show/171066956",
+    "test": "jest",
     "build": "yarn generate-typings && tsc && yarn export-typings src/generated dist/src/generated && tsc",
-    "setup": "yarn build"
+    "setup": "yarn build",
+    "prepublishOnly": "rm -r dist src/generated && yarn setup && yarn test"
   },
   "dependencies": {
     "@0x/sol-trace": "^3.0.4",
