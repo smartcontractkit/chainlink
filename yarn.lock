@@ -2988,10 +2988,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/cookie-session@^2.0.37":
-  version "2.0.37"
-  resolved "https://registry.npmjs.org/@types/cookie-session/-/cookie-session-2.0.37.tgz#1a981defe81f2db73576203103605f505d12cb12"
-  integrity sha512-h8uZLDGyfAgER6kHbHlYWm1g/P/7zCBMOW6yT5/fQydVJxByJD4tohSvHBzJrGoLVmQJefQdfwuNkKb23cq29Q==
+"@types/cookie-session@^2.0.38":
+  version "2.0.38"
+  resolved "https://registry.yarnpkg.com/@types/cookie-session/-/cookie-session-2.0.38.tgz#ca265959e9c3e3bcde0316253ace31176ac51c24"
+  integrity sha512-JL4Ob3p9704/sr0oaGYSVX6ACZyygfMdbN+ipnRgPvnu8eUPtpr1xHAWctAmnUSEiSPGoIiM8eobXhatrRbnfQ==
   dependencies:
     "@types/express" "*"
     "@types/keygrip" "*"
@@ -6170,7 +6170,7 @@ buffer-xor@^1.0.3:
 
 buffer@5.4.3, buffer@^5.0.5, buffer@^5.2.1:
   version "5.4.3"
-  resolved "https://registry.npmjs.org/buffer/-/buffer-5.4.3.tgz#3fbc9c69eb713d323e3fc1a895eee0710c072115"
+  resolved "https://registry.yarnpkg.com/buffer/-/buffer-5.4.3.tgz#3fbc9c69eb713d323e3fc1a895eee0710c072115"
   integrity sha512-zvj65TkFeIt3i6aj5bIvJDzjjQQGs4o/sNoezg1F1kYap9Nu2jcUdpwzRSJTHMMzG0H7bZkn4rNQpImhuxWX2A==
   dependencies:
     base64-js "^1.0.2"
@@ -20163,7 +20163,7 @@ sha.js@^2.4.0, sha.js@^2.4.8:
 
 sha3@^1.2.2, sha3@^2.0.7:
   version "2.1.1"
-  resolved "https://registry.npmjs.org/sha3/-/sha3-2.1.1.tgz#488c0f978a73ea540cc4f4a2235a77aed095c031"
+  resolved "https://registry.yarnpkg.com/sha3/-/sha3-2.1.1.tgz#488c0f978a73ea540cc4f4a2235a77aed095c031"
   integrity sha512-hj6dCLbWByenZarg2gb2VFD9zoY5kr/FMriDcbtVDLJ5geOWGOJCI0jQUjAzoY/ZHlkt8BSEbh9KJEDT8AGuJQ==
   dependencies:
     buffer "5.4.3"
