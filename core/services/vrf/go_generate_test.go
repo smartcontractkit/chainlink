@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 
 	"github.com/stretchr/testify/require"
 )
@@ -47,10 +49,12 @@ type integratedVersion struct {
 // wrap. See record_versions.sh for description of file format.
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	versions := readVersionsDB(t)
-	require.NotEmpty(t, versions.gethVersion, `version DB should have a "GETH_VERSION:" line`)
+	require.NotEmpty(t, versions.gethVersion,
+		`version DB should have a "GETH_VERSION:" line`)
 	require.Equal(t, versions.gethVersion, gethParams.Version)
 	for _, contractVersionInfo := range versions.contractVersions {
-		compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(t, contractVersionInfo)
+		compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
+			t, contractVersionInfo)
 	}
 }
 
@@ -69,27 +73,42 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	t *testing.T, versionInfo contractVersion,
 ) {
-	path := versionInfo.compilerArtifactPath
-
+	apath := versionInfo.compilerArtifactPath
 	// check the compiler artifact hasn't changed
-	compilerJSON, err := ioutil.ReadFile(path)
-	require.NoError(t, err, "failed to read JSON compiler artifact %s", path)
+	compilerJSON, err := ioutil.ReadFile(apath)
+	require.NoError(t, err, "failed to read JSON compiler artifact %s", apath)
+	abiPath := "compilerOutput.abi"
+	binPath := "compilerOutput.evm.bytecode.object"
+	isLINKCompilerOutput :=
+		path.Base(versionInfo.compilerArtifactPath) == "LinkToken.json"
+	if isLINKCompilerOutput {
+		// LINK compiler output has a different format
+		abiPath = "abi"
+		binPath = "bytecode"
+	}
+	abiBytes := stripWhitespace(gjson.GetBytes(compilerJSON, abiPath).Raw, "")
+	binBytes := stripQuotes(gjson.GetBytes(compilerJSON, binPath).Raw, "")
+	if !isLINKCompilerOutput {
+		// Remove the varying contract metadata, as in ./generation/generate.sh
+		binBytes = binBytes[:len(binBytes)-106]
+	}
 	hasher := md5.New()
-	_, err = io.WriteString(hasher, string(compilerJSON))
-	require.NoError(t, err, "failed to hash compiler artifact %s", path)
+	hashMsg := string(abiBytes+binBytes) + "\n" // newline from <<< in record_versions.sh
+	_, err = io.WriteString(hasher, hashMsg)
+	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
 	recompileCommand := "`yarn workspace chainlinkv0.5 compile; go generate`"
 	require.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
-		"compiler artifact %s has changed; please rerun %s for the vrf package\nArtifact output:\n%s",
-		path, recompileCommand, compilerJSON)
+		"compiler artifact %s has changed; please rerun %s for the vrf package",
+		apath, recompileCommand)
 
 	var artifact struct {
 		Sources map[string]string `json:"sourceCodes"`
 	}
 	require.NoError(t, json.Unmarshal(compilerJSON, &artifact),
-		"could not read compiler artifact %s", path)
+		"could not read compiler artifact %s", apath)
 
 	// Check that each of the contract source codes hasn't changed
-	soliditySourceRoot := filepath.Dir(filepath.Dir(filepath.Dir(path)))
+	soliditySourceRoot := filepath.Dir(filepath.Dir(filepath.Dir(apath)))
 	contractPath := filepath.Join(soliditySourceRoot, "contracts")
 	for sourcePath, sourceCode := range artifact.Sources { // compare to current source
 		sourcePath = filepath.Join(contractPath, sourcePath)
@@ -179,3 +198,8 @@ func init() {
 	cmd.Stderr = os.Stderr
 	panicErr(cmd.Run())
 }
+
+var (
+	stripWhitespace = regexp.MustCompile(`\s+`).ReplaceAllString
+	stripQuotes     = regexp.MustCompile(`"`).ReplaceAllString
+)
