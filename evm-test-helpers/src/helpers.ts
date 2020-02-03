@@ -44,9 +44,11 @@ export function numToBytes32(num: Parameters<typeof utils.hexlify>[0]): string {
 }
 
 /**
- * Convert a value to a hex string
+ * Convert a UTF-8 string into a bytes32 hex string representation
  *
- * @param args Value to convert to a hex string
+ * The inverse function of [[parseBytes32String]]
+ *
+ * @param args The UTF-8 string representation to convert to a bytes32 hex string representation
  */
 export function toBytes32String(
   ...args: Parameters<typeof utils.formatBytes32String>
@@ -55,9 +57,11 @@ export function toBytes32String(
 }
 
 /**
- * Convert a value to a hex string
+ * Convert a bytes32 formatted hex string into its UTF-8 representation
  *
- * @param args Value to convert to a hex string
+ * The inverse function of [[toBytes32String]].
+ *
+ * @param args The bytes32 hex string representation to convert to an UTF-8 representation
  */
 export function parseBytes32String(
   ...args: Parameters<typeof utils.parseBytes32String>
@@ -66,7 +70,7 @@ export function parseBytes32String(
 }
 
 /**
- * Convert a value to a hex string
+ * Converts any number, BigNumber, hex string or Arrayish to a hex string.
  *
  * @param args Value to convert to a hex string
  */
@@ -77,7 +81,7 @@ export function toHex(
 }
 
 /**
- * Convert a buffer to a hex string
+ * Create a buffer from a hex string
  *
  * @param hexstr The hex string to convert to a buffer
  */
