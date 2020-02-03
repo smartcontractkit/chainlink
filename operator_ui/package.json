@@ -68,7 +68,7 @@
     "@babel/core": "7.7.4",
     "@babel/preset-env": "7.8.2",
     "@babel/preset-react": "7.0.0",
-    "@babel/preset-typescript": "7.1.0",
+    "@babel/preset-typescript": "7.8.3",
     "@chainlink/ts-test-helpers": "0.0.1",
     "@types/classnames": "^2.2.8",
     "@types/cookie": "^0.3.3",
