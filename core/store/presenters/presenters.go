@@ -380,12 +380,13 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		}{i.Name}, nil
 	case models.InitiatorFluxMonitor:
 		return struct {
-			Address     common.Address `json:"address"`
-			RequestData models.JSON    `json:"requestData"`
-			Feeds       models.Feeds   `json:"feeds"`
-			Threshold   float32        `json:"threshold"`
-			Precision   int32          `json:"precision"`
-		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision}, nil
+			Address         common.Address  `json:"address"`
+			RequestData     models.JSON     `json:"requestData"`
+			Feeds           models.Feeds    `json:"feeds"`
+			Threshold       float32         `json:"threshold"`
+			Precision       int32           `json:"precision"`
+			PollingInterval models.Duration `json:"pollingInterval"`
+		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision, i.PollingInterval}, nil
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
 	}
