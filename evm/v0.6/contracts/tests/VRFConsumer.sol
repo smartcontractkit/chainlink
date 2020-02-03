@@ -1,5 +1,5 @@
 // solhint-disable-next-line compiler-version
-pragma solidity 0.5.0;
+pragma solidity 0.6.2;
 
 import "../interfaces/LinkTokenInterface.sol";
 import "../dev/VRFCoordinator.sol";
