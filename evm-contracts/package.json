@@ -1,0 +1,45 @@
+{
+  "name": "@chainlink/contracts",
+  "version": "0.0.1",
+  "description": "Smart contracts and their language abstractions for chainlink",
+  "main": "index.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "author": "Chainlink devs",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "build": "tsc -b",
+    "compile": "linkbelt compile all",
+    "setup": "yarn clean && yarn build && yarn compile",
+    "clean": "tsc -b --clean && rm -rf abi ethers truffle",
+    "test": "jest --testTimeout 80000 --forceExit",
+    "prepublishOnly": "yarn setup && yarn test"
+  },
+  "devDependencies": {
+    "@0x/sol-compiler": "^4.0.4",
+    "@truffle/contract": "^4.1.7",
+    "@typechain/truffle-v5": "^0.9.0",
+    "@types/debug": "^4.1.5",
+    "@types/jest": "^25.1.1",
+    "@types/mock-fs": "^4.10.0",
+    "@types/node": "^13.7.0",
+    "@types/shelljs": "^0.8.6",
+    "class-validator": "^0.11.0",
+    "debug": "^4.1.1",
+    "ethers": "^4.0.44",
+    "execa": "^4.0.0",
+    "jest": "^25.1.0",
+    "ts-jest": "^25.2.0",
+    "typescript": "^3.7.5"
+  },
+  "files": [
+    "abi/**/*",
+    "ethers/**/*",
+    "src/**/*",
+    "truffle/**/*"
+  ],
+  "optionalDependencies": {
+    "@truffle/contract": "^4.1.8",
+    "ethers": "^4.0.44"
+  }
+}

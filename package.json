@@ -8,6 +8,7 @@
     "evm/v0.6",
     "feeds",
     "evm-test-helpers",
+    "evm-contracts",
     "examples/*",
     "explorer",
     "explorer/client",
@@ -22,7 +23,8 @@
     "tools/json-api-client",
     "tools/local-storage",
     "tools/redux",
-    "tools/ts-test-helpers"
+    "tools/ts-test-helpers",
+    "linkbelt"
   ],
   "engines": {
     "node": "~10.16"
