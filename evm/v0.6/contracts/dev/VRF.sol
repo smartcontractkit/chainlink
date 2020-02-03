@@ -297,7 +297,11 @@ contract VRF {
 
       (px,py) and (qx,qy) must be distinct, valid secp256k1 points.
       **************************************************************************
-      @return [px,py,1]+[qx,qy,1] as points on secp256k1, in P²(𝔽ₙ)
+      Return values are projective coordinates of [px,py,1]+[qx,qy,1] as points
+      on secp256k1, in P²(𝔽ₙ)
+      @return sx 
+      @return sy
+      @return sz
   */
   function projectiveECAdd(uint256 px, uint256 py, uint256 qx, uint256 qy)
     internal pure returns(uint256 sx, uint256 sy, uint256 sz) {
@@ -458,7 +462,9 @@ contract VRF {
    * @notice Returns proof's output, if proof is valid. Otherwise reverts
 
    * @param proof A binary-encoded proof, as output by vrf.Proof.MarshalForSolidityVerifier
-   * @return proof's output, if proof is correct. (Otherwise returns false.)
+   *
+   * Throws if proof is invalid, otherwise:
+   * @return output i.e., the random output implied by the proof
    *****************************************************************************
    * @dev This is public rather than external, because the input needs to be in
    * @dev memory, not in calldata, so that we can pull out the uint256 values.

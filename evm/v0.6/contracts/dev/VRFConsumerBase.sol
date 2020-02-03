@@ -115,7 +115,7 @@ contract VRFConsumerBase is VRFRequestIDBase {
    * @param _fee The amount of LINK to send with the request
    * @param _seed Random seed from which output randomness is determined
    *
-   * @return Id which will be returned with the response to this request
+   * @return requestId which will be returned with the response to this request
    *
    * @dev The returned requestId can be used to distinguish responses to *
    * @dev concurrent requests. It is passed as the first argument to
