@@ -252,7 +252,7 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     throw Error('No logs found to decode')
   }
 
-  const types = [
+  const ORACLE_REQUEST_TYPES = [
     'address',
     'bytes32',
     'uint256',
@@ -271,7 +271,7 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     expiration,
     version,
     data,
-  ] = ethers.utils.defaultAbiCoder.decode(types, log.data)
+  ] = ethers.utils.defaultAbiCoder.decode(ORACLE_REQUEST_TYPES, log.data)
 
   return {
     specId: log.topics[1],
@@ -309,8 +309,11 @@ export function decodeCCRequest(
   const d = debug.extend('decodeRunABI')
   d('params %o', log)
 
-  const types = ['bytes32', 'address', 'bytes4', 'bytes']
-  const decodedValue = ethers.utils.defaultAbiCoder.decode(types, log.data)
+  const REQUEST_TYPES = ['bytes32', 'address', 'bytes4', 'bytes']
+  const decodedValue = ethers.utils.defaultAbiCoder.decode(
+    REQUEST_TYPES,
+    log.data,
+  )
   d('decoded value %o', decodedValue)
 
   return decodedValue
