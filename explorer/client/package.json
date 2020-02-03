@@ -2,9 +2,6 @@
   "name": "@chainlink/explorer-client",
   "private": true,
   "version": "0.0.1",
-  "description": "LINK Explorer Client",
-  "author": "Chainlink Dev Team",
-  "license": "MIT",
   "keywords": [],
   "browserslist": {
     "production": [
@@ -91,6 +88,6 @@
     "rimraf": "^3.0.0",
     "ts-jest": "^24.1.0",
     "typescript": "^3.7.4",
-    "webpack": "4.41.5"
+    "webpack": "4.41.2"
   }
 }

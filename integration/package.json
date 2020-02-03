@@ -24,6 +24,6 @@
     "ts-loader": "^6.2.1",
     "ts-node": "^8.4.1",
     "typescript": "^3.7.4",
-    "webpack": "^4.41.5"
+    "webpack": "^4.41.2"
   }
 }
