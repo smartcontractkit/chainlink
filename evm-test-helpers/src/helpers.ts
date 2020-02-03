@@ -203,6 +203,11 @@ export function addHexPrefix(hex: string): string {
   return hex.startsWith('0x') ? hex : `0x${hex}`
 }
 
+/**
+ * Strip the leading 0x hex prefix from a hex string
+ *
+ * @param hex The hex string to strip the leading hex prefix out of
+ */
 export function stripHexPrefix(hex: string): string {
   if (!ethers.utils.isHexString(hex)) {
     throw Error(`Expected valid hex string, got: "${hex}"`)
@@ -260,12 +265,6 @@ export function eventArgs(event?: ethers.Event) {
   return (event?.args as any) as EventArgsArray
 }
 
-export interface TypedEventDescription<
-  T extends Pick<EventDescription, 'encodeTopics'>
-> extends EventDescription {
-  encodeTopics: T['encodeTopics']
-}
-
 /**
  * Find an event within a transaction receipt by its event description
  *
@@ -274,7 +273,7 @@ export interface TypedEventDescription<
  */
 export function findEventIn(
   receipt: ContractReceipt,
-  eventDescription: TypedEventDescription<any>,
+  eventDescription: EventDescription,
 ): ethers.Event | undefined {
   // the first topic of a log is always the keccak-256 hash of the event signature
   const event = receipt.events?.find(

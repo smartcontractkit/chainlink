@@ -203,6 +203,18 @@ export function generateSAID(
   )
 }
 
+/**
+ * ABI encode the javascript representation of OracleSignatures
+ *```solidity
+ *  struct OracleSignatures {
+ *    uint8[] vs;
+ *    bytes32[] rs;
+ *    bytes32[] ss;
+ *  }
+ * ```
+ *
+ * @param os The oracle signatures to ABI encode
+ */
 export function encodeOracleSignatures(os: OracleSignatures) {
   const ORACLE_SIGNATURES_TYPES = ['uint8[]', 'bytes32[]', 'bytes32[]']
   const osValues = [os.vs, os.rs, os.ss]
@@ -224,6 +236,7 @@ export function encodeOracleSignatures(os: OracleSignatures) {
  *    bytes calldata _data
  *  )
  * ```
+ *
  * @param sAID The service agreement ID
  * @param callbackAddr The callback contract address for the response
  * @param callbackFunctionId The callback function id for the response
