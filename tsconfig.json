@@ -6,7 +6,7 @@
     { "path": "./evm/v0.5" },
     { "path": "./evm/v0.6" },
 
-    { "path": "./eth-test-helpers" },
+    { "path": "./evm-test-helpers" },
     // { "path": "./integration" },
     { "path": "./styleguide" },
     { "path": "./tools/json-api-client" },

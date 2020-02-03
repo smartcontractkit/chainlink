@@ -1,5 +1,5 @@
 {
-  "name": "@chainlink/eth-test-helpers",
+  "name": "@chainlink/test-helpers",
   "version": "0.0.1",
   "description": "A collection of test helpers to facilitate testing chainlink's smart contracts",
   "main": "dist/src/index.js",

@@ -1,4 +1,4 @@
-import { contract, matchers, setup } from '@chainlink/eth-test-helpers'
+import { contract, matchers, setup } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
 import { MedianTestHelperFactory } from '../src/generated'
 

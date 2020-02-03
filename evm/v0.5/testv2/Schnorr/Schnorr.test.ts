@@ -3,7 +3,7 @@ import {
   extensions,
   helpers as h,
   setup,
-} from '@chainlink/eth-test-helpers'
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { SchnorrSECP256K1Factory } from '../../src/generated/SchnorrSECP256K1Factory'
