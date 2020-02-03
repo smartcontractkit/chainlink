@@ -7,7 +7,7 @@
     { "path": "./evm/v0.6" },
 
     { "path": "./evm-test-helpers" },
-    // { "path": "./integration" },
+    // { "path": "./integration" }, we have a bunch of typeerrors in integration: https://www.pivotaltracker.com/story/show/170509262
     { "path": "./styleguide" },
     { "path": "./tools/json-api-client" },
     { "path": "./tools/local-storage" },
