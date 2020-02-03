@@ -1,4 +1,4 @@
-import * as t from '@chainlink/eth-test-helpers'
+import * as t from '@chainlink/test-helpers'
 import { CoordinatorFactory } from 'chainlinkv0.5'
 import { ethers } from 'ethers'
 import {

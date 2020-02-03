@@ -5,7 +5,7 @@
   "main": "./dist/src/generated",
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated dist/artifacts/**/*",
-    "postgenerate-typings": "yarn workspace @chainlink/eth-test-helpers export-typings ../evm/src/generated ../evm/dist/src/generated",
+    "postgenerate-typings": "yarn workspace @chainlink/test-helpers export-typings ../evm/src/generated ../evm/dist/src/generated",
     "build": "sol-compiler && yarn generate-typings && tsc -b",
     "build:windows": "truffle.cmd build",
     "depcheck": "echo 'chainlink' && depcheck --ignore-dirs=build/contracts,v0.5,box,v0.6 || true",
@@ -19,7 +19,7 @@
     "truffle:migrate:cldev": "truffle migrate --network cldev"
   },
   "dependencies": {
-    "@chainlink/eth-test-helpers": "0.0.1",
+    "@chainlink/test-helpers": "0.0.1",
     "cbor": "^5.0.1",
     "ethers": "^4.0.41",
     "link_token": "^1.0.6",

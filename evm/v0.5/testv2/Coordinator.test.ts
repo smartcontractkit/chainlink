@@ -5,7 +5,7 @@ import {
   matchers,
   oracle,
   setup,
-} from '@chainlink/eth-test-helpers'
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'

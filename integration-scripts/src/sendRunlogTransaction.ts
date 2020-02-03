@@ -1,4 +1,4 @@
-import { contract } from '@chainlink/eth-test-helpers'
+import { contract } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
 import url from 'url'
 import {

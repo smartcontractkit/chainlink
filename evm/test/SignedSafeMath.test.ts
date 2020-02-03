@@ -1,9 +1,4 @@
-import {
-  contract,
-  matchers,
-  setup,
-  wallet as w,
-} from '@chainlink/eth-test-helpers'
+import { contract, matchers, setup, wallet as w } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
 import { ConcreteSignedSafeMathFactory } from '../src/generated/ConcreteSignedSafeMathFactory'
 

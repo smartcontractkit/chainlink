@@ -11,7 +11,7 @@
   },
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated \"dist/artifacts/*\"",
-    "postgenerate-typings": "yarn workspace @chainlink/eth-test-helpers export-typings ../integration-scripts/src/generated ../integration-scripts/dist/src/generated",
+    "postgenerate-typings": "yarn workspace @chainlink/test-helpers export-typings ../integration-scripts/src/generated ../integration-scripts/dist/src/generated",
     "build": "sol-compiler && yarn generate-typings && tsc",
     "setup": "yarn build",
     "count-transaction-events": "node ./dist/countTransactionEvents",
@@ -27,7 +27,7 @@
   "dependencies": {
     "@0x/sol-compiler": "^4.0.3",
     "@0x/sol-trace": "^3.0.4",
-    "@chainlink/eth-test-helpers": "0.0.1",
+    "@chainlink/test-helpers": "0.0.1",
     "chainlink": "0.8.1",
     "chainlinkv0.5": "0.0.2",
     "chalk": "^2.4.2",

@@ -67,7 +67,7 @@ jobs:
           key: go-mod-{{ checksum "go.sum" }}
           paths:
             - '/go/pkg/mod'
-      - run: yarn workspace @chainlink/eth-test-helpers run setup
+      - run: yarn workspace @chainlink/test-helpers run setup
       - run: yarn workspace chainlinkv0.5 run setup
       - run: yarn workspace chainlink run setup
       - run: go test -p 3 -parallel 2 ./...

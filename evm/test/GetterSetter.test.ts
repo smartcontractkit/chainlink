@@ -1,4 +1,4 @@
-import { contract, setup } from '@chainlink/eth-test-helpers'
+import { contract, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'

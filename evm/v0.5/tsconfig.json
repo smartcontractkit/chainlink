@@ -21,5 +21,5 @@
     "composite": true
   },
   "include": ["test", "testv2", "src", "test/**/*.json", "@types"],
-  "references": [{ "path": "../../eth-test-helpers" }]
+  "references": [{ "path": "../../evm-test-helpers" }]
 }

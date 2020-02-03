@@ -5,7 +5,7 @@ set -e
 # Generate contract artifacts
 yarn install
 
-yarn workspace @chainlink/eth-test-helpers run setup
+yarn workspace @chainlink/test-helpers run setup
 yarn workspace chainlinkv0.5 setup
 yarn workspace chainlink setup
 

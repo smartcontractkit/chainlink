@@ -7,7 +7,7 @@
     "evm/v0.5",
     "evm/v0.6",
     "feeds",
-    "eth-test-helpers",
+    "evm-test-helpers",
     "examples/*",
     "explorer",
     "explorer/client",
@@ -29,7 +29,7 @@
   },
   "scripts": {
     "lint": "eslint  --ext js,jsx,ts,tsx .",
-    "setup": "yarn workspace @chainlink/eth-test-helpers setup && yarn workspaces run setup"
+    "setup": "yarn workspace @chainlink/test-helpers setup && yarn workspaces run setup"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.15.0",

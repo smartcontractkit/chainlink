@@ -18,5 +18,5 @@
     "composite": true
   },
   "include": ["src", "test"],
-  "references": [{ "path": "../eth-test-helpers" }]
+  "references": [{ "path": "../evm-test-helpers" }]
 }
