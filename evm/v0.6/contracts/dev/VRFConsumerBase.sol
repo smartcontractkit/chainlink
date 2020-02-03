@@ -83,7 +83,7 @@ import "./VRFRequestIDBase.sol";
  * @dev (namely, the block reward and transaction fees they forgo by refraining
  * @dev from publishing a block.)
  */
-contract VRFConsumerBase is VRFRequestIDBase {
+abstract contract VRFConsumerBase is VRFRequestIDBase {
 
   /**
    * @notice fulfillRandomness handles the VRF response. Your contract must
@@ -96,7 +96,8 @@ contract VRFConsumerBase is VRFRequestIDBase {
    * @param requestId The Id initially returned by requestRandomness
    * @param randomness the VRF output
    */
-  function fulfillRandomness(bytes32 requestId, uint256 randomness) external;
+  function fulfillRandomness(bytes32 requestId, uint256 randomness)
+    external virtual;
 
   /**
    * @notice requestRandomness initiates a request for VRF output given _seed
