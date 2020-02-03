@@ -23,10 +23,10 @@
   },
   "devDependencies": {
     "@types/fetch-mock": "^7.3.2",
-    "@types/jest": "^24.0.25",
+    "@types/jest": "^25.1.1",
     "@types/path-to-regexp": "^1.7.0",
     "fetch-mock": "^7.3.1",
-    "jest": "^24.9.0",
+    "jest": "^25.1.0",
     "rimraf": "^3.0.0",
     "ts-jest": "^24.0.0"
   }
