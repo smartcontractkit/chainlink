@@ -1,0 +1,65 @@
+{
+  "name": "@chainlink/feeds",
+  "private": true,
+  "version": "0.2.0",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "engines": {
+    "node": "~10.16"
+  },
+  "scripts": {
+    "start": "npm run server",
+    "start:dev": "cross-env PORT=3002 react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "build-theme": "lessc --js src/theme/theme.less src/theme.css",
+    "watch-theme": "less-watch-compiler --enable-js src/theme src theme.less",
+    "server": "node server",
+    "postbuild": "./postbuild.sh",
+    "setup": "echo \"No setup required for @chainlink/heartbeat\""
+  },
+  "dependencies": {
+    "antd": "^3.23.3",
+    "d3": "^5.11.0",
+    "eslint": "^6.6.0",
+    "ethers": "^4.0.36",
+    "express": "^4.17.1",
+    "lodash": "^4.17.15",
+    "moment": "^2.24.0",
+    "prettier": "^1.19.1",
+    "react": "^16.9.0",
+    "react-dom": "^16.9.0",
+    "react-ga": "^2.7.0",
+    "react-redux": "^7.1.1",
+    "react-router": "^5.0.1",
+    "react-router-dom": "^5.0.1",
+    "react-scripts": "^3.1.0",
+    "recompose": "^0.30.0",
+    "redux": "^4.0.4",
+    "redux-logger": "^3.0.6",
+    "redux-persist": "^5.10.0",
+    "redux-persist-transform-filter": "^0.0.18",
+    "redux-thunk": "^2.3.0",
+    "reselect": "^4.0.0",
+    "typescript": "^3.7.2",
+    "webpack": "4.41.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^9.4.0",
+    "@types/jest": "^24.0.25",
+    "cross-env": "^6.0.3",
+    "jest": "^24.9.0",
+    "redux-mock-store": "^1.5.4"
+  }
+}
