@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 
+# Generates the golang wrapper of the LINK ERC20 token, which is represented by
+# a non-standard compiler argument. Takes no arguments.
+
 set -e
 
 function cleanup() { # Release resources on script exit
     rm -rf "$TMP_DIR"
 }
-trap cleanup EXIT
+# trap cleanup EXIT
 
 CDIR=$(dirname "$0")
 
@@ -13,11 +16,13 @@ TMP_DIR=$(mktemp -d /tmp/link_token.XXXXXXXXX)
 
 LINK_COMPILER_ARTIFACT_PATH="$CDIR/../../../../evm/src/LinkToken.json"
 
+ABI=$(jq -c -r .abi < "$LINK_COMPILER_ARTIFACT_PATH")
 ABI_PATH="${TMP_DIR}/abi.json"
-jq .abi < "$LINK_COMPILER_ARTIFACT_PATH" > "$ABI_PATH"
+echo $ABI > "$ABI_PATH"
 
+BIN=$(jq -r .bytecode < "$LINK_COMPILER_ARTIFACT_PATH")
 BIN_PATH="${TMP_DIR}/bin"
-jq .bytecode < "$LINK_COMPILER_ARTIFACT_PATH" | tr -d '"' > "$BIN_PATH"
+echo "$BIN" > "$BIN_PATH"
 
 CLASS_NAME="LinkToken"
 PKG_NAME="link_token_interface"
@@ -28,4 +33,5 @@ OUT_PATH="$TMP_DIR/$PKG_NAME.go"
 TARGET_DIR="./generated/$PKG_NAME/"
 mkdir -p "$TARGET_DIR"
 cp "$OUT_PATH" "$TARGET_DIR"
-"$CDIR/record_versions.sh" "$LINK_COMPILER_ARTIFACT_PATH" link_token_interface
+"$CDIR/record_versions.sh" "$LINK_COMPILER_ARTIFACT_PATH" link_token_interface \
+                           "$ABI" "$BIN" dont_truncate_binary
