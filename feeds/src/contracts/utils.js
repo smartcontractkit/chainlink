@@ -5,11 +5,11 @@ export function createContract(address, provider, abi) {
   return new ethers.Contract(address, abi, provider)
 }
 
+const REACT_APP_INFURA_KEY = process.env.REACT_APP_INFURA_KEY
+
 export function createInfuraProvider(networkId = MAINNET_ID) {
   const provider = new ethers.providers.JsonRpcProvider(
-    `https://${networkName(networkId)}.infura.io/v3/${
-      process.env.REACT_APP_INFURA_KEY
-    }`,
+    `https://${networkName(networkId)}.infura.io/v3/${REACT_APP_INFURA_KEY}`,
   )
   provider.pollingInterval = 8000
 
