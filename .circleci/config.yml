@@ -216,6 +216,24 @@ jobs:
           command: yarn workspace @chainlink/explorer-client run test-ci:silent
       - store_artifacts:
           path: ./integration/logs
+  feeds:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run:
+          name: Run Tests
+          command: yarn workspace @chainlink/feeds run test
   forks:
     machine:
       image: ubuntu-1604:201903-01
@@ -397,6 +415,10 @@ workflows:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
               only: /^explorer-v.*/
+      - feeds:
+          filters:
+            tags:
+              only: /^v.*/
       - lint:
           filters:
             tags:
