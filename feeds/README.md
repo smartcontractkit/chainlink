@@ -39,7 +39,7 @@ Launches the expressjs server that serve the `/build` folder
 REACT_APP_INFURA_KEY="yourkey"
 ```
 
-## Deploy Monorepo to Heroku
+## Deploy to Heroku
 
 Enable Docker container builds on the application
 
