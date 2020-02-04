@@ -59,11 +59,11 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunO
 	if err != nil {
 		return models.NewRunOutputError(errors.Wrap(err, "bad seed for vrf task"))
 	}
-	ran, err := store.VRFKeyStore.GenerateProof(key, seed)
+	solidityProof, err := store.VRFKeyStore.GenerateProof(key, seed)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	ethereumByteArray := fmt.Sprintf("0x%x", utils.EVMEncodeBytes(ran[:]))
+	ethereumByteArray := fmt.Sprintf("0x%x", utils.EVMEncodeBytes(solidityProof[:]))
 	return models.NewRunOutputCompleteWithResult(ethereumByteArray)
 }
 
