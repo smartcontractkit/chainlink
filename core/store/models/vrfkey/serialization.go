@@ -124,11 +124,17 @@ func (k gethKeyStruct) Value() (driver.Value, error) {
 }
 
 func (k *gethKeyStruct) Scan(value interface{}) error {
-	rawKey, ok := value.([]byte)
-	if !ok {
-		return errors.Wrap(
-			fmt.Errorf("unable to convert %+v of type %T to gethKeyStruct",
-				value, value), "scan failure")
+	// With sqlite gorm driver, we get a []byte, here. With postgres, a string!
+	// https://github.com/jinzhu/gorm/issues/2276
+	sqliteKey, sqliteOk := value.([]byte)
+	if sqliteOk {
+		return json.Unmarshal(sqliteKey, k)
 	}
-	return json.Unmarshal(rawKey, k)
+	postgresKey, postgresOk := value.(string)
+	if postgresOk {
+		return json.Unmarshal([]byte(postgresKey), k)
+	}
+	return errors.Wrap(
+		fmt.Errorf("unable to convert %+v of type %T to gethKeyStruct",
+			value, value), "scan failure")
 }
