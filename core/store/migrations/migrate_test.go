@@ -304,7 +304,7 @@ func TestMigrate_Migration1570675883(t *testing.T) {
 
 		jobRunFound := models.JobRun{}
 		require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
-		assert.Equal(t, `{"a": "b"}`, jobRunFound.Overrides.String())
+		assert.Equal(t, `{"a": "b"}`, jobRunFound.InitialParams.String())
 		require.Error(t, db.Where("id = ?", overrides.ID).Find(&overrides).Error)
 		return nil
 	})

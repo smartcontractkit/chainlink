@@ -96,7 +96,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 func (re *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) models.RunOutput {
 	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
 
-	params, err := models.Merge(run.Overrides, taskCopy.Params)
+	params, err := models.Merge(run.InitialParams, taskCopy.Params)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -114,7 +114,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 		previousTaskInput = previousTaskRun.Result.Data
 	}
 
-	data, err := models.Merge(run.Overrides, previousTaskInput, taskRun.Result.Data)
+	data, err := models.Merge(run.InitialParams, previousTaskInput, taskRun.Result.Data)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

@@ -120,7 +120,7 @@ func NewRun(
 		InitiatorID:    initiator.ID,
 		TaskRuns:       make([]models.TaskRun, len(job.Tasks)),
 		Status:         models.RunStatusInProgress,
-		Overrides:      *data,
+		InitialParams:  *data,
 		CreationHeight: utils.NewBig(currentHeight),
 		ObservedHeight: utils.NewBig(currentHeight),
 		RunRequest:     *runRequest,
@@ -345,11 +345,11 @@ func (rm *runManager) ResumePending(
 		return rm.updateWithError(&run, "Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
-	data, err := models.Merge(run.Overrides, input.Data)
+	data, err := models.Merge(run.InitialParams, input.Data)
 	if err != nil {
-		return rm.updateWithError(&run, "Error while merging onto overrides for run %s", run.ID)
+		return rm.updateWithError(&run, "Error while merging onto initialParams for run %s", run.ID)
 	}
-	run.Overrides = data
+	run.InitialParams = data
 
 	currentTaskRun.ApplyBridgeRunResult(input)
 	run.ApplyBridgeRunResult(input)

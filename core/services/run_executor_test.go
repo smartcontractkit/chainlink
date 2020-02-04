@@ -212,7 +212,7 @@ func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeMultiply, Params: taskParams}}
 	assert.NoError(t, store.CreateJob(&j))
 	run := cltest.NewJobRun(j)
-	run.Overrides = cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v, "result": %v}`, requestParameter, requestBase))
+	run.InitialParams = cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v, "result": %v}`, requestParameter, requestBase))
 	assert.NoError(t, store.CreateJobRun(&run))
 
 	require.NoError(t, runExecutor.Execute(run.ID))

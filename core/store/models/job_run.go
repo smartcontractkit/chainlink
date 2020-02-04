@@ -30,7 +30,7 @@ type JobRun struct {
 	InitiatorID    uint         `json:"-"`
 	CreationHeight *utils.Big   `json:"creationHeight"`
 	ObservedHeight *utils.Big   `json:"observedHeight"`
-	Overrides      JSON         `json:"overrides"`
+	InitialParams  JSON         `json:"initialParams"`
 	DeletedAt      null.Time    `json:"-" gorm:"index"`
 	Payment        *assets.Link `json:"payment,omitempty"`
 }
