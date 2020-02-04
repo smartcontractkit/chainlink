@@ -2,22 +2,10 @@
 
 set -e
 
-sudo apt install -y curl
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-REPO="deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-sudo add-apt-repository -y "$REPO"
-sudo apt update
-sudo apt install -y docker-ce
-sudo /etc/init.d/docker start
-
 # Generate contract artifacts
 yarn install
 yarn workspace chainlinkv0.5 setup
 yarn workspace chainlink setup
-
-echo "solc_bin directory contents:"
-find "$(dirname $0)/../../" -name sol-compiler -o -name solc_bin | xargs ls -lt
-echo "done with solc_bin directory contents"
 
 # Run golang coverage
 go get -u github.com/smartcontractkit/goverage
