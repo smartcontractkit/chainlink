@@ -21,7 +21,8 @@ import (
 // will handle interaction with the Random adapter, but if you need to interact
 // with it directly, its input to should be a JSON object with "seed" and
 // "keyHash" fields containing the input seed as a hex-represented uint256, and
-// the keccak256 hash of the public key E.g., given the input
+// the keccak256 hash of the UNCOMPRESSED REPRESENTATION(*) of the public key
+// E.g., given the input
 //
 //   {
 //     "seed":
@@ -37,6 +38,9 @@ import (
 // The adapter returns the hex representation of a solidity bytes array which
 // can be verified on-chain by VRF.sol#randomValueFromVRFProof. (I.e., it is the
 // proof expected by that method, prepended by its length as a uint256.)
+//
+// (*) I.e., the 64-byte concatenation of the point's x- and y- ordinates as
+// uint256's
 type Random struct {
 	// PublicKey used in Random's VRF proofs, 0x-hex uncompressed representation.
 	// Do not prefix it by 0x04.
