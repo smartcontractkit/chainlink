@@ -13,22 +13,31 @@ import (
 	"chainlink/core/utils"
 )
 
-const UncompressedPublicKeyLength = 64
+// CompressedPublicKeyLength is the length of a secp256k1 public key's x
+// ordinate as a uint256, concatenated with 00 if y is even, 01 if odd.
+const CompressedPublicKeyLength = 33
+
+func init() {
+	if CompressedPublicKeyLength != (&secp256k1.Secp256k1{}).Point().MarshalSize() {
+		panic("disparity in expected public key lengths")
+	}
+}
 
 // Set sets k to the public key represented by l
 func (k *PublicKey) Set(l PublicKey) {
-	if copy(k[:], l[:]) != UncompressedPublicKeyLength {
+	if copy(k[:], l[:]) != CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy entire public key %x to %x", l, k))
 	}
 }
 
 // Point returns the secp256k1 point corresponding to k
 func (k *PublicKey) Point() (kyber.Point, error) {
-	return secp256k1.LongUnmarshal(k[:])
+	p := (&secp256k1.Secp256k1{}).Point()
+	return p, p.UnmarshalBinary(k[:])
 }
 
 // NewPublicKey returns the PublicKey corresponding to rawKey
-func NewPublicKey(rawKey [64]byte) *PublicKey {
+func NewPublicKey(rawKey [CompressedPublicKeyLength]byte) *PublicKey {
 	rv := PublicKey(rawKey)
 	return &rv
 }
@@ -39,11 +48,11 @@ func NewPublicKeyFromHex(hex string) (*PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	if l := len(rawKey); l != UncompressedPublicKeyLength {
+	if l := len(rawKey); l != CompressedPublicKeyLength {
 		return nil, fmt.Errorf("wrong length for public key: %s of length %d", rawKey, l)
 	}
 	k := &PublicKey{}
-	if c := copy(k[:], rawKey[:]); c != UncompressedPublicKeyLength {
+	if c := copy(k[:], rawKey[:]); c != CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy entire key to return value"))
 	}
 	return k, err
