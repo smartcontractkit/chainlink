@@ -42,7 +42,10 @@ import (
 // (*) I.e., the 64-byte concatenation of the point's x- and y- ordinates as
 // uint256's
 type Random struct {
-	// PublicKey used in Random's VRF proofs
+	// Compressed hex representation public key used in Random's VRF proofs
+	//
+	// This is just a hex string because Random is instantiated by json.Unmarshal.
+	// (See adapters.For function.)
 	PublicKey string `json:"publicKey"`
 }
 
