@@ -376,6 +376,11 @@ workflows:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:
               only: /^v.*/
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
       - go-sqlite:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:
