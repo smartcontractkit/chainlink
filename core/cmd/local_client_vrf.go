@@ -208,10 +208,6 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 	return nil
 }
 
-// Forget removes the key from the in-memory key store, but leaves it in the db
-func (cli *Client) Forget(c *clipkg.Context) error {
-	return nil
-}
 func noFileToOverwrite(path string) bool {
 	return os.IsNotExist(utils.JustError(os.Stat(path)))
 }
