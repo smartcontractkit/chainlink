@@ -153,7 +153,7 @@ func MigrateTo(db *gorm.DB, migrationID string) error {
 			Migrate: migration1576022702.Migrate,
 		},
 		{
-			ID:      "migration1579700934",
+			ID:      "1579700934",
 			Migrate: migration1579700934.Migrate,
 		},
 	}
