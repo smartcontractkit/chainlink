@@ -141,7 +141,7 @@ func TestEthLogEvent_Meta(t *testing.T) {
 			initr := models.Initiator{Type: models.InitiatorEthLog}
 			le := models.InitiatorLogEvent{Initiator: initr, Log: test.el}.LogRequest()
 			meta := le.Meta()
-			assert.JSONEq(t, strings.ToLower(test.wantMeta.String()), strings.ToLower(meta.String()))
+			assert.JSONEq(t, test.wantMeta.String(), meta.String())
 		})
 	}
 }
