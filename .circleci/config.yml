@@ -68,6 +68,7 @@ jobs:
           paths:
             - "/go/pkg/mod"
       - run: yarn workspace chainlinkv0.5 run setup
+      - run: yarn workspace chainlinkv0.6 run setup
       - run: yarn workspace chainlink run setup
       - run: go test -p 3 -parallel 2 ./...
   rust:

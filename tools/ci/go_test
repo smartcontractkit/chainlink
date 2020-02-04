@@ -5,6 +5,7 @@ set -e
 # Generate contract artifacts
 yarn install
 yarn workspace chainlinkv0.5 setup
+yarn workspace chainlinkv0.6 setup
 yarn workspace chainlink setup
 
 # Run golang coverage
