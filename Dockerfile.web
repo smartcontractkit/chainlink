@@ -4,6 +4,7 @@ WORKDIR /app
 ADD . .
 
 ARG REACT_APP_INFURA_KEY
+ARG REACT_APP_GA_ID
 RUN yarn install
 RUN yarn workspace @chainlink/feeds run build
 

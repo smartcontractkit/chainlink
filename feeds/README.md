@@ -58,6 +58,6 @@ $ heroku container:login
 Deploy new changes from the root of the monorepo
 
 ```
-$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=the-infura-key -a the-app-name
+$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=abc123,REACT_APP_GA_ID=abc123 -a the-app-name
 $ heroku container:release web -a the-app-name
 ```
