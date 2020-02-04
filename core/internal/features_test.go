@@ -1048,7 +1048,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	rawID := []byte(j.ID.String()) // Chainlink requires ASCII encoding of jobID
 	r := vrf.RandomnessRequestLog{
 		KeyHash: provingKey.PublicKey.Hash(),
-		Seed:    big.NewInt(1),
+		Seed:    big.NewInt(2),
 		JobID:   common.BytesToHash(rawID),
 		Sender:  cltest.NewAddress(),
 		Fee:     assets.NewLink(100),
