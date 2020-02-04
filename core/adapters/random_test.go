@@ -60,7 +60,7 @@ func TestRandom_Perform(t *testing.T) {
 	require.NoError(t, err, "proof was invalid")
 	expected, ok := big.NewInt(0).SetString(
 		// Depends on vrfkey.json, and will need to be changed if that changes.
-		"b2002342b67f1e9c27e7abe157cfc8fc1912a7c9bde570aeed5d13c8d00c497f", 16)
+		"b86810e6a71a7990fa7cdb56db2bc6a2c804aa6505e53f1f6ac8e5f052a27621", 16)
 	assert.True(t, randomOutput.Cmp(expected) == 0)
 	require.True(t, ok)
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
