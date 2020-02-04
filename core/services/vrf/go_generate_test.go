@@ -96,7 +96,7 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	hashMsg := string(abiBytes+binBytes) + "\n" // newline from <<< in record_versions.sh
 	_, err = io.WriteString(hasher, hashMsg)
 	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
-	recompileCommand := "`yarn workspace chainlinkv0.5 compile; go generate`"
+	recompileCommand := "`yarn workspace chainlinkv0.6 compile; go generate`"
 	require.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
 		"compiler artifact %s has changed; please rerun %s for the vrf package",
 		apath, recompileCommand)
@@ -192,7 +192,7 @@ func init() {
 	}
 	fmt.Printf("some solidity artifacts missing (%s); rebuilding...",
 		solidityArtifactsMissing)
-	yarnArgs := strings.Fields("workspace chainlinkv0.5 compile")
+	yarnArgs := strings.Fields("workspace chainlinkv0.6 compile")
 	cmd := exec.Command("yarn", yarnArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
