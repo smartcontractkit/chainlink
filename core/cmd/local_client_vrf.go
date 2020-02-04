@@ -111,11 +111,15 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 				fmt.Println("could not extract public key from json input")
 				return errors.Wrapf(err, "while extracting public key from %s", keyjson)
 			}
-			fmt.Println(`If you want to import the new key anyway, delete the old key with the command
+			fmt.Printf(`If you want to import the new key anyway, delete the old key with the command
 
-` + "`chainlink local delete -pk " + key.PublicKey + "`" + `
+    %s
 
-(but maybe back it up first, with ` + "chainlink local export -pk <public_key> -f <backup_path>`)")
+(but maybe back it up first, with %s.)
+`,
+				fmt.Sprintf("chainlink local delete -pk %s", key.PublicKey),
+				fmt.Sprintf("`chainlink local export -f <backup_path> -pk %s`",
+					key.PublicKey))
 			return errors.Wrap(err, "while attempting to import key from CL")
 		}
 		return err
