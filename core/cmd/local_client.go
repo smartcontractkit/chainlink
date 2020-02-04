@@ -49,9 +49,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if len(c.String("vrfpassword")) != 0 {
 		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
 		if err != nil {
-			return cli.errorOut(fmt.Errorf(
+			return cli.errorOut(errors.Wrapf(err,
 				"error reading VRF password from vrfpassword file \"%s\": %+v",
-				c.String("vrfpassword"), err))
+				c.String("vrfpassword")))
 		}
 		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
 			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
