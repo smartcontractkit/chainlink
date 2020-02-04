@@ -128,8 +128,7 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 }
 
 // ExportVRFKey saves encrypted copy of VRF key with given public key to
-// requested file path. If there is more than one encrypted copy, the ones past
-// the first are saved with extensions '.1', '.2', etc.
+// requested file path.
 func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
 	enckeys, err := getKeys(cli, c)
 	if err != nil {
@@ -139,10 +138,13 @@ func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
 		return fmt.Errorf("must specify file to export to") // Or could default to stdout?
 	}
 	keypath := c.String("file")
+	// Duplicate keys for a given public key should be impossible, but keep this
+	// logic in case not.
 	for i, keyjson := range enckeys {
 		ckeypath := keypath
 		if i > 0 {
 			ckeypath = fmt.Sprintf("%s.%d", keypath, i)
+			fmt.Println("Duplicate key found! Exporting to ", ckeypath)
 		}
 		if err := ioutil.WriteFile(ckeypath, keyjson, 0644); err != nil {
 			return errors.Wrapf(err, "could not save %s to %s", keyjson, ckeypath)
