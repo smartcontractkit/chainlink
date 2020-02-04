@@ -1,28 +1,30 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
-import { ethers } from 'ethers'
-import { Instance } from '../src/contract'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { AggregatorFactory } from '../src/generated/AggregatorFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
-import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  oracle,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { makeTestProvider } from '../src/provider'
+import { ethers } from 'ethers'
+import { AggregatorFactory } from '../src/generated/AggregatorFactory'
+import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
+import { OracleFactory } from '../src/generated/OracleFactory'
 
-let personas: h.Personas
+let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
-const provider = makeTestProvider()
-const linkTokenFactory = new LinkTokenFactory()
+const provider = setup.provider()
+const linkTokenFactory = new contract.LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  personas = rolesAndPersonas.personas
-  defaultAccount = rolesAndPersonas.roles.defaultAccount
+  personas = users.personas
+  defaultAccount = users.roles.defaultAccount
 })
 
 describe('AggregatorProxy', () => {
@@ -33,12 +35,12 @@ describe('AggregatorProxy', () => {
   const response = h.numToBytes32(54321)
   const response2 = h.numToBytes32(67890)
 
-  let link: Instance<LinkTokenFactory>
-  let aggregator: Instance<AggregatorFactory>
-  let aggregator2: Instance<AggregatorFactory>
-  let oc1: Instance<OracleFactory>
-  let proxy: Instance<AggregatorProxyFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  let link: contract.Instance<contract.LinkTokenFactory>
+  let aggregator: contract.Instance<AggregatorFactory>
+  let aggregator2: contract.Instance<AggregatorFactory>
+  let oc1: contract.Instance<OracleFactory>
+  let proxy: contract.Instance<AggregatorProxyFactory>
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     aggregator = await aggregatorFactory
@@ -55,7 +57,7 @@ describe('AggregatorProxy', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(aggregatorProxyFactory, [
+    matchers.publicAbi(aggregatorProxyFactory, [
       'aggregator',
       'latestAnswer',
       'latestRound',
@@ -76,18 +78,20 @@ describe('AggregatorProxy', () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
 
-      const request = h.decodeRunRequest(receipt.logs?.[3])
-      await h.fulfillOracleRequest(oc1, request, response)
-      assertBigNum(
+      const request = oracle.decodeRunRequest(receipt.logs?.[3])
+      await oc1.fulfillOracleRequest(
+        ...oracle.convertFufillParams(request, response),
+      )
+      matchers.bigNum(
         ethers.utils.bigNumberify(response),
         await aggregator.latestAnswer(),
       )
     })
 
     it('pulls the rate from the aggregator', async () => {
-      assertBigNum(response, await proxy.latestAnswer())
+      matchers.bigNum(response, await proxy.latestAnswer())
       const latestRound = await proxy.latestRound()
-      assertBigNum(response, await proxy.getAnswer(latestRound))
+      matchers.bigNum(response, await proxy.getAnswer(latestRound))
     })
 
     describe('after being updated to another contract', () => {
@@ -98,18 +102,20 @@ describe('AggregatorProxy', () => {
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs?.[3])
+        const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-        await h.fulfillOracleRequest(oc1, request, response2)
-        assertBigNum(response2, await aggregator2.latestAnswer())
+        await oc1.fulfillOracleRequest(
+          ...oracle.convertFufillParams(request, response2),
+        )
+        matchers.bigNum(response2, await aggregator2.latestAnswer())
 
         await proxy.setAggregator(aggregator2.address)
       })
 
       it('pulls the rate from the new aggregator', async () => {
-        assertBigNum(response2, await proxy.latestAnswer())
+        matchers.bigNum(response2, await proxy.latestAnswer())
         const latestRound = await proxy.latestRound()
-        assertBigNum(response2, await proxy.getAnswer(latestRound))
+        matchers.bigNum(response2, await proxy.getAnswer(latestRound))
       })
     })
   })
@@ -118,20 +124,22 @@ describe('AggregatorProxy', () => {
     beforeEach(async () => {
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
-      const request = h.decodeRunRequest(receipt.logs?.[3])
+      const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-      await h.fulfillOracleRequest(oc1, request, response)
+      await oc1.fulfillOracleRequest(
+        ...oracle.convertFufillParams(request, response),
+      )
       const height = await aggregator.latestTimestamp()
       assert.notEqual('0', height.toString())
     })
 
     it('pulls the height from the aggregator', async () => {
-      assertBigNum(
+      matchers.bigNum(
         await aggregator.latestTimestamp(),
         await proxy.latestTimestamp(),
       )
       const latestRound = await proxy.latestRound()
-      assertBigNum(
+      matchers.bigNum(
         await aggregator.latestTimestamp(),
         await proxy.getTimestamp(latestRound),
       )
@@ -146,9 +154,11 @@ describe('AggregatorProxy', () => {
 
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
-        const request = h.decodeRunRequest(receipt.logs?.[3])
+        const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-        await h.fulfillOracleRequest(oc1, request, response2)
+        await oc1.fulfillOracleRequest(
+          ...oracle.convertFufillParams(request, response2),
+        )
         const height2 = await aggregator2.latestTimestamp()
         assert.notEqual('0', height2.toString())
 
@@ -159,12 +169,12 @@ describe('AggregatorProxy', () => {
       })
 
       it('pulls the height from the new aggregator', async () => {
-        assertBigNum(
+        matchers.bigNum(
           await aggregator2.latestTimestamp(),
           await proxy.latestTimestamp(),
         )
         const latestRound = await proxy.latestRound()
-        assertBigNum(
+        matchers.bigNum(
           await aggregator2.latestTimestamp(),
           await proxy.getTimestamp(latestRound),
         )
@@ -193,7 +203,7 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('does not update', async () => {
-        h.assertActionThrows(async () => {
+        matchers.evmRevert(async () => {
           await proxy.connect(personas.Neil).setAggregator(aggregator2.address)
         })
 
@@ -217,7 +227,7 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('fails', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await proxy.connect(personas.Eddy).destroy()
         })
 

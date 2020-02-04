@@ -1,0 +1,48 @@
+{
+  "name": "@chainlink/test-helpers",
+  "private": false,
+  "version": "0.0.1-beta",
+  "description": "A collection of test helpers to facilitate testing chainlink's smart contracts",
+  "main": "dist/src/index.js",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "author": "Chainlink Devs",
+  "license": "MIT",
+  "scripts": {
+    "export-typings": "node ./dist/src/scripts/export-generated-contract-factories",
+    "generate-typings": "typechain --target ethers --outDir src/generated src/LinkToken.json",
+    "_comment_:build": "Need to do two-pass compile due to https://www.pivotaltracker.com/story/show/171066956",
+    "test": "jest",
+    "build": "yarn generate-typings && tsc && yarn export-typings src/generated dist/src/generated && tsc",
+    "setup": "yarn build",
+    "prepublishOnly": "rm -r dist src/generated && yarn setup && yarn test"
+  },
+  "dependencies": {
+    "@0x/sol-trace": "^3.0.4",
+    "@0x/subproviders": "^6.0.4",
+    "bn.js": "^4.11.0",
+    "cbor": "^5.0.1",
+    "chai": "^4.2.0",
+    "chalk": "^2.4.2",
+    "debug": "^4.1.1",
+    "ethers": "^4.0.41"
+  },
+  "devDependencies": {
+    "@types/cbor": "^5.0.0",
+    "@types/chai": "^4.2.4",
+    "@types/debug": "^4.1.5",
+    "@types/ganache-core": "^2.7.0",
+    "@types/jest": "^24.0.25",
+    "@types/node": "^12.7.5",
+    "jest": "^24.9.0",
+    "jest-circus": "^24.9.0",
+    "ts-jest": "^24.1.0",
+    "typechain": "^1.0.4",
+    "typechain-target-ethers": "^1.0.3",
+    "typescript": "^3.7.4"
+  },
+  "files": [
+    "package.json",
+    "dist",
+    "README.md"
+  ]
+}

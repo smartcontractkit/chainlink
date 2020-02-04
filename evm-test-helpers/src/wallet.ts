@@ -1,7 +1,12 @@
+/**
+ * @packageDocumentation
+ *
+ * This file contains functionality for ease of creating ethereum account abstractions
+ * based on ethers.js. Useful for creating many accounts for testing purposes only.
+ */
 import { ethers } from 'ethers'
-import { makeDebug } from './debug'
-
 import { JsonRpcProvider } from 'ethers/providers'
+import { makeDebug } from './debug'
 
 interface RCreateFundedWallet {
   /**

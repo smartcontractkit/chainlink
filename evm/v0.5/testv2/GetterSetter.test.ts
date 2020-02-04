@@ -1,20 +1,21 @@
-import { assertBigNum } from '../src/matchers'
-import * as h from '../src/helpers'
-import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { makeTestProvider } from '../src/provider'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { Instance } from '../src/contract'
 import { ethers } from 'ethers'
-
+import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
 const getterSetterFactory = new GetterSetterFactory()
 
-const provider = makeTestProvider()
-let roles: h.Roles
+const provider = setup.provider()
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('GetterSetter', () => {
@@ -23,8 +24,8 @@ describe('GetterSetter', () => {
   const bytes32 = ethers.utils.formatBytes32String('Hi Mom!')
   const uint256 = ethers.utils.bigNumberify(645746535432)
 
-  let gs: Instance<GetterSetterFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  let gs: contract.Instance<GetterSetterFactory>
+  const deployment = setup.snapshot(provider, async () => {
     gs = await getterSetterFactory.connect(roles.defaultAccount).deploy()
   })
 
@@ -37,7 +38,7 @@ describe('GetterSetter', () => {
       await gs.setBytes32(bytes32)
 
       const currentBytes32 = await gs.getBytes32()
-      assert.deepEqual(h.toUtf8(currentBytes32), h.toUtf8(bytes32))
+      assert.deepEqual(h.toUtf8Bytes(currentBytes32), h.toUtf8Bytes(bytes32))
     })
 
     it('logs an event', async () => {
@@ -65,7 +66,7 @@ describe('GetterSetter', () => {
       assert.equal(currentRequestId, requestId)
 
       const currentBytes32 = await gs.getBytes32()
-      assert.deepEqual(h.toUtf8(currentBytes32), h.toUtf8(bytes32))
+      assert.deepEqual(h.toUtf8Bytes(currentBytes32), h.toUtf8Bytes(bytes32))
     })
   })
 
@@ -99,7 +100,7 @@ describe('GetterSetter', () => {
       assert.equal(currentRequestId, requestId)
 
       const currentUint256 = await gs.getUint256()
-      assertBigNum(currentUint256, uint256)
+      matchers.bigNum(currentUint256, uint256)
     })
   })
 })

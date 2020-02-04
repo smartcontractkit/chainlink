@@ -1,7 +1,15 @@
-import { resolve, join, parse } from 'path'
+/**
+ * @packageDocumentation
+ *
+ * This file is a script for internal usage.
+ * It copies over and bundles .d.ts files from the code generated from the `typechain` library.
+ *
+ * The `typechain` library generates typesafe ethers.js based contract abstractions.
+ */
 import chalk from 'chalk'
-import { cp, rm, ls, test, mkdir, cat } from 'shelljs'
 import { writeFileSync } from 'fs'
+import { join, parse, resolve } from 'path'
+import { cat, cp, ls, mkdir, rm, test } from 'shelljs'
 
 // when this is non-empty, no files will be written
 const DRY_RUN = process.env.DRY_RUN
@@ -23,6 +31,7 @@ main()
 
 /**
  * Export all generated contract factories and their associated types
+ *
  * @param generatedPath The path of the generated files
  * @param distPath The path of the post-tsc generated files
  */
@@ -47,6 +56,7 @@ export function exportGeneratedContractFactories(
  * This copies the .d.ts files from the generated phase over,
  * since the typescript compiler drops any .d.ts source files during
  * compilation
+ *
  * @param generatedPath The path of the generated files
  * @param distPath The path of the post-tsc generated files
  */
@@ -58,6 +68,7 @@ function copyTypings(generatedPath: string, distPath: string): void {
 /**
  * Create a barrel file which contains all of the exports.
  * This will replace the existing barrel file if it already exists.
+ *
  * @path the path to create the barrel file
  * @param data The data to write to the barrel file
  */
@@ -74,6 +85,7 @@ function makeBarrelFile(path: string, data: string): void {
  *
  * This function merges both of them into one index file, and deletes the
  * .d.fs one.
+ *
  * @param path The path of the generated files
  */
 function mergeIndexes(path: string): void {
@@ -88,6 +100,7 @@ function mergeIndexes(path: string): void {
 
 /**
  * Check if the generated directory for smart contract factories exists
+ *
  * @param path The path of the generated files
  */
 function generatedDirExists(path: string): boolean {
@@ -98,6 +111,7 @@ function generatedDirExists(path: string): boolean {
 
 /**
  * Get all the generated file paths from the generated directory
+ *
  * @param path The path of the generated files
  */
 function getGeneratedFilePaths(path: string): string[] {
@@ -111,6 +125,7 @@ function getGeneratedFilePaths(path: string): string[] {
 
 /**
  * Create an es6 export of a filename, handles interface and index conflicts naively
+ *
  * @param fileName The filename to export
  */
 function makeExportPath(fileName: string): string {

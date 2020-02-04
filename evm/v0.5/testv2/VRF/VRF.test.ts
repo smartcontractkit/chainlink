@@ -1,12 +1,16 @@
-import * as h from '../../src/helpers'
-import * as f from './fixtures'
-import { VRFFactory } from '../../src/generated'
-import { assertBigNum } from '../../src/matchers'
-import { ethers } from 'ethers'
-import { Instance } from '../../src/contract'
-import { makeTestProvider } from '../../src/provider'
+import {
+  contract,
+  extensions,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import '../../src/extensions/ethers/BigNumber'
+import { ethers } from 'ethers'
+import { VRFFactory } from '../../src/generated'
+import * as f from './fixtures'
+extensions.ethers.BigNumber.extend()
+
 const { bigNumberify: bn } = ethers.utils
 
 const big1 = bn(1)
@@ -17,22 +21,22 @@ function assertPointsEqual(
   x: ethers.utils.BigNumber[],
   y: ethers.utils.BigNumber[],
 ) {
-  assertBigNum(x[0], y[0])
-  assertBigNum(x[1], y[1])
+  matchers.bigNum(x[0], y[0])
+  matchers.bigNum(x[1], y[1])
 }
 
 const vrfFactory = new VRFFactory()
-const provider = makeTestProvider()
+const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  defaultAccount = rolesAndPersonas.roles.defaultAccount
+  const users = await setup.users(provider)
+  defaultAccount = users.roles.defaultAccount
 })
 
 describe('VRF', () => {
-  let VRF: Instance<VRFFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  let VRF: contract.Instance<VRFFactory>
+  const deployment = setup.snapshot(provider, async () => {
     VRF = await vrfFactory.connect(defaultAccount).deploy()
   })
 
@@ -42,7 +46,7 @@ describe('VRF', () => {
 
   it('Accurately calculates simple and obvious bigModExp test inputs', async () => {
     const rawExp = 3 ** 2 // Appease prettier but clarify operator precedence
-    assertBigNum(await VRF.bigModExp(3, 2, 5), rawExp % 5)
+    matchers.bigNum(await VRF.bigModExp(3, 2, 5), rawExp % 5)
   })
 
   it('accurately calculates the sum of g and 2g (i.e., 3g)', async () => {
@@ -66,16 +70,16 @@ describe('VRF', () => {
   })
 
   it('Can compute square roots', async () => {
-    assertBigNum(2, await VRF.squareRoot(4), '4=2^2') // 4**((fieldSize-1)/2)
+    matchers.bigNum(2, await VRF.squareRoot(4), '4=2^2') // 4**((fieldSize-1)/2)
   })
 
   it('Can compute the square of the y ordinate given the x ordinate', async () => {
-    assertBigNum(8, await VRF.ySquared(1), '8=1^3+7')
+    matchers.bigNum(8, await VRF.ySquared(1), '8=1^3+7')
   })
 
   it('Hashes to the curve with the same results as the golang code', async () => {
     let result = await VRF.hashToCurve(f.generator, 1)
-    assertBigNum(
+    matchers.bigNum(
       bn(result[0])
         .pow(big3)
         .add(bn(7))
@@ -87,12 +91,12 @@ describe('VRF', () => {
     )
     // See golang code
     result = await VRF.hashToCurve(f.generator, 1)
-    assertBigNum(
+    matchers.bigNum(
       result[0],
       '0x530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4',
       'mismatch with output from services/vrf/vrf_test.go/TestVRF_HashToCurve',
     )
-    assertBigNum(
+    matchers.bigNum(
       result[1],
       '0x6fd4ee394bf2a3de542c0e5f3c86fc8f75b278a017701a59d69bdf5134dd6b70',
       'mismatch with output from services/vrf/vrf_test.go/TestVRF_HashToCurve',
@@ -143,7 +147,7 @@ describe('VRF', () => {
       h.pubkeyToAddress(f.generator),
       f.generator,
     )
-    assertBigNum(
+    matchers.bigNum(
       '0x2b1049accb1596a24517f96761b22600a690ee5c6b6cadae3fa522e7d95ba338',
       scalar,
       'mismatch with output from services/vrf/vrf_test.go/TestVRF_ScalarFromCurve',

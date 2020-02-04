@@ -1,9 +1,13 @@
-// An extension to ether's bignumber library that manually
-// polyfills any methods we need for tests by converting the
-// numbers back and forth between ethers.utils.BigNumber and
-// bn.js. If we end up having to replace a ton of methods in the
-// future this way, it might be worth creating a proxy object
-// that automatically does these method polyfills for us.
+/**
+ * @packageDocumentation
+ *
+ * An extension to ether's bignumber library that manually
+ * polyfills any methods we need for tests by converting the
+ * numbers back and forth between ethers.utils.BigNumber and
+ * bn.js. If we end up having to replace a ton of methods in the
+ * future this way, it might be worth creating a proxy object
+ * that automatically does these method polyfills for us.
+ */
 
 import { ethers } from 'ethers'
 import BN = require('bn.js')
@@ -52,18 +56,20 @@ function toBigNumber(bn: BN): ethers.utils.BigNumber {
   return new ethers.utils.BigNumber(toHex(bn))
 }
 
-ethers.utils.BigNumber.prototype.isEven = function() {
-  return bnify(this).isEven()
-}
+export function extend() {
+  ethers.utils.BigNumber.prototype.isEven = function() {
+    return bnify(this).isEven()
+  }
 
-ethers.utils.BigNumber.prototype.umod = function(val) {
-  return toBigNumber(bnify(this).umod(bnify(val)))
-}
+  ethers.utils.BigNumber.prototype.umod = function(val) {
+    return toBigNumber(bnify(this).umod(bnify(val)))
+  }
 
-ethers.utils.BigNumber.prototype.shrn = function(val) {
-  return toBigNumber(bnify(this).shrn(val))
-}
+  ethers.utils.BigNumber.prototype.shrn = function(val) {
+    return toBigNumber(bnify(this).shrn(val))
+  }
 
-ethers.utils.BigNumber.prototype.invm = function(val) {
-  return toBigNumber(bnify(this).invm(bnify(val)))
+  ethers.utils.BigNumber.prototype.invm = function(val) {
+    return toBigNumber(bnify(this).invm(bnify(val)))
+  }
 }

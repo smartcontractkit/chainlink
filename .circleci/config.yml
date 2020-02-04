@@ -14,7 +14,7 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - '/go/pkg/mod'
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/go_test | tee /tmp/go_test.txt
       - store_artifacts:
@@ -33,7 +33,7 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - '/go/pkg/mod'
       - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
       - store_artifacts:
           path: /tmp/gorace_test.txt
@@ -66,7 +66,8 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - '/go/pkg/mod'
+      - run: yarn workspace @chainlink/test-helpers run setup
       - run: yarn workspace chainlinkv0.5 run setup
       - run: yarn workspace chainlink run setup
       - run: go test -p 3 -parallel 2 ./...
@@ -83,7 +84,7 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - '/go/pkg/mod'
       - run: ./tools/ci/rust_test
   geth-postgres:
     resource_class: large

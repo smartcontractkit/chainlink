@@ -9,29 +9,28 @@
   "private": true,
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated \"{src/LinkToken*,dist/artifacts/*}\"",
-    "postgenerate-typings": "yarn workspace chainlink export-typings v0.6/src/generated v0.6/dist/src/generated",
-    "build:windows": "truffle.cmd build && yarn generate-typings && tsc",
-    "build": "sol-compiler && yarn generate-typings && tsc",
+    "postgenerate-typings": "yarn workspace @chainlink/test-helpers export-typings ../evm/v0.6/src/generated ../evm/v0.6/dist/src/generated",
+    "build:windows": "truffle.cmd build && yarn generate-typings && tsc -b",
+    "build": "sol-compiler && yarn generate-typings && tsc -b",
     "depcheck": "echo \"chainlinkv0.6\" && depcheck --ignore-dirs=build/contracts || true",
     "slither": "truffle compile --quiet && slither . && rimraf dist/artifacts",
     "setup": "ts-node ./scripts/build",
-    "prepublishOnly": "yarn setup && yarn test",
     "_comment_:test": "# we force exit because the subprovider holds onto resources and doesn't release them",
-    "test": "jest --testTimeout 80000 --detectOpenHandles --forceExit"
+    "test": "jest --testTimeout 80000 --forceExit"
   },
   "dependencies": {
+    "@chainlink/test-helpers": "0.0.1-beta",
     "cbor": "^5.0.1",
     "ethers": "^4.0.41"
   },
   "devDependencies": {
-    "sol-compiler": "^0.0.1-alpha",
+    "@0x/sol-compiler": "^4.0.4",
     "@0x/sol-trace": "^3.0.4",
     "@types/cbor": "^5.0.0",
     "@types/chai": "^4.2.7",
-    "@types/ganache-core": "^2.7.0",
+    "execa": "^4.0.0",
     "jest": "^24.9.0",
     "jest-circus": "^24.9.0",
-    "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "ts-jest": "^24.2.0",
     "ts-node": "^8.4.1",

@@ -1,29 +1,31 @@
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  oracle,
+  setup,
+} from '@chainlink/test-helpers'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
 import { ENSRegistryFactory } from '../src/generated/ENSRegistryFactory'
+import { OracleFactory } from '../src/generated/OracleFactory'
 import { PublicResolverFactory } from '../src/generated/PublicResolverFactory'
 import { UpdatableConsumerFactory } from '../src/generated/UpdatableConsumerFactory'
-import { ethers } from 'ethers'
-import { assert } from 'chai'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
 
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
 const oracleFactory = new OracleFactory()
 const publicResolverFacotory = new PublicResolverFactory()
 const updatableConsumerFactory = new UpdatableConsumerFactory()
 
-const provider = makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('UpdatableConsumer', () => {
@@ -44,12 +46,12 @@ describe('UpdatableConsumer', () => {
   const specId = ethers.utils.formatBytes32String('someSpecID')
   const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
 
-  let ens: Instance<ENSRegistryFactory>
-  let ensResolver: Instance<PublicResolverFactory>
-  let link: Instance<LinkTokenFactory>
-  let oc: Instance<OracleFactory>
-  let uc: Instance<UpdatableConsumerFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  let ens: contract.Instance<ENSRegistryFactory>
+  let ensResolver: contract.Instance<PublicResolverFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
+  let oc: contract.Instance<OracleFactory>
+  let uc: contract.Instance<UpdatableConsumerFactory>
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     ens = await ensRegistryFactory.connect(roles.defaultAccount).deploy()
@@ -144,7 +146,7 @@ describe('UpdatableConsumer', () => {
     const response = ethers.utils.formatBytes32String('1,000,000.00')
     const currency = 'USD'
     const paymentAmount = h.toWei('1')
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       await link.transfer(uc.address, paymentAmount)
@@ -152,11 +154,13 @@ describe('UpdatableConsumer', () => {
         h.toHex(ethers.utils.toUtf8Bytes(currency)),
       )
       const receipt = await tx.wait()
-      request = h.decodeRunRequest(receipt.logs?.[3])
+      request = oracle.decodeRunRequest(receipt.logs?.[3])
     })
 
     it('records the data given to it by the oracle', async () => {
-      await h.fulfillOracleRequest(oc, request, response)
+      await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(request, response),
+      )
 
       const currentPrice = await uc.currentPrice()
       assert.equal(currentPrice, response)
@@ -175,17 +179,19 @@ describe('UpdatableConsumer', () => {
       })
 
       it('records the data given to it by the old oracle contract', async () => {
-        await h.fulfillOracleRequest(oc, request, response)
+        await oc.fulfillOracleRequest(
+          ...oracle.convertFufillParams(request, response),
+        )
 
         const currentPrice = await uc.currentPrice()
         assert.equal(currentPrice, response)
       })
 
       it('does not accept responses from the new oracle for the old requests', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await uc
             .connect(roles.oracleNode)
-            .fulfill(request.id, h.toHex(response))
+            .fulfill(request.requestId, h.toHex(response))
         })
 
         const currentPrice = await uc.currentPrice()
@@ -194,20 +200,20 @@ describe('UpdatableConsumer', () => {
 
       it('still allows funds to be withdrawn from the oracle', async () => {
         await h.increaseTime5Minutes(provider)
-        assertBigNum(
+        matchers.bigNum(
           0,
           await link.balanceOf(uc.address),
           'Initial balance should be 0',
         )
 
         await uc.cancelRequest(
-          request.id,
+          request.requestId,
           request.payment,
           request.callbackFunc,
           request.expiration,
         )
 
-        assertBigNum(
+        matchers.bigNum(
           paymentAmount,
           await link.balanceOf(uc.address),
           'Oracle should have been repaid on cancellation.',

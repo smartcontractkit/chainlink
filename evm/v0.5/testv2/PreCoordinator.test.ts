@@ -1,25 +1,28 @@
-import cbor from 'cbor'
-import * as h from '../src/helpers'
 import {
-  OracleFactory,
-  PreCoordinatorFactory,
-  BasicConsumerFactory,
-  LinkTokenFactory,
-} from '../src/generated'
-import { makeTestProvider } from '../src/provider'
-import { Instance } from '../src/contract'
+  contract,
+  helpers as h,
+  matchers,
+  oracle,
+  setup,
+} from '@chainlink/test-helpers'
+import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import {
+  BasicConsumerFactory,
+  OracleFactory,
+  PreCoordinatorFactory,
+} from '../src/generated'
 
-const provider = makeTestProvider()
+const provider = setup.provider()
 const oracleFactory = new OracleFactory()
 const preCoordinatorFactory = new PreCoordinatorFactory()
 const requesterConsumerFactory = new BasicConsumerFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
-let roles: h.Roles
+let roles: setup.Roles
 beforeAll(async () => {
-  roles = await h.initializeRolesAndPersonas(provider).then(x => x.roles)
+  roles = await setup.users(provider).then(x => x.roles)
 })
 
 describe('PreCoordinator', () => {
@@ -42,15 +45,15 @@ describe('PreCoordinator', () => {
   const payment = h.toWei('1')
   const totalPayment = h.toWei('4')
 
-  let link: Instance<LinkTokenFactory>
-  let oc1: Instance<OracleFactory>
-  let oc2: Instance<OracleFactory>
-  let oc3: Instance<OracleFactory>
-  let oc4: Instance<OracleFactory>
-  let rc: Instance<BasicConsumerFactory>
-  let pc: Instance<PreCoordinatorFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
+  let oc1: contract.Instance<OracleFactory>
+  let oc2: contract.Instance<OracleFactory>
+  let oc3: contract.Instance<OracleFactory>
+  let oc4: contract.Instance<OracleFactory>
+  let rc: contract.Instance<BasicConsumerFactory>
+  let pc: contract.Instance<PreCoordinatorFactory>
 
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc1 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     oc2 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
@@ -122,7 +125,7 @@ describe('PreCoordinator', () => {
       })
 
       it('does not allow service agreements with 0 minResponses', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc
             .connect(roles.defaultAccount)
             .createServiceAgreement(
@@ -136,7 +139,7 @@ describe('PreCoordinator', () => {
 
       describe('when called by a stranger', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc
               .connect(roles.stranger)
               .createServiceAgreement(
@@ -150,7 +153,7 @@ describe('PreCoordinator', () => {
 
       describe('when the array lengths are not equal', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc
               .connect(roles.defaultAccount)
               .createServiceAgreement(
@@ -165,7 +168,7 @@ describe('PreCoordinator', () => {
 
       describe('when the min responses is greater than the oracles', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc
               .connect(roles.defaultAccount)
               .createServiceAgreement(
@@ -201,7 +204,7 @@ describe('PreCoordinator', () => {
 
     describe('when called by a stranger', () => {
       it('reverts', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc.connect(roles.stranger).deleteServiceAgreement(saId),
         ))
     })
@@ -230,7 +233,7 @@ describe('PreCoordinator', () => {
       })
 
       it('reverts', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc.connect(roles.defaultAccount).deleteServiceAgreement(saId),
           'Cannot delete while active',
         ))
@@ -265,7 +268,7 @@ describe('PreCoordinator', () => {
           .connect(roles.defaultAccount)
           .transfer(badRc.address, totalPayment)
 
-        await h.assertActionThrows(
+        await matchers.evmRevert(
           badRc
             .connect(roles.consumer)
             .requestEthereumPrice(currency, totalPayment, {}),
@@ -303,19 +306,19 @@ describe('PreCoordinator', () => {
 
         const log1 = receipt.logs?.[7]
         assert.equal(oc1.address, log1?.address)
-        const request1 = h.decodeRunRequest(log1)
+        const request1 = oracle.decodeRunRequest(log1)
         assert.equal(request1.requester, pc.address)
         const log2 = receipt.logs?.[11]
         assert.equal(oc2.address, log2?.address)
-        const request2 = h.decodeRunRequest(log2)
+        const request2 = oracle.decodeRunRequest(log2)
         assert.equal(request2.requester, pc.address)
         const log3 = receipt.logs?.[15]
         assert.equal(oc3.address, log3?.address)
-        const request3 = h.decodeRunRequest(log3)
+        const request3 = oracle.decodeRunRequest(log3)
         assert.equal(request3.requester, pc.address)
         const log4 = receipt.logs?.[19]
         assert.equal(oc4.address, log4?.address)
-        const request4 = h.decodeRunRequest(log4)
+        const request4 = oracle.decodeRunRequest(log4)
         assert.equal(request4.requester, pc.address)
         const expected = {
           path: ['USD'],
@@ -332,7 +335,7 @@ describe('PreCoordinator', () => {
 
       describe('when insufficient payment is supplied', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             rc.connect(roles.consumer).requestEthereumPrice(currency, payment),
           ))
       })
@@ -342,12 +345,20 @@ describe('PreCoordinator', () => {
         const fHash = '0xabcd1234'
         let args: string
         beforeEach(async () => {
-          args = h.requestDataBytes(saId, rc.address, fHash, nonce, '0x0')
-          await h.requestDataFrom(pc, link, totalPayment, args)
+          args = oracle.encodeOracleRequest(
+            saId,
+            rc.address,
+            fHash,
+            nonce,
+            '0x0',
+          )
+          await link.transferAndCall(pc.address, totalPayment, args)
         })
 
         it('reverts', () =>
-          h.assertActionThrows(h.requestDataFrom(pc, link, totalPayment, args)))
+          matchers.evmRevert(
+            link.transferAndCall(pc.address, totalPayment, args),
+          ))
       })
 
       describe('when too much payment is supplied', () => {
@@ -369,10 +380,10 @@ describe('PreCoordinator', () => {
 
   describe('#chainlinkCallback', () => {
     let saId: string
-    let request1: h.RunRequest
-    let request2: h.RunRequest
-    let request3: h.RunRequest
-    let request4: h.RunRequest
+    let request1: oracle.RunRequest
+    let request2: oracle.RunRequest
+    let request3: oracle.RunRequest
+    let request4: oracle.RunRequest
     const response1 = h.numToBytes32(100)
     const response2 = h.numToBytes32(101)
     const response3 = h.numToBytes32(102)
@@ -406,18 +417,18 @@ describe('PreCoordinator', () => {
         const receipt = await reqTx.wait()
 
         const log1 = receipt.logs?.[7]
-        request1 = h.decodeRunRequest(log1)
+        request1 = oracle.decodeRunRequest(log1)
         const log2 = receipt.logs?.[11]
-        request2 = h.decodeRunRequest(log2)
+        request2 = oracle.decodeRunRequest(log2)
         const log3 = receipt.logs?.[15]
-        request3 = h.decodeRunRequest(log3)
+        request3 = oracle.decodeRunRequest(log3)
         const log4 = receipt.logs?.[19]
-        request4 = h.decodeRunRequest(log4)
+        request4 = oracle.decodeRunRequest(log4)
       })
 
       describe('when called by a stranger', () => {
         it('reverts', () =>
-          h.assertActionThrows(
+          matchers.evmRevert(
             pc.chainlinkCallback(saId, response1),
             'Source must be the oracle of the request',
           ))
@@ -428,7 +439,7 @@ describe('PreCoordinator', () => {
           const tx = await oc1
             .connect(roles.oracleNode1)
             .fulfillOracleRequest(
-              request1.id,
+              request1.requestId,
               request1.payment,
               request1.callbackAddr,
               request1.callbackFunc,
@@ -450,7 +461,7 @@ describe('PreCoordinator', () => {
           await oc1
             .connect(roles.oracleNode1)
             .fulfillOracleRequest(
-              request1.id,
+              request1.requestId,
               request1.payment,
               request1.callbackAddr,
               request1.callbackFunc,
@@ -460,7 +471,7 @@ describe('PreCoordinator', () => {
           await oc2
             .connect(roles.oracleNode2)
             .fulfillOracleRequest(
-              request2.id,
+              request2.requestId,
               request2.payment,
               request2.callbackAddr,
               request2.callbackFunc,
@@ -470,7 +481,7 @@ describe('PreCoordinator', () => {
           await oc3
             .connect(roles.oracleNode3)
             .fulfillOracleRequest(
-              request3.id,
+              request3.requestId,
               request3.payment,
               request3.callbackAddr,
               request3.callbackFunc,
@@ -489,7 +500,7 @@ describe('PreCoordinator', () => {
             await oc4
               .connect(roles.oracleNode4)
               .fulfillOracleRequest(
-                request4.id,
+                request4.requestId,
                 request4.payment,
                 request4.callbackAddr,
                 request4.callbackFunc,
@@ -504,11 +515,11 @@ describe('PreCoordinator', () => {
     })
 
     describe('when consumer is different than requester', () => {
-      let cc: Instance<BasicConsumerFactory>
-      let request1: h.RunRequest
-      let request2: h.RunRequest
-      let request3: h.RunRequest
-      let request4: h.RunRequest
+      let cc: contract.Instance<BasicConsumerFactory>
+      let request1: oracle.RunRequest
+      let request2: oracle.RunRequest
+      let request3: oracle.RunRequest
+      let request4: oracle.RunRequest
       let localRequestId: string
 
       beforeEach(async () => {
@@ -522,13 +533,13 @@ describe('PreCoordinator', () => {
 
         localRequestId = h.eventArgs(receipt.events?.[0]).id
         const log1 = receipt.logs?.[7]
-        request1 = h.decodeRunRequest(log1)
+        request1 = oracle.decodeRunRequest(log1)
         const log2 = receipt.logs?.[11]
-        request2 = h.decodeRunRequest(log2)
+        request2 = oracle.decodeRunRequest(log2)
         const log3 = receipt.logs?.[15]
-        request3 = h.decodeRunRequest(log3)
+        request3 = oracle.decodeRunRequest(log3)
         const log4 = receipt.logs?.[19]
-        request4 = h.decodeRunRequest(log4)
+        request4 = oracle.decodeRunRequest(log4)
 
         await cc
           .connect(roles.consumer)
@@ -540,7 +551,7 @@ describe('PreCoordinator', () => {
           await oc1
             .connect(roles.oracleNode1)
             .fulfillOracleRequest(
-              request1.id,
+              request1.requestId,
               request1.payment,
               request1.callbackAddr,
               request1.callbackFunc,
@@ -550,7 +561,7 @@ describe('PreCoordinator', () => {
           await oc2
             .connect(roles.oracleNode2)
             .fulfillOracleRequest(
-              request2.id,
+              request2.requestId,
               request2.payment,
               request2.callbackAddr,
               request2.callbackFunc,
@@ -560,7 +571,7 @@ describe('PreCoordinator', () => {
           await oc3
             .connect(roles.oracleNode3)
             .fulfillOracleRequest(
-              request3.id,
+              request3.requestId,
               request3.payment,
               request3.callbackAddr,
               request3.callbackFunc,
@@ -570,7 +581,7 @@ describe('PreCoordinator', () => {
           await oc4
             .connect(roles.oracleNode4)
             .fulfillOracleRequest(
-              request4.id,
+              request4.requestId,
               request4.payment,
               request4.callbackAddr,
               request4.callbackFunc,
@@ -598,7 +609,7 @@ describe('PreCoordinator', () => {
 
     describe('when called by a stranger', () => {
       it('reverts', () =>
-        h.assertActionThrows(pc.connect(roles.stranger).withdrawLink()))
+        matchers.evmRevert(pc.connect(roles.stranger).withdrawLink()))
     })
 
     describe('when called by the owner', () => {
@@ -612,7 +623,7 @@ describe('PreCoordinator', () => {
   })
 
   describe('#cancelOracleRequest', () => {
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       const tx = await pc
@@ -640,17 +651,17 @@ describe('PreCoordinator', () => {
       const reqReceipt = await reqTx.wait()
 
       const log1 = reqReceipt.logs?.[7]
-      request = h.decodeRunRequest(log1)
+      request = oracle.decodeRunRequest(log1)
     })
 
     describe('before the minimum required time', () => {
       it('does not allow requests to be cancelled', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           rc
             .connect(roles.consumer)
             .cancelRequest(
               pc.address,
-              request.id,
+              request.requestId,
               request.payment,
               request.callbackFunc,
               request.expiration,
@@ -669,7 +680,7 @@ describe('PreCoordinator', () => {
           .connect(roles.consumer)
           .cancelRequest(
             pc.address,
-            request.id,
+            request.requestId,
             request.payment,
             request.callbackFunc,
             request.expiration,
@@ -679,11 +690,11 @@ describe('PreCoordinator', () => {
       })
 
       it('does not allow others to call', () =>
-        h.assertActionThrows(
+        matchers.evmRevert(
           pc
             .connect(roles.stranger)
             .cancelOracleRequest(
-              request.id,
+              request.requestId,
               request.payment,
               request.callbackFunc,
               request.expiration,

@@ -1,20 +1,17 @@
 {
-  "compilerOptions": {
-    "lib": [
-      "es5",
-      "es6"
-    ],
-    "incremental": true,
-    "target": "es6",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "noEmit": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "noImplicitAny": true,
-    "baseUrl": "."
-  }
+  "files": [],
+  "include": [],
+  "references": [
+    { "path": "./evm" },
+    { "path": "./evm/v0.5" },
+    { "path": "./evm/v0.6" },
+
+    { "path": "./evm-test-helpers" },
+    // { "path": "./integration" }, we have a bunch of typeerrors in integration: https://www.pivotaltracker.com/story/show/170509262
+    { "path": "./styleguide" },
+    { "path": "./tools/json-api-client" },
+    { "path": "./tools/local-storage" },
+    { "path": "./tools/redux" },
+    { "path": "./tools/ts-test-helpers" }
+  ]
 }
