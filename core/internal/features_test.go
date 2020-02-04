@@ -1066,9 +1066,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	var tx *types.Transaction
 	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
 	payload := tx.Data()
-	require.Equal(t, hexutil.Encode(payload[:4]), vrf.FulfillSelector)
+	require.Equal(t, hexutil.Encode(payload[:4]), vrf.FulfillSelector())
 	proofContainer := make(map[string]interface{})
-	err = vrf.FulfillMethod.Inputs.UnpackIntoMap(proofContainer, payload[4:])
+	err = vrf.FulfillMethod().Inputs.UnpackIntoMap(proofContainer, payload[4:])
 	require.NoError(t, err)
 	proof, ok := proofContainer["_proof"].([]byte)
 	require.True(t, ok)

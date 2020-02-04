@@ -16,6 +16,11 @@ func CoordinatorABI() abi.ABI {
 	return coordinatorABIValues().coordinatorABI
 }
 
+// FulfillMethod returns the golang abstraction of the fulfillRandomnessRequest method
+func FulfillMethod() abi.Method {
+	return coordinatorABIValues().fulfillMethod
+}
+
 // FulfillSelector returns the signature of the fulfillRandomnessRequest method
 // on the VRFCoordinator contract
 func FulfillSelector() string {
@@ -42,6 +47,7 @@ type abiValues struct {
 	// CoordinatorABI is the ABI of the VRFCoordinator
 	coordinatorABI  abi.ABI
 	fulfillSelector string
+	fulfillMethod   abi.Method
 	// RandomnessRequestLogTopic is the signature of the RandomnessRequest log
 	randomnessRequestLogTopic    common.Hash
 	randomnessRequestRawDataArgs abi.Arguments
@@ -67,6 +73,7 @@ func readCoordinatorABI() {
 	for methodName, method := range v.coordinatorABI.Methods {
 		if methodName == fulfillMethodName {
 			v.fulfillSelector = hexutil.Encode(method.ID())
+			v.fulfillMethod = method
 			seen = true
 		}
 	}
