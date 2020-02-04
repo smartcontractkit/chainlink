@@ -110,9 +110,10 @@
 //    }
 //  }
 //
-// The publicKey must be the hex-encoded uncompressed form of the public key,
-// i.e. concatenation of its x- and y-ordinates as uint256's. Do not prefix it
-// by 0x04. (This is not an RFC 5480 section 2.2 public-key representation.)
+// The publicKey must be the concatenation of its hex representation of its the
+// secp256k1 point's x-ordinate as a uint256, followed by 00 if the y-ordinate
+// is even, or 01 if it's odd. (Note that this is NOT an RFC 5480 section 2.2
+// public-key representation. DO NOT prefix with 0x02, 0x03 or 0x04.)
 //
 // The chainlink node must know the corresponding secret key. Such a key pair
 // can be created with the `chainlink local vrf create` command, and exported to
