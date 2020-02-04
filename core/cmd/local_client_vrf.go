@@ -169,7 +169,7 @@ func getKeys(cli *Client, c *clipkg.Context) ([][]byte, error) {
 // DeleteVRFKey deletes the VRF key with given public key from the db
 //
 // Since this runs in an independent process from any chainlink node, it cannot
-// cause other nodes to forget the key, if they already have it unlocked.
+// cause running nodes to forget the key, if they already have it unlocked.
 func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
