@@ -123,7 +123,8 @@
 // under the field "public id".
 //
 // To see the public keys which have already been imported, use the command
-// `chainlink local vrf list`.
+// `chainlink local vrf list`. See `chainlink local vrf help` for more
+// key-manipulation commands.
 //
 // The adapter output should be passed via EthTx to VRFCoordinator.sol's method
 // fulfillRandomnessRequest.
