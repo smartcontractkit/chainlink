@@ -1015,10 +1015,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 // Copied and modified from TestIntegration_RunLog
 func TestIntegration_RandomnessRequest(t *testing.T) {
-	triggeringBlockHash := cltest.NewHash()
-
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient()
@@ -1033,12 +1029,21 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 			BlockNumber: cltest.Int(10),
 		})
 	})
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
 	eth.Register("eth_chainId", config.ChainID())
 	app.Start()
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/randomness_job.json")
 
-	// Secret key of 1 corresponds to public key in randomness_job.json
-	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(1))
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/randomness_job.json")
+	rawKey := j.Tasks[0].Params.Get("publicKey").Raw
+	pk, err := vrfkey.NewPublicKeyFromHex(rawKey[1 : len(rawKey)-1])
+	require.NoError(t, err)
+	var sk int64 = 1
+
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	require.Equal(t, &provingKey.PublicKey, pk,
+		"public key in fixture %s does not match secret key in test %d (which has public key %s)",
+		pk, sk, provingKey.PublicKey.String())
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 	rawID := []byte(j.ID.String()) // Chainlink requires ASCII encoding of jobID
 	r := vrf.RandomnessRequestLog{
@@ -1049,7 +1054,6 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		Fee:     assets.NewLink(100),
 	}
 	requestlog := cltest.NewRandomnessRequestLog(t, r, cltest.NewAddress(), 1)
-	requestlog.BlockHash = triggeringBlockHash
 
 	logs <- requestlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
