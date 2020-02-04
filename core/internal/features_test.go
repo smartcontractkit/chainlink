@@ -1059,6 +1059,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	cltest.WaitForRuns(t, j, app.Store, 1)
 	runs, err := app.Store.JobRunsFor(j.ID)
 	assert.NoError(t, err)
+	require.Len(t, runs, 1)
 	jr := runs[0]
 	require.Len(t, jr.TaskRuns, 2)
 	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
