@@ -62,6 +62,7 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
 		fmt.Println(errmsg)
 		return fmt.Errorf(errmsg)
 	}
+	fmt.Println("Don't use this key for anything sensitive!")
 	return key.WriteToDisk(c.String("file"))
 }
 
