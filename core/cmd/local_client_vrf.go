@@ -30,12 +30,14 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
 	}
-	fmt.Println("Created keypair, with public key")
-	fmt.Println(key)
-	fmt.Println()
-	fmt.Println("The following command will export the encrypted secret key from the db to <save_path>:")
-	fmt.Println()
-	fmt.Printf("chainlink local vrf export -f <save_path> -pk %s\n", key)
+	fmt.Printf(`Created keypair, with public key
+
+%s
+
+The following command will export the encrypted secret key from the db to <save_path>:
+
+chainlink local vrf export -f <save_path> -pk %s
+`, key, key)
 	return nil
 }
 
