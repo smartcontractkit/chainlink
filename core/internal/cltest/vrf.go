@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"chainlink/core/store"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models/vrfkey"
 )
@@ -26,10 +25,4 @@ func StoredVRFKey(t *testing.T, store *strpkg.Store) *vrfkey.PublicKey {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	return &keys[0]
-}
-
-func CreateVRFKey(t *testing.T, store *store.Store) vrfkey.PublicKey {
-	key := vrfkey.CreateKey()
-	store.VRFKeyStore.StoreInMemoryXXXTestingOnly(key)
-	return key.PublicKey
 }
