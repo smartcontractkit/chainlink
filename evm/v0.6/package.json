@@ -19,7 +19,7 @@
     "test": "jest --testTimeout 80000 --forceExit"
   },
   "dependencies": {
-    "@chainlink/test-helpers": "0.0.1-beta",
+    "@chainlink/test-helpers": "0.0.1",
     "cbor": "^5.0.1",
     "ethers": "^4.0.41"
   },
