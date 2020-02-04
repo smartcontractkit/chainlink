@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,16 +26,15 @@ var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
-func vRFVerifier() *solidity_verifier_wrapper.VRFTestHelper {
-	ethereumKey, _ := crypto.GenerateKey()
+func vRFVerifier(t *testing.T) *solidity_verifier_wrapper.VRFTestHelper {
+	ethereumKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
 	auth := bind.NewKeyedTransactor(ethereumKey)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	_, _, verifier, err := solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
-	if err != nil {
-		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
-	}
+	require.NoError(t, err)
 	backend.Commit()
 	return verifier
 }
@@ -58,7 +56,7 @@ func TestRandom_Perform(t *testing.T) {
 	length := big.NewInt(0).SetBytes(proof[:utils.EVMWordByteLen]).Uint64()
 	require.Equal(t, length, uint64(len(proof)-utils.EVMWordByteLen))
 	actualProof := proof[utils.EVMWordByteLen:]
-	randomOutput, err := vRFVerifier().RandomValueFromVRFProof(nil, actualProof)
+	randomOutput, err := vRFVerifier(t).RandomValueFromVRFProof(nil, actualProof)
 	require.NoError(t, err, "proof was invalid")
 	expected, ok := big.NewInt(0).SetString(
 		// Depends on vrfkey.json, and will need to be changed if that changes.
