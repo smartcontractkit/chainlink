@@ -1,39 +1,44 @@
-import * as h from '../src/helpers'
-import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { EmptyOracleFactory } from '../src/generated/EmptyOracleFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
-import { ConcreteChainlinkedFactory } from '../src/generated/ConcreteChainlinkedFactory'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  oracle,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
+import {
+  ConcreteChainlinkedFactory,
+  EmptyOracleFactory,
+  GetterSetterFactory,
+  OracleFactory,
+} from '../src/generated'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()
 const getterSetterFactory = new GetterSetterFactory()
 const oracleFactory = new OracleFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
-const provider = makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('ConcreteChainlinked', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
-  let cc: Instance<ConcreteChainlinkedFactory>
-  let gs: Instance<GetterSetterFactory>
-  let oc: Instance<OracleFactory | EmptyOracleFactory>
-  let newoc: Instance<OracleFactory>
-  let link: Instance<LinkTokenFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  let cc: contract.Instance<ConcreteChainlinkedFactory>
+  let gs: contract.Instance<GetterSetterFactory>
+  let oc: contract.Instance<OracleFactory | EmptyOracleFactory>
+  let newoc: contract.Instance<OracleFactory>
+  let link: contract.Instance<contract.LinkTokenFactory>
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     newoc = await oracleFactory
@@ -60,7 +65,7 @@ describe('ConcreteChainlinked', () => {
 
       assert.equal(1, receipt.logs?.length)
       const [jId, cbAddr, cbFId, cborData] = receipt.logs
-        ? h.decodeRunABI(receipt.logs[0])
+        ? oracle.decodeCCRequest(receipt.logs[0])
         : []
       const params = h.decodeDietCBOR(cborData ?? '')
 
@@ -136,7 +141,7 @@ describe('ConcreteChainlinked', () => {
   describe('#cancelChainlinkRequest', () => {
     let requestId: string
     // a concrete chainlink attached to an empty oracle
-    let ecc: Instance<ConcreteChainlinkedFactory>
+    let ecc: contract.Instance<ConcreteChainlinkedFactory>
 
     beforeEach(async () => {
       const emptyOracle = await emptyOracleFactory
@@ -171,7 +176,7 @@ describe('ConcreteChainlinked', () => {
     })
 
     it('throws if given a bogus event ID', async () => {
-      await h.assertActionThrows(async () => {
+      await matchers.evmRevert(async () => {
         await ecc.publicCancelRequest(
           ethers.utils.formatBytes32String('bogusId'),
           0,
@@ -183,7 +188,7 @@ describe('ConcreteChainlinked', () => {
   })
 
   describe('#recordChainlinkFulfillment(modifier)', () => {
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       const tx = await cc.publicRequest(
@@ -194,14 +199,15 @@ describe('ConcreteChainlinked', () => {
       )
       const { logs } = await tx.wait()
 
-      request = h.decodeRunRequest(logs?.[3])
+      request = oracle.decodeRunRequest(logs?.[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      const tx = await h.fulfillOracleRequest(
-        oc,
-        request,
-        ethers.utils.formatBytes32String('hi mom!'),
+      const tx = await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(
+          request,
+          ethers.utils.formatBytes32String('hi mom!'),
+        ),
       )
       const { logs } = await tx.wait()
 
@@ -209,12 +215,12 @@ describe('ConcreteChainlinked', () => {
 
       assert.equal(1, logs?.length)
       assert.equal(event?.name, 'ChainlinkFulfilled')
-      assert.equal(request.id, event?.values.id)
+      assert.equal(request.requestId, event?.values.id)
     })
   })
 
   describe('#fulfillChainlinkRequest(function)', () => {
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       const tx = await cc.publicRequest(
@@ -227,21 +233,22 @@ describe('ConcreteChainlinked', () => {
       )
       const { logs } = await tx.wait()
 
-      request = h.decodeRunRequest(logs?.[3])
+      request = oracle.decodeRunRequest(logs?.[3])
     })
 
     it('emits an event marking the request fulfilled', async () => {
-      const tx = await h.fulfillOracleRequest(
-        oc,
-        request,
-        ethers.utils.formatBytes32String('hi mom!'),
+      const tx = await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(
+          request,
+          ethers.utils.formatBytes32String('hi mom!'),
+        ),
       )
       const { logs } = await tx.wait()
       const event = logs && cc.interface.parseLog(logs[0])
 
       assert.equal(1, logs?.length)
       assert.equal(event?.name, 'ChainlinkFulfilled')
-      assert.equal(request.id, event?.values?.id)
+      assert.equal(request.requestId, event?.values?.id)
     })
   })
 
@@ -253,8 +260,8 @@ describe('ConcreteChainlinked', () => {
   })
 
   describe('#addExternalRequest', () => {
-    let mock: Instance<ConcreteChainlinkedFactory>
-    let request: h.RunRequest
+    let mock: contract.Instance<ConcreteChainlinkedFactory>
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       mock = await concreteChainlinkedFactory
@@ -269,21 +276,22 @@ describe('ConcreteChainlinked', () => {
       )
       const receipt = await tx.wait()
 
-      request = h.decodeRunRequest(receipt.logs?.[3])
-      await mock.publicAddExternalRequest(oc.address, request.id)
+      request = oracle.decodeRunRequest(receipt.logs?.[3])
+      await mock.publicAddExternalRequest(oc.address, request.requestId)
     })
 
     it('allows the external request to be fulfilled', async () => {
-      await h.fulfillOracleRequest(
-        oc,
-        request,
-        ethers.utils.formatBytes32String('hi mom!'),
+      await oc.fulfillOracleRequest(
+        ...oracle.convertFufillParams(
+          request,
+          ethers.utils.formatBytes32String('hi mom!'),
+        ),
       )
     })
 
     it('does not allow the same requestId to be used', async () => {
-      await h.assertActionThrows(async () => {
-        await cc.publicAddExternalRequest(newoc.address, request.id)
+      await matchers.evmRevert(async () => {
+        await cc.publicAddExternalRequest(newoc.address, request.requestId)
       })
     })
   })

@@ -1,14 +1,13 @@
 {
   "name": "chainlinkv0.5",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "license": "MIT",
-  "main": "./dist/src",
-  "typings": "./dist/src",
+  "main": "./dist/src/generated",
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated \"{test/support/LinkToken*,dist/artifacts/*}\"",
-    "postgenerate-typings": "yarn workspace chainlink export-typings v0.5/src/generated v0.5/dist/src/generated",
+    "postgenerate-typings": "yarn workspace @chainlink/test-helpers export-typings ../evm/v0.5/src/generated ../evm/v0.5/dist/src/generated",
     "build:windows": "truffle.cmd build && yarn generate-typings && tsc",
-    "build": "sol-compiler && yarn generate-typings && tsc",
+    "build": "sol-compiler && yarn generate-typings && tsc -b",
     "depcheck": "echo \"chainlinkv0.5\" && depcheck --ignore-dirs=build/contracts || true",
     "solhint": "solhint ./contracts/**/*.sol",
     "lint": "yarn solhint",
@@ -16,14 +15,16 @@
     "setup": "ts-node ./scripts/build",
     "prepublishOnly": "yarn setup && yarn lint && yarn test",
     "_comment_:test:v2": "# we force exit because the subprovider holds onto resources and doesn't release them",
-    "test": "jest --testTimeout 80000 --detectOpenHandles --forceExit",
-    "tsc": "tsc"
+    "test": "yarn test:v1 && yarn test:v2",
+    "test:v1": "tsc && truffle test ./dist/test/*_test.js",
+    "test:v2": "jest --testTimeout 80000 --forceExit"
   },
   "dependencies": {
+    "@chainlink/test-helpers": "0.0.1-beta",
     "bn.js": "^4.11.0",
     "cbor": "^5.0.1",
     "ethereumjs-abi": "^0.6.8",
-    "ethereumjs-util": "^6.1.0",
+    "ethereumjs-util": "^6.2.0",
     "ethers": "^4.0.41",
     "truffle-contract": "^4.0.31",
     "typescript": "^3.7.4"
@@ -35,6 +36,7 @@
     "@types/cbor": "^5.0.0",
     "@types/chai": "^4.2.7",
     "@types/ethereumjs-abi": "^0.6.3",
+    "@types/ethereumjs-util": "^6.1.0",
     "@types/ganache-core": "^2.7.0",
     "chai": "^4.2.0",
     "cross-env": "^6.0.3",

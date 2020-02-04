@@ -1,45 +1,49 @@
-import * as h from '../src/helpers'
+import {
+  contract,
+  coordinator,
+  helpers as h,
+  matchers,
+  oracle,
+  setup,
+} from '@chainlink/test-helpers'
 import cbor from 'cbor'
-import { assertBigNum } from '../src/matchers'
-import { makeTestProvider } from '../src/provider'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
 import {
   CoordinatorFactory,
   MeanAggregatorFactory,
   ServiceAgreementConsumerFactory,
-  LinkTokenFactory,
 } from '../src/generated'
-import { Instance } from '../src/contract'
-import { ethers } from 'ethers'
-import { assert } from 'chai'
 
 const coordinatorFactory = new CoordinatorFactory()
 const meanAggregatorFactory = new MeanAggregatorFactory()
 const serviceAgreementConsumerFactory = new ServiceAgreementConsumerFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  roles = rolesAndPersonas.roles
+  const users = await setup.users(provider)
+
+  roles = users.roles
 })
 
 describe('ServiceAgreementConsumer', () => {
   const currency = 'USD'
 
-  let link: Instance<LinkTokenFactory>
-  let coord: Instance<CoordinatorFactory>
-  let cc: Instance<ServiceAgreementConsumerFactory>
-  let agreement: h.ServiceAgreement
+  let link: contract.Instance<contract.LinkTokenFactory>
+  let coord: contract.Instance<CoordinatorFactory>
+  let cc: contract.Instance<ServiceAgreementConsumerFactory>
+  let agreement: coordinator.ServiceAgreement
 
   beforeEach(async () => {
     const meanAggregator = await meanAggregatorFactory
       .connect(roles.defaultAccount)
       .deploy()
-    agreement = await h.newServiceAgreement({
+    agreement = await coordinator.serviceAgreement({
       aggregator: meanAggregator.address,
       oracles: [roles.oracleNode],
     })
@@ -47,10 +51,12 @@ describe('ServiceAgreementConsumer', () => {
     coord = await coordinatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address)
-    await h.initiateServiceAgreement(coord, agreement)
+    await coord.initiateServiceAgreement(
+      ...(await coordinator.initiateSAParams(agreement)),
+    )
     cc = await serviceAgreementConsumerFactory
       .connect(roles.defaultAccount)
-      .deploy(link.address, coord.address, h.generateSAID(agreement))
+      .deploy(link.address, coord.address, coordinator.generateSAID(agreement))
   })
 
   it('gas price of contract deployment is predictable', async () => {
@@ -63,7 +69,7 @@ describe('ServiceAgreementConsumer', () => {
   describe('#requestEthereumPrice', () => {
     describe('without LINK', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await cc.requestEthereumPrice(currency)
         })
       })
@@ -81,10 +87,10 @@ describe('ServiceAgreementConsumer', () => {
         const log = receipt?.logs?.[3]
         assert.equal(log?.address.toLowerCase(), coord.address.toLowerCase())
 
-        const request = h.decodeRunRequest(log)
+        const request = oracle.decodeRunRequest(log)
 
-        assert.equal(h.generateSAID(agreement), request.jobId)
-        assertBigNum(paymentAmount, request.payment)
+        assert.equal(coordinator.generateSAID(agreement), request.specId)
+        matchers.bigNum(paymentAmount, request.payment)
         assert.equal(cc.address.toLowerCase(), request.requester.toLowerCase())
         assert.equal(1, request.dataVersion)
 
@@ -106,7 +112,7 @@ describe('ServiceAgreementConsumer', () => {
 
     describe('#fulfillOracleRequest', () => {
       const response = ethers.utils.formatBytes32String('1,000,000.00')
-      let request: h.RunRequest
+      let request: oracle.RunRequest
 
       beforeEach(async () => {
         await link.transfer(cc.address, h.toWei('1'))
@@ -115,27 +121,27 @@ describe('ServiceAgreementConsumer', () => {
         const log = receipt?.logs?.[3]
         assert.equal(log?.address.toLowerCase(), coord.address.toLowerCase())
 
-        request = h.decodeRunRequest(log)
+        request = oracle.decodeRunRequest(log)
       })
 
       it('records the data given to it by the oracle', async () => {
         await coord
           .connect(roles.oracleNode)
-          .fulfillOracleRequest(request.id, response)
+          .fulfillOracleRequest(request.requestId, response)
         const currentPrice = await cc.currentPrice()
         assert.equal(currentPrice, response)
       })
 
       describe('when the consumer does not recognize the request ID', () => {
-        let request2: h.RunRequest
+        let request2: oracle.RunRequest
 
         beforeEach(async () => {
           // Create a request directly via the oracle, rather than through the
           // chainlink client (consumer). The client should not respond to
           // fulfillment of this request, even though the oracle will faithfully
           // forward the fulfillment to it.
-          const args = h.requestDataBytes(
-            h.generateSAID(agreement),
+          const args = oracle.encodeOracleRequest(
+            coordinator.generateSAID(agreement),
             cc.address,
             serviceAgreementConsumerFactory.interface.functions.fulfill.sighash,
             48,
@@ -149,13 +155,13 @@ describe('ServiceAgreementConsumer', () => {
           )
           const receipt = await tx.wait()
 
-          request2 = h.decodeRunRequest(receipt?.logs?.[2])
+          request2 = oracle.decodeRunRequest(receipt?.logs?.[2])
         })
 
         it('does not accept the data provided', async () => {
           await coord
             .connect(roles.oracleNode)
-            .fulfillOracleRequest(request2.id, response)
+            .fulfillOracleRequest(request2.requestId, response)
 
           const received = await cc.currentPrice()
           assert.equal(ethers.utils.parseBytes32String(received), '')
@@ -164,8 +170,10 @@ describe('ServiceAgreementConsumer', () => {
 
       describe('when called by anyone other than the oracle contract', () => {
         it('does not accept the data provided', async () => {
-          await h.assertActionThrows(async () => {
-            await cc.connect(roles.oracleNode).fulfill(request.id, response)
+          await matchers.evmRevert(async () => {
+            await cc
+              .connect(roles.oracleNode)
+              .fulfill(request.requestId, response)
           })
           const received = await cc.currentPrice()
           assert.equal(ethers.utils.parseBytes32String(received), '')

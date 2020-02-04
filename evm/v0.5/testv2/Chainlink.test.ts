@@ -1,26 +1,29 @@
-import * as h from '../src/helpers'
-import { ethers } from 'ethers'
-import { ChainlinkTestHelperFactory } from '../src/generated/ChainlinkTestHelperFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
+import { ChainlinkTestHelperFactory } from '../src/generated/ChainlinkTestHelperFactory'
 
 const chainlinkFactory = new ChainlinkTestHelperFactory()
-const provider = makeTestProvider()
+const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
-  defaultAccount = await h
-    .initializeRolesAndPersonas(provider)
-    .then(x => x.roles.defaultAccount)
+  defaultAccount = await setup.users(provider).then(x => x.roles.defaultAccount)
 })
 
 describe('Chainlink', () => {
-  let cl: Instance<ChainlinkTestHelperFactory>
-  let clEvents: Instance<ChainlinkTestHelperFactory>['interface']['events']
+  let cl: contract.Instance<ChainlinkTestHelperFactory>
+  let clEvents: contract.Instance<
+    ChainlinkTestHelperFactory
+  >['interface']['events']
 
-  const deployment = h.useSnapshot(provider, async () => {
+  const deployment = setup.snapshot(provider, async () => {
     cl = await chainlinkFactory.connect(defaultAccount).deploy()
     clEvents = cl.interface.events
   })
@@ -30,7 +33,7 @@ describe('Chainlink', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(chainlinkFactory, [
+    matchers.publicAbi(chainlinkFactory, [
       'add',
       'addBytes',
       'addInt',

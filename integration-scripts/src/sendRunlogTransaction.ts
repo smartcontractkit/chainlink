@@ -1,15 +1,15 @@
-import { RunLogFactory } from './generated'
-import { generated as chainlink } from 'chainlink'
-import { RunLog } from './generated/RunLog'
+import { contract } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
 import url from 'url'
 import {
-  DEVNET_ADDRESS,
-  registerPromiseHandler,
-  getArgs,
-  credentials,
   createProvider,
+  credentials,
+  DEVNET_ADDRESS,
+  getArgs,
+  registerPromiseHandler,
 } from './common'
+import { RunLogFactory } from './generated'
+import { RunLog } from './generated/RunLog'
 const request = require('request-promise').defaults({ jar: true })
 
 async function main() {
@@ -46,7 +46,7 @@ async function sendRunlogTransaction({
   const signer = provider.getSigner(DEVNET_ADDRESS)
 
   const runLogFactory = new RunLogFactory(signer)
-  const linkTokenFactory = new chainlink.LinkTokenFactory(signer)
+  const linkTokenFactory = new contract.LinkTokenFactory(signer)
   const runLog = runLogFactory.attach(runLogAddress)
   const linkToken = linkTokenFactory.attach(linkTokenAddress)
 

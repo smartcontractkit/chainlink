@@ -1,21 +1,24 @@
-import * as h from '../src/helpers'
-import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
-import { Instance } from '../src/contract'
-import { ethers } from 'ethers'
+import {
+  contract,
+  debug as d,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { makeDebug } from '../src/debug'
-import { makeTestProvider } from '../src/provider'
+import { ethers } from 'ethers'
+import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
 
-const provider = makeTestProvider()
+const provider = setup.provider()
 const concreteChainlinkFactory = new ConcreteChainlinkFactory()
-const debug = makeDebug('ConcreteChainlink')
+const debug = d.makeDebug('ConcreteChainlink')
 
 describe('ConcreteChainlink', () => {
-  let ccl: Instance<ConcreteChainlinkFactory>
+  let ccl: contract.Instance<ConcreteChainlinkFactory>
   let defaultAccount: ethers.Wallet
-  const deployment = h.useSnapshot(provider, async () => {
-    defaultAccount = await h
-      .initializeRolesAndPersonas(provider)
+  const deployment = setup.snapshot(provider, async () => {
+    defaultAccount = await setup
+      .users(provider)
       .then(r => r.roles.defaultAccount)
     ccl = await concreteChainlinkFactory.connect(defaultAccount).deploy()
   })
@@ -25,7 +28,7 @@ describe('ConcreteChainlink', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(concreteChainlinkFactory, [
+    matchers.publicAbi(concreteChainlinkFactory, [
       'add',
       'addBytes',
       'addInt',

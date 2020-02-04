@@ -1,36 +1,38 @@
+import {
+  contract,
+  helpers as h,
+  matchers,
+  oracle,
+  setup,
+} from '@chainlink/test-helpers'
 import cbor from 'cbor'
-import * as h from '../src/helpers'
-import { assertBigNum } from '../src/matchers'
-import { ethers } from 'ethers'
 import { assert } from 'chai'
-import { LinkTokenFactory } from '../src/generated/LinkTokenFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
+import { ethers } from 'ethers'
 import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
-import { Instance } from '../src/contract'
-import { makeTestProvider } from '../src/provider'
+import { OracleFactory } from '../src/generated/OracleFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const oracleFactory = new OracleFactory()
-const linkTokenFactory = new LinkTokenFactory()
+const linkTokenFactory = new contract.LinkTokenFactory()
 
 // create ethers provider from that web3js instance
-const provider = makeTestProvider()
+const provider = setup.provider()
 
-let roles: h.Roles
+let roles: setup.Roles
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
+  const users = await setup.users(provider)
 
-  roles = rolesAndPersonas.roles
+  roles = users.roles
 })
 
 describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
   const currency = 'USD'
-  let link: Instance<LinkTokenFactory>
-  let oc: Instance<OracleFactory>
-  let cc: Instance<BasicConsumerFactory>
-  const deployment = h.useSnapshot(provider, async () => {
+  let link: contract.Instance<contract.LinkTokenFactory>
+  let oc: contract.Instance<OracleFactory>
+  let cc: contract.Instance<BasicConsumerFactory>
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
     cc = await basicConsumerFactory
@@ -52,7 +54,7 @@ describe('BasicConsumer', () => {
   describe('#requestEthereumPrice', () => {
     describe('without LINK', () => {
       it('reverts', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await cc.requestEthereumPrice(currency)
         })
       })
@@ -69,15 +71,15 @@ describe('BasicConsumer', () => {
         const log = receipt?.logs?.[3]
         assert.equal(log?.address ?? '', oc.address)
 
-        const request = h.decodeRunRequest(log)
+        const request = oracle.decodeRunRequest(log)
         const expected = {
           path: ['USD'],
           get:
             'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY',
         }
 
-        assert.equal(h.toHex(specId), request.jobId)
-        assertBigNum(h.toWei('1'), request.payment)
+        assert.equal(h.toHex(specId), request.specId)
+        matchers.bigNum(h.toWei('1'), request.payment)
         assert.equal(cc.address, request.requester)
         assert.equal(1, request.dataVersion)
         assert.deepEqual(expected, cbor.decodeFirstSync(request.data))
@@ -86,39 +88,35 @@ describe('BasicConsumer', () => {
       it('has a reasonable gas cost', async () => {
         const tx = await cc.requestEthereumPrice(currency)
         const receipt = await tx.wait()
-        assert.isBelow(receipt.gasUsed?.toNumber() ?? 0, 120000)
+        assert.isBelow(receipt.gasUsed?.toNumber() ?? 0, 130000)
       })
     })
   })
 
   describe('#fulfillOracleRequest', () => {
     const response = ethers.utils.formatBytes32String('1,000,000.00')
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       await link.transfer(cc.address, h.toWei('1'))
       const tx = await cc.requestEthereumPrice(currency)
       const receipt = await tx.wait()
-      request = h.decodeRunRequest(receipt.logs?.[3])
+      request = oracle.decodeRunRequest(receipt.logs?.[3])
     })
 
     it('records the data given to it by the oracle', async () => {
-      await h.fulfillOracleRequest(
-        oc.connect(roles.oracleNode),
-        request,
-        response,
-      )
+      await oc
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(...oracle.convertFufillParams(request, response))
 
       const currentPrice = await cc.currentPrice()
       assert.equal(currentPrice, response)
     })
 
     it('logs the data given to it by the oracle', async () => {
-      const tx = await h.fulfillOracleRequest(
-        oc.connect(roles.oracleNode),
-        request,
-        response,
-      )
+      const tx = await oc
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(...oracle.convertFufillParams(request, response))
       const receipt = await tx.wait()
       assert.equal(2, receipt.logs?.length)
       const log = receipt.logs?.[1]
@@ -127,27 +125,27 @@ describe('BasicConsumer', () => {
     })
 
     describe('when the consumer does not recognize the request ID', () => {
-      let otherRequest: h.RunRequest
+      let otherRequest: oracle.RunRequest
 
       beforeEach(async () => {
-        const args = h.requestDataBytes(
+        const args = oracle.encodeOracleRequest(
           specId,
           cc.address,
           basicConsumerFactory.interface.functions.fulfill.sighash,
           43,
           '0x0',
         )
-        const tx = await h.requestDataFrom(oc, link, 0, args)
+        const tx = await link.transferAndCall(oc.address, 0, args)
         const receipt = await tx.wait()
-        otherRequest = h.decodeRunRequest(receipt.logs?.[2])
+        otherRequest = oracle.decodeRunRequest(receipt.logs?.[2])
       })
 
       it('does not accept the data provided', async () => {
-        await h.fulfillOracleRequest(
-          oc.connect(roles.oracleNode),
-          otherRequest,
-          response,
-        )
+        await oc
+          .connect(roles.oracleNode)
+          .fulfillOracleRequest(
+            ...oracle.convertFufillParams(otherRequest, response),
+          )
 
         const received = await cc.currentPrice()
 
@@ -157,8 +155,10 @@ describe('BasicConsumer', () => {
 
     describe('when called by anyone other than the oracle contract', () => {
       it('does not accept the data provided', async () => {
-        await h.assertActionThrows(async () => {
-          await cc.connect(roles.oracleNode).fulfill(request.id, response)
+        await matchers.evmRevert(async () => {
+          await cc
+            .connect(roles.oracleNode)
+            .fulfill(request.requestId, response)
         })
 
         const received = await cc.currentPrice()
@@ -169,22 +169,22 @@ describe('BasicConsumer', () => {
 
   describe('#cancelRequest', () => {
     const depositAmount = h.toWei('1')
-    let request: h.RunRequest
+    let request: oracle.RunRequest
 
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
       const tx = await cc.requestEthereumPrice(currency)
       const receipt = await tx.wait()
-      request = h.decodeRunRequest(receipt.logs?.[3])
+      request = oracle.decodeRunRequest(receipt.logs?.[3])
     })
 
     describe('before 5 minutes', () => {
       it('cant cancel the request', async () => {
-        await h.assertActionThrows(async () => {
+        await matchers.evmRevert(async () => {
           await cc
             .connect(roles.consumer)
             .cancelRequest(
-              request.id,
+              request.requestId,
               request.payment,
               request.callbackFunc,
               request.expiration,
@@ -200,7 +200,7 @@ describe('BasicConsumer', () => {
         await cc
           .connect(roles.consumer)
           .cancelRequest(
-            request.id,
+            request.requestId,
             request.payment,
             request.callbackFunc,
             request.expiration,
@@ -215,7 +215,7 @@ describe('BasicConsumer', () => {
     beforeEach(async () => {
       await link.transfer(cc.address, depositAmount)
       const balance = await link.balanceOf(cc.address)
-      assertBigNum(balance, depositAmount)
+      matchers.bigNum(balance, depositAmount)
     })
 
     it('transfers LINK out of the contract', async () => {
@@ -224,8 +224,8 @@ describe('BasicConsumer', () => {
       const consumerBalance = ethers.utils.bigNumberify(
         await link.balanceOf(roles.consumer.address),
       )
-      assertBigNum(ccBalance, 0)
-      assertBigNum(consumerBalance, depositAmount)
+      matchers.bigNum(ccBalance, 0)
+      matchers.bigNum(consumerBalance, depositAmount)
     })
   })
 })

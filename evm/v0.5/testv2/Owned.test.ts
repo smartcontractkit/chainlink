@@ -1,28 +1,31 @@
-import * as h from '../src/helpers'
-import { OwnedTestHelperFactory } from '../src/generated'
-import { makeTestProvider } from '../src/provider'
-import { Instance } from '../src/contract'
-import { ethers } from 'ethers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
+import { OwnedTestHelperFactory } from '../src/generated'
 
 const ownedTestHelperFactory = new OwnedTestHelperFactory()
-const provider = makeTestProvider()
+const provider = setup.provider()
 
-let personas: h.Personas
+let personas: setup.Personas
 let owner: ethers.Wallet
 let nonOwner: ethers.Wallet
 let newOwner: ethers.Wallet
 
 beforeAll(async () => {
-  const rolesAndPersonas = await h.initializeRolesAndPersonas(provider)
-  personas = rolesAndPersonas.personas
+  const users = await setup.users(provider)
+  personas = users.personas
   owner = personas.Carol
   nonOwner = personas.Neil
   newOwner = personas.Ned
 })
 
 describe('Owned', () => {
-  let owned: Instance<OwnedTestHelperFactory>
+  let owned: contract.Instance<OwnedTestHelperFactory>
   const ownedEvents = ownedTestHelperFactory.interface.events
 
   beforeEach(async () => {
@@ -30,7 +33,7 @@ describe('Owned', () => {
   })
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(ownedTestHelperFactory, [
+    matchers.publicAbi(ownedTestHelperFactory, [
       'acceptOwnership',
       'owner',
       'transferOwnership',
@@ -62,7 +65,7 @@ describe('Owned', () => {
 
     describe('when called by anyone but the owner', () => {
       it('reverts', () =>
-        h.assertActionThrows(owned.connect(nonOwner).modifierOnlyOwner()))
+        matchers.evmRevert(owned.connect(nonOwner).modifierOnlyOwner()))
     })
   })
 
@@ -86,7 +89,7 @@ describe('Owned', () => {
 
   describe('when called by anyone but the owner', () => {
     it('successfully calls the method', () =>
-      h.assertActionThrows(
+      matchers.evmRevert(
         owned.connect(nonOwner).transferOwnership(newOwner.address),
       ))
   })
@@ -107,7 +110,7 @@ describe('Owned', () => {
       })
 
       it('does not allow a non-recipient to call it', () =>
-        h.assertActionThrows(owned.connect(nonOwner).acceptOwnership()))
+        matchers.evmRevert(owned.connect(nonOwner).acceptOwnership()))
     })
   })
 })
