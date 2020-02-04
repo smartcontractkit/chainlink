@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"chainlink/core/services/signatures/cryptotest"
-	"chainlink/core/services/signatures/secp256k1"
 
 	"github.com/stretchr/testify/require"
 )
@@ -14,8 +13,10 @@ func TestValueScanIdentityPointSet(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		p := suite.Point().Pick(randomStream)
 		var pk, nPk, nnPk PublicKey
-		require.Equal(t, copy(pk[:], secp256k1.LongMarshal(p)[:]),
-			UncompressedPublicKeyLength)
+		marshaledKey, err := p.MarshalBinary()
+		require.NoError(t, err)
+		require.Equal(t, copy(pk[:], marshaledKey),
+			CompressedPublicKeyLength)
 		require.NotEqual(t, pk, nPk)
 		np, err := pk.Point()
 		require.NoError(t, err)

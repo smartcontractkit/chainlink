@@ -24,11 +24,14 @@ func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
 	}
 	sk := &PrivateKey{}
 	sk.k = secp256k1.IntToScalar(rawKey)
-	pk := secp256k1.LongMarshal(suite.Point().Mul(sk.k, nil))
-	if len(pk) != UncompressedPublicKeyLength {
+	pk, err := suite.Point().Mul(sk.k, nil).MarshalBinary()
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not compute public key from raw key")
+	}
+	if len(pk) != CompressedPublicKeyLength {
 		panic(fmt.Errorf("public key %x has wrong length", pk))
 	}
-	if l := copy(sk.PublicKey[:], pk[:]); l != UncompressedPublicKeyLength {
+	if l := copy(sk.PublicKey[:], pk[:]); l != CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy correct length in serialized public key"))
 	}
 	return sk, nil
@@ -61,8 +64,12 @@ func (k *PrivateKey) gethKey() *keystore.Key {
 // to convert an ethereum key into a VRF key!
 func fromGethKey(gethKey *keystore.Key) *PrivateKey {
 	k := secp256k1.IntToScalar(gethKey.PrivateKey.D)
+	rawPublicKey, err := secp256k1.ScalarToPublicPoint(k).MarshalBinary()
+	if err != nil {
+		panic(err) // Only way this can happen is out-of-memory failure
+	}
 	var publicKey PublicKey
-	copy(publicKey[:], secp256k1.LongMarshal(secp256k1.ScalarToPublicPoint(k)))
+	copy(publicKey[:], rawPublicKey)
 	return &PrivateKey{k, publicKey}
 }
 

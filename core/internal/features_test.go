@@ -17,6 +17,7 @@ import (
 	"chainlink/core/auth"
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/services/signatures/secp256k1"
 	"chainlink/core/services/vrf"
 	"chainlink/core/store/models"
 	"chainlink/core/store/models/vrfkey"
@@ -1073,7 +1074,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	proof, ok := proofContainer["_proof"].([]byte)
 	require.True(t, ok)
 	require.Len(t, proof, vrf.ProofLength)
-	require.Equal(t, proof[:64], provingKey.PublicKey[:])
+	publicPoint, err := provingKey.PublicKey.Point()
+	require.NoError(t, err)
+	require.Equal(t, proof[:64], secp256k1.LongMarshal(publicPoint))
 	goProof, err := vrf.UnmarshalSolidityProof(proof)
 	require.NoError(t, err, "problem parsing solidity proof")
 	proofValid, err := goProof.VerifyVRFProof()

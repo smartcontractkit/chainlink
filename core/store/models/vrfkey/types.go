@@ -24,15 +24,15 @@ type PrivateKey struct {
 	PublicKey PublicKey
 }
 
-// PublicKey is a secp256k1 point in uncompressed format
-type PublicKey [UncompressedPublicKeyLength]byte
+// PublicKey is a secp256k1 point in compressed format
+type PublicKey [CompressedPublicKeyLength]byte
 
 // EncryptedSecretKey contains encrypted private key to be serialized to DB
 //
 // We could re-use geth's key handling, here, but this makes it much harder to
 // misuse VRF proving keys as ethereum keys or vice versa.
 type EncryptedSecretKey struct {
-	PublicKey PublicKey     `gorm:"primary_key;type:varchar(130)"`
+	PublicKey PublicKey     `gorm:"primary_key;type:varchar(66)"`
 	VRFKey    gethKeyStruct `json:"vrf_key" gorm:"type:text"`
 }
 
