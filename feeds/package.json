@@ -15,7 +15,8 @@
     ]
   },
   "engines": {
-    "node": "~10.16"
+    "node": "~10.16",
+    "yarn": "1.x"
   },
   "scripts": {
     "start": "npm run server",
