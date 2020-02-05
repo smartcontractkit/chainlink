@@ -21,7 +21,7 @@
   "dependencies": {
     "@chainlink/test-helpers": "0.0.1",
     "cbor": "^5.0.1",
-    "ethers": "^4.0.41"
+    "ethers": "^4.0.44"
   },
   "devDependencies": {
     "@0x/sol-compiler": "^4.0.4",
@@ -35,7 +35,7 @@
     "ts-jest": "^24.2.0",
     "ts-node": "^8.4.1",
     "typechain": "^1.0.3",
-    "typechain-target-ethers": "^1.0.1",
+    "typechain-target-ethers": "^1.0.3",
     "typescript": "^3.7.4"
   }
 }

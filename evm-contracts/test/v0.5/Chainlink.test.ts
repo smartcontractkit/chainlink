@@ -7,7 +7,7 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
-import { ChainlinkTestHelperFactory } from '../src/generated/ChainlinkTestHelperFactory'
+import { ChainlinkTestHelperFactory } from '../../ethers/v0.5/ChainlinkTestHelperFactory'
 
 const chainlinkFactory = new ChainlinkTestHelperFactory()
 const provider = setup.provider()

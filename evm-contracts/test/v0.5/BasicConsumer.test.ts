@@ -9,8 +9,8 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
+import { BasicConsumerFactory } from '../../ethers/v0.5/BasicConsumerFactory'
+import { OracleFactory } from '../../ethers/v0.5/OracleFactory'
 
 const d = debug.makeDebug('BasicConsumer')
 const basicConsumerFactory = new BasicConsumerFactory()

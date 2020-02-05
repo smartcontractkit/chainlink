@@ -6,10 +6,11 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { SchnorrSECP256K1Factory } from '../../src/generated/SchnorrSECP256K1Factory'
+import { SchnorrSECP256K1Factory } from '../../../ethers/v0.5/SchnorrSECP256K1Factory'
 import * as f from './fixtures'
-extensions.ethers.BigNumber.extend()
+
 const { bigNumberify: bn } = ethers.utils
+extensions.ethers.BigNumber.extend(ethers.utils.BigNumber)
 
 const schnorrSECP256K1Factory = new SchnorrSECP256K1Factory()
 const provider = setup.provider()
