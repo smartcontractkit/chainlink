@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/url"
 	"testing"
 	"time"
 
@@ -489,6 +490,65 @@ func TestOutsideDeviation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			actual := services.OutsideDeviation(test.curPrice, test.nextPrice, test.threshold)
 			assert.Equal(t, test.expectation, actual)
+		})
+	}
+}
+
+func TestFeedURLs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	bridge := &models.BridgeType{
+		Name: models.MustNewTaskType("testbridge"),
+		URL:  cltest.WebURL(t, "https://testing.com/bridges"),
+	}
+	require.NoError(t, store.CreateBridgeType(bridge))
+
+	tests := []struct {
+		name        string
+		in          string
+		expectation []string
+	}{
+		{
+			"single",
+			`["https://lambda.staging.devnet.tools/bnc/call"]`,
+			[]string{"https://lambda.staging.devnet.tools/bnc/call"},
+		},
+		{
+			"double",
+			`["https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"]`,
+			[]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"},
+		},
+		{
+			"bridge",
+			`[{"bridge":"testbridge"}]`,
+			[]string{"https://testing.com/bridges"},
+		},
+		{
+			"mixed",
+			`["https://lambda.staging.devnet.tools/bnc/call", {"bridge": "testbridge"}]`,
+			[]string{"https://lambda.staging.devnet.tools/bnc/call", "https://testing.com/bridges"},
+		},
+		{
+			"empty",
+			`[]`,
+			[]string{},
+		},
+	}
+
+	for _, test := range tests {
+
+		t.Run(test.name, func(t *testing.T) {
+			initiatorParams := models.InitiatorParams{
+				Feeds: cltest.JSONFromString(t, test.in),
+			}
+			var expectation []*url.URL
+			for _, urlString := range test.expectation {
+				expectation = append(expectation, cltest.MustParseURL(urlString))
+			}
+			val, err := services.FeedURLs(initiatorParams, store.ORM)
+			require.NoError(t, err)
+			assert.Equal(t, val, expectation)
 		})
 	}
 }
