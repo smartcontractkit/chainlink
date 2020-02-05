@@ -92,22 +92,26 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 	RandomnessRequestLogTopic:                 parseRandomnessRequest{},
 }
 
-var LogBasedInitiators = []string{InitiatorRunLog, InitiatorEthLog,
+// LogBasedChainlinkJobInitiators are initiators which kick off a user-specified
+// chainlink job when an ethereum log is received. (InitiatorFluxMonitor kicks
+// off work, but not a user-specified job.)
+var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
 	InitiatorServiceAgreementExecutionLog, InitiatorRandomnessLog}
 
-// TopicFiltersForRunLog generates the two variations of RunLog IDs that could
-// possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
-// hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(logTopics []common.Hash, jobID *ID) [][]common.Hash {
-	return [][]common.Hash{logTopics, {IDToTopic(jobID), IDToHexTopic(jobID)}}
+// LogTopicsForLogBasedInitiators are the log topics which kick off a user job
+// with the given type of initiator. Chainlink subscribes to these log topics on
+// startup, if it has any jobs with these initiators.
+var LogTopicsForLogBasedInitiators = map[string][]common.Hash{
+	InitiatorRunLog: {RunLogTopic20190207withoutIndexes,
+		RunLogTopic20190123withFullfillmentParams, RunLogTopic0original},
+	InitiatorServiceAgreementExecutionLog: {ServiceAgreementExecutionLogTopic},
+	InitiatorRandomnessLog:                {RandomnessRequestLogTopic},
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
-func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error) {
-	q := ethereum.FilterQuery{
-		FromBlock: from,
-		Addresses: utils.WithoutZeroAddresses([]common.Address{i.Address}),
-	}
+func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err error) {
+	q.FromBlock = from
+	q.Addresses = utils.WithoutZeroAddresses([]common.Address{i.Address})
 
 	switch i.Type {
 	case InitiatorEthLog:
@@ -119,33 +123,27 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
 
 		if q.FromBlock != nil && q.ToBlock != nil && q.FromBlock.Cmp(q.ToBlock) >= 0 {
-			return q, fmt.Errorf("cannot generate a FilterQuery with fromBlock >= toBlock")
+			return ethereum.FilterQuery{}, fmt.Errorf(
+				"cannot generate a FilterQuery with fromBlock >= toBlock")
 		}
 
+		// Copying the topics across clarifies their type for reflect.DeepEqual
 		q.Topics = make([][]common.Hash, len(i.Topics))
-		copy(q.Topics, i.Topics) // Simply coercing i.Topics to the underlying type confuses reflect.DeepEqual
-
-		return q, nil
-
-	case InitiatorRunLog:
-		topics := []common.Hash{RunLogTopic20190207withoutIndexes, RunLogTopic20190123withFullfillmentParams, RunLogTopic0original}
-		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
-		return q, nil
-
-	case InitiatorServiceAgreementExecutionLog:
-		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
-		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
-		return q, nil
+		copy(q.Topics, i.Topics)
+	case InitiatorRunLog, InitiatorServiceAgreementExecutionLog,
+		InitiatorRandomnessLog:
+		q.Topics = [][]common.Hash{LogTopicsForLogBasedInitiators[i.Type], {
+			// The job to be initiated can be encoded in a log topic in two ways:
+			IDToTopic(i.JobSpecID),    // 16 full-range bytes, left padded to 32 bytes,
+			IDToHexTopic(i.JobSpecID), // 32 ASCII hex chars representing the 16 bytes
+		}}
 	case InitiatorFluxMonitor:
 		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
-		return q, nil
-	case InitiatorRandomnessLog:
-		topics := []common.Hash{RandomnessRequestLogTopic}
-		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
-		return q, nil // XXX:  DRY this up
 	default:
-		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
+		return ethereum.FilterQuery{},
+			fmt.Errorf("cannot generate a FilterQuery for initiator of type %T", i)
 	}
+	return q, nil
 }
 
 // LogRequest is the interface to allow polymorphic functionality of different

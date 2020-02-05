@@ -411,7 +411,9 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			expectedQuery := ethereum.FilterQuery{
 				FromBlock: test.wantFromBlock,
 				Addresses: []common.Address{initr.InitiatorParams.Address},
-				Topics:    models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic20190207withoutIndexes, models.RunLogTopic20190123withFullfillmentParams, models.RunLogTopic0original}, initr.JobSpecID),
+				Topics: [][]common.Hash{
+					models.LogTopicsForLogBasedInitiators[models.InitiatorRunLog],
+					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)}},
 			}
 
 			receipt := cltest.TxReceiptFromFixture(t, "../eth/testdata/runlogReceipt.json")
