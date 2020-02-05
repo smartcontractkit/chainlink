@@ -92,6 +92,9 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 	RandomnessRequestLogTopic:                 parseRandomnessRequest{},
 }
 
+var LogBasedInitiators = []string{InitiatorRunLog, InitiatorEthLog,
+	InitiatorServiceAgreementExecutionLog, InitiatorRandomnessLog}
+
 // TopicFiltersForRunLog generates the two variations of RunLog IDs that could
 // possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
 // hex encoded and the ID zero padded.
