@@ -35,7 +35,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	var merr error
 	var unsubscribers []Unsubscriber
 
-	initrs := job.InitiatorsFor(models.LogBasedInitiators)
+	initrs := job.InitiatorsFor(models.LogBasedChainlinkJobInitiators...)
 
 	nextHead := head.NextInt() // Exclude current block from subscription
 	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
