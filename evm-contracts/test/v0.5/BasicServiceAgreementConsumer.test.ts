@@ -9,11 +9,9 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import {
-  CoordinatorFactory,
-  MeanAggregatorFactory,
-  ServiceAgreementConsumerFactory,
-} from '../src/generated'
+import { CoordinatorFactory } from '../../ethers/v0.5/CoordinatorFactory'
+import { MeanAggregatorFactory } from '../../ethers/v0.5/MeanAggregatorFactory'
+import { ServiceAgreementConsumerFactory } from '../../ethers/v0.5/ServiceAgreementConsumerFactory'
 
 const coordinatorFactory = new CoordinatorFactory()
 const meanAggregatorFactory = new MeanAggregatorFactory()

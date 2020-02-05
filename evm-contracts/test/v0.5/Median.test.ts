@@ -1,6 +1,6 @@
 import { contract, matchers, setup } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
-import { MedianTestHelperFactory } from '../src/generated'
+import { MedianTestHelperFactory } from '../../ethers/v0.5/MedianTestHelperFactory'
 
 const medianTestHelperFactory = new MedianTestHelperFactory()
 const provider = setup.provider()

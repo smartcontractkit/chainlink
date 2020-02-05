@@ -10,14 +10,12 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
 import { BigNumberish } from 'ethers/utils'
-import {
-  CoordinatorFactory,
-  EmptyAggregatorFactory,
-  GetterSetterFactory,
-  MaliciousConsumerFactory,
-  MaliciousRequesterFactory,
-  MeanAggregatorFactory,
-} from '../src/generated'
+import { CoordinatorFactory } from '../../ethers/v0.5/CoordinatorFactory'
+import { EmptyAggregatorFactory } from '../../ethers/v0.5/EmptyAggregatorFactory'
+import { GetterSetterFactory } from '../../ethers/v0.5/GetterSetterFactory'
+import { MaliciousConsumerFactory } from '../../ethers/v0.5/MaliciousConsumerFactory'
+import { MaliciousRequesterFactory } from '../../ethers/v0.5/MaliciousRequesterFactory'
+import { MeanAggregatorFactory } from '../../ethers/v0.5/MeanAggregatorFactory'
 
 const provider = setup.provider()
 

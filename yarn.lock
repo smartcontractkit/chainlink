@@ -11137,25 +11137,10 @@ ethers@4.0.0-beta.3:
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
 
-ethers@^4.0.0-beta.1, ethers@^4.0.32, ethers@^4.0.37, ethers@^4.0.41, ethers@~4.0.4:
+ethers@^4.0.0-beta.1, ethers@^4.0.32, ethers@^4.0.37, ethers@~4.0.4:
   version "4.0.41"
   resolved "https://registry.yarnpkg.com/ethers/-/ethers-4.0.41.tgz#a0cff526f08c2e08c525cf82ef4483f6333b8000"
   integrity sha512-QpW2CPZajquwiA7rVDozMksOuvdUBKIruamAakt0++EKBB/VWtLB9zSRZDInLDpp9fZYgOT/0trPD38r6CzLIg==
-  dependencies:
-    aes-js "3.0.0"
-    bn.js "^4.4.0"
-    elliptic "6.5.2"
-    hash.js "1.1.3"
-    js-sha3 "0.5.7"
-    scrypt-js "2.0.4"
-    setimmediate "1.0.4"
-    uuid "2.0.1"
-    xmlhttprequest "1.8.0"
-
-ethers@^4.0.36:
-  version "4.0.43"
-  resolved "https://registry.npmjs.org/ethers/-/ethers-4.0.43.tgz#d669b5d5a9a16dbcd3ae12935ad70297048f52b4"
-  integrity sha512-VjQRVgPrlU12jSMvypdE1yEqYQccdVbH8bbiz67dLF7raHlRV4+zW70GlxHcZYqgsnz0XYWrn6C06gqTQRb5tw==
   dependencies:
     aes-js "3.0.0"
     bn.js "^4.4.0"
@@ -24584,7 +24569,7 @@ type@^2.0.0:
   resolved "https://registry.npmjs.org/type/-/type-2.0.0.tgz#5f16ff6ef2eb44f260494dae271033b29c09a9c3"
   integrity sha512-KBt58xCHry4Cejnc2ISQAF7QY+ORngsWfxezO68+12hKV6lQY8P/psIkcbjeHWn7MqcgciWJyCCevFMJdIXpow==
 
-typechain-target-ethers@^1.0.1, typechain-target-ethers@^1.0.3:
+typechain-target-ethers@^1.0.3:
   version "1.0.3"
   resolved "https://registry.npmjs.org/typechain-target-ethers/-/typechain-target-ethers-1.0.3.tgz#2a55eead6190c87082a3237c55a315695ef0cd43"
   integrity sha512-01bzf/eJW9QATZcGAXhaVc1WuEup7CIW22xEu22IaNuUlRCWW0yhNGA3H0UInUBVzT7yfsSapyLB8gYTqQnDjg==

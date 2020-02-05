@@ -1,8 +1,7 @@
 import { extensions, helpers as h } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
 export const { bigNumberify: bn } = ethers.utils
-extensions.ethers.BigNumber.extend()
-
+extensions.ethers.BigNumber.extend(ethers.utils.BigNumber)
 // Number of points in secp256k1
 export const groupOrder = bn(
   '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141',

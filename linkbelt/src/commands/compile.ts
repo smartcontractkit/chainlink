@@ -44,7 +44,6 @@ Chainlink artifact saved!
 
   async run() {
     const { flags, args, argv } = this.parse(Compile)
-    console.log({ flags, args })
     if (argv.length === 0) {
       this._help()
     }
@@ -57,8 +56,6 @@ Chainlink artifact saved!
           : this.compileSingle(args.compiler, conf)
 
       await compilation
-
-      this.log('Done!')
     } catch (e) {
       this.error(e)
     }
