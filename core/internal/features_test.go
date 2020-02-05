@@ -1035,8 +1035,8 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/randomness_job.json")
-	rawKey := j.Tasks[0].Params.Get("publicKey").Raw
-	pk, err := vrfkey.NewPublicKeyFromHex(rawKey[1 : len(rawKey)-1])
+	rawKey := j.Tasks[0].Params.Get("publicKey").String()
+	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
 
@@ -1071,6 +1071,8 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.NoError(t, err)
 	var tx *types.Transaction
 	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
+	fixtureToAddress := j.Tasks[1].Params.Get("address").String()
+	require.Equal(t, *tx.To(), common.HexToAddress(fixtureToAddress))
 	payload := tx.Data()
 	require.Equal(t, hexutil.Encode(payload[:4]), vrf.FulfillSelector())
 	proofContainer := make(map[string]interface{})
