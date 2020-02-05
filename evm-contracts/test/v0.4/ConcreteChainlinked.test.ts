@@ -7,12 +7,10 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import {
-  ConcreteChainlinkedFactory,
-  EmptyOracleFactory,
-  GetterSetterFactory,
-  OracleFactory,
-} from '../src/generated'
+import { ConcreteChainlinkedFactory } from '../../ethers/v0.4/ConcreteChainlinkedFactory'
+import { EmptyOracleFactory } from '../../ethers/v0.4/EmptyOracleFactory'
+import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
+import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
 
 const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
 const emptyOracleFactory = new EmptyOracleFactory()

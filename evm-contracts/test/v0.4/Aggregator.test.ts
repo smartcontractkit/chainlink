@@ -7,8 +7,8 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { AggregatorFactory } from '../src/generated/AggregatorFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
+import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
+import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
 
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()

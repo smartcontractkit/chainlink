@@ -7,9 +7,9 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { AggregatorFactory } from '../src/generated/AggregatorFactory'
-import { AggregatorProxyFactory } from '../src/generated/AggregatorProxyFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
+import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
+import { AggregatorProxyFactory } from '../../ethers/v0.4/AggregatorProxyFactory'
+import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet

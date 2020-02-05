@@ -1,7 +1,7 @@
 import { contract, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
+import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 
 const GetterSetterContract = new GetterSetterFactory()
 const provider = setup.provider()

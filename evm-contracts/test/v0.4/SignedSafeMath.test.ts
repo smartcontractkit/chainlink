@@ -1,6 +1,6 @@
 import { contract, matchers, setup, wallet as w } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
-import { ConcreteSignedSafeMathFactory } from '../src/generated/ConcreteSignedSafeMathFactory'
+import { ConcreteSignedSafeMathFactory } from '../../ethers/v0.4/ConcreteSignedSafeMathFactory'
 
 const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()
 const provider = setup.provider()
