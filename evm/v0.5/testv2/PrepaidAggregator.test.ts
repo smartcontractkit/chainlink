@@ -89,6 +89,7 @@ describe('PrepaidAggregator', () => {
       'availableFunds',
       'description',
       'getAnswer',
+      'getOracles',
       'getOriginatingRoundOfAnswer',
       'getTimedOutStatus',
       'getTimestamp',
@@ -666,6 +667,13 @@ describe('PrepaidAggregator', () => {
       matchers.bigNum(currentCount, pastCount + 1)
     })
 
+    it('adds the address in getOracles', async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+      assert.deepEqual([personas.Neil.address], await aggregator.getOracles())
+    })
+
     it('updates the round details', async () => {
       await aggregator
         .connect(personas.Carol)
@@ -865,6 +873,13 @@ describe('PrepaidAggregator', () => {
       matchers.bigNum(added, personas.Neil.address)
     })
 
+    it('removes the address in getOracles', async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+      assert.deepEqual([personas.Nelly.address], await aggregator.getOracles())
+    })
+
     describe('when the oracle is not currently added', () => {
       beforeEach(async () => {
         await aggregator
@@ -922,6 +937,83 @@ describe('PrepaidAggregator', () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
           'Oracle has been removed from whitelist',
+        )
+      })
+    })
+  })
+
+  describe('#getOracles', () => {
+    describe('after adding oracles', () => {
+      beforeEach(async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        assert.deepEqual([personas.Neil.address], await aggregator.getOracles())
+      })
+
+      it('returns the addresses of added oracles', async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(personas.Ned.address, minAns, maxAns, rrDelay)
+        assert.deepEqual(
+          [personas.Neil.address, personas.Ned.address],
+          await aggregator.getOracles(),
+        )
+
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(personas.Nelly.address, minAns, maxAns, rrDelay)
+        assert.deepEqual(
+          [personas.Neil.address, personas.Ned.address, personas.Nelly.address],
+          await aggregator.getOracles(),
+        )
+      })
+    })
+
+    describe('after removing oracles', () => {
+      beforeEach(async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(personas.Ned.address, minAns, maxAns, rrDelay)
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(personas.Nelly.address, minAns, maxAns, rrDelay)
+        assert.deepEqual(
+          [personas.Neil.address, personas.Ned.address, personas.Nelly.address],
+          await aggregator.getOracles(),
+        )
+      })
+
+      it('reorders when removing from the beginning', async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        assert.deepEqual(
+          [personas.Nelly.address, personas.Ned.address],
+          await aggregator.getOracles(),
+        )
+      })
+
+      it('reorders when removing from the middle', async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .removeOracle(personas.Ned.address, minAns, maxAns, rrDelay)
+        assert.deepEqual(
+          [personas.Neil.address, personas.Nelly.address],
+          await aggregator.getOracles(),
+        )
+      })
+
+      it('pops the last node off at the end', async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .removeOracle(personas.Nelly.address, minAns, maxAns, rrDelay)
+        assert.deepEqual(
+          [personas.Neil.address, personas.Ned.address],
+          await aggregator.getOracles(),
         )
       })
     })

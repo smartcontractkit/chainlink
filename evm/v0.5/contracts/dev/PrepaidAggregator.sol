@@ -54,7 +54,6 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
 
   // Round related params
   uint128 public paymentAmount;
-  uint32 public oracleCount;
   uint32 public maxAnswerCount;
   uint32 public minAnswerCount;
   uint32 public restartDelay;
@@ -67,6 +66,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
+  address[] private oracleAddresses;
 
   event AvailableFundsUpdated(uint256 indexed amount);
   event RoundDetailsUpdated(
@@ -139,10 +139,10 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     onlyOwner()
     onlyUnenabledAddress(_oracle)
   {
-    require(oracleCount < 42, "cannot add more than 42 oracles");
+    require(oracleCount() < 42, "cannot add more than 42 oracles");
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
-    oracleCount += 1;
+    oracleAddresses.push(_oracle);
 
     emit OracleAdded(_oracle);
 
@@ -168,8 +168,15 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     onlyOwner()
     onlyEnabledAddress(_oracle)
   {
-    oracleCount -= 1;
     oracles[_oracle].endingRound = reportingRoundId;
+    uint32 oracleNum = oracleCount();
+    for (uint32 i = 0; i < oracleNum; i++) {
+      if (oracleAddresses[i] == _oracle) {
+        oracleAddresses[i] = oracleAddresses[oracleNum.sub(1)];
+        break;
+      }
+    }
+    oracleAddresses.pop();
 
     emit OracleRemoved(_oracle);
 
@@ -225,6 +232,20 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     if (pastAvailableFunds != available) {
       emit AvailableFundsUpdated(available);
     }
+  }
+
+  /**
+   * @notice returns the number of oracles
+   */
+  function oracleCount() public view returns (uint32) {
+    return uint32(oracleAddresses.length);
+  }
+
+  /**
+   * @notice returns an array of addresses containing the oracles on contract
+   */
+  function getOracles() external view returns (address[] memory) {
+    return oracleAddresses;
   }
 
   /**
@@ -590,7 +611,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   }
 
   modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
-    uint32 oracleNum = oracleCount; // Save on storage reads
+    uint32 oracleNum = oracleCount(); // Save on storage reads
     require(oracleNum >= _max, "Cannot have the answer max higher oracle count");
     require(_max >= _min, "Cannot have the answer minimum higher the max");
     require(oracleNum == 0 || oracleNum > _restartDelay, "Restart delay must be less than oracle count");
