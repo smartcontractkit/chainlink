@@ -1,5 +1,5 @@
 import { matchers } from '@chainlink/test-helpers'
-import { ChainlinkedFactory } from '../src/generated/ChainlinkedFactory'
+import { ChainlinkedFactory } from '../../ethers/v0.4/ChainlinkedFactory'
 
 const chainlinkedFactory = new ChainlinkedFactory()
 
