@@ -7,7 +7,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ConcreteChainlinkFactory } from '../src/generated/ConcreteChainlinkFactory'
+import { ConcreteChainlinkFactory } from '../../ethers/v0.4/ConcreteChainlinkFactory'
 
 const provider = setup.provider()
 const concreteChainlinkFactory = new ConcreteChainlinkFactory()

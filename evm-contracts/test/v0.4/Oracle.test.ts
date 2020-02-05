@@ -7,11 +7,11 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BasicConsumerFactory } from '../src/generated/BasicConsumerFactory'
-import { GetterSetterFactory } from '../src/generated/GetterSetterFactory'
-import { MaliciousConsumerFactory } from '../src/generated/MaliciousConsumerFactory'
-import { MaliciousRequesterFactory } from '../src/generated/MaliciousRequesterFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
+import { BasicConsumerFactory } from '../../ethers/v0.4/BasicConsumerFactory'
+import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
+import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
+import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
+import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const getterSetterFactory = new GetterSetterFactory()

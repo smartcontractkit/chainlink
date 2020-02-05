@@ -7,10 +7,10 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ENSRegistryFactory } from '../src/generated/ENSRegistryFactory'
-import { OracleFactory } from '../src/generated/OracleFactory'
-import { PublicResolverFactory } from '../src/generated/PublicResolverFactory'
-import { UpdatableConsumerFactory } from '../src/generated/UpdatableConsumerFactory'
+import { ENSRegistryFactory } from '../../ethers/v0.4/ENSRegistryFactory'
+import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
+import { PublicResolverFactory } from '../../ethers/v0.4/PublicResolverFactory'
+import { UpdatableConsumerFactory } from '../../ethers/v0.4/UpdatableConsumerFactory'
 
 const linkTokenFactory = new contract.LinkTokenFactory()
 const ensRegistryFactory = new ENSRegistryFactory()
