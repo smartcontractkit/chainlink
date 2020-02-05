@@ -398,16 +398,18 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	return client
 }
 
-func (ta *TestApplication) MustCreateJobRun(txHash []byte) *models.JobRun {
+func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes []byte) *models.JobRun {
 	job := NewJobWithWebInitiator()
 	err := ta.Store.CreateJob(&job)
 	require.NoError(ta.t, err)
 
 	jr := NewJobRun(job)
-	hash := common.BytesToHash(txHash)
-	jr.RunRequest.TxHash = &hash
+	txHash := common.BytesToHash(txHashBytes)
+	jr.RunRequest.TxHash = &txHash
+	blockHash := common.BytesToHash(blockHashBytes)
+	jr.RunRequest.BlockHash = &blockHash
+
 	err = ta.Store.CreateJobRun(&jr)
-	// panic("Does the above insert the TxHash?")
 	require.NoError(ta.t, err)
 
 	return &jr

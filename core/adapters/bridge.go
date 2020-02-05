@@ -35,18 +35,29 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 	} else if input.Status().PendingBridge() {
 		return models.NewRunOutputInProgress(input.Data())
 	}
-	jobRun, err := store.ORM.FindJobRun(input.JobRunID())
-	var meta models.JSON
-	if err == nil && jobRun.ID != nil {
-		json := fmt.Sprintf(`{"initiator":{"transactionHash":"%s"}}`, jobRun.RunRequest.TxHash.Hex())
-		meta = models.JSON{gjson.Parse(json)}
-	} else {
-		meta = models.JSON{}
-	}
+	meta := getMeta(store, input.JobRunID())
 	return ba.handleNewRun(input, meta, store.Config.BridgeResponseURL())
 }
 
-func (ba *Bridge) handleNewRun(input models.RunInput, meta models.JSON, bridgeResponseURL *url.URL) models.RunOutput {
+func getMeta(store *store.Store, jobRunID *models.ID) *models.JSON {
+	jobRun, err := store.ORM.FindJobRun(jobRunID)
+	if err == nil && jobRun.ID != nil && jobRun.RunRequest.TxHash != nil && jobRun.RunRequest.BlockHash != nil {
+		json := fmt.Sprintf(`
+				{
+					"initiator": {
+						"transactionHash": "%s",
+						"blockHash": "%s"
+					}
+				}`,
+			jobRun.RunRequest.TxHash.Hex(),
+			jobRun.RunRequest.BlockHash.Hex(),
+		)
+		return &models.JSON{gjson.Parse(json)}
+	}
+	return nil
+}
+
+func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, bridgeResponseURL *url.URL) models.RunOutput {
 	data, err := models.Merge(input.Data(), ba.Params)
 	if err != nil {
 		return models.NewRunOutputError(baRunResultError("handling data param", err))
@@ -93,7 +104,7 @@ func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models
 	return models.NewRunOutputCompleteWithResult(brr.Data.String())
 }
 
-func (ba *Bridge) postToExternalAdapter(input models.RunInput, meta models.JSON, bridgeResponseURL *url.URL) ([]byte, error) {
+func (ba *Bridge) postToExternalAdapter(input models.RunInput, meta *models.JSON, bridgeResponseURL *url.URL) ([]byte, error) {
 	data, err := models.Merge(input.Data(), ba.Params)
 	if err != nil {
 		return nil, errors.Wrap(err, "error merging bridge params with input params")
@@ -136,10 +147,10 @@ func baRunResultError(str string, err error) error {
 }
 
 type bridgeOutgoing struct {
-	JobRunID    string      `json:"id"`
-	Data        models.JSON `json:"data"`
-	Meta        models.JSON `json:"meta"`
-	ResponseURL string      `json:"responseURL,omitempty"`
+	JobRunID    string       `json:"id"`
+	Data        models.JSON  `json:"data"`
+	Meta        *models.JSON `json:"meta,omitempty"`
+	ResponseURL string       `json:"responseURL,omitempty"`
 }
 
 var zeroURL = new(url.URL)
