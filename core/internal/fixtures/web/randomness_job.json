@@ -16,7 +16,7 @@
       "params": {
         "format": "preformatted",
         "comment": "ethereum address of the VRF coordinator contract goes in 'address' field:",
-        "address": "0x0000000000000000000000000000000000000000",
+        "address": "0x5e1f1e555ca1ab1eb01dfaceca11ab1eba5eba11",
         "comment2": "functionSelector from VRFCoordinator.sol, and javascript call:",
         "comment3": "web3.eth.abi.encodeFunctionSignature('fulfillRandomnessRequest(bytes)')",
         "functionSelector": "0x5e1c1059"
