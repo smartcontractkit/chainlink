@@ -8,11 +8,9 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import {
-  BasicConsumerFactory,
-  OracleFactory,
-  PreCoordinatorFactory,
-} from '../src/generated'
+import { BasicConsumerFactory } from '../../ethers/v0.5/BasicConsumerFactory'
+import { OracleFactory } from '../../ethers/v0.5/OracleFactory'
+import { PreCoordinatorFactory } from '../../ethers/v0.5/PreCoordinatorFactory'
 
 const provider = setup.provider()
 const oracleFactory = new OracleFactory()
@@ -121,7 +119,10 @@ describe('PreCoordinator', () => {
           oc4.address,
         ])
         assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
-        assert.deepEqual(sa.payments, [payment, payment, payment, payment])
+        assert.deepEqual(
+          sa.payments.map(p => p.toHexString()),
+          [payment, payment, payment, payment].map(p => p.toHexString()),
+        )
       })
 
       it('does not allow service agreements with 0 minResponses', () =>

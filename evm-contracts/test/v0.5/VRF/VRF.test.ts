@@ -7,11 +7,11 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { VRFFactory } from '../../src/generated'
+import { VRFFactory } from '../../../ethers/v0.5/VRFFactory'
 import * as f from './fixtures'
-extensions.ethers.BigNumber.extend()
 
 const { bigNumberify: bn } = ethers.utils
+extensions.ethers.BigNumber.extend(ethers.utils.BigNumber)
 
 const big1 = bn(1)
 const big2 = bn(2)

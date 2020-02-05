@@ -1,4 +1,6 @@
+import { extensions } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
+extensions.ethers.BigNumber.extend(ethers.utils.BigNumber)
 
 const { bigNumberify: bn } = ethers.utils
 
