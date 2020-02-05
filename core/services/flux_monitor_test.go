@@ -48,7 +48,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	})
 
 	checkerFactory := new(mocks.DeviationCheckerFactory)
-	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
@@ -86,7 +86,7 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 	dc := new(mocks.DeviationChecker)
 	dc.On("Start", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
 	checkerFactory := new(mocks.DeviationCheckerFactory)
-	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
@@ -107,7 +107,7 @@ func TestConcreteFluxMonitor_AddJobDisconnected(t *testing.T) {
 	runManager := new(mocks.RunManager)
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	dc := new(mocks.DeviationChecker)
-	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
@@ -150,7 +150,7 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 		require.NoError(t, store.CreateJob(&job))
 		job, err := store.FindJob(job.ID)
 		require.NoError(t, err)
-		checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	}
 
 	fm := services.NewFluxMonitor(store, runManager)

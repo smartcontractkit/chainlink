@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -116,10 +117,16 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 
 func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
 	fe := models.NewJSONAPIErrors()
+	var feeds []interface{}
+	err := json.Unmarshal(i.Feeds.Bytes(), &feeds)
+	if err != nil {
+		return err // TODO - better error message
+	}
+
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
-	if len(i.Feeds) == 0 {
+	if len(feeds) == 0 {
 		fe.Add("no feeds")
 	}
 	if i.IdleThreshold != 0 && i.IdleThreshold < i.PollingInterval {
