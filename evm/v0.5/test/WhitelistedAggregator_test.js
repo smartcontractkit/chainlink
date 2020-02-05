@@ -44,6 +44,7 @@ contract('WhitelistedAggregator', () => {
       'availableFunds',
       'description',
       'getAnswer',
+      'getOracles',
       'getOriginatingRoundOfAnswer',
       'getTimedOutStatus',
       'getTimestamp',
