@@ -27,12 +27,8 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-CONTAINER_NAME_PATH="$(mktemp)"
-rm -f "$CONTAINER_NAME_PATH"
-
-CDIR=$(dirname "$0")
 # shellcheck source=common.sh
-source "$CDIR/common.sh"
+source "$(dirname "$0")/common.sh"
 
 ABIGEN_ARGS=( -bin "$BIN_PATH" -abi "$ABI_PATH" -out "$OUT_PATH"
               -type "$CLASS_NAME" -pkg "$PKG_NAME")
@@ -51,6 +47,8 @@ else # Must use dockerized abigen
     DOCKER_IMAGE="ethereum/client-go:alltools-$GETH_VERSION"
     echo -n "Native abigen unavailable, broken, or wrong version (need version "
     echo "$GETH_VERSION). Invoking abigen from $DOCKER_IMAGE docker image."
+    CONTAINER_NAME_PATH="$(mktemp)"
+    rm -f "$CONTAINER_NAME_PATH"
     docker run -v "${COMMON_PARENT_DIRECTORY}:${COMMON_PARENT_DIRECTORY}" \
            --cidfile="$CONTAINER_NAME_PATH" \
            "$DOCKER_IMAGE" \
