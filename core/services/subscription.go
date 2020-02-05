@@ -124,8 +124,7 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 	logger.Infow(msg, "address", utils.LogListeningAddress(initr.Address), "jobID", initr.JobSpecID.String())
 }
 
-// ReceiveLogRequest parses the log and runs the job indicated by a RunLog or
-// ServiceAgreementExecutionLog. (Both log events have the same format.)
+// ReceiveLogRequest parses the log and runs the job it indicates via GetJobSpecID
 func ReceiveLogRequest(runManager RunManager, le models.LogRequest) {
 	if !le.Validate() {
 		logger.Debugw("discarding INVALID EVENT LOG", "log", le.GetLog())
