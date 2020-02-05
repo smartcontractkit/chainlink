@@ -1,12 +1,14 @@
 package adapters_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"testing"
 
 	"chainlink/core/adapters"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/store"
 	"chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
@@ -19,11 +21,13 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	data := ""
+	meta := ""
 	token := ""
 	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending": true}`,
 		func(h http.Header, b string) {
 			body := cltest.JSONFromString(t, b)
 			data = body.Get("data").String()
+			meta = body.Get("meta").String()
 			token = h.Get("Authorization")
 		},
 	)
@@ -37,6 +41,48 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	result := ba.Perform(input, store)
 	require.NoError(t, result.Error())
 	assert.Equal(t, `{"bodyParam":true,"result":"100"}`, data)
+	assert.Equal(t, `{}`, meta)
+	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
+}
+
+func setupJobRunAndStore(t *testing.T, txHash []byte) (*store.Store, *models.ID, func()) {
+	app, cleanup := cltest.NewApplication(t)
+	require.NoError(t, app.Start())
+	store := app.Store
+	jr := app.MustCreateJobRun(txHash)
+
+	return store, jr.ID, cleanup
+}
+
+func TestBridge_IncludesMetaIfJobRunIsInDB(t *testing.T) {
+	txHashHex := "d6432b8321d9988e664f23cfce392dff8221da36a44ebb622160156dcef4abb9"
+	txHash, _ := hex.DecodeString(txHashHex)
+	store, jobRunID, cleanup := setupJobRunAndStore(t, txHash)
+	defer cleanup()
+	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
+
+	data := ""
+	meta := ""
+	token := ""
+	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending": true}`,
+		func(h http.Header, b string) {
+			body := cltest.JSONFromString(t, b)
+			data = body.Get("data").String()
+			meta = body.Get("meta").String()
+			token = h.Get("Authorization")
+		},
+	)
+	defer cleanup()
+
+	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
+	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
+	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
+
+	input := cltest.NewRunInputWithResultAndJobRunID("100", jobRunID)
+	result := ba.Perform(input, store)
+	require.NoError(t, result.Error())
+	assert.Equal(t, `{"bodyParam":true,"result":"100"}`, data)
+	assert.Equal(t, fmt.Sprintf(`{"initiator":{"transactionHash":"0x%s"}}`, txHashHex), meta)
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
 }
 
