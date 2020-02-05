@@ -70,10 +70,6 @@ else
     MSG_BIN="$TRUNCATED"
 fi
 
-echo "hash message for $SOL_PATH"
-echo "$ABI$MSG_BIN"
-echo "hash message finished"
-
 echo "$PKG_NAME: $SOL_PATH $(md5sum <<< "$ABI$MSG_BIN" | cut -f 1 -d ' ')" >> \
      "$VERSION_DB_PATH"
 sort -o "$VERSION_DB_PATH" "$VERSION_DB_PATH"
