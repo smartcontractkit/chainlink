@@ -382,7 +382,7 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		return struct {
 			Address         common.Address  `json:"address"`
 			RequestData     models.JSON     `json:"requestData"`
-			Feeds           models.Feeds    `json:"feeds"`
+			Feeds           models.JSON     `json:"feeds"`
 			Threshold       float32         `json:"threshold"`
 			Precision       int32           `json:"precision"`
 			PollingInterval models.Duration `json:"pollingInterval"`

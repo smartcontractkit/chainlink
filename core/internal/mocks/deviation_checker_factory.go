@@ -7,6 +7,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	orm "chainlink/core/store/orm"
+
 	services "chainlink/core/services"
 )
 
@@ -15,13 +17,13 @@ type DeviationCheckerFactory struct {
 	mock.Mock
 }
 
-// New provides a mock function with given fields: _a0, _a1
-func (_m *DeviationCheckerFactory) New(_a0 models.Initiator, _a1 services.RunManager) (services.DeviationChecker, error) {
-	ret := _m.Called(_a0, _a1)
+// New provides a mock function with given fields: _a0, _a1, _a2
+func (_m *DeviationCheckerFactory) New(_a0 models.Initiator, _a1 services.RunManager, _a2 *orm.ORM) (services.DeviationChecker, error) {
+	ret := _m.Called(_a0, _a1, _a2)
 
 	var r0 services.DeviationChecker
-	if rf, ok := ret.Get(0).(func(models.Initiator, services.RunManager) services.DeviationChecker); ok {
-		r0 = rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(models.Initiator, services.RunManager, *orm.ORM) services.DeviationChecker); ok {
+		r0 = rf(_a0, _a1, _a2)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(services.DeviationChecker)
@@ -29,8 +31,8 @@ func (_m *DeviationCheckerFactory) New(_a0 models.Initiator, _a1 services.RunMan
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(models.Initiator, services.RunManager) error); ok {
-		r1 = rf(_a0, _a1)
+	if rf, ok := ret.Get(1).(func(models.Initiator, services.RunManager, *orm.ORM) error); ok {
+		r1 = rf(_a0, _a1, _a2)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -216,8 +215,8 @@ type InitiatorParams struct {
 	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
 
 	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
-	Feeds           Feeds    `json:"feeds,omitempty" gorm:"type:text"`
 	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
+	Feeds           JSON     `json:"feeds,omitempty" gorm:"type:text"`
 	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
 	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
 	PollingInterval Duration `json:"pollingInterval,omitempty"`
@@ -237,6 +236,29 @@ func (i *InitiatorParams) SetDefaultValues(typ string) {
 		logger.PanicIf(errors.Wrap(err, "type level dependent error covered by tests"))
 	}
 }
+
+// FeedURLs returns a list or URLs from the list of feeds (string URLs or named bridges)
+// func (ip InitiatorParams) FeedURLs() ([]*url.URL, error) {
+// 	orm := app
+// arr := []string{}
+// err := json.Unmarshal(ip, &arr)
+// if err != nil {
+// 	return err
+// }
+
+// return []*url.URL{}, nil
+// var urls []*url.URL{}
+// 	for _, entry := range arr {
+// 		if entry == "" {
+// 			return errors.New("can't have an empty string as a feed")
+// 		}
+// 		_, err := url.ParseRequestURI(entry)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+
+// }
 
 // Topics handle the serialization of ethereum log topics to and from the data store.
 type Topics [][]common.Hash
@@ -267,57 +289,71 @@ func (t Topics) Value() (driver.Value, error) {
 
 // Feeds holds all flux monitor feed URLs, serializing into the db
 // with ; delimited strings.
-type Feeds []string
+// type Feeds []interface{}
+
+// // BridgeFeed is...
+// type BridgeFeed struct {
+// 	Bridge string
+// }
 
 // Scan populates the current Feeds value with the passed in value, usually a
 // string from an underlying database.
-func (f *Feeds) Scan(value interface{}) error {
-	if value == nil {
-		*f = []string{}
-		return nil
-	}
-	str, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to Feeds", value, value)
-	}
+// func (f *Feeds) Scan(value interface{}) error {
+// 	if value == nil {
+// 		*f = []string{}
+// 		return nil
+// 	}
+// 	str, ok := value.(string)
+// 	if !ok {
+// 		return fmt.Errorf("Unable to convert %v of %T to Feeds", value, value)
+// 	}
 
-	return f.UnmarshalJSON([]byte(str))
-}
+// 	return f.UnmarshalJSON([]byte(str))
+// }
 
 // Value returns this instance serialized for database storage.
-func (f Feeds) Value() (driver.Value, error) {
-	if len(f) == 0 {
-		return nil, nil
-	}
+// func (f Feeds) Value() (driver.Value, error) {
+// 	if len(f) == 0 {
+// 		return nil, nil
+// 	}
 
-	bytes, err := f.MarshalJSON()
-	return string(bytes), err
-}
+// 	bytes, err := f.MarshalJSON()
+// 	return string(bytes), err
+// }
 
-// MarshalJSON marshals this instance to JSON as an array of strings.
-func (f Feeds) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]string(f))
-}
+// // MarshalJSON marshals this instance to JSON as an array of strings.
+// func (f Feeds) MarshalJSON() ([]byte, error) {
+// 	return json.Marshal([]string(f))
+// }
 
 // UnmarshalJSON deserializes the json input into this instance.
-func (f *Feeds) UnmarshalJSON(input []byte) error {
-	arr := []string{}
-	err := json.Unmarshal(input, &arr)
-	if err != nil {
-		return err
-	}
-	for _, entry := range arr {
-		if entry == "" {
-			return errors.New("can't have an empty string as a feed")
-		}
-		_, err := url.ParseRequestURI(entry)
-		if err != nil {
-			return err
-		}
-	}
-	*f = arr
-	return nil
-}
+// func (bf *BridgeFeed) UnmarshalJSON(input []byte) error {
+// 	err := json.Unmarshal(input, &bf)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
+
+// UnmarshalJSON deserializes the json input into this instance.
+// func (f *Feeds) UnmarshalJSON(input []byte) error {
+// 	arr := []string{}
+// 	err := json.Unmarshal(input, &arr)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	for _, entry := range arr {
+// 		if entry == "" {
+// 			return errors.New("can't have an empty string as a feed")
+// 		}
+// 		// _, err := url.ParseRequestURI(entry)
+// 		// if err != nil {
+// 		// 	return err
+// 		// }
+// 	}
+// 	*f = arr
+// 	return nil
+// }
 
 // NewInitiatorFromRequest creates an Initiator from the corresponding
 // parameters in a InitiatorRequest
