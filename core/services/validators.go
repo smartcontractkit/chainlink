@@ -120,7 +120,7 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
 	var feeds []interface{}
 	err := json.Unmarshal(i.Feeds.Bytes(), &feeds)
 	if err != nil {
-		return err // TODO - better error message
+		return err
 	}
 
 	if i.Address == utils.ZeroAddress {
