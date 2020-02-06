@@ -269,6 +269,10 @@ func TestValidateExternalInitiator(t *testing.T) {
 
 func TestValidateInitiator(t *testing.T) {
 	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	startAt := time.Now()
 	endAt := startAt.Add(time.Second)
 	job := cltest.NewJob()
@@ -297,7 +301,7 @@ func TestValidateInitiator(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var initr models.Initiator
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &initr))
-			result := services.ValidateInitiator(initr, job)
+			result := services.ValidateInitiator(initr, job, store)
 
 			cltest.AssertError(t, test.wantError, result)
 		})
@@ -383,14 +387,24 @@ const validInitiator = `{
 }`
 
 func TestValidateInitiator_FluxMonitorHappy(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	job := cltest.NewJob()
 	var initr models.Initiator
 	require.NoError(t, json.Unmarshal([]byte(validInitiator), &initr))
-	err := services.ValidateInitiator(initr, job)
+	err := services.ValidateInitiator(initr, job, store)
 	require.NoError(t, err)
 }
 
 func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	job := cltest.NewJob()
 	tests := []struct {
 		Field   string
@@ -409,7 +423,7 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 		t.Run("bad "+test.Field, func(t *testing.T) {
 			var initr models.Initiator
 			require.NoError(t, json.Unmarshal([]byte(test.JSONStr), &initr))
-			err := services.ValidateInitiator(initr, job)
+			err := services.ValidateInitiator(initr, job, store)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.Field)
 		})
