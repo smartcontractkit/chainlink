@@ -420,7 +420,7 @@ contract VRF {
   // using the compressed representation of the points, if we collated the y
   // parities into a single bytes32.
   // https://www.pivotaltracker.com/story/show/171120588
-  function scalarFromCurve(
+  function scalarFromCurvePoints(
     uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
     address uWitness, uint256[2] memory v)
     internal pure returns (uint256 s) {
@@ -458,7 +458,8 @@ contract VRF {
       uint256[2] memory v = linearCombination(
         c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
       // Steps 7. and 8. of IETF draft section 5.3
-      require(c == scalarFromCurve(hash, pk, gamma, uWitness, v), "invalid proof");
+      uint256 derivedC = scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
+      require(c == derivedC, "invalid proof");
     }
 
   // Length of proof marshaled to bytes array. Shows layout of proof
