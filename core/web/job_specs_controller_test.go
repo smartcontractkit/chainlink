@@ -361,6 +361,25 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	require.Equal(t, http.StatusText(http.StatusOK), http.StatusText(resp.StatusCode))
 }
 
+func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
+	config := cltest.NewTestConfig(t)
+	config.Set("CHAINLINK_DEV", "FALSE")
+	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
+
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	jsonStr := cltest.MustReadFile(t, "testdata/flux_monitor_bridge_job.json")
+	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+	defer cleanup()
+
+	require.Equal(t, http.StatusText(http.StatusBadRequest), http.StatusText(resp.StatusCode))
+}
+
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t)
