@@ -6,10 +6,9 @@ pragma solidity 0.6.2;
 ////////////////////////////////////////////////////////////////////////////////
 
 /** ****************************************************************************
-  * @notice On-chain verification of verifiable-random-function (VRF) proofs as
-  * @notice described in
-  * @notice https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3 and
-  * @notice https://eprint.iacr.org/2017/099.pdf (security proofs)
+  * @notice Verification of verifiable-random-function (VRF) proofs, following
+  * @notice https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.3
+  * @notice See https://eprint.iacr.org/2017/099.pdf for security proofs.
 
   * @dev Bibliographic references:
 
@@ -17,10 +16,9 @@ pragma solidity 0.6.2;
   * @dev draft-irtf-cfrg-vrf-05, IETF, Aug 11 2019,
   * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05
 
-  XXX: Fix up references to latest version of the draft.
-
   * @dev Papadopoulos, et al., "Making NSEC5 Practical for DNSSEC", Cryptology
   * @dev ePrint Archive, Report 2017/099, 2017
+  * @dev https://eprint.iacr.org/2017/099.pdf
   * ****************************************************************************
   * @dev USAGE
 
@@ -47,7 +45,7 @@ pragma solidity 0.6.2;
   * @dev The VRF algorithm verified here satisfies the full unqiqueness, full
   * @dev collision resistance, and full pseudorandomness security properties.
   * @dev See "SECURITY PROPERTIES" below, and
-  * @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-3
+  * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-3
 
   * @dev An elliptic curve point is generally represented in the solidity code
   * @dev as a uint256[2], corresponding to its affine coordinates in
@@ -57,29 +55,38 @@ pragma solidity 0.6.2;
   * @dev in some minor ways:
 
   * @dev - Keccak hash rather than the SHA256 hash recommended in
-  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 . This is
-  * @dev   because keccak costs much less gas on the EVM. The impact onsecurity
-  * @dev   should be minor.
+  * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5
+  * @dev   Keccak costs much less gas on the EVM, and provides similar security.
 
   * @dev - Secp256k1 curve instead of the P-256 or ED25519 curves recommended in
-  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 . This is
-  * @dev   because it's much cheaper to abuse ECRECOVER for the most expensive
-  * @dev   ECC arithmetic, when computing in the EVM.
+  * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5
+  * @dev   For curve-point multiplication, it's much cheaper to abuse ECRECOVER
 
-  * @dev - hashToCurve recursively hashes until it finds a curve
-  * @dev   x-ordinate. On the EVM, this is slightly more efficient than the
-  * @dev   recommendation in
-  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.1.1 step
-  * @dev   4 to concatenate with a nonce then hash, and rehash with the nonce
-  * @dev   updated until a valid x-ordinate is found.
+  * @dev - hashToCurve recursively hashes until it finds a curve x-ordinate. On
+  * @dev   the EVM, this is slightly more efficient than the recommendation in
+  * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.1.1
+  * @dev   step 5, to concatenate with a nonce then hash, and rehash with the
+  * @dev   nonce updated until a valid x-ordinate is found.
 
-  * @dev - In the calculation of the challenge value "c", the "u" value
-  * @dev   (i.e. the value computed by Reggie as the nonce times the secp256k1
-  * @dev   generator point, see steps 4 and 7 of
-  * @dev   https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.3) is
-  * @dev   replaced by its ethereum address of the point, which is the lower 160
-  * @dev   bits of the keccak hash of the original u. This is because we only
-  * @dev   verify the calculation of u up to its address, by abusing ECRECOVER.
+  * @dev - hashToCurve does not include a cipher version string or the byte 0x1
+  * @dev   in the hash message, as recommended in step 5.B of the draft
+  * @dev   standard. They are unnecessary here because no variation in the
+  * @dev   cipher suite is allowed.
+
+  * @dev - Similarly, the hash input in scalarFromCurvePoints does not include a
+  * @dev   commitment to the cipher suite, either, which differs from step 2 of
+  * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
+  * @dev   . Also, the hash input is the concatenation of the uncompressed
+  * @dev   points, not the compressed points as recommended in step 3.
+
+  * @dev - In the calculation of the challenge value "c", the "u" value (i.e.
+  * @dev   the value computed by Reggie as the nonce times the secp256k1
+  * @dev   generator point, see steps 5 and 7 of
+  * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.3
+  * @dev   ) is replaced by its ethereum address of the point, which is the
+  * @dev   lower 160 bits of the keccak hash of the original u. This is because
+  * @dev   we only verify the calculation of u up to its address, by abusing
+  * @dev   ECRECOVER.
   * ****************************************************************************
   * @dev SECURITY PROPERTIES
 
@@ -97,34 +104,14 @@ pragma solidity 0.6.2;
   * @dev   indistinguishable from randomness.
 
   * @dev https://eprint.iacr.org/2017/099.pdf, Appendix B contains the proofs
-  * @dev for these properties. The introduction to
-  * @dev https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5 is very
-  * @dev conservative about the security properties it claims, but is implicitly
-  * @dev stronger in its claims for the specific cipher suites described in
-  * @dev section 5.5. The reason for this is given in the "NOTE" at the bottom
-  * @dev of section 5.5, namely, to quote Appendix B:
+  * @dev for these properties.
 
-  * @dev    If the group E is fixed and trusted to have been correctly
-  * @dev    generated (i.e., E is known to have a subgroup of prime order q),
-  * @dev    and the generator g is known to be in G − {1}, then the verifier
-  * @dev    just needs to check that [VRF public key] PK ∈ E. (This is the only
-  * @dev    requirement on PK in the proof [of trusted uniqueness] above.)
-
-  * @dev A similar note is on the proof for trusted collision-resistance:
-
-  * @dev     **Collision resistance without trusting the key**. Similarly
-  * @dev     to the case with uniqueness, our VRF can be modified the same way
-  * @dev     to attain collision resistance without needing to trust the key
-  * @dev     generation. The modifications are the same as in the case of
-  * @dev     uniqueness (to ensure that F_{SK} is uniquely defined), with the
-  * @dev     additional check that PK^f≠1 to ensure that x is not divisible by q
-
-  * @dev (For secp256k1, f, the cofactor of the subgroup, is 1)
-
-  * @dev Thus, here we rely on the fact that the secp256k1 parameters are
-  * @dev correct, and we can check that the VRF public key lies on secp256k1 and
-  * @dev is not the generator or the zero point, so we do not have to trust in
-  * @dev correct key generation.
+  * @dev For secp256k1, the key-validation described in section
+  * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.6
+  * @dev is unnecessary, because secp256k1 has cofactor 1, and the
+  * @dev representation of the public key used here (affine x- and y-ordinates
+  * @dev of the secp256k1 point on the standard y^2=x^3+7 curve) cannot refer to
+  * @dev the point at infinity.
   * ****************************************************************************
   * @dev OTHER SECURITY CONSIDERATIONS
   *
@@ -207,16 +194,23 @@ contract VRF {
   // Hash x uniformly into {0, ..., FIELD_SIZE-1}.
   function fieldHash(uint256 x) internal pure returns (uint256 x_) {
     x_ = x;
-    // Rejecting if x >= FIELD_SIZE corresponds to step 1 in section 2.3.6 of
+    // Rejecting if x >= FIELD_SIZE corresponds to step 2.1 in section 2.3.4 of
     // http://www.secg.org/sec1-v2.pdf , which is part of the definition of
-    // RS2ECP via section 2.3.4 via OS2ECP via
-    // https://tools.ietf.org/html/rfc8032#section-5.1.3
+    // string_to_point in the IETF draft
     while (x_ >= FIELD_SIZE) {
       x_ = uint256(keccak256(abi.encodePacked(x_)));
     }
   }
 
   // One-way hash function onto the curve.
+  //
+  // TODO(alx): Implement a bounded-computation hash-to-curve, as described in
+  // "Construction of Rational Points on Elliptic Curves over Finite Fields"
+  // http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.831.5299&rep=rep1&type=pdf
+  // and suggested by
+  // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-01#section-5.2.2
+  // (Though we can't used exactly that because secp256k1's j-invariant is 0.)
+  // https://www.pivotaltracker.com/story/show/171120900
   function hashToCurve(uint256[2] memory pk, uint256 input)
     internal view returns (uint256[2] memory rv) {
       rv[0] = fieldHash(uint256(keccak256(abi.encodePacked(pk, input))));
@@ -227,13 +221,10 @@ contract VRF {
         rv[1] = squareRoot(ySquared(rv[0]));
       }
       // See
-      // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.1.1
-      // step 4.D, referencing RS2ECP,
-      // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.5 , for
-      // definition of RS2ECP, and http://www.secg.org/sec1-v2.pdf#page=17
-      // , steps 2.3-2.4.1 of section 2.3.4 for relevant part of OS2ECP
-      // definition. Together, these specify that the y ordinate must be
-      // even.
+      // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.1.1
+      // step 5.C, referencing arbitrary_string_to_point, defined in
+      // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5
+      // as returning the point with given x ordinate, and even y ordinate.
       if (rv[1] % 2 == 1) {
         rv[1] = FIELD_SIZE - rv[1];
       }
@@ -401,10 +392,16 @@ contract VRF {
     }
 
   // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurvePoints, and
-  // https://tools.ietf.org/html/draft-goldbe-vrf-01#section-5.4.2 . The draft
-  // calls (in section 5.3 step 5 and section 5.4.2 steps 3-5) for taking the
+  // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
+  // The draft calls (in step 7, via the definition of string_to_int, in
+  // https://datatracker.ietf.org/doc/html/rfc8017#section-4.2 ) for taking the
   // first hash without checking that it corresponds to a number less than the
   // group order, which will lead to a slight bias in the sample.
+  //
+  // TODO(alx): We could save a bit of gas by following the standard here and
+  // using the compressed representation of the points, if we collated the y
+  // parities into a single bytes32.
+  // https://www.pivotaltracker.com/story/show/171120588
   function scalarFromCurve(
     uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma,
     address uWitness, uint256[2] memory v)
@@ -421,8 +418,7 @@ contract VRF {
   // TODO(alx): Since I'm only using pk in the ecrecover call, I could only pass
   // the x ordinate, and the parity of the y ordinate in the top bit of uWitness
   // (which I could make a uint256 without using any extra space.) Would save
-  // about 2000 gas. (Roughly 2.5%.)
-  // https://www.pivotaltracker.com/story/show/170828567
+  // about 2000 gas. https://www.pivotaltracker.com/story/show/170828567
   function verifyVRFProof(
     uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
     uint256 seed, address uWitness, uint256[2] memory cGammaWitness,
