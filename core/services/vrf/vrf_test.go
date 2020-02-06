@@ -15,7 +15,7 @@ import (
 
 func TestVRF_IsSquare(t *testing.T) {
 	assert.True(t, IsSquare(four))
-	minusOneModP := new(big.Int).Sub(fieldSize, one)
+	minusOneModP := i().Sub(fieldSize, one)
 	assert.False(t, IsSquare(minusOneModP))
 }
 
