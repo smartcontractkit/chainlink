@@ -32,25 +32,25 @@ func getContract(name string, box packr.Box) (*Contract, error) {
 	return &Contract{abiParsed}, nil
 }
 
-// GetContract loads the contract JSON file from ../evm/dist/artifacts
+// GetContract loads the contract JSON file from ../../evm-contracts/abi/v0.4
 // and parses the ABI JSON contents into an abi.ABI object
 //
 // NB: These contracts can be built by running
-//    yarn workspace chainlink run setup
+//    yarn workspace @chainlink/contracts setup
 // in the base project directory.
 func GetContract(name string) (*Contract, error) {
-	box := packr.NewBox("../../evm/dist/artifacts")
+	box := packr.NewBox("../../evm-contracts/abi/v0.4")
 	return getContract(name, box)
 }
 
-// GetAdvancedContract loads the contract JSON file from ../evm/v0.5/dist/artifacts
+// GetAdvancedContract loads the contract JSON file from ../../evm-contracts/abi/v0.5
 // and parses the ABI JSON contents into an abi.ABI object
 //
 // NB: These contracts can be built by running
-//    yarn workspace chainlinkv0.5 run setup
+//    yarn workspace @chainlink/contracts setup
 // in the base project directory.
 func GetV5Contract(name string) (*Contract, error) {
-	box := packr.NewBox("../../evm/v0.5/dist/artifacts")
+	box := packr.NewBox("../../evm-contracts/abi/v0.5")
 	return getContract(name, box)
 }
 

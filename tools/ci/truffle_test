@@ -2,24 +2,20 @@
 
 set -e
 
-yarn workspace chainlink run lint
-yarn workspace chainlinkv0.5 run lint
 yarn workspace @chainlink/box run lint
 
 # FIXME: turn slither linting back on and merge these into the linting task
-#yarn workspace chainlink run slither
+# yarn workspace chainlink run slither
 # if the above fails, you can mark it in the db by running:
 #   `cd evm && yarn build && slither --triage-mode .`
 
-#yarn workspace chainlinkv0.5 run slither
+# yarn workspace chainlinkv0.5 run slither
 # if the above fails, you can mark it in the db by running:
 #   `cd evm/v0.5 && yarn build && slither --triage-mode .`
-yarn workspace @chainlink/test-helpers build
-yarn workspace chainlinkv0.5 build
-yarn workspace chainlinkv0.6 build
+yarn workspace @chainlink/test-helpers setup
+yarn workspace @chainlink/linkbelt setup
+yarn workspace @chainlink/contracts setup
 
 # These should be merged into a global test command
-yarn workspace chainlink test
-yarn workspace chainlinkv0.5 test
-yarn workspace chainlinkv0.6 test
+yarn workspace @chainlink/contracts test
 yarn workspace @chainlink/box test

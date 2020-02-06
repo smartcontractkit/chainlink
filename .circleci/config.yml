@@ -68,8 +68,8 @@ jobs:
           paths:
             - '/go/pkg/mod'
       - run: yarn workspace @chainlink/test-helpers run setup
-      - run: yarn workspace chainlinkv0.5 run setup
-      - run: yarn workspace chainlink run setup
+      - run: yarn workspace @chainlink/linkbelt setup
+      - run: yarn workspace @chainlink/contracts setup
       - run: go test -p 3 -parallel 2 ./...
   rust:
     docker:
