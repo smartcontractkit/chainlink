@@ -1,18 +1,23 @@
-import { expectEvent, expectRevert } from 'openzeppelin-test-helpers'
-import * as h from '../../../evm/v0.5/test/support/helpers'
+import { contract, helpers, matchers, setup } from '@chainlink/test-helpers'
+import { assert } from 'chai'
+import { WhitelistedFactory } from '../../ethers/v0.5/WhitelistedFactory'
 
-contract('Whitelisted', () => {
-  const Whitelisted = artifacts.require('Whitelisted.sol')
-  const personas = h.personas
+const whitelistedFactory = new WhitelistedFactory()
+const provider = setup.provider()
+let personas: setup.Personas
+beforeAll(async () => {
+  await setup.users(provider).then(u => (personas = u.personas))
+})
 
-  let whitelisted
-
-  beforeEach(async () => {
-    whitelisted = await Whitelisted.new({ from: personas.Carol })
+describe('Whitelisted', () => {
+  let whitelisted: contract.Instance<WhitelistedFactory>
+  const deployment = setup.snapshot(provider, async () => {
+    whitelisted = await whitelistedFactory.connect(personas.Carol).deploy()
   })
+  beforeEach(deployment)
 
   it('has a limited public interface', () => {
-    h.checkPublicABI(Whitelisted, [
+    matchers.publicAbi(whitelistedFactory, [
       'acceptOwnership',
       'addToWhitelist',
       'owner',
@@ -23,58 +28,68 @@ contract('Whitelisted', () => {
   })
 
   describe('#addToWhitelist', () => {
-    context('when called by a stranger', () => {
+    describe('when called by a stranger', () => {
       it('reverts', async () => {
-        await expectRevert(
-          whitelisted.addToWhitelist(personas.Eddy, {
-            from: personas.Eddy,
-          }),
+        await matchers.evmRevert(
+          whitelisted
+            .connect(personas.Eddy)
+            .addToWhitelist(personas.Eddy.address),
           'Only callable by owner',
         )
       })
     })
 
-    context('when called by the owner', () => {
+    describe('when called by the owner', () => {
       it('adds the address to the whitelist', async () => {
-        const { logs } = await whitelisted.addToWhitelist(personas.Eddy, {
-          from: personas.Carol,
-        })
-        assert.isTrue(await whitelisted.whitelisted.call(personas.Eddy))
-        expectEvent.inLogs(logs, 'AddedToWhitelist', {
-          user: personas.Eddy,
-        })
+        const tx = await whitelisted
+          .connect(personas.Carol)
+          .addToWhitelist(personas.Eddy.address)
+        const receipt = await tx.wait()
+
+        assert.isTrue(await whitelisted.whitelisted(personas.Eddy.address))
+
+        const event = helpers.findEventIn(
+          receipt,
+          whitelisted.interface.events.AddedToWhitelist,
+        )
+        expect(helpers.eventArgs(event).user).toEqual(personas.Eddy.address)
       })
     })
   })
 
   describe('#removeFromWhitelist', () => {
     beforeEach(async () => {
-      await whitelisted.addToWhitelist(personas.Neil, {
-        from: personas.Carol,
-      })
-      assert.isTrue(await whitelisted.whitelisted.call(personas.Neil))
+      await whitelisted
+        .connect(personas.Carol)
+        .addToWhitelist(personas.Neil.address)
+      assert.isTrue(await whitelisted.whitelisted(personas.Neil.address))
     })
 
-    context('when called by a stranger', () => {
+    describe('when called by a stranger', () => {
       it('reverts', async () => {
-        await expectRevert(
-          whitelisted.removeFromWhitelist(personas.Neil, {
-            from: personas.Eddy,
-          }),
+        await matchers.evmRevert(
+          whitelisted
+            .connect(personas.Eddy)
+            .removeFromWhitelist(personas.Neil.address),
           'Only callable by owner',
         )
       })
     })
 
-    context('when called by the owner', () => {
+    describe('when called by the owner', () => {
       it('removes the address from the whitelist', async () => {
-        const { logs } = await whitelisted.removeFromWhitelist(personas.Neil, {
-          from: personas.Carol,
-        })
-        assert.isFalse(await whitelisted.whitelisted.call(personas.Neil))
-        await expectEvent.inLogs(logs, 'RemovedFromWhitelist', {
-          user: personas.Neil,
-        })
+        const tx = await whitelisted
+          .connect(personas.Carol)
+          .removeFromWhitelist(personas.Neil.address)
+        const receipt = await tx.wait()
+
+        assert.isFalse(await whitelisted.whitelisted(personas.Neil.address))
+
+        const event = helpers.findEventIn(
+          receipt,
+          whitelisted.interface.events.RemovedFromWhitelist,
+        )
+        expect(helpers.eventArgs(event).user).toEqual(personas.Neil.address)
       })
     })
   })
