@@ -41,6 +41,8 @@ REACT_APP_INFURA_KEY="yourkey"
 
 ## Deploy to Heroku
 
+[Official heroku docker documentation](https://devcenter.heroku.com/articles/container-registry-and-runtime)
+
 Enable Docker container builds on the application
 
 ```
@@ -61,7 +63,7 @@ Build and push a new image from the root of the monorepo
 $ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=abc123,REACT_APP_GA_ID=abc123 -a the-app-name
 
 # If the config vars are stored in Heroku, you can capture the output in a subshell
-$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=$(heroku config:get REACT_APP_INFURA_KEY -a feeds-ui-ak),REACT_APP_GA_ID=$(heroku config:get REACT_APP_GA_ID -a feeds-ui-ak) -a feeds-ui-ak
+$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=$(heroku config:get REACT_APP_INFURA_KEY -a the-app-name),REACT_APP_GA_ID=$(heroku config:get REACT_APP_GA_ID -a the-app-name) -a the-app-name
 ```
 
 
