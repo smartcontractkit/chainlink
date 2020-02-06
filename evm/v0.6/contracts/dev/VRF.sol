@@ -290,7 +290,7 @@ contract VRF {
 
       @dev This can be used to calculate the z which is the inverse to zInv
       @dev in isValidVRFOutput. But consider using a faster
-      @dev re-implementation.
+      @dev re-implementation such as ProjectiveECAdd in the golang vrf package.
 
       @dev This function assumes [px,py,1],[qx,qy,1] are valid projective
            coordinates of secp256k1 points. That is safe in this contract,
