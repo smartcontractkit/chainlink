@@ -238,27 +238,27 @@ contract VRF {
     }
 
   /** *********************************************************************
-   * @notice Check that product==multiplier*multiplicand
+   * @notice Check that product==scalar*multiplicand
    *
    * @dev Based on Vitalik Buterin's idea in ethresear.ch post cited below.
    *
    * @param multiplicand: secp256k1 point
-   * @param multiplier: non-zero GF(GROUP_ORDER) scalar
+   * @param scalar: non-zero GF(GROUP_ORDER) scalar
    * @param product: secp256k1 expected to be mulitplier * multiplicand
-   * @return verifies true iff product==multiplier*multiplicand, with cryptographically high probability
+   * @return verifies true iff product==scalar*multiplicand, with cryptographically high probability
    */
-  function ecmulVerify(uint256[2] memory multiplicand, uint256 multiplier,
+  function ecmulVerify(uint256[2] memory multiplicand, uint256 scalar,
     uint256[2] memory product) internal pure returns(bool verifies)
   {
-    require(multiplier != 0); // Rules out an ecrecover failure case
+    require(scalar != 0); // Rules out an ecrecover failure case
     uint256 x = multiplicand[0]; // x ordinate of multiplicand
     uint8 v = multiplicand[1] % 2 != 0 ? 28 : 27; // parity of y ordinate
     // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
-    // Point corresponding to address ecrecover(0, v, x, s=multiplier*x) is
-    // (x⁻¹ mod GROUP_ORDER) * (multiplier * x * multiplicand - 0 * g), i.e.
+    // Point corresponding to address ecrecover(0, v, x, s=scalar*x) is
+    // (x⁻¹ mod GROUP_ORDER) * (scalar * x * multiplicand - 0 * g), i.e.
     // See https://crypto.stackexchange.com/a/18106
-    bytes32 multiplierTimesX = bytes32(mulmod(multiplier, x, GROUP_ORDER));
-    address actual = ecrecover(bytes32(0), v, bytes32(x), multiplierTimesX);
+    bytes32 scalarTimesX = bytes32(mulmod(scalar, x, GROUP_ORDER));
+    address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
     // Explicit conversion to address takes bottom 160 bits
     address expected = address(uint256(keccak256(abi.encodePacked(product))));
     return (actual == expected);
