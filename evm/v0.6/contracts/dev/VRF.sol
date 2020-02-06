@@ -252,7 +252,7 @@ contract VRF {
   {
     require(scalar != 0); // Rules out an ecrecover failure case
     uint256 x = multiplicand[0]; // x ordinate of multiplicand
-    uint8 v = multiplicand[1] % 2 != 0 ? 28 : 27; // parity of y ordinate
+    uint8 v = multiplicand[1] % 2 == 0 ? 27 : 28; // parity of y ordinate
     // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
     // Point corresponding to address ecrecover(0, v, x, s=scalar*x) is
     // (x⁻¹ mod GROUP_ORDER) * (scalar * x * multiplicand - 0 * g), i.e.
