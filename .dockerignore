@@ -9,7 +9,8 @@ node_modules/
 vendor/
 tmp/
 
-evm/node_modules
+evm-contracts/node_modules
+evm-test-helpers/node_modules
 examples/
 integration/node_modules
 

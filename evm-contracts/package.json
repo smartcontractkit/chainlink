@@ -8,10 +8,10 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b tsconfig.ethers.json",
     "compile": "linkbelt compile all",
-    "setup": "yarn clean && yarn build && yarn compile",
-    "clean": "tsc -b --clean && rm -rf abi ethers truffle",
+    "setup": "yarn clean && yarn compile && yarn build",
+    "clean": "rm -rf abi ethers truffle",
     "test": "jest --testTimeout 80000 --forceExit",
     "prepublishOnly": "yarn setup && yarn test"
   },

@@ -80,7 +80,7 @@ This project contains several sub-projects, some with their own documentation.
 
 - [evm](/evm) - smart contract-related resources
   - [box](/evm/box) - [Chainlink Truffle box](https://www.trufflesuite.com/blog/using-truffle-to-interact-with-chainlink-smart-contracts)
-  - [v0.5](/evm/v0.5) - Chainlink using Solidity v0.5.0
+- [@chainlink/contracts](/evm-contracts) - smart contract-related resources
 - [examples](/examples) - collection of example Chainlink integrations
   - [testnet](/examples/testnet) - guide to creating, deploying and using Chainlinked smart contracts
 - [explorer](/explorer) - [Chainlink Explorer](https://explorer.chain.link/)
