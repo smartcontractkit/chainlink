@@ -36,16 +36,20 @@ func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	started := make(chan struct{}, 1)
 
 	dc := new(mocks.DeviationChecker)
-	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
+	dc.On("Connect", mock.Anything).Return(nil)
+	dc.On("Start", mock.Anything).Return().Run(func(mock.Arguments) {
 		started <- struct{}{}
 	})
 
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
+
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
+
 	require.NoError(t, fm.Connect(nil))
 	defer fm.Disconnect()
 
@@ -76,14 +80,19 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	runManager := new(mocks.RunManager)
+
 	dc := new(mocks.DeviationChecker)
-	dc.On("Start", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
+	dc.On("Connect", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
+
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
+
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
+
 	require.NoError(t, fm.Connect(nil))
 	defer fm.Disconnect()
 
@@ -99,10 +108,13 @@ func TestConcreteFluxMonitor_AddJobDisconnected(t *testing.T) {
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	runManager := new(mocks.RunManager)
 	checkerFactory := new(mocks.DeviationCheckerFactory)
+
 	dc := new(mocks.DeviationChecker)
 	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
+
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
 
@@ -118,6 +130,7 @@ func TestConcreteFluxMonitor_AddJobNonFluxMonitor(t *testing.T) {
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
+
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
 
@@ -138,7 +151,8 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	started := make(chan struct{})
 
 	dc := new(mocks.DeviationChecker)
-	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
+	dc.On("Connect", mock.Anything).Return(nil)
+	dc.On("Start", mock.Anything).Return().Run(func(mock.Arguments) {
 		started <- struct{}{}
 	})
 
@@ -220,7 +234,7 @@ func TestPollingDeviationChecker_StartError(t *testing.T) {
 
 	checker, err := services.NewPollingDeviationChecker(initr, rm, nil, time.Second)
 	require.NoError(t, err)
-	require.Error(t, checker.Start(context.Background(), ethClient))
+	require.Error(t, checker.Connect(ethClient))
 }
 
 func TestPollingDeviationChecker_StartStop(t *testing.T) {
@@ -251,7 +265,8 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	// Start() with no delay to speed up test and polling.
 	done := make(chan struct{})
 	go func() {
-		checker.Start(context.Background(), ethClient) // Start() polling
+		checker.Connect(ethClient)
+		go checker.Start(context.Background()) // Start() polling
 		done <- struct{}{}
 	}()
 
@@ -295,7 +310,9 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		checker.Start(ctx, ethClient) // Start() polling until cancel()
+		err := checker.Connect(ethClient)
+		require.NoError(t, err)
+		checker.Start(ctx) // Start() polling until cancel()
 		done <- struct{}{}
 	}()
 

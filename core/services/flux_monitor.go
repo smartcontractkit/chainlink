@@ -157,7 +157,9 @@ func connectCheckers(ctx context.Context, jobMap map[string][]DeviationChecker, 
 			// XXX: Add mechanism to asynchronously communicate when a job spec has
 			// an ethereum interaction error.
 			// https://www.pivotaltracker.com/story/show/170349568
-			logger.ErrorIf(connectSingleChecker(ctx, checker, client))
+			err := checker.Connect(client)
+			logger.ErrorIf(err)
+			go checker.Start(ctx)
 		}
 	}
 }
@@ -177,10 +179,11 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 			return errors.Wrap(err, "factory unable to create checker")
 		}
 		if connected {
-			err := connectSingleChecker(ctx, checker, fm.store.TxManager)
+			err := checker.Connect(fm.store.TxManager)
 			if err != nil {
 				return errors.Wrap(err, "unable to connect checker")
 			}
+			go checker.Start(ctx)
 		}
 		validCheckers = append(validCheckers, checker)
 	}
@@ -189,10 +192,6 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 		jobMap[job.ID.String()] = validCheckers
 	}
 	return nil
-}
-
-func connectSingleChecker(ctx context.Context, checker DeviationChecker, client eth.Client) error {
-	return checker.Start(ctx, client)
 }
 
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
@@ -241,24 +240,26 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 // DeviationChecker encapsulate methods needed to initialize and check prices
 // for price deviations.
 type DeviationChecker interface {
-	Start(context.Context, eth.Client) error
+	Connect(eth.Client) error
+	Start(context.Context)
 	Stop()
 }
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	initr        models.Initiator
-	address      common.Address
-	requestData  models.JSON
-	threshold    float64
-	precision    int32
-	runManager   RunManager
-	currentPrice decimal.Decimal
-	currentRound *big.Int
-	fetcher      Fetcher
-	delay        time.Duration
-	cancel       context.CancelFunc
-	newRounds    chan eth.Log
+	initr             models.Initiator
+	address           common.Address
+	requestData       models.JSON
+	threshold         float64
+	precision         int32
+	runManager        RunManager
+	currentPrice      decimal.Decimal
+	currentRound      *big.Int
+	fetcher           Fetcher
+	roundSubscription eth.Subscription
+	delay             time.Duration
+	cancel            context.CancelFunc
+	newRounds         chan eth.Log
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -283,9 +284,9 @@ func NewPollingDeviationChecker(
 	}, nil
 }
 
-// Start begins the CSP consumer in a single goroutine to
-// poll the price adapters and listen to NewRound events.
-func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) error {
+// Connect subscribes to Ethereum for new round updates and polls the Flux
+// Metric URL for initial metric information.
+func (p *PollingDeviationChecker) Connect(client eth.Client) error {
 	logger.Debugw("Starting checker for job",
 		"job", p.initr.JobSpecID.String(),
 		"initr", p.initr.ID)
@@ -294,35 +295,34 @@ func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) 
 		return err
 	}
 
-	roundSubscription, err := p.subscribeToNewRounds(client)
+	subscription, err := p.subscribeToNewRounds(client)
 	if err != nil {
 		return err
 	}
+	p.roundSubscription = subscription
 
-	err = p.poll()
-	if err != nil {
-		return err
-	}
-
-	ctx, p.cancel = context.WithCancel(ctx)
-	go p.consume(ctx, roundSubscription)
-	return nil
+	return p.poll()
 }
 
-func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription eth.Subscription) {
-	defer roundSubscription.Unsubscribe()
+// Start begins the polling process logging any errors it encounters.
+// Connect() must be called successfully beforehand.
+func (p *PollingDeviationChecker) Start(ctx context.Context) {
+	defer p.roundSubscription.Unsubscribe()
+	ctx, p.cancel = context.WithCancel(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case err := <-roundSubscription.Err():
-			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
+		case err := <-p.roundSubscription.Err():
+			logger.ErrorIf(errors.Wrap(err, "checker lost subscription to NewRound log events"))
 		case log := <-p.newRounds:
 			logger.ErrorIf(p.respondToNewRound(log), "checker unable to respond to new round")
 		case <-time.After(p.delay):
 			logger.ErrorIf(p.poll(), "checker unable to poll")
 		}
 	}
+	return
 }
 
 // Stop stops this instance from polling, cleaning up resources.
