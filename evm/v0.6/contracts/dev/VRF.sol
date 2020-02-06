@@ -350,7 +350,7 @@ contract VRF {
       }
     }
 
-  // Returns p1+p2, as affine points on secp256k1.
+  // p1+p2, as affine points on secp256k1.
   //
   // invZ must be the inverse of the z returned by projectiveECAdd(p1, p2).
   // It is computed off-chain to save gas.
@@ -370,7 +370,7 @@ contract VRF {
     return [mulmod(x, invZ, FIELD_SIZE), mulmod(y, invZ, FIELD_SIZE)];
   }
 
-  // Returns true iff address(c*p+s*g) == lcWitness, where g is generator.
+  // True iff address(c*p+s*g) == lcWitness, where g is generator.
   function verifyLinearCombinationWithGenerator(
     uint256 c, uint256[2] memory p, uint256 s, address lcWitness)
     internal pure returns (bool) {
@@ -491,7 +491,8 @@ contract VRF {
 
       uint256[2] memory pk; // parse proof contents into these variables
       uint256[2] memory gamma;
-      uint256[3] memory cSSeed; // c, s and seed combined (prevents stack overflow)
+      // c, s and seed combined (prevents "stack too deep" compilation error)
+      uint256[3] memory cSSeed;
       address uWitness;
       uint256[2] memory cGammaWitness;
       uint256[2] memory sHashWitness;
