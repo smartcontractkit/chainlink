@@ -26,6 +26,12 @@ ABI="$3"
 BIN="$4"
 DONT_TRUNCATE="$5"
 
+if [ $(grep -E "[[:space:]]" <<< "$SOL_PATH") ]; then
+    # The golang parser splits on whitespace, so don't allow it in the pathname
+    echo "path to compiler artifact, '$SOL_PATH', cannot contain whitespace"
+    exit 1
+fi
+
 CDIR=$(dirname "$0")
 # shellcheck source=common.sh
 source "$CDIR/common.sh"
@@ -70,6 +76,6 @@ else
     MSG_BIN="$TRUNCATED"
 fi
 
-echo "$PKG_NAME: $SOL_PATH $(md5sum <<< "$ABI$MSG_BIN" | cut -f 1 -d ' ')" >> \
+echo "$PKG_NAME: $SOL_PATH $(sha256sum <<< "$ABI$MSG_BIN" | cut -f 1 -d ' ')" >> \
      "$VERSION_DB_PATH"
 sort -o "$VERSION_DB_PATH" "$VERSION_DB_PATH"
