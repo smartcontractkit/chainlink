@@ -145,6 +145,11 @@
     "networkId": 1
   },
   {
+    "address": "0xe4129ceec7e622287810815d16939303089ddff3",
+    "name": "Chorus One",
+    "networkId": 1
+  },
+  {
     "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
     "name": "LinkPool",
     "networkId": 3
@@ -252,6 +257,11 @@
   {
     "address": "0xa8EE2a4a0F010E66A0f1C4321865D3dbeE3070Cb",
     "name": "Kaiko",
+    "networkId": 3
+  },
+  {
+    "address": "0x16d19adaF73CE34a346E0bF91108cfb26133a7bd",
+    "name": "Chorus One",
     "networkId": 3
   }
 ]
