@@ -1,5 +1,5 @@
-import * as h from './support/helpers'
 import { expectEvent, expectRevert } from 'openzeppelin-test-helpers'
+import * as h from '../../../evm/v0.5/test/support/helpers'
 
 contract('Whitelisted', () => {
   const Whitelisted = artifacts.require('Whitelisted.sol')
