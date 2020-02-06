@@ -1,10 +1,10 @@
-// package vrf_test verifies correct-up-to-date generation of golang wrappers
+// package vrf_test verifies correct and up-to-date generation of golang wrappers
 // for solidity contracts. See go_generate.go for the actual generation.
 package vrf_test
 
 import (
 	"bufio"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,10 +43,10 @@ type integratedVersion struct {
 	contractVersions map[string]contractVersion
 }
 
-// TestCheckContractHashesFromLastGoGenerate compares the metadata in recorded
-// by record_versions.sh, and fails if it indicates that the corresponding
-// golang wrappers are out of date with respect to the solidty contracts they
-// wrap. See record_versions.sh for description of file format.
+// TestCheckContractHashesFromLastGoGenerate compares the metadata recorded by
+// record_versions.sh, and fails if it indicates that the corresponding golang
+// wrappers are out of date with respect to the solidty contracts they wrap. See
+// record_versions.sh for description of file format.
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	versions := readVersionsDB(t)
 	require.NotEmpty(t, versions.gethVersion,
@@ -59,10 +59,11 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 }
 
 // compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources checks that
-// the file at path hashes to hash, and that the solidity source code recorded
-// at path match the current solidity contracts.
+// the file at each contractVersion.compilerArtifactPath hashes to its
+// contractVersion.hash, and that the solidity source code recorded in the
+// compiler artifact matches the current solidity contracts.
 //
-// The contents of the file at path should contain output from sol-compiler, or
+// Most of the compiler artifacts should contain output from sol-compiler, or
 // "yarn compile". The relevant parts of its schema are
 //
 //    { "sourceCodes": { "<filePath>": "<code>", ... } }
@@ -70,11 +71,14 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 // where <filePath> is the path to the contract, below the truffle contracts/
 // directory, and <code> is the source code of the contract at the time the JSON
 // file was generated.
+//
+// An exception is LinkToken.json, which is probabyl not actually a compiler
+// artifact, and has to be handled separately.
 func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	t *testing.T, versionInfo contractVersion,
 ) {
 	apath := versionInfo.compilerArtifactPath
-	// check the compiler artifact hasn't changed
+	// check the compiler outputs (abi and bytecode object) haven't changed
 	compilerJSON, err := ioutil.ReadFile(apath)
 	require.NoError(t, err, "failed to read JSON compiler artifact %s", apath)
 	abiPath := "compilerOutput.abi"
@@ -86,13 +90,14 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 		abiPath = "abi"
 		binPath = "bytecode"
 	}
-	abiBytes := stripWhitespace(gjson.GetBytes(compilerJSON, abiPath).Raw, "")
-	binBytes := stripQuotes(gjson.GetBytes(compilerJSON, binPath).Raw, "")
+	// Normalize the whitespace in the ABI JSON
+	abiBytes := stripWhitespace(gjson.GetBytes(compilerJSON, abiPath).String(), "")
+	binBytes := gjson.GetBytes(compilerJSON, binPath).String()
 	if !isLINKCompilerOutput {
 		// Remove the varying contract metadata, as in ./generation/generate.sh
 		binBytes = binBytes[:len(binBytes)-106]
 	}
-	hasher := md5.New()
+	hasher := sha256.New()
 	hashMsg := string(abiBytes+binBytes) + "\n" // newline from <<< in record_versions.sh
 	_, err = io.WriteString(hasher, hashMsg)
 	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
@@ -115,7 +120,7 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 		actualSource, err := ioutil.ReadFile(sourcePath)
 		require.NoError(t, err, "could not read "+sourcePath)
 		require.Equal(t, string(actualSource), sourceCode,
-			"%s has changed; please rerun %sfor the vrf package",
+			"%s has changed; please rerun %s for the vrf package",
 			sourcePath, recompileCommand)
 	}
 }
@@ -133,8 +138,6 @@ func versionsDBLineReader() (*bufio.Scanner, error) {
 	return bufio.NewScanner(versionsDBFile), nil
 
 }
-
-var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 
 // readVersionsDB populates an integratedVersion with all the info in the
 // versions DB
@@ -200,6 +203,6 @@ func init() {
 }
 
 var (
-	stripWhitespace = regexp.MustCompile(`\s+`).ReplaceAllString
-	stripQuotes     = regexp.MustCompile(`"`).ReplaceAllString
+	stripWhitespace    = regexp.MustCompile(`\s+`).ReplaceAllString
+	stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 )
