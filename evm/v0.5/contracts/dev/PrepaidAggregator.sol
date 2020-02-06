@@ -3,7 +3,6 @@ pragma solidity 0.5.0;
 import "../Median.sol";
 import "../vendor/SafeMath.sol";
 import "./SafeMath128.sol";
-import "./SafeMath120.sol";
 import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
@@ -22,7 +21,6 @@ import "./Owned.sol";
 contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
-  using SafeMath120 for uint120;
   using SafeMath64 for uint64;
   using SafeMath32 for uint32;
 
@@ -43,13 +41,13 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   }
 
   struct OracleStatus {
-    uint120 withdrawable;
-    uint8 index;
+    uint128 withdrawable;
     uint32 startingRound;
     uint32 endingRound;
     uint32 lastReportedRound;
     uint32 lastStartedRound;
     int256 latestAnswer;
+    uint16 index;
   }
 
   uint128 public allocatedFunds;
@@ -146,7 +144,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleAddresses.push(_oracle);
-    oracles[_oracle].index = uint8(oracleAddresses.length.sub(1));
+    oracles[_oracle].index = uint16(oracleAddresses.length.sub(1));
 
     emit OracleAdded(_oracle);
 
@@ -173,11 +171,11 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     onlyEnabledAddress(_oracle)
   {
     oracles[_oracle].endingRound = reportingRoundId;
-    address head = oracleAddresses[oracleCount().sub(1)];
-    uint8 index = oracles[_oracle].index;
+    address tail = oracleAddresses[oracleCount().sub(1)];
+    uint16 index = oracles[_oracle].index;
+    oracles[tail].index = index;
     delete oracles[_oracle].index;
-    oracles[head].index = index;
-    oracleAddresses[index] = head;
+    oracleAddresses[index] = tail;
     oracleAddresses.pop();
 
     emit OracleRemoved(_oracle);
@@ -363,8 +361,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   function withdraw(address _recipient, uint256 _amount)
     external
   {
-    uint120 amount = uint120(_amount);
-    uint120 available = oracles[msg.sender].withdrawable;
+    uint128 amount = uint128(_amount);
+    uint128 available = oracles[msg.sender].withdrawable;
     require(available >= amount, "Insufficient balance");
 
     oracles[msg.sender].withdrawable = available.sub(amount);
@@ -512,7 +510,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
 
     availableFunds = available;
     allocatedFunds = allocatedFunds.add(payment);
-    oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(uint120(payment));
+    oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
 
     emit AvailableFundsUpdated(available);
   }
