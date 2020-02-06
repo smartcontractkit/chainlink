@@ -191,7 +191,7 @@ func randomPoint(t *testing.T, r *mrand.Rand) kyber.Point {
 // Never use this if cryptographic security is required
 func randomScalar(t *testing.T, r *mrand.Rand) kyber.Scalar {
 	s := randomUint256(t, r)
-	for s.Cmp(groupOrder) >= 0 {
+	for s.Cmp(secp256k1.GroupOrder) >= 0 {
 		s = randomUint256(t, r)
 	}
 	return secp256k1.IntToScalar(s)
@@ -307,7 +307,7 @@ func TestVRF_CompareSolidityScalarFromCurve(t *testing.T) {
 		require.NoError(t, err)
 		v := randomPoint(t, r)
 		vPair := asPair(v)
-		expected := ScalarFromCurve(hash, pk, gamma, uWitness, v)
+		expected := ScalarFromCurvePoints(hash, pk, gamma, uWitness, v)
 		actual, err := verifier.ScalarFromCurvePoints(nil, hashPair, pkPair,
 			gammaPair, uWitness, vPair)
 		require.NoError(t, err)
@@ -330,6 +330,6 @@ func TestVRF_MarshalProof(t *testing.T) {
 		require.NoError(t, err)
 		response, err := verifier.RandomValueFromVRFProof(nil, mproof[:])
 		require.NoError(t, err)
-		require.True(t, response.Cmp(proof.Output) == 0)
+		require.True(t, equal(response, proof.Output))
 	}
 }

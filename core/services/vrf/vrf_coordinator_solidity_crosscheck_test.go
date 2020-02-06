@@ -126,14 +126,14 @@ func TestRegisterProvingKey(t *testing.T) {
 	for log.Next() {
 		logCount += 1
 		require.Equal(t, log.Event.KeyHash, keyHash)
-		require.True(t, fee.Cmp(log.Event.Fee) == 0)
+		require.True(t, equal(fee, log.Event.Fee))
 	}
 	require.Equal(t, 1, logCount)
 	serviceAgreement, err := coordinator.rootContract.ServiceAgreements(nil, keyHash)
 	require.NoError(t, err)
 	require.Equal(t, coordinator.neil.From, serviceAgreement.VRFOracle)
 	require.Equal(t, jobID, serviceAgreement.JobID)
-	require.True(t, fee.Cmp(serviceAgreement.Fee) == 0)
+	require.True(t, equal(fee, serviceAgreement.Fee))
 }
 
 func requestRandomness(t *testing.T, coordinator coordinator,
@@ -162,10 +162,10 @@ func TestRandomnessRequestLog(t *testing.T) {
 	actualSeed, err := coordinator.requestIDBase.MakeVRFInputSeed(nil, keyHash,
 		one, coordinator.consumerContractAddress, zero)
 	require.NoError(t, err)
-	require.True(t, actualSeed.Cmp(log.Seed) == 0)
+	require.True(t, equal(actualSeed, log.Seed))
 	require.Equal(t, jobID, log.JobID)
 	require.Equal(t, coordinator.consumerContractAddress, log.Sender)
-	require.True(t, fee.Cmp((*big.Int)(log.Fee)) == 0)
+	require.True(t, equal(fee, (*big.Int)(log.Fee)))
 	parsedLog, err := ParseRandomnessRequestLog(chainlink_eth.Log(log.Raw.Raw))
 	require.NoError(t, err)
 	require.True(t, parsedLog.Equal(log))
@@ -191,14 +191,14 @@ func TestFulfillRandomness(t *testing.T) {
 	proof := fulfillRandomnessRequest(t, coordinator, log)
 	output, err := coordinator.consumerContract.RandomnessOutput(nil)
 	require.NoError(t, err)
-	require.True(t, proof.Output.Cmp(output) == 0)
+	require.True(t, equal(proof.Output, output))
 	requestID, err := coordinator.consumerContract.RequestId(nil)
 	require.NoError(t, err)
 	require.Equal(t, log.RequestID(), common.BytesToHash(requestID[:]))
 	neilBalance, err := coordinator.rootContract.WithdrawableTokens(
 		nil, coordinator.neil.From)
 	require.NoError(t, err)
-	require.True(t, neilBalance.Cmp(fee) == 0)
+	require.True(t, equal(neilBalance, fee))
 }
 
 func TestWithdraw(t *testing.T) {
@@ -213,11 +213,11 @@ func TestWithdraw(t *testing.T) {
 	require.NoError(t, err)
 	peteBalance, err := coordinator.linkContract.BalanceOf(nil, peteThePunter)
 	require.NoError(t, err)
-	require.True(t, payment.Cmp(peteBalance) == 0)
+	require.True(t, equal(payment, peteBalance))
 	neilBalance, err := coordinator.rootContract.WithdrawableTokens(
 		nil, coordinator.neil.From)
 	require.NoError(t, err)
-	require.True(t, i().Sub(fee, payment).Cmp(neilBalance) == 0)
+	require.True(t, equal(i().Sub(fee, payment), neilBalance))
 	_, err = coordinator.rootContract.Withdraw(coordinator.neil, peteThePunter, fee)
 	require.Error(t, err, "coordinator allowed overdraft")
 }

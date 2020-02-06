@@ -2,19 +2,25 @@
 ////////////////////////////////////////////////////////////////////////////////
 //       XXX: Do not use in production until this code has been audited.
 ////////////////////////////////////////////////////////////////////////////////
-// Numbers are deterministically generated from a seed and a secret key, and are
+// Numbers are deterministically generated from seeds and a secret key, and are
 // statistically indistinguishable from uniform sampling from {0, ..., 2**256},
-// to observers who don't know the key. But each number comes with a proof that
-// it was generated according to the procedure mandated by a public key
-// associated with that private key.
+// to computationally-bounded observers who know the seeds, don't know the key,
+// and only see the generated numbers. But each number also comes with a proof
+// that it was generated according to the procedure mandated by a public key
+// associated with that secret key.
 //
 // See VRF.sol for design notes.
 //
 // Usage
 // -----
 //
-// A secret key sk should be securely sampled uniformly from {0, ..., Order}.
-// The public key associated with it can be calculated from it by
+// You should probably not be using this directly.
+// chainlink/store/core/models/vrfkey.PrivateKey provides a simple, more
+// misuse-resistant interface to the same functionality, via the CreateKey and
+// MarshaledProof methods.
+//
+// Nonetheless, a secret key sk should be securely sampled uniformly from
+// {0,...,Order}. The public key associated with it can be calculated from it by
 //
 //   secp256k1.Secp256k1{}.Point().Mul(secureKey, Generator)
 //
@@ -52,9 +58,6 @@ func bigFromHex(s string) *big.Int {
 var fieldSize = bigFromHex(
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F")
 
-// groupOrder is the number of rational points on the curve in GF(P) (group size)
-var groupOrder = secp256k1.GroupOrder
-
 var bi = big.NewInt
 var zero, one, two, three, four, seven = bi(0), bi(1), bi(2), bi(3), bi(4), bi(7)
 
@@ -70,9 +73,9 @@ func mod(dividend, divisor *big.Int) *big.Int        { return i().Mod(dividend, 
 func sub(minuend, subtrahend *big.Int) *big.Int      { return i().Sub(minuend, subtrahend) }
 
 var (
-	// (P-1)/2: Half Fermat's Little Theorem exponent
+	// (fieldSize-1)/2: Half Fermat's Little Theorem exponent
 	eulersCriterionPower = div(sub(fieldSize, one), two)
-	// (P+1)/4: As long as P%4==3 and n=x^2 in GF(P), n^((P+1)/4)=±x
+	// (fieldSize+1)/4: As long as P%4==3 and n=x^2 in GF(fieldSize), n^sqrtPower=±x
 	sqrtPower = div(add(fieldSize, one), four)
 )
 
@@ -81,12 +84,13 @@ func IsSquare(x *big.Int) bool {
 	return equal(one, exp(x, eulersCriterionPower, fieldSize))
 }
 
-// SquareRoot returns a s.t. a^2=x. Assumes x is a square
+// SquareRoot returns a s.t. a^2=x, as long as x is a square
 func SquareRoot(x *big.Int) *big.Int {
 	return exp(x, sqrtPower, fieldSize)
 }
 
-// YSquared returns x^3+7 mod P
+// YSquared returns x^3+7 mod fieldSize, the right-hand side of the secp256k1
+// curve equation.
 func YSquared(x *big.Int) *big.Int {
 	return mod(add(exp(x, three, fieldSize), seven), fieldSize)
 }
@@ -121,11 +125,7 @@ func HashUint256s(xs ...*big.Int) (*big.Int, error) {
 	if err != nil {
 		return &big.Int{}, err
 	}
-	hash, err := utils.Keccak256(packed)
-	if err != nil {
-		return &big.Int{}, errors.Wrap(err, "vrf.HashUint256s#Keccak256")
-	}
-	return i().SetBytes(hash), nil
+	return utils.MustHash(string(packed)).Big(), nil
 }
 
 func uint256ToBytes32(x *big.Int) []byte {
@@ -138,11 +138,11 @@ func uint256ToBytes32(x *big.Int) []byte {
 var fieldHashPanicTemplate = "will only work for messages of at most 256 " +
 	"bits long, but message is %d bits"
 
-// fieldHash hashes xs uniformly into {0, ..., q-1}. q must be 256 bits long, and
-// msg is assumed to already be a 256-bit hash
+// fieldHash hashes xs uniformly into {0, ..., fieldSize-1}. msg is assumed to
+// already be a 256-bit hash
 func fieldHash(msg []byte) *big.Int {
-	if len(msg) > 32 {
-		panic(fmt.Errorf(fieldHashPanicTemplate, len(msg)*8))
+	if length := len(msg); length != 32 {
+		panic(fmt.Errorf(fieldHashPanicTemplate, length*8))
 	}
 	rv := i().SetBytes(msg)
 	// Hash recursively until rv < q. P(success per iteration) >= 0.5, so
@@ -154,8 +154,7 @@ func fieldHash(msg []byte) *big.Int {
 }
 
 // HashToCurve is a one-way hash function onto the curve. Returns the curve
-// point and the y-ordinates computed in the process of finding the point, or an
-// error. It passes each candidate x ordinate to ordinates.
+// point or an error. It passes each candidate x ordinate to ordinates.
 func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 ) (kyber.Point, error) {
 	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(zero) >= 0) {
@@ -170,15 +169,15 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 	}
 	y := SquareRoot(YSquared(x))
 	rv := secp256k1.SetCoordinates(x, y)
-	if i().Mod(y, two).Cmp(one) == 0 { // Negate response if y odd
+	if equal(i().Mod(y, two), one) { // Negate response if y odd
 		rv = rv.Neg(rv)
 	}
 	return rv, nil
 }
 
 // ScalarFromCurve returns a hash for the curve points. Corresponds to the
-// hash computed in VRF.sol#scalarFromCurve
-func ScalarFromCurve(
+// hash computed in VRF.sol#ScalarFromCurvePoints
+func ScalarFromCurvePoints(
 	hash, pk, gamma kyber.Point, uWitness [20]byte, v kyber.Point) *big.Int {
 	if !(secp256k1.ValidPublicKey(hash) && secp256k1.ValidPublicKey(pk) &&
 		secp256k1.ValidPublicKey(gamma) && secp256k1.ValidPublicKey(v)) {
@@ -186,9 +185,9 @@ func ScalarFromCurve(
 	}
 	// msg will contain abi.encodePacked(hash, pk, gamma, v, uWitness)
 	msg := secp256k1.LongMarshal(hash)
-	msg = append(msg, secp256k1.LongMarshal(pk)...)
-	msg = append(msg, secp256k1.LongMarshal(gamma)...)
-	msg = append(msg, secp256k1.LongMarshal(v)...)
+	for _, p := range []kyber.Point{pk, gamma, v} {
+		msg = append(msg, secp256k1.LongMarshal(p)...)
+	}
 	msg = append(msg, uWitness[:]...)
 	return i().SetBytes(utils.MustHash(string(msg)).Bytes())
 }
@@ -204,7 +203,9 @@ func linearCombination(c *big.Int, p1 kyber.Point,
 // Proof represents a proof that Gamma was constructed from the Seed
 // according to the process mandated by the PublicKey.
 //
-// N.B.: The kyber.Point fields must contain secp256k1.secp256k1Point values
+// N.B.: The kyber.Point fields must contain secp256k1.secp256k1Point values, C,
+// S and Seed must be secp256k1Point, and Output must be at
+// most 256 bits. See Proof.WellFormed.
 type Proof struct {
 	PublicKey kyber.Point // secp256k1 public key of private key used in proof
 	Gamma     kyber.Point
@@ -227,6 +228,9 @@ func (p *Proof) WellFormed() bool {
 		secp256k1.RepresentsScalar(p.S) && p.Output.BitLen() <= 256)
 }
 
+var cGammaEqualsSHash = fmt.Errorf(
+	"pick a different nonce; c*gamma = s*hash, with this one")
+
 // checkCGammaNotEqualToSHash checks c*gamma ≠ s*hash, as required by solidity
 // verifier
 func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
@@ -234,8 +238,7 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 	cGamma := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(c), gamma)
 	sHash := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(s), hash)
 	if cGamma.Equal(sHash) {
-		return fmt.Errorf(
-			"pick a different nonce; c*gamma = s*hash, with this one")
+		return cGammaEqualsSHash
 	}
 	return nil
 }
@@ -263,14 +266,9 @@ func (proof *Proof) VerifyVRFProof() (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "vrf.VerifyProof#EthereumAddress")
 	}
-	cPrime := ScalarFromCurve(h, proof.PublicKey, proof.Gamma, uWitness, vPrime)
-	output, err := utils.Keccak256(secp256k1.LongMarshal(proof.Gamma))
-	if err != nil {
-		panic(errors.Wrap(err, "while hashing to compute proof output"))
-	}
-	return (proof.C.Cmp(cPrime) == 0) &&
-			(proof.Output.Cmp(i().SetBytes(output)) == 0),
-		nil
+	cPrime := ScalarFromCurvePoints(h, proof.PublicKey, proof.Gamma, uWitness, vPrime)
+	output := utils.MustHash(string(secp256k1.LongMarshal(proof.Gamma)))
+	return equal(proof.C, cPrime) && equal(proof.Output, output.Big()), nil
 }
 
 // generateProofWithNonce allows external nonce generation for testing purposes
@@ -278,12 +276,13 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
 		return nil, fmt.Errorf("badly-formatted key or seed")
 	}
-	publicKey := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(secretKey), nil)
+	skAsScalar := secp256k1.IntToScalar(secretKey)
+	publicKey := secp256k1Curve.Point().Mul(skAsScalar, nil)
 	h, err := HashToCurve(publicKey, seed, func(*big.Int) {})
 	if err != nil {
-		return &Proof{}, errors.Wrap(err, "vrf.makeProof#HashToCurve")
+		return nil, errors.Wrap(err, "vrf.makeProof#HashToCurve")
 	}
-	gamma := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(secretKey), h)
+	gamma := secp256k1Curve.Point().Mul(skAsScalar, h)
 	sm := secp256k1.IntToScalar(nonce)
 	u := secp256k1Curve.Point().Mul(sm, Generator)
 	uWitness, err := secp256k1.EthereumAddress(u)
@@ -291,22 +290,20 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 		panic(errors.Wrap(err, "while computing Ethereum Address for proof"))
 	}
 	v := secp256k1Curve.Point().Mul(sm, h)
-	c := ScalarFromCurve(h, publicKey, gamma, uWitness, v)
-	s := mod(sub(nonce, mul(c, secretKey)), groupOrder) // (m - c*secretKey) % Order
+	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
+	// (m - c*secretKey) % GroupOrder
+	s := mod(sub(nonce, mul(c, secretKey)), secp256k1.GroupOrder)
 	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
 		return nil, err
 	}
-	outputHash, err := utils.Keccak256(secp256k1.LongMarshal(gamma))
-	if err != nil {
-		panic("failed to hash gamma")
-	}
+	outputHash := utils.MustHash(string(secp256k1.LongMarshal(gamma)))
 	rv := Proof{
 		PublicKey: publicKey,
 		Gamma:     gamma,
 		C:         c,
 		S:         s,
 		Seed:      seed,
-		Output:    i().SetBytes(outputHash),
+		Output:    outputHash.Big(),
 	}
 	valid, err := rv.VerifyVRFProof()
 	if !valid || err != nil {
@@ -325,12 +322,24 @@ func GenerateProof(secretKey, seed *big.Int) (*Proof, error) {
 	if secretKey.Cmp(zero) == -1 || seed.Cmp(zero) == -1 {
 		return nil, fmt.Errorf("seed and/or secret key must be non-negative")
 	}
-	if secretKey.Cmp(groupOrder) != -1 || seed.Cmp(groupOrder) != -1 {
+	if secretKey.Cmp(secp256k1.GroupOrder) != -1 || seed.Cmp(secp256k1.GroupOrder) != -1 {
 		return nil, fmt.Errorf("seed and/or secret key must be less than group order")
 	}
-	nonce, err := rand.Int(rand.Reader, groupOrder)
-	if err != nil {
-		return nil, err
+	for {
+		nonce, err := rand.Int(rand.Reader, secp256k1.GroupOrder)
+		if err != nil {
+			return nil, err
+		}
+		proof, err := generateProofWithNonce(secretKey, seed, nonce)
+		switch {
+		case err == cGammaEqualsSHash:
+			// This is cryptographically impossible, but if it were ever to happen, we
+			// should try again with a different nonce.
+			continue
+		case err != nil: // Any other error indicates failure
+			return nil, err
+		default:
+			return proof, err // err should be nil
+		}
 	}
-	return generateProofWithNonce(secretKey, seed, nonce)
 }
