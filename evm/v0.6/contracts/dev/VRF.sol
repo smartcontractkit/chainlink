@@ -488,7 +488,7 @@ contract VRF {
    * @dev this format with vrf.Proof#MarshalForSolidityVerifier.
    */
   function randomValueFromVRFProof(bytes memory proof)
-    public view returns (uint256 output) {
+    internal view returns (uint256 output) {
       require(proof.length == PROOF_LENGTH, "wrong proof length");
 
       uint256[2] memory pk; // parse proof contents into these variables

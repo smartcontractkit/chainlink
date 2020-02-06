@@ -22,7 +22,7 @@ func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
 	mproof, err := proof.MarshalForSolidityVerifier()
 	require.NoError(t, err)
 	contract, owner := deployVRFContract(t)
-	rawData, err := contract.abi.Pack("randomValueFromVRFProof", mproof[:])
+	rawData, err := contract.abi.Pack("randomValueFromVRFProof_", mproof[:])
 	require.NoError(t, err)
 	callMsg := ethereum.CallMsg{From: owner, To: &contract.address, Data: rawData}
 	estimate, err := contract.backend.EstimateGas(context.TODO(), callMsg)
