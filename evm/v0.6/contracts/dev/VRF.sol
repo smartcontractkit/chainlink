@@ -17,8 +17,7 @@ pragma solidity 0.6.2;
   * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05
 
   * @dev Papadopoulos, et al., "Making NSEC5 Practical for DNSSEC", Cryptology
-  * @dev ePrint Archive, Report 2017/099, 2017
-  * @dev https://eprint.iacr.org/2017/099.pdf
+  * @dev ePrint Archive, Report 2017/099, https://eprint.iacr.org/2017/099.pdf
   * ****************************************************************************
   * @dev USAGE
 
@@ -163,7 +162,7 @@ contract VRF {
         not(0),                   // Gas cost: no limit
         0x05,                     // Bigmodexp contract address
         bigModExpContractInputs,
-        0xc0,                     // Length of input segment
+        0xc0,                     // Length of input segment: 6*0x20-bytes
         output,
         0x20                      // Length of output segment
       )
@@ -172,7 +171,7 @@ contract VRF {
       return output[0];
     }
 
-  // Let q=FIELD_SIZE. q % 4 = 3, ∴ p≡r^2 mod q ⇒ p^SQRT_POWER≡m±r mod q.  See
+  // Let q=FIELD_SIZE. q % 4 = 3, ∴ x≡r^2 mod q ⇒ x^SQRT_POWER≡±r mod q.  See
   // https://en.wikipedia.org/wiki/Modular_square_root#Prime_or_prime_power_modulus
   uint256 constant private SQRT_POWER = (FIELD_SIZE + 1) >> 2;
 
@@ -181,12 +180,14 @@ contract VRF {
     return bigModExp(x, SQRT_POWER);
   }
 
+  // The value of y^2 given that (x,y) is on secp256k1.
   function ySquared(uint256 x) internal pure returns (uint256) {
     // Curve is y^2=x^3+7. See section 2.4.1 of https://www.secg.org/sec2-v2.pdf
     uint256 xCubed = mulmod(x, mulmod(x, x, FIELD_SIZE), FIELD_SIZE);
     return addmod(xCubed, 7, FIELD_SIZE);
   }
 
+  // True iff p is on secp256k1
   function isOnCurve(uint256[2] memory p) internal pure returns (bool) {
     return ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
   }
@@ -202,6 +203,21 @@ contract VRF {
     }
   }
 
+  // Hash b to a random point which hopefully lies on secp256k1. The y ordinate
+  // is always even, due to
+  // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.1.1
+  // step 5.C, which references arbitrary_string_to_point, defined in
+  // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5 as
+  // returning the point with given x ordinate, and even y ordinate.
+  function newCandidateECPoint(bytes memory b)
+    internal view returns (uint256[2] memory p) {
+      p[0] = fieldHash(uint256(keccak256(b)));
+      p[1] = squareRoot(ySquared(p[0]));
+      if (p[1] % 2 == 1) {
+        p[1] = FIELD_SIZE - p[1];
+      }
+    }
+
   // One-way hash function onto the curve.
   //
   // TODO(alx): Implement a bounded-computation hash-to-curve, as described in
@@ -210,45 +226,45 @@ contract VRF {
   // and suggested by
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-01#section-5.2.2
   // (Though we can't used exactly that because secp256k1's j-invariant is 0.)
+  //
+  // This would greatly simplify the analysis in "OTHER SECURITY CONSIDERATIONS"
   // https://www.pivotaltracker.com/story/show/171120900
   function hashToCurve(uint256[2] memory pk, uint256 input)
     internal view returns (uint256[2] memory rv) {
-      rv[0] = fieldHash(uint256(keccak256(abi.encodePacked(pk, input))));
-      rv[1] = squareRoot(ySquared(rv[0]));
-      // Keep re-hashing until rv[1]^2 = rv[0]^3 + 7 mod P
-      while (mulmod(rv[1], rv[1], FIELD_SIZE) != ySquared(rv[0])) {
-        rv[0] = fieldHash(uint256(keccak256(abi.encodePacked(rv[0]))));
-        rv[1] = squareRoot(ySquared(rv[0]));
-      }
-      // See
-      // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.1.1
-      // step 5.C, referencing arbitrary_string_to_point, defined in
-      // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5
-      // as returning the point with given x ordinate, and even y ordinate.
-      if (rv[1] % 2 == 1) {
-        rv[1] = FIELD_SIZE - rv[1];
+      rv = newCandidateECPoint(abi.encodePacked(pk, input));
+      while (!isOnCurve(rv)) {
+        rv = newCandidateECPoint(abi.encodePacked(rv[0]));
       }
     }
 
-  // Returns true iff q==scalar*x, with cryptographically high probability.
-  // Based on Vitalik Buterin's idea in ethresear.ch post mentioned below.
-  //
-  // scalar must be non-zero
-  function ecmulVerify(uint256[2] memory x, uint256 scalar, uint256[2] memory q)
-    internal pure returns(bool) {
-      require(scalar != 0); // Rules out an ecrecover failure case
-      // This ecrecover returns the address associated with c*R. See
-      // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
-      // The point corresponding to the address returned by ecrecover(0,v,r,s=c*r)
-      // is (r⁻¹ mod Q) * (c*r * R - 0 * g) = c * R, where R is the point
-      // specified by (v, r). See https://crypto.stackexchange.com/a/18106
-      bytes32 scalarTimesX0 = bytes32(mulmod(scalar, x[0], GROUP_ORDER));
-      uint8 parity = x[1] % 2 != 0 ? 28 : 27;
-      return ecrecover(bytes32(0), parity, bytes32(x[0]), scalarTimesX0) ==
-        address(uint256(keccak256(abi.encodePacked(q)))); // Takes bottom 160 bits
-    }
+  /** *********************************************************************
+   * @notice Check that product==multiplier*multiplicand
+   *
+   * @dev Based on Vitalik Buterin's idea in ethresear.ch post cited below.
+   *
+   * @param multiplicand: secp256k1 point
+   * @param multiplier: non-zero GF(GROUP_ORDER) scalar
+   * @param product: secp256k1 expected to be mulitplier * multiplicand
+   * @return verifies true iff product==multiplier*multiplicand, with cryptographically high probability
+   */
+  function ecmulVerify(uint256[2] memory multiplicand, uint256 multiplier,
+    uint256[2] memory product) internal pure returns(bool verifies)
+  {
+    require(multiplier != 0); // Rules out an ecrecover failure case
+    uint256 x = multiplicand[0]; // x ordinate of multiplicand
+    uint8 v = multiplicand[1] % 2 != 0 ? 28 : 27; // parity of y ordinate
+    // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
+    // Point corresponding to address ecrecover(0, v, x, s=multiplier*x) is
+    // (x⁻¹ mod GROUP_ORDER) * (multiplier * x * multiplicand - 0 * g), i.e.
+    // See https://crypto.stackexchange.com/a/18106
+    bytes32 multiplierTimesX = bytes32(mulmod(multiplier, x, GROUP_ORDER));
+    address actual = ecrecover(bytes32(0), v, bytes32(x), multiplierTimesX);
+    // Explicit conversion to address takes bottom 160 bits
+    address expected = address(uint256(keccak256(abi.encodePacked(product))));
+    return (actual == expected);
+  }
 
-  // Returns x1/z1-x2/z2=(x1z2+x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
+  // Returns x1/z1-x2/z2=(x1z2-x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
   function projectiveSub(uint256 x1, uint256 z1, uint256 x2, uint256 z2)
     internal pure returns(uint256 x3, uint256 z3) {
       uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
@@ -262,12 +278,12 @@ contract VRF {
       (x3, z3) = (mulmod(x1, x2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
     }
 
-  /** *********************************************************************
+  /** **************************************************************************
       @notice Computes elliptic-curve sum, in projective co-ordinates
 
       @dev Using projective coordinates avoids costly divisions
 
-      @dev To use this with p and p in affine coordinates, call
+      @dev To use this with p and q in affine coordinates, call
       @dev projectiveECAdd(px, py, qx, qy). This will return
       @dev the addition of (px, py, 1) and (qx, qy, 1), in the
       @dev secp256k1 group.
