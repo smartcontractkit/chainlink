@@ -73,7 +73,7 @@ func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 	}
 }
 
-func TestNewMedianFetcherFromURLs_Error(t *testing.T) {
+func TestNewMedianFetcherFromURLs_EmptyError(t *testing.T) {
 	s1 := httptest.NewServer(fakePriceResponder(t, ethUSDPairing, decimal.NewFromInt(101)))
 	defer s1.Close()
 	var urls []*url.URL

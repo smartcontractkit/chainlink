@@ -216,7 +216,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		)
 	}
 
-	urls, err := FeedURLs(initr.InitiatorParams, orm)
+	urls, err := ExtractFeedURLs(initr.InitiatorParams, orm)
 	if err != nil {
 		return nil, err
 	}
@@ -237,15 +237,15 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 	)
 }
 
-// FeedURLs is...
-func FeedURLs(initr models.InitiatorParams, orm *orm.ORM) ([]*url.URL, error) {
+// ExtractFeedURLs extracts a list of url.URLs from the feeds parameter of the initiator params
+func ExtractFeedURLs(initr models.InitiatorParams, orm *orm.ORM) ([]*url.URL, error) {
 	var feeds []interface{}
 	var urls []*url.URL
 
 	err := json.Unmarshal(initr.Feeds.Bytes(), &feeds)
 
 	if err != nil {
-		return nil, err // TODO - better error message
+		return nil, err
 	}
 
 	for _, entry := range feeds {
@@ -257,13 +257,13 @@ func FeedURLs(initr models.InitiatorParams, orm *orm.ORM) ([]*url.URL, error) {
 			bridgeURL, err = url.ParseRequestURI(entry.(string))
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
 			bridgeName := entry.(map[string]interface{})["bridge"].(string)
-			bridgeURL, err = GetBridgeURLFromName(bridgeName, orm)
+			bridgeURL, err = GetBridgeURLFromName(bridgeName, orm) // XXX: currently an n query
 		default:
 			err = errors.New("unable to extract feed URLs from json")
 		}
 
 		if err != nil {
-			return nil, err // TODO - better error message
+			return nil, err
 		}
 		urls = append(urls, bridgeURL)
 	}
@@ -271,7 +271,7 @@ func FeedURLs(initr models.InitiatorParams, orm *orm.ORM) ([]*url.URL, error) {
 	return urls, nil
 }
 
-// GetBridgeURLFromName is...
+// GetBridgeURLFromName looks up a bridge in the DB by name, then extracts the url
 func GetBridgeURLFromName(name string, orm *orm.ORM) (*url.URL, error) {
 	task := models.TaskType(name)
 	bridge, err := orm.FindBridge(task)
