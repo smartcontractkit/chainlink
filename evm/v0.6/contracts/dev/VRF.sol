@@ -487,12 +487,7 @@ contract VRF {
    * Throws if proof is invalid, otherwise:
    * @return output i.e., the random output implied by the proof
    *****************************************************************************
-   * @dev This is public rather than external, because the input needs to be in
-   * @dev memory, not in calldata, so that we can pull out the uint256 values.
-
    * @dev See the calculation of PROOF_LENGTH for the binary layout of proof.
-   * @dev Proofs from the golang function vrf.GenerateProof can be marshaled to
-   * @dev this format with vrf.Proof#MarshalForSolidityVerifier.
    */
   function randomValueFromVRFProof(bytes memory proof)
     internal view returns (uint256 output) {
