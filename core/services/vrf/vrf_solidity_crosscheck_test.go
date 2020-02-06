@@ -18,6 +18,7 @@ import (
 	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
 
 	"chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/utils"
 )
 
 // Cross-checks of golang implementation details vs corresponding solidity
@@ -31,7 +32,7 @@ var verifier *solidity_verifier_wrapper.VRFTestHelper
 
 // init initializes the wrapper of the EVM verifier contract.
 //
-// NOTE: If persistent state is ever added to the verifier contract, a separate
+// NB: If persistent state is ever added to the verifier contract, a separate
 // verifier must be initialized for each test.
 //
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
@@ -41,12 +42,12 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	auth := bind.NewKeyedTransactor(key)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: bi(1000000000)}}
+	sergey := bind.NewKeyedTransactor(key)
+	genesisData := core.GenesisAlloc{sergey.From: {Balance: bi(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	// err must already be declared, or next line will shadow global verifier
-	_, _, verifier, err = solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err = solidity_verifier_wrapper.DeployVRFTestHelper(sergey, backend)
 	if err != nil {
 		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
 	}
@@ -144,9 +145,12 @@ func TestVRF_CompareFieldHash(t *testing.T) {
 	}
 }
 
+// randomKey deterministically generates a secp256k1 key.
+//
+// Never use this if cryptographic security is required
 func randomKey(t *testing.T, r *mrand.Rand) *ecdsa.PrivateKey {
 	secretKey := fieldSize
-	for secretKey.Cmp(fieldSize) != -1 { // Keep picking until secretKey < P
+	for secretKey.Cmp(fieldSize) != -1 { // Keep picking until secretKey < fieldSize
 		secretKey = randomUint256(t, r)
 	}
 	cKey := crypto.ToECDSAUnsafe(secretKey.Bytes())
@@ -185,7 +189,7 @@ func randomPoint(t *testing.T, r *mrand.Rand) kyber.Point {
 	return p
 }
 
-// randomScalar deterministically simulates a uniform of secp256k1
+// randomScalar deterministically simulates a uniform sample of secp256k1
 // scalars, given r's seed
 //
 // Never use this if cryptographic security is required
@@ -206,8 +210,12 @@ func TestVRF_CheckSolidityPointAddition(t *testing.T) {
 		p2 := randomPoint(t, r)
 		p1x, p1y := secp256k1.Coordinates(p1)
 		p2x, p2y := secp256k1.Coordinates(p2)
-		_, _, psz, err := verifier.ProjectiveECAdd(nil, p1x, p1y, p2x, p2y)
+		psx, psy, psz, err := verifier.ProjectiveECAdd(nil, p1x, p1y, p2x, p2y)
 		require.NoError(t, err)
+		apx, apy, apz := ProjectiveECAdd(p1, p2)
+		require.Equal(t, apx, psx)
+		require.Equal(t, apy, psy)
+		require.Equal(t, apz, psz)
 		zInv := i().ModInverse(psz, fieldSize)
 		require.Equal(t, i().Mod(i().Mul(psz, zInv), fieldSize), one) // (sz * zInv) % fieldSize = 1
 		actualSum, err := verifier.AffineECAdd(
@@ -244,9 +252,9 @@ func TestVRF_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
 		c := randomScalar(t, r)
 		s := randomScalar(t, r)
 		p := randomPoint(t, r)
-		sg := point().Mul(s, Generator)
-		expectedPoint := point().Add(point().Mul(c, p), sg)
-		expectedAddress := address(t, expectedPoint)
+		expectedPoint := point().Add(point().Mul(c, p), point().Mul(s, Generator)) // cp+sg
+		expectedAddress, err := secp256k1.EthereumAddress(expectedPoint)
+		require.NoError(t, err)
 		px, py := secp256k1.Coordinates(p)
 		actual, err := verifier.VerifyLinearCombinationWithGenerator(nil,
 			secp256k1.ToInt(c), pair(px, py), secp256k1.ToInt(s), expectedAddress)
@@ -274,14 +282,11 @@ func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 		p2 := randomPoint(t, r)
 		p2Pair := asPair(p2)
 		cp1 := point().Mul(c, p1)
-		cp1x, cp1y := secp256k1.Coordinates(cp1)
-		cp1Pair := pair(cp1x, cp1y)
+		cp1Pair := pair(secp256k1.Coordinates(cp1))
 		sp2 := point().Mul(s, p2)
-		sp2x, sp2y := secp256k1.Coordinates(sp2)
-		sp2Pair := pair(sp2x, sp2y)
+		sp2Pair := pair(secp256k1.Coordinates(sp2))
 		expected := point().Add(cp1, sp2)
-		_, _, z, err := verifier.ProjectiveECAdd(nil, cp1x, cp1y, sp2x, sp2y)
-		require.NoError(t, err)
+		_, _, z := ProjectiveECAdd(cp1, sp2)
 		zInv := i().ModInverse(z, fieldSize)
 		actual, err := verifier.LinearCombination(nil, cNum, p1Pair, cp1Pair, sNum,
 			p2Pair, sp2Pair, zInv)
@@ -291,7 +296,7 @@ func TestVRF_CheckSolidityLinearComination(t *testing.T) {
 	}
 }
 
-func TestVRF_CompareSolidityScalarFromCurve(t *testing.T) {
+func TestVRF_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(9))
 	numSamps := numSamples()
@@ -303,8 +308,7 @@ func TestVRF_CompareSolidityScalarFromCurve(t *testing.T) {
 		gamma := randomPoint(t, r)
 		gammaPair := asPair(gamma)
 		var uWitness [20]byte
-		_, err := r.Read(uWitness[:])
-		require.NoError(t, err)
+		require.NoError(t, utils.JustError(r.Read(uWitness[:])))
 		v := randomPoint(t, r)
 		vPair := asPair(v)
 		expected := ScalarFromCurvePoints(hash, pk, gamma, uWitness, v)
