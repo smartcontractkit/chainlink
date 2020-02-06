@@ -261,6 +261,8 @@ contract VRF {
     address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
     // Explicit conversion to address takes bottom 160 bits
     address expected = address(uint256(keccak256(abi.encodePacked(product))));
+    // Rules out an ecrecover failure case (should be cryptographically impossible, anyway)
+    require(expected != address(0));
     return (actual == expected);
   }
 
