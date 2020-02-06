@@ -372,21 +372,22 @@ contract VRF {
     return [mulmod(x, invZ, FIELD_SIZE), mulmod(y, invZ, FIELD_SIZE)];
   }
 
-  // True iff address(c*p+s*g) == lcWitness, where g is generator.
+  // True iff address(c*p+s*g) == lcWitness, where g is generator. (With
+  // cryptographically high probability.)
   function verifyLinearCombinationWithGenerator(
     uint256 c, uint256[2] memory p, uint256 s, address lcWitness)
     internal pure returns (bool) {
       // Rule out ecrecover failure modes which return address 0.
       require(lcWitness != address(0), "bad witness");
+      uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
+      bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER)); // -s*p[0]
+      bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER)); // c*p[0]
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
       // The point corresponding to the address returned by
-      // ecrecover(-s*p[0],v,p[0],c*p[0]) is
-      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g, where v
-      // is the parity of p[1]. See https://crypto.stackexchange.com/a/18106
-      bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER));
+      // ecrecover(-s*p[0],v,p[0],c*p[0]) is 
+      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g. See
+      // https://crypto.stackexchange.com/a/18106
       // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
-      uint8 v = (p[1] % 2 == 0) ? 27 : 28;
-      bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER));
       address computed = ecrecover(pseudoHash, v, bytes32(p[0]), pseudoSignature);
       return computed == lcWitness;
     }
