@@ -472,7 +472,7 @@ contract VRF {
     64 + // Gamma
     32 + // C
     32 + // S
-    32 + // Seed
+    32 + // Seed... The following elements are included for gas efficiency:
     32 + // uWitness (gets padded to 256 bits, even though it's only 160)
     64 + // cGammaWitness
     64 + // sHashWitness

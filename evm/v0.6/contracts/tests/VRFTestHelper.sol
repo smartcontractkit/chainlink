@@ -38,8 +38,8 @@ contract VRFTestHelper is VRF {
   function linearCombination_(uint256 c, uint256[2] memory p1, uint256[2] memory cp1Witness, uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness, uint256 zInv) public pure returns (uint256[2] memory) {
     return super.linearCombination(c, p1, cp1Witness, s, p2, sp2Witness, zInv);
   }
-  function scalarFromCurve_(uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma, address uWitness, uint256[2] memory v) public pure returns (uint256) {
-    return super.scalarFromCurve(hash, pk, gamma, uWitness, v);
+  function scalarFromCurvePoints_(uint256[2] memory hash, uint256[2] memory pk, uint256[2] memory gamma, address uWitness, uint256[2] memory v) public pure returns (uint256) {
+    return super.scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
   }
   function verifyVRFProof_(
     uint256[2] memory pk, uint256[2] memory gamma, uint256 c, uint256 s,
