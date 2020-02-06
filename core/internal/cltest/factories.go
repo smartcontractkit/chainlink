@@ -156,6 +156,23 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 	return j
 }
 
+// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
+func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorFluxMonitor,
+		InitiatorParams: models.InitiatorParams{
+			Address:     NewAddress(),
+			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       models.JSON{gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			Threshold:   0.5,
+			Precision:   2,
+		},
+	}}
+	return j
+}
+
 // NewTx returns a Tx using a specified from address and sentAt
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	tx := &models.Tx{

@@ -6,7 +6,7 @@
       "requestdata": {
         "data":{"coin":"ETH","market":"USD"}
       },
-      "feeds": [ "https://lambda.staging.devnet.tools/bnc/call", { "bridge": "testBridge" } ],
+      "feeds": [ "https://lambda.staging.devnet.tools/bnc/call", { "bridge": "testbridge" } ],
       "threshold": 0.5,
       "precision": 2
     }
