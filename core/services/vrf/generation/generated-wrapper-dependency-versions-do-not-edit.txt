@@ -1,6 +1,6 @@
 GETH_VERSION: 1.9.10
 link_token_interface: ./generation/../../../../evm/src/LinkToken.json 4c57489c26eebe8da70bda642f7845e4
 solidity_request_id: ../../../evm/v0.6/dist/artifacts/VRFRequestIDBaseTestHelper.json f6fdc3877d4cc17e3434980af95e1b09
-solidity_verifier_wrapper: ../../../evm/v0.6/dist/artifacts/VRFTestHelper.json 9770eb1bd1bd94be34de6b70ff1098c1
+solidity_verifier_wrapper: ../../../evm/v0.6/dist/artifacts/VRFTestHelper.json db898eee57578de6ecd6f508c9a23744
 solidity_vrf_consumer_interface: ../../../evm/v0.6/dist/artifacts/VRFConsumer.json 177c0c367293fda141269cd861844823
-solidity_vrf_coordinator_interface: ../../../evm/v0.6/dist/artifacts/VRFCoordinator.json bba34780537237853a6e769fcd03ec6c
+solidity_vrf_coordinator_interface: ../../../evm/v0.6/dist/artifacts/VRFCoordinator.json 7c35fdf14df98ce92769ef945400857b
