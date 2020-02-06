@@ -229,27 +229,3 @@ func TestNewTaskType(t *testing.T) {
 		})
 	}
 }
-
-func TestFluxMonitorJobSpecWithBridge_Happy(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithFluxMonitorInitiatorWithBridge()
-	assert.Error(t, store.CreateJob(&job))
-}
-
-func TestFluxMonitorJobSpecWithBridge_NoBridgeError(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	bridge := &models.BridgeType{
-		Name: models.MustNewTaskType("testbridge"),
-		URL:  cltest.WebURL(t, "https://testing.com/bridges"),
-	}
-	assert.NoError(t, store.CreateBridgeType(bridge))
-
-	job := cltest.NewJobWithFluxMonitorInitiatorWithBridge()
-	assert.NoError(t, store.CreateJob(&job))
-}
