@@ -397,7 +397,8 @@ contract VRF {
   // since it is cryptographically impossible for them to be equal. In the
   // (cryptographically impossible) case that a prover accidentally derives
   // a proof with equal c*p1 and s*p2, they should retry with a different
-  // proof nonce.) Assumes that all points are on secp256k1.
+  // proof nonce.) Assumes that all points are on secp256k1
+  // (which is checked in verifyVRFProof below.)
   function linearCombination(
     uint256 c, uint256[2] memory p1, uint256[2] memory cp1Witness,
     uint256 s, uint256[2] memory p2, uint256[2] memory sp2Witness,
