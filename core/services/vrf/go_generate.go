@@ -24,7 +24,7 @@ package vrf
 // To reduce explicit dependencies, and in case the system does not have the
 // correct version of abigen installed , the above commands spin up docker
 // containers. In my hands, total running time including compilation is about
-// 8s. If you're modifying solidity code and testing against go code a lot, it
+// 13s. If you're modifying solidity code and testing against go code a lot, it
 // might be worthwhile to generate the the wrappers using a static container
 // with abigen and solc, which will complete much faster. E.g.
 //
@@ -34,26 +34,12 @@ package vrf
 // all the contracts you wish to target. This runs in about 0.25 seconds in my
 // hands.
 //
-// Here is a Dockerfile which can be used for that purpose.
+// If you're on linux, you can copy the correct version of solc out of the
+// appropriate docker container. At least, the following works on ubuntu:
 //
-//   # Build abigen docker image with the necessary solidity compilers
-//   ARG SOLIDITY_VERSION
-//   ARG GETH_VERSION
-//   FROM ethereum/solc:${SOLIDITY_VERSION}
-//   FROM ethereum/client-go:alltools-${GETH_VERSION}
-//   RUN apk add bash
-//   COPY --from=0 /usr/bin/solc /usr/bin/solc
-//   USER 1000 # Or whatever your host user ID is.
+//   $ docker run --name solc ethereum/solc:0.6.2
+//   $ sudo docker cp solc:/usr/bin/solc /usr/bin
+//   $ docker rm solc
 //
-// Build it with something like
-//
-//   docker build --build-arg SOLIDITY_VERSION=0.5.0 --build-arg GETH_VERSION=v1.9.9 -t image_name .
-//
-// Then run it with something like
-//
-//   docker run -it -v /path/to/solidity:/solidity /wrapper/target/path:/target image_name bash
-//
-// and run commands like this in there:
-//
-//   abigen -sol /solidity/VRFAll.sol -pkg vrf -out /target/tst.go
-//
+// If you need to point abigen at your solc executable, you can specify the path
+// with the abigen --solc <path-to-executable> option.
