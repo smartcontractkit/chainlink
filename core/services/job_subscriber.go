@@ -30,6 +30,7 @@ type JobSubscriber interface {
 	AddJob(job models.JobSpec, bn *models.Head) error
 	RemoveJob(ID *models.ID) error
 	Jobs() []models.JobSpec
+	Start() error
 	Stop() error
 }
 
@@ -66,8 +67,11 @@ func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 		jobResumer:                NewSleeperTask(rw),
 		resumeRunsOnNewHeadWorker: rw,
 	}
-	js.jobResumer.Start()
 	return js
+}
+
+func (js *jobSubscriber) Start() error {
+	return js.jobResumer.Start()
 }
 
 func (js *jobSubscriber) Stop() error {
