@@ -41,20 +41,22 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 
 func getMeta(store *store.Store, jobRunID *models.ID) *models.JSON {
 	jobRun, err := store.ORM.FindJobRun(jobRunID)
-	if err == nil && jobRun.ID != nil && jobRun.RunRequest.TxHash != nil && jobRun.RunRequest.BlockHash != nil {
-		json := fmt.Sprintf(`
-				{
-					"initiator": {
-						"transactionHash": "%s",
-						"blockHash": "%s"
-					}
-				}`,
-			jobRun.RunRequest.TxHash.Hex(),
-			jobRun.RunRequest.BlockHash.Hex(),
-		)
-		return &models.JSON{gjson.Parse(json)}
+	if err != nil {
+		return nil
+	} else if jobRun.RunRequest.TxHash == nil || jobRun.RunRequest.BlockHash == nil {
+		return nil
 	}
-	return nil
+	meta := fmt.Sprintf(`
+		{
+			"initiator": {
+				"transactionHash": "%s",
+				"blockHash": "%s"
+			}
+		}`,
+		jobRun.RunRequest.TxHash.Hex(),
+		jobRun.RunRequest.BlockHash.Hex(),
+	)
+	return &models.JSON{gjson.Parse(meta)}
 }
 
 func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, bridgeResponseURL *url.URL) models.RunOutput {
