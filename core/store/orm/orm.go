@@ -217,6 +217,13 @@ func (orm *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
 	return bt, orm.db.First(&bt, "name = ?", name.String()).Error
 }
 
+// FindBridgesByNames finds multiple bridges by their names.
+func (orm *ORM) FindBridgesByNames(names []string) ([]models.BridgeType, error) {
+	orm.MustEnsureAdvisoryLock()
+	var bt []models.BridgeType
+	return bt, orm.db.Where("name IN (?)", names).Find(&bt).Error
+}
+
 // PendingBridgeType returns the bridge type of the current pending task,
 // or error if not pending bridge.
 func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {

@@ -349,7 +349,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bridge := &models.BridgeType{
-		Name: models.MustNewTaskType("testBridge"),
+		Name: models.MustNewTaskType("testbridge"),
 		URL:  cltest.WebURL(t, "https://testing.com/bridges"),
 	}
 	require.NoError(t, app.Store.CreateBridgeType(bridge))
