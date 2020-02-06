@@ -448,15 +448,18 @@ contract VRF {
       require(isOnCurve(gamma), "gamma is not on curve");
       require(isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
       require(isOnCurve(sHashWitness), "sHashWitness is not on curve");
-      // Step 4. of IETF draft section 5.3 (pk corresponds to 5.3's y, and here
-      // we use the hash of u instead of u itself.)
+      // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
+      // we use the address of u instead of u itself. Also, here we add the
+      // terms instead of taking the difference, and in the proof consruction in
+      // vrf.GenerateProof, we correspondingly take the difference instead of
+      // taking the sum as they do in step 7 of section 5.1.)
       require(
         verifyLinearCombinationWithGenerator(c, pk, s, uWitness),
         "addr(c*pk+s*g)≠_uWitness"
       );
-      // Step 5. of IETF draft section 5.3 (pk corresponds to y, seed to beta)
+      // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
       uint256[2] memory hash = hashToCurve(pk, seed);
-      // Step 6. of IETF draft section 5.3
+      // Step 6. of IETF draft section 5.3, but see note for step 5 about +/- terms
       uint256[2] memory v = linearCombination(
         c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
       // Steps 7. and 8. of IETF draft section 5.3
