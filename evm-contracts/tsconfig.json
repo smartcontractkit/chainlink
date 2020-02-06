@@ -26,5 +26,5 @@
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
   },
   "include": ["ethers", "test"],
-  "references": [{ "path": "../evm-test-helpers" }]
+  "references": [{ "path": "../evm-test-helpers" }, { "path": "../linkbelt" }]
 }
