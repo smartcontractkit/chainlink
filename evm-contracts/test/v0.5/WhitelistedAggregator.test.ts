@@ -1,7 +1,6 @@
-import * as h from './support/helpers'
-import { assertBigNum } from './support/matchers'
-
 import { expectRevert } from 'openzeppelin-test-helpers'
+import * as h from '../../../evm/v0.5/test/support/helpers'
+import { assertBigNum } from '../../../evm/v0.5/test/support/matchers'
 
 contract('WhitelistedAggregator', () => {
   const Aggregator = artifacts.require('WhitelistedAggregator.sol')
