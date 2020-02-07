@@ -32,7 +32,7 @@ type PublicKey [CompressedPublicKeyLength]byte
 // We could re-use geth's key handling, here, but this makes it much harder to
 // misuse VRF proving keys as ethereum keys or vice versa.
 type EncryptedSecretKey struct {
-	PublicKey PublicKey     `gorm:"primary_key;type:varchar(66)"`
+	PublicKey PublicKey     `gorm:"primary_key;type:varchar(68)"`
 	VRFKey    gethKeyStruct `json:"vrf_key" gorm:"type:text"`
 }
 
