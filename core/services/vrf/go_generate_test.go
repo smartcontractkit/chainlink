@@ -130,8 +130,9 @@ func versionsDBLineReader() (*bufio.Scanner, error) {
 	if err != nil {
 		return nil, err
 	}
-	dBPath := "generated-wrapper-dependency-versions-do-not-edit.txt"
-	versionsDBFile, err := os.Open(filepath.Join(dirOfThisTest, "generation", dBPath))
+	dBBasename := "generated-wrapper-dependency-versions-do-not-edit.txt"
+	dbPath := filepath.Join(dirOfThisTest, "generation", dBBasename)
+	versionsDBFile, err := os.Open(dbPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not open versions database")
 	}
