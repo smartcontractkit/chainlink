@@ -175,7 +175,7 @@ type LogRequest interface {
 }
 
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
-// InitiatorSubscription.
+// InitiatorSubscription, and acts as a base struct for other log-initiated events
 type InitiatorLogEvent struct {
 	Log       eth.Log
 	Initiator Initiator
