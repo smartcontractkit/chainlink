@@ -1,7 +1,6 @@
 package vrf
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,7 +14,7 @@ import (
 	"chainlink/core/utils"
 )
 
-// rawRandomnessRequestLog is used to parse a RandomnessRequest log into types
+// RawRandomnessRequestLog is used to parse a RandomnessRequest log into types
 // go-ethereum knows about.
 type RawRandomnessRequestLog solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
 
@@ -33,7 +32,7 @@ type RandomnessRequestLog struct {
 // ParseRandomnessRequestLog returns the RandomnessRequestLog corresponding to
 // the raw logData
 func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
-	l := solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}
+	l := RawRandomnessRequestLog{}
 	coordABI := CoordinatorABI()
 	contract := bind.NewBoundContract(common.Address{}, coordABI, nil, nil, nil)
 	ethLog := types.Log(log)
@@ -43,13 +42,6 @@ func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
 	}
 	return &RandomnessRequestLog{l.KeyHash, l.Seed, l.JobID, l.Sender,
 		(*assets.Link)(l.Fee), RawRandomnessRequestLog(l)}, nil
-}
-
-func checkUint256(n *big.Int) {
-	if err := utils.CheckUint256(n); err != nil {
-		panic(fmt.Errorf(
-			"go-ethereum returned something out-of-bounds for a uint256: %v", n))
-	}
 }
 
 // RawData returns the raw bytes corresponding to l in a solidity log
