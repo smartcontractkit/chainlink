@@ -7,7 +7,8 @@ services:
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
-    command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    entrypoint: ''
+    command: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     environment:
       - ETH_CHAIN_ID

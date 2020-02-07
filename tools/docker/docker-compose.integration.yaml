@@ -69,7 +69,5 @@ services:
       - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
 
   node:
-    entrypoint: ''
-    command: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     environment:
       ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688,http://integration:3000,http://integration:6688,http://node:3000,http://node:6688
