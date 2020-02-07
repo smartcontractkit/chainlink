@@ -18,7 +18,7 @@ LINK_COMPILER_ARTIFACT_PATH="$CDIR/../../../../evm/src/LinkToken.json"
 
 ABI=$(jq -c -r .abi < "$LINK_COMPILER_ARTIFACT_PATH")
 ABI_PATH="${TMP_DIR}/abi.json"
-echo $ABI > "$ABI_PATH"
+echo "$ABI" > "$ABI_PATH"
 
 BIN=$(jq -r .bytecode < "$LINK_COMPILER_ARTIFACT_PATH")
 BIN_PATH="${TMP_DIR}/bin"
