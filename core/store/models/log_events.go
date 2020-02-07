@@ -388,7 +388,7 @@ func parserFromLog(log eth.Log) (logRequestParser, error) {
 	}
 	parser, ok := topicFactoryMap[topic]
 	if !ok {
-		return nil, fmt.Errorf("No parser for the RunLogEvent topic %s", topic.String())
+		return nil, fmt.Errorf("no parser for the RunLogEvent topic %s", topic.String())
 	}
 	return parser, nil
 }
