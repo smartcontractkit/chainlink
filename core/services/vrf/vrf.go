@@ -245,30 +245,30 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 
 // VerifyProof is true iff gamma was generated in the mandated way from the
 // given publicKey and seed, and no error was encountered
-func (proof *Proof) VerifyVRFProof() (bool, error) {
-	if !proof.WellFormed() {
+func (p *Proof) VerifyVRFProof() (bool, error) {
+	if !p.WellFormed() {
 		return false, fmt.Errorf("badly-formatted proof")
 	}
-	h, err := HashToCurve(proof.PublicKey, proof.Seed, func(*big.Int) {})
+	h, err := HashToCurve(p.PublicKey, p.Seed, func(*big.Int) {})
 	if err != nil {
 		return false, err
 	}
-	err = checkCGammaNotEqualToSHash(proof.C, proof.Gamma, proof.S, h)
+	err = checkCGammaNotEqualToSHash(p.C, p.Gamma, p.S, h)
 	if err != nil {
 		return false, fmt.Errorf("c*γ = s*hash (disallowed in solidity verifier)")
 	}
 	// publicKey = secretKey*Generator. See GenerateProof for u, v, m, s
 	// c*secretKey*Generator + (m - c*secretKey)*Generator = m*Generator = u
-	uPrime := linearCombination(proof.C, proof.PublicKey, proof.S, Generator)
+	uPrime := linearCombination(p.C, p.PublicKey, p.S, Generator)
 	// c*secretKey*h + (m - c*secretKey)*h = m*h = v
-	vPrime := linearCombination(proof.C, proof.Gamma, proof.S, h)
+	vPrime := linearCombination(p.C, p.Gamma, p.S, h)
 	uWitness, err := secp256k1.EthereumAddress(uPrime)
 	if err != nil {
 		return false, errors.Wrap(err, "vrf.VerifyProof#EthereumAddress")
 	}
-	cPrime := ScalarFromCurvePoints(h, proof.PublicKey, proof.Gamma, uWitness, vPrime)
-	output := utils.MustHash(string(secp256k1.LongMarshal(proof.Gamma)))
-	return equal(proof.C, cPrime) && equal(proof.Output, output.Big()), nil
+	cPrime := ScalarFromCurvePoints(h, p.PublicKey, p.Gamma, uWitness, vPrime)
+	output := utils.MustHash(string(secp256k1.LongMarshal(p.Gamma)))
+	return equal(p.C, cPrime) && equal(p.Output, output.Big()), nil
 }
 
 // generateProofWithNonce allows external nonce generation for testing purposes
