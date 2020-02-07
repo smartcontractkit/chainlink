@@ -241,9 +241,7 @@ func (le InitiatorLogEvent) ToDebug() {
 
 // BlockNumber returns the block number for the given InitiatorSubscriptionLogEvent.
 func (le InitiatorLogEvent) BlockNumber() *big.Int {
-	num := new(big.Int)
-	num.SetUint64(le.Log.BlockNumber)
-	return num
+	return new(big.Int).SetUint64(le.Log.BlockNumber)
 }
 
 // RunRequest returns a run request instance with the transaction hash,
