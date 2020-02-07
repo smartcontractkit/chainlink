@@ -14,6 +14,7 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 )
 
@@ -422,7 +423,7 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 }
 
 func (parseRunLog0original) parseRequestID(log eth.Log) string {
-	return common.BytesToHash(log.Data[:idSize]).Hex()
+	return hexutil.Encode(log.Data[:idSize])
 }
 
 // parseRunLog20190123withFulfillmentParams parses the OracleRequest log format
