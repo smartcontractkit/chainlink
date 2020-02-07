@@ -55,7 +55,7 @@ func (l *RandomnessRequestLog) RawData() ([]byte, error) {
 // Equal(ol) is true iff l is the same log as ol, and both represent valid
 // RandomnessRequest logs.
 func (l *RandomnessRequestLog) Equal(ol RandomnessRequestLog) bool {
-	return l.KeyHash == ol.KeyHash && l.Seed.Cmp(ol.Seed) == 0 &&
+	return l.KeyHash == ol.KeyHash && equal(l.Seed, ol.Seed) &&
 		l.JobID == ol.JobID && l.Sender == ol.Sender && l.Fee.Cmp(ol.Fee) == 0
 }
 
