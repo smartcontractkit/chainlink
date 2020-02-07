@@ -65,7 +65,7 @@ func measureHashToCurveGasCost(t *testing.T, contract contract,
 	return estimate, numOrdinates
 }
 
-var baseCost uint64 = 24000
+var baseCost uint64 = 25000
 var marginalCost uint64 = 15555
 
 func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
