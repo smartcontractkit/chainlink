@@ -183,30 +183,56 @@ func (j JSON) Bytes() []byte {
 	return []byte(j.String())
 }
 
-// Add returns a new instance of JSON with the new value added.
-func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
+// AsMap returns j as a map
+func (j JSON) AsMap() (map[string]interface{}, error) {
 	output := make(map[string]interface{})
-
 	switch v := j.Result.Value().(type) {
 	case map[string]interface{}:
 		for key, value := range v {
-			if key != insertKey {
-				output[key] = value
-			}
+			output[key] = value
 		}
-		output[insertKey] = insertValue
 	case nil:
-		output[insertKey] = insertValue
 	default:
-		return JSON{}, errors.New("can only add to JSON objects or null")
+		return nil, errors.New("can only add to JSON objects or null")
 	}
+	return output, nil
+}
 
-	bytes, err := json.Marshal(output)
+// mapToJSON returns m as a JSON object, or errors
+func mapToJSON(m map[string]interface{}) (JSON, error) {
+	bytes, err := json.Marshal(m)
 	if err != nil {
 		return JSON{}, err
 	}
-
 	return JSON{Result: gjson.ParseBytes(bytes)}, nil
+}
+
+// Add returns a new instance of JSON with the new value added.
+func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
+	output, err := j.AsMap()
+	if err != nil {
+		return JSON{}, err
+	}
+	output[insertKey] = insertValue
+	return mapToJSON(output)
+}
+
+// KV represents a key/value pair to be added to a JSON object
+type KV struct {
+	Key   string
+	Value interface{}
+}
+
+// MultiAdd returns a new instance of j with the new values added.
+func (j JSON) MultiAdd(keyValues []KV) (JSON, error) {
+	output, err := j.AsMap()
+	if err != nil {
+		return JSON{}, err
+	}
+	for _, kv := range keyValues {
+		output[kv.Key] = kv.Value
+	}
+	return mapToJSON(output)
 }
 
 // Delete returns a new instance of JSON with the specified key removed.
