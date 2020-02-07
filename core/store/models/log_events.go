@@ -301,7 +301,7 @@ func (le RunLogEvent) Validate() bool {
 func contractPayment(log eth.Log) (*assets.Link, error) {
 	version, err := log.GetTopic(0)
 	if err != nil {
-		return nil, fmt.Errorf("Missing RunLogEvent Topic#0: %v", err)
+		return nil, fmt.Errorf("missing RunLogEvent Topic#0: %v", err)
 	}
 
 	var encodedAmount common.Hash
@@ -336,7 +336,7 @@ func (le RunLogEvent) ValidateRequester() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Run Log didn't have have a valid requester: %v", le.Requester().Hex())
+	return fmt.Errorf("run Log didn't have have a valid requester: %v", le.Requester().Hex())
 }
 
 // Requester pulls the requesting address out of the LogEvent's topics.
