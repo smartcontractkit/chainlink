@@ -11,6 +11,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// passwordPrefix is added to the beginning of the passwords for
+// EncryptedSecretKey's, so that VRF keys can't casually be used as ethereum
+// keys, and vice-versa. If you want to do that, DON'T.
 var passwordPrefix = "don't mix VRF and Ethereum keys!"
 
 func adulteratedPassword(auth string) string {
