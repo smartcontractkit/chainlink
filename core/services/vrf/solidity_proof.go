@@ -82,9 +82,8 @@ func (m MarshaledProof) String() string {
 }
 
 // MarshalForSolidityVerifier renders p as required by randomValueFromVRFProof
-func (p *SolidityProof) MarshalForSolidityVerifier() (MarshaledProof, error) {
-	var rv MarshaledProof
-	cursor := rv[:0]
+func (p *SolidityProof) MarshalForSolidityVerifier() (proof MarshaledProof) {
+	cursor := proof[:0]
 	write := func(b []byte) { cursor = append(cursor, b...) }
 	write(secp256k1.LongMarshal(p.P.PublicKey))
 	write(secp256k1.LongMarshal(p.P.Gamma))
@@ -97,9 +96,9 @@ func (p *SolidityProof) MarshalForSolidityVerifier() (MarshaledProof, error) {
 	write(secp256k1.LongMarshal(p.SHashWitness))
 	write(uint256ToBytes32(p.ZInv))
 	if len(cursor) != ProofLength {
-		return MarshaledProof{}, fmt.Errorf("wrong proof length: %d", len(rv))
+		panic(fmt.Errorf("wrong proof length: %d", len(proof)))
 	}
-	return rv, nil
+	return proof
 }
 
 // MarshalForSolidityVerifier renders p as required by randomValueFromVRFProof
@@ -109,11 +108,7 @@ func (p *Proof) MarshalForSolidityVerifier() (MarshaledProof, error) {
 	if err != nil {
 		return rv, err
 	}
-	rv, err = solidityProof.MarshalForSolidityVerifier()
-	if err != nil {
-		return rv, err
-	}
-	return rv, nil
+	return solidityProof.MarshalForSolidityVerifier(), nil
 }
 
 func UnmarshalSolidityProof(proof []byte) (rv Proof, err error) {
