@@ -49,10 +49,14 @@ func (jsc *JobSpecsController) requireImplented(js models.JobSpec) error {
 	return nil
 }
 
+// getAndCheckJobSpec(c) returns a validated job spec from c, or errors. Any
+// errors are placed on c.
 func (jsc *JobSpecsController) getAndCheckJobSpec(
 	c *gin.Context) (*models.JobSpec, error) {
 	var jsr models.JobSpecRequest
 	if err := c.ShouldBindJSON(&jsr); err != nil {
+		// TODO(alx): Better parsing and more specific error messages
+		// https://www.pivotaltracker.com/story/show/171164115
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return nil, err
 	}
