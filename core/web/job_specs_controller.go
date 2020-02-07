@@ -49,25 +49,42 @@ func (jsc *JobSpecsController) requireImplented(js models.JobSpec) error {
 	return nil
 }
 
+func (jsc *JobSpecsController) getAndCheckJobSpec(
+	c *gin.Context) (*models.JobSpec, error) {
+	var jsr models.JobSpecRequest
+	if err := c.ShouldBindJSON(&jsr); err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return nil, err
+	}
+	js := models.NewJobFromRequest(jsr)
+	if err := jsc.requireImplented(js); err != nil {
+		jsonAPIError(c, http.StatusNotImplemented, err)
+		return nil, err
+	}
+	if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return nil, err
+	}
+	return &js, nil
+}
+
 // Create adds validates, saves, and starts a new JobSpec.
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Create(c *gin.Context) {
-	var jsr models.JobSpecRequest
-	if err := c.ShouldBindJSON(&jsr); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if js := models.NewJobFromRequest(jsr); false {
-	} else if err := jsc.requireImplented(js); err != nil {
-		jsonAPIError(c, http.StatusNotImplemented, err)
-	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if err := NotifyExternalInitiator(js, jsc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if err = jsc.App.AddJob(js); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
+	js, err := jsc.getAndCheckJobSpec(c)
+	if err != nil {
+		return
 	}
+	if err := NotifyExternalInitiator(*js, jsc.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if err := jsc.App.AddJob(*js); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	jsonAPIResponse(c, presenters.JobSpec{JobSpec: *js}, "job")
 }
 
 // Show returns the details of a JobSpec.
