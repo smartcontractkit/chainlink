@@ -3,7 +3,7 @@
 //       XXX: Do not use in production until this code has been audited.
 ////////////////////////////////////////////////////////////////////////////////
 // Numbers are deterministically generated from seeds and a secret key, and are
-// statistically indistinguishable from uniform sampling from {0, ..., 2**256},
+// statistically indistinguishable from uniform sampling from {0,...,2**256-1},
 // to computationally-bounded observers who know the seeds, don't know the key,
 // and only see the generated numbers. But each number also comes with a proof
 // that it was generated according to the procedure mandated by a public key
@@ -20,7 +20,7 @@
 // MarshaledProof methods.
 //
 // Nonetheless, a secret key sk should be securely sampled uniformly from
-// {0,...,Order}. The public key associated with it can be calculated from it by
+// {0,...,Order-1}. Its public key can be calculated from it by
 //
 //   secp256k1.Secp256k1{}.Point().Mul(secureKey, Generator)
 //
