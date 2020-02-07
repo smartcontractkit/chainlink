@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -69,17 +70,13 @@ func readCoordinatorABI() {
 	if err != nil {
 		panic(err)
 	}
-	var seen bool
-	for methodName, method := range v.coordinatorABI.Methods {
-		if methodName == fulfillMethodName {
-			v.fulfillSelector = hexutil.Encode(method.ID())
-			v.fulfillMethod = method
-			seen = true
-		}
+	var found bool
+	v.fulfillMethod, found = v.coordinatorABI.Methods[fulfillMethodName]
+	if !found {
+		panic(fmt.Errorf("could not find method %s in VRFCoordinator ABI",
+			fulfillMethodName))
 	}
-	if !seen {
-		panic("failed to find fulfill method")
-	}
+	v.fulfillSelector = hexutil.Encode(v.fulfillMethod.ID())
 	randomnessRequestABI := v.coordinatorABI.Events["RandomnessRequest"]
 	v.randomnessRequestLogTopic = randomnessRequestABI.ID()
 	for _, arg := range randomnessRequestABI.Inputs {
