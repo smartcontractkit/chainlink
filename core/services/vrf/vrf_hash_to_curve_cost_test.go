@@ -28,9 +28,8 @@ type contract struct {
 	backend  *backends.SimulatedBackend
 }
 
-// deployVRFContract operates like
-// solidity_verifier_wrapper.DeployVRFTestHelper, except that it exposes the
-// actual contract, which is useful for gas measurements.
+// deployVRFContract returns a deployed VRF contract, with some extra attributes
+// which are useful for gas measurements.
 func deployVRFContract(t *testing.T) (contract, common.Address) {
 	x, y := secp256k1.Coordinates(Generator)
 	key := ecdsa.PrivateKey{
@@ -75,7 +74,7 @@ func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
 
 func TestMeasureHashToCurveGasCost(t *testing.T) {
 	contract, owner := deployVRFContract(t)
-	numSamples := int64(10) // Holds for first 1,000 samples, but set to 10 for speed.
+	numSamples := int64(numSamples())
 	for i := int64(0); i < numSamples; i += 1 {
 		gasCost, numOrdinates := measureHashToCurveGasCost(t, contract, owner, i)
 		require.Less(t, gasCost, HashToCurveGasCostBound(numOrdinates))
