@@ -8,13 +8,11 @@
   "author": "Chainlink Devs",
   "license": "MIT",
   "scripts": {
-    "export-typings": "node ./dist/src/scripts/export-generated-contract-factories",
     "generate-typings": "typechain --target ethers --outDir src/generated src/LinkToken.json",
-    "_comment_:build": "Need to do two-pass compile due to https://www.pivotaltracker.com/story/show/171066956",
     "test": "jest",
-    "build": "yarn generate-typings && tsc && yarn export-typings src/generated dist/src/generated && tsc",
-    "setup": "yarn build",
-    "prepublishOnly": "rm -r dist src/generated && yarn setup && yarn test"
+    "clean": "tsc -b --clean && rimraf -rf src/generated",
+    "setup": "yarn generate-typings && tsc -b",
+    "prepublishOnly": "yarn setup --force && yarn test"
   },
   "dependencies": {
     "@0x/sol-trace": "^3.0.4",
@@ -24,8 +22,7 @@
     "chai": "^4.2.0",
     "chalk": "^2.4.2",
     "debug": "^4.1.1",
-    "ethers": "^4.0.44",
-    "shelljs": "^0.8.3"
+    "ethers": "^4.0.44"
   },
   "devDependencies": {
     "@types/cbor": "^5.0.0",
@@ -34,9 +31,9 @@
     "@types/ganache-core": "^2.7.0",
     "@types/jest": "^24.0.25",
     "@types/node": "^12.7.5",
-    "@types/shelljs": "^0.8.6",
     "jest": "^24.9.0",
     "jest-circus": "^24.9.0",
+    "rimraf": "^3.0.1",
     "ts-jest": "^24.1.0",
     "typechain": "^1.0.4",
     "typechain-target-ethers": "^1.0.3",

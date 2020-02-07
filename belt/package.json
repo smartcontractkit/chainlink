@@ -8,8 +8,9 @@
   },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
-    "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
-    "setup": "tsc",
+    "prepack": "yarn setup --force && oclif-dev manifest && oclif-dev readme",
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean",
     "test": "jest",
     "version": "oclif-dev readme && git add README.md"
   },

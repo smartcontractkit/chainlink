@@ -7,7 +7,8 @@ import {
   registerPromiseHandler,
 } from './common'
 import { deployLinkTokenContract } from './deployLinkTokenContract'
-import { EthLogFactory, RunLogFactory } from './generated'
+import { EthLogFactory } from './generated/EthLogFactory'
+import { RunLogFactory } from './generated/RunLogFactory'
 
 async function main() {
   registerPromiseHandler()

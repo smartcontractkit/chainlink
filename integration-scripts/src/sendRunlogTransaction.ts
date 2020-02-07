@@ -8,8 +8,8 @@ import {
   getArgs,
   registerPromiseHandler,
 } from './common'
-import { RunLogFactory } from './generated'
 import { RunLog } from './generated/RunLog'
+import { RunLogFactory } from './generated/RunLogFactory'
 const request = require('request-promise').defaults({ jar: true })
 
 async function main() {
