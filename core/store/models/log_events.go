@@ -61,7 +61,8 @@ var (
 	// RandomnessRequestLogTopic is the signature for the event log
 	// VRFCoordinator.RandomnessRequest.
 	RandomnessRequestLogTopic = vrf.RandomnessRequestLogTopic()
-	// RandomnessRequestFullfillSelector is the signature for the method randomnessRequestFul
+	// RandomnessRequestFullfillSelector is the signature for the method
+	// VRFCoordinator.fulfillRandomnessRequest
 	RandomnessRequestFullfillSelector = vrf.FulfillSelector
 	// OracleFullfillmentFunctionID0original is the original function selector for fulfilling Ethereum requests.
 	OracleFullfillmentFunctionID0original = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
@@ -117,8 +118,9 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 	case InitiatorEthLog:
 		if from == nil {
 			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
-		} else if i.InitiatorParams.FromBlock != nil { // Know from != nil
-			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
+		} else if i.InitiatorParams.FromBlock != nil {
+			q.FromBlock = utils.MaxBigs(from, /* != nil, due to if/else branch */
+				i.InitiatorParams.FromBlock.ToInt())
 		}
 		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
 
@@ -127,7 +129,8 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 				"cannot generate a FilterQuery with fromBlock >= toBlock")
 		}
 
-		// Copying the topics across clarifies their type for reflect.DeepEqual
+		// Copying the topics across (instead of coercing) clarifies their type for
+		// reflect.DeepEqual
 		q.Topics = make([][]common.Hash, len(i.Topics))
 		copy(q.Topics, i.Topics)
 	case InitiatorRunLog, InitiatorServiceAgreementExecutionLog,
