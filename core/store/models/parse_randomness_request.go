@@ -24,14 +24,14 @@ func (parseRandomnessRequest) parseJSON(log eth.Log) (js JSON, err error) {
 	if err != nil {
 		return JSON{}, errors.Wrap(err, "vrf seed out of bounds")
 	}
-	add := func(k, v string) { js = mustAdd(js, k, v) }
-	add("address", log.Address.String())
-	add("functionSelector", vrf.FulfillSelector())
-	add("keyHash", parsedLog.KeyHash.Hex())
-	add("seed", fullSeedString)
-	add("jobID", parsedLog.JobID.Hex())
-	add("sender", parsedLog.Sender.Hex())
-	return js, nil
+	return js.MultiAdd([]KV{
+		{"address", log.Address.String()},
+		{"functionSelector", vrf.FulfillSelector()},
+		{"keyHash", parsedLog.KeyHash.Hex()},
+		{"seed", fullSeedString},
+		{"jobID", parsedLog.JobID.Hex()},
+		{"sender", parsedLog.Sender.Hex()},
+	})
 }
 
 func (parseRandomnessRequest) parseRequestID(log eth.Log) string {
