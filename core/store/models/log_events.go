@@ -365,14 +365,12 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		return RunRequest{}, err
 	}
 
-	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
-	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
-	str := parser.parseRequestID(le.Log)
+	requestID := parser.parseRequestID(le.Log)
 	requester := le.Requester()
 	return RunRequest{
-		RequestID: &str,
-		TxHash:    &txHash,
-		BlockHash: &blockHash,
+		RequestID: &requestID,
+		TxHash:    &le.Log.TxHash,
+		BlockHash: &le.Log.BlockHash,
 		Requester: &requester,
 		Payment:   payment,
 	}, nil
