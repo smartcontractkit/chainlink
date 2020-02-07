@@ -3443,14 +3443,6 @@
     lodash "^4.17.13"
     web3 "1.2.1"
 
-"@typechain/truffle-v5@^0.9.0":
-  version "0.9.0"
-  resolved "https://registry.npmjs.org/@typechain/truffle-v5/-/truffle-v5-0.9.0.tgz#4e3e893cdcc7307875264e7d1709c7924d5a93fb"
-  integrity sha512-jNAtCyp+ChjLspsGBvSzQPD3u18MuTDEJvdk98CCjmcPUw/ne786xHXpLx2ziywPgpUL6vUcIydPGRKM/YHEuw==
-  dependencies:
-    "@types/bn.js" "4.11.5"
-    lodash "^4.17.15"
-
 "@types/babel__core@^7.1.0":
   version "7.1.3"
   resolved "https://registry.npmjs.org/@types/babel__core/-/babel__core-7.1.3.tgz#e441ea7df63cd080dfcd02ab199e6d16a735fc30"
@@ -3495,13 +3487,6 @@
   integrity sha512-0DH7aPGCClywOFaxxjE6UwpN2kQYe9LwuDQMv+zYA97j5GkOMo8e66LYT+a8JYU7jfmUFRZLa9KycxHDsKXJCA==
   dependencies:
     bignumber.js "*"
-
-"@types/bn.js@4.11.5":
-  version "4.11.5"
-  resolved "https://registry.npmjs.org/@types/bn.js/-/bn.js-4.11.5.tgz#40e36197433f78f807524ec623afcf0169ac81dc"
-  integrity sha512-AEAZcIZga0JgVMHNtl1CprA/hXX7/wPt79AgR4XqaDt7jyj3QWYw6LPoOiznPtugDmlubUnAahMs2PFxGcQrng==
-  dependencies:
-    "@types/node" "*"
 
 "@types/bn.js@^4.11.0", "@types/bn.js@^4.11.3", "@types/bn.js@^4.11.4":
   version "4.11.6"
