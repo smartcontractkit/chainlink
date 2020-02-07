@@ -1,11 +1,10 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+/* eslint-disable @typescript-eslint/no-var-requires */
 const h = require('chainlink').helpers
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { expectRevert, time } = require('openzeppelin-test-helpers')
+const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
 
 contract('MyContract', accounts => {
   const LinkToken = artifacts.require('LinkToken.sol')
-  const Oracle = artifacts.require('Oracle.sol')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]

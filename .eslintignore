@@ -6,7 +6,12 @@ core/
 **/artifacts/**
 **/public/**
 **/build/**
+evm-contracts/ethers/**
+evm-contracts/truffle/**
+evm-contracts/abi/**
 truffle-config.js
 truffle.js
 gethload.js
 craco.config.js
+linkbelt/lib
+linkbelt/**/testfs

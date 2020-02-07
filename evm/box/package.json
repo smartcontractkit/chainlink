@@ -12,10 +12,11 @@
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
     "setup": "echo \"No setup required for @chainlink/box\"",
-    "test": "npx truffle test"
+    "test": "NODE_ENV=test npx truffle test"
   },
   "license": "MIT",
   "dependencies": {
+    "@chainlink/contracts": "0.0.1",
     "chainlink": "0.7.5",
     "link_token": "^1.0.6",
     "openzeppelin-solidity": "^1.12.0"
