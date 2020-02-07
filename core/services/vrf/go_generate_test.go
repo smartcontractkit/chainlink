@@ -170,17 +170,13 @@ func readVersionsDB(t *testing.T) integratedVersion {
 	return rv
 }
 
-func panicErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 // Ensure that solidity compiler artifacts are present before running this test,
 // by compiling them if necessary.
 func init() {
 	db, err := versionsDBLineReader()
-	panicErr(err)
+	if err != nil {
+		panic(err)
+	}
 	var solidityArtifactsMissing []string
 	for db.Scan() {
 		line := strings.Fields(db.Text())
@@ -199,7 +195,9 @@ func init() {
 	cmd := exec.Command("yarn", yarnArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	panicErr(cmd.Run())
+	if err := cmd.Run(); err != nil {
+		panic(err)
+	}
 }
 
 var (
