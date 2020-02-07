@@ -328,7 +328,6 @@ func WebURL(t testing.TB, unparsed string) models.WebURL {
 	return models.WebURL(*parsed)
 }
 
-// TODO - rename to MUST_*
 // JSONFromString create JSON from given body and arguments
 func JSONFromString(t testing.TB, body string, args ...interface{}) models.JSON {
 	return JSONFromBytes(t, []byte(fmt.Sprintf(body, args...)))
