@@ -247,12 +247,7 @@ func (le InitiatorLogEvent) BlockNumber() *big.Int {
 // RunRequest returns a run request instance with the transaction hash,
 // present on all log initiated runs.
 func (le InitiatorLogEvent) RunRequest() (RunRequest, error) {
-	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
-	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
-	return RunRequest{
-		BlockHash: &blockHash,
-		TxHash:    &txHash,
-	}, nil
+	return RunRequest{BlockHash: &le.Log.BlockHash, TxHash: &le.Log.TxHash}, nil
 }
 
 // Validate returns true, no validation on this log event type.
