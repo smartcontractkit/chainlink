@@ -99,18 +99,21 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
 	InitiatorServiceAgreementExecutionLog, InitiatorRandomnessLog}
 
-// LogTopicsForLogBasedInitiators are the log topics which kick off a user job
-// with the given type of initiator. Chainlink subscribes to these log topics on
-// startup, if it has any jobs with these initiators.
-var LogTopicsForLogBasedInitiators = map[string][]common.Hash{
+// topicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
+// a user job with the given type of initiator. If chainlink has any jobs with
+// these initiators, it subscribes on startup to logs which match these topics,
+// and also match the job spec ID.
+var topicsForInitiatorsWhichRequireJobSpecTopic = map[string][]common.Hash{
 	InitiatorRunLog: {RunLogTopic20190207withoutIndexes,
 		RunLogTopic20190123withFullfillmentParams, RunLogTopic0original},
 	InitiatorServiceAgreementExecutionLog: {ServiceAgreementExecutionLogTopic},
 	InitiatorRandomnessLog:                {RandomnessRequestLogTopic},
 }
 
-func hasFixedLogTopics(initiatorType string) bool {
-	_, ok := LogTopicsForLogBasedInitiators[initiatorType]
+// initiationRequiresJobSpecId is true if jobs initiated by the given
+// initiatiatorType require that their initiating logs match their JobSpecIDs.
+func initiationRequiresJobSpecID(initiatorType string) bool {
+	_, ok := topicsForInitiatorsWhichRequireJobSpecTopic[initiatorType]
 	return ok
 }
 
@@ -140,12 +143,13 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 		copy(q.Topics, i.Topics)
 	case i.Type == InitiatorFluxMonitor:
 		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
-	case hasFixedLogTopics(i.Type):
-		q.Topics = [][]common.Hash{LogTopicsForLogBasedInitiators[i.Type], {
-			// The job to be initiated can be encoded in a log topic in two ways:
-			IDToTopic(i.JobSpecID),    // 16 full-range bytes, left padded to 32 bytes,
-			IDToHexTopic(i.JobSpecID), // 32 ASCII hex chars representing the 16 bytes
-		}}
+	case initiationRequiresJobSpecID(i.Type):
+		q.Topics = [][]common.Hash{
+			topicsForInitiatorsWhichRequireJobSpecTopic[i.Type], {
+				// The job to be initiated can be encoded in a log topic in two ways:
+				IDToTopic(i.JobSpecID),    // 16 full-range bytes, left padded to 32 bytes,
+				IDToHexTopic(i.JobSpecID), // 32 ASCII hex chars representing the 16 bytes
+			}}
 	default:
 		return ethereum.FilterQuery{},
 			fmt.Errorf("cannot generate a FilterQuery for initiator of type %T", i)
