@@ -1,18 +1,18 @@
-import { ethers } from 'ethers'
-import chalk from 'chalk'
 import { Compiler } from '@0x/sol-compiler'
 import {
+  RevertTraceSubprovider,
   SolCompilerArtifactAdapter,
   Web3ProviderEngine,
-  RevertTraceSubprovider,
 } from '@0x/sol-trace'
-import 'source-map-support/register'
 import {
   FakeGasEstimateSubprovider,
   GanacheSubprovider,
 } from '@0x/subproviders'
-import { resolve, join } from 'path'
-import { rm, cp } from 'shelljs'
+import chalk from 'chalk'
+import { ethers } from 'ethers'
+import { join, resolve } from 'path'
+import { cp, rm } from 'shelljs'
+import 'source-map-support/register'
 
 /**
  * Devnet miner address

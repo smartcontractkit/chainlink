@@ -8,8 +8,8 @@
     "node": "~10.16"
   },
   "scripts": {
-    "build": "rimraf -rf dist && tsc",
-    "setup": "yarn build"
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean"
   },
   "peerDependencies": {},
   "dependencies": {
@@ -18,7 +18,6 @@
   "devDependencies": {
     "@types/redux-logger": "^3.0.7",
     "redux-devtools-extension": "^2.13.8",
-    "redux-logger": "^3.0.6",
-    "rimraf": "^3.0.0"
+    "redux-logger": "^3.0.6"
   }
 }

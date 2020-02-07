@@ -10,9 +10,9 @@
   "scripts": {
     "start": "start-storybook -p 9001",
     "build-storybook": "build-storybook",
-    "build": "rimraf -rf dist && tsc",
     "depcheck": "echo '@chainlink/styleguide' && depcheck --ignore-dirs=dist || true",
-    "setup": "yarn build",
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean",
     "test": "jest",
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
   },
@@ -51,7 +51,6 @@
     "jest": "^24.9.0",
     "jest-silent-reporter": "^0.1.2",
     "react-docgen-typescript-loader": "^3.1.0",
-    "rimraf": "^3.0.0",
     "ts-jest": "^24.1.0",
     "webpack": "4.41.2"
   }

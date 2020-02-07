@@ -3,7 +3,7 @@
 set -e
 
 cd operator_ui
-yarn run setup:test
+yarn run setup
 yarn run test:ci
 
 if [ -n "$CC_TEST_REPORTER_ID"  ]; then

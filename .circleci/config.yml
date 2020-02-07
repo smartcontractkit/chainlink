@@ -67,9 +67,7 @@ jobs:
           key: go-mod-{{ checksum "go.sum" }}
           paths:
             - '/go/pkg/mod'
-      - run: yarn workspace @chainlink/test-helpers run setup
-      - run: yarn workspace @chainlink/belt setup
-      - run: yarn workspace @chainlink/contracts setup
+      - run: yarn setup:contracts
       - run: go test -p 3 -parallel 2 ./...
   rust:
     docker:
@@ -208,13 +206,13 @@ jobs:
       - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
-          command: yarn workspace @chainlink/explorer run test-ci:silent
+          command: yarn workspace @chainlink/explorer run test:ci
       - run:
           name: Run Client dependency setup
-          command: yarn workspace @chainlink/explorer-client run setup:test
+          command: yarn workspace @chainlink/explorer-client run setup
       - run:
           name: Run Client Tests
-          command: yarn workspace @chainlink/explorer-client run test-ci:silent
+          command: yarn workspace @chainlink/explorer-client run test:ci
       - store_artifacts:
           path: ./integration/logs
   feeds:
