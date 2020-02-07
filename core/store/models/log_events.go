@@ -109,13 +109,18 @@ var LogTopicsForLogBasedInitiators = map[string][]common.Hash{
 	InitiatorRandomnessLog:                {RandomnessRequestLogTopic},
 }
 
+func hasFixedLogTopics(initiatorType string) bool {
+	_, ok := LogTopicsForLogBasedInitiators[initiatorType]
+	return ok
+}
+
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
 func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err error) {
 	q.FromBlock = from
 	q.Addresses = utils.WithoutZeroAddresses([]common.Address{i.Address})
 
-	switch i.Type {
-	case InitiatorEthLog:
+	switch {
+	case i.Type == InitiatorEthLog:
 		if from == nil {
 			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
 		} else if i.InitiatorParams.FromBlock != nil {
@@ -133,15 +138,14 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 		// reflect.DeepEqual
 		q.Topics = make([][]common.Hash, len(i.Topics))
 		copy(q.Topics, i.Topics)
-	case InitiatorRunLog, InitiatorServiceAgreementExecutionLog,
-		InitiatorRandomnessLog:
+	case i.Type == InitiatorFluxMonitor:
+		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
+	case hasFixedLogTopics(i.Type):
 		q.Topics = [][]common.Hash{LogTopicsForLogBasedInitiators[i.Type], {
 			// The job to be initiated can be encoded in a log topic in two ways:
 			IDToTopic(i.JobSpecID),    // 16 full-range bytes, left padded to 32 bytes,
 			IDToHexTopic(i.JobSpecID), // 32 ASCII hex chars representing the 16 bytes
 		}}
-	case InitiatorFluxMonitor:
-		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
 	default:
 		return ethereum.FilterQuery{},
 			fmt.Errorf("cannot generate a FilterQuery for initiator of type %T", i)
