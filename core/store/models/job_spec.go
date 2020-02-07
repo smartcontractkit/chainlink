@@ -322,9 +322,10 @@ func NewInitiatorFromRequest(
 
 // IsLogInitiated Returns true if triggered by event logs.
 func (i Initiator) IsLogInitiated() bool {
-	switch i.Type {
-	case InitiatorEthLog, InitiatorRunLog, InitiatorServiceAgreementExecutionLog, InitiatorRandomnessLog:
-		return true
+	for _, logType := range LogBasedChainlinkJobInitiators {
+		if i.Type == logType {
+			return true
+		}
 	}
 	return false
 }
