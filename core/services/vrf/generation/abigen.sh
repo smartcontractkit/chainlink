@@ -33,12 +33,11 @@ source "$(dirname "$0")/common.sh"
 ABIGEN_ARGS=( -bin "$BIN_PATH" -abi "$ABI_PATH" -out "$OUT_PATH"
               -type "$CLASS_NAME" -pkg "$PKG_NAME")
 
-# Geth version from which native abigen was built, or empty string.
-NATIVE_ABIGEN_VERSION=v"$( (
+# Geth version from which native abigen was built, or v.
+NATIVE_ABIGEN_VERSION=v"$(
     abigen --version 2> /dev/null | \
     grep -E -o '([0-9]+\.[0-9]+\.[0-9]+)'
-  ) || true
-)"
+)" || true
 
 # Generate golang wrapper
 if [ "$NATIVE_ABIGEN_VERSION" == "$GETH_VERSION" ]; then
@@ -53,7 +52,7 @@ else # Must use dockerized abigen
            --cidfile="$CONTAINER_NAME_PATH" \
            "$DOCKER_IMAGE" \
            abigen "${ABIGEN_ARGS[@]}"
-    DOCKER_CONTAINER_NAME=$(cat "$CONTAINER_NAME_PATH")
+    DOCKER_CONTAINER_NAME=$(< "$CONTAINER_NAME_PATH")
     if [ "$(docker wait "$DOCKER_CONTAINER_NAME")" != "0" ] ; then
         echo "Failed to build $CLASS_NAME golang wrapper"
         exit 1

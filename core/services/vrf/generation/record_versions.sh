@@ -26,7 +26,7 @@ ABI="$3"
 BIN="$4"
 DONT_TRUNCATE="$5"
 
-if [ $(grep -E "[[:space:]]" <<< "$SOL_PATH") ]; then
+if [[ $SOL_PATH =~ [[:space:]] ]]; then
     # The golang parser splits on whitespace, so don't allow it in the pathname
     echo "path to compiler artifact, '$SOL_PATH', cannot contain whitespace"
     exit 1
@@ -40,20 +40,19 @@ VERSION_DB_PATH="$CDIR/generated-wrapper-dependency-versions-do-not-edit.txt"
 touch "$VERSION_DB_PATH"
 
 function blow_away_version_record() {
-    TARGET_RECORD="$1"
-    (grep -v "$TARGET_RECORD": "$VERSION_DB_PATH" > "$VERSION_DB_PATH.tmp") || true
+    TGT_RECORD="$1"
+    (grep -v "$TGT_RECORD": "$VERSION_DB_PATH" > "$VERSION_DB_PATH.tmp") || true
     mv "$VERSION_DB_PATH.tmp" "$VERSION_DB_PATH"
 }
 
 blow_away_version_record GETH_VERSION
 
-GETH_VERSION=$(go list -m github.com/ethereum/go-ethereum | awk '{print $2}')
 # go.mod geth version is of form v1.9.9. Strip leading v.
 echo GETH_VERSION: "${GETH_VERSION//v/}" >> "$VERSION_DB_PATH"
 
 blow_away_version_record "$PKG_NAME"
 
-if [ -n "$DONT_TRUNCATE" ]; then # Old compiler output; don't change
+if [ -n "$DONT_TRUNCATE" ]; then # Caller has asked us not to trucate binary
     MSG_BIN="$BIN"
 else
     # Modern solc objects have metadata suffixes which vary depending on
@@ -62,20 +61,21 @@ else
     # Since this suffix varies so much, it can't be included in a reliable check
     # that the golang wrapper is up-to-date, so remove it from the message hash.
     BINLEN="${#BIN}"
-    TRUNCLEN="$((BINLEN - 106))"
+    TRUNCLEN="$((BINLEN - 106))" # 106/2=53=length of metadata hash in bytes
     TRUNCATED="${BIN:0:$TRUNCLEN}"
-    SUFFIX="${BIN:$TRUNCLEN:$BINLEN}"
+    SUFFIX="${BIN:$TRUNCLEN:106}" # The actual metadata hash, in hex.
 
     # Verify that the suffix follows the pattern outlined in the above link, to
-    # ensure that we're actually truncating what we thing we are.
+    # ensure that we're actually truncating what we think we are.
     SUFFIX_REGEXP='^a264697066735822[[:xdigit:]]{68}64736f6c6343[[:xdigit:]]{6}0033$'
-    if [ -z "$DONT_TRUNCATE" ]  && [ ! $(grep -E $SUFFIX_REGEXP <<< "$SUFFIX" ) ]; then
+    if [[ ! $SUFFIX =~ $SUFFIX_REGEXP ]]; then
         echo "binary suffix has unexpected format; giving up"
         exit 1
     fi
     MSG_BIN="$TRUNCATED"
 fi
 
-echo "$PKG_NAME: $SOL_PATH $(sha256sum <<< "$ABI$MSG_BIN" | cut -f 1 -d ' ')" >> \
+HASHMSG="$ABI$MSG_BIN"
+echo "$PKG_NAME: $SOL_PATH $(sha256sum <<< "$HASHMSG" | cut -f 1 -d ' ')" >> \
      "$VERSION_DB_PATH"
 sort -o "$VERSION_DB_PATH" "$VERSION_DB_PATH"
