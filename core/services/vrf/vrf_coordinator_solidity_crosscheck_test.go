@@ -96,13 +96,13 @@ func TestRequestIDMatches(t *testing.T) {
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err)
 	goRequestID := (&RandomnessRequestLog{KeyHash: keyHash, Seed: seed}).RequestID()
-	require.Equal(t, common.BytesToHash(solidityRequestID[:]), goRequestID)
+	require.Equal(t, common.Hash(solidityRequestID), goRequestID)
 }
 
 var (
 	secretKey = one // never do this in production!
 	publicKey = secp256k1Curve.Point().Mul(secp256k1.IntToScalar(secretKey), nil)
-	seed      = one
+	seed      = two
 )
 
 func registerProvingKey(coordinator coordinator) (
@@ -113,7 +113,7 @@ func registerProvingKey(coordinator coordinator) (
 		coordinator.neil, fee, pair(secp256k1.Coordinates(publicKey)), jobID)
 	panicErr(err)
 	coordinator.backend.Commit()
-	copy(keyHash[:], utils.MustHash(string(secp256k1.LongMarshal(publicKey))).Bytes())
+	keyHash = utils.MustHash(string(secp256k1.LongMarshal(publicKey)))
 	return keyHash, jobID, fee
 }
 
@@ -160,7 +160,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
 	require.Equal(t, keyHash, log.KeyHash)
 	actualSeed, err := coordinator.requestIDBase.MakeVRFInputSeed(nil, keyHash,
-		one, coordinator.consumerContractAddress, zero)
+		seed, coordinator.consumerContractAddress, zero)
 	require.NoError(t, err)
 	require.True(t, equal(actualSeed, log.Seed))
 	require.Equal(t, jobID, log.JobID)
@@ -194,7 +194,7 @@ func TestFulfillRandomness(t *testing.T) {
 	require.True(t, equal(proof.Output, output))
 	requestID, err := coordinator.consumerContract.RequestId(nil)
 	require.NoError(t, err)
-	require.Equal(t, log.RequestID(), common.BytesToHash(requestID[:]))
+	require.Equal(t, log.RequestID(), common.Hash(requestID))
 	neilBalance, err := coordinator.rootContract.WithdrawableTokens(
 		nil, coordinator.neil.From)
 	require.NoError(t, err)
@@ -206,7 +206,7 @@ func TestWithdraw(t *testing.T) {
 	keyHash, jobID, fee := registerProvingKey(coordinator)
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
 	fulfillRandomnessRequest(t, coordinator, log)
-	payment := big.NewInt(5)
+	payment := four
 	peteThePunter := common.HexToAddress("0xdeadfa11deadfa11deadfa11deadfa11deadfa11")
 	_, err := coordinator.rootContract.Withdraw(coordinator.neil, peteThePunter, payment)
 	coordinator.backend.Commit()
