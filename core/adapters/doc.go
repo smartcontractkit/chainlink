@@ -85,19 +85,22 @@
 //
 // Random adapter generates proofs of randomness verifiable against a public key
 //
-// WARNING: The Random apdater's output is NOT the randomness you are looking
-// for! The node should send it to VRFCoordinator.sol#fulfillRandomnessRequest,
-// for verification and to pass the actual random output back to the consuming
-// contract. Don't use the output of this adapter in any other way, unless you
-// thoroughly understand the cryptography in use here, and the exact security
-// guarantees it provides. See the notes in VRFCoordinator.sol for more info.
+//   WARNING: The Random apdater's output is NOT the randomness you are looking
+//   WARNING: for! The node must send the output onchain for verification by the
+//   WARNING: method VRFCoordinator.sol#fulfillRandomnessRequest, which will
+//   WARNING: pass the actual random output back to the consuming contract.
+//   WARNING: Don't use the output of this adapter in any other way, unless you
+//   WARNING: thoroughly understand the cryptography in use here, and the exact
+//   WARNING: security guarantees it provides. See notes in VRFCoordinator.sol
+//   WARNING: for more info.
 //
-// WARNING: This system guarantees that the oracle cannot independently concoct
-// a random output to suit itself, but it does not protect against collusion
-// between the oracle and the provider of the seed the oracle uses to generate
-// the randomness. It also does not protect against the oracle simply refusing
-// to respond to a randomness request, if it doesn't like the output it would be
-// required to provide. Solutions to these limitations are planned.
+//   WARNING: This system guarantees that the oracle cannot independently
+//   WARNING: concoct a random output to suit itself, but it does not protect
+//   WARNING: against collusion between the oracle and the provider of the seed
+//   WARNING: the oracle uses to generate the randomness. It also does not
+//   WARNING: protect against the oracle simply refusing to respond to a
+//   WARNING: randomness request, if it doesn't like the output it would be
+//   WARNING: required to provide. Solutions to these limitations are planned.
 //
 // Here is an example of a Random task specification. For an example of a full
 // jobspec using this, see ../internal/fixtures/web/randomness_job.json.
@@ -128,6 +131,16 @@
 //
 // The adapter output should be passed via EthTx to VRFCoordinator.sol's method
 // fulfillRandomnessRequest.
+//
+// A "random" task must be initiated by a "randomnesslog" initiator which
+// explicitly specifies which ethereum address the logs will be emitted from,
+// such as
+//
+// {"initiators": [{"type": "randomnesslog","address": "0xvrfCoordinatorAddr"}]}
+//
+// This prevents the node from responding to potentially hostile log requests
+// from other contracts, which could be crafted to prematurely reveal the random
+// output if someone learns a prospective input seed prior to its use in the VRF.
 //
 // EthTxABIEncode
 //

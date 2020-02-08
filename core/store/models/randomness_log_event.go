@@ -1,9 +1,12 @@
 package models
 
 import (
+	"regexp"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"chainlink/core/logger"
 	"chainlink/core/services/vrf"
 )
 
@@ -14,27 +17,42 @@ type RandomnessLogEvent struct{ InitiatorLogEvent }
 // assert RandomnessLogEvent implements LogRequest interface
 var _ LogRequest = RandomnessLogEvent{}
 
-// Validate returns whether or not the contained log has a properly encoded
-// job id.
+var allHex = regexp.MustCompile("^[[:xdigit:]]{32}$").Match
+
+// Validate() is true if the contained log is parseable as a RandomnessRequest,
+// and it's from the address specified by the job's initiator.
 func (le RandomnessLogEvent) Validate() bool {
 	_, err := vrf.ParseRandomnessRequestLog(le.Log)
-	return err == nil
+	switch {
+	case err != nil:
+		logger.Warnf("error while parsing RandomnessRequest log: %s on log %#+v",
+			err, le.Log)
+		return false
+	// Following should be guaranteed by log query filterer, but doesn't hurt to
+	// check again.
+	case le.Log.Address != le.Initiator.Address:
+		logger.Errorf(
+			"RandomnessRequest log received from address %s, but expect logs from %s",
+			le.Log.Address.String(), le.Initiator.Address.String())
+		return false
+	}
+	return true
 }
 
 // ValidateRequester never errors, because the requester is not important to the
-// Randomness functionality. XXX: This could result in DoS attacks. Maybe we want a
-// whitelist of requesters. It could also result in someone who for some reason
-// illegitimately knows what the seed is going to be being able to request the
-// result for that seed ahead of time.
+// node's functionality
 func (le RandomnessLogEvent) ValidateRequester() error {
-	return nil // XXX: See doc string
+	return nil
 }
 
-// Requester pulls the requesting address out of the LogEvent's topics. XXX:
-// This is not the requester as the Chainlink oracle understands it. This is the
-// oracle itself.
+// Requester pulls the requesting address out of the LogEvent's topics.
 func (le RandomnessLogEvent) Requester() common.Address {
-	return le.Log.Address
+	log, err := vrf.ParseRandomnessRequestLog(le.Log)
+	if err != nil {
+		logger.Warnf("error while parsing RandomnessRequest log: %s on log %#+v",
+			err, le.Log)
+	}
+	return log.Sender
 }
 
 // RunRequest returns a RunRequest instance with all parameters
@@ -45,18 +63,14 @@ func (le RandomnessLogEvent) RunRequest() (RunRequest, error) {
 		return RunRequest{}, errors.Wrapf(err, "while parsing log for run request")
 	}
 
-	payment := parsedLog.Fee
-
-	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
-	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
 	str := parsedLog.RequestID().Hex()
 	requester := le.Requester()
 	return RunRequest{
 		RequestID: &str,
-		TxHash:    &txHash,
-		BlockHash: &blockHash,
+		TxHash:    &le.Log.TxHash,
+		BlockHash: &le.Log.BlockHash,
 		Requester: &requester,
-		Payment:   payment,
+		Payment:   parsedLog.Fee,
 	}, nil
 }
 
