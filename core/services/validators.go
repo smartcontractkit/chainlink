@@ -204,7 +204,7 @@ func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error 
 		fe.Add("randomness log must have exactly one initiator")
 	}
 	if i.Address == utils.ZeroAddress {
-		fe.Add("randomness log must specify address of expected recipient")
+		fe.Add("randomness log must specify address of expected emmitter")
 	}
 	return fe.CoerceEmptyToNil()
 }
