@@ -22,12 +22,12 @@
     "start": "npm run server",
     "start:dev": "cross-env PORT=3002 react-scripts start",
     "build": "react-scripts build",
+    "postbuild": "./postbuild.sh",
+    "clean": "rimraf -rf build",
     "test": "react-scripts test",
     "build-theme": "lessc --js src/theme/theme.less src/theme.css",
     "watch-theme": "less-watch-compiler --enable-js src/theme src theme.less",
-    "server": "node server",
-    "postbuild": "./postbuild.sh",
-    "setup": "echo \"No setup required for @chainlink/heartbeat\""
+    "server": "node server"
   },
   "dependencies": {
     "antd": "^3.23.3",
@@ -61,6 +61,7 @@
     "@types/jest": "^24.0.25",
     "cross-env": "^6.0.3",
     "jest": "^24.9.0",
-    "redux-mock-store": "^1.5.4"
+    "redux-mock-store": "^1.5.4",
+    "rimraf": "^3.0.1"
   }
 }

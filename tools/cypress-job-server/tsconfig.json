@@ -1,25 +1,7 @@
 {
+  "extends": "../../tsconfig.cjs.json",
   "compilerOptions": {
-    /* Basic Options */
-    "target": "ES2018" /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', 'ES2018', 'ES2019' or 'ESNEXT'. */,
-    "module": "commonjs" /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */,
-    "sourceMap": true /* Generates corresponding '.map' file. */,
-    "outDir": "./dist" /* Redirect output structure to the directory. */,
-
-    /* Strict Type-Checking Options */
-    "strict": true /* Enable all strict type-checking options. */,
-
-    /* Additional Checks */
-    "noUnusedLocals": true /* Report errors on unused locals. */,
-    "noUnusedParameters": true /* Report errors on unused parameters. */,
-    "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
-    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
-
-    /* Module Resolution Options */
-    "moduleResolution": "node" /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */,
-    "allowSyntheticDefaultImports": true /* Allow default imports from modules with no default export. This does not affect code emit, just typechecking. */,
-    "esModuleInterop": true /* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */,
-    "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
+    "outDir": "./dist" /* Redirect output structure to the directory. */
   },
   "files": ["src/index.ts"]
 }

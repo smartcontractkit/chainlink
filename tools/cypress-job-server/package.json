@@ -2,16 +2,16 @@
   "name": "@chainlink/cypress-job-server",
   "version": "0.0.1",
   "description": "A simple server that has a predefined response for integration tests",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "license": "MIT",
   "engines": {
     "node": "~10.16"
   },
   "scripts": {
-    "build": "tsc",
     "start": "node .",
-    "setup": "echo \"No setup required for @chainlink/cypress-job-server\""
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean"
   },
   "devDependencies": {
     "@types/node": "^12.12.20",

@@ -9,8 +9,7 @@
   "scripts": {
     "depcheck": "echo \"@chainlink/example-testnet\" && depcheck --ignore-dirs=contracts || true",
     "solhint": "solhint ./contracts/**/*.sol",
-    "lint": "yarn solhint",
-    "setup": "echo \"No setup required for @chainlink/example-testnet\""
+    "lint": "yarn solhint"
   },
   "devDependencies": {
     "depcheck": "^0.9.1",

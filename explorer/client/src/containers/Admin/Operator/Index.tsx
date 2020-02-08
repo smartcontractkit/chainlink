@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react'
-import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
-import { RouteComponentProps } from '@reach/router'
-import build from 'redux-object'
+import Grid from '@material-ui/core/Grid'
 import {
   createStyles,
-  withStyles,
   Theme,
+  withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
-import Grid from '@material-ui/core/Grid'
+import { RouteComponentProps } from '@reach/router'
 import { ChainlinkNode } from 'explorer/models'
-import Title from '../../../components/Title'
+import React, { useEffect, useState } from 'react'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
+import build from 'redux-object'
+import { fetchAdminOperators } from '../../../actions/adminOperators'
 import List from '../../../components/Admin/Operators/List'
 import { ChangePageEvent } from '../../../components/Table'
-import { fetchAdminOperators } from '../../../actions/adminOperators'
+import Title from '../../../components/Title'
 import { AppState } from '../../../reducers'
 import { DispatchBinding } from '../../../utils/types'
 
@@ -94,6 +94,7 @@ const adminOperatorsSelector = ({
       build({ adminOperators: adminOperators.items }, 'adminOperators', id),
     )
   }
+  return
 }
 
 const mapStateToProps: MapStateToProps<

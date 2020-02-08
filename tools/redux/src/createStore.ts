@@ -1,9 +1,9 @@
 import {
-  createStore as reduxCreateStore,
-  applyMiddleware,
   Action,
-  Reducer,
+  applyMiddleware,
+  createStore as reduxCreateStore,
   Middleware,
+  Reducer,
 } from 'redux'
 import { composeWithDevTools } from 'redux-devtools-extension'
 import logger from 'redux-logger'
@@ -14,7 +14,7 @@ if ((process.env.LOG_REDUX || '').toLowerCase() === 'true') {
 }
 const composeEnhancers = composeWithDevTools({})
 
-export function createStore<S, A extends Action, Ext, StateExt>(
+export function createStore<S, A extends Action>(
   reducer: Reducer<S, A>,
   middleware: Middleware[],
 ) {

@@ -5,9 +5,7 @@ set -e
 # Generate contract artifacts
 yarn install
 
-yarn workspace @chainlink/test-helpers setup
-yarn workspace @chainlink/belt setup
-yarn workspace @chainlink/contracts setup
+yarn setup:contracts
 
 # Run golang coverage
 go get -u github.com/smartcontractkit/goverage

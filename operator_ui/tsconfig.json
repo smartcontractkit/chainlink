@@ -1,31 +1,15 @@
 {
+  "extends": "../tsconfig.es6.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "*": ["*", "src/*", "support/*", "@types/*"]
     },
-    "declaration": true,
-    "target": "es2015",
-    "module": "esnext",
-    "lib": [
-      "es2018",
-      "dom"
-    ],
     "outDir": "./dist",
-    "moduleResolution": "node",
-    "skipLibCheck": true,
-    "isolatedModules": false,
     "noEmit": true,
-    "allowJs": true,
-    "jsx": "react",
-    "sourceMap": true,
-    "removeComments": false,
-    "strict": true,
-    "esModuleInterop": true
+    "allowJs": true
   },
-
   "include": ["src", "@types", "test"],
-
   "references": [
     { "path": "../styleguide" },
     { "path": "../tools/json-api-client" },

@@ -1,5 +1,3 @@
-import React, { useEffect } from 'react'
-import { RouteComponentProps } from '@reach/router'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
 import {
@@ -12,10 +10,12 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
+import { RouteComponentProps } from '@reach/router'
+import { JobRun } from 'explorer/models'
+import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import build from 'redux-object'
-import { JobRun } from 'explorer/models'
 import { fetchJobRun } from '../../actions/jobRuns'
 import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
@@ -126,6 +126,7 @@ const jobRunSelector = (
     }
     return build(document, 'jobRuns', jobRunId)
   }
+  return
 }
 
 const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (

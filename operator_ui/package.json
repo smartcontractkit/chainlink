@@ -7,18 +7,14 @@
     "node": "~10.16"
   },
   "scripts": {
-    "start": "yarn build:tsc && react-static start",
-    "build": "yarn build:tsc && react-static build",
-    "build:tsc": "tsc -b",
-    "build:tsc:clean": "tsc -b --clean",
+    "start": "react-static start",
     "serve": "serve dist -p 3000",
-    "pretest": "yarn build:tsc",
     "test": "jest",
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
-    "setup": "echo \"No setup required for @chainlink/operator-ui\"",
-    "setup:test": "yarn workspace @chainlink/ts-test-helpers run setup && yarn workspace @chainlink/operator-ui run setup:dependencies",
-    "setup:dependencies": "yarn workspace @chainlink/json-api-client run build && yarn workspace @chainlink/redux run build && yarn workspace @chainlink/local-storage run build && yarn workspace @chainlink/styleguide run build",
+    "clean": "tsc -b --clean && rimraf -rf artifacts coverage tmp dist",
+    "build": "react-static build",
+    "setup": "tsc -b",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
@@ -101,6 +97,7 @@
     "react-static-plugin-typescript": "^7.0.0",
     "redux-devtools-extension": "^2.13.8",
     "redux-mock-store": "^1.5.3",
+    "rimraf": "^3.0.1",
     "serve": "^11.2.0",
     "ts-jest": "^24.1.0",
     "typescript": "^3.7.4",
