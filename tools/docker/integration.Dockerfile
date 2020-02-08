@@ -43,6 +43,7 @@ COPY tools/ci/ethereum_test tools/ci/
 COPY tools/docker tools/docker/
 
 # copy over all our dependencies
+COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
 COPY evm-contracts evm-contracts
@@ -51,9 +52,6 @@ COPY integration-scripts integration-scripts
 
 
 # setup our integration testing scripts
-RUN yarn workspace @chainlink/test-helpers setup
-RUN yarn workspace @chainlink/belt setup
-RUN yarn workspace @chainlink/contracts setup
-RUN yarn workspace @chainlink/integration-scripts setup
+RUN yarn setup:integration
 
 ENTRYPOINT [ "tools/ci/ethereum_test" ]

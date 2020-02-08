@@ -27,8 +27,13 @@
     "node": "~10.16"
   },
   "scripts": {
-    "lint": "eslint  --ext js,jsx,ts,tsx .",
-    "setup": "yarn workspace @chainlink/test-helpers setup && yarn workspaces run setup"
+    "lint": "eslint --ext js,jsx,ts,tsx .",
+    "setup": "wsrun -me -t setup",
+    "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
+    "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
+    "setup:integration": "yarn wsrun -mre -p @chainlink/integration* -t setup",
+    "setup:explorer": "yarn wsrun -mre -p '@chainlink/explorer*' -t setup",
+    "clean": "wsrun -me clean"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.15.0",
@@ -39,9 +44,13 @@
     "eslint-plugin-react": "^7.17.0",
     "eslint-plugin-react-hooks": "^2.3.0",
     "prettier": "^1.19.1",
-    "typescript": "^3.7.4"
+    "typescript": "^3.7.4",
+    "wsrun": "^5.2.0"
   },
   "resolutions": {
     "**/sha3": "^2.0.7"
+  },
+  "dependencies": {
+    "tslib": "^1.10.0"
   }
 }

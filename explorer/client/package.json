@@ -21,14 +21,11 @@
   },
   "scripts": {
     "start": "cross-env PORT=3001 craco start",
-    "build:clean": "rimraf -rf build",
+    "setup": "tsc -b",
     "build": "craco build",
-    "setup": "echo \"No setup required for @chainlink/explorer-client\"",
-    "setup:test": "yarn workspace @chainlink/ts-test-helpers run setup && yarn workspace @chainlink/explorer-client run setup:dependencies",
-    "setup:dependencies": "yarn workspace @chainlink/json-api-client run build && yarn workspace @chainlink/redux run build && yarn workspace @chainlink/styleguide run build",
+    "clean": "tsc -b --clean && rimraf -rf build",
     "test": "jest",
-    "test-ci": "CI=true jest --maxWorkers=50% --detectOpenHandles",
-    "test-ci:silent": "yarn test-ci --silent --maxWorkers=50% --detectOpenHandles",
+    "test:ci": "jest --silent --maxWorkers=50%",
     "depcheck": "echo \"@chainlink/explorer-client\" && depcheck --ignore-dirs=public || true"
   },
   "main": "app.js",
@@ -36,6 +33,7 @@
   "dependencies": {
     "@chainlink/json-api-client": "0.0.1",
     "@chainlink/redux": "0.0.1",
+    "@chainlink/styleguide": "0.0.1",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
     "@reach/router": "^1.2.1",
@@ -85,7 +83,7 @@
     "react-scripts": "^3.1.0",
     "redux-devtools-extension": "^2.13.8",
     "redux-logger": "^3.0.6",
-    "rimraf": "^3.0.0",
+    "rimraf": "^3.0.1",
     "ts-jest": "^24.1.0",
     "typescript": "^3.7.4",
     "webpack": "4.41.2"

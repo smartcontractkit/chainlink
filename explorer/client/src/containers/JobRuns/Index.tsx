@@ -4,10 +4,10 @@ import {
   withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
+import { JobRun } from 'explorer/models'
 import React, { useEffect, useState } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import build from 'redux-object'
-import { JobRun } from 'explorer/models'
 import { fetchJobRuns } from '../../actions/jobRuns'
 import List from '../../components/JobRuns/List'
 import { ChangePageEvent } from '../../components/Table'
@@ -101,6 +101,8 @@ const jobRunsSelector = ({
       return build(document, 'jobRuns', id)
     })
   }
+
+  return
 }
 
 const mapStateToProps: MapStateToProps<

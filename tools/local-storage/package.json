@@ -8,8 +8,8 @@
     "node": "~10.16"
   },
   "scripts": {
-    "build": "rimraf -rf dist && tsc",
-    "setup": "yarn build",
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean",
     "test": "jest",
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
   },
@@ -21,7 +21,6 @@
   "devDependencies": {
     "@types/jest": "^24.0.25",
     "jest": "^24.9.0",
-    "rimraf": "^3.0.0",
     "ts-jest": "^24.0.0"
   }
 }

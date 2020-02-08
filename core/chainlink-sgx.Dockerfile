@@ -12,10 +12,7 @@ COPY tools/bin/ldflags ./tools/bin/
 
 # Install yarn dependencies
 COPY yarn.lock package.json ./
-COPY explorer/client/package.json ./explorer/client/
-COPY explorer/package.json ./explorer/
 COPY operator_ui/package.json ./operator_ui/
-COPY feeds/package.json ./feeds/
 COPY styleguide/package.json ./styleguide/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
@@ -38,7 +35,20 @@ ENV SGX_ENABLED yes
 ARG SGX_SIMULATION
 
 # Install chainlink
-ADD . ./
+COPY tsconfig.cjs.json tsconfig.es6.json ./
+COPY operator_ui ./operator_ui
+COPY styleguide ./styleguide
+COPY tools/json-api-client ./tools/json-api-client
+COPY tools/local-storage ./tools/local-storage
+COPY tools/redux ./tools/redux
+COPY tools/ts-test-helpers ./tools/ts-test-helpers
+COPY belt ./belt
+COPY belt/bin ./belt/bin
+COPY evm-test-helpers ./evm-test-helpers
+COPY evm-contracts ./evm-contracts
+COPY core core
+COPY packr packr
+
 RUN make install-chainlink
 
 # Final layer: ubuntu with aesm and chainlink binaries (executable + enclave)

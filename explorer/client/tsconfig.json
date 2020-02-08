@@ -1,29 +1,24 @@
 {
+  "extends": "../../tsconfig.es6.json",
   "compilerOptions": {
-    "target": "es6",
-    "lib": ["es6", "dom"],
-    "module": "esnext",
-    "moduleResolution": "node",
-    "incremental": true,
-    "allowJs": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
     "noEmit": true,
-    "sourceMap": true,
-    "jsx": "react"
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "module": "esnext",
+    "resolveJsonModule": true,
+    "isolatedModules": true
   },
-
   "include": ["src", "@types", "test"],
-
   "references": [
-    { "path": "../../tools/json-api-client" },
-    { "path": "../../tools/redux" },
-    { "path": "../../tools/ts-test-helpers" }
+    {
+      "path": "../../tools/json-api-client"
+    },
+    {
+      "path": "../../tools/redux"
+    },
+    {
+      "path": "../../tools/ts-test-helpers"
+    },
+    { "path": "../../styleguide" }
   ]
 }

@@ -1,12 +1,12 @@
 import url from 'url'
-import { EthLogFactory } from './generated'
 import {
   createProvider,
-  getArgs,
-  DEVNET_ADDRESS,
   credentials,
+  DEVNET_ADDRESS,
+  getArgs,
   registerPromiseHandler,
 } from './common'
+import { EthLogFactory } from './generated/EthLogFactory'
 const request = require('request-promise').defaults({ jar: true })
 
 async function main() {
