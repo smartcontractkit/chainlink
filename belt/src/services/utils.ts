@@ -34,7 +34,7 @@ export function getArtifactDirs(conf: config.App) {
  * @param fileName The filename that the debug logger is being used in for namespacing purposes.
  */
 export function debug(fileName: string) {
-  return d('linkbelt').extend(fileName)
+  return d('belt').extend(fileName)
 }
 
 /**

@@ -8,7 +8,7 @@ This package stores all of chainlink's smart contracts, previously known as the 
 
 # Layout
 
-This package makes use of `@chainlink/linkbelt` to output artifacts along with ethers.js and truffle contract abstractions from the smart contracts stored within `src`. The resulting layout of the package when published looks like:
+This package makes use of `@chainlink/belt` to output artifacts along with ethers.js and truffle contract abstractions from the smart contracts stored within `src`. The resulting layout of the package when published looks like:
 
 ```sh
 contracts

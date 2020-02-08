@@ -1,10 +1,10 @@
 {
-  "name": "@chainlink/linkbelt",
+  "name": "@chainlink/belt",
   "description": "A toolbelt for performing various commands on chainlink smart contracts.",
   "version": "0.0.1",
   "author": "Chainlink Devs",
   "bin": {
-    "linkbelt": "./bin/run"
+    "belt": "./bin/run"
   },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
@@ -59,7 +59,7 @@
   "main": "lib/src/index.js",
   "oclif": {
     "commands": "./lib/src/commands",
-    "bin": "linkbelt",
+    "bin": "belt",
     "plugins": [
       "@oclif/plugin-help",
       "@oclif/plugin-not-found"

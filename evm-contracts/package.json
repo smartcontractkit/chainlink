@@ -9,7 +9,7 @@
   "private": false,
   "scripts": {
     "build": "tsc -b tsconfig.ethers.json",
-    "compile": "linkbelt compile all",
+    "compile": "belt compile all",
     "setup": "yarn clean && yarn compile && yarn build",
     "clean": "rm -rf abi ethers truffle",
     "test": "jest --testTimeout 80000 --forceExit",
