@@ -3,5 +3,5 @@
 set -e
 
 yarn workspace @chainlink/test-helpers setup
-yarn workspace @chainlink/linkbelt setup
+yarn workspace @chainlink/belt setup
 yarn workspace @chainlink/contracts prepublishOnly

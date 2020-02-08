@@ -21,7 +21,7 @@
     "tools/local-storage",
     "tools/redux",
     "tools/ts-test-helpers",
-    "linkbelt"
+    "belt"
   ],
   "engines": {
     "node": "~10.16"

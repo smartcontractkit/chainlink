@@ -10,7 +10,7 @@ export default class Compile extends Command {
     'Run various compilers and/or codegenners that target solidity smart contracts.'
 
   static examples = [
-    `$ linkbelt compile all
+    `$ belt compile all
 
 Creating directory at abi/v0.4...
 Creating directory at abi/v0.5...
