@@ -20,9 +20,5 @@
     "resolveJsonModule": true
   },
   "include": ["src"],
-  "references": [
-    { "path": "../evm-test-helpers" },
-    { "path": "../evm" },
-    { "path": "../evm/v0.5" }
-  ]
+  "references": [{ "path": "../evm-test-helpers" }]
 }
