@@ -1,5 +1,10 @@
 {
-  "initiators": [{ "type": "randomnesslog" }],
+  "initiators": [
+    {
+      "type": "randomnesslog",
+      "params": {"address": "0xaba5edc1a551e55b1a570c0e1f1055e5be11eca7"}
+    }
+  ],
   "tasks": [
     {
       "type": "random",

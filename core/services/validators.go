@@ -201,7 +201,10 @@ func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) err
 func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error {
 	fe := models.NewJSONAPIErrors()
 	if len(j.Initiators) != 1 {
-		fe.Add("randomness log should have at most one initiator")
+		fe.Add("randomness log must have exactly one initiator")
+	}
+	if i.Address == utils.ZeroAddress {
+		fe.Add("randomness log must specify address of expected recipient")
 	}
 	return fe.CoerceEmptyToNil()
 }

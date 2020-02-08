@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"chainlink/core/auth"
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/logger"
 	"chainlink/core/services/signatures/secp256k1"
 	"chainlink/core/services/vrf"
 	"chainlink/core/store/models"
@@ -1039,13 +1041,14 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
 	var sk int64 = 1
+	coordinatorAddress := j.Initiators[0].Address
 
 	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
 	require.Equal(t, &provingKey.PublicKey, pk,
 		"public key in fixture %s does not match secret key in test %d (which has public key %s)",
 		pk, sk, provingKey.PublicKey.String())
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
-	rawID := []byte(j.ID.String()) // Chainlink requires ASCII encoding of jobID
+	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
 	r := vrf.RandomnessRequestLog{
 		KeyHash: provingKey.PublicKey.Hash(),
 		Seed:    big.NewInt(2),
@@ -1053,7 +1056,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		Sender:  cltest.NewAddress(),
 		Fee:     assets.NewLink(100),
 	}
-	requestlog := cltest.NewRandomnessRequestLog(t, r, cltest.NewAddress(), 1)
+	requestlog := cltest.NewRandomnessRequestLog(t, r, coordinatorAddress, 1)
 
 	logs <- requestlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
@@ -1089,4 +1092,21 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	proofValid, err := goProof.VerifyVRFProof()
 	require.NoError(t, err, "problem verifying solidity proof")
 	require.True(t, proofValid)
+
+	// Check that a log from a different address is rejected. (The node will only
+	// ever see this situation if the ethereum.FilterQuery for this job breaks,
+	// but it's hard to test that without a full integration test.)
+	badAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
+	badRequestlog := cltest.NewRandomnessRequestLog(t, r, badAddress, 1)
+	logs <- badRequestlog
+	logFound := regexp.MustCompile(fmt.Sprintf(
+		`log received from address %s, but expect logs from %s`,
+		badAddress.String(), coordinatorAddress.String())).Match
+	millisecondsWaited := 0
+	for !logFound(logger.TestMemoryLog().Bytes()) {
+		time.Sleep(1 * time.Millisecond)
+		millisecondsWaited += 1
+		assert.Less(t, millisecondsWaited, 100,
+			"message about log with bad source address not found")
+	}
 }
