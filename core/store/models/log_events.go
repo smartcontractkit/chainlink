@@ -95,8 +95,8 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 }
 
 // LogBasedChainlinkJobInitiators are initiators which kick off a user-specified
-// chainlink job when an ethereum log is received. (InitiatorFluxMonitor kicks
-// off work, but not a user-specified job.)
+// chainlink job when an appropriate ethereum log is received.
+// (InitiatorFluxMonitor kicks off work, but not a user-specified job.)
 var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
 	InitiatorServiceAgreementExecutionLog, InitiatorRandomnessLog}
 
