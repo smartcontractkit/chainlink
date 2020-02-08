@@ -1,7 +1,9 @@
 {
   "extends": "../tsconfig.cjs.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "strictNullChecks": false
   },
-  "include": ["src"]
+  "include": ["src", "src/**/*.json", "ormconfig.json"]
 }
