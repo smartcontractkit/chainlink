@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -1099,14 +1098,17 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	badAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	badRequestlog := cltest.NewRandomnessRequestLog(t, r, badAddress, 1)
 	logs <- badRequestlog
-	logFound := regexp.MustCompile(fmt.Sprintf(
-		`log received from address %s, but expect logs from %s`,
-		badAddress.String(), coordinatorAddress.String())).Match
+	expectedLogTemplate := `log received from address %s, but expect logs from %s`
+	expectedLog := fmt.Sprintf(expectedLogTemplate, badAddress.String(),
+		coordinatorAddress.String())
 	millisecondsWaited := 0
-	for !logFound(logger.TestMemoryLog().Bytes()) {
-		time.Sleep(1 * time.Millisecond)
+	expectedLogDeadline := 200
+	for !strings.Contains(logger.TestMemoryLog().String(), expectedLog) &&
+		millisecondsWaited < expectedLogDeadline {
+		time.Sleep(time.Millisecond)
 		millisecondsWaited += 1
-		assert.Less(t, millisecondsWaited, 100,
-			"message about log with bad source address not found")
+		if millisecondsWaited >= expectedLogDeadline {
+			assert.Fail(t, "message about log with bad source address not found")
+		}
 	}
 }
