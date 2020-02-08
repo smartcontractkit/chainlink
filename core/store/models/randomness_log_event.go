@@ -1,8 +1,6 @@
 package models
 
 import (
-	"regexp"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
@@ -16,8 +14,6 @@ type RandomnessLogEvent struct{ InitiatorLogEvent }
 
 // assert RandomnessLogEvent implements LogRequest interface
 var _ LogRequest = RandomnessLogEvent{}
-
-var allHex = regexp.MustCompile("^[[:xdigit:]]{32}$").Match
 
 // Validate() is true if the contained log is parseable as a RandomnessRequest,
 // and it's from the address specified by the job's initiator.
