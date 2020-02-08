@@ -22,7 +22,7 @@
 // Nonetheless, a secret key sk should be securely sampled uniformly from
 // {0,...,Order-1}. Its public key can be calculated from it by
 //
-//   secp256k1.Secp256k1{}.Point().Mul(secureKey, Generator)
+//   secp256k1.Secp256k1{}.Point().Mul(secretKey, Generator)
 //
 // To generate random output from a big.Int seed, pass sk and the seed to
 // GenerateProof, and use the Output field of the returned Proof object.
