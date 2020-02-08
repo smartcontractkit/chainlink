@@ -228,7 +228,7 @@ func (p *Proof) WellFormed() bool {
 		secp256k1.RepresentsScalar(p.S) && p.Output.BitLen() <= 256)
 }
 
-var cGammaEqualsSHash = fmt.Errorf(
+var ErrCGammaEqualsSHash = fmt.Errorf(
 	"pick a different nonce; c*gamma = s*hash, with this one")
 
 // checkCGammaNotEqualToSHash checks c*gamma ≠ s*hash, as required by solidity
@@ -238,7 +238,7 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 	cGamma := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(c), gamma)
 	sHash := secp256k1Curve.Point().Mul(secp256k1.IntToScalar(s), hash)
 	if cGamma.Equal(sHash) {
-		return cGammaEqualsSHash
+		return ErrCGammaEqualsSHash
 	}
 	return nil
 }
@@ -332,7 +332,7 @@ func GenerateProof(secretKey, seed *big.Int) (*Proof, error) {
 		}
 		proof, err := generateProofWithNonce(secretKey, seed, nonce)
 		switch {
-		case err == cGammaEqualsSHash:
+		case err == ErrCGammaEqualsSHash:
 			// This is cryptographically impossible, but if it were ever to happen, we
 			// should try again with a different nonce.
 			continue
