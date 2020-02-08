@@ -4,7 +4,6 @@ package logger
 
 import (
 	"bytes"
-	"net/url"
 	"sync"
 
 	"go.uber.org/zap"
@@ -25,8 +24,6 @@ func (s *MemorySink) Sync() error { return nil }
 
 var testMemoryLog *MemorySink
 var createSinkOnce sync.Once
-
-func tmlCallback(*url.URL) (zap.Sink, error) { return testMemoryLog, nil }
 
 func registerMemorySink() {
 	testMemoryLog = &MemorySink{new(bytes.Buffer)}
