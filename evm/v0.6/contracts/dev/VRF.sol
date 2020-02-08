@@ -220,6 +220,9 @@ contract VRF {
 
   // One-way hash function onto the curve.
   //
+  // Corresponds to algorithm in section 5.4.1.1 of the draft standard. (But see
+  // DESIGN NOTES above for slight differences.)
+  //
   // TODO(alx): Implement a bounded-computation hash-to-curve, as described in
   // "Construction of Rational Points on Elliptic Curves over Finite Fields"
   // http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.831.5299&rep=rep1&type=pdf
