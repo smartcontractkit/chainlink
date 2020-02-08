@@ -2,12 +2,10 @@
   "private": true,
   "license": "MIT",
   "workspaces": [
-    "evm",
     "evm/box",
-    "evm/v0.5",
-    "evm/v0.6",
-    "feeds",
     "evm-test-helpers",
+    "evm-contracts",
+    "feeds",
     "examples/*",
     "explorer",
     "explorer/client",
@@ -22,7 +20,8 @@
     "tools/json-api-client",
     "tools/local-storage",
     "tools/redux",
-    "tools/ts-test-helpers"
+    "tools/ts-test-helpers",
+    "belt"
   ],
   "engines": {
     "node": "~10.16"

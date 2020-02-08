@@ -1,8 +1,6 @@
-import {
-  CoordinatorFactory,
-  MeanAggregatorFactory,
-  PrepaidAggregatorFactory,
-} from 'chainlinkv0.5'
+import { CoordinatorFactory } from '@chainlink/contracts/ethers/v0.5/CoordinatorFactory'
+import { MeanAggregatorFactory } from '@chainlink/contracts/ethers/v0.5/MeanAggregatorFactory'
+import { PrepaidAggregatorFactory } from '@chainlink/contracts/ethers/v0.5/PrepaidAggregatorFactory'
 import { ethers } from 'ethers'
 import {
   createProvider,

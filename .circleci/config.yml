@@ -68,8 +68,8 @@ jobs:
           paths:
             - '/go/pkg/mod'
       - run: yarn workspace @chainlink/test-helpers run setup
-      - run: yarn workspace chainlinkv0.5 run setup
-      - run: yarn workspace chainlink run setup
+      - run: yarn workspace @chainlink/belt setup
+      - run: yarn workspace @chainlink/contracts setup
       - run: go test -p 3 -parallel 2 ./...
   rust:
     docker:
@@ -87,7 +87,7 @@ jobs:
             - '/go/pkg/mod'
       - run: ./tools/ci/rust_test
   geth-postgres:
-    resource_class: large
+    resource_class: 2xlarge
     environment:
       GETH_MODE: true
     machine:
@@ -98,7 +98,7 @@ jobs:
       - checkout
       - run: cd ./tools/docker && ./compose test
   parity-postgres:
-    resource_class: large
+    resource_class: 2xlarge
     machine:
       image: ubuntu-1604:201903-01
       docker_layer_caching: true
@@ -107,7 +107,7 @@ jobs:
       - checkout
       - run: cd ./tools/docker && ./compose test
   truffle:
-    resource_class: large
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
@@ -294,6 +294,7 @@ jobs:
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-chainlink:
+    resource_class: xlarge
     machine: true
     steps:
       - checkout
@@ -306,6 +307,7 @@ jobs:
           command: |
             DOCKER_TAG=circleci make docker
   build-chainlink-sgx:
+    resource_class: xlarge
     machine: true
     steps:
       - checkout
@@ -351,7 +353,7 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
   prepublish_npm:
-    resource_class: large
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
     steps:

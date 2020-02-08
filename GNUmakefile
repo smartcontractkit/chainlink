@@ -62,8 +62,8 @@ chainlink: $(SGX_BUILD_ENCLAVE) operator-ui contracts ## Build the chainlink bin
 .PHONY: contracts 
 contracts: # build the required evm contracts
 	yarn workspace @chainlink/test-helpers setup
-	yarn workspace chainlinkv0.5 setup
-	yarn workspace chainlink setup
+	yarn workspace @chainlink/belt setup
+	yarn workspace @chainlink/contracts setup
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.

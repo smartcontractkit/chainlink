@@ -1,4 +1,4 @@
-import { OracleFactory } from 'chainlink'
+import { OracleFactory } from '@chainlink/contracts/ethers/v0.4/OracleFactory'
 import {
   createProvider,
   deployContract,

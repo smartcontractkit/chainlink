@@ -56,20 +56,20 @@ function toBigNumber(bn: BN): ethers.utils.BigNumber {
   return new ethers.utils.BigNumber(toHex(bn))
 }
 
-export function extend() {
-  ethers.utils.BigNumber.prototype.isEven = function() {
+export function extend(bignumber: typeof ethers.utils.BigNumber) {
+  bignumber.prototype.isEven = function() {
     return bnify(this).isEven()
   }
 
-  ethers.utils.BigNumber.prototype.umod = function(val) {
+  bignumber.prototype.umod = function(val: any) {
     return toBigNumber(bnify(this).umod(bnify(val)))
   }
 
-  ethers.utils.BigNumber.prototype.shrn = function(val) {
+  bignumber.prototype.shrn = function(val: any) {
     return toBigNumber(bnify(this).shrn(val))
   }
 
-  ethers.utils.BigNumber.prototype.invm = function(val) {
+  bignumber.prototype.invm = function(val: any) {
     return toBigNumber(bnify(this).invm(bnify(val)))
   }
 }

@@ -1,5 +1,5 @@
+import { CoordinatorFactory } from '@chainlink/contracts/ethers/v0.5/CoordinatorFactory'
 import * as t from '@chainlink/test-helpers'
-import { CoordinatorFactory } from 'chainlinkv0.5'
 import { ethers } from 'ethers'
 import {
   createProvider,

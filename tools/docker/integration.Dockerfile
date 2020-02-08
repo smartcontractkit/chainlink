@@ -28,9 +28,10 @@ ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
 COPY yarn.lock package.json ./
+COPY belt/package.json ./belt/
+COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json evm-test-helpers/
-COPY evm/package.json evm/
-COPY evm/v0.5/package.json evm/v0.5/
+COPY evm-contracts/package.json ./evm-contracts/
 COPY integration/package.json integration/
 COPY integration-scripts/package.json integration-scripts/
 
@@ -42,15 +43,17 @@ COPY tools/ci/ethereum_test tools/ci/
 COPY tools/docker tools/docker/
 
 # copy over all our dependencies
+COPY belt belt
 COPY evm-test-helpers evm-test-helpers
-COPY evm evm
+COPY evm-contracts evm-contracts
 COPY integration integration
 COPY integration-scripts integration-scripts
 
+
 # setup our integration testing scripts
 RUN yarn workspace @chainlink/test-helpers setup
-RUN yarn workspace chainlinkv0.5 setup
-RUN yarn workspace chainlink setup
+RUN yarn workspace @chainlink/belt setup
+RUN yarn workspace @chainlink/contracts setup
 RUN yarn workspace @chainlink/integration-scripts setup
 
 ENTRYPOINT [ "tools/ci/ethereum_test" ]
