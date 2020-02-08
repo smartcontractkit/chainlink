@@ -21,7 +21,7 @@ func (le RandomnessLogEvent) Validate() bool {
 	_, err := vrf.ParseRandomnessRequestLog(le.Log)
 	switch {
 	case err != nil:
-		logger.Warnf("error while parsing RandomnessRequest log: %s on log %#+v",
+		logger.Errorf("error while parsing RandomnessRequest log: %s on log %#+v",
 			err, le.Log)
 		return false
 	// Following should be guaranteed by log query filterer, but doesn't hurt to
@@ -45,8 +45,9 @@ func (le RandomnessLogEvent) ValidateRequester() error {
 func (le RandomnessLogEvent) Requester() common.Address {
 	log, err := vrf.ParseRandomnessRequestLog(le.Log)
 	if err != nil {
-		logger.Warnf("error while parsing RandomnessRequest log: %s on log %#+v",
+		logger.Errorf("error while parsing RandomnessRequest log: %s on log %#+v",
 			err, le.Log)
+		return common.Address{}
 	}
 	return log.Sender
 }
