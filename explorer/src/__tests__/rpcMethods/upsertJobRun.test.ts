@@ -1,23 +1,22 @@
 import { Server } from 'http'
+import jayson from 'jayson'
 import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
-import jayson from 'jayson'
 import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
+import { JobRunRepository } from '../../repositories/JobRunRepository'
+import {
+  createRPCRequest,
+  newChainlinkNode,
+  sendSingleMessage,
+} from '../../support/client'
 import { start, stop } from '../../support/server'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import createFixture from '../fixtures/JobRun.fixture.json'
 import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
 import { clearDb } from '../testdatabase'
-import { JobRunRepository } from '../../repositories/JobRunRepository'
-import {
-  ENDPOINT,
-  createRPCRequest,
-  newChainlinkNode,
-  sendSingleMessage,
-} from '../../support/client'
 
 const { INVALID_PARAMS } = jayson.Server.errors
 
@@ -39,7 +38,7 @@ describe('realtime', () => {
       db,
       'upsertJobRun test chainlinkNode',
     )
-    ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    ws = await newChainlinkNode(chainlinkNode.accessKey, secret)
   })
 
   afterEach(async () => {

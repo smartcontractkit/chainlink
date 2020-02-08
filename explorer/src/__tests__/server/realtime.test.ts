@@ -1,18 +1,17 @@
 import { Server } from 'http'
+import jayson from 'jayson'
 import { Connection } from 'typeorm'
 import WebSocket from 'ws'
-import jayson from 'jayson'
 import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
-import { start, stop } from '../../support/server'
-import { clearDb } from '../testdatabase'
-import { NORMAL_CLOSE } from '../../utils/constants'
 import {
-  ENDPOINT,
   createRPCRequest,
   newChainlinkNode,
   sendSingleMessage,
 } from '../../support/client'
+import { start, stop } from '../../support/server'
+import { NORMAL_CLOSE } from '../../utils/constants'
+import { clearDb } from '../testdatabase'
 
 const { PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND } = jayson.Server.errors
 
@@ -23,7 +22,7 @@ describe('realtime', () => {
   let secret: string
 
   const newAuthenticatedNode = async () =>
-    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    newChainlinkNode(chainlinkNode.accessKey, secret)
 
   beforeAll(async () => {
     server = await start()
@@ -83,12 +82,10 @@ describe('realtime', () => {
 
   it('rejects invalid authentication', async done => {
     expect.assertions(1)
-    newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, 'lol-no').catch(
-      error => {
-        expect(error).toBeDefined()
-        done()
-      },
-    )
+    newChainlinkNode(chainlinkNode.accessKey, 'lol-no').catch(error => {
+      expect(error).toBeDefined()
+      done()
+    })
   })
 
   it('rejects multiple connections from single node', async done => {

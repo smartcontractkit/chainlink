@@ -21,9 +21,11 @@ export class Session {
   public id: string
 
   @CreateDateColumn()
+  // @ts-ignore
   private createdAt: Date
 
   @UpdateDateColumn()
+  // @ts-ignore
   private updatedAt: Date
 }
 
