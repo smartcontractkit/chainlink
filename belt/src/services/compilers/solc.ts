@@ -43,7 +43,17 @@ function compiler(
     compilerSettings: {
       outputSelection: {
         '*': {
-          '*': ['*'],
+          '*': [
+            'abi',
+            'devdoc',
+            'userdoc',
+            'evm.bytecode.object',
+            'evm.bytecode.sourceMap',
+            'evm.deployedBytecode.object',
+            'evm.deployedBytecode.sourceMap',
+            'evm.methodIdentifiers',
+            'metadata',
+          ],
         },
       },
     },
