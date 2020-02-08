@@ -153,8 +153,8 @@ func fieldHash(msg []byte) *big.Int {
 	return rv
 }
 
-// HashToCurve is a one-way hash function onto the curve. Returns the curve
-// point or an error. It passes each candidate x ordinate to ordinates.
+// HashToCurve is a cryptographic hash function which outputs a secp256k1 point,
+// or an error. It passes each candidate x ordinate to ordinates.
 func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 ) (kyber.Point, error) {
 	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(zero) >= 0) {
