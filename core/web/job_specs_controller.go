@@ -49,46 +49,44 @@ func (jsc *JobSpecsController) requireImplented(js models.JobSpec) error {
 	return nil
 }
 
-// getAndCheckJobSpec(c) returns a validated job spec from c, or errors. Any
-// errors are placed on c.
+// getAndCheckJobSpec(c) returns a validated job spec from c, or errors. On
+// error, a non-zero HTTP status is returned.
 func (jsc *JobSpecsController) getAndCheckJobSpec(
-	c *gin.Context) (*models.JobSpec, error) {
+	c *gin.Context) (js models.JobSpec, httpStatus int, err error) {
 	var jsr models.JobSpecRequest
 	if err := c.ShouldBindJSON(&jsr); err != nil {
 		// TODO(alx): Better parsing and more specific error messages
 		// https://www.pivotaltracker.com/story/show/171164115
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return nil, err
+		return models.JobSpec{}, http.StatusBadRequest, err
 	}
-	js := models.NewJobFromRequest(jsr)
+	js = models.NewJobFromRequest(jsr)
 	if err := jsc.requireImplented(js); err != nil {
-		jsonAPIError(c, http.StatusNotImplemented, err)
-		return nil, err
+		return models.JobSpec{}, http.StatusNotImplemented, err
 	}
 	if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return nil, err
+		return models.JobSpec{}, http.StatusBadRequest, err
 	}
-	return &js, nil
+	return js, 0, nil
 }
 
 // Create adds validates, saves, and starts a new JobSpec.
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Create(c *gin.Context) {
-	js, err := jsc.getAndCheckJobSpec(c)
+	js, httpStatus, err := jsc.getAndCheckJobSpec(c)
 	if err != nil {
+		jsonAPIError(c, httpStatus, err)
 		return
 	}
-	if err := NotifyExternalInitiator(*js, jsc.App.GetStore()); err != nil {
+	if err := NotifyExternalInitiator(js, jsc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if err := jsc.App.AddJob(*js); err != nil {
+	if err := jsc.App.AddJob(js); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.JobSpec{JobSpec: *js}, "job")
+	jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 }
 
 // Show returns the details of a JobSpec.
