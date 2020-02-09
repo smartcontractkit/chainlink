@@ -18,7 +18,7 @@ func (parseRandomnessRequest) parseJSON(log eth.Log) (js JSON, err error) {
 	parsedLog, err := vrf.ParseRandomnessRequestLog(log)
 	if err != nil {
 		return JSON{}, errors.Wrapf(err,
-			"could not parse log data %x as RandomnessRequest log", log.Data)
+			"could not parse log data %#+v as RandomnessRequest log", log)
 	}
 	fullSeedString, err := utils.Uint256ToHex(parsedLog.Seed)
 	if err != nil {
