@@ -186,7 +186,7 @@ type InitiatorLogEvent struct {
 	Initiator Initiator
 }
 
-var _ LogRequest = InitiatorLogEvent{}
+var _ LogRequest = InitiatorLogEvent{} // InitiatorLogEvent implements LogRequest
 
 // LogRequest is a factory method that coerces this log event to the correct
 // type based on Initiator.Type, exposed by the LogRequest interface.
