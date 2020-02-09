@@ -16,7 +16,7 @@
 //
 // This is mostly copied from the sign/dss package, with minor adjustments for
 // use with ethschnorr.
-package dss
+package ethdss
 
 import (
 	"bytes"
