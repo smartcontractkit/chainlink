@@ -206,8 +206,8 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
 func TestFulfillRandomness(t *testing.T) {
 	coordinator := deployCoordinator(t)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
-	log := requestRandomness(t, coordinator, keyHash, fee, seed)
-	proof := fulfillRandomnessRequest(t, coordinator, *log)
+	randomnessRequestLog := requestRandomness(t, coordinator, keyHash, fee, seed)
+	proof := fulfillRandomnessRequest(t, coordinator, *randomnessRequestLog)
 	output, err := coordinator.consumerContract.RandomnessOutput(nil)
 	require.NoError(t, err)
 	require.True(t, equal(proof.Output, output))
