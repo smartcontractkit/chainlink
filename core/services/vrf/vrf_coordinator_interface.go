@@ -3,7 +3,6 @@ package vrf
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -25,23 +24,23 @@ type RandomnessRequestLog struct {
 	Seed    *big.Int // uint256
 	JobID   common.Hash
 	Sender  common.Address
-	Fee     *assets.Link
+	Fee     *assets.Link // uint256
 	Raw     RawRandomnessRequestLog
 }
+
+var dummyCoordinator, _ = solidity_vrf_coordinator_interface.NewVRFCoordinator(
+	common.Address{}, nil)
 
 // ParseRandomnessRequestLog returns the RandomnessRequestLog corresponding to
 // the raw logData
 func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
-	l := RawRandomnessRequestLog{}
-	coordABI := CoordinatorABI()
-	contract := bind.NewBoundContract(common.Address{}, coordABI, nil, nil, nil)
-	ethLog := types.Log(log)
-	if err := contract.UnpackLog(&l, "RandomnessRequest", ethLog); err != nil {
+	rawLog, err := dummyCoordinator.ParseRandomnessRequest(types.Log(log))
+	if err != nil {
 		return nil, errors.Wrapf(err,
 			"while parsing %x as RandomnessRequestLog", log.Data)
 	}
-	return &RandomnessRequestLog{l.KeyHash, l.Seed, l.JobID, l.Sender,
-		(*assets.Link)(l.Fee), RawRandomnessRequestLog(l)}, nil
+	return RawRandomnessRequestLogToRandomnessRequestLog(
+		(*RawRandomnessRequestLog)(rawLog)), nil
 }
 
 // RawData returns the raw bytes corresponding to l in a solidity log
@@ -67,14 +66,14 @@ func (l *RandomnessRequestLog) RequestID() common.Hash {
 	return utils.MustHash(string(append(l.KeyHash[:], soliditySeed...)))
 }
 
-func rawRandomnessRequestLogToRandomnessRequestLog(
-	l RawRandomnessRequestLog) RandomnessRequestLog {
-	return RandomnessRequestLog{
+func RawRandomnessRequestLogToRandomnessRequestLog(
+	l *RawRandomnessRequestLog) *RandomnessRequestLog {
+	return &RandomnessRequestLog{
 		KeyHash: l.KeyHash,
 		Seed:    l.Seed,
 		JobID:   l.JobID,
 		Sender:  l.Sender,
 		Fee:     (*assets.Link)(l.Fee),
-		Raw:     l,
+		Raw:     *l,
 	}
 }
