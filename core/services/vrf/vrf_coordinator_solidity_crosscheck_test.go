@@ -107,20 +107,20 @@ var (
 	secretKey = one // never do this in production!
 	publicKey = secp256k1Curve.Point().Mul(secp256k1.IntToScalar(secretKey), nil)
 	seed      = two
+	vrfFee    = seven
 )
 
 // registerProvingKey registers keyHash to neil in the VRFCoordinator universe
 // represented by coordinator, with the given jobID and fee.
 func registerProvingKey(t *testing.T, coordinator coordinator) (
 	keyHash [32]byte, jobID [32]byte, fee *big.Int) {
-	fee = seven
 	copy(jobID[:], []byte("exactly 32 characters in length."))
 	_, err := coordinator.rootContract.RegisterProvingKey(
-		coordinator.neil, fee, pair(secp256k1.Coordinates(publicKey)), jobID)
+		coordinator.neil, vrfFee, pair(secp256k1.Coordinates(publicKey)), jobID)
 	require.NoError(t, err)
 	coordinator.backend.Commit()
 	keyHash = utils.MustHash(string(secp256k1.LongMarshal(publicKey)))
-	return keyHash, jobID, fee
+	return keyHash, jobID, vrfFee
 }
 
 func TestRegisterProvingKey(t *testing.T) {
