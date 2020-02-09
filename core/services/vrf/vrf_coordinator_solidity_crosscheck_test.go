@@ -189,8 +189,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 	require.True(t, parsedLog.Equal(*log))
 }
 
-// fulfillRandomnessRequest returns the randomness requested by log, on behalf
-// of neil.
+// fulfillRandomnessRequest is neil fulfilling randomness requested by log.
 func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
 	log RandomnessRequestLog) *Proof {
 	proof, err := generateProofWithNonce(secretKey, log.Seed, one /* nonce */)
