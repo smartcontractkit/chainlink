@@ -34,22 +34,17 @@ type coordinator struct {
 	carol                   *bind.TransactOpts
 }
 
-func panicErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-func newIdentity() *bind.TransactOpts {
+func newIdentity(t *testing.T) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
-	panicErr(err)
+	require.NoError(t, err)
 	return bind.NewKeyedTransactor(key)
 }
 
-func deployCoordinator() coordinator {
+func deployCoordinator(t *testing.T) coordinator {
 	var (
-		sergey = newIdentity()
-		neil   = newIdentity()
-		carol  = newIdentity()
+		sergey = newIdentity(t)
+		neil   = newIdentity(t)
+		carol  = newIdentity(t)
 	)
 	oneEth := bi(1000000000000000000)
 	genesisData := core.GenesisAlloc{
@@ -61,20 +56,20 @@ func deployCoordinator() coordinator {
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend)
-	panicErr(err)
+	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err :=
 		solidity_vrf_coordinator_interface.DeployVRFCoordinator(
 			neil, backend, linkAddress)
-	panicErr(err)
+	require.NoError(t, err)
 	consumerContractAddress, _, consumerContract, err :=
 		solidity_vrf_consumer_interface.DeployVRFConsumer(
 			carol, backend, coordinatorAddress, linkAddress)
-	panicErr(err)
+	require.NoError(t, err)
 	_, _, requestIDBase, err :=
 		solidity_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend)
-	panicErr(err)
+	require.NoError(t, err)
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
-	panicErr(err)
+	require.NoError(t, err)
 	backend.Commit()
 	return coordinator{
 		rootContract:            coordinatorContract,
@@ -92,7 +87,7 @@ func deployCoordinator() coordinator {
 func TestRequestIDMatches(t *testing.T) {
 	keyHash := common.HexToHash("0x01")
 	seed := big.NewInt(1)
-	baseContract := deployCoordinator().requestIDBase
+	baseContract := deployCoordinator(t).requestIDBase
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err)
 	goRequestID := (&RandomnessRequestLog{KeyHash: keyHash, Seed: seed}).RequestID()
@@ -105,21 +100,21 @@ var (
 	seed      = two
 )
 
-func registerProvingKey(coordinator coordinator) (
+func registerProvingKey(t *testing.T, coordinator coordinator) (
 	keyHash [32]byte, jobID [32]byte, fee *big.Int) {
 	fee = seven
 	copy(jobID[:], []byte("exactly 32 characters in length."))
 	_, err := coordinator.rootContract.RegisterProvingKey(
 		coordinator.neil, fee, pair(secp256k1.Coordinates(publicKey)), jobID)
-	panicErr(err)
+	require.NoError(t, err)
 	coordinator.backend.Commit()
 	keyHash = utils.MustHash(string(secp256k1.LongMarshal(publicKey)))
 	return keyHash, jobID, fee
 }
 
 func TestRegisterProvingKey(t *testing.T) {
-	coordinator := deployCoordinator()
-	keyHash, jobID, fee := registerProvingKey(coordinator)
+	coordinator := deployCoordinator(t)
+	keyHash, jobID, fee := registerProvingKey(t, coordinator)
 	log, err := coordinator.rootContract.FilterNewServiceAgreement(nil)
 	require.NoError(t, err)
 	logCount := 0
@@ -154,8 +149,8 @@ func requestRandomness(t *testing.T, coordinator coordinator,
 }
 
 func TestRandomnessRequestLog(t *testing.T) {
-	coordinator := deployCoordinator()
-	keyHash_, jobID_, fee := registerProvingKey(coordinator)
+	coordinator := deployCoordinator(t)
+	keyHash_, jobID_, fee := registerProvingKey(t, coordinator)
 	keyHash := common.BytesToHash(keyHash_[:])
 	jobID := common.BytesToHash(jobID_[:])
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
@@ -186,8 +181,8 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
 }
 
 func TestFulfillRandomness(t *testing.T) {
-	coordinator := deployCoordinator()
-	keyHash, jobID, fee := registerProvingKey(coordinator)
+	coordinator := deployCoordinator(t)
+	keyHash, jobID, fee := registerProvingKey(t, coordinator)
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
 	proof := fulfillRandomnessRequest(t, coordinator, *log)
 	output, err := coordinator.consumerContract.RandomnessOutput(nil)
@@ -203,8 +198,8 @@ func TestFulfillRandomness(t *testing.T) {
 }
 
 func TestWithdraw(t *testing.T) {
-	coordinator := deployCoordinator()
-	keyHash, jobID, fee := registerProvingKey(coordinator)
+	coordinator := deployCoordinator(t)
+	keyHash, jobID, fee := registerProvingKey(t, coordinator)
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
 	fulfillRandomnessRequest(t, coordinator, *log)
 	payment := four
