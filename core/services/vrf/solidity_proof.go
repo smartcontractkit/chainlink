@@ -43,10 +43,7 @@ func (p *Proof) SolidityPrecalculations() (*SolidityProof, error) {
 	s := secp256k1.IntToScalar(p.S)
 	u := point().Add(point().Mul(c, p.PublicKey), point().Mul(s, Generator))
 	var err error
-	rv.UWitness, err = secp256k1.EthereumAddress(u)
-	if err != nil {
-		return nil, err
-	}
+	rv.UWitness = secp256k1.EthereumAddress(u)
 	rv.CGammaWitness = point().Mul(c, p.Gamma)
 	hash, err := HashToCurve(p.PublicKey, p.Seed, func(*big.Int) {})
 	if err != nil {

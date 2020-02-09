@@ -253,8 +253,7 @@ func TestVRF_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
 		s := randomScalar(t, r)
 		p := randomPoint(t, r)
 		expectedPoint := point().Add(point().Mul(c, p), point().Mul(s, Generator)) // cp+sg
-		expectedAddress, err := secp256k1.EthereumAddress(expectedPoint)
-		require.NoError(t, err)
+		expectedAddress := secp256k1.EthereumAddress(expectedPoint)
 		px, py := secp256k1.Coordinates(p)
 		actual, err := verifier.VerifyLinearCombinationWithGenerator(nil,
 			secp256k1.ToInt(c), pair(px, py), secp256k1.ToInt(s), expectedAddress)

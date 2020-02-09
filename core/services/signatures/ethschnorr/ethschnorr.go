@@ -96,10 +96,7 @@ func Sign(private kyber.Scalar, msg *big.Int) (Signature, error) {
 	commitmentSecretKey := secp256k1Group.Scalar().Pick(
 		secp256k1Suite.RandomStream())
 	commitmentPublicKey := secp256k1Group.Point().Mul(commitmentSecretKey, nil)
-	commitmentPublicAddress, err := secp256k1.EthereumAddress(commitmentPublicKey)
-	if err != nil {
-		return nil, err
-	}
+	commitmentPublicAddress := secp256k1.EthereumAddress(commitmentPublicKey)
 
 	public := secp256k1Group.Point().Mul(private, nil)
 	challenge, err := ChallengeHash(public, commitmentPublicAddress, msg)
@@ -146,11 +143,7 @@ func Verify(public kyber.Point, msg *big.Int, s Signature) error {
 	maybeCommitmentPublicKey := secp256k1Group.Point().Add(
 		secp256k1Group.Point().Mul(sigScalar, nil),
 		secp256k1Group.Point().Mul(challenge, public))
-	maybeCommitmentPublicAddress, err := secp256k1.EthereumAddress(
-		maybeCommitmentPublicKey)
-	if err != nil {
-		return err
-	}
+	maybeCommitmentPublicAddress := secp256k1.EthereumAddress(maybeCommitmentPublicKey)
 	if !bytes.Equal(s.CommitmentPublicAddress[:],
 		maybeCommitmentPublicAddress[:]) {
 		return fmt.Errorf("signature mismatch")

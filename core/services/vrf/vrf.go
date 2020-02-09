@@ -262,10 +262,7 @@ func (p *Proof) VerifyVRFProof() (bool, error) {
 	uPrime := linearCombination(p.C, p.PublicKey, p.S, Generator)
 	// c*secretKey*h + (m - c*secretKey)*h = m*h = v
 	vPrime := linearCombination(p.C, p.Gamma, p.S, h)
-	uWitness, err := secp256k1.EthereumAddress(uPrime)
-	if err != nil {
-		return false, errors.Wrap(err, "vrf.VerifyProof#EthereumAddress")
-	}
+	uWitness := secp256k1.EthereumAddress(uPrime)
 	cPrime := ScalarFromCurvePoints(h, p.PublicKey, p.Gamma, uWitness, vPrime)
 	output := utils.MustHash(string(secp256k1.LongMarshal(p.Gamma)))
 	return equal(p.C, cPrime) && equal(p.Output, output.Big()), nil
@@ -285,10 +282,7 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	gamma := secp256k1Curve.Point().Mul(skAsScalar, h)
 	sm := secp256k1.IntToScalar(nonce)
 	u := secp256k1Curve.Point().Mul(sm, Generator)
-	uWitness, err := secp256k1.EthereumAddress(u)
-	if err != nil {
-		panic(errors.Wrap(err, "while computing Ethereum Address for proof"))
-	}
+	uWitness := secp256k1.EthereumAddress(u)
 	v := secp256k1Curve.Point().Mul(sm, h)
 	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
 	// (m - c*secretKey) % GroupOrder
