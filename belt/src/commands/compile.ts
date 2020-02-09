@@ -1,9 +1,6 @@
 import { Command, flags } from '@oclif/command'
 import * as Parser from '@oclif/parser'
-import * as compilers from '../services/compilers'
-import * as config from '../services/config'
-
-type Compiler = keyof typeof compilers
+import { App } from '../services/config'
 
 export default class Compile extends Command {
   static description =
@@ -49,6 +46,7 @@ Chainlink artifact saved!
     }
 
     try {
+      const config = await import('../services/config')
       const conf = config.load(flags.config)
       const compilation =
         args.compiler === 'all'
@@ -61,11 +59,18 @@ Chainlink artifact saved!
     }
   }
 
-  private async compileSingle(compiler: Compiler, conf: config.App) {
-    await compilers[compiler].compileAll(conf)
+  private async compileSingle(compilerName: string, conf: App) {
+    type Compilers = typeof import('../services/compilers')
+    const compiler: Compilers[keyof Compilers] = await import(
+      `../services/compilers/${compilerName}`
+    )
+
+    await compiler.compileAll(conf)
   }
 
-  private async compileAll(conf: config.App) {
+  private async compileAll(conf: App) {
+    const compilers = await import('../services/compilers')
+
     await compilers.solc.compileAll(conf)
     await Promise.all([
       compilers.truffle.compileAll(conf),
