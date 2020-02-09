@@ -269,6 +269,10 @@ func (p *Proof) VerifyVRFProof() (bool, error) {
 }
 
 // generateProofWithNonce allows external nonce generation for testing purposes
+//
+// As with signatures, using nonces which are in any way predictable to an
+// adversary will leak your secret key! Most people should use GenerateProof
+// instead.
 func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
 		return nil, fmt.Errorf("badly-formatted key or seed")
