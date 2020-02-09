@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 	"go.dedis.ch/kyber/v3"
 
 	"chainlink/core/services/signatures/secp256k1"
@@ -76,11 +75,7 @@ func (k *PublicKey) String() string {
 // Hash returns the solidity Keccak256 hash of k. Corresponds to hashOfKey on
 // VRFCoordinator.
 func (k *PublicKey) Hash() common.Hash {
-	rv, err := utils.Keccak256(k[:])
-	if err != nil {
-		panic(errors.Wrapf(err, "while computing hash of public key %s", k))
-	}
-	return common.BytesToHash(rv)
+	return utils.MustHash(string(k[:]))
 }
 
 // Address returns the Ethereum address of k
