@@ -18,14 +18,14 @@ func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
 	nonce := randomScalar(t, r)
 	seed := randomUint256(t, r)
 	proof, err := generateProofWithNonce(skNum, seed, secp256k1.ToInt(nonce))
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to generate VRF proof")
 	mproof, err := proof.MarshalForSolidityVerifier()
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")
 	contract, owner := deployVRFContract(t)
 	rawData, err := contract.abi.Pack("randomValueFromVRFProof_", mproof[:])
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to construct VRF verfication call")
 	callMsg := ethereum.CallMsg{From: owner, To: &contract.address, Data: rawData}
 	estimate, err := contract.backend.EstimateGas(context.TODO(), callMsg)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to estimate gas cost for VRF verification")
 	require.Less(t, estimate, uint64(100000))
 }
