@@ -93,3 +93,14 @@ For ease of use with testing, if the environment variable `NODE_ENV` is set, the
 ```sh
 NODE_ENV=true yarn truffle test
 ```
+
+## Development
+
+
+### Setup
+
+After cloning the [chainlink repo](https://github.com/smartcontractkit/chainlink/), run `yarn install` and then `yarn setup:contracts`.
+
+### Testing
+
+After walking through the above setup commands, you can run `yarn test` from within `evm-contracts/` or run `yarn wsrun @chainlink/contracts test` from the root.
