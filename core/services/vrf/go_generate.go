@@ -1,7 +1,7 @@
 package vrf
 
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
-//go:generate sh -c "out=\"$(yarn workspace chainlinkv0.6 compile)\" || (echo \"$out\" ; exit 1)"
+//go:generate ./generation/compile_contracts.sh
 
 //go:generate ./generation/generate.sh ../../../evm/v0.6/dist/artifacts/VRFTestHelper.json solidity_verifier_wrapper
 //go:generate ./generation/generate.sh ../../../evm/v0.6/dist/artifacts/VRFCoordinator.json solidity_vrf_coordinator_interface
