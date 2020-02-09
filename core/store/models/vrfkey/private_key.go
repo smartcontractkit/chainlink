@@ -63,14 +63,14 @@ func (k *PrivateKey) gethKey() *keystore.Key {
 // fromGethKey returns the vrfkey representation of gethKey. Do not abuse this
 // to convert an ethereum key into a VRF key!
 func fromGethKey(gethKey *keystore.Key) *PrivateKey {
-	k := secp256k1.IntToScalar(gethKey.PrivateKey.D)
-	rawPublicKey, err := secp256k1.ScalarToPublicPoint(k).MarshalBinary()
+	secretKey := secp256k1.IntToScalar(gethKey.PrivateKey.D)
+	rawPublicKey, err := secp256k1.ScalarToPublicPoint(secretKey).MarshalBinary()
 	if err != nil {
 		panic(err) // Only way this can happen is out-of-memory failure
 	}
 	var publicKey PublicKey
 	copy(publicKey[:], rawPublicKey)
-	return &PrivateKey{k, publicKey}
+	return &PrivateKey{secretKey, publicKey}
 }
 
 // CreateKey makes a new VRF proving key from cryptographically secure entropy
