@@ -13,7 +13,7 @@ type parseRandomnessRequest struct{}
 
 var _ logRequestParser = parseRandomnessRequest{} // Implements logRequestParser
 
-// parseJSON returns the seed for the RandomnessRequest
+// parseJSON returns the inputs to be passed as a JSON object to Random adapter
 func (parseRandomnessRequest) parseJSON(log eth.Log) (js JSON, err error) {
 	parsedLog, err := vrf.ParseRandomnessRequestLog(log)
 	if err != nil {

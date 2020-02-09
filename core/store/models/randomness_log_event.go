@@ -12,11 +12,12 @@ import (
 // for a run log initiator.
 type RandomnessLogEvent struct{ InitiatorLogEvent }
 
-// assert RandomnessLogEvent implements LogRequest interface
-var _ LogRequest = RandomnessLogEvent{}
+var _ LogRequest = RandomnessLogEvent{} // implements LogRequest interface
 
 // Validate() is true if the contained log is parseable as a RandomnessRequest,
-// and it's from the address specified by the job's initiator.
+// and it's from the address specified by the job's initiator. The log filter
+// and the go-ethereum parser should prevent any invalid logs from reacching
+// this point, so Validate emits an error log on failure.
 func (le RandomnessLogEvent) Validate() bool {
 	_, err := vrf.ParseRandomnessRequestLog(le.Log)
 	switch {
@@ -36,7 +37,9 @@ func (le RandomnessLogEvent) Validate() bool {
 }
 
 // ValidateRequester never errors, because the requester is not important to the
-// node's functionality
+// node's functionality. A requesting contract cannot request the VRF output on
+// behalf of another contract, because the initial input seed is hashed with the
+// requesting contract's address (plus a nonce) to get the actual VRF input.
 func (le RandomnessLogEvent) ValidateRequester() error {
 	return nil
 }
@@ -71,6 +74,8 @@ func (le RandomnessLogEvent) RunRequest() (RunRequest, error) {
 	}, nil
 }
 
+// JSON returns the JSON from this RandomnessRequest log, as it will be passed
+// to the Randomn adapter
 func (le RandomnessLogEvent) JSON() (js JSON, err error) {
 	return parseRandomnessRequest{}.parseJSON(le.Log)
 }
