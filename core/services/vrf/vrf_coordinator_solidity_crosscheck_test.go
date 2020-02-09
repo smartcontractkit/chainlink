@@ -137,7 +137,7 @@ func TestRegisterProvingKey(t *testing.T) {
 }
 
 func requestRandomness(t *testing.T, coordinator coordinator,
-	keyHash common.Hash, jobID common.Hash, fee, seed *big.Int) RandomnessRequestLog {
+	keyHash common.Hash, jobID common.Hash, fee, seed *big.Int) *RandomnessRequestLog {
 	_, err := coordinator.consumerContract.RequestRandomness(coordinator.carol,
 		keyHash, fee, seed)
 	require.NoError(t, err)
@@ -149,7 +149,8 @@ func requestRandomness(t *testing.T, coordinator coordinator,
 		logCount += 1
 	}
 	require.Equal(t, 1, logCount)
-	return rawRandomnessRequestLogToRandomnessRequestLog(RawRandomnessRequestLog(*log.Event))
+	return RawRandomnessRequestLogToRandomnessRequestLog(
+		(*RawRandomnessRequestLog)(log.Event))
 }
 
 func TestRandomnessRequestLog(t *testing.T) {
@@ -168,7 +169,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 	require.True(t, equal(fee, (*big.Int)(log.Fee)))
 	parsedLog, err := ParseRandomnessRequestLog(chainlink_eth.Log(log.Raw.Raw))
 	require.NoError(t, err)
-	require.True(t, parsedLog.Equal(log))
+	require.True(t, parsedLog.Equal(*log))
 }
 
 func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
@@ -188,7 +189,7 @@ func TestFulfillRandomness(t *testing.T) {
 	coordinator := deployCoordinator()
 	keyHash, jobID, fee := registerProvingKey(coordinator)
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
-	proof := fulfillRandomnessRequest(t, coordinator, log)
+	proof := fulfillRandomnessRequest(t, coordinator, *log)
 	output, err := coordinator.consumerContract.RandomnessOutput(nil)
 	require.NoError(t, err)
 	require.True(t, equal(proof.Output, output))
@@ -205,7 +206,7 @@ func TestWithdraw(t *testing.T) {
 	coordinator := deployCoordinator()
 	keyHash, jobID, fee := registerProvingKey(coordinator)
 	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
-	fulfillRandomnessRequest(t, coordinator, log)
+	fulfillRandomnessRequest(t, coordinator, *log)
 	payment := four
 	peteThePunter := common.HexToAddress("0xdeadfa11deadfa11deadfa11deadfa11deadfa11")
 	_, err := coordinator.rootContract.Withdraw(coordinator.neil, peteThePunter, payment)
