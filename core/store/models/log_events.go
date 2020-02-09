@@ -194,9 +194,7 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 	switch le.Initiator.Type {
 	case InitiatorEthLog:
 		return EthLogEvent{InitiatorLogEvent: le}
-	case InitiatorServiceAgreementExecutionLog:
-		fallthrough
-	case InitiatorRunLog:
+	case InitiatorRunLog, InitiatorServiceAgreementExecutionLog:
 		return RunLogEvent{le}
 	case InitiatorRandomnessLog:
 		return RandomnessLogEvent{le}
