@@ -22,7 +22,7 @@ import (
 var sk = 0xdeadbeefdeadbee
 var k = mustNewPrivateKey(big.NewInt(int64(sk)))
 var pkr = regexp.MustCompile(fmt.Sprintf(
-	`PrivateKey\{k: <redacted>, PublicKey: 0x[0-9A-Fa-f]{%d}\}`,
+	`PrivateKey\{k: <redacted>, PublicKey: 0x[[:xdigit:]]{%d}\}`,
 	2*CompressedPublicKeyLength))
 
 func TestPrintingDoesNotLeakKey(t *testing.T) {
