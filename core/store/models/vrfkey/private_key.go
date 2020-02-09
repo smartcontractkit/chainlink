@@ -26,7 +26,7 @@ func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
 	sk.k = secp256k1.IntToScalar(rawKey)
 	pk, err := suite.Point().Mul(sk.k, nil).MarshalBinary()
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not compute public key from raw key")
+		panic(errors.Wrapf(err, "could not marshal public key"))
 	}
 	if len(pk) != CompressedPublicKeyLength {
 		panic(fmt.Errorf("public key %x has wrong length", pk))
