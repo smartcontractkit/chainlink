@@ -99,8 +99,8 @@ func TestRequestIDMatches(t *testing.T) {
 	baseContract := deployCoordinator(t).requestIDBase
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err)
-	goRequestID := (&RandomnessRequestLog{KeyHash: keyHash, Seed: seed}).RequestID()
-	require.Equal(t, common.Hash(solidityRequestID), goRequestID)
+	goRequestLog := &RandomnessRequestLog{KeyHash: keyHash, Seed: seed}
+	require.Equal(t, common.Hash(solidityRequestID), goRequestLog.RequestID())
 }
 
 var (
