@@ -30,7 +30,6 @@ type JobRun struct {
 	InitiatorID    uint         `json:"-"`
 	CreationHeight *utils.Big   `json:"creationHeight"`
 	ObservedHeight *utils.Big   `json:"observedHeight"`
-	Overrides      JSON         `json:"overrides"`
 	DeletedAt      null.Time    `json:"-" gorm:"index"`
 	Payment        *assets.Link `json:"payment,omitempty"`
 }
@@ -173,13 +172,14 @@ func (jr *JobRun) ErrorString() string {
 
 // RunRequest stores the fields used to initiate the parent job run.
 type RunRequest struct {
-	ID        uint `gorm:"primary_key"`
-	RequestID *string
-	TxHash    *common.Hash
-	BlockHash *common.Hash
-	Requester *common.Address
-	CreatedAt time.Time
-	Payment   *assets.Link
+	ID            uint `gorm:"primary_key"`
+	RequestID     *string
+	TxHash        *common.Hash
+	BlockHash     *common.Hash
+	Requester     *common.Address
+	CreatedAt     time.Time
+	Payment       *assets.Link
+	RequestParams JSON `gorm:"default: '{}';not null"`
 }
 
 // NewRunRequest returns a new RunRequest instance.
