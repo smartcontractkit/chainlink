@@ -212,7 +212,7 @@ contract VRF {
   // step 5.C, which references arbitrary_string_to_point, defined in
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5 as
   // returning the point with given x ordinate, and even y ordinate.
-  function newCandidateECPoint(bytes memory b)
+  function newCandidateSecp256k1Point(bytes memory b)
     internal view returns (uint256[2] memory p) {
       p[0] = fieldHash(uint256(keccak256(b)));
       p[1] = squareRoot(ySquared(p[0]));
@@ -221,7 +221,7 @@ contract VRF {
       }
     }
 
-  // One-way hash function onto the curve.
+  // Cryptographic hash function onto the curve.
   //
   // Corresponds to algorithm in section 5.4.1.1 of the draft standard. (But see
   // DESIGN NOTES above for slight differences.)
@@ -237,9 +237,9 @@ contract VRF {
   // https://www.pivotaltracker.com/story/show/171120900
   function hashToCurve(uint256[2] memory pk, uint256 input)
     internal view returns (uint256[2] memory rv) {
-      rv = newCandidateECPoint(abi.encodePacked(pk, input));
+      rv = newCandidateSecp256k1Point(abi.encodePacked(pk, input));
       while (!isOnCurve(rv)) {
-        rv = newCandidateECPoint(abi.encodePacked(rv[0]));
+        rv = newCandidateSecp256k1Point(abi.encodePacked(rv[0]));
       }
     }
 
