@@ -115,6 +115,16 @@ func initiationRequiresJobSpecID(initiatorType string) bool {
 	return ok
 }
 
+// jobSpecIDTopics lists the ways jsID could be represented as a log topic. This
+// allows log subscriptions to respond to all possible representations.
+func jobSpecIDTopics(jsID *ID) []common.Hash {
+	return []common.Hash{
+		// The job to be initiated can be encoded in a log topic in two ways:
+		IDToTopic(jsID),    // 16 full-range bytes, left padded to 32 bytes,
+		IDToHexTopic(jsID), // 32 ASCII hex chars representing the 16 bytes
+	}
+}
+
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
 func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err error) {
 	q.FromBlock = from
@@ -134,19 +144,17 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 				"cannot generate a FilterQuery with fromBlock >= toBlock")
 		}
 
-		// Copying the topics across (instead of coercing) clarifies their type for
-		// reflect.DeepEqual
+		// Copying the topics across (instead of coercing i.Topics to a
+		// [][]common.Hash) clarifies their type for reflect.DeepEqual
 		q.Topics = make([][]common.Hash, len(i.Topics))
 		copy(q.Topics, i.Topics)
 	case i.Type == InitiatorFluxMonitor:
 		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
 	case initiationRequiresJobSpecID(i.Type):
 		q.Topics = [][]common.Hash{
-			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type], {
-				// The job to be initiated can be encoded in a log topic in two ways:
-				IDToTopic(i.JobSpecID),    // 16 full-range bytes, left padded to 32 bytes,
-				IDToHexTopic(i.JobSpecID), // 32 ASCII hex chars representing the 16 bytes
-			}}
+			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
+			jobSpecIDTopics(i.JobSpecID),
+		}
 	default:
 		return ethereum.FilterQuery{},
 			fmt.Errorf("cannot generate a FilterQuery for initiator of type %T", i)
