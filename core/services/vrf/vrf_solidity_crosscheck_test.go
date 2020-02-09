@@ -359,31 +359,27 @@ func TestVRF_MarshalProof(t *testing.T) {
 		require.NoError(t, err, "failed on-chain to verify VRF proof / get its output")
 		require.True(t, equal(response, proof.Output),
 			"on-chain VRF output differs from off-chain!")
-		// Choose a byte to corrupt in the marshaled proof. Skip ignored bytes in
-		// uWitness field; those can be changed with no effect, because uWitness
-		// only takes the lower 160 bits for the address.
-		var corruptionTargetByte int64
+		corruptionTargetByte := r.Int63n(int64(len(mproof)))
+		// Only the lower 160 bits of the word containing uWitness have any effect
 		inAddressZeroBytes := func(b int64) bool { return b >= 224 && b < 236 }
-		for ; inAddressZeroBytes(corruptionTargetByte); corruptionTargetByte = r.Int63n(int64(len(mproof))) {
-		}
 		originalByte := mproof[corruptionTargetByte]
 		mproof[corruptionTargetByte] += 1
 		_, err = deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
-		require.Error(t, err,
+		require.True(t, inAddressZeroBytes(corruptionTargetByte) || err != nil,
 			"VRF verfication accepted a bad proof! Changed byte %d from %d to %d in %s, which is of length %d",
 			corruptionTargetByte, originalByte, mproof[corruptionTargetByte],
 			mproof.String(), len(mproof))
-		e := err.Error()
 		require.True(t,
-			strings.Contains(e, "invZ must be inverse of z") ||
-				strings.Contains(e, "First multiplication check failed") ||
-				strings.Contains(e, "Second multiplication check failed") ||
-				strings.Contains(e, "cGammaWitness is not on curve") ||
-				strings.Contains(e, "sHashWitness is not on curve") ||
-				strings.Contains(e, "gamma is not on curve") ||
-				strings.Contains(e, "addr(c*pk+s*g)≠_uWitness") ||
-				strings.Contains(e, "public key is not on curve"),
-			"VRF verification returned an unknown error: %s", e,
+			inAddressZeroBytes(corruptionTargetByte) ||
+				strings.Contains(err.Error(), "invZ must be inverse of z") ||
+				strings.Contains(err.Error(), "First multiplication check failed") ||
+				strings.Contains(err.Error(), "Second multiplication check failed") ||
+				strings.Contains(err.Error(), "cGammaWitness is not on curve") ||
+				strings.Contains(err.Error(), "sHashWitness is not on curve") ||
+				strings.Contains(err.Error(), "gamma is not on curve") ||
+				strings.Contains(err.Error(), "addr(c*pk+s*g)≠_uWitness") ||
+				strings.Contains(err.Error(), "public key is not on curve"),
+			"VRF verification returned an unknown error: %s", err,
 		)
 	}
 }
