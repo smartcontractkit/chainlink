@@ -140,7 +140,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
    * @dev should also change the solidityABISstring in solidity_proof.go.
    */
   function fulfillRandomnessRequest(bytes memory _proof) public returns (bool) {
-    // TODO(alx): Replace the public key out in the above proof with an argument
+    // TODO(alx): Replace the public key in the above proof with an argument
     // specifying the keyHash. Splice the key in here before sending it to
     // VRF.sol. Should be able to save about 2,000 gas that way.
     // https://www.pivotaltracker.com/story/show/170828567
