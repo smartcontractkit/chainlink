@@ -170,10 +170,17 @@ func TestRandomnessRequestLog(t *testing.T) {
 	jobID := common.BytesToHash(jobID_[:])
 	log := requestRandomness(t, coordinator, keyHash, fee, seed)
 	require.Equal(t, keyHash, log.KeyHash)
+	nonce := zero
 	actualSeed, err := coordinator.requestIDBase.MakeVRFInputSeed(nil, keyHash,
-		seed, coordinator.consumerContractAddress, zero)
+		seed, coordinator.consumerContractAddress, nonce)
 	require.NoError(t, err)
 	require.True(t, equal(actualSeed, log.Seed))
+	golangSeed := utils.MustHash(string(append(append(append(
+		keyHash[:],
+		common.BigToHash(seed).Bytes()...),
+		coordinator.consumerContractAddress.Hash().Bytes()...),
+		common.BigToHash(nonce).Bytes()...)))
+	require.Equal(t, golangSeed, common.BigToHash((log.Seed)))
 	require.Equal(t, jobID, log.JobID)
 	require.Equal(t, coordinator.consumerContractAddress, log.Sender)
 	require.True(t, equal(fee, (*big.Int)(log.Fee)))
