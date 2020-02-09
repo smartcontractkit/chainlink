@@ -22,24 +22,33 @@ import (
 	"chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
 )
 
+// coordinator represents the universe in which a randomness request occurs and
+// is fulfilled.
 type coordinator struct {
+	// Golang wrappers ofr solidity contracts
 	rootContract            *solidity_vrf_coordinator_interface.VRFCoordinator
 	linkContract            *link_token_interface.LinkToken
 	consumerContract        *solidity_vrf_consumer_interface.VRFConsumer
 	requestIDBase           *solidity_request_id.VRFRequestIDBaseTestHelper
 	consumerContractAddress common.Address
-	backend                 *backends.SimulatedBackend
-	sergey                  *bind.TransactOpts
-	neil                    *bind.TransactOpts
-	carol                   *bind.TransactOpts
+	// Abstraction representation of the ethereum blockchain
+	backend *backends.SimulatedBackend
+	// Cast of participants
+	sergey *bind.TransactOpts // Owns all the LINK initially
+	neil   *bind.TransactOpts // Node operator running VRF service
+	carol  *bind.TransactOpts // Author of consuming contract which requests randomness
 }
 
+// newIdentity returns a go-ethereum abstraction of an ethereum account for
+// interacting with contract golang wrappers
 func newIdentity(t *testing.T) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	return bind.NewKeyedTransactor(key)
 }
 
+// deployCoordinator sets up all identities and contracts associated with
+// testing the solidity VRF contracts involved in randomness request workflow
 func deployCoordinator(t *testing.T) coordinator {
 	var (
 		sergey = newIdentity(t)
@@ -100,6 +109,8 @@ var (
 	seed      = two
 )
 
+// registerProvingKey registers keyHash to neil in the VRFCoordinator universe
+// represented by coordinator, with the given jobID and fee.
 func registerProvingKey(t *testing.T, coordinator coordinator) (
 	keyHash [32]byte, jobID [32]byte, fee *big.Int) {
 	fee = seven
@@ -131,6 +142,10 @@ func TestRegisterProvingKey(t *testing.T) {
 	require.True(t, equal(fee, serviceAgreement.Fee))
 }
 
+// requestRandomness sends a randomness request via Carol's consuming contract,
+// in the VRFCoordinator universe represented by coordinator, specifying the
+// given keyHash and seed, and paying the given fee. It returns the log emitted
+// in response from the VRFcoordinator
 func requestRandomness(t *testing.T, coordinator coordinator,
 	keyHash common.Hash, jobID common.Hash, fee, seed *big.Int) *RandomnessRequestLog {
 	_, err := coordinator.consumerContract.RequestRandomness(coordinator.carol,
@@ -167,6 +182,8 @@ func TestRandomnessRequestLog(t *testing.T) {
 	require.True(t, parsedLog.Equal(*log))
 }
 
+// fulfillRandomnessRequest returns the randomness requested by log, on behalf
+// of neil.
 func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
 	log RandomnessRequestLog) *Proof {
 	proof, err := generateProofWithNonce(secretKey, log.Seed, one /* nonce */)
