@@ -104,7 +104,7 @@ var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
 // a user job with the given type of initiator. If chainlink has any jobs with
 // these initiators, it subscribes on startup to logs which match these topics,
 // and also match the job spec ID.
-var topicsForInitiatorsWhichRequireJobSpecTopic = map[string][]common.Hash{
+var TopicsForInitiatorsWhichRequireJobSpecIDTopic = map[string][]common.Hash{
 	InitiatorRunLog: {RunLogTopic20190207withoutIndexes,
 		RunLogTopic20190123withFullfillmentParams, RunLogTopic0original},
 	InitiatorServiceAgreementExecutionLog: {ServiceAgreementExecutionLogTopic},
@@ -114,7 +114,7 @@ var topicsForInitiatorsWhichRequireJobSpecTopic = map[string][]common.Hash{
 // initiationRequiresJobSpecId is true if jobs initiated by the given
 // initiatiatorType require that their initiating logs match their JobSpecIDs.
 func initiationRequiresJobSpecID(initiatorType string) bool {
-	_, ok := topicsForInitiatorsWhichRequireJobSpecTopic[initiatorType]
+	_, ok := TopicsForInitiatorsWhichRequireJobSpecIDTopic[initiatorType]
 	return ok
 }
 
@@ -146,7 +146,7 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
 	case initiationRequiresJobSpecID(i.Type):
 		q.Topics = [][]common.Hash{
-			topicsForInitiatorsWhichRequireJobSpecTopic[i.Type], {
+			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type], {
 				// The job to be initiated can be encoded in a log topic in two ways:
 				IDToTopic(i.JobSpecID),    // 16 full-range bytes, left padded to 32 bytes,
 				IDToHexTopic(i.JobSpecID), // 32 ASCII hex chars representing the 16 bytes

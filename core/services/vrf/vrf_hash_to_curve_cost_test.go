@@ -79,5 +79,5 @@ func TestMeasureHashToCurveGasCost(t *testing.T) {
 		gasCost, numOrdinates := measureHashToCurveGasCost(t, contract, owner, i)
 		require.Less(t, gasCost, HashToCurveGasCostBound(numOrdinates))
 	}
-	require.Less(t, HashToCurveGasCostBound(128), uint64(2.016e6))
+	require.Less(t, HashToCurveGasCostBound(128), uint64(2.017e6))
 }
