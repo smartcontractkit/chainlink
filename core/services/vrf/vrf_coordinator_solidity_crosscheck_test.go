@@ -147,7 +147,7 @@ func TestRegisterProvingKey(t *testing.T) {
 // given keyHash and seed, and paying the given fee. It returns the log emitted
 // in response from the VRFcoordinator
 func requestRandomness(t *testing.T, coordinator coordinator,
-	keyHash common.Hash, jobID common.Hash, fee, seed *big.Int) *RandomnessRequestLog {
+	keyHash common.Hash, fee, seed *big.Int) *RandomnessRequestLog {
 	_, err := coordinator.consumerContract.RequestRandomness(coordinator.carol,
 		keyHash, fee, seed)
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 	keyHash_, jobID_, fee := registerProvingKey(t, coordinator)
 	keyHash := common.BytesToHash(keyHash_[:])
 	jobID := common.BytesToHash(jobID_[:])
-	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
+	log := requestRandomness(t, coordinator, keyHash, fee, seed)
 	require.Equal(t, keyHash, log.KeyHash)
 	actualSeed, err := coordinator.requestIDBase.MakeVRFInputSeed(nil, keyHash,
 		seed, coordinator.consumerContractAddress, zero)
@@ -199,8 +199,8 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
 
 func TestFulfillRandomness(t *testing.T) {
 	coordinator := deployCoordinator(t)
-	keyHash, jobID, fee := registerProvingKey(t, coordinator)
-	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
+	keyHash, _, fee := registerProvingKey(t, coordinator)
+	log := requestRandomness(t, coordinator, keyHash, fee, seed)
 	proof := fulfillRandomnessRequest(t, coordinator, *log)
 	output, err := coordinator.consumerContract.RandomnessOutput(nil)
 	require.NoError(t, err)
@@ -216,8 +216,8 @@ func TestFulfillRandomness(t *testing.T) {
 
 func TestWithdraw(t *testing.T) {
 	coordinator := deployCoordinator(t)
-	keyHash, jobID, fee := registerProvingKey(t, coordinator)
-	log := requestRandomness(t, coordinator, keyHash, jobID, fee, seed)
+	keyHash, _, fee := registerProvingKey(t, coordinator)
+	log := requestRandomness(t, coordinator, keyHash, fee, seed)
 	fulfillRandomnessRequest(t, coordinator, *log)
 	payment := four
 	peteThePunter := common.HexToAddress("0xdeadfa11deadfa11deadfa11deadfa11deadfa11")
