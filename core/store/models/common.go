@@ -209,12 +209,7 @@ func mapToJSON(m map[string]interface{}) (JSON, error) {
 
 // Add returns a new instance of JSON with the new value added.
 func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
-	output, err := j.AsMap()
-	if err != nil {
-		return JSON{}, err
-	}
-	output[insertKey] = insertValue
-	return mapToJSON(output)
+	return j.MultiAdd([]KV{{insertKey, insertValue}})
 }
 
 // KV represents a key/value pair to be added to a JSON object
@@ -253,7 +248,7 @@ func (j JSON) CBOR() ([]byte, error) {
 	case map[string]interface{}, []interface{}, nil:
 		return b, cbor.Encode(v)
 	default:
-		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
+		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
 	}
 }
 
