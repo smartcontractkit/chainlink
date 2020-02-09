@@ -412,7 +412,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 				FromBlock: test.wantFromBlock,
 				Addresses: []common.Address{initr.InitiatorParams.Address},
 				Topics: [][]common.Hash{
-					models.LogTopicsForLogBasedInitiators[models.InitiatorRunLog],
+					models.TopicsForInitiatorsWhichRequireJobSpecIDTopic[models.InitiatorRunLog],
 					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)}},
 			}
 
