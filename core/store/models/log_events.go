@@ -99,8 +99,8 @@ var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
 
 // topicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
 // a user job with the given type of initiator. If chainlink has any jobs with
-// these initiators, it subscribes on startup to logs which match these topics,
-// and also match the job spec ID.
+// these initiators, it subscribes on startup to logs which match both these
+// topics and some representation of the job spec ID.
 var TopicsForInitiatorsWhichRequireJobSpecIDTopic = map[string][]common.Hash{
 	InitiatorRunLog: {RunLogTopic20190207withoutIndexes,
 		RunLogTopic20190123withFullfillmentParams, RunLogTopic0original},
@@ -125,8 +125,7 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 		if from == nil {
 			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
 		} else if i.InitiatorParams.FromBlock != nil {
-			q.FromBlock = utils.MaxBigs(from, /* != nil, due to if/else branch */
-				i.InitiatorParams.FromBlock.ToInt())
+			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
 		}
 		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
 
