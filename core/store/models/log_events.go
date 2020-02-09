@@ -117,7 +117,7 @@ func initiationRequiresJobSpecID(initiatorType string) bool {
 
 // jobSpecIDTopics lists the ways jsID could be represented as a log topic. This
 // allows log subscriptions to respond to all possible representations.
-func jobSpecIDTopics(jsID *ID) []common.Hash {
+func JobSpecIDTopics(jsID *ID) []common.Hash {
 	return []common.Hash{
 		// The job to be initiated can be encoded in a log topic in two ways:
 		IDToTopic(jsID),    // 16 full-range bytes, left padded to 32 bytes,
@@ -153,7 +153,7 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 	case initiationRequiresJobSpecID(i.Type):
 		q.Topics = [][]common.Hash{
 			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
-			jobSpecIDTopics(i.JobSpecID),
+			JobSpecIDTopics(i.JobSpecID),
 		}
 	default:
 		return ethereum.FilterQuery{},
