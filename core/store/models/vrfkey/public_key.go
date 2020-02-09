@@ -1,7 +1,6 @@
 package vrfkey
 
 import (
-	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -71,7 +70,7 @@ func (k *PublicKey) SetFromHex(hex string) error {
 
 // String returns k's binary uncompressed representation, as 0x-hex
 func (k *PublicKey) String() string {
-	return "0x" + hex.EncodeToString(k[:])
+	return hexutil.Encode(k[:])
 }
 
 // Hash returns the solidity Keccak256 hash of k. Corresponds to hashOfKey on
