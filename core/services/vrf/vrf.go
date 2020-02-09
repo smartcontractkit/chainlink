@@ -313,10 +313,10 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 // constraint on the seed, the samples and the possible public keys would
 // deviate very slightly from uniform distribution.)
 func GenerateProof(secretKey, seed *big.Int) (*Proof, error) {
-	if secretKey.Cmp(zero) == -1 || seed.Cmp(zero) == -1 {
+	if secretKey.Cmp(zero) < 0 || seed.Cmp(zero) < 0 {
 		return nil, fmt.Errorf("seed and/or secret key must be non-negative")
 	}
-	if secretKey.Cmp(secp256k1.GroupOrder) != -1 || seed.Cmp(secp256k1.GroupOrder) != -1 {
+	if secretKey.Cmp(secp256k1.GroupOrder) >= 0 || seed.Cmp(secp256k1.GroupOrder) >= 0 {
 		return nil, fmt.Errorf("seed and/or secret key must be less than group order")
 	}
 	for {

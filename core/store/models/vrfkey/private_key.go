@@ -19,7 +19,7 @@ var suite = secp256k1.NewBlakeKeccackSecp256k1()
 // PublicKey, or an error. Internal use only. Use cltest.StoredVRFKey for stable
 // testing key, or CreateKey if you don't need determinism.
 func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
-	if rawKey.Cmp(secp256k1.GroupOrder) != -1 || rawKey.Cmp(big.NewInt(0)) == -1 {
+	if rawKey.Cmp(secp256k1.GroupOrder) >= 0 || rawKey.Cmp(big.NewInt(0)) < 0 {
 		return nil, fmt.Errorf("secret key must be in {0, ..., #secp256k1 - 1}")
 	}
 	sk := &PrivateKey{}

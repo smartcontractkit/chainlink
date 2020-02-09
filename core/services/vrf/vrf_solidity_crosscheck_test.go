@@ -151,7 +151,7 @@ func TestVRF_CompareFieldHash(t *testing.T) {
 // Never use this if cryptographic security is required
 func randomKey(t *testing.T, r *mrand.Rand) *ecdsa.PrivateKey {
 	secretKey := fieldSize
-	for secretKey.Cmp(fieldSize) != -1 { // Keep picking until secretKey < fieldSize
+	for secretKey.Cmp(fieldSize) >= 0 { // Keep picking until secretKey < fieldSize
 		secretKey = randomUint256(t, r)
 	}
 	cKey := crypto.ToECDSAUnsafe(secretKey.Bytes())
