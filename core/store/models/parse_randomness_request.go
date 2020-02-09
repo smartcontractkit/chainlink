@@ -25,11 +25,17 @@ func (parseRandomnessRequest) parseJSON(log eth.Log) (js JSON, err error) {
 		return JSON{}, errors.Wrap(err, "vrf seed out of bounds")
 	}
 	return js.MultiAdd([]KV{
+		// Address of log emitter
 		{"address", log.Address.String()},
+		// Signature of callback function on consuming contract
 		{"functionSelector", vrf.FulfillSelector()},
+		// Hash of the public key for the VRF to be used
 		{"keyHash", parsedLog.KeyHash.Hex()},
+		// Raw input seed for the VRF (includes requester, nonce, etc.)
 		{"seed", fullSeedString},
+		// The chainlink job corresponding to this VRF
 		{"jobID", parsedLog.JobID.Hex()},
+		// Address of consuming contract which initially made the request
 		{"sender", parsedLog.Sender.Hex()},
 	})
 }
