@@ -135,24 +135,24 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	} else if i.PollingInterval < MinimumPollingInterval {
 		fe.Add("pollingInterval must be equal or greater than " + MinimumPollingInterval.String())
 	}
-	if err := validateFeeds(i, store); err != nil {
+	if err := validateFeeds(i.Feeds, store); err != nil {
 		fe.Add(err.Error())
 	}
 
 	return fe.CoerceEmptyToNil()
 }
 
-func validateFeeds(i models.Initiator, store *store.Store) error {
-	var feeds []interface{}
-	if err := json.Unmarshal(i.Feeds.Bytes(), &feeds); err != nil {
+func validateFeeds(feeds models.Feeds, store *store.Store) error {
+	var feedsData []interface{}
+	if err := json.Unmarshal(feeds.Bytes(), &feedsData); err != nil {
 		return errors.New("invalid json for feeds parameter")
 	}
-	if len(feeds) == 0 {
+	if len(feedsData) == 0 {
 		return errors.New("no feeds")
 	}
 
 	var bridgeNames []string
-	for _, entry := range feeds {
+	for _, entry := range feedsData {
 		switch entry.(type) {
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
 			bridgeName := entry.(map[string]interface{})["bridge"].(string)

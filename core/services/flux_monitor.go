@@ -216,7 +216,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		)
 	}
 
-	urls, err := ExtractFeedURLs(initr.InitiatorParams, orm)
+	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
 	if err != nil {
 		return nil, err
 	}
@@ -238,17 +238,17 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 }
 
 // ExtractFeedURLs extracts a list of url.URLs from the feeds parameter of the initiator params
-func ExtractFeedURLs(initr models.InitiatorParams, orm *orm.ORM) ([]*url.URL, error) {
-	var feeds []interface{}
+func ExtractFeedURLs(feeds models.Feeds, orm *orm.ORM) ([]*url.URL, error) {
+	var feedsData []interface{}
 	var urls []*url.URL
 
-	err := json.Unmarshal(initr.Feeds.Bytes(), &feeds)
+	err := json.Unmarshal(feeds.Bytes(), &feedsData)
 
 	if err != nil {
 		return nil, err
 	}
 
-	for _, entry := range feeds {
+	for _, entry := range feedsData {
 		var bridgeURL *url.URL
 		var err error
 
