@@ -5,6 +5,7 @@ import (
 
 	"chainlink/core/services/signatures/cryptotest"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,18 +15,20 @@ func TestValueScanIdentityPointSet(t *testing.T) {
 		p := suite.Point().Pick(randomStream)
 		var pk, nPk, nnPk PublicKey
 		marshaledKey, err := p.MarshalBinary()
-		require.NoError(t, err)
+		require.NoError(t, err, "failed to marshal public key")
 		require.Equal(t, copy(pk[:], marshaledKey),
-			CompressedPublicKeyLength)
-		require.NotEqual(t, pk, nPk)
+			CompressedPublicKeyLength, "failed to copy marshaled key to pk")
+		assert.NotEqual(t, pk, nPk, "equality test succeeds on different keys!")
 		np, err := pk.Point()
-		require.NoError(t, err)
-		require.True(t, p.Equal(np))
+		require.NoError(t, err, "failed to marshal public key")
+		assert.True(t, p.Equal(np), "Point should give the point we constructed pk from")
 		value, err := pk.Value()
-		require.NoError(t, err)
+		require.NoError(t, err, "failed to serialize public key for database")
 		nPk.Scan(value)
-		require.Equal(t, pk, nPk)
+		assert.Equal(t, pk, nPk,
+			"roundtripping public key through db Value/Scan gave different key!")
 		nnPk.Set(pk)
-		require.Equal(t, pk, nnPk)
+		assert.Equal(t, pk, nnPk,
+			"setting one PubliKey to another should result in equal keys")
 	}
 }
