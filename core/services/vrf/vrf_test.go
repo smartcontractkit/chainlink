@@ -1,13 +1,10 @@
 package vrf
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"chainlink/core/utils"
 )
 
 func TestVRF_IsSquare(t *testing.T) {
@@ -27,9 +24,4 @@ func TestVRF_YSquared(t *testing.T) {
 func TestVRF_IsCurveXOrdinate(t *testing.T) {
 	assert.True(t, IsCurveXOrdinate(big.NewInt(1)))
 	assert.False(t, IsCurveXOrdinate(big.NewInt(5)))
-}
-
-func TestVRF_fieldHash(t *testing.T) {
-	utils.PanicsWithError(t, fmt.Sprintf(fieldHashPanicTemplate, 33*8),
-		func() { fieldHash([]byte("much, much longer than 32 bytes!!")) })
 }

@@ -195,8 +195,8 @@ contract VRF {
   }
 
   // Hash x uniformly into {0, ..., FIELD_SIZE-1}.
-  function fieldHash(uint256 x) internal pure returns (uint256 x_) {
-    x_ = x;
+  function fieldHash(bytes memory b) internal pure returns (uint256 x_) {
+    x_ = uint256(keccak256(b));
     // Rejecting if x >= FIELD_SIZE corresponds to step 2.1 in section 2.3.4 of
     // http://www.secg.org/sec1-v2.pdf , which is part of the definition of
     // string_to_point in the IETF draft
@@ -213,7 +213,7 @@ contract VRF {
   // returning the point with given x ordinate, and even y ordinate.
   function newCandidateSecp256k1Point(bytes memory b)
     internal view returns (uint256[2] memory p) {
-      p[0] = fieldHash(uint256(keccak256(b)));
+      p[0] = fieldHash(b);
       p[1] = squareRoot(ySquared(p[0]));
       if (p[1] % 2 == 1) {
         p[1] = FIELD_SIZE - p[1];
