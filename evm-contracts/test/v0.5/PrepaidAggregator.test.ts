@@ -194,7 +194,9 @@ describe('PrepaidAggregator', () => {
     })
 
     it('emits a log event announcing submission details', async () => {
-      const tx = await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+      const tx = await aggregator
+        .connect(personas.Nelly)
+        .updateAnswer(nextRound, answer)
       const receipt = await tx.wait()
       const round = h.eventArgs(receipt.events?.[0])
 
