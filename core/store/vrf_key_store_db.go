@@ -129,34 +129,44 @@ func (ks *VRFKeyStore) get(k *vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, e
 
 // Get retrieves all EncryptedSecretKey's associated with k, or all encrypted
 // keys if k is nil, or errors
-//
-// (There could be more than one match to a public key, if saved multiple times
-// or under different passwords.)
 func (ks *VRFKeyStore) Get(k *vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	return ks.get(k)
 }
 
-// Export returns the encrypted key data for the given public key. (Could be
-// more than one export, if key has been imported more than once.) enckeys and
-// merr can both be non-trivial, if some keys were retrievable and some not.
-func (ks *VRFKeyStore) Export(k *vrfkey.PublicKey) (enckeys [][]byte, merr error) {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
-	enc, err := ks.get(k)
+func (ks *VRFKeyStore) GetSpecificKey(
+	k *vrfkey.PublicKey) (*vrfkey.EncryptedSecretKey, error) {
+	if k == nil {
+		return nil, fmt.Errorf("can't retrieve nil key")
+	}
+	encryptedKey, err := ks.Get(k)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not retrieve %s from db", k)
 	}
-	for _, enckey := range enc {
-		keyjson, err := json.Marshal(enckey)
-		if err != nil {
-			merr = multierr.Append(err, errors.Wrapf(err, "could not marshal %+v to json", enckey))
-		} else {
-			enckeys = append(enckeys, keyjson)
-		}
+	if len(encryptedKey) == 0 {
+		return nil, fmt.Errorf("could not find any keys with public key %s",
+			k.String())
 	}
-	return enckeys, merr
+	if len(encryptedKey) > 1 {
+		// This is impossible, as long as the public key is the primary key on the
+		// EncryptedSecretKey table.
+		panic(fmt.Errorf("found more than one key with public key %s", k.String()))
+	}
+	return encryptedKey[0], nil
+}
+
+// Export returns the encrypted key data for the given public key, or errors
+func (ks *VRFKeyStore) Export(k *vrfkey.PublicKey) (keyjson []byte, err error) {
+	encryptedKey, err := ks.GetSpecificKey(k)
+	if err != nil {
+		return nil, errors.Wrapf(err, "while retrieving key %s from DB", k.String())
+	}
+	keyjson, err = json.Marshal(encryptedKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not marshal %+v to json", encryptedKey)
+	}
+	return keyjson, nil
 }
 
 // ListKey lists the public keys contained in the db

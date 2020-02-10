@@ -130,7 +130,7 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 // ExportVRFKey saves encrypted copy of VRF key with given public key to
 // requested file path.
 func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
-	enckeys, err := getKeys(cli, c)
+	encryptedKey, err := getKeys(cli, c)
 	if err != nil {
 		return err
 	}
@@ -138,32 +138,33 @@ func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
 		return fmt.Errorf("must specify file to export to") // Or could default to stdout?
 	}
 	keypath := c.String("file")
-	// Duplicate keys for a given public key should be impossible, but keep this
-	// logic in case not.
-	for i, keyjson := range enckeys {
-		ckeypath := keypath
-		if i > 0 {
-			ckeypath = fmt.Sprintf("%s.%d", keypath, i)
-			fmt.Println("Duplicate key found! Exporting to ", ckeypath)
-		}
-		if err := ioutil.WriteFile(ckeypath, keyjson, 0644); err != nil {
-			return errors.Wrapf(err, "could not save %s to %s", keyjson, ckeypath)
-		}
+	_, err = os.Stat(keypath)
+	if err == nil {
+		return fmt.Errorf(
+			"refusing to overwrite existing file %s. Please move it or change the save path",
+			keypath)
+	}
+	if !os.IsNotExist(err) {
+		return errors.Wrapf(err, "while checking whether file %s exists", keypath)
+	}
+	if err := encryptedKey.WriteToDisk(keypath); err != nil {
+		return errors.Wrapf(err, "could not save %#+v to %s", encryptedKey, keypath)
 	}
 	return nil
 }
 
 // getKeys retrieves the keys for an ExportVRFKey request
-func getKeys(cli *Client, c *clipkg.Context) ([][]byte, error) {
+func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedSecretKey, error) {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return nil, err
 	}
-	enckeys, err := vRFKeyStore(cli).Export(publicKey)
-	if err != nil { // Tolerate errors here, in case some keys were retrievable
-		logger.Infow("while retrieving keys with matching public key", publicKey, err)
+	enckey, err := vRFKeyStore(cli).GetSpecificKey(publicKey)
+	if err != nil {
+		return nil, errors.Wrapf(err,
+			"while retrieving keys with matching public key %s", publicKey.String())
 	}
-	return enckeys, nil
+	return enckey, nil
 }
 
 // DeleteVRFKey deletes the VRF key with given public key from the db
@@ -201,9 +202,17 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO(alx) Figure out how to make a nice box out of this, like the other
+	// commands do.
+	fmt.Println(
+		`********************************************************************
+Public keys of encrypted keys in database
+********************************************************************`)
 	for _, key := range keys {
 		fmt.Println(key)
 	}
+	fmt.Println(
+		"********************************************************************")
 	logger.Infow("keys", "keys", keys)
 	return nil
 }
