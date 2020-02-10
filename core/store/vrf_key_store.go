@@ -35,9 +35,11 @@ func NewVRFKeyStore(store *Store) *VRFKeyStore {
 	}
 }
 
-// GenerateProof(k, seed) is marshaled randomness proof given k and seed.
+// GenerateProof(k, seed) is marshaled randomness proof given public key k and
+// VRF input seed.
 //
-// k must have already been unlocked in ks.
+// k must have already been unlocked in ks, as constructing the VRF proof
+// requires the secret key.
 func (ks *VRFKeyStore) GenerateProof(k *vrfkey.PublicKey, seed *big.Int) (
 	vrf.MarshaledProof, error) {
 	ks.lock.RLock()
@@ -49,8 +51,10 @@ func (ks *VRFKeyStore) GenerateProof(k *vrfkey.PublicKey, seed *big.Int) (
 	return privateKey.MarshaledProof(seed)
 }
 
-// Unlock tries to unlock each vrf key in the db, using the given pass phrase
-func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrfkey.PublicKey, merr error) {
+// Unlock tries to unlock each vrf key in the db, using the given pass phrase,
+// and returns any keys it manages to unlock, and any errors which result.
+func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrfkey.PublicKey,
+	merr error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	keys, err := ks.get(nil)
