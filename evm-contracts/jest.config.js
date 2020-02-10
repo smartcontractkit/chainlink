@@ -8,4 +8,5 @@ module.exports = {
       tsConfig: 'tsconfig.test.json',
     },
   },
+  extraGlobals: ['Math'],
 }
