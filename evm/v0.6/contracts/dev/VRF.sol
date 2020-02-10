@@ -482,14 +482,14 @@ contract VRF {
     64 + // sHashWitness
     32; // zInv  (Leave Output out, because that can be efficiently calculated)
 
-  /*****************************************************************************
+  /* ***************************************************************************
    * @notice Returns proof's output, if proof is valid. Otherwise reverts
 
    * @param proof A binary-encoded proof, as output by vrf.Proof.MarshalForSolidityVerifier
    *
    * Throws if proof is invalid, otherwise:
    * @return output i.e., the random output implied by the proof
-   *****************************************************************************
+   * ***************************************************************************
    * @dev See the calculation of PROOF_LENGTH for the binary layout of proof.
    */
   function randomValueFromVRFProof(bytes memory proof)
