@@ -5,6 +5,9 @@ package utils
 //
 // Remove this and redirect its callers to testify's assert/require, once
 // chainlink depends on a version greater than v1.4.0
+//
+// testify is released under an MIT Licence, so it's compatible with chainlink.
+// https://github.com/stretchr/testify/blob/8c465a0c/LICENSE
 
 import (
 	"fmt"
