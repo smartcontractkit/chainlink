@@ -261,7 +261,7 @@ contract VRF {
     // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
     // Point corresponding to address ecrecover(0, v, x, s=scalar*x) is
     // (x⁻¹ mod GROUP_ORDER) * (scalar * x * multiplicand - 0 * g), i.e.
-    // See https://crypto.stackexchange.com/a/18106
+    // scalar*multiplicand. See https://crypto.stackexchange.com/a/18106
     bytes32 scalarTimesX = bytes32(mulmod(scalar, x, GROUP_ORDER));
     address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
     // Explicit conversion to address takes bottom 160 bits
