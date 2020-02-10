@@ -154,17 +154,14 @@ func validateFeeds(i models.Initiator, store *store.Store) error {
 	var bridgeNames []string
 	for _, entry := range feeds {
 		switch entry.(type) {
-		case string:
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
 			bridgeName := entry.(map[string]interface{})["bridge"].(string)
 			bridgeNames = append(bridgeNames, bridgeName)
 		}
 	}
-
-	if bridges, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
+	// validate all bridges exist
+	if _, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
 		return err
-	} else if len(bridges) != len(bridgeNames) {
-		return errors.New("One or more named bridges does not exist")
 	}
 
 	return nil
