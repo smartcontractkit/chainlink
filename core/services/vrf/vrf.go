@@ -135,20 +135,14 @@ func uint256ToBytes32(x *big.Int) []byte {
 	return common.LeftPadBytes(x.Bytes(), 32)
 }
 
-var fieldHashPanicTemplate = "will only work for messages of at most 256 " +
-	"bits long, but message is %d bits"
-
 // fieldHash hashes xs uniformly into {0, ..., fieldSize-1}. msg is assumed to
 // already be a 256-bit hash
 func fieldHash(msg []byte) *big.Int {
-	if length := len(msg); length != 32 {
-		panic(fmt.Errorf(fieldHashPanicTemplate, length*8))
-	}
-	rv := i().SetBytes(msg)
+	rv := utils.MustHash(string(msg)).Big()
 	// Hash recursively until rv < q. P(success per iteration) >= 0.5, so
 	// number of extra hashes is geometrically distributed, with mean < 1.
 	for rv.Cmp(fieldSize) >= 0 {
-		rv.SetBytes(utils.MustHash(string(uint256ToBytes32(rv))).Bytes())
+		rv = utils.MustHash(string(common.BigToHash(rv).Bytes())).Big()
 	}
 	return rv
 }
@@ -160,11 +154,10 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(zero) >= 0) {
 		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
 	}
-	x := fieldHash(utils.MustHash(
-		string(append(secp256k1.LongMarshal(p), uint256ToBytes32(input)...))).Bytes())
+	x := fieldHash(append(secp256k1.LongMarshal(p), uint256ToBytes32(input)...))
 	ordinates(x)
 	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+7 is a square
-		x.Set(fieldHash(utils.MustHash(string(uint256ToBytes32(x))).Bytes()))
+		x.Set(fieldHash(common.BigToHash(x).Bytes()))
 		ordinates(x)
 	}
 	y := SquareRoot(YSquared(x))

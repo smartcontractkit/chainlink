@@ -138,7 +138,7 @@ func TestVRF_CompareFieldHash(t *testing.T) {
 	for j := 0; j < numSamples(); j++ {
 		_, err := r.Read(msg)
 		require.NoError(t, err, "failed to randomize intended hash message")
-		actual, err := deployVRFTestHelper(t).FieldHash(nil, i().SetBytes(msg))
+		actual, err := deployVRFTestHelper(t).FieldHash(nil, msg)
 		require.NoError(t, err, "failed to compute fieldHash on-chain")
 		expected := fieldHash(msg)
 		require.Equal(t, expected, actual,

@@ -17,8 +17,8 @@ contract VRFTestHelper is VRF {
   function ySquared_(uint256 x) public pure returns (uint256) {
     return super.ySquared(x);
   }
-  function fieldHash_(uint256 x) public pure returns (uint256) {
-    return super.fieldHash(x);
+  function fieldHash_(bytes memory b) public pure returns (uint256) {
+    return super.fieldHash(b);
   }
   function hashToCurve_(uint256[2] memory pk, uint256 x) public view returns(uint256[2] memory) {
     return super.hashToCurve(pk, x);
