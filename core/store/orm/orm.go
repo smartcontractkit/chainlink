@@ -221,7 +221,13 @@ func (orm *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
 func (orm *ORM) FindBridgesByNames(names []string) ([]models.BridgeType, error) {
 	orm.MustEnsureAdvisoryLock()
 	var bt []models.BridgeType
-	return bt, orm.db.Where("name IN (?)", names).Find(&bt).Error
+	if err := orm.db.Where("name IN (?)", names).Find(&bt).Error; err != nil {
+		return nil, err
+	}
+	if len(bt) != len(names) {
+		return nil, errors.New("bridge names don't exist or duplicates present")
+	}
+	return bt, nil
 }
 
 // PendingBridgeType returns the bridge type of the current pending task,
