@@ -10,7 +10,9 @@ import (
 	"chainlink/core/store/models/vrfkey"
 )
 
-// CreateKey an immediately unlocked key, saved in DB encrypted with phrase.
+// CreateKey returns a public key which is immediately unlocked in memory, and
+// saved in DB encrypted with phrase. If p is given, its parameters are used for
+// key derivation from the phrase.
 func (ks *VRFKeyStore) CreateKey(phrase string, p ...vrfkey.ScryptParams,
 ) (*vrfkey.PublicKey, error) {
 	key := vrfkey.CreateKey()
@@ -20,6 +22,10 @@ func (ks *VRFKeyStore) CreateKey(phrase string, p ...vrfkey.ScryptParams,
 	return &key.PublicKey, nil
 }
 
+// CreateWeakInMemoryEncryptedKeyXXXTestingOnly is for testing only! It returns
+// an encrypted key which is fast to unlock, but correspondingly easy to brute
+// force. It is not persisted to the DB, because no one should be keeping such
+// keys lying around.
 func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
 	phrase string) (*vrfkey.EncryptedSecretKey, error) {
 	key := vrfkey.CreateKey()
@@ -30,17 +36,17 @@ func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
 	return encrypted, nil
 }
 
-// Store saves key to this keystore, and to the DB encrypted with phrase.
+// Store saves key to ks (in memory), and to the DB, encrypted with phrase
 func (ks *VRFKeyStore) Store(key *vrfkey.PrivateKey, phrase string,
 	p ...vrfkey.ScryptParams) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	encrypted, err := key.Encrypt(phrase, p...)
 	if err != nil {
-		return errors.Wrap(err, "failed to serialize encrypted key")
+		return errors.Wrap(err, "failed to encrypt key")
 	}
 	if err := ks.store.FirstOrCreateEncryptedSecretVRFKey(encrypted); err != nil {
-		return errors.Wrap(err, "failed to  save encrypted key to db")
+		return errors.Wrap(err, "failed to save encrypted key to db")
 	}
 	ks.keys[key.PublicKey] = *key
 	return nil
@@ -68,7 +74,8 @@ func (ks *VRFKeyStore) Delete(key *vrfkey.PublicKey) (err error) {
 	}
 	matches, err := ks.get(key)
 	if err != nil {
-		return errors.Wrapf(err, "while checking for existence of key %s", key.String())
+		return errors.Wrapf(err, "while checking for existence of key %s in DB",
+			key.String())
 	}
 	if len(matches) == 0 {
 		return AttemptToDeleteNonExistentKeyFromDB
@@ -77,7 +84,8 @@ func (ks *VRFKeyStore) Delete(key *vrfkey.PublicKey) (err error) {
 		&vrfkey.EncryptedSecretKey{PublicKey: *key}))
 }
 
-// Import adds this encrypted key to the DB and in-memory store, or errors
+// Import adds this encrypted key to the DB and unlocks it in in-memory store
+// with passphrase auth, and returns any resulting errors
 func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
@@ -94,10 +102,12 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	}
 	key, err := enckey.Decrypt(auth)
 	if err != nil {
-		return err
+		return errors.Wrapf(err,
+			"while attempting to decrypt key with public key %s",
+			key.PublicKey.String())
 	}
 	if err := ks.store.FirstOrCreateEncryptedSecretVRFKey(enckey); err != nil {
-		return err
+		return errors.Wrapf(err, "while saving encrypted key to DB")
 	}
 	ks.keys[key.PublicKey] = *key
 	return nil
