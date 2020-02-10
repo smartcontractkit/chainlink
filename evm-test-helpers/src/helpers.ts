@@ -242,6 +242,15 @@ export async function increaseTimeBy(
 }
 
 /**
+ * Instruct the provider to mine an additional block
+ *
+ * @param provider The ethers provider to instruct to mine an additional block
+ */
+export async function mineBlock(provider: ethers.providers.JsonRpcProvider) {
+  await provider.send('evm_mine', [])
+}
+
+/**
  * Increase the current time within the evm to 5 minutes past the current time
  *
  * @param provider The ethers provider to send the time increase request to
