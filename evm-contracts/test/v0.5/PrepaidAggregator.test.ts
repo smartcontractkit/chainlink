@@ -198,7 +198,7 @@ describe('PrepaidAggregator', () => {
         .connect(personas.Nelly)
         .updateAnswer(nextRound, answer)
       const receipt = await tx.wait()
-      const round = h.eventArgs(receipt.events?.[0])
+      const round = h.eventArgs(receipt.events?.[1])
 
       assert.equal(answer, round.answer)
       assert.equal(nextRound, round.round)
@@ -353,7 +353,7 @@ describe('PrepaidAggregator', () => {
           .updateAnswer(nextRound, answer)
         const receipt = await tx.wait()
 
-        const topics = receipt.logs?.[1].topics ?? []
+        const topics = receipt.logs?.[0].topics ?? []
         const roundNumber = ethers.utils.bigNumberify(topics[1])
         const startedBy = h.evmWordToAddress(topics[2])
 
