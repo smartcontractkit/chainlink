@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -148,18 +149,28 @@ func validateFeeds(feeds models.Feeds, store *store.Store) error {
 		return errors.New("invalid json for feeds parameter")
 	}
 	if len(feedsData) == 0 {
-		return errors.New("no feeds")
+		return errors.New("feeds field is empty")
 	}
 
 	var bridgeNames []string
 	for _, entry := range feedsData {
-		switch entry.(type) {
+		switch feed := entry.(type) {
+		case string:
+			if _, err := url.ParseRequestURI(feed); err != nil {
+				return err
+			}
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
-			bridgeName := entry.(map[string]interface{})["bridge"].(string)
-			bridgeNames = append(bridgeNames, bridgeName)
+			bridgeName := feed["bridge"]
+			if bridgeName == nil {
+				return errors.New("Feeds object missing bridge key")
+			} else if len(feed) != 1 {
+				return errors.New("Unsupported keys in feed JSON")
+			}
+			bridgeNames = append(bridgeNames, bridgeName.(string))
+		default:
+			return errors.New("unknown feed type")
 		}
 	}
-	// validate all bridges exist
 	if _, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
 		return err
 	}

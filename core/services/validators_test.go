@@ -429,3 +429,59 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateInitiator_FeedsHappy(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	bridge := &models.BridgeType{
+		Name: models.MustNewTaskType("testbridge"),
+		URL:  cltest.WebURL(t, "https://testing.com/bridges"),
+	}
+	require.NoError(t, store.CreateBridgeType(bridge))
+
+	job := cltest.NewJob()
+	var initr models.Initiator
+	require.NoError(t, json.Unmarshal([]byte(validInitiator), &initr))
+	initr.Feeds = cltest.JSONFromString(t, `["https://lambda.staging.devnet.tools/bnc/call", {"bridge": "testbridge"}]`)
+	err := services.ValidateInitiator(initr, job, store)
+	require.NoError(t, err)
+}
+
+func TestValidateInitiator_FeedsErrors(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	bridge := &models.BridgeType{
+		Name: models.MustNewTaskType("testbridge"),
+		URL:  cltest.WebURL(t, "https://testing.com/bridges"),
+	}
+	require.NoError(t, store.CreateBridgeType(bridge))
+
+	job := cltest.NewJob()
+	tests := []struct {
+		description string
+		FeedsJSON   string
+	}{
+		{"invalid url", `["invalid/url"]`},
+		{"invalid bridge", `[{"bridge": "doesnotexist"}]`},
+		{"valid url, invalid bridge", `["http://example.com", {"bridge": "doesnotexist"}]`},
+		{"invalid url, valid bridge", `["invalid/url", {"bridge": "testbridge"}]`},
+		{"missing bridge", `[{"bridgeName": "doesnotexist"}]`},
+		{"unsupported bridge properties", `[{"bridge": "testbridge", "foo": "bar"}]`},
+		{"invalid entry", `["http://example.com", {"bridge": "testbridge"}, 1]`},
+	}
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			var initr models.Initiator
+			require.NoError(t, json.Unmarshal([]byte(validInitiator), &initr))
+			initr.Feeds = cltest.JSONFromString(t, test.FeedsJSON)
+			err := services.ValidateInitiator(initr, job, store)
+			require.Error(t, err)
+		})
+	}
+}

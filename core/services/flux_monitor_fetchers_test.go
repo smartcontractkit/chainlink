@@ -59,7 +59,7 @@ func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 				s := httptest.NewServer(fakePriceResponder(t, ethUSDPairing, price))
 				defer s.Close()
 				newURL, err := url.ParseRequestURI(s.URL)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				urls = append(urls, newURL)
 			}
 
@@ -67,7 +67,7 @@ func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 			require.NoError(t, err)
 
 			medianPrice, err := medianFetcher.Fetch()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, test.expect, medianPrice.String())
 		})
 	}
@@ -87,11 +87,11 @@ func TestHTTPFetcher_Happy(t *testing.T) {
 	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
 	defer s1.Close()
 	feedURL, err := url.ParseRequestURI(s1.URL)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, btcUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, decimal.NewFromInt(9700), price)
 }
 
@@ -109,7 +109,7 @@ func TestHTTPFetcher_ErrorMessage(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	feedURL, err := url.ParseRequestURI(server.URL)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
@@ -129,7 +129,7 @@ func TestHTTPFetcher_OnlyErrorMessage(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	feedURL, err := url.ParseRequestURI(server.URL)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
@@ -148,7 +148,7 @@ func TestHTTPFetcher_NoResultNorErrorMessage(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	feedURL, err := url.ParseRequestURI(server.URL)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
