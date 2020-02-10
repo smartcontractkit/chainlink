@@ -26,7 +26,8 @@ var defaultScryptParams = ScryptParams{
 	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
 
 // FastScryptParams is for use in tests, where you don't want to wear out your
-// CPU with expensive key derivations
+// CPU with expensive key derivations, do not use it in production, or your
+// encrypted VRF keys will be easy to brute-force!
 var FastScryptParams = ScryptParams{N: 2, P: 1}
 
 // Encrypt returns the key encrypted with passphrase auth
@@ -61,6 +62,7 @@ func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
 	return &rv, nil
 }
 
+// JSON returns the JSON representation of e, or errors
 func (e *EncryptedSecretKey) JSON() ([]byte, error) {
 	keyJSON, err := json.Marshal(e)
 	if err != nil {
@@ -83,13 +85,15 @@ func (e *EncryptedSecretKey) Decrypt(auth string) (*PrivateKey, error) {
 	return fromGethKey(gethKey), nil
 }
 
+// WriteToDisk writes the JSON representation of e to given file path, and
+// ensures the file has appropriate access permissions
 func (e *EncryptedSecretKey) WriteToDisk(path string) error {
 	keyJSON, err := e.JSON()
 	if err != nil {
 		return errors.Wrapf(err, "while marshaling key to save to %s", path)
 	}
-	UserReadWriteOtherNoAccess := os.FileMode(0600)
-	return ioutil.WriteFile(path, keyJSON, UserReadWriteOtherNoAccess)
+	userReadWriteOtherNoAccess := os.FileMode(0600)
+	return ioutil.WriteFile(path, keyJSON, userReadWriteOtherNoAccess)
 }
 
 // MarshalText renders k as a text string
