@@ -34,8 +34,8 @@ pragma solidity 0.6.2;
 
   * @dev Reggie provides a proof by which Vera can verify that the output was
   * @dev correctly computed once Reggie tells it to her, but without that proof,
-  * @dev the output is indistinguishable to her from a uniform random sample
-  * @dev from the output space.
+  * @dev the output is computationally indistinguishable to her from a uniform
+  * @dev random sample from the output space.
 
   * @dev The purpose of this contract is to perform that verification.
   * ****************************************************************************
@@ -82,12 +82,11 @@ pragma solidity 0.6.2;
   * @dev   the value computed by Reggie as the nonce times the secp256k1
   * @dev   generator point, see steps 5 and 7 of
   * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.3
-  * @dev   ) is replaced by its ethereum address of the point, which is the
-  * @dev   lower 160 bits of the keccak hash of the original u. This is because
-  * @dev   we only verify the calculation of u up to its address, by abusing
-  * @dev   ECRECOVER.
+  * @dev   ) is replaced by its ethereum address, i.e. the lower 160 bits of the
+  * @dev   keccak hash of the original u. This is because we only verify the
+  * @dev   calculation of u up to its address, by abusing ECRECOVER.
   * ****************************************************************************
-  * @dev SECURITY PROPERTIES
+  * @dev   SECURITY PROPERTIES
 
   * @dev Here are the security properties for this VRF:
 
@@ -105,7 +104,7 @@ pragma solidity 0.6.2;
   * @dev https://eprint.iacr.org/2017/099.pdf, Appendix B contains the proofs
   * @dev for these properties.
 
-  * @dev For secp256k1, the key-validation described in section
+  * @dev For secp256k1, the key validation described in section
   * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.6
   * @dev is unnecessary, because secp256k1 has cofactor 1, and the
   * @dev representation of the public key used here (affine x- and y-ordinates
