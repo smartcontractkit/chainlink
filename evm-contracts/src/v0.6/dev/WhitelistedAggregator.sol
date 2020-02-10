@@ -1,4 +1,4 @@
-pragma solidity 0.5.0;
+pragma solidity 0.6.2;
 
 import "./PrepaidAggregator.sol";
 import "./Whitelisted.sol";
@@ -30,8 +30,9 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
    */
   function latestAnswer()
     external
-    isWhitelisted()
     view
+    override
+    isWhitelisted()
     returns (int256)
   {
     return _latestAnswer();
@@ -44,6 +45,7 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
   function latestTimestamp()
     external
     view
+    override
     isWhitelisted()
     returns (uint256)
   {
@@ -58,6 +60,7 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
   function getAnswer(uint256 _roundId)
     external
     view
+    override
     isWhitelisted()
     returns (int256)
   {
@@ -71,8 +74,9 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
    */
   function getTimestamp(uint256 _roundId)
     external
-    isWhitelisted()
     view
+    override
+    isWhitelisted()
     returns (uint256)
   {
     return _getTimestamp(_roundId);

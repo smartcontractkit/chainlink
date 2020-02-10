@@ -1,4 +1,4 @@
-pragma solidity 0.5.0;
+pragma solidity 0.6.2;
 
 import "../Median.sol";
 import "../vendor/SafeMath.sol";
@@ -254,22 +254,13 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   }
 
   /**
-   * @notice query the available amount of LINK for an oracle to withdraw
-   */
-  function withdrawable()
-    external
-    view
-    returns (uint256)
-  {
-    return oracles[msg.sender].withdrawable;
-  }
-
-  /**
    * @notice get the most recently reported answer
    */
   function latestAnswer()
     external
     view
+    virtual
+    override
     returns (int256)
   {
     return _latestAnswer();
@@ -281,6 +272,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   function latestTimestamp()
     external
     view
+    virtual
+    override
     returns (uint256)
   {
     return _latestTimestamp();
@@ -292,6 +285,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   function latestRound()
     external
     view
+    override
     returns (uint256)
   {
     return latestRoundId;
@@ -315,6 +309,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   function getAnswer(uint256 _roundId)
     external
     view
+    virtual
+    override
     returns (int256)
   {
     return _getAnswer(_roundId);
@@ -327,6 +323,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   function getTimestamp(uint256 _roundId)
     external
     view
+    virtual
+    override
     returns (uint256)
   {
     return _getTimestamp(_roundId);
@@ -359,12 +357,25 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   }
 
   /**
+   * @notice query the available amount of LINK for an oracle to withdraw
+   */
+  function withdrawable()
+    external
+    view
+    override
+    returns (uint256)
+  {
+    return oracles[msg.sender].withdrawable;
+  }
+
+  /**
    * @notice transfers the oracle's LINK to another address
    * @param _recipient is the address to send the LINK to
    * @param _amount is the amount of LINK to send
    */
   function withdraw(address _recipient, uint256 _amount)
     external
+    override
   {
     uint128 amount = uint128(_amount);
     uint128 available = oracles[msg.sender].withdrawable;

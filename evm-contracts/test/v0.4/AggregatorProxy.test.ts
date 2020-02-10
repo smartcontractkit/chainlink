@@ -133,7 +133,7 @@ describe('AggregatorProxy', () => {
       assert.notEqual('0', height.toString())
     })
 
-    it('pulls the height from the aggregator', async () => {
+    it('pulls the timestamp from the aggregator', async () => {
       matchers.bigNum(
         await aggregator.latestTimestamp(),
         await proxy.latestTimestamp(),
@@ -175,7 +175,7 @@ describe('AggregatorProxy', () => {
         await proxy.setAggregator(aggregator2.address)
       })
 
-      it('pulls the height from the new aggregator', async () => {
+      it('pulls the timestamp from the new aggregator', async () => {
         matchers.bigNum(
           await aggregator2.latestTimestamp(),
           await proxy.latestTimestamp(),
