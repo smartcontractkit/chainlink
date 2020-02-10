@@ -156,6 +156,9 @@ describe('AggregatorProxy', () => {
         const receipt = await requestTx.wait()
         const request = oracle.decodeRunRequest(receipt.logs?.[3])
 
+        await h.increaseTimeBy(30, provider)
+        await h.mineBlock(provider)
+
         await oc1.fulfillOracleRequest(
           ...oracle.convertFufillParams(request, response2),
         )
@@ -163,7 +166,11 @@ describe('AggregatorProxy', () => {
         assert.notEqual('0', height2.toString())
 
         const height1 = await aggregator.latestTimestamp()
-        assert.notEqual(height1.toString(), height2.toString())
+        assert.notEqual(
+          height1.toString(),
+          height2.toString(),
+          'Height1 and Height2 should not be equal',
+        )
 
         await proxy.setAggregator(aggregator2.address)
       })
