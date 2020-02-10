@@ -266,7 +266,6 @@ contract VRF {
     address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
     // Explicit conversion to address takes bottom 160 bits
     address expected = address(uint256(keccak256(abi.encodePacked(product))));
-    // Rules out an ecrecover failure case (should be cryptographically impossible, anyway)
     return (actual == expected);
   }
 
@@ -388,9 +387,9 @@ contract VRF {
       bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER)); // c*p[0]
       // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
       // The point corresponding to the address returned by
-      // ecrecover(-s*p[0],v,p[0],c*p[0]) is 
-      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g. See
-      // https://crypto.stackexchange.com/a/18106
+      // ecrecover(-s*p[0],v,p[0],c*p[0]) is
+      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g.
+      // See https://crypto.stackexchange.com/a/18106
       // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
       address computed = ecrecover(pseudoHash, v, bytes32(p[0]), pseudoSignature);
       return computed == lcWitness;
