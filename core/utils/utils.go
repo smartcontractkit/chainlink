@@ -68,10 +68,7 @@ func Uint64ToHex(i uint64) string {
 	return fmt.Sprintf("0x%x", i)
 }
 
-var maxUint256 = big.NewInt(0).Sub( // 2**256-1
-	big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0)),
-	big.NewInt(1),
-)
+var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
 
 // Uint256ToBytes(x) is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
