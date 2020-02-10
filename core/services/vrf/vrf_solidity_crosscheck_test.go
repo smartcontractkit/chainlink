@@ -33,6 +33,10 @@ import (
 //
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
+//
+// TODO(alx): This suit used to be much faster, presumably because all tests
+// were sharing a common global verifier (which is fine, because all methods are
+// pure.) Revert to that, and see if it helps.
 func deployVRFTestHelper(t *testing.T) *solidity_verifier_wrapper.VRFTestHelper {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to create root ethereum identity")
@@ -60,10 +64,7 @@ func randomUint256(t *testing.T, r *mrand.Rand) *big.Int {
 // numSamples returns the number of examples which should be checked, in
 // generative tests
 func numSamples() int {
-	if testing.Short() {
-		return 10
-	}
-	return 1000
+	return 10
 }
 
 func TestVRF_CompareProjectiveECAddToVerifier(t *testing.T) {
