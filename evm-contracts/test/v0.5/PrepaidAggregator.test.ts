@@ -175,7 +175,7 @@ describe('PrepaidAggregator', () => {
       const expectedAvailable = deposit.sub(paymentAmount)
       matchers.bigNum(expectedAvailable, await aggregator.availableFunds())
       const logged = ethers.utils.bigNumberify(
-        receipt.logs?.[1].topics[1] ?? ethers.utils.bigNumberify(-1),
+        receipt.logs?.[2].topics[1] ?? ethers.utils.bigNumberify(-1),
       )
       matchers.bigNum(expectedAvailable, logged)
     })
@@ -191,6 +191,18 @@ describe('PrepaidAggregator', () => {
       latest = await aggregator.latestSubmission(personas.Neil.address)
       assert.equal(newAnswer, latest[0].toNumber())
       assert.equal(nextRound, latest[1].toNumber())
+    })
+
+    it('emits a log event announcing submission details', async () => {
+      const tx = await aggregator
+        .connect(personas.Nelly)
+        .updateAnswer(nextRound, answer)
+      const receipt = await tx.wait()
+      const round = h.eventArgs(receipt.events?.[1])
+
+      assert.equal(answer, round.answer)
+      assert.equal(nextRound, round.round)
+      assert.equal(personas.Nelly.address, round.oracle)
     })
 
     describe('when the minimum oracles have not reported', () => {
