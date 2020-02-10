@@ -513,6 +513,5 @@ func Uint256ToHex(n *big.Int) (string, error) {
 	if err := CheckUint256(n); err != nil {
 		return "", err
 	}
-	rv := hex.EncodeToString(n.Bytes())
-	return "0x" + strings.Repeat("0", 64-len(rv)) + rv, nil
+	return common.BigToHash(n).Hex(), nil
 }
