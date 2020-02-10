@@ -79,6 +79,11 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   );
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
+  event SubmissionReceived(
+    int256 indexed answer,
+    uint32 indexed round,
+    address indexed oracle
+  );
 
   uint32 constant private ROUND_MAX = 2**32-1;
 
@@ -522,6 +527,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     rounds[_id].details.answers.push(_answer);
     oracles[msg.sender].lastReportedRound = _id;
     oracles[msg.sender].latestAnswer = _answer;
+
+    emit SubmissionReceived(_answer, _id, msg.sender);
   }
 
   function deleteRound(uint32 _id)

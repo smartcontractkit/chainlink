@@ -104,7 +104,7 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && ./compose test
-  truffle:
+  solidity:
     resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
@@ -121,7 +121,7 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
       - run: pip3 install -r requirements.txt
-      - run: ./tools/ci/truffle_test
+      - run: ./tools/ci/solidity_test
       - store_artifacts:
           path: ./integration/logs
   styleguide:
@@ -389,7 +389,7 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - truffle:
+      - solidity:
           filters:
             tags:
               only: /^v.*/
@@ -467,7 +467,7 @@ workflows:
           requires:
             - go-sqlite
             - go-postgres
-            - truffle
+            - solidity
             - geth-postgres
             - parity-postgres
             - styleguide
@@ -485,7 +485,7 @@ workflows:
           requires:
             - go-sqlite
             - go-postgres
-            - truffle
+            - solidity
             - operator-ui
             - rust
             - explorer
