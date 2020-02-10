@@ -49,7 +49,7 @@
     "typeorm": "^0.2.20",
     "winston": "^3.2.1",
     "ws": "^7.2.0",
-    "yargs": "^13.2.2"
+    "yargs": "^15.1.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^3.0.0",
