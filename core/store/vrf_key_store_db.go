@@ -156,19 +156,6 @@ func (ks *VRFKeyStore) GetSpecificKey(
 	return encryptedKey[0], nil
 }
 
-// Export returns the encrypted key data for the given public key, or errors
-func (ks *VRFKeyStore) Export(k *vrfkey.PublicKey) (keyjson []byte, err error) {
-	encryptedKey, err := ks.GetSpecificKey(k)
-	if err != nil {
-		return nil, errors.Wrapf(err, "while retrieving key %s from DB", k.String())
-	}
-	keyjson, err = json.Marshal(encryptedKey)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not marshal %+v to json", encryptedKey)
-	}
-	return keyjson, nil
-}
-
 // ListKey lists the public keys contained in the db
 func (ks *VRFKeyStore) ListKeys() (publicKeys []*vrfkey.PublicKey, err error) {
 	enc, err := ks.Get(nil)
