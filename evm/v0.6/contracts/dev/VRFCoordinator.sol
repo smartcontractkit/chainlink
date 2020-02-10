@@ -24,11 +24,13 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   struct Callback { // Tracks an ongoing request
     address callbackContract; // Requesting contract, which will receive response
     uint256 randomnessFee; // Amount of LINK paid at request time
-    // Seed for the *oracle* to use in generating this random value. Hash of the
-    // seed provided as input during a randomnessRequest, plus the address of
-    // the contract making the request, plus an increasing nonce specific to the
-    // VRF proving key and the calling contract. Including this extra data in
-    // the VRF input seed helps prevent against replay attacks.
+    // Seed for the *oracle* to use in generating this random value. It is the
+    // hash of the seed provided as input during a randomnessRequest, plus the
+    // address of the contract making the request, plus an increasing nonce
+    // specific to the VRF proving key and the calling contract. Including this
+    // extra data in the VRF input seed helps to prevent unauthorized queries
+    // against a VRF by any party who has prior knowledge of the requester's
+    // prospective seed. Only the specified contract can make that request.
     uint256 seed;
   }
 
@@ -48,14 +50,14 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
 
   // The oracle only needs the jobID to look up the VRF, but specifying public
   // key as well prevents a malicious oracle from inducing VRF outputs from
-  // another oracle by reusing the jobID. The sender will be useful later, for
-  // whitelisting randomness requests.
+  // another oracle by reusing the jobID.
   event RandomnessRequest(
     bytes32 keyHash,
     uint256 seed,
     bytes32 indexed jobID,
     address sender,
     uint256 fee);
+
   event NewServiceAgreement(bytes32 keyHash, uint256 fee);
 
   /**
@@ -67,16 +69,15 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   function registerProvingKey(
     uint256 _fee, uint256[2] calldata _publicProvingKey, bytes32 _jobID
   )
-    external returns (bytes32 keyHash, address oracle, uint256 fee)
+    external
   {
-    keyHash = hashOfKey(_publicProvingKey);
+    bytes32 keyHash = hashOfKey(_publicProvingKey);
     address oldVRFOracle = serviceAgreements[keyHash].vRFOracle;
     require(oldVRFOracle == address(0), "please register a new key");
     serviceAgreements[keyHash].vRFOracle = msg.sender;
     serviceAgreements[keyHash].jobID = _jobID;
     serviceAgreements[keyHash].fee = _fee;
     emit NewServiceAgreement(keyHash, _fee);
-    return (keyHash, serviceAgreements[keyHash].vRFOracle, _fee);
   }
 
   /**
