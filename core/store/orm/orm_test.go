@@ -628,6 +628,45 @@ func TestORM_FindBridge(t *testing.T) {
 	}
 }
 
+func TestORM_FindBridgesByNames(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	bt1 := models.BridgeType{}
+	bt1.Name = models.MustNewTaskType("bridge1")
+	bt1.URL = cltest.WebURL(t, "http://bridge1.com")
+	assert.NoError(t, store.CreateBridgeType(&bt1))
+
+	bt2 := models.BridgeType{}
+	bt2.Name = models.MustNewTaskType("bridge2")
+	bt2.URL = cltest.WebURL(t, "http://bridge2.com")
+	assert.NoError(t, store.CreateBridgeType(&bt2))
+
+	cases := []struct {
+		description string
+		arguments   []string
+		expectation []models.BridgeType
+		errored     bool
+	}{
+		{"finds one bridge", []string{"bridge1"}, []models.BridgeType{bt1}, false},
+		{"finds multiple bridges", []string{"bridge1", "bridge2"}, []models.BridgeType{bt1, bt2}, false},
+		{"errors on duplicates", []string{"bridge1", "bridge1"}, nil, true},
+		{"errors on non-existent bridge names", []string{"bridge1", "doesnotexist"}, nil, true},
+	}
+
+	for _, test := range cases {
+		t.Run(test.description, func(t *testing.T) {
+			bridges, err := store.FindBridgesByNames(test.arguments)
+			assert.Equal(t, test.errored, err != nil)
+			if test.expectation != nil {
+				assert.Equal(t, bridges, test.expectation)
+			}
+		})
+	}
+}
+
 func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	t.Parallel()
 
