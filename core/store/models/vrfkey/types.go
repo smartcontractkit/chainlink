@@ -1,4 +1,4 @@
-// package vrfkey tracks the secret keys associated with VRF proofs. It
+// Package vrfkey tracks the secret keys associated with VRF proofs. It
 // is a separate package from ../store to increase encapsulation of the keys,
 // and reduce the risk of them leaking.
 //
