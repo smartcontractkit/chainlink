@@ -1,6 +1,6 @@
 import { contract, helpers, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { WhitelistedFactory } from '../../ethers/v0.5/WhitelistedFactory'
+import { WhitelistedFactory } from '../../ethers/v0.6/WhitelistedFactory'
 
 const whitelistedFactory = new WhitelistedFactory()
 const provider = setup.provider()

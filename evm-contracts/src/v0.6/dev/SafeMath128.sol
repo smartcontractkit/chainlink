@@ -1,4 +1,4 @@
-pragma solidity ^0.5.0;
+pragma solidity ^0.6.2;
 
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
@@ -14,9 +14,9 @@ pragma solidity ^0.5.0;
  * class of bugs, so it's recommended to use it always.
  *
  * This library is a version of Open Zeppelin's SafeMath, modified to support
- * unsigned 64 bit integers.
+ * unsigned 128 bit integers.
  */
-library SafeMath64 {
+library SafeMath128 {
   /**
     * @dev Returns the addition of two unsigned integers, reverting on
     * overflow.
@@ -26,8 +26,8 @@ library SafeMath64 {
     * Requirements:
     * - Addition cannot overflow.
     */
-  function add(uint64 a, uint64 b) internal pure returns (uint64) {
-    uint64 c = a + b;
+  function add(uint128 a, uint128 b) internal pure returns (uint128) {
+    uint128 c = a + b;
     require(c >= a, "SafeMath: addition overflow");
 
     return c;
@@ -42,9 +42,9 @@ library SafeMath64 {
     * Requirements:
     * - Subtraction cannot overflow.
     */
-  function sub(uint64 a, uint64 b) internal pure returns (uint64) {
+  function sub(uint128 a, uint128 b) internal pure returns (uint128) {
     require(b <= a, "SafeMath: subtraction overflow");
-    uint64 c = a - b;
+    uint128 c = a - b;
 
     return c;
   }
@@ -58,7 +58,7 @@ library SafeMath64 {
     * Requirements:
     * - Multiplication cannot overflow.
     */
-  function mul(uint64 a, uint64 b) internal pure returns (uint64) {
+  function mul(uint128 a, uint128 b) internal pure returns (uint128) {
     // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
     // benefit is lost if 'b' is also tested.
     // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
@@ -66,7 +66,7 @@ library SafeMath64 {
       return 0;
     }
 
-    uint64 c = a * b;
+    uint128 c = a * b;
     require(c / a == b, "SafeMath: multiplication overflow");
 
     return c;
@@ -83,10 +83,10 @@ library SafeMath64 {
     * Requirements:
     * - The divisor cannot be zero.
     */
-  function div(uint64 a, uint64 b) internal pure returns (uint64) {
+  function div(uint128 a, uint128 b) internal pure returns (uint128) {
     // Solidity only automatically asserts when dividing by 0
     require(b > 0, "SafeMath: division by zero");
-    uint64 c = a / b;
+    uint128 c = a / b;
     // assert(a == b * c + a % b); // There is no case in which this doesn't hold
 
     return c;
@@ -103,7 +103,7 @@ library SafeMath64 {
     * Requirements:
     * - The divisor cannot be zero.
     */
-  function mod(uint64 a, uint64 b) internal pure returns (uint64) {
+  function mod(uint128 a, uint128 b) internal pure returns (uint128) {
     require(b != 0, "SafeMath: modulo by zero");
     return a % b;
   }
