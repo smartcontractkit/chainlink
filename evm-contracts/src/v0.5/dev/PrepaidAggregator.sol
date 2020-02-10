@@ -119,8 +119,6 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     onlyValidRoundId(uint32(_round))
     onlyValidOracleRound(uint32(_round))
   {
-    emit SubmissionReceived(_answer, uint32(_round), msg.sender);
-
     startNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
@@ -529,6 +527,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     rounds[_id].details.answers.push(_answer);
     oracles[msg.sender].lastReportedRound = _id;
     oracles[msg.sender].latestAnswer = _answer;
+
+    emit SubmissionReceived(_answer, _id, msg.sender);
   }
 
   function deleteRound(uint32 _id)
