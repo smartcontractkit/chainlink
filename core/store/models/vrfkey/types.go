@@ -40,6 +40,5 @@ type EncryptedSecretKey struct {
 type gethKeyStruct struct {
 	Address string              `json:"address"`
 	Crypto  keystore.CryptoJSON `json:"crypto"`
-	Id      string              `json:"id"`
 	Version int                 `json:"version"`
 }
