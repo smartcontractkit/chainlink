@@ -537,7 +537,6 @@ func TestExtractFeedURLs(t *testing.T) {
 	}
 
 	for _, test := range tests {
-
 		t.Run(test.name, func(t *testing.T) {
 			initiatorParams := models.InitiatorParams{
 				Feeds: cltest.JSONFromString(t, test.in),

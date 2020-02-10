@@ -289,6 +289,8 @@ func (i Initiator) IsLogInitiated() bool {
 		i.Type == InitiatorServiceAgreementExecutionLog
 }
 
+// Feeds holds the json of the feeds parameter in the job spec. It is an array of
+// URL strings and/or objects containing the names of bridges
 type Feeds = JSON
 
 // TaskSpec is the definition of work to be carried out. The

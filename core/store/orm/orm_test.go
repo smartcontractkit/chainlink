@@ -637,12 +637,12 @@ func TestORM_FindBridgesByNames(t *testing.T) {
 	bt1 := models.BridgeType{}
 	bt1.Name = models.MustNewTaskType("bridge1")
 	bt1.URL = cltest.WebURL(t, "http://bridge1.com")
-	assert.NoError(t, store.CreateBridgeType(&bt1))
+	require.NoError(t, store.CreateBridgeType(&bt1))
 
 	bt2 := models.BridgeType{}
 	bt2.Name = models.MustNewTaskType("bridge2")
 	bt2.URL = cltest.WebURL(t, "http://bridge2.com")
-	assert.NoError(t, store.CreateBridgeType(&bt2))
+	require.NoError(t, store.CreateBridgeType(&bt2))
 
 	cases := []struct {
 		description string
