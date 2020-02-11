@@ -120,7 +120,7 @@ $ ./chainlink
 
 ```bash
 $ yarn
-$ make contracts
+$ yarn setup:contracts
 ```
 
 3. Ready for testing:
