@@ -42,20 +42,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
-	if err != nil {
+	if _, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd); err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
-	if len(c.String("vrfpassword")) != 0 {
-		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
-		if err != nil {
-			return cli.errorOut(errors.Wrapf(err,
-				"error reading VRF password from vrfpassword file \"%s\"",
-				c.String("vrfpassword")))
-		}
-		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
-			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
-		}
+	if err := maybeUnlockVRFKey(cli, c, app.GetStore()); err != nil {
+		return cli.errorOut(err)
 	}
 
 	var user models.User
@@ -211,4 +202,24 @@ func copyFile(src, dst string) error {
 	_, err = io.Copy(to, from)
 
 	return err
+}
+
+// maybeUnlockVRFKey unlocks any VRF keys it if requested. It returns an error
+// if finds extant VRF keys but can't unlock any of them with the given
+// password. If it finds no extant keys, it creates a new key with the given
+// password.
+func maybeUnlockVRFKey(cli *Client, c *clipkg.Context, store *strpkg.Store) error {
+	if len(c.String("vrfpassword")) == 0 {
+		return nil // user did not request unlocking of VRF keys
+	}
+	vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
+	if err != nil {
+		return cli.errorOut(errors.Wrapf(err,
+			"error reading VRF password from vrfpassword file \"%s\"",
+			c.String("vrfpassword")))
+	}
+	if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
+		return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
+	}
+	return nil
 }

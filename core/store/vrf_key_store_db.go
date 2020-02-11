@@ -84,15 +84,10 @@ func (ks *VRFKeyStore) Delete(key *vrfkey.PublicKey) (err error) {
 		&vrfkey.EncryptedSecretKey{PublicKey: *key}))
 }
 
-// Import adds this encrypted key to the DB and unlocks it in in-memory store
-// with passphrase auth, and returns any resulting errors
-func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
-	enckey := &vrfkey.EncryptedSecretKey{}
-	if err := json.Unmarshal(keyjson, enckey); err != nil {
-		return fmt.Errorf("could not parse %s as EncryptedSecretKey json", keyjson)
-	}
+// checkNoMatchingPublicKey returns nil iff it was able to search the db for
+// public keys matching enckey, and found none.
+func checkNoMatchingPublicKey(
+	ks *VRFKeyStore, enckey *vrfkey.EncryptedSecretKey) error {
 	extantMatchingKeys, err := ks.get(&enckey.PublicKey)
 	if err != nil {
 		return errors.Wrapf(err, "while checking for matching extant key in DB")
@@ -100,11 +95,38 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	if len(extantMatchingKeys) != 0 {
 		return MatchingVRFKeyError
 	}
+	return nil
+}
+
+// getAndCheckEncryptedKey returns the EncryptedSecretKey, if it can't find its
+// public key in the DB, and it can unlock the key with auth
+func getAndCheckEncryptedKeyHasNoMatchingPublicKey(
+	ks *VRFKeyStore, keyjson []byte, auth string) (*vrfkey.EncryptedSecretKey,
+	*vrfkey.PrivateKey, error) {
+	enckey := &vrfkey.EncryptedSecretKey{}
+	if err := json.Unmarshal(keyjson, enckey); err != nil {
+		return nil, nil, fmt.Errorf("could not parse %s as EncryptedSecretKey json", keyjson)
+	}
+	if err := checkNoMatchingPublicKey(ks, enckey); err != nil {
+		return nil, nil, err
+	}
 	key, err := enckey.Decrypt(auth)
 	if err != nil {
-		return errors.Wrapf(err,
+		err = errors.Wrapf(err,
 			"while attempting to decrypt key with public key %s",
 			key.PublicKey.String())
+	}
+	return enckey, key, err
+}
+
+// Import adds this encrypted key to the DB and unlocks it in in-memory store
+// with passphrase auth, and returns any resulting errors
+func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	enckey, key, err := getAndCheckEncryptedKeyHasNoMatchingPublicKey(ks, keyjson, auth)
+	if err != nil {
+		return err
 	}
 	if err := ks.store.FirstOrCreateEncryptedSecretVRFKey(enckey); err != nil {
 		return errors.Wrapf(err, "while saving encrypted key to DB")

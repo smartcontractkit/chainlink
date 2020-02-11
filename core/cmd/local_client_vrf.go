@@ -97,6 +97,31 @@ func getPasswordAndKeyFile(c *clipkg.Context) (password []byte, keyjson []byte, 
 	return password, keyjson, nil
 }
 
+// dealWithImportKeyFailure provides various extra, hopefully user-helpful
+// information when ImportVRFKey fails.
+func dealWithImportKeyFailure(err error, keyjson []byte) error {
+	if err == store.MatchingVRFKeyError {
+		fmt.Println(`The database already has an entry for that public key.`)
+		var key struct{ PublicKey string }
+		if err := json.Unmarshal(keyjson, &key); err != nil {
+			fmt.Println("could not extract public key from json input")
+			return errors.Wrapf(err, "while extracting public key from %s", keyjson)
+		}
+		fmt.Printf(`If you want to import the new key anyway, delete the old key with the command
+
+    %s
+
+(but maybe back it up first, with %s.)
+`,
+			fmt.Sprintf("chainlink local delete -pk %s", key.PublicKey),
+			fmt.Sprintf("`chainlink local export -f <backup_path> -pk %s`",
+				key.PublicKey))
+		return errors.Wrap(err, "while attempting to import key from CL")
+	}
+	return err
+
+}
+
 // ImportVRFKey reads a file into an EncryptedSecretKey in the db
 func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 	password, keyjson, err := getPasswordAndKeyFile(c)
@@ -104,27 +129,28 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 		return err
 	}
 	if err := vRFKeyStore(cli).Import(keyjson, string(password)); err != nil {
-		if err == store.MatchingVRFKeyError {
-			fmt.Println(`The database already has an entry for that public key.`)
-			var key struct{ PublicKey string }
-			if err := json.Unmarshal(keyjson, &key); err != nil {
-				fmt.Println("could not extract public key from json input")
-				return errors.Wrapf(err, "while extracting public key from %s", keyjson)
-			}
-			fmt.Printf(`If you want to import the new key anyway, delete the old key with the command
-
-    %s
-
-(but maybe back it up first, with %s.)
-`,
-				fmt.Sprintf("chainlink local delete -pk %s", key.PublicKey),
-				fmt.Sprintf("`chainlink local export -f <backup_path> -pk %s`",
-					key.PublicKey))
-			return errors.Wrap(err, "while attempting to import key from CL")
-		}
-		return err
+		return dealWithImportKeyFailure(err, keyjson)
 	}
 	return nil
+}
+
+// checkExportKEyPath returns an error if it finds problems with the path to
+// which a key is to be exported.
+func checkExportKEyPath(c *clipkg.Context) (keypath string, err error) {
+	if !c.IsSet("file") {
+		return "", fmt.Errorf("must specify file to export to") // Or could default to stdout?
+	}
+	keypath = c.String("file")
+	_, err = os.Stat(keypath)
+	if err == nil {
+		return "", fmt.Errorf(
+			"refusing to overwrite existing file %s. Please move it or change the save path",
+			keypath)
+	}
+	if !os.IsNotExist(err) {
+		return "", errors.Wrapf(err, "while checking whether file %s exists", keypath)
+	}
+	return keypath, nil
 }
 
 // ExportVRFKey saves encrypted copy of VRF key with given public key to
@@ -134,18 +160,9 @@ func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	if !c.IsSet("file") {
-		return fmt.Errorf("must specify file to export to") // Or could default to stdout?
-	}
-	keypath := c.String("file")
-	_, err = os.Stat(keypath)
-	if err == nil {
-		return fmt.Errorf(
-			"refusing to overwrite existing file %s. Please move it or change the save path",
-			keypath)
-	}
-	if !os.IsNotExist(err) {
-		return errors.Wrapf(err, "while checking whether file %s exists", keypath)
+	keypath, err := checkExportKEyPath(c)
+	if err != nil {
+		return err
 	}
 	if err := encryptedKey.WriteToDisk(keypath); err != nil {
 		return errors.Wrapf(err, "could not save %#+v to %s", encryptedKey, keypath)
@@ -172,6 +189,7 @@ func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedSecretKey, error)
 // Since this runs in an independent process from any chainlink node, it cannot
 // cause running nodes to forget the key, if they already have it unlocked.
 func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
+	cli.ListKeys(c)
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return err
