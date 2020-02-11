@@ -20,11 +20,11 @@
   },
   "devDependencies": {
     "@chainlink/belt": "^0.0.1",
+    "@truffle/hdwallet-provider": "^1.0.30",
     "chai": "^4.2.0",
     "depcheck": "^0.9.1",
     "openzeppelin-test-helpers": "^0.4.3",
     "solhint": "^2.1.0",
-    "truffle": "^5.1.5",
-    "truffle-hdwallet-provider": "^1.0.8"
+    "truffle": "^5.1.5"
   }
 }
