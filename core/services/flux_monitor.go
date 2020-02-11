@@ -71,21 +71,14 @@ func (fm *concreteFluxMonitor) Start() error {
 	fm.connect = make(chan *models.Head)
 	fm.disconnect = make(chan struct{})
 
-	go fm.actionConsumer(fm.ctx) // start single goroutine consumer
+	go fm.actionConsumer(fm.ctx)
 
-	errChan := make(chan error, 1)
-	count := 0
-	err := fm.store.Jobs(func(j *models.JobSpec) bool { // add persisted jobs
-		fm.adds <- addEntry{j, errChan}
-		count++
+	var merr error
+	err := fm.store.Jobs(func(j *models.JobSpec) bool {
+		err := fm.AddJob(*j)
+		merr = multierr.Combine(merr, err)
 		return true
 	}, models.InitiatorFluxMonitor)
-
-	// Block until jobs have been added, returning errors if any.
-	var merr error
-	for i := 0; i < count; i++ {
-		merr = multierr.Combine(merr, <-errChan)
-	}
 	return multierr.Append(err, merr)
 }
 
