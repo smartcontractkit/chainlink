@@ -2,6 +2,7 @@ import { join } from 'path'
 import { ls, rm } from 'shelljs'
 import compile from '../../../src/commands/compile'
 
+jest.setTimeout(10000)
 const TEST_PATH = 'test/functional/solc/'
 const TEST_FS_PATH = join(TEST_PATH, 'testfs')
 const FIXTURES_PATH = join(TEST_PATH, 'fixtures')
