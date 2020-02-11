@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "chainlink/contracts/ChainlinkClient.sol";
+import "@chainlink/contracts/src/v0.4/ChainlinkClient.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 /**
