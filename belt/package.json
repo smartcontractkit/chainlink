@@ -12,6 +12,7 @@
     "setup": "tsc -b",
     "clean": "tsc -b --clean",
     "test": "jest",
+    "prepublishOnly": "yarn clean && yarn setup",
     "version": "oclif-dev readme && git add README.md"
   },
   "bugs": "https://github.com/smartcontractkit/chainlink/issues",
