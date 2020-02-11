@@ -43,14 +43,14 @@ func GetContract(name string) (*Contract, error) {
 	return getContract(name, box)
 }
 
-// GetAdvancedContract loads the contract JSON file from ../../evm-contracts/abi/v0.5
+// GetV6Contract loads the contract JSON file from ../../evm-contracts/abi/v0.6
 // and parses the ABI JSON contents into an abi.ABI object
 //
 // NB: These contracts can be built by running
 //    yarn setup:contracts
 // in the base project directory.
-func GetV5Contract(name string) (*Contract, error) {
-	box := packr.NewBox("../../evm-contracts/abi/v0.5")
+func GetV6Contract(name string) (*Contract, error) {
+	box := packr.NewBox("../../evm-contracts/abi/v0.6")
 	return getContract(name, box)
 }
 
@@ -78,10 +78,10 @@ func (contract *Contract) GetMethodID(method string) ([]byte, error) {
 	return mabi.ID(), nil
 }
 
-// MustGetV5ContractEventID finds the event for the given contract by searching
+// MustGetV6ContractEventID finds the event for the given contract by searching
 // embedded contract assets from evm/, or panics if not found.
-func MustGetV5ContractEventID(name, eventName string) common.Hash {
-	contract, err := GetV5Contract(name)
+func MustGetV6ContractEventID(name, eventName string) common.Hash {
+	contract, err := GetV6Contract(name)
 	if err != nil {
 		logger.Panic(fmt.Errorf("unable to find contract %s", name))
 	}

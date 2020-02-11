@@ -145,7 +145,7 @@ func newDecimalFromString(arg string) (decimal.Decimal, error) {
 
 // GetAggregatorPrice returns the current price at the given address.
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
-	aggregator, err := GetV5Contract(PrepaidAggregatorName)
+	aggregator, err := GetV6Contract(PrepaidAggregatorName)
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
 	}
@@ -173,7 +173,7 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 
 // GetAggregatorRound returns the latest round at the given address.
 func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address) (*big.Int, error) {
-	aggregator, err := GetV5Contract(PrepaidAggregatorName)
+	aggregator, err := GetV6Contract(PrepaidAggregatorName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
 	}
