@@ -444,7 +444,7 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 		},
 		{
 			"result is preformatted",
-			FormatPreformatted,
+			FormatPreformattedHexArguments,
 			fmt.Sprintf(`{"result": "%s"}`, reallyLongHexString),
 			reallyLongHexString,
 		},

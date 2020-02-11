@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"syscall"
@@ -80,13 +81,22 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			models.RunStatusPendingConfirmations,
 		},
 		{
-			name:         "confirmed with preformatted format",
+			name: fmt.Sprintf("confirmed with %s format",
+				utils.FormatPreformattedHexArguments),
 			input:        "0x" + reallyLongHexString,
-			format:       "preformatted",
+			format:       utils.FormatPreformattedHexArguments,
 			receiptState: strpkg.Confirmed,
 			output: "0x" + strings.Repeat("00", 35) + "20" + // fn selector + offset
 				reallyLongHexString,
 			finalStatus: models.RunStatusPendingConfirmations,
+		},
+		{
+			name:         fmt.Sprintf("confirmed with %s format", utils.FormatRawHex),
+			input:        "0x" + reallyLongHexString,
+			format:       utils.FormatRawHex,
+			receiptState: strpkg.Confirmed,
+			output:       "0x" + reallyLongHexString,
+			finalStatus:  models.RunStatusPendingConfirmations,
 		},
 	}
 

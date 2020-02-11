@@ -205,7 +205,10 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 			return errors.New("EthTxABIEncode Adapter is not implemented yet")
 		}
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return adapter.Validate()
 }
 
 // ValidateServiceAgreement checks the ServiceAgreement for any application logic errors.

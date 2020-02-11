@@ -1,0 +1,7 @@
+{
+  "initiators": [{"type": "ethLog"}],
+  "tasks": [
+    {"type": "ethtx",
+     "params": {"format": "rawHex", "functionselector": "0x12345678"}}
+  ]
+}

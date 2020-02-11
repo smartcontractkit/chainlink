@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -48,22 +50,33 @@ func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.Run
 		return ensureTxRunResult(input, store)
 	}
 
-	value, err := getTxData(etx, input)
+	data, err := getTxData(etx, input)
 	if err != nil {
 		err = errors.Wrap(err, "while constructing EthTx data")
 		return models.NewRunOutputError(err)
 	}
 
-	data := utils.ConcatBytes(etx.FunctionSelector.Bytes(), etx.DataPrefix, value)
 	return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
 }
 
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
 func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
+	defaultPrefix := func(b ...[]byte) []byte {
+		return utils.ConcatBytes(
+			append([][]byte{e.FunctionSelector.Bytes(), e.DataPrefix}, b...)...)
+	}
 	result := input.Result()
-	if e.DataFormat == "" {
-		return common.HexToHash(result.Str).Bytes(), nil
+	switch e.DataFormat {
+	case utils.FormatRawHexWithFuncSelectorAndDataPrefix:
+		// TODO(alx): Should we enforce 0x-prefix, here? Might break existing jobs...
+		return defaultPrefix(common.HexToHash(result.Str).Bytes()), nil
+	case utils.FormatRawHex:
+		if !utils.HasHexPrefix(result.Str) {
+			return nil, fmt.Errorf("%s must be 0x-prefixed, got %s",
+				utils.FormatRawHex, result.Str)
+		}
+		return hex.DecodeString(utils.RemoveHexPrefix(result.Str))
 	}
 
 	payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen)
@@ -74,7 +87,7 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	return utils.ConcatBytes(payloadOffset, output), nil
+	return defaultPrefix(payloadOffset, output), nil
 }
 
 func createTxRunResult(
@@ -238,4 +251,24 @@ func pendingConfirmationsOrConnection(input models.RunInput) models.RunOutput {
 		return models.NewRunOutputPendingConfirmations()
 	}
 	return models.NewRunOutputPendingConnection()
+}
+
+// Validate returns an error if there's something inconsistent about this task
+func (p *EthTx) Validate() error {
+	switch p.DataFormat {
+	case utils.FormatRawHex:
+		if !bytes.Equal(p.FunctionSelector.Bytes(), eth.FunctionSelector{}.Bytes()) {
+			return fmt.Errorf(
+				"ethTx adapter cannot specify both `%s` format and functionSelector. "+
+					"Prior task must give function selector as the prefix of its output",
+				utils.FormatRawHex)
+		}
+		if !bytes.Equal([]byte(p.DataPrefix), []byte{}) {
+			return fmt.Errorf(
+				"ethTx adapter cannot specify both `%s` format and dataPrefix. "+
+					"Prior task must give dataPrefix as the prefix of its output.",
+				utils.FormatRawHex)
+		}
+	}
+	return nil
 }

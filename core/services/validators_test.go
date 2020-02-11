@@ -70,6 +70,16 @@ func TestValidateJob(t *testing.T) {
 			cltest.MustReadFile(t, "testdata/runlog_2_ethlogs_job.json"),
 			models.NewJSONAPIErrorsWith("Cannot RunLog initiated jobs cannot have more than one EthTx Task"),
 		},
+		{
+			// Basic test that the consistency check is operating correctly. Does not
+			// test all failures.
+			"inconsistent ethtx params",
+			cltest.MustReadFile(t, "testdata/ethtx_inconsistent_params.json"),
+			models.NewJSONAPIErrorsWith(fmt.Sprintf(
+				"ethTx adapter cannot specify both `%s` format and functionSelector. "+
+					"Prior task must give function selector as the prefix of its output",
+				utils.FormatRawHex)),
+		},
 	}
 
 	store, cleanup := cltest.NewStore(t)

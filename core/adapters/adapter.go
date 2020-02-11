@@ -53,7 +53,13 @@ var (
 // adapters have this minimum requirement.
 type BaseAdapter interface {
 	Perform(models.RunInput, *store.Store) models.RunOutput
+	// Validate returns an error if there's something inconsistent about this task
+	Validate() error
 }
+
+type NoValidationCheckAdapter struct{}
+
+func (a *NoValidationCheckAdapter) Validate() error { return nil }
 
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
 type PipelineAdapter struct {

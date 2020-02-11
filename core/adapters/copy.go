@@ -8,6 +8,7 @@ import (
 // Copy obj keys refers to which value to copy inside `data`,
 // each obj value refers to where to copy the value to inside `data`
 type Copy struct {
+	*NoValidationCheckAdapter
 	CopyPath JSONPath `json:"copyPath"`
 }
 

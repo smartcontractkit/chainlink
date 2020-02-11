@@ -23,6 +23,7 @@ const evmWordSize = 32
 // EthTxABIEncode holds the Address to send the result to and the FunctionABI
 // to use for encoding arguments.
 type EthTxABIEncode struct {
+	NoValidationCheckAdapter
 	// Ethereum address of the contract this task calls
 	Address common.Address `json:"address"`
 	// ABI of contract function this task calls

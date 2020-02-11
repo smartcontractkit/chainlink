@@ -11,6 +11,7 @@ import (
 // Compare adapter type takes an Operator and a Value field to
 // compare to the previous task's Result.
 type Compare struct {
+	*NoValidationCheckAdapter
 	Operator string `json:"operator"`
 	Value    string `json:"value"`
 }

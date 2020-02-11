@@ -6,7 +6,7 @@ import (
 )
 
 // NoOp adapter type holds no fields
-type NoOp struct{}
+type NoOp struct{ *NoValidationCheckAdapter }
 
 // Perform returns the input
 func (noa *NoOp) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
@@ -15,7 +15,7 @@ func (noa *NoOp) Perform(input models.RunInput, _ *store.Store) models.RunOutput
 }
 
 // NoOpPend adapter type holds no fields
-type NoOpPend struct{}
+type NoOpPend struct{ *NoValidationCheckAdapter }
 
 // Perform on this adapter type returns an empty RunResult with an
 // added field for the status to indicate the task is Pending.

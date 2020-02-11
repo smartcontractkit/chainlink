@@ -15,11 +15,23 @@ import (
 )
 
 const (
-	// FormatBytes encodes the output as bytes
+	// FormatRawHexWithFuncSelectorAndDataPrefix is the default format behavior.
+	// Its output is prefixed with the ethTx function selector, followed by the
+	// data prefix
+	FormatRawHexWithFuncSelectorAndDataPrefix = ""
+	// FormatBytes encodes the output as bytes. I.e., the string input will be
+	// cast to bytes, and passed to the on-chain contract method as a solidity
+	// bytes array argument. (No conversion from hex is done; the string input
+	// must be the raw bytes!)
 	FormatBytes = "bytes"
-	// FormatPreformatted encodes the output, assumed to be hex, as bytes. Caller
-	// is responsible for all formatting for the EVM.
-	FormatPreformatted = "preformatted"
+	// FormatPreformatted encodes the output, assumed to be hex, as bytes and
+	// passes them as arguments. Caller is responsible for all formatting for the
+	// EVM. Input must be 0x-prefixed
+	FormatPreformattedHexArguments = "preformattedHexArguments"
+	// FormatRawHex does no formatting at all. Caller is responsible for
+	// formatting the function selector and offset, in addition to any arguments
+	// to be passed with the transaction.
+	FormatRawHex = "rawHex"
 	// FormatUint256 encodes the output as bytes containing a uint256
 	FormatUint256 = "uint256"
 	// FormatInt256 encodes the output as bytes containing an int256
@@ -189,7 +201,11 @@ func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, erro
 	switch format {
 	case FormatBytes:
 		return EVMTranscodeBytes(value)
-	case FormatPreformatted:
+	case FormatPreformattedHexArguments:
+		if !HasHexPrefix(value.Str) {
+			return nil, fmt.Errorf("%s input must be 0x-prefixed, got %s",
+				FormatPreformattedHexArguments, value.Str)
+		}
 		return hex.DecodeString(RemoveHexPrefix(value.Str))
 	case FormatUint256:
 		data, err := EVMTranscodeUint256(value)

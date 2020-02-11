@@ -17,6 +17,7 @@ import (
 // JSONParse holds a path to the desired field in a JSON object,
 // made up of an array of strings.
 type JSONParse struct {
+	NoValidationCheckAdapter
 	Path JSONPath `json:"path"`
 }
 
