@@ -68,7 +68,7 @@ jobs:
           paths:
             - '/go/pkg/mod'
       - run: yarn setup:contracts
-      - run: go test -p 3 -parallel 2 ./...
+      - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
       - image: smartcontract/builder:1.0.25
