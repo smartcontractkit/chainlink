@@ -2,7 +2,7 @@ pragma solidity ^0.4.11;
 
 
 import './ERC677Token.sol';
-import './vendor/linkStandardToken.sol';
+import { StandardToken as linkStandardToken } from './vendor/StandardToken.sol';
 
 
 contract LinkToken is linkStandardToken, ERC677Token {
