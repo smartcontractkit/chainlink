@@ -5,15 +5,14 @@ This cli tool is currently used within `@chainlink/contracts` for the usage of r
 build and development tools across multiple solidity contract verisions.
 
 <!-- toc -->
-
-- [Usage](#usage)
-- [Commands](#commands)
-  <!-- tocstop -->
+* [@chainlink/belt](#chainlinkbelt)
+* [Usage](#usage)
+* [Commands](#commands)
+<!-- tocstop -->
 
 # Usage
 
 <!-- usage -->
-
 ```sh-session
 $ npm install -g @chainlink/belt
 $ belt COMMAND
@@ -25,15 +24,42 @@ USAGE
   $ belt COMMAND
 ...
 ```
-
 <!-- usagestop -->
 
 # Commands
 
 <!-- commands -->
+* [`belt box [PATH]`](#belt-box-path)
+* [`belt compile [COMPILER]`](#belt-compile-compiler)
+* [`belt help [COMMAND]`](#belt-help-command)
 
-- [`belt compile [COMPILER]`](#belt-compile-compiler)
-- [`belt help [COMMAND]`](#belt-help-command)
+## `belt box [PATH]`
+
+Modify a truffle box to a specified solidity version
+
+```
+USAGE
+  $ belt box [PATH]
+
+ARGUMENTS
+  PATH  the path to the truffle box
+
+OPTIONS
+  -d, --dryRun         output the replaced strings, but dont change them
+  -h, --help           show CLI help
+  -i, --interactive    run this command in interactive mode
+  -l, --list           list the available solidity versions
+
+  -s, --solVer=solVer  the solidity version to change the truffle box to
+                       either a solidity version alias "v0.6" | "0.6" or its full version "0.6.2"
+
+EXAMPLES
+  belt box --solVer 0.6 -d path/to/box
+  belt box --interactive path/to/box
+  belt box -l
+```
+
+_See code: [src/src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/src/commands/box.ts)_
 
 ## `belt compile [COMPILER]`
 
@@ -83,5 +109,4 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
-
 <!-- commandsstop -->
