@@ -201,9 +201,9 @@ func (s *secp256k1Scalar) SetBytes(a []byte) kyber.Scalar {
 
 // IsSecp256k1Scalar returns true if p is a secp256k1Scalar
 func IsSecp256k1Scalar(s kyber.Scalar) bool {
-	switch s.(type) {
+	switch s := s.(type) {
 	case *secp256k1Scalar:
-		s.(*secp256k1Scalar).modG()
+		s.modG()
 		return true
 	default:
 		return false
