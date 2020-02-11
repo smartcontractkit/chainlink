@@ -49,25 +49,48 @@ func (jsc *JobSpecsController) requireImplented(js models.JobSpec) error {
 	return nil
 }
 
+// getAndCheckJobSpec(c) returns a validated job spec from c, or errors. On
+// error, a non-zero HTTP status is returned.
+func (jsc *JobSpecsController) getAndCheckJobSpec(
+	c *gin.Context) (js models.JobSpec, httpStatus int, err error) {
+	var jsr models.JobSpecRequest
+	if err := c.ShouldBindJSON(&jsr); err != nil {
+		// TODO(alx): Better parsing and more specific error messages
+		// https://www.pivotaltracker.com/story/show/171164115
+		return models.JobSpec{}, http.StatusBadRequest, err
+	}
+	js = models.NewJobFromRequest(jsr)
+	if err := jsc.requireImplented(js); err != nil {
+		return models.JobSpec{}, http.StatusNotImplemented, err
+	}
+	if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
+		return models.JobSpec{}, http.StatusBadRequest, err
+	}
+	return js, 0, nil
+}
+
 // Create adds validates, saves, and starts a new JobSpec.
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Create(c *gin.Context) {
-	var jsr models.JobSpecRequest
-	if err := c.ShouldBindJSON(&jsr); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if js := models.NewJobFromRequest(jsr); false {
-	} else if err := jsc.requireImplented(js); err != nil {
-		jsonAPIError(c, http.StatusNotImplemented, err)
-	} else if err := services.ValidateJob(js, jsc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if err := NotifyExternalInitiator(js, jsc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if err = jsc.App.AddJob(js); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
+	js, httpStatus, err := jsc.getAndCheckJobSpec(c)
+	if err != nil {
+		jsonAPIError(c, httpStatus, err)
+		return
 	}
+	if err := NotifyExternalInitiator(js, jsc.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if err := jsc.App.AddJob(js); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	// TODO(alx): Roundtrip the presenters.JobSpec through JSON, back to a
+	// JobSpec, and validate it. This will warn developers when there's a
+	// disparity in the presenters logic for the spec.
+	// https://www.pivotaltracker.com/story/show/171169052
+	jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 }
 
 // Show returns the details of a JobSpec.
