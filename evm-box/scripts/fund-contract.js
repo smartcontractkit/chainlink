@@ -1,5 +1,5 @@
 const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
 
 /*
   This script is meant to assist with funding the requesting
