@@ -357,6 +357,12 @@ func LongMarshal(p kyber.Point) []byte {
 	return append(xMarshal[:], yMarshal[:]...)
 }
 
+// ScalarToPublicPoint returns the public secp256k1 point associated to s
+func ScalarToPublicPoint(s kyber.Scalar) kyber.Point {
+	publicPoint := (&Secp256k1{}).Point()
+	return publicPoint.Mul(s, nil)
+}
+
 // SetCoordinates returns the point (x,y), or panics if an invalid secp256k1Point
 func SetCoordinates(x, y *big.Int) kyber.Point {
 	rv := newPoint()
