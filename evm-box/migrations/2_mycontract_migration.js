@@ -9,10 +9,12 @@ module.exports = (deployer, network, [defaultAccount]) => {
     LinkToken.setProvider(deployer.provider)
     Oracle.setProvider(deployer.provider)
 
-    LinkToken.new({ from: defaultAccount }).then(link => {
-      Oracle.new(link.address, { from: defaultAccount }).then(() => {
-        deployer.deploy(MyContract, link.address)
-      })
+    deployer.deploy(LinkToken, { from: defaultAccount }).then(link => {
+      return deployer
+        .deploy(Oracle, link.address, { from: defaultAccount })
+        .then(() => {
+          return deployer.deploy(MyContract, link.address)
+        })
     })
   } else {
     // For live networks, use the 0 address to allow the ChainlinkRegistry
