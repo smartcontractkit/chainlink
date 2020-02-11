@@ -4,5 +4,6 @@
     "outDir": "./lib",
     "resolveJsonModule": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "exclude": ["test/**/testfs/**/*"]
 }
