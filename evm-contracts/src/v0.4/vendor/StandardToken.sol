@@ -1,8 +1,8 @@
 pragma solidity ^0.4.11;
 
 
-import './linkBasicToken.sol';
-import '../interfaces/linkERC20.sol';
+import { BasicToken as linkBasicToken } from './BasicToken.sol';
+import { ERC20 as linkERC20 } from '../interfaces/ERC20.sol';
 
 
 /**
@@ -12,7 +12,7 @@ import '../interfaces/linkERC20.sol';
  * @dev https://github.com/ethereum/EIPs/issues/20
  * @dev Based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
  */
-contract linkStandardToken is linkERC20, linkBasicToken {
+contract StandardToken is linkERC20, linkBasicToken {
 
   mapping (address => mapping (address => uint256)) allowed;
 
