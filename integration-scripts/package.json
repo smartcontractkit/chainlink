@@ -19,6 +19,7 @@
     "deploy-link-token-contract": "node ./dist/src/deployLinkTokenContract",
     "deploy-contracts": "node ./dist/src/deployContracts",
     "deploy-v0.5-contracts": "node ./dist/src/deployV0.5Contracts",
+    "deploy-v0.6-contracts": "node ./dist/src/deployV0.6Contracts",
     "initiate-service-agreement": "node ./dist/src/initiateServiceAgreement",
     "start-echo-server": "node ./dist/src/echoServer"
   },

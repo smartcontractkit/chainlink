@@ -1,9 +1,10 @@
-import { CoordinatorFactory } from '@chainlink/contracts/ethers/v0.5/CoordinatorFactory'
-import { MeanAggregatorFactory } from '@chainlink/contracts/ethers/v0.5/MeanAggregatorFactory'
+import { PrepaidAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/PrepaidAggregatorFactory'
+import { ethers } from 'ethers'
 import {
   createProvider,
   deployContract,
   DEVNET_ADDRESS,
+  getArgs,
   registerPromiseHandler,
 } from './common'
 import { deployLinkTokenContract } from './deployLinkTokenContract'
@@ -20,20 +21,19 @@ export async function deployContracts() {
 
   const linkToken = await deployLinkTokenContract()
 
-  const coordinator = await deployContract(
-    { Factory: CoordinatorFactory, signer, name: 'Coordinator' },
+  const prepaidAggregator = await deployContract(
+    { Factory: PrepaidAggregatorFactory, signer, name: 'PrepaidAggregator' },
     linkToken.address,
+    1,
+    3,
+    1,
+    ethers.utils.formatBytes32String('ETH/USD'),
   )
-
-  const meanAggregator = await deployContract({
-    Factory: MeanAggregatorFactory,
-    signer,
-    name: 'MeanAggregator',
-  })
+  const { CHAINLINK_NODE_ADDRESS } = getArgs(['CHAINLINK_NODE_ADDRESS'])
+  await prepaidAggregator.addOracle(CHAINLINK_NODE_ADDRESS, 1, 1, 0)
 
   return {
     linkToken,
-    coordinator,
-    meanAggregator,
+    prepaidAggregator,
   }
 }
