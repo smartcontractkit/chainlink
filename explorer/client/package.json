@@ -23,7 +23,7 @@
     "start": "cross-env PORT=3001 craco start",
     "setup": "tsc -b",
     "build": "craco build",
-    "clean": "tsc -b --clean && rimraf -rf build",
+    "clean": "rimraf -rf build",
     "test": "jest",
     "test:ci": "jest --silent --maxWorkers=50%",
     "depcheck": "echo \"@chainlink/explorer-client\" && depcheck --ignore-dirs=public || true"
