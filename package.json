@@ -2,7 +2,7 @@
   "private": true,
   "license": "MIT",
   "workspaces": [
-    "evm/box",
+    "evm-box",
     "evm-test-helpers",
     "evm-contracts",
     "feeds",
