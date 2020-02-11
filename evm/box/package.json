@@ -11,21 +11,20 @@
     "lint": "yarn solhint",
     "migrate:dev": "npx truffle migrate --reset --network cldev",
     "migrate:live": "npx truffle migrate --network live",
-    "test": "npx truffle test"
+    "test": "NODE_ENV=test npx truffle test"
   },
   "license": "MIT",
   "dependencies": {
-    "chainlink": "0.7.5",
     "link_token": "^1.0.6",
-    "openzeppelin-solidity": "^1.12.0"
+    "openzeppelin-solidity": "^1.12.0",
+    "@chainlink/contracts": "0.0.1"
   },
   "devDependencies": {
     "chai": "^4.2.0",
     "depcheck": "^0.9.1",
     "openzeppelin-test-helpers": "^0.4.3",
-    "solc": "0.6.2",
     "solhint": "^2.1.0",
-    "truffle": "^5.0.25",
+    "truffle": "^5.1.5",
     "truffle-hdwallet-provider": "^1.0.8"
   }
 }
