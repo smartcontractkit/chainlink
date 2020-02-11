@@ -28,7 +28,8 @@
     "abi/**/*",
     "ethers/**/*",
     "src/**/*",
-    "truffle/**/*"
+    "truffle/**/*",
+    "app.config.json"
   ],
   "optionalDependencies": {
     "@truffle/contract": "^4.1.8",
