@@ -1192,7 +1192,7 @@ module.exports = deployer => {
 exports[`truffle box tests should properly convert to v0.5 4`] = `
 "const MyContract = artifacts.require('MyContract')
 const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
-const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
+const { Oracle } = require('@chainlink/contracts/truffle/v0.5/Oracle')
 
 module.exports = (deployer, network, [defaultAccount]) => {
   // Local (development) networks need their own deployment of the LINK
@@ -1301,7 +1301,7 @@ const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
   const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
-  const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
+  const { Oracle } = require('@chainlink/contracts/truffle/v0.5/Oracle')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]
@@ -1713,7 +1713,7 @@ module.exports = deployer => {
 exports[`truffle box tests should properly convert to v0.6 4`] = `
 "const MyContract = artifacts.require('MyContract')
 const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
-const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
+const { Oracle } = require('@chainlink/contracts/truffle/v0.6/Oracle')
 
 module.exports = (deployer, network, [defaultAccount]) => {
   // Local (development) networks need their own deployment of the LINK
@@ -1822,7 +1822,7 @@ const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
   const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
-  const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
+  const { Oracle } = require('@chainlink/contracts/truffle/v0.6/Oracle')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]

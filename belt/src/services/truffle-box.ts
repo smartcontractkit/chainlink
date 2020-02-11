@@ -38,8 +38,15 @@ export function modifyTruffleBoxWith(
 
   const jsFiles = getJavascriptFiles(path)
   replaceInFile(
-    '@chainlink/contracts/src/v0.4',
-    `@chainlink/contracts/src/${solcVersionAlias}`,
+    '@chainlink/contracts/truffle/v0.4',
+    `@chainlink/contracts/truffle/${solcVersionAlias}`,
+    jsFiles,
+    dryRun,
+  )
+  // replace linktoken back to v0.4
+  replaceInFile(
+    `@chainlink/contracts/truffle/${solcVersionAlias}/LinkToken`,
+    '@chainlink/contracts/truffle/v0.4/LinkToken',
     jsFiles,
     dryRun,
   )
