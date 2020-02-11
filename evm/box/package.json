@@ -23,7 +23,7 @@
     "chai": "^4.2.0",
     "depcheck": "^0.9.1",
     "openzeppelin-test-helpers": "^0.4.3",
-    "solc": "0.6.0",
+    "solc": "0.6.2",
     "solhint": "^2.1.0",
     "truffle": "^5.0.25",
     "truffle-hdwallet-provider": "^1.0.8"
