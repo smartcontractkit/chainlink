@@ -5,7 +5,7 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { WhitelistedAggregatorFactory } from '../../ethers/v0.5/WhitelistedAggregatorFactory'
+import { WhitelistedAggregatorFactory } from '../../ethers/v0.6/WhitelistedAggregatorFactory'
 
 const aggregatorFactory = new WhitelistedAggregatorFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()

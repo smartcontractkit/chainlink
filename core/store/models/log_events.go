@@ -67,7 +67,7 @@ var (
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
 	// the PrepaidAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorNewRoundLogTopic20191220 = eth.MustGetV5ContractEventID("PrepaidAggregator", "NewRound")
+	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("PrepaidAggregator", "NewRound")
 )
 
 type logRequestParser interface {

@@ -7,7 +7,7 @@ import {
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
-import { PrepaidAggregatorFactory } from '../../ethers/v0.5/PrepaidAggregatorFactory'
+import { PrepaidAggregatorFactory } from '../../ethers/v0.6/PrepaidAggregatorFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
