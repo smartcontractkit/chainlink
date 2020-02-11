@@ -139,18 +139,6 @@ contract MyContract is ChainlinkClient, Ownable {
 `;
 
 exports[`truffle box tests should output nothing on a dry run 3`] = `
-"pragma solidity 0.4.24;
-
-import \\"link_token/contracts/LinkToken.sol\\";"
-`;
-
-exports[`truffle box tests should output nothing on a dry run 4`] = `
-"pragma solidity 0.4.24;
-
-import \\"@chainlink/contracts/src/v0.4/Oracle.sol\\";"
-`;
-
-exports[`truffle box tests should output nothing on a dry run 5`] = `
 "const Migrations = artifacts.require('Migrations')
 
 module.exports = deployer => {
@@ -159,19 +147,24 @@ module.exports = deployer => {
 "
 `;
 
-exports[`truffle box tests should output nothing on a dry run 6`] = `
+exports[`truffle box tests should output nothing on a dry run 4`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
-const Oracle = artifacts.require('Oracle')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
 
-module.exports = (deployer, network) => {
+module.exports = (deployer, network, [defaultAccount]) => {
   // Local (development) networks need their own deployment of the LINK
   // token and the Oracle contract
   if (!network.startsWith('live')) {
-    deployer.deploy(LinkToken).then(() => {
-      return deployer.deploy(Oracle, LinkToken.address).then(() => {
-        return deployer.deploy(MyContract, LinkToken.address)
-      })
+    LinkToken.setProvider(deployer.provider)
+    Oracle.setProvider(deployer.provider)
+
+    deployer.deploy(LinkToken, { from: defaultAccount }).then(link => {
+      return deployer
+        .deploy(Oracle, link.address, { from: defaultAccount })
+        .then(() => {
+          return deployer.deploy(MyContract, link.address)
+        })
     })
   } else {
     // For live networks, use the 0 address to allow the ChainlinkRegistry
@@ -182,9 +175,9 @@ module.exports = (deployer, network) => {
 "
 `;
 
-exports[`truffle box tests should output nothing on a dry run 7`] = `
+exports[`truffle box tests should output nothing on a dry run 5`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
 
 /*
   This script is meant to assist with funding the requesting
@@ -206,7 +199,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should output nothing on a dry run 8`] = `
+exports[`truffle box tests should output nothing on a dry run 6`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -222,7 +215,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should output nothing on a dry run 9`] = `
+exports[`truffle box tests should output nothing on a dry run 7`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -259,14 +252,14 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should output nothing on a dry run 10`] = `
+exports[`truffle box tests should output nothing on a dry run 8`] = `
 "/* eslint-disable @typescript-eslint/no-var-requires */
 const { oracle } = require('@chainlink/test-helpers')
 const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
-  const LinkToken = artifacts.require('LinkToken.sol')
-  const Oracle = artifacts.require('Oracle.sol')
+  const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+  const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]
@@ -291,7 +284,7 @@ contract('MyContract', accounts => {
   let link, oc, cc
 
   beforeEach(async () => {
-    link = await LinkToken.new()
+    link = await LinkToken.new({ from: defaultAccount })
     oc = await Oracle.new(link.address, { from: defaultAccount })
     cc = await MyContract.new(link.address, { from: consumer })
     await oc.setFulfillmentPermission(oracleNode, true, {
@@ -314,7 +307,9 @@ contract('MyContract', accounts => {
       let request
 
       beforeEach(async () => {
-        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+          from: defaultAccount,
+        })
       })
 
       context('sending a request to a specific oracle contract address', () => {
@@ -347,7 +342,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -405,7 +402,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -468,7 +467,9 @@ contract('MyContract', accounts => {
 
   describe('#withdrawLink', () => {
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
     })
 
     context('when called by a non-owner', () => {
@@ -491,8 +492,8 @@ contract('MyContract', accounts => {
 "
 `;
 
-exports[`truffle box tests should output nothing on a dry run 11`] = `
-"const HDWalletProvider = require('truffle-hdwallet-provider')
+exports[`truffle box tests should output nothing on a dry run 9`] = `
+"const HDWalletProvider = require('@truffle/hdwallet-provider')
 
 module.exports = {
   networks: {
@@ -659,18 +660,6 @@ contract MyContract is ChainlinkClient, Ownable {
 `;
 
 exports[`truffle box tests should properly convert to v0.4 3`] = `
-"pragma solidity 0.4.24;
-
-import \\"link_token/contracts/LinkToken.sol\\";"
-`;
-
-exports[`truffle box tests should properly convert to v0.4 4`] = `
-"pragma solidity 0.4.24;
-
-import \\"@chainlink/contracts/src/v0.4/Oracle.sol\\";"
-`;
-
-exports[`truffle box tests should properly convert to v0.4 5`] = `
 "const Migrations = artifacts.require('Migrations')
 
 module.exports = deployer => {
@@ -679,19 +668,24 @@ module.exports = deployer => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.4 6`] = `
+exports[`truffle box tests should properly convert to v0.4 4`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
-const Oracle = artifacts.require('Oracle')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
 
-module.exports = (deployer, network) => {
+module.exports = (deployer, network, [defaultAccount]) => {
   // Local (development) networks need their own deployment of the LINK
   // token and the Oracle contract
   if (!network.startsWith('live')) {
-    deployer.deploy(LinkToken).then(() => {
-      return deployer.deploy(Oracle, LinkToken.address).then(() => {
-        return deployer.deploy(MyContract, LinkToken.address)
-      })
+    LinkToken.setProvider(deployer.provider)
+    Oracle.setProvider(deployer.provider)
+
+    deployer.deploy(LinkToken, { from: defaultAccount }).then(link => {
+      return deployer
+        .deploy(Oracle, link.address, { from: defaultAccount })
+        .then(() => {
+          return deployer.deploy(MyContract, link.address)
+        })
     })
   } else {
     // For live networks, use the 0 address to allow the ChainlinkRegistry
@@ -702,9 +696,9 @@ module.exports = (deployer, network) => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.4 7`] = `
+exports[`truffle box tests should properly convert to v0.4 5`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
 
 /*
   This script is meant to assist with funding the requesting
@@ -726,7 +720,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.4 8`] = `
+exports[`truffle box tests should properly convert to v0.4 6`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -742,7 +736,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.4 9`] = `
+exports[`truffle box tests should properly convert to v0.4 7`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -779,14 +773,14 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.4 10`] = `
+exports[`truffle box tests should properly convert to v0.4 8`] = `
 "/* eslint-disable @typescript-eslint/no-var-requires */
 const { oracle } = require('@chainlink/test-helpers')
 const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
-  const LinkToken = artifacts.require('LinkToken.sol')
-  const Oracle = artifacts.require('Oracle.sol')
+  const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+  const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]
@@ -811,7 +805,7 @@ contract('MyContract', accounts => {
   let link, oc, cc
 
   beforeEach(async () => {
-    link = await LinkToken.new()
+    link = await LinkToken.new({ from: defaultAccount })
     oc = await Oracle.new(link.address, { from: defaultAccount })
     cc = await MyContract.new(link.address, { from: consumer })
     await oc.setFulfillmentPermission(oracleNode, true, {
@@ -834,7 +828,9 @@ contract('MyContract', accounts => {
       let request
 
       beforeEach(async () => {
-        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+          from: defaultAccount,
+        })
       })
 
       context('sending a request to a specific oracle contract address', () => {
@@ -867,7 +863,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -925,7 +923,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -988,7 +988,9 @@ contract('MyContract', accounts => {
 
   describe('#withdrawLink', () => {
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
     })
 
     context('when called by a non-owner', () => {
@@ -1011,8 +1013,8 @@ contract('MyContract', accounts => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.4 11`] = `
-"const HDWalletProvider = require('truffle-hdwallet-provider')
+exports[`truffle box tests should properly convert to v0.4 9`] = `
+"const HDWalletProvider = require('@truffle/hdwallet-provider')
 
 module.exports = {
   networks: {
@@ -1179,18 +1181,6 @@ contract MyContract is ChainlinkClient, Ownable {
 `;
 
 exports[`truffle box tests should properly convert to v0.5 3`] = `
-"pragma solidity 0.5.0;
-
-import \\"link_token/contracts/LinkToken.sol\\";"
-`;
-
-exports[`truffle box tests should properly convert to v0.5 4`] = `
-"pragma solidity 0.5.0;
-
-import \\"@chainlink/contracts/src/v0.5/Oracle.sol\\";"
-`;
-
-exports[`truffle box tests should properly convert to v0.5 5`] = `
 "const Migrations = artifacts.require('Migrations')
 
 module.exports = deployer => {
@@ -1199,19 +1189,24 @@ module.exports = deployer => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.5 6`] = `
+exports[`truffle box tests should properly convert to v0.5 4`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
-const Oracle = artifacts.require('Oracle')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
 
-module.exports = (deployer, network) => {
+module.exports = (deployer, network, [defaultAccount]) => {
   // Local (development) networks need their own deployment of the LINK
   // token and the Oracle contract
   if (!network.startsWith('live')) {
-    deployer.deploy(LinkToken).then(() => {
-      return deployer.deploy(Oracle, LinkToken.address).then(() => {
-        return deployer.deploy(MyContract, LinkToken.address)
-      })
+    LinkToken.setProvider(deployer.provider)
+    Oracle.setProvider(deployer.provider)
+
+    deployer.deploy(LinkToken, { from: defaultAccount }).then(link => {
+      return deployer
+        .deploy(Oracle, link.address, { from: defaultAccount })
+        .then(() => {
+          return deployer.deploy(MyContract, link.address)
+        })
     })
   } else {
     // For live networks, use the 0 address to allow the ChainlinkRegistry
@@ -1222,9 +1217,9 @@ module.exports = (deployer, network) => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.5 7`] = `
+exports[`truffle box tests should properly convert to v0.5 5`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
 
 /*
   This script is meant to assist with funding the requesting
@@ -1246,7 +1241,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.5 8`] = `
+exports[`truffle box tests should properly convert to v0.5 6`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -1262,7 +1257,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.5 9`] = `
+exports[`truffle box tests should properly convert to v0.5 7`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -1299,14 +1294,14 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.5 10`] = `
+exports[`truffle box tests should properly convert to v0.5 8`] = `
 "/* eslint-disable @typescript-eslint/no-var-requires */
 const { oracle } = require('@chainlink/test-helpers')
 const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
-  const LinkToken = artifacts.require('LinkToken.sol')
-  const Oracle = artifacts.require('Oracle.sol')
+  const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+  const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]
@@ -1331,7 +1326,7 @@ contract('MyContract', accounts => {
   let link, oc, cc
 
   beforeEach(async () => {
-    link = await LinkToken.new()
+    link = await LinkToken.new({ from: defaultAccount })
     oc = await Oracle.new(link.address, { from: defaultAccount })
     cc = await MyContract.new(link.address, { from: consumer })
     await oc.setFulfillmentPermission(oracleNode, true, {
@@ -1354,7 +1349,9 @@ contract('MyContract', accounts => {
       let request
 
       beforeEach(async () => {
-        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+          from: defaultAccount,
+        })
       })
 
       context('sending a request to a specific oracle contract address', () => {
@@ -1387,7 +1384,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -1445,7 +1444,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -1508,7 +1509,9 @@ contract('MyContract', accounts => {
 
   describe('#withdrawLink', () => {
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
     })
 
     context('when called by a non-owner', () => {
@@ -1531,8 +1534,8 @@ contract('MyContract', accounts => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.5 11`] = `
-"const HDWalletProvider = require('truffle-hdwallet-provider')
+exports[`truffle box tests should properly convert to v0.5 9`] = `
+"const HDWalletProvider = require('@truffle/hdwallet-provider')
 
 module.exports = {
   networks: {
@@ -1699,18 +1702,6 @@ contract MyContract is ChainlinkClient, Ownable {
 `;
 
 exports[`truffle box tests should properly convert to v0.6 3`] = `
-"pragma solidity 0.6.2;
-
-import \\"link_token/contracts/LinkToken.sol\\";"
-`;
-
-exports[`truffle box tests should properly convert to v0.6 4`] = `
-"pragma solidity 0.6.2;
-
-import \\"@chainlink/contracts/src/v0.6/Oracle.sol\\";"
-`;
-
-exports[`truffle box tests should properly convert to v0.6 5`] = `
 "const Migrations = artifacts.require('Migrations')
 
 module.exports = deployer => {
@@ -1719,19 +1710,24 @@ module.exports = deployer => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.6 6`] = `
+exports[`truffle box tests should properly convert to v0.6 4`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
-const Oracle = artifacts.require('Oracle')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
 
-module.exports = (deployer, network) => {
+module.exports = (deployer, network, [defaultAccount]) => {
   // Local (development) networks need their own deployment of the LINK
   // token and the Oracle contract
   if (!network.startsWith('live')) {
-    deployer.deploy(LinkToken).then(() => {
-      return deployer.deploy(Oracle, LinkToken.address).then(() => {
-        return deployer.deploy(MyContract, LinkToken.address)
-      })
+    LinkToken.setProvider(deployer.provider)
+    Oracle.setProvider(deployer.provider)
+
+    deployer.deploy(LinkToken, { from: defaultAccount }).then(link => {
+      return deployer
+        .deploy(Oracle, link.address, { from: defaultAccount })
+        .then(() => {
+          return deployer.deploy(MyContract, link.address)
+        })
     })
   } else {
     // For live networks, use the 0 address to allow the ChainlinkRegistry
@@ -1742,9 +1738,9 @@ module.exports = (deployer, network) => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.6 7`] = `
+exports[`truffle box tests should properly convert to v0.6 5`] = `
 "const MyContract = artifacts.require('MyContract')
-const LinkToken = artifacts.require('LinkToken')
+const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
 
 /*
   This script is meant to assist with funding the requesting
@@ -1766,7 +1762,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.6 8`] = `
+exports[`truffle box tests should properly convert to v0.6 6`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -1782,7 +1778,7 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.6 9`] = `
+exports[`truffle box tests should properly convert to v0.6 7`] = `
 "const MyContract = artifacts.require('MyContract')
 
 /*
@@ -1819,14 +1815,14 @@ module.exports = async callback => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.6 10`] = `
+exports[`truffle box tests should properly convert to v0.6 8`] = `
 "/* eslint-disable @typescript-eslint/no-var-requires */
 const { oracle } = require('@chainlink/test-helpers')
 const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
-  const LinkToken = artifacts.require('LinkToken.sol')
-  const Oracle = artifacts.require('Oracle.sol')
+  const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+  const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]
@@ -1851,7 +1847,7 @@ contract('MyContract', accounts => {
   let link, oc, cc
 
   beforeEach(async () => {
-    link = await LinkToken.new()
+    link = await LinkToken.new({ from: defaultAccount })
     oc = await Oracle.new(link.address, { from: defaultAccount })
     cc = await MyContract.new(link.address, { from: consumer })
     await oc.setFulfillmentPermission(oracleNode, true, {
@@ -1874,7 +1870,9 @@ contract('MyContract', accounts => {
       let request
 
       beforeEach(async () => {
-        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+          from: defaultAccount,
+        })
       })
 
       context('sending a request to a specific oracle contract address', () => {
@@ -1907,7 +1905,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -1965,7 +1965,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -2028,7 +2030,9 @@ contract('MyContract', accounts => {
 
   describe('#withdrawLink', () => {
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
     })
 
     context('when called by a non-owner', () => {
@@ -2051,8 +2055,8 @@ contract('MyContract', accounts => {
 "
 `;
 
-exports[`truffle box tests should properly convert to v0.6 11`] = `
-"const HDWalletProvider = require('truffle-hdwallet-provider')
+exports[`truffle box tests should properly convert to v0.6 9`] = `
+"const HDWalletProvider = require('@truffle/hdwallet-provider')
 
 module.exports = {
   networks: {
