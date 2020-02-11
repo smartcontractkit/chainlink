@@ -33,12 +33,6 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 
 Launches the expressjs server that serve the `/build` folder
 
-## **DEPRECATED** Original non-monorepo Heroku env variables
-
-```
-REACT_APP_INFURA_KEY="yourkey"
-```
-
 ## Deploy to Heroku
 
 [Official heroku docker documentation](https://devcenter.heroku.com/articles/container-registry-and-runtime)
