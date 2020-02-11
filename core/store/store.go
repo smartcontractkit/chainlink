@@ -28,11 +28,12 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config    *orm.Config
-	Clock     utils.AfterNower
-	KeyStore  *KeyStore
-	TxManager TxManager
-	closeOnce sync.Once
+	Config      *orm.Config
+	Clock       utils.AfterNower
+	KeyStore    *KeyStore
+	VRFKeyStore *VRFKeyStore
+	TxManager   TxManager
+	closeOnce   sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -177,6 +178,7 @@ func newStoreWithDialerAndKeyStore(
 		ORM:       orm,
 		TxManager: txManager,
 	}
+	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
 }
 
