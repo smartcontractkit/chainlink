@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -16,6 +17,9 @@ import (
 const (
 	// FormatBytes encodes the output as bytes
 	FormatBytes = "bytes"
+	// FormatPreformatted encodes the output, assumed to be hex, as bytes. Caller
+	// is responsible for all formatting for the EVM.
+	FormatPreformatted = "preformatted"
 	// FormatUint256 encodes the output as bytes containing a uint256
 	FormatUint256 = "uint256"
 	// FormatInt256 encodes the output as bytes containing an int256
@@ -185,7 +189,8 @@ func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, erro
 	switch format {
 	case FormatBytes:
 		return EVMTranscodeBytes(value)
-
+	case FormatPreformatted:
+		return hex.DecodeString(RemoveHexPrefix(value.Str))
 	case FormatUint256:
 		data, err := EVMTranscodeUint256(value)
 		if err != nil {

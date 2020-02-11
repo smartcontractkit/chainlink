@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -27,6 +28,8 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 
 	gasPrice := utils.NewBig(big.NewInt(187))
 	gasLimit := uint64(911)
+
+	reallyLongHexString := strings.Repeat("0123456789abcdef", 100)
 
 	tests := []struct {
 		name         string
@@ -76,6 +79,15 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 				"63c3b66e6669726d656400000000000000000000000000000000000000000000", // encoded string left padded
 			models.RunStatusPendingConfirmations,
 		},
+		{
+			name:         "confirmed with preformatted format",
+			input:        "0x" + reallyLongHexString,
+			format:       "preformatted",
+			receiptState: strpkg.Confirmed,
+			output: "0x" + strings.Repeat("00", 35) + "20" + // fn selector + offset
+				reallyLongHexString,
+			finalStatus: models.RunStatusPendingConfirmations,
+		},
 	}
 
 	for _, tt := range tests {
@@ -97,7 +109,6 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: gasLimit}
 			input := cltest.NewRunInputWithResult(test.input)
 			result := adapter.Perform(input, store)
-
 			assert.NoError(t, result.Error())
 			assert.Equal(t, test.finalStatus, result.Status())
 

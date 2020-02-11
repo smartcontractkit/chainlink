@@ -1,12 +1,15 @@
 package utils
 
 import (
+	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
 
@@ -400,6 +403,7 @@ func TestEVMTranscodeInt256(t *testing.T) {
 }
 
 func TestEVMTranscodeJSONWithFormat(t *testing.T) {
+	reallyLongHexString := "0x" + strings.Repeat("0123456789abcdef", 100)
 	tests := []struct {
 		name   string
 		format string
@@ -438,6 +442,12 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000001",
 		},
+		{
+			"result is preformatted",
+			FormatPreformatted,
+			fmt.Sprintf(`{"result": "%s"}`, reallyLongHexString),
+			reallyLongHexString,
+		},
 	}
 
 	for _, tt := range tests {
@@ -445,7 +455,7 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := gjson.GetBytes([]byte(test.input), "result")
 			out, err := EVMTranscodeJSONWithFormat(input, test.format)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, test.output, hexutil.Encode(out))
 		})
 	}
