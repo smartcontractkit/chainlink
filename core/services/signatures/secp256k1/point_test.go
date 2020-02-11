@@ -67,6 +67,7 @@ func TestPoint_Embed(t *testing.T) {
 		require.True(t, s256.IsOnCurve(p.X.int(), p.Y.int()),
 			"should embed to a secp256k1 point")
 		output, err := p.Data()
+		require.NoError(t, err)
 		require.True(t, bytes.Equal(data, output),
 			"should get same value back after round-trip "+
 				"embedding, got %v, then %v", data, output)
@@ -200,8 +201,7 @@ func TestPoint_EthereumAddress(t *testing.T) {
 	require.True(t, ok, "failed to parse private key")
 	private := newScalar(pInt)
 	public := newPoint().Mul(private, nil)
-	address, err := EthereumAddress(public)
-	require.Nil(t, err)
+	address := EthereumAddress(public)
 	assert.Equal(t, fmt.Sprintf("%x", address),
 		"c2d7cf95645d33006175b78989035c7c9061d3f9")
 }
