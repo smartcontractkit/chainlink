@@ -13,6 +13,7 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/pkg/errors"
 )
 
@@ -463,8 +464,13 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	idStart := requesterSize
 	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
-	cborStart := expirationEnd + versionSize + dataLocationSize + dataLengthSize
-	js, err := ParseCBOR(data[cborStart:])
+
+	dataLengthStart := expirationEnd + versionSize + dataLocationSize
+	cborStart := dataLengthStart + dataLengthSize
+
+	dataLength := whisperv6.BytesToUintBigEndian(data[dataLengthStart : dataLengthStart+32])
+
+	js, err := ParseCBOR(data[cborStart : cborStart+int(dataLength)])
 	if err != nil {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}
