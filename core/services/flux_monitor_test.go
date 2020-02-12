@@ -128,12 +128,6 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	require.NoError(t, store.CreateJob(&job))
-
-	job, err := store.FindJob(job.ID) // Update job from db to get matching coerced time values (UpdatedAt)
-	require.NoError(t, err)
-
 	runManager := new(mocks.RunManager)
 	started := make(chan struct{})
 
@@ -143,11 +137,21 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 	})
 
 	checkerFactory := new(mocks.DeviationCheckerFactory)
-	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+
+	for i := 0; i < 3; i++ {
+		job := cltest.NewJobWithFluxMonitorInitiator()
+		require.NoError(t, store.CreateJob(&job))
+		job, err := store.FindJob(job.ID)
+		require.NoError(t, err)
+		checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+	}
+
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
-	require.NoError(t, fm.Start())
+	err := fm.Start()
+	require.NoError(t, err)
 	defer fm.Stop()
+
 	require.NoError(t, fm.Connect(nil))
 	cltest.CallbackOrTimeout(t, "deviation checker started", func() {
 		<-started
