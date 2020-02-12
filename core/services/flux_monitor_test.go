@@ -138,7 +138,7 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 3; i++ {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		require.NoError(t, store.CreateJob(&job))
 		job, err := store.FindJob(job.ID)
