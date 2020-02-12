@@ -1,5 +1,9 @@
 package services
 
+import (
+	"sync"
+)
+
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {
 	Start() error
@@ -13,9 +17,10 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker Worker
-	waker  chan struct{}
-	closer chan struct{}
+	worker   Worker
+	waker    chan struct{}
+	closer   chan struct{}
+	workerWg sync.WaitGroup
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -44,6 +49,7 @@ func (s *sleeperTask) Start() error {
 // Stop stops the SleeperTask
 func (s *sleeperTask) Stop() error {
 	s.closer <- struct{}{}
+	s.workerWg.Wait()
 	return nil
 }
 
@@ -61,7 +67,9 @@ func (s *sleeperTask) workerLoop() {
 	for {
 		select {
 		case <-s.waker:
+			s.workerWg.Add(1)
 			s.worker.Work()
+			s.workerWg.Done()
 		case <-s.closer:
 			return
 		}

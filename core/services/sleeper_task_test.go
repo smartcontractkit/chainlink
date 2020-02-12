@@ -3,16 +3,31 @@ package services
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 )
 
 type testWorker struct {
 	output chan struct{}
 }
 
-func (t *testWorker) Work() {
-	t.output <- struct{}{}
+func (w *testWorker) Work() {
+	w.output <- struct{}{}
+}
+
+type sleepyWorker struct {
+	output chan struct{}
+}
+
+func (w *sleepyWorker) Work() {
+	time.Sleep(time.Second)
+	w.output <- struct{}{}
+}
+
+func (w *sleepyWorker) Output() struct{} {
+	return <-w.output
 }
 
 func TestSleeperTask(t *testing.T) {
@@ -70,6 +85,17 @@ func TestSleeperTask_SenderNotBlockedWhileWorking(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
 
 	sleeper.Stop()
+}
+
+func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
+	worker := sleepyWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.Start()
+	sleeper.WakeUp()
+	sleeper.Stop()
+
+	assert.Equal(t, worker.Output(), struct{}{})
 }
 
 func TestSleeperTask_StopWithoutStartNonBlocking(t *testing.T) {
