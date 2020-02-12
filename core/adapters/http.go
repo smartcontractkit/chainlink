@@ -19,7 +19,7 @@ import (
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	*NoValidationCheckAdapter
+	*NoValidationAdapterMixin
 	URL          models.WebURL   `json:"url"`
 	GET          models.WebURL   `json:"get"`
 	Headers      http.Header     `json:"headers"`
@@ -59,7 +59,7 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	*NoValidationCheckAdapter
+	*NoValidationAdapterMixin
 	URL          models.WebURL   `json:"url"`
 	POST         models.WebURL   `json:"post"`
 	Headers      http.Header     `json:"headers"`

@@ -9,7 +9,7 @@ import (
 )
 
 // Random adapter type holds no fields
-type Random struct{ *NoValidationCheckAdapter }
+type Random struct{ *NoValidationAdapterMixin }
 
 // Perform returns a random uint256 number in 0 | 2**256-1 range
 func (ra *Random) Perform(input models.RunInput, _ *store.Store) models.RunOutput {

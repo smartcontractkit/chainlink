@@ -12,7 +12,7 @@ import (
 
 // Quotient holds the Dividend.
 type Quotient struct {
-	*NoValidationCheckAdapter
+	*NoValidationAdapterMixin
 	Dividend *big.Float `json:"-"`
 }
 

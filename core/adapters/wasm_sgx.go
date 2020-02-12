@@ -22,6 +22,7 @@ import (
 
 // Wasm represents a wasm binary encoded as base64 or wasm encoded as text (a lisp like language).
 type Wasm struct {
+	NoValidationAdapterMixin
 	Wasm string `json:"wasm"`
 }
 

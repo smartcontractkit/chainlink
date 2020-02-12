@@ -11,7 +11,7 @@ import (
 
 // Sleep adapter allows a job to do nothing for some amount of wall time.
 type Sleep struct {
-	*NoValidationCheckAdapter
+	*NoValidationAdapterMixin
 	Until models.AnyTime `json:"until"`
 }
 

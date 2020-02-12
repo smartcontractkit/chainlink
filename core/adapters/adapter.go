@@ -57,9 +57,9 @@ type BaseAdapter interface {
 	Validate() error
 }
 
-type NoValidationCheckAdapter struct{}
+type NoValidationAdapterMixin struct{}
 
-func (a *NoValidationCheckAdapter) Validate() error { return nil }
+func (a *NoValidationAdapterMixin) Validate() error { return nil }
 
 // PipelineAdapter wraps a BaseAdapter with requirements for execution in the pipeline.
 type PipelineAdapter struct {

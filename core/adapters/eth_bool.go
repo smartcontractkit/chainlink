@@ -11,7 +11,7 @@ var evmFalse = "0x00000000000000000000000000000000000000000000000000000000000000
 var evmTrue = "0x0000000000000000000000000000000000000000000000000000000000000001"
 
 // EthBool holds no fields
-type EthBool struct{ NoValidationCheckAdapter }
+type EthBool struct{ NoValidationAdapterMixin }
 
 // Perform returns the abi encoding for a boolean
 //

@@ -9,7 +9,7 @@ import (
 
 // Multiply holds the a number to multiply the given value by.
 type Multiply struct {
-	NoValidationCheckAdapter
+	NoValidationAdapterMixin
 	Times *big.Float `json:"-"`
 }
 
