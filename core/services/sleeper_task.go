@@ -1,5 +1,10 @@
 package services
 
+import (
+	"errors"
+	"time"
+)
+
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {
 	Start() error
@@ -13,9 +18,11 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker Worker
-	waker  chan struct{}
-	closer chan struct{}
+	worker       Worker
+	started      bool
+	waker        chan struct{}
+	closer       chan struct{}
+	taskComplete chan struct{}
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -29,22 +36,37 @@ type sleeperTask struct {
 //
 func NewSleeperTask(worker Worker) SleeperTask {
 	return &sleeperTask{
-		worker: worker,
-		waker:  make(chan struct{}, 1),
-		closer: make(chan struct{}, 1),
+		worker:       worker,
+		waker:        make(chan struct{}, 1),
+		closer:       make(chan struct{}, 1),
+		taskComplete: make(chan struct{}, 1),
 	}
 }
 
 // Start begins the SleeperTask
 func (s *sleeperTask) Start() error {
-	go s.workerLoop()
+	if s.started {
+		return errors.New("already started")
+	} else {
+		s.started = true
+		go s.workerLoop()
+	}
 	return nil
 }
 
 // Stop stops the SleeperTask
 func (s *sleeperTask) Stop() error {
+	if !s.started {
+		return errors.New("no task running")
+	}
 	s.closer <- struct{}{}
-	return nil
+	select {
+	case <-s.taskComplete:
+		s.started = false
+		return nil
+	case <-time.After(5 * time.Second):
+		return errors.New("task did not finish within 5 seconds")
+	}
 }
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
@@ -63,6 +85,7 @@ func (s *sleeperTask) workerLoop() {
 		case <-s.waker:
 			s.worker.Work()
 		case <-s.closer:
+			s.taskComplete <- struct{}{}
 			return
 		}
 	}

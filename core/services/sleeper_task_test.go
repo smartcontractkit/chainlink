@@ -3,16 +3,30 @@ package services
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testWorker struct {
 	output chan struct{}
 }
 
-func (t *testWorker) Work() {
-	t.output <- struct{}{}
+func (w *testWorker) Work() {
+	w.output <- struct{}{}
+}
+
+type longRunningWorker struct {
+	output   chan struct{}
+	finished bool
+}
+
+func (w *longRunningWorker) Work() {
+	w.output <- struct{}{}
+	time.Sleep(100 * time.Millisecond)
+	w.finished = true
 }
 
 func TestSleeperTask(t *testing.T) {
@@ -72,6 +86,19 @@ func TestSleeperTask_SenderNotBlockedWhileWorking(t *testing.T) {
 	sleeper.Stop()
 }
 
+func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
+	worker := longRunningWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+
+	sleeper.Start()
+	sleeper.WakeUp()
+
+	<-worker.output
+	sleeper.Stop()
+
+	assert.Equal(t, true, worker.finished)
+}
+
 func TestSleeperTask_StopWithoutStartNonBlocking(t *testing.T) {
 	worker := testWorker{output: make(chan struct{})}
 	sleeper := NewSleeperTask(&worker)
@@ -82,6 +109,15 @@ func TestSleeperTask_StopWithoutStartNonBlocking(t *testing.T) {
 
 	sleeper.Stop()
 	sleeper.Stop()
+}
+
+func TestSleeperTask_CallingStartTwiceErrors(t *testing.T) {
+	worker := testWorker{output: make(chan struct{})}
+	sleeper := NewSleeperTask(&worker)
+	defer sleeper.Stop()
+
+	require.NoError(t, sleeper.Start())
+	require.Error(t, sleeper.Start())
 }
 
 type slowWorker struct {
