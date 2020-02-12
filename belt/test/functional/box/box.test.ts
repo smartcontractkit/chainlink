@@ -3,6 +3,7 @@ import { cat, cp, rm } from 'shelljs'
 import Box from '../../../src/commands/box'
 import {
   getJavascriptFiles,
+  getPackageJson,
   getSolidityFiles,
   getTruffleConfig,
 } from '../../../src/services/truffle-box'
@@ -13,12 +14,15 @@ const FIXTURES_PATH = join(TEST_PATH, 'fixtures')
 
 describe('truffle box tests', () => {
   function assertSnapshotOutput() {
+    const packageJson = getPackageJson(TEST_FS_PATH)
     const truffleConfig = getTruffleConfig(TEST_FS_PATH)
     const solFiles = getSolidityFiles(TEST_FS_PATH)
     const jsFiles = getJavascriptFiles(TEST_FS_PATH)
-    const allFiles = solFiles.concat(jsFiles, [truffleConfig]).sort()
+    const allFiles = solFiles
+      .concat(jsFiles, [truffleConfig, packageJson])
+      .sort()
 
-    allFiles.forEach(f => expect(cat(f).stdout).toMatchSnapshot())
+    expect(cat(allFiles).stdout).toMatchSnapshot()
   }
 
   beforeEach(() => {
@@ -36,9 +40,8 @@ describe('truffle box tests', () => {
     assertSnapshotOutput()
   })
 
-  it('should properly convert to v0.6', async () => {
-    await Box.run(['-s=0.6', TEST_FS_PATH])
-    assertSnapshotOutput()
+  it('should throw when trying to select v0.6 (non-public)', async () => {
+    expect(Box.run(['-s=0.6'])).rejects.toBeInstanceOf(Error)
   })
 
   it('should throw when passed invalid version', async () => {
