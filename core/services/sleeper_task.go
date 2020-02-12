@@ -20,7 +20,7 @@ type sleeperTask struct {
 	worker   Worker
 	waker    chan struct{}
 	closer   chan struct{}
-	workerWg sync.WaitGroup
+	workerWG sync.WaitGroup
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -49,7 +49,7 @@ func (s *sleeperTask) Start() error {
 // Stop stops the SleeperTask
 func (s *sleeperTask) Stop() error {
 	s.closer <- struct{}{}
-	s.workerWg.Wait()
+	s.workerWG.Wait()
 	return nil
 }
 
@@ -67,9 +67,9 @@ func (s *sleeperTask) workerLoop() {
 	for {
 		select {
 		case <-s.waker:
-			s.workerWg.Add(1)
+			s.workerWG.Add(1)
 			s.worker.Work()
-			s.workerWg.Done()
+			s.workerWG.Done()
 		case <-s.closer:
 			return
 		}
