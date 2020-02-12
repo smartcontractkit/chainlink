@@ -15,8 +15,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@chainlink/test-helpers": "0.0.2",
     "@chainlink/contracts": "^0.0.1",
+    "@chainlink/test-helpers": "0.0.2",
     "openzeppelin-solidity": "1.12.0"
   },
   "devDependencies": {
