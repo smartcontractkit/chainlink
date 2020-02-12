@@ -1,5 +1,6 @@
 {
   "name": "@chainlink/belt",
+  "private": false,
   "description": "A toolbelt for performing various commands on chainlink smart contracts.",
   "version": "0.0.1",
   "author": "Chainlink Devs",
@@ -12,6 +13,7 @@
     "setup": "tsc -b",
     "clean": "tsc -b --clean",
     "test": "jest",
+    "prepublishOnly": "yarn clean && yarn setup",
     "version": "oclif-dev readme && git add README.md"
   },
   "bugs": "https://github.com/smartcontractkit/chainlink/issues",
@@ -21,8 +23,11 @@
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^2",
     "@oclif/plugin-not-found": "^1.2.3",
+    "chalk": "^3.0.0",
+    "cli-ux": "^5.4.4",
     "debug": "^4.1.1",
     "execa": "^4.0.0",
+    "inquirer": "^7.0.4",
     "shelljs": "^0.8.3",
     "ts-generator": "^0.0.8",
     "tslib": "^1",
@@ -32,6 +37,7 @@
   "devDependencies": {
     "@oclif/dev-cli": "^1",
     "@types/debug": "^4.1.5",
+    "@types/inquirer": "^6.5.0",
     "@types/jest": "^25.1.1",
     "@types/mock-fs": "^4.10.0",
     "@types/node": "^10",

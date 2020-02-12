@@ -63,6 +63,10 @@ export interface App {
       [dir: string]: string
     }
   }
+  /**
+   * Versions to publically show in our truffle box options
+   */
+  publicVersions: string[]
 }
 
 /**

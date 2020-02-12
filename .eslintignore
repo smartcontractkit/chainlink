@@ -6,6 +6,8 @@ core/
 **/artifacts/**
 **/public/**
 **/build/**
+**/fixtures/**
+evm-box
 truffle-config.js
 truffle.js
 gethload.js

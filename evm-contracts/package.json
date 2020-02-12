@@ -15,7 +15,7 @@
     "prepublishOnly": "yarn clean && yarn setup && yarn test"
   },
   "devDependencies": {
-    "@chainlink/test-helpers": "0.0.1",
+    "@chainlink/test-helpers": "0.0.2",
     "@types/jest": "^25.1.1",
     "@types/node": "^13.7.0",
     "ethers": "^4.0.44",
@@ -28,7 +28,8 @@
     "abi/**/*",
     "ethers/**/*",
     "src/**/*",
-    "truffle/**/*"
+    "truffle/**/*",
+    "app.config.json"
   ],
   "optionalDependencies": {
     "@truffle/contract": "^4.1.8",
