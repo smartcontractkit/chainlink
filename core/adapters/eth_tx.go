@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 	"gopkg.in/guregu/null.v3"
 )
 
@@ -62,28 +63,22 @@ func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.Run
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
 func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
+	result := input.Result()
 	defaultPrefix := func(b ...[]byte) []byte {
 		return utils.ConcatBytes(
 			append([][]byte{e.FunctionSelector.Bytes(), e.DataPrefix}, b...)...)
 	}
-	result := input.Result()
-	switch e.DataFormat {
-	case utils.FormatRawHexWithFuncSelectorAndDataPrefix:
-		// TODO(alx): Should we enforce 0x-prefix, here? Might break existing jobs...
-		return defaultPrefix(common.HexToHash(result.Str).Bytes()), nil
-	case utils.FormatRawHex:
-		if !utils.HasHexPrefix(result.Str) {
-			return nil, fmt.Errorf("%s must be 0x-prefixed, got %s",
-				utils.FormatRawHex, result.Str)
-		}
-		return hex.DecodeString(utils.RemoveHexPrefix(result.Str))
+	shortCircuitedFormat, output, err := checkForShortCircuitedFormat(
+		e, result, defaultPrefix)
+	if shortCircuitedFormat {
+		return output, err
 	}
 
 	payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen)
 	if len(e.DataPrefix) > 0 {
 		payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
 	}
-	output, err := utils.EVMTranscodeJSONWithFormat(result, e.DataFormat)
+	output, err = utils.EVMTranscodeJSONWithFormat(result, e.DataFormat)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -251,6 +246,29 @@ func pendingConfirmationsOrConnection(input models.RunInput) models.RunOutput {
 		return models.NewRunOutputPendingConfirmations()
 	}
 	return models.NewRunOutputPendingConnection()
+}
+
+// checkForShortCircuitedFormat checks whether etx has requested a format option
+// which short-circuits the usual processing of the output transaction bytes, in
+// order to give the user more control. defaultPrefix should concatenate its
+// inputs and prefix them appropriately (e.g., add the function selector and
+// initial offset into the arguments.)
+func checkForShortCircuitedFormat(
+	e *EthTx, result gjson.Result, defaultPrefix func(...[]byte) []byte) (
+	shortCircuited bool, output []byte, err error) {
+	switch e.DataFormat {
+	case utils.FormatRawHexWithFuncSelectorAndDataPrefix:
+		// TODO(alx): Should we enforce 0x-prefix, here? Might break existing jobs...
+		return true, defaultPrefix(common.HexToHash(result.Str).Bytes()), nil
+	case utils.FormatRawHex:
+		if !utils.HasHexPrefix(result.Str) {
+			return true, nil, fmt.Errorf("%s must be 0x-prefixed, got %s",
+				utils.FormatRawHex, result.Str)
+		}
+		output, err := hex.DecodeString(utils.RemoveHexPrefix(result.Str))
+		return true, output, err
+	}
+	return false, nil, nil
 }
 
 // Validate returns an error if there's something inconsistent about this task
