@@ -101,6 +101,11 @@ export default class Box extends Command {
     const fullVersion = this.getFullVersion(solcVersion)
 
     modifyTruffleBoxWith(fullVersion, path, dryRun)
+    this.log(
+      chalk.greenBright(
+        `Done!\nPlease run "npm i" to install the new changes made.`,
+      ),
+    )
   }
 
   /**
