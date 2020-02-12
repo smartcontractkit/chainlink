@@ -98,12 +98,135 @@ describe('Median', () => {
           '57896044618658097711785492504343953926634992332820282019728792003956564819966',
         ),
       },
+      {
+        name: 'really long',
+        responses: [
+          56,
+          2,
+          31,
+          33,
+          55,
+          38,
+          35,
+          12,
+          41,
+          47,
+          21,
+          22,
+          40,
+          39,
+          10,
+          32,
+          49,
+          3,
+          54,
+          45,
+          53,
+          14,
+          20,
+          59,
+          1,
+          30,
+          24,
+          6,
+          5,
+          37,
+          58,
+          51,
+          46,
+          17,
+          29,
+          7,
+          27,
+          9,
+          43,
+          8,
+          34,
+          42,
+          28,
+          23,
+          57,
+          0,
+          11,
+          48,
+          52,
+          50,
+          15,
+          16,
+          26,
+          25,
+          4,
+          36,
+          19,
+          44,
+          18,
+          13,
+        ],
+        want: 29,
+      },
     ]
 
     for (const test of tests) {
       it(test.name, async () => {
         matchers.bigNum(test.want, await median.publicGet(test.responses))
       })
+    }
+  })
+
+  // long running (minutes) exhaustive test.
+  // skipped because very slow, but useful for thorough validation
+  xit('permutations', async () => {
+    const permutations = (list: number[]) => {
+      const result: number[][] = []
+      const used: number[] = []
+
+      const permute = (unused: number[]) => {
+        if (unused.length == 0) {
+          result.push([...used])
+          return
+        }
+
+        for (let i = 0; i < unused.length; i++) {
+          const elem = unused.splice(i, 1)[0]
+          used.push(elem)
+          permute(unused)
+          unused.splice(i, 0, elem)
+          used.pop()
+        }
+      }
+
+      permute(list)
+      return result
+    }
+
+    {
+      const list = [0, 2, 5, 7, 8, 10]
+      for (const permuted of permutations(list)) {
+        for (let i = 0; i < list.length; i++) {
+          for (let j = 0; j < list.length; j++) {
+            if (i < j) {
+              const foo = await median.publicQuickselectTwo(permuted, i, j)
+              matchers.bigNum(list[i], foo[0])
+              matchers.bigNum(list[j], foo[1])
+            }
+          }
+        }
+      }
+    }
+
+    {
+      const list = [0, 1, 1, 1, 2]
+      for (const permuted of permutations(list)) {
+        for (let i = 0; i < list.length; i++) {
+          for (let j = 0; j < list.length; j++) {
+            if (i < j) {
+              const foo = await median.publicQuickselectTwo(permuted, i, j)
+              matchers.bigNum(list[i], foo[0])
+              matchers.bigNum(list[j], foo[1])
+            }
+          }
+        }
+      }
     }
   })
 })
