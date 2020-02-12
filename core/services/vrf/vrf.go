@@ -271,10 +271,7 @@ func (proof *Proof) Verify() (bool, error) {
 	uPrime := linearCombination(proof.C, proof.PublicKey, proof.S, Generator)
 	// c*secretKey*h + (m - c*secretKey)*h = m*h = v
 	vPrime := linearCombination(proof.C, proof.Gamma, proof.S, h)
-	uWitness, err := secp256k1.EthereumAddress(uPrime)
-	if err != nil {
-		return false, errors.Wrap(err, "vrf.VerifyProof#EthereumAddress")
-	}
+	uWitness := secp256k1.EthereumAddress(uPrime)
 	cPrime := ScalarFromCurvePoints(h, proof.PublicKey, proof.Gamma, uWitness, vPrime)
 	output, err := utils.Keccak256(secp256k1.LongMarshal(proof.Gamma))
 	if err != nil {
@@ -308,10 +305,7 @@ func GenerateProof(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	}
 	sm := secp256k1.IntToScalar(nonce)
 	u := rcurve.Point().Mul(sm, Generator)
-	uWitness, err := secp256k1.EthereumAddress(u)
-	if err != nil {
-		panic(errors.Wrap(err, "while computing Ethereum Address for proof"))
-	}
+	uWitness := secp256k1.EthereumAddress(u)
 	v := rcurve.Point().Mul(sm, h)
 	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
 	// s = (m - c*secretKey) % Order
