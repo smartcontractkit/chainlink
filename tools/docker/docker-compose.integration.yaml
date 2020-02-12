@@ -1,4 +1,4 @@
-version: '3.1'
+version: '3.5'
 
 services:
   integration:
@@ -9,6 +9,8 @@ services:
       dockerfile: tools/docker/integration.Dockerfile
       args:
         - SRCROOT
+      shm_size: '512mb' # https://stackoverflow.com/questions/30210362/how-to-increase-the-size-of-the-dev-shm-in-docker-container/49667456#49667456
+    shm_size: '512mb' # https://stackoverflow.com/questions/30210362/how-to-increase-the-size-of-the-dev-shm-in-docker-container/49667456#49667456
     volumes:
       # Forwards the local Docker socket to the container.
       - /var/run/docker.sock:/var/run/docker.sock

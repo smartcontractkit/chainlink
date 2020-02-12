@@ -94,7 +94,7 @@ jobs:
     working_directory: ~/chainlink
     steps:
       - checkout
-      - run: cd ./tools/docker && ./compose test
+      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
   parity-postgres:
     resource_class: 2xlarge
     machine:
@@ -103,7 +103,7 @@ jobs:
     working_directory: ~/chainlink
     steps:
       - checkout
-      - run: cd ./tools/docker && ./compose test
+      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
   solidity:
     resource_class: xlarge
     docker:
