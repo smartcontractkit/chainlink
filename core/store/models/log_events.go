@@ -86,9 +86,10 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 	RunLogTopic20190207withoutIndexes:         parseRunLog20190207withoutIndexes{},
 }
 
-// LogBasedChainlinkJobInitiators are initiators which kick off a user-specified
+// LogBasedChainlinkJobInitiators are initiators which kick off a log-specified
 // chainlink job when an appropriate ethereum log is received.
-// (InitiatorFluxMonitor kicks off work, but not a user-specified job.)
+// (InitiatorFluxMonitor kicks off a job when a log is emitted, but the JobID is
+// not taken from the log)
 var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
 	InitiatorServiceAgreementExecutionLog}
 
