@@ -22,7 +22,7 @@
     "jest": "^25.1.0",
     "ts-jest": "^25.2.0",
     "typescript": "^3.7.5",
-    "@chainlink/belt": "0.0.1-beta"
+    "@chainlink/belt": "0.0.1-beta.2"
   },
   "files": [
     "abi/**/*",
