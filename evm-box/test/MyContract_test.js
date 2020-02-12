@@ -3,8 +3,8 @@ const { oracle } = require('@chainlink/test-helpers')
 const { expectRevert, time } = require('openzeppelin-test-helpers')
 
 contract('MyContract', accounts => {
-  const LinkToken = artifacts.require('LinkToken.sol')
-  const Oracle = artifacts.require('Oracle.sol')
+  const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
+  const { Oracle } = require('@chainlink/contracts/truffle/v0.4/Oracle')
   const MyContract = artifacts.require('MyContract.sol')
 
   const defaultAccount = accounts[0]
@@ -29,7 +29,7 @@ contract('MyContract', accounts => {
   let link, oc, cc
 
   beforeEach(async () => {
-    link = await LinkToken.new()
+    link = await LinkToken.new({ from: defaultAccount })
     oc = await Oracle.new(link.address, { from: defaultAccount })
     cc = await MyContract.new(link.address, { from: consumer })
     await oc.setFulfillmentPermission(oracleNode, true, {
@@ -52,7 +52,9 @@ contract('MyContract', accounts => {
       let request
 
       beforeEach(async () => {
-        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+        await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+          from: defaultAccount,
+        })
       })
 
       context('sending a request to a specific oracle contract address', () => {
@@ -85,7 +87,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -143,7 +147,9 @@ contract('MyContract', accounts => {
     let request
 
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
       const tx = await cc.createRequestTo(
         oc.address,
         jobId,
@@ -206,7 +212,9 @@ contract('MyContract', accounts => {
 
   describe('#withdrawLink', () => {
     beforeEach(async () => {
-      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'))
+      await link.transfer(cc.address, web3.utils.toWei('1', 'ether'), {
+        from: defaultAccount,
+      })
     })
 
     context('when called by a non-owner', () => {

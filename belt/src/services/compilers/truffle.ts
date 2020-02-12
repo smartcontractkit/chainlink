@@ -44,7 +44,9 @@ const contract = require('@truffle/contract')
 const ${contractName} = contract(${JSON.stringify(contractArgs, null, 1)})
 
 if (process.env.NODE_ENV === 'test') {
-  ${contractName}.setProvider(web3.currentProvider)
+  try {
+    eval('${contractName}.setProvider(web3.currentProvider)')
+  } catch (e) {}
 }
 
 exports.${contractName} = ${contractName}

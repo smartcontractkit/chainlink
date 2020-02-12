@@ -15,16 +15,17 @@
   },
   "license": "MIT",
   "dependencies": {
-    "link_token": "^1.0.6",
-    "openzeppelin-solidity": "^1.12.0",
-    "@chainlink/contracts": "0.0.1"
+    "@chainlink/contracts": "^0.0.1",
+    "@chainlink/test-helpers": "0.0.2",
+    "openzeppelin-solidity": "1.12.0"
   },
   "devDependencies": {
+    "@chainlink/belt": "^0.0.1",
+    "@truffle/hdwallet-provider": "^1.0.30",
     "chai": "^4.2.0",
     "depcheck": "^0.9.1",
     "openzeppelin-test-helpers": "^0.4.3",
     "solhint": "^2.1.0",
-    "truffle": "^5.1.5",
-    "truffle-hdwallet-provider": "^1.0.8"
+    "truffle": "^5.1.5"
   }
 }
