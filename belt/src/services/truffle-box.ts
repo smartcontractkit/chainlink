@@ -120,7 +120,7 @@ function convertPackageJson(
   const packageJson = getPackageJson(path)
   if (ozVersion !== '2.0.0') {
     replaceInFile(
-      `"openzeppelin-solidity": "https://github.com/OpenZeppelin/openzeppelin-contracts#2.0.0"`,
+      `"openzeppelin-solidity": "1.12.0"`,
       `"@openzeppelin/contracts": "${solVersionToOzversion[solcVersion]}"`,
       [packageJson],
       dryRun,
