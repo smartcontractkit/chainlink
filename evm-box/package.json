@@ -16,7 +16,7 @@
   "license": "MIT",
   "dependencies": {
     "@chainlink/contracts": "^0.0.1-beta",
-    "openzeppelin-solidity": "^1.12.0"
+    "openzeppelin-solidity": "https://github.com/OpenZeppelin/openzeppelin-contracts#2.0.0"
   },
   "devDependencies": {
     "@chainlink/belt": "^0.0.1-beta",

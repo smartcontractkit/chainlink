@@ -17,6 +17,7 @@ describe('config.load', () => {
           'v0.6': '0.6.2',
         },
       },
+      publicVersions: ['0.4.24', '0.5.0'],
     }
   }
 
