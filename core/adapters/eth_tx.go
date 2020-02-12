@@ -258,7 +258,6 @@ func checkForShortCircuitedFormat(
 	shortCircuited bool, output []byte, err error) {
 	switch e.DataFormat {
 	case utils.FormatRawHexWithFuncSelectorAndDataPrefix:
-		// TODO(alx): Should we enforce 0x-prefix, here? Might break existing jobs...
 		return true, defaultPrefix(common.HexToHash(result.Str).Bytes()), nil
 	case utils.FormatRawHex:
 		if !utils.HasHexPrefix(result.Str) {

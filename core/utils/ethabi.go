@@ -31,6 +31,9 @@ const (
 	// FormatRawHex does no formatting at all. Caller is responsible for
 	// formatting the function selector and offset, in addition to any arguments
 	// to be passed with the transaction. Input must be 0x-prefixed
+	//
+	// Note that this option isn't adressed in EVMTranscodeJSONWithFormat, because
+	// eth_tx.go's getTxData short-circuits, when it encounters this.
 	FormatRawHex = "rawHex"
 	// FormatUint256 encodes the output as bytes containing a uint256
 	FormatUint256 = "uint256"
