@@ -3,7 +3,7 @@ package services
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {
 	Start() error
-	Stop() error
+	Stop()
 	WakeUp()
 }
 
@@ -42,9 +42,8 @@ func (s *sleeperTask) Start() error {
 }
 
 // Stop stops the SleeperTask
-func (s *sleeperTask) Stop() error {
+func (s *sleeperTask) Stop() {
 	s.closer <- struct{}{}
-	return nil
 }
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.

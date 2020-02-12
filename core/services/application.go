@@ -152,7 +152,7 @@ func (app *ChainlinkApplication) Stop() error {
 		app.FluxMonitor.Stop()
 		app.RunQueue.Stop()
 		app.StatsPusher.Close()
-		merr = multierr.Append(merr, app.SessionReaper.Stop())
+		app.SessionReaper.Stop()
 		merr = multierr.Append(merr, app.Store.Close())
 	})
 	return merr

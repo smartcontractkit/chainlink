@@ -31,7 +31,7 @@ type JobSubscriber interface {
 	RemoveJob(ID *models.ID) error
 	Jobs() []models.JobSpec
 	Start() error
-	Stop() error
+	Stop()
 }
 
 // jobSubscriber implementation
@@ -74,8 +74,8 @@ func (js *jobSubscriber) Start() error {
 	return js.jobResumer.Start()
 }
 
-func (js *jobSubscriber) Stop() error {
-	return js.jobResumer.Stop()
+func (js *jobSubscriber) Stop() {
+	js.jobResumer.Stop()
 }
 
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
