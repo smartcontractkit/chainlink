@@ -341,12 +341,13 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 		case <-ctx.Done():
 			close(p.stopC)
 			return
+		case <-time.After(p.delay):
+			err := p.poll(p.threshold)
+			logger.ErrorIf(err, "checker unable to poll for current prices")
 		case err := <-roundSubscription.Err():
 			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
 		case log := <-p.newRounds:
 			logger.ErrorIf(p.respondToNewRound(log), "checker unable to respond to new round")
-		case <-time.After(p.delay):
-			logger.ErrorIf(p.poll(p.threshold), "checker unable to poll")
 		case <-idleThreshold.C:
 			logger.ErrorIf(p.poll(0), "checker unable to poll")
 		}
