@@ -43,7 +43,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 		{
 			"safe",
 			"0xf7fffff1",
-			"",
+			adapters.FormatRawHexWithFuncSelectorAndDataPrefix,
 			strpkg.Safe,
 			"0x0000000000000000000000000000000000000000000000000000000000000000f7fffff1",
 			models.RunStatusCompleted,
@@ -82,18 +82,18 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 		},
 		{
 			name: fmt.Sprintf("confirmed with %s format",
-				utils.FormatPreformattedHexArguments),
+				adapters.FormatPreformattedHexArguments),
 			input:        "0x" + reallyLongHexString,
-			format:       utils.FormatPreformattedHexArguments,
+			format:       adapters.FormatPreformattedHexArguments,
 			receiptState: strpkg.Confirmed,
 			output: "0x" + strings.Repeat("00", 35) + "20" + // fn selector + offset
 				reallyLongHexString,
 			finalStatus: models.RunStatusPendingConfirmations,
 		},
 		{
-			name:         fmt.Sprintf("confirmed with %s format", utils.FormatRawHex),
+			name:         fmt.Sprintf("confirmed with %s format", adapters.FormatRawHex),
 			input:        "0x" + reallyLongHexString,
-			format:       utils.FormatRawHex,
+			format:       adapters.FormatRawHex,
 			receiptState: strpkg.Confirmed,
 			output:       "0x" + reallyLongHexString,
 			finalStatus:  models.RunStatusPendingConfirmations,

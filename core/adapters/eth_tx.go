@@ -78,7 +78,7 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 	if len(e.DataPrefix) > 0 {
 		payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
 	}
-	output, err = utils.EVMTranscodeJSONWithFormat(result, e.DataFormat)
+	output, err = EVMTranscodeJSONWithFormat(result, e.DataFormat)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -257,12 +257,12 @@ func checkForShortCircuitedFormat(
 	e *EthTx, result gjson.Result, defaultPrefix func(...[]byte) []byte) (
 	shortCircuited bool, output []byte, err error) {
 	switch e.DataFormat {
-	case utils.FormatRawHexWithFuncSelectorAndDataPrefix:
+	case FormatRawHexWithFuncSelectorAndDataPrefix:
 		return true, defaultPrefix(common.HexToHash(result.Str).Bytes()), nil
-	case utils.FormatRawHex:
+	case FormatRawHex:
 		if !utils.HasHexPrefix(result.Str) {
 			return true, nil, fmt.Errorf("%s must be 0x-prefixed, got %s",
-				utils.FormatRawHex, result.Str)
+				FormatRawHex, result.Str)
 		}
 		output, err := hex.DecodeString(utils.RemoveHexPrefix(result.Str))
 		return true, output, err
@@ -273,18 +273,18 @@ func checkForShortCircuitedFormat(
 // Validate returns an error if there's something inconsistent about this task
 func (p *EthTx) Validate() error {
 	switch p.DataFormat {
-	case utils.FormatRawHex:
+	case FormatRawHex:
 		if !bytes.Equal(p.FunctionSelector.Bytes(), eth.FunctionSelector{}.Bytes()) {
 			return fmt.Errorf(
 				"ethTx adapter cannot specify both `%s` format and functionSelector. "+
 					"Prior task must give function selector as the prefix of its output",
-				utils.FormatRawHex)
+				FormatRawHex)
 		}
 		if !bytes.Equal([]byte(p.DataPrefix), []byte{}) {
 			return fmt.Errorf(
 				"ethTx adapter cannot specify both `%s` format and dataPrefix. "+
 					"Prior task must give dataPrefix as the prefix of its output.",
-				utils.FormatRawHex)
+				FormatRawHex)
 		}
 	}
 	return nil
