@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +13,15 @@ import (
 )
 
 var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
+var wei *big.Float
+var ok bool
+
+func init() {
+	wei, ok = new(big.Float).SetString("1000000000000000000")
+	if !ok {
+		panic("Could not parse wei to eth ratio as a big float")
+	}
+}
 
 func format(i *big.Int, precision int) string {
 	v := "1" + pad.Right("", precision, "0")
@@ -231,4 +241,16 @@ func (*Eth) Symbol() string {
 // ToInt returns the Eth value as a *big.Int.
 func (e *Eth) ToInt() *big.Int {
 	return (*big.Int)(e)
+}
+
+// Float64 returns a float representation and an error if an approximation would
+// not fit within the float.
+func (e *Eth) Float64() (float64, error) {
+	eth := new(big.Float).SetInt(e.ToInt())
+	bf := new(big.Float).Quo(eth, wei)
+	f64, _ := bf.Float64()
+	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
+		return f64, errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
+	}
+	return f64, nil
 }
