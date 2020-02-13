@@ -111,7 +111,6 @@ func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
 
 	// Release the worker to do it's work which will result in the wait group counter being decremented
 	worker.Unlock()
-	// Ensure that Stop() has returned
 	<-afterStop
 	assert.Equal(t, true, worker.started)
 }
