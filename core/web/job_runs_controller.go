@@ -192,6 +192,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	}
 	if !ok {
 		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 
 	if err = jrc.App.ResumePending(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
