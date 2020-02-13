@@ -69,8 +69,8 @@ func (s *sleeperTask) workerLoop() {
 	for {
 		select {
 		case <-s.waker:
+			defer s.workerWG.Done()
 			s.worker.Work()
-			s.workerWG.Done()
 		case <-s.closer:
 			return
 		}
