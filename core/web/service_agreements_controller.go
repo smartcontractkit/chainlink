@@ -37,10 +37,12 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
-		} else if err = services.ValidateServiceAgreement(sa, sac.App.GetStore()); err != nil {
+		}
+		if err = services.ValidateServiceAgreement(sa, sac.App.GetStore()); err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
-		} else if err = sac.App.AddServiceAgreement(&sa); err != nil {
+		}
+		if err = sac.App.AddServiceAgreement(&sa); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, errors.Wrap(err, "#AddServiceAgreement"))
 			return
 		}
@@ -53,11 +55,16 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 //  "<application>/service_agreements/:SAID"
 func (sac *ServiceAgreementsController) Show(c *gin.Context) {
 	id := common.HexToHash(c.Param("SAID"))
-	if sa, err := sac.App.GetStore().FindServiceAgreement(id.String()); errors.Cause(err) == orm.ErrorNotFound {
+
+	sa, err := sac.App.GetStore().FindServiceAgreement(id.String())
+	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("ServiceAgreement not found"))
-	} else if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(c, presenters.ServiceAgreement{ServiceAgreement: sa}, "service agreement")
+		return
 	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.ServiceAgreement{ServiceAgreement: sa}, "service agreement")
 }
