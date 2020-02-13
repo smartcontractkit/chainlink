@@ -98,12 +98,12 @@ func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
 	// Increments the wait group if the channel is not full
 	sleeper.WakeUp()
 
-	beforeStop := make(chan struct{}, 1)
-	afterStop := make(chan struct{}, 1)
+	beforeStop := make(chan struct{})
+	afterStop := make(chan struct{})
 	go func() {
-		beforeStop <- struct{}{}
+		close(beforeStop)
 		sleeper.Stop()
-		afterStop <- struct{}{}
+		close(afterStop)
 	}()
 
 	<-beforeStop
