@@ -17,15 +17,15 @@ func (w *testWorker) Work() {
 }
 
 type blockingWorker struct {
+	sync.Mutex
 	output  chan struct{}
-	mutex   sync.Mutex
 	started bool
 }
 
 func (w *blockingWorker) Work() {
-	w.mutex.Lock()
+	w.Lock()
 	w.started = true
-	w.mutex.Unlock()
+	w.Unlock()
 }
 
 func TestSleeperTask(t *testing.T) {
@@ -91,7 +91,7 @@ func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
 
 	// Block worker from setting 'started=true'. It must be acquired
 	// before sleeper.Start() to avoid a race condition
-	worker.mutex.Lock()
+	worker.Lock()
 	sleeper.Start()
 	assert.Equal(t, false, worker.started)
 
@@ -110,7 +110,7 @@ func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
 	assert.Equal(t, false, worker.started)
 
 	// Release the worker to do it's work which will result in the wait group counter being decremented
-	worker.mutex.Unlock()
+	worker.Unlock()
 	// Ensure that Stop() has returned
 	<-afterStop
 	assert.Equal(t, true, worker.started)
