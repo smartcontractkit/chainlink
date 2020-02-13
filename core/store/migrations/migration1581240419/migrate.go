@@ -5,7 +5,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-// Migrate moves job_runs.overrides to run_requets.request_params
+// Migrate moves job_runs.overrides to run_requests.request_params
 func Migrate(tx *gorm.DB) error {
 	err := tx.Exec(`ALTER TABLE run_requests ADD request_params text NOT NULL DEFAULT '{}'`).Error
 	if err != nil {

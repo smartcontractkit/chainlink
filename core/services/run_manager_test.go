@@ -305,7 +305,7 @@ func TestRunManager_Create(t *testing.T) {
 
 	requestID := "RequestID"
 	initiator := job.Initiators[0]
-	rr := models.NewRunRequest()
+	rr := models.NewRunRequest(models.JSON{})
 	rr.RequestID = &requestID
 	rr.RequestParams = cltest.JSONFromString(t, `{"random": "input"}`)
 	jr, err := app.RunManager.Create(job.ID, &initiator, nil, rr)
@@ -394,7 +394,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			creationHeight := big.NewInt(1)
 			requestID := "RequestID"
 			initiator := job.Initiators[0]
-			rr := models.NewRunRequest()
+			rr := models.NewRunRequest(models.JSON{})
 			rr.RequestID = &requestID
 			rr.TxHash = &initiatingTxHash
 			rr.BlockHash = &test.logBlockHash
@@ -648,7 +648,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 
 			creationHeight := big.NewInt(1)
 
-			runRequest := models.NewRunRequest()
+			runRequest := models.NewRunRequest(models.JSON{})
 			runRequest.Payment = test.inputPayment
 			runRequest.RequestParams = cltest.JSONFromString(t, `{"random": "input"}`)
 
@@ -683,7 +683,7 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 
 	requestID := "RequestID"
 	initiator := job.Initiators[0]
-	rr := models.NewRunRequest()
+	rr := models.NewRunRequest(models.JSON{})
 	rr.RequestID = &requestID
 	rr.TxHash = &initiatingTxHash
 	rr.BlockHash = &triggeringBlockHash

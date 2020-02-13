@@ -152,7 +152,7 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
 
-	rr := models.NewRunRequest()
+	rr := models.NewRunRequest(models.JSON{})
 	currentHeight := big.NewInt(0)
 	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, time.Now())
 	require.NoError(t, store.CreateJobRun(run))
