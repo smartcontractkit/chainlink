@@ -55,9 +55,11 @@ func (s *sleeperTask) Stop() error {
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
+	s.workerWG.Add(1)
 	select {
 	case s.waker <- struct{}{}:
 	default:
+		s.workerWG.Done()
 	}
 }
 
@@ -67,7 +69,6 @@ func (s *sleeperTask) workerLoop() {
 	for {
 		select {
 		case <-s.waker:
-			s.workerWG.Add(1)
 			s.worker.Work()
 			s.workerWG.Done()
 		case <-s.closer:

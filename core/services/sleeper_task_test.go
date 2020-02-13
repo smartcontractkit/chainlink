@@ -3,7 +3,6 @@ package services
 import (
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -17,17 +16,16 @@ func (w *testWorker) Work() {
 	w.output <- struct{}{}
 }
 
-type sleepyWorker struct {
-	output chan struct{}
+type blockingWorker struct {
+	output  chan struct{}
+	mutex   sync.Mutex
+	started bool
 }
 
-func (w *sleepyWorker) Work() {
-	time.Sleep(time.Second)
-	w.output <- struct{}{}
-}
-
-func (w *sleepyWorker) Output() struct{} {
-	return <-w.output
+func (w *blockingWorker) Work() {
+	w.mutex.Lock()
+	w.started = true
+	w.mutex.Unlock()
 }
 
 func TestSleeperTask(t *testing.T) {
@@ -88,14 +86,34 @@ func TestSleeperTask_SenderNotBlockedWhileWorking(t *testing.T) {
 }
 
 func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
-	worker := sleepyWorker{output: make(chan struct{})}
+	worker := blockingWorker{output: make(chan struct{})}
 	sleeper := NewSleeperTask(&worker)
 
+	// Block worker from setting 'started=true'. It must be acquired
+	// before sleeper.Start() to avoid a race condition
+	worker.mutex.Lock()
 	sleeper.Start()
-	sleeper.WakeUp()
-	sleeper.Stop()
+	assert.Equal(t, false, worker.started)
 
-	assert.Equal(t, worker.Output(), struct{}{})
+	// Increments the wait group if the channel is not full
+	sleeper.WakeUp()
+
+	beforeStop := make(chan struct{}, 1)
+	afterStop := make(chan struct{}, 1)
+	go func() {
+		beforeStop <- struct{}{}
+		sleeper.Stop()
+		afterStop <- struct{}{}
+	}()
+
+	<-beforeStop
+	assert.Equal(t, false, worker.started)
+
+	// Release the worker to do it's work which will result in the wait group counter being decremented
+	worker.mutex.Unlock()
+	// Ensure that Stop() has returned
+	<-afterStop
+	assert.Equal(t, true, worker.started)
 }
 
 func TestSleeperTask_StopWithoutStartNonBlocking(t *testing.T) {
