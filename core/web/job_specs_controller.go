@@ -94,34 +94,50 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 // Example:
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Show(c *gin.Context) {
-	if id, err := models.NewIDFromString(c.Param("SpecID")); err != nil {
+	id, err := models.NewIDFromString(c.Param("SpecID"))
+	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if j, err := jsc.App.GetStore().FindJob(id); errors.Cause(err) == orm.ErrorNotFound {
-		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
-	} else if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(c, jobPresenter(jsc, j), "job")
+		return
 	}
+
+	j, err := jsc.App.GetStore().FindJob(id)
+	if errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+		return
+	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, jobPresenter(jsc, j), "job")
 }
 
 // Destroy soft deletes a job spec.
 // Example:
 //  "<application>/specs/:SpecID"
 func (jsc *JobSpecsController) Destroy(c *gin.Context) {
-	if id, err := models.NewIDFromString(c.Param("SpecID")); err != nil {
+	id, err := models.NewIDFromString(c.Param("SpecID"))
+	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if err := jsc.App.ArchiveJob(id); errors.Cause(err) == orm.ErrorNotFound {
-		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
-	} else if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
+		return
 	}
+
+	err = jsc.App.ArchiveJob(id)
+	if errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+		return
+	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }
 
 func jobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
-	st := jsc.App.GetStore()
-	jobLinkEarned, _ := st.LinkEarnedFor(&job)
+	store := jsc.App.GetStore()
+	jobLinkEarned, _ := store.LinkEarnedFor(&job)
 	return presenters.JobSpec{JobSpec: job, Earnings: jobLinkEarned}
 }
