@@ -657,6 +657,7 @@ func (txm *EthTxManager) handleSafe(
 	minimumConfirmations := txm.config.MinOutgoingConfirmations()
 	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
 
+	updatePrometheusEthBalance(ethBalance, tx.From)
 	logger.Infow(
 		fmt.Sprintf("Tx #%d is safe", attemptIndex),
 		"minimumConfirmations", minimumConfirmations,
@@ -668,6 +669,12 @@ func (txm *EthTxManager) handleSafe(
 	)
 
 	return nil
+}
+
+func updatePrometheusEthBalance(balance *assets.Eth, from common.Address) {
+	balanceFloat, err := balance.Float64()
+	logger.ErrorIf(err)
+	promETHBalance.WithLabelValues(from.Hex()).Set(balanceFloat)
 }
 
 // bumpGas creates a new transaction attempt with an increased gas cost

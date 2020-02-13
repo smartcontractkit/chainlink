@@ -1020,7 +1020,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	manager.OnNewHead(cltest.Head(confirmedAt))
 	ethClient.On("GetTxReceipt", tx.Attempts[0].Hash).Return(&confirmedReceipt, nil)
 	ethClient.On("GetERC20Balance", from, mock.Anything).Return(nil, nil)
-	ethClient.On("GetEthBalance", from).Return(nil, nil)
+	ethClient.On("GetEthBalance", from).Return(cltest.NewEth(t, "10000000"), nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)
