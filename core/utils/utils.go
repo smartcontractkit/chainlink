@@ -70,18 +70,6 @@ func Uint64ToHex(i uint64) string {
 
 var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
 
-// Uint256ToBytes(x) is x represented as the bytes of a uint256
-func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
-	if x.Cmp(maxUint256) > 0 {
-		return nil, fmt.Errorf("too large to convert to uint256")
-	}
-	uint256 = common.LeftPadBytes(x.Bytes(), EVMWordByteLen)
-	if x.Cmp(big.NewInt(0).SetBytes(uint256)) != 0 {
-		panic("failed to round-trip uint256 back to source big.Int")
-	}
-	return uint256, err
-}
-
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
 	return logger.ISO8601UTC(t)
@@ -492,20 +480,6 @@ func CheckUint256(n *big.Int) error {
 		return fmt.Errorf("number out of range for uint256")
 	}
 	return nil
-}
-
-// HexToUint256 returns the uint256 represented by s, or an error if it doesn't
-// represent one.
-func HexToUint256(s string) (*big.Int, error) {
-	rawNum, err := hexutil.Decode(s)
-	if err != nil {
-		return nil, errors.Wrapf(err, "while parsing %s as hex: ", s)
-	}
-	rv := big.NewInt(0).SetBytes(rawNum) // can't be negative number
-	if err := CheckUint256(rv); err != nil {
-		return nil, err
-	}
-	return rv, nil
 }
 
 // Uint256ToHex returns the hex representation of n, or error if out of bounds
