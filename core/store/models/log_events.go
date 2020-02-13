@@ -90,16 +90,22 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 // chainlink job when an appropriate ethereum log is received.
 // (InitiatorFluxMonitor kicks off a job when a log is emitted, but the JobID is
 // not taken from the log)
-var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
-	InitiatorServiceAgreementExecutionLog}
+var LogBasedChainlinkJobInitiators = []string{
+	InitiatorRunLog,
+	InitiatorEthLog,
+	InitiatorServiceAgreementExecutionLog,
+}
 
-// topicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
+// TopicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
 // a user job with the given type of initiator. If chainlink has any jobs with
 // these initiators, it subscribes on startup to logs which match both these
 // topics and some representation of the job spec ID.
 var TopicsForInitiatorsWhichRequireJobSpecIDTopic = map[string][]common.Hash{
-	InitiatorRunLog: {RunLogTopic20190207withoutIndexes,
-		RunLogTopic20190123withFullfillmentParams, RunLogTopic0original},
+	InitiatorRunLog: {
+		RunLogTopic20190207withoutIndexes,
+		RunLogTopic20190123withFullfillmentParams,
+		RunLogTopic0original,
+	},
 	InitiatorServiceAgreementExecutionLog: {ServiceAgreementExecutionLogTopic},
 }
 
