@@ -42,6 +42,7 @@ func NewSleeperTask(worker Worker) SleeperTask {
 
 // Start begins the SleeperTask
 func (s *sleeperTask) Start() error {
+	s.workerWG.Add(1)
 	go s.workerLoop()
 	return nil
 }
@@ -55,21 +56,20 @@ func (s *sleeperTask) Stop() error {
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
-	s.workerWG.Add(1)
 	select {
 	case s.waker <- struct{}{}:
 	default:
-		s.workerWG.Done()
 	}
 }
 
 // workerLoop is the goroutine behind the sleeper task that waits for a signal
 // before kicking off the worker
 func (s *sleeperTask) workerLoop() {
+	defer s.workerWG.Done()
+
 	for {
 		select {
 		case <-s.waker:
-			defer s.workerWG.Done()
 			s.worker.Work()
 		case <-s.closer:
 			return
