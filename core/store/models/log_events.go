@@ -116,43 +116,45 @@ func initiationRequiresJobSpecID(initiatorType string) bool {
 	return ok
 }
 
-// jobSpecIDTopics lists the ways jsID could be represented as a log topic. This
-// allows log subscriptions to respond to all possible representations.
-func JobSpecIDTopics(jsID *ID) []common.Hash {
+// jobSpecIDTopics lists the ways jobSpecID could be represented as a log topic.
+// This allows log subscriptions to respond to all possible representations.
+func JobSpecIDTopics(jobSpecID *ID) []common.Hash {
 	return []common.Hash{
 		// The job to be initiated can be encoded in a log topic in two ways:
-		IDToTopic(jsID),    // 16 full-range bytes, left padded to 32 bytes,
-		IDToHexTopic(jsID), // 32 ASCII hex chars representing the 16 bytes
+		IDToTopic(jobSpecID),    // 16 full-range bytes, left padded to 32 bytes,
+		IDToHexTopic(jobSpecID), // 32 ASCII hex chars representing the 16 bytes
 	}
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
-func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err error) {
-	q.FromBlock = from
-	q.Addresses = utils.WithoutZeroAddresses([]common.Address{i.Address})
+func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error) {
+	fromBlock := from
+	var toBlock *big.Int
+	addresses := utils.WithoutZeroAddresses([]common.Address{i.Address})
+	var topics [][]common.Hash
 
 	switch {
 	case i.Type == InitiatorEthLog:
 		if from == nil {
-			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
+			fromBlock = i.InitiatorParams.FromBlock.ToInt()
 		} else if i.InitiatorParams.FromBlock != nil {
-			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
+			fromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
 		}
-		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
+		toBlock = i.InitiatorParams.ToBlock.ToInt()
 
-		if q.FromBlock != nil && q.ToBlock != nil && q.FromBlock.Cmp(q.ToBlock) >= 0 {
+		if fromBlock != nil && toBlock != nil && fromBlock.Cmp(toBlock) >= 0 {
 			return ethereum.FilterQuery{}, fmt.Errorf(
 				"cannot generate a FilterQuery with fromBlock >= toBlock")
 		}
 
 		// Copying the topics across (instead of coercing i.Topics to a
 		// [][]common.Hash) clarifies their type for reflect.DeepEqual
-		q.Topics = make([][]common.Hash, len(i.Topics))
-		copy(q.Topics, i.Topics)
+		topics = make([][]common.Hash, len(i.Topics))
+		copy(topics, i.Topics)
 	case i.Type == InitiatorFluxMonitor:
-		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
+		topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
 	case initiationRequiresJobSpecID(i.Type):
-		q.Topics = [][]common.Hash{
+		topics = [][]common.Hash{
 			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
 			JobSpecIDTopics(i.JobSpecID),
 		}
@@ -160,7 +162,9 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 		return ethereum.FilterQuery{},
 			fmt.Errorf("cannot generate a FilterQuery for initiator of type %T", i)
 	}
-	return q, nil
+	return ethereum.FilterQuery{
+		FromBlock: fromBlock, ToBlock: toBlock, Addresses: addresses, Topics: topics,
+	}, nil
 }
 
 // LogRequest is the interface to allow polymorphic functionality of different
