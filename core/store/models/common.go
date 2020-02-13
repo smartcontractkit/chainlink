@@ -198,8 +198,8 @@ func (j JSON) AsMap() (map[string]interface{}, error) {
 	return output, nil
 }
 
-// mapToJSON returns m as a JSON object, or errors
-func mapToJSON(m map[string]interface{}) (JSON, error) {
+// NewJSONFromMap returns m as a JSON object, or errors
+func NewJSONFromMap(m map[string]interface{}) (JSON, error) {
 	bytes, err := json.Marshal(m)
 	if err != nil {
 		return JSON{}, err
@@ -207,27 +207,25 @@ func mapToJSON(m map[string]interface{}) (JSON, error) {
 	return JSON{Result: gjson.ParseBytes(bytes)}, nil
 }
 
+// jsonObject is used to pass multiple key/value pairs to JSON
+// object-manipulation utilities
+type jsonObject map[string]interface{}
+
 // Add returns a new instance of JSON with the new value added.
 func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
-	return j.MultiAdd([]KV{{insertKey, insertValue}})
-}
-
-// KV represents a key/value pair to be added to a JSON object
-type KV struct {
-	Key   string
-	Value interface{}
+	return j.MultiAdd(jsonObject{insertKey: insertValue})
 }
 
 // MultiAdd returns a new instance of j with the new values added.
-func (j JSON) MultiAdd(keyValues []KV) (JSON, error) {
+func (j JSON) MultiAdd(keyValues jsonObject) (JSON, error) {
 	output, err := j.AsMap()
 	if err != nil {
 		return JSON{}, err
 	}
-	for _, kv := range keyValues {
-		output[kv.Key] = kv.Value
+	for key, value := range keyValues {
+		output[key] = value
 	}
-	return mapToJSON(output)
+	return NewJSONFromMap(output)
 }
 
 // Delete returns a new instance of JSON with the specified key removed.
