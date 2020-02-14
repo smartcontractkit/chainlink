@@ -131,13 +131,16 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 
-	ethMock, err := app.MockStartAndConnect()
-	require.NoError(t, err)
+	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
+		meth.Register("eth_getTransactionCount", "0x1")
+		meth.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+	require.NoError(t, app.StartAndConnect())
 
 	hash := cltest.NewHash()
 	sentAt := uint64(23456)
 	confirmed := sentAt + 1
-	ethMock.Register("eth_sendRawTransaction", hash,
+	app.EthMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
 			tx, err := utils.DecodeEthereumTx(rlp)
@@ -147,13 +150,13 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			return nil
 		})
 	receipt := ethpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
-	ethMock.Register("eth_getTransactionReceipt", receipt)
+	app.EthMock.Register("eth_getTransactionReceipt", receipt)
 	input := cltest.NewRunInputWithString(t, rawInput)
 	responseData := adapterUnderTest.Perform(input, store)
 	assert.False(t, responseData.HasError())
 	from := cltest.GetAccountAddress(t, store)
 	assert.NoError(t, err)
-	ethMock.EventuallyAllCalled(t)
+	app.EthMock.EventuallyAllCalled(t)
 	txs, err := store.TxFrom(from)
 	require.Len(t, txs, 1)
 	assert.Len(t, txs[0].Attempts, 1)

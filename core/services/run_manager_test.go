@@ -262,12 +262,10 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 
 func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 
 	store := app.Store
-	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_chainId", store.Config.ChainID())
 
 	app.StartAndConnect()
 
@@ -290,12 +288,10 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 
 	store := app.Store
-	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_chainId", store.Config.ChainID())
 
 	app.StartAndConnect()
 
@@ -316,12 +312,10 @@ func TestRunManager_Create(t *testing.T) {
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 
 	store := app.Store
-	mocketh := cltest.MockEthOnStore(t, store)
-	mocketh.Register("eth_chainId", store.Config.ChainID())
 
 	app.StartAndConnect()
 
@@ -376,19 +370,14 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			defer cfgCleanup()
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
-			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
 			defer cleanup()
 
-			mocketh := app.MockCallerSubscriberClient()
-			store := app.GetStore()
-			mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
-				meth.Register("eth_chainId", store.Config.ChainID())
-			})
 			app.StartAndConnect()
 
 			job := cltest.NewJobWithRunLogInitiator()
 			job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
-			require.NoError(t, store.CreateJob(&job))
+			require.NoError(t, app.Store.CreateJob(&job))
 
 			creationHeight := big.NewInt(1)
 			requestID := "RequestID"
@@ -410,20 +399,20 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(3),
 			}
-			mocketh.Context("validateOnMainChain", func(meth *cltest.EthMock) {
+			app.EthMock.Context("validateOnMainChain", func(meth *cltest.EthMock) {
 				meth.Register("eth_getTransactionReceipt", confirmedReceipt)
 			})
 
 			err = app.RunManager.ResumeAllConfirming(big.NewInt(2))
 			require.NoError(t, err)
-			run = cltest.WaitForJobRunStatus(t, store, *jr, test.wantStatus)
+			run = cltest.WaitForJobRunStatus(t, app.Store, *jr, test.wantStatus)
 			assert.Equal(t, rr.RequestID, run.RunRequest.RequestID)
 			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].MinimumConfirmations.Uint32)
 			assert.True(t, run.TaskRuns[0].MinimumConfirmations.Valid)
 			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
 			assert.True(t, run.TaskRuns[0].Confirmations.Valid)
 
-			assert.True(t, mocketh.AllCalled(), mocketh.Remaining())
+			assert.True(t, app.EthMock.AllCalled(), app.EthMock.Remaining())
 		})
 	}
 }
@@ -618,14 +607,9 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			config, configCleanup := cltest.NewConfig(t)
 			defer configCleanup()
 			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment)
-			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
 			defer cleanup()
 
-			mocketh := app.MockCallerSubscriberClient()
-			store := app.GetStore()
-			mocketh.Context("app.Start()", func(meth *cltest.EthMock) {
-				meth.Register("eth_chainId", store.Config.ChainID())
-			})
 			app.StartAndConnect()
 
 			bt := &models.BridgeType{
@@ -634,7 +618,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 				Confirmations:          0,
 				MinimumContractPayment: test.bridgePayment,
 			}
-			require.NoError(t, store.CreateBridgeType(bt))
+			require.NoError(t, app.Store.CreateBridgeType(bt))
 
 			job := cltest.NewJobWithRunLogInitiator()
 			job.MinPayment = test.jobMinimumPayment
@@ -642,7 +626,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 				cltest.NewTask(t, "NoOp"),
 				cltest.NewTask(t, bt.Name.String()),
 			}
-			require.NoError(t, store.CreateJob(&job))
+			require.NoError(t, app.Store.CreateJob(&job))
 			initiator := job.Initiators[0]
 
 			data := cltest.JSONFromString(t, `{"random": "input"}`)
@@ -672,8 +656,10 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 
-	eth := app.MockCallerSubscriberClient()
-	app.MockStartAndConnect()
+	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
+		meth.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+	require.NoError(t, app.StartAndConnect())
 
 	store := app.GetStore()
 	job := cltest.NewJobWithRunLogInitiator()
@@ -700,7 +686,6 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	updatedJR := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 	assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
 	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].Confirmations.Uint32)
-	assert.True(t, eth.AllCalled(), eth.Remaining())
 }
 
 func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
