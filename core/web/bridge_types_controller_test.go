@@ -18,7 +18,7 @@ import (
 )
 
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
-	app, cleanup := cltest.NewApplication(b)
+	app, cleanup := cltest.NewApplication(b, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	setupJobSpecsControllerIndex(app)
 	client := app.NewHTTPClient()
@@ -34,7 +34,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 func TestBridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -102,7 +102,7 @@ func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.Bri
 func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -131,7 +131,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -155,7 +155,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -185,7 +185,7 @@ func TestBridgeController_Show(t *testing.T) {
 func TestBridgeController_Destroy(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -222,7 +222,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -239,7 +239,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -256,7 +256,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

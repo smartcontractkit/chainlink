@@ -79,13 +79,13 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 
 func TestCallerSubscriberClient_GetNonce(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
+	app.EthMock.Register("eth_getTransactionCount", "0x0100")
+	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 	require.NoError(t, app.Start())
 
-	ethMock := app.MockCallerSubscriberClient()
-	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
-	ethMock.Register("eth_getTransactionCount", "0x0100")
+	app.EthMock.Register("eth_getTransactionCount", "0x0100")
 	result, err := ethClientObject.GetNonce(cltest.NewAddress())
 	assert.NoError(t, err)
 	var expected uint64 = 256
@@ -94,13 +94,14 @@ func TestCallerSubscriberClient_GetNonce(t *testing.T) {
 
 func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
 	defer cleanup()
-	require.NoError(t, app.Start())
 
-	ethMock := app.MockCallerSubscriberClient()
+	ethMock := app.EthMock
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 	ethMock.Register("eth_sendRawTransaction", common.Hash{1})
+
+	require.NoError(t, app.Start())
 	result, err := ethClientObject.SendRawTx("test")
 	assert.NoError(t, err)
 	assert.Equal(t, result, common.Hash{1})
@@ -108,7 +109,7 @@ func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 
 func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -136,14 +137,15 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 
 func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
 	defer cleanup()
-	require.NoError(t, app.Start())
-
-	ethMock := app.MockCallerSubscriberClient()
+	ethMock := app.EthMock
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 
 	ethMock.Register("eth_call", "0x0100") // 256
+
+	require.NoError(t, app.Start())
+
 	result, err := ethClientObject.GetERC20Balance(cltest.NewAddress(), cltest.NewAddress())
 	assert.NoError(t, err)
 	expected := big.NewInt(256)
