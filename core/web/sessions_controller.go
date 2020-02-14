@@ -27,13 +27,20 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	var sr models.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %v", err))
-	} else if sid, err := sc.App.GetStore().CreateSession(sr); err != nil {
-		jsonAPIError(c, http.StatusUnauthorized, err)
-	} else if err := saveSessionID(session, sid); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, multierr.Append(errors.New("Unable to save session id"), err))
-	} else {
-		jsonAPIResponse(c, Session{Authenticated: true}, "session")
+		return
 	}
+
+	sid, err := sc.App.GetStore().CreateSession(sr)
+	if err != nil {
+		jsonAPIError(c, http.StatusUnauthorized, err)
+		return
+	}
+	if err := saveSessionID(session, sid); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, multierr.Append(errors.New("Unable to save session id"), err))
+		return
+	}
+
+	jsonAPIResponse(c, Session{Authenticated: true}, "session")
 }
 
 // Destroy erases the session ID for the sole API user.
@@ -45,11 +52,14 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 	sessionID, ok := session.Get(SessionIDKey).(string)
 	if !ok {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
-	} else if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(c, Session{Authenticated: false}, "session")
+		return
 	}
+	if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, Session{Authenticated: false}, "session")
 }
 
 func saveSessionID(session sessions.Session, sessionID string) error {
