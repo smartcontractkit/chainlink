@@ -1,7 +1,6 @@
 package web
 
 import (
-	"errors"
 	"net/http"
 
 	"chainlink/core/auth"
@@ -11,6 +10,7 @@ import (
 	"chainlink/core/store/presenters"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 // ExternalInitiatorsController manages external initiators
@@ -61,7 +61,7 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 
 	name := c.Param("Name")
 	exi, err := eic.App.GetStore().FindExternalInitiatorByName(name)
-	if err == orm.ErrorNotFound {
+	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("external initiator not found"))
 		return
 	}
