@@ -32,7 +32,7 @@ func approximateFloat64(e *assets.Eth) (float64, error) {
 	bf := new(big.Float).Quo(ef, eth.WeiPerEth)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
-		return f64, errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
+		return math.Inf(1), errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
 	}
 	return f64, nil
 }
