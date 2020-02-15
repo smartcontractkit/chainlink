@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"regexp"
 
 	"chainlink/core/utils"
@@ -13,6 +14,16 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 )
+
+var WeiPerEth *big.Float
+var ok bool
+
+func init() {
+	WeiPerEth, ok = new(big.Float).SetString("1000000000000000000")
+	if !ok {
+		panic("Could not parse wei to eth ratio as a big float")
+	}
+}
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
 

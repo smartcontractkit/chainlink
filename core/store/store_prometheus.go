@@ -1,6 +1,14 @@
 package store
 
 import (
+	"chainlink/core/assets"
+	"chainlink/core/eth"
+	"chainlink/core/logger"
+	"errors"
+	"math"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -12,3 +20,19 @@ var promETHBalance = promauto.NewGaugeVec(
 	},
 	[]string{"account"},
 )
+
+func updatePrometheusEthBalance(balance *assets.Eth, from common.Address) {
+	balanceFloat, err := approximateFloat64(balance)
+	logger.ErrorIf(err)
+	promETHBalance.WithLabelValues(from.Hex()).Set(balanceFloat)
+}
+
+func approximateFloat64(e *assets.Eth) (float64, error) {
+	ef := new(big.Float).SetInt(e.ToInt())
+	bf := new(big.Float).Quo(ef, eth.WeiPerEth)
+	f64, _ := bf.Float64()
+	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
+		return f64, errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
+	}
+	return f64, nil
+}

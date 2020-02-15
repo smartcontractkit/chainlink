@@ -671,12 +671,6 @@ func (txm *EthTxManager) handleSafe(
 	return nil
 }
 
-func updatePrometheusEthBalance(balance *assets.Eth, from common.Address) {
-	balanceFloat, err := balance.Float64()
-	logger.ErrorIf(err)
-	promETHBalance.WithLabelValues(from.Hex()).Set(balanceFloat)
-}
-
 // bumpGas creates a new transaction attempt with an increased gas cost
 func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight uint64) error {
 	txAttempt := tx.Attempts[attemptIndex]
