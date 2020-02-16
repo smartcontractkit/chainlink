@@ -1,7 +1,7 @@
 [package]
 name = "enclave"
 version = "0.1.0"
-authors = ["John Barker <john@smartcontract.com>"]
+authors = ["John Barker <dev@j16r.net>"]
 
 [lib]
 name = "enclave"
@@ -11,18 +11,18 @@ crate-type = ["staticlib"]
 default = []
 
 [dependencies]
-base64 = { git = "https://github.com/mesalock-linux/rust-base64-sgx.git" }
+base64 = { git = "https://github.com/mesalock-linux/rust-base64-sgx" }
 bigdecimal = { path = "../bigdecimal-rs" }
-num = { git = "https://github.com/mesalock-linux/num-sgx.git" }
-serde = { git = "https://github.com/mesalock-linux/serde-sgx.git" }
-serde_json = { git = "https://github.com/mesalock-linux/serde-json-sgx.git"}
+num = { git = "https://github.com/mesalock-linux/num-sgx" }
+serde = { git = "https://github.com/mesalock-linux/serde-sgx", features = ["derive"] }
+serde_json = { git = "https://github.com/mesalock-linux/serde-json-sgx" }
 utils = { path = "../utils", default-features = false }
-wabt = { git = "https://github.com/mesalock-linux/wabt-rs-sgx.git" }
-wasmi = { git = "https://github.com/mesalock-linux/wasmi-sgx.git" }
+wabt = { git = "https://github.com/mesalock-linux/wabt-rs-sgx" }
+wasmi = { git = "https://github.com/mesalock-linux/wasmi-sgx" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
-sgx_rand = { path = "/opt/rust-sgx-sdk/sgx_rand" }
-sgx_tcrypto = { path = "/opt/rust-sgx-sdk/sgx_tcrypto" }
-sgx_tse = { path = "/opt/rust-sgx-sdk/sgx_tse" }
-sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }
-sgx_types = { path = "/opt/rust-sgx-sdk/sgx_types" }
+sgx_rand = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_tcrypto = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_tse = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_tstd = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_types = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }

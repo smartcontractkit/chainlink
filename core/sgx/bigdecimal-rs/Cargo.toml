@@ -16,5 +16,5 @@ num-traits = { git = "https://github.com/mesalock-linux/num-traits-sgx.git" }
 serde = { git = "https://github.com/mesalock-linux/serde-sgx.git" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
-sgx_tstd = { path = "/opt/rust-sgx-sdk/sgx_tstd" }
-sgx_types = { path = "/opt/rust-sgx-sdk/sgx_types" }
+sgx_tstd = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_types = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
