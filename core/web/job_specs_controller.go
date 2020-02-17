@@ -39,7 +39,7 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 
 // requireImplented verifies if a Job Spec's feature is enabled according to
 // configured policy.
-func (jsc *JobSpecsController) requireImplented(js models.JobSpec) error {
+func (jsc *JobSpecsController) requireImplemented(js models.JobSpec) error {
 	cfg := jsc.App.GetStore().Config
 	if !cfg.Dev() && !cfg.FeatureFluxMonitor() {
 		if intrs := js.InitiatorsFor(models.InitiatorFluxMonitor); len(intrs) > 0 {
@@ -62,7 +62,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	}
 
 	js := models.NewJobFromRequest(jsr)
-	if err := jsc.requireImplented(js); err != nil {
+	if err := jsc.requireImplemented(js); err != nil {
 		jsonAPIError(c, http.StatusNotImplemented, err)
 		return
 	}
