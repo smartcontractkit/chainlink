@@ -62,7 +62,7 @@ library Median {
     // --- end of subnetwork for lists of length <= 1
     int256 x1 = list[1];
     if (x0 > x1) {(x0, x1) = (x1, x0);}
-    if (len == 2) {return safeAvg(x0, x1);}
+    if (len == 2) {return SignedSafeMath.avg(x0, x1);}
     // --- end of subnetwork for lists of length <= 2
     int256 x2 = list[2];
     if (x1 > x2) {(x1, x2) = (x2, x1);}
@@ -97,11 +97,11 @@ library Median {
     // if (x5 > x8) {(x5, x8) = (x8, x5);}
     // if (x5 > x7) {(x5, x7) = (x7, x5);}
     // if (x5 > x6) {(x5, x6) = (x6, x5);}
-    if (len == 4) {return safeAvg(x1, x2);}
+    if (len == 4) {return SignedSafeMath.avg(x1, x2);}
     if (len == 5) {return x2;}
-    if (len == 6) {return safeAvg(x2, x3);}
+    if (len == 6) {return SignedSafeMath.avg(x2, x3);}
     if (len == 7) {return x3;}
-    if (len == 8) {return safeAvg(x3, x4);}
+    if (len == 8) {return SignedSafeMath.avg(x3, x4);}
     if (len == 9) {return x4;}
     revert("list.length > 9");
   }
@@ -120,7 +120,7 @@ library Median {
       int256 median1;
       int256 median2;
       (median1, median2) = quickselectTwo(list, 0, len - 1, middleIndex - 1, middleIndex);
-      return safeAvg(median1, median2);
+      return SignedSafeMath.avg(median1, median2);
     } else {
       return quickselect(list, 0, len - 1, middleIndex);
     }
@@ -222,19 +222,6 @@ library Median {
       }
     }
   }
-
-  /**
-   * @notice Computes average of a and b using SignedSafeMath
-   */
-  function safeAvg(int256 a, int256 b)
-    private
-    pure
-    returns (int256)
-  {
-    int256 remainder = (a % 2 + b % 2) / 2;
-    return (a / 2).add(b / 2).add(remainder);
-  }
-
 
   /**
    * @notice Makes an in-memory copy of the array passed in
