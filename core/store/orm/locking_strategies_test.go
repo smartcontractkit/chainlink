@@ -7,11 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/gracefulpanic"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 
 	"github.com/jinzhu/gorm"
+	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/require"
@@ -144,9 +146,8 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	})
 	require.NoError(t, err)
 
-	require.Panics(t, func() {
-		_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
-	})
+	_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
+	gomega.NewGomegaWithT(t).Eventually(gracefulpanic.Wait()).Should(gomega.BeClosed())
 }
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
@@ -171,7 +172,6 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, err)
 	defer lock.Unlock(delay)
 
-	require.Panics(t, func() {
-		_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
-	})
+	_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
+	gomega.NewGomegaWithT(t).Eventually(gracefulpanic.Wait()).Should(gomega.BeClosed())
 }
