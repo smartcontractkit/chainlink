@@ -150,6 +150,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     onlyUnenabledAddress(_oracle)
   {
     require(oracleCount() < 42, "cannot add more than 42 oracles");
+    require(_admin != address(0), "admin address must not be 0x0");
     require(
       oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin,
       "cannot modify previously-set admin address"
