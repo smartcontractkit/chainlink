@@ -79,6 +79,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   );
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
+  event OracleAdminUpdated(address indexed oracle, address indexed newAdmin);
   event SubmissionReceived(
     int256 indexed answer,
     uint32 indexed round,
@@ -160,6 +161,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     oracles[_oracle].admin = _admin;
 
     emit OracleAdded(_oracle);
+    emit OracleAdminUpdated(_oracle, _admin);
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
@@ -468,6 +470,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   {
     require(oracles[_oracle].admin == msg.sender, "Only admin can update admin");
     oracles[_oracle].admin = _newAdmin;
+
+    emit OracleAdminUpdated(_oracle, _newAdmin);
   }
 
   /**
