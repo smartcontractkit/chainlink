@@ -1,4 +1,5 @@
 import { contract, matchers, setup } from '@chainlink/test-helpers'
+import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { MedianTestHelperFactory } from '../../ethers/v0.6/MedianTestHelperFactory'
 
@@ -31,22 +32,42 @@ describe('Median', () => {
         want: 3,
       },
       {
-        name: 'unordered 1',
+        name: 'unordered length 1',
+        responses: [20],
+        want: 20,
+      },
+      {
+        name: 'unordered length 2',
+        responses: [20, 0],
+        want: 10,
+      },
+      {
+        name: 'unordered length 3',
+        responses: [20, 0, 16],
+        want: 16,
+      },
+      {
+        name: 'unordered length 4',
+        responses: [20, 0, 15, 16],
+        want: 15,
+      },
+      {
+        name: 'unordered length 7',
         responses: [1001, 1, 101, 10, 11, 0, 111],
         want: 11,
       },
       {
-        name: 'unordered 2',
+        name: 'unordered length 9',
         responses: [8, 8, 4, 5, 5, 7, 9, 5, 9],
         want: 7,
       },
       {
-        name: 'unordered 3',
+        name: 'unordered long',
         responses: [33, 44, 89, 101, 67, 7, 23, 55, 88, 324, 0, 88],
         want: 61, // 67 + 55 / 2
       },
       {
-        name: 'long unordered',
+        name: 'unordered longer',
         responses: [
           333121,
           323453,
@@ -228,5 +249,71 @@ describe('Median', () => {
         }
       }
     }
+  })
+
+  // Checks the validity of the sorting network in `shortList`
+  describe('validate sorting network', () => {
+    const net = [
+      [0, 1],
+      [1, 2],
+      [0, 1],
+      [3, 4],
+      [6, 7],
+      [4, 5],
+      [7, 8],
+      [3, 4],
+      [6, 7],
+      [0, 3],
+      [3, 6],
+      [0, 3],
+      [1, 4],
+      [4, 7],
+      [1, 4],
+      [5, 8],
+      [2, 5],
+      [2, 4],
+      [4, 6],
+      [2, 4],
+      [1, 3],
+      [2, 3],
+      // These last three comparators are commented out in the contract,
+      // because they cannot affect the median.
+      [5, 8],
+      [5, 7],
+      [5, 6],
+    ]
+
+    // See: https://en.wikipedia.org/wiki/Sorting_network#Zero-one_principle
+    xit('zero-one principle', async () => {
+      const sortWithNet = (list: number[]) => {
+        for (const [i, j] of net) {
+          if (list[i] > list[j]) {
+            ;[list[i], list[j]] = [list[j], list[i]]
+          }
+        }
+      }
+
+      for (let n = 0; n < (1 << 9) - 1; n++) {
+        const list = [
+          (n >> 8) & 1,
+          (n >> 7) & 1,
+          (n >> 6) & 1,
+          (n >> 5) & 1,
+          (n >> 4) & 1,
+          (n >> 3) & 1,
+          (n >> 2) & 1,
+          (n >> 1) & 1,
+          (n >> 0) & 1,
+        ]
+        const sum = list.reduce((a, b) => a + b, 0)
+        sortWithNet(list)
+        const sortedSum = list.reduce((a, b) => a + b, 0)
+        assert.equal(sortedSum, sum, 'Number of zeros and ones changed')
+        list.reduce((switched, i) => {
+          assert.isTrue(!switched || i != 0, 'error at n=' + n.toString())
+          return i != 0
+        }, false)
+      }
+    })
   })
 })

@@ -17,18 +17,96 @@ library Median {
     pure
     returns (int256)
   {
-    return calculateInplace(copy(list));
+    require(0 < list.length, "list must not be empty");
+    if (list.length <= 9) {
+      return shortList(list);
+    } else {
+      return longList(copy(list));
+    }
   }
 
   /// @notice See documentation for function calculate.
-  /// @dev The list passed as an argument *is* modified.
+  /// @dev The list passed as an argument may be permuted.
   function calculateInplace(int256[] memory list)
     internal
     pure
     returns (int256)
   {
+    require(0 < list.length, "list must not be empty");
+    if (list.length <= 9) {
+      return shortList(list);
+    } else {
+      return longList(list);
+    }
+  }
+
+  /// @notice Optimized median computation for lists of length at most 9
+  /// @dev Assumes that 0 < list.len <= 9
+  /// @dev Does not modify list
+  function shortList(int256[] memory list) private pure returns (int256) {
+    // Uses an optimal sorting network (https://en.wikipedia.org/wiki/Sorting_network)
+    // for lists of length 9. Since we don't care about fully sorting list, but
+    // only want the median, some unnecessary comparators have been commented
+    // out below. Network layout is taken from https://stackoverflow.com/a/46801450
+
+    int256 intMax = 57896044618658097711785492504343953926634992332820282019728792003956564819967;
     uint256 len = list.length;
-    require(0 < len, "input must not be empty");
+    int256 x0 = list[0];
+    if (len == 1) {return x0;}
+    // --- end of subnetwork for lists of length <= 1
+    int256 x1 = list[1];
+    if (x0 > x1) {(x0, x1) = (x1, x0);}
+    if (len == 2) {return safeAvg(x0, x1);}
+    // --- end of subnetwork for lists of length <= 2
+    int256 x2 = list[2];
+    if (x1 > x2) {(x1, x2) = (x2, x1);}
+    if (x0 > x1) {(x0, x1) = (x1, x0);}
+    if (len == 3) {return x1;}
+    // --- end of subnetwork for lists of length <= 3
+    int256 x3 = list[3];
+    int256 x4 = 4 < len ? list[4] : intMax;
+    int256 x5 = 5 < len ? list[5] : intMax;
+    int256 x6 = 6 < len ? list[6] : intMax;
+    int256 x7 = 7 < len ? list[7] : intMax;
+    int256 x8 = 8 < len ? list[8] : intMax;
+    if (x3 > x4) {(x3, x4) = (x4, x3);}
+    if (x6 > x7) {(x6, x7) = (x7, x6);}
+    if (x4 > x5) {(x4, x5) = (x5, x4);}
+    if (x7 > x8) {(x7, x8) = (x8, x7);}
+    if (x3 > x4) {(x3, x4) = (x4, x3);}
+    if (x6 > x7) {(x6, x7) = (x7, x6);}
+    if (x0 > x3) {(x0, x3) = (x3, x0);}
+    if (x3 > x6) {(x3, x6) = (x6, x3);}
+    if (x0 > x3) {(x0, x3) = (x3, x0);}
+    if (x1 > x4) {(x1, x4) = (x4, x1);}
+    if (x4 > x7) {(x4, x7) = (x7, x4);}
+    if (x1 > x4) {(x1, x4) = (x4, x1);}
+    if (x5 > x8) {(x5, x8) = (x8, x5);}
+    if (x2 > x5) {(x2, x5) = (x5, x2);}
+    if (x2 > x4) {(x2, x4) = (x4, x2);}
+    if (x4 > x6) {(x4, x6) = (x6, x4);}
+    if (x2 > x4) {(x2, x4) = (x4, x2);}
+    if (x1 > x3) {(x1, x3) = (x3, x1);}
+    if (x2 > x3) {(x2, x3) = (x3, x2);}
+    // if (x5 > x8) {(x5, x8) = (x8, x5);}
+    // if (x5 > x7) {(x5, x7) = (x7, x5);}
+    // if (x5 > x6) {(x5, x6) = (x6, x5);}
+    if (len == 4) {return safeAvg(x1, x2);}
+    if (len == 5) {return x2;}
+    if (len == 6) {return safeAvg(x2, x3);}
+    if (len == 7) {return x3;}
+    if (len == 8) {return safeAvg(x3, x4);}
+    if (len == 9) {return x4;}
+    revert("list.length > 9");
+  }
+
+  /// @notice Median computation for lists of any length
+  function longList(int256[] memory list)
+    private
+    pure
+    returns (int256)
+  {
+    uint256 len = list.length;
     uint256 middleIndex = len / 2;
     if (len % 2 == 0) {
       int256 median1;
