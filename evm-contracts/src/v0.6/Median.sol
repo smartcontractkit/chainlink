@@ -6,12 +6,14 @@ import "./vendor/SignedSafeMath.sol";
 library Median {
   using SignedSafeMath for int256;
 
-  /// @notice Returns the sorted middle, or the average of the two middle indexed items if the
-  /// array has an even number of elements.
-  /// @dev The list passed as an argument isn't modified.
-  /// @dev This algorithm has expected runtime O(n), but for adversarially chosen inputs
-  /// the runtime is O(n^2).
-  /// @param list The list of elements to compare
+  /**
+   * @notice Returns the sorted middle, or the average of the two middle indexed items if the
+   * array has an even number of elements.
+   * @dev The list passed as an argument isn't modified.
+   * @dev This algorithm has expected runtime O(n), but for adversarially chosen inputs
+   * the runtime is O(n^2).
+   * @param list The list of elements to compare
+   */
   function calculate(int256[] memory list)
     internal
     pure
@@ -25,8 +27,10 @@ library Median {
     }
   }
 
-  /// @notice See documentation for function calculate.
-  /// @dev The list passed as an argument may be permuted.
+  /**
+   * @notice See documentation for function calculate.
+   * @dev The list passed as an argument may be permuted.
+   */
   function calculateInplace(int256[] memory list)
     internal
     pure
@@ -40,9 +44,11 @@ library Median {
     }
   }
 
-  /// @notice Optimized median computation for lists of length at most 9
-  /// @dev Assumes that 0 < list.len <= 9
-  /// @dev Does not modify list
+  /**
+   * @notice Optimized median computation for lists of length at most 9
+   * @dev Assumes that 0 < list.len <= 9
+   * @dev Does not modify list
+   */
   function shortList(int256[] memory list) private pure returns (int256) {
     // Uses an optimal sorting network (https://en.wikipedia.org/wiki/Sorting_network)
     // for lists of length 9. Since we don't care about fully sorting list, but
@@ -100,7 +106,9 @@ library Median {
     revert("list.length > 9");
   }
 
-  /// @notice Median computation for lists of any length
+  /**
+   * @notice Median computation for lists of any length
+   */
   function longList(int256[] memory list)
     private
     pure
@@ -118,8 +126,10 @@ library Median {
     }
   }
 
-  /// @notice Selects the k-th ranked element from list, looking only at indices between lo and hi
-  /// (inclusive). Modifies list in-place.
+  /**
+   * @notice Selects the k-th ranked element from list, looking only at indices between lo and hi
+   * (inclusive). Modifies list in-place.
+   */
   function quickselect(int256[] memory list, uint lo, uint hi, uint k)
     private
     pure
@@ -142,8 +152,10 @@ library Median {
     return list[lo];
   }
 
-  /// @notice Selects the k1-th and k2-th ranked elements from list, looking only at indices between
-  /// lo and hi (inclusive). Modifies list in-place.
+  /**
+   * @notice Selects the k1-th and k2-th ranked elements from list, looking only at indices between
+   * lo and hi (inclusive). Modifies list in-place.
+   */
   function quickselectTwo(int256[] memory list, uint lo, uint hi, uint k1, uint k2)
     internal
     pure
@@ -168,12 +180,14 @@ library Median {
     }
   }
 
-  /// @notice Partitions list in-place using Hoare's partitioning scheme.
-  /// Only elements of list between indices lo and hi (inclusive) will be modified.
-  /// Returns an index i, such that:
-  /// - lo <= i < hi
-  /// - forall j in [lo, i]. list[j] <= list[i]
-  /// - forall j in [i, hi]. list[i] <= list[j]
+  /**
+   * @notice Partitions list in-place using Hoare's partitioning scheme.
+   * Only elements of list between indices lo and hi (inclusive) will be modified.
+   * Returns an index i, such that:
+   * - lo <= i < hi
+   * - forall j in [lo, i]. list[j] <= list[i]
+   * - forall j in [i, hi]. list[i] <= list[j]
+   */
   function partition(int256[] memory list, uint lo, uint hi)
     private
     pure
@@ -209,7 +223,9 @@ library Median {
     }
   }
 
-  /// @notice Computes average of a and b using SignedSafeMath
+  /**
+   * @notice Computes average of a and b using SignedSafeMath
+   */
   function safeAvg(int256 a, int256 b)
     private
     pure
@@ -220,8 +236,10 @@ library Median {
   }
 
 
-  /// @notice Makes an in-memory copy of the array passed in
-  /// @param list Reference to the array to be copied
+  /**
+   * @notice Makes an in-memory copy of the array passed in
+   * @param list Reference to the array to be copied
+   */
   function copy(int256[] memory list)
     private
     pure
