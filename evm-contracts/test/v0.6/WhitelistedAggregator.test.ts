@@ -57,6 +57,7 @@ describe('WhitelistedAggregator', () => {
       'allocatedFunds',
       'availableFunds',
       'description',
+      'getAdmin',
       'getAnswer',
       'getOracles',
       'getOriginatingRoundOfAnswer',
@@ -79,6 +80,7 @@ describe('WhitelistedAggregator', () => {
       'reportingRoundStartedAt',
       'restartDelay',
       'timeout',
+      'updateAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
@@ -118,7 +120,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 
@@ -151,7 +159,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 
@@ -186,7 +200,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 
@@ -217,7 +237,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 

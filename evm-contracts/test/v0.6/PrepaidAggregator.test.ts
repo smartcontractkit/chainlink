@@ -88,6 +88,7 @@ describe('PrepaidAggregator', () => {
       'allocatedFunds',
       'availableFunds',
       'description',
+      'getAdmin',
       'getAnswer',
       'getOracles',
       'getOriginatingRoundOfAnswer',
@@ -109,6 +110,7 @@ describe('PrepaidAggregator', () => {
       'reportingRoundStartedAt',
       'restartDelay',
       'timeout',
+      'updateAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
@@ -161,7 +163,13 @@ describe('PrepaidAggregator', () => {
         minMax = i + 1
         await aggregator
           .connect(personas.Carol)
-          .addOracle(oracleAddresses[i].address, minMax, minMax, rrDelay)
+          .addOracle(
+            oracleAddresses[i].address,
+            oracleAddresses[i].address,
+            minMax,
+            minMax,
+            rrDelay,
+          )
       }
     })
 
@@ -211,22 +219,30 @@ describe('PrepaidAggregator', () => {
       it('pays the oracles that have reported', async () => {
         matchers.bigNum(
           0,
-          await aggregator.connect(personas.Neil).withdrawable(),
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawable(personas.Neil.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
 
         matchers.bigNum(
           paymentAmount,
-          await aggregator.connect(personas.Neil).withdrawable(),
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawable(personas.Neil.address),
         )
         matchers.bigNum(
           0,
-          await aggregator.connect(personas.Ned).withdrawable(),
+          await aggregator
+            .connect(personas.Ned)
+            .withdrawable(personas.Ned.address),
         )
         matchers.bigNum(
           0,
-          await aggregator.connect(personas.Nelly).withdrawable(),
+          await aggregator
+            .connect(personas.Nelly)
+            .withdrawable(personas.Nelly.address),
         )
       })
 
@@ -420,11 +436,15 @@ describe('PrepaidAggregator', () => {
       it('pays the same amount to all oracles per round', async () => {
         matchers.bigNum(
           0,
-          await aggregator.connect(personas.Neil).withdrawable(),
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawable(personas.Neil.address),
         )
         matchers.bigNum(
           0,
-          await aggregator.connect(personas.Nelly).withdrawable(),
+          await aggregator
+            .connect(personas.Nelly)
+            .withdrawable(personas.Nelly.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -435,11 +455,15 @@ describe('PrepaidAggregator', () => {
 
         matchers.bigNum(
           paymentAmount,
-          await aggregator.connect(personas.Neil).withdrawable(),
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawable(personas.Neil.address),
         )
         matchers.bigNum(
           paymentAmount,
-          await aggregator.connect(personas.Nelly).withdrawable(),
+          await aggregator
+            .connect(personas.Nelly)
+            .withdrawable(personas.Nelly.address),
         )
       })
     })
@@ -648,7 +672,13 @@ describe('PrepaidAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
 
       for (const answer of answers) {
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -668,7 +698,13 @@ describe('PrepaidAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
 
       for (let i = 0; i < 10; i++) {
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, i)
@@ -717,7 +753,13 @@ describe('PrepaidAggregator', () => {
       const pastCount = await aggregator.oracleCount()
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       const currentCount = await aggregator.oracleCount()
 
       matchers.bigNum(currentCount, pastCount + 1)
@@ -726,14 +768,20 @@ describe('PrepaidAggregator', () => {
     it('adds the address in getOracles', async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       assert.deepEqual([personas.Neil.address], await aggregator.getOracles())
     })
 
     it('updates the round details', async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, 0, 1, 0)
+        .addOracle(personas.Neil.address, personas.Neil.address, 0, 1, 0)
 
       matchers.bigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
       matchers.bigNum(
@@ -746,7 +794,13 @@ describe('PrepaidAggregator', () => {
     it('emits a log', async () => {
       const tx = await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       const receipt = await tx.wait()
 
       const added = h.evmWordToAddress(receipt.logs?.[0].topics[1])
@@ -757,14 +811,26 @@ describe('PrepaidAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+          .addOracle(
+            personas.Neil.address,
+            personas.Neil.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
       })
 
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .addOracle(personas.Neil.address, minAns, maxAns, rrDelay),
+            .addOracle(
+              personas.Neil.address,
+              personas.Neil.address,
+              minAns,
+              maxAns,
+              rrDelay,
+            ),
           'Address is already recorded as an oracle',
         )
       })
@@ -775,7 +841,13 @@ describe('PrepaidAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .addOracle(personas.Neil.address, minAns, maxAns, rrDelay),
+            .addOracle(
+              personas.Neil.address,
+              personas.Neil.address,
+              minAns,
+              maxAns,
+              rrDelay,
+            ),
           'Only callable by owner',
         )
       })
@@ -787,14 +859,26 @@ describe('PrepaidAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(oracleAddresses[i].address, i + 1, i + 1, rrDelay)
+            .addOracle(
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              i + 1,
+              i + 1,
+              rrDelay,
+            )
         }
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
 
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Nelly.address, 3, 3, rrDelay)
+          .addOracle(
+            personas.Nelly.address,
+            personas.Nelly.address,
+            3,
+            3,
+            rrDelay,
+          )
       })
 
       it('does not allow the oracle to update the round', async () => {
@@ -821,7 +905,13 @@ describe('PrepaidAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(oracleAddresses[i].address, i + 1, i + 1, rrDelay)
+            .addOracle(
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              i + 1,
+              i + 1,
+              rrDelay,
+            )
         }
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -837,7 +927,13 @@ describe('PrepaidAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Nelly.address, 1, 1, rrDelay)
+          .addOracle(
+            personas.Nelly.address,
+            personas.Nelly.address,
+            1,
+            1,
+            rrDelay,
+          )
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
       })
@@ -849,7 +945,53 @@ describe('PrepaidAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(oracleAddresses[i].address, i + 1, i + 1, rrDelay)
+            .addOracle(
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              i + 1,
+              i + 1,
+              rrDelay,
+            )
+        }
+
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        nextRound++
+
+        await aggregator
+          .connect(personas.Carol)
+          .removeOracle(personas.Nelly.address, 1, 1, rrDelay)
+
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        nextRound++
+
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(
+            personas.Nelly.address,
+            personas.Nelly.address,
+            1,
+            1,
+            rrDelay,
+          )
+
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+      })
+    })
+
+    describe('when an oracle is re-added with a different admin address', () => {
+      it('reverts', async () => {
+        oracleAddresses = [personas.Neil, personas.Nelly]
+        for (let i = 0; i < oracleAddresses.length; i++) {
+          await aggregator
+            .connect(personas.Carol)
+            .addOracle(
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              i + 1,
+              i + 1,
+              rrDelay,
+            )
         }
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -857,11 +999,18 @@ describe('PrepaidAggregator', () => {
         await aggregator
           .connect(personas.Carol)
           .removeOracle(personas.Nelly.address, 1, 1, rrDelay)
-        await aggregator
-          .connect(personas.Carol)
-          .addOracle(personas.Nelly.address, 1, 1, rrDelay)
-
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Carol)
+            .addOracle(
+              personas.Nelly.address,
+              personas.Carol.address,
+              1,
+              1,
+              rrDelay,
+            ),
+          'cannot modify previously-set admin address',
+        )
       })
     })
 
@@ -874,12 +1023,18 @@ describe('PrepaidAggregator', () => {
 
           await aggregator
             .connect(personas.Carol)
-            .addOracle(fakeAddress, minMax, minMax, rrDelay)
+            .addOracle(fakeAddress, fakeAddress, minMax, minMax, rrDelay)
         }
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .addOracle(personas.Neil.address, limit + 1, limit + 1, rrDelay),
+            .addOracle(
+              personas.Neil.address,
+              personas.Neil.address,
+              limit + 1,
+              limit + 1,
+              rrDelay,
+            ),
           `cannot add more than ${limit} oracles`,
         )
       })
@@ -890,10 +1045,23 @@ describe('PrepaidAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Nelly.address, 2, 2, rrDelay, {})
+        .addOracle(
+          personas.Nelly.address,
+          personas.Nelly.address,
+          2,
+          2,
+          rrDelay,
+          {},
+        )
     })
 
     it('decreases the oracle count', async () => {
@@ -1003,14 +1171,26 @@ describe('PrepaidAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+          .addOracle(
+            personas.Neil.address,
+            personas.Neil.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
         assert.deepEqual([personas.Neil.address], await aggregator.getOracles())
       })
 
       it('returns the addresses of added oracles', async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Ned.address, minAns, maxAns, rrDelay)
+          .addOracle(
+            personas.Ned.address,
+            personas.Ned.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
         assert.deepEqual(
           [personas.Neil.address, personas.Ned.address],
           await aggregator.getOracles(),
@@ -1018,7 +1198,13 @@ describe('PrepaidAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Nelly.address, minAns, maxAns, rrDelay)
+          .addOracle(
+            personas.Nelly.address,
+            personas.Nelly.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
         assert.deepEqual(
           [personas.Neil.address, personas.Ned.address, personas.Nelly.address],
           await aggregator.getOracles(),
@@ -1030,13 +1216,31 @@ describe('PrepaidAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+          .addOracle(
+            personas.Neil.address,
+            personas.Neil.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Ned.address, minAns, maxAns, rrDelay)
+          .addOracle(
+            personas.Ned.address,
+            personas.Ned.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
         await aggregator
           .connect(personas.Carol)
-          .addOracle(personas.Nelly.address, minAns, maxAns, rrDelay)
+          .addOracle(
+            personas.Nelly.address,
+            personas.Nelly.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
         assert.deepEqual(
           [personas.Neil.address, personas.Ned.address, personas.Nelly.address],
           await aggregator.getOracles(),
@@ -1103,7 +1307,13 @@ describe('PrepaidAggregator', () => {
         beforeEach(async () => {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+            .addOracle(
+              personas.Neil.address,
+              personas.Neil.address,
+              minAns,
+              maxAns,
+              rrDelay,
+            )
           await aggregator
             .connect(personas.Neil)
             .updateAnswer(nextRound, answer)
@@ -1152,7 +1362,13 @@ describe('PrepaidAggregator', () => {
         const minMax = i + 1
         await aggregator
           .connect(personas.Carol)
-          .addOracle(oracleAddresses[i].address, minMax, minMax, rrDelay)
+          .addOracle(
+            oracleAddresses[i].address,
+            oracleAddresses[i].address,
+            minMax,
+            minMax,
+            rrDelay,
+          )
       }
       minAnswerCount = oracleAddresses.length
       maxAnswerCount = oracleAddresses.length
@@ -1267,7 +1483,13 @@ describe('PrepaidAggregator', () => {
 
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       await link.transfer(aggregator.address, deposit)
       await aggregator.updateAvailableFunds()
@@ -1303,17 +1525,23 @@ describe('PrepaidAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 
-    it('transfers LINK to the caller', async () => {
+    it('transfers LINK to the recipient', async () => {
       const originalBalance = await link.balanceOf(aggregator.address)
       matchers.bigNum(0, await link.balanceOf(personas.Neil.address))
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, paymentAmount)
+        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
 
       matchers.bigNum(
         originalBalance.sub(paymentAmount),
@@ -1330,7 +1558,7 @@ describe('PrepaidAggregator', () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, paymentAmount)
+        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
 
       matchers.bigNum(
         originalAllocation.sub(paymentAmount),
@@ -1345,9 +1573,77 @@ describe('PrepaidAggregator', () => {
             .connect(personas.Neil)
             .withdraw(
               personas.Neil.address,
+              personas.Neil.address,
               paymentAmount.add(ethers.utils.bigNumberify(1)),
             ),
           'Insufficient balance',
+        )
+      })
+    })
+
+    describe('when the caller is not the admin', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Nelly)
+            .withdraw(
+              personas.Neil.address,
+              personas.Nelly.address,
+              ethers.utils.bigNumberify(1),
+            ),
+          'Only admin can withdraw',
+        )
+      })
+    })
+  })
+
+  describe('#updateAdmin', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(
+          personas.Ned.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
+    })
+
+    describe('when the admin tries to update the admin', () => {
+      it('works', async () => {
+        assert.equal(
+          personas.Neil.address,
+          await aggregator.getAdmin(personas.Ned.address),
+        )
+        await aggregator
+          .connect(personas.Neil)
+          .updateAdmin(personas.Ned.address, personas.Nelly.address)
+        assert.equal(
+          personas.Nelly.address,
+          await aggregator.getAdmin(personas.Ned.address),
+        )
+      })
+    })
+
+    describe('when the non-admin owner tries to update the admin', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Carol)
+            .updateAdmin(personas.Ned.address, personas.Nelly.address),
+          'Only admin can update admin',
+        )
+      })
+    })
+
+    describe('when the non-admin oracle tries to update the admin', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Ned)
+            .updateAdmin(personas.Ned.address, personas.Nelly.address),
+          'Only admin can update admin',
         )
       })
     })
