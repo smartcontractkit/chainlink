@@ -15,14 +15,14 @@
     "prepublishOnly": "yarn clean && yarn setup && yarn test"
   },
   "devDependencies": {
+    "@chainlink/belt": "0.0.1",
     "@chainlink/test-helpers": "0.0.2",
     "@types/jest": "^25.1.1",
     "@types/node": "^13.7.0",
     "ethers": "^4.0.44",
     "jest": "^25.1.0",
     "ts-jest": "^25.2.0",
-    "typescript": "^3.7.5",
-    "@chainlink/belt": "0.0.1"
+    "typescript": "^3.7.5"
   },
   "files": [
     "abi/**/*",
@@ -34,5 +34,8 @@
   "optionalDependencies": {
     "@truffle/contract": "^4.1.8",
     "ethers": "^4.0.44"
+  },
+  "dependencies": {
+    "@types/inquirer": "^6.5.0"
   }
 }
