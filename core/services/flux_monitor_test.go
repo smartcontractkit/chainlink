@@ -211,7 +211,8 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	assert.Equal(t, decimal.NewFromInt(100), checker.ExportedCurrentPrice())
 	assert.Equal(t, big.NewInt(1), checker.ExportedCurrentRound())
 
-	require.NoError(t, checker.ExportedPoll()) // main entry point
+	_, err = checker.ExportedPoll()
+	require.NoError(t, err) // main entry point
 
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
@@ -223,7 +224,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	initr.ID = 1
-	initr.PollingInterval = models.Duration(24 * time.Hour)
+	initr.PollingInterval = models.Duration(5 * time.Millisecond)
 	initr.IdleThreshold = models.Duration(10 * time.Millisecond)
 
 	jobRun := cltest.NewJobRun(job)

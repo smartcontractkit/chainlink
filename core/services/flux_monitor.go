@@ -299,7 +299,7 @@ func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) 
 		return err
 	}
 
-	err = p.poll(p.threshold)
+	_, err = p.poll(p.threshold)
 	if err != nil {
 		return err
 	}
@@ -323,14 +323,16 @@ func stopTimer(arg *time.Timer) {
 func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription eth.Subscription) {
 	defer roundSubscription.Unsubscribe()
 
-	idleThreshold := time.NewTimer(math.MaxInt64)
-	defer stopTimer(idleThreshold)
+	idleThreshold := p.idleThreshold
+	if idleThreshold == 0 {
+		idleThreshold = math.MaxInt64
+	}
+
+	idleThresholdTimer := time.NewTimer(idleThreshold)
+	defer stopTimer(idleThresholdTimer)
 
 	for {
-		if p.idleThreshold > 0 {
-			stopTimer(idleThreshold) // Reset expects stopped or expired timer.
-			idleThreshold.Reset(p.idleThreshold)
-		}
+		jobRunTriggered := false
 
 		select {
 		case <-ctx.Done():
@@ -339,11 +341,22 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 		case err := <-roundSubscription.Err():
 			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
 		case log := <-p.newRounds:
-			logger.ErrorIf(p.respondToNewRound(log), "checker unable to respond to new round")
+			err := p.respondToNewRound(log)
+			logger.ErrorIf(err, "checker unable to respond to new round")
 		case <-time.After(p.delay):
-			logger.ErrorIf(p.poll(p.threshold), "checker unable to poll")
-		case <-idleThreshold.C:
-			logger.ErrorIf(p.poll(0), "checker unable to poll")
+			ok, err := p.poll(p.threshold)
+			logger.ErrorIf(err, "checker unable to poll")
+			jobRunTriggered = ok
+		case <-idleThresholdTimer.C:
+			ok, err := p.poll(0)
+			logger.ErrorIf(err, "checker unable to poll")
+			jobRunTriggered = ok
+		}
+
+		if jobRunTriggered {
+			// Reset expects stopped or expired timer.
+			stopTimer(idleThresholdTimer)
+			idleThresholdTimer.Reset(idleThreshold)
 		}
 	}
 }
@@ -440,17 +453,19 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 // poll walks through the steps to check for a deviation, early exiting if deviation
 // is not met, or triggering a new job run if deviation is met.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) poll(threshold float64) error {
+//
+// True is returned when a Job Run was triggered.
+func (p *PollingDeviationChecker) poll(threshold float64) (bool, error) {
 	jobSpecID := p.initr.JobSpecID.String()
 
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
-		return err
+		return false, err
 	}
 	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), nextPrice)
 
 	if !OutsideDeviation(p.currentPrice, nextPrice, threshold) {
-		return nil // early exit since deviation criteria not met.
+		return false, nil // early exit since deviation criteria not met.
 	}
 
 	nextRound := new(big.Int).Add(p.currentRound, big.NewInt(1)) // start new round
@@ -461,7 +476,7 @@ func (p *PollingDeviationChecker) poll(threshold float64) error {
 	)
 	err = p.createJobRun(nextPrice, nextRound)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	p.currentPrice = nextPrice
@@ -470,7 +485,7 @@ func (p *PollingDeviationChecker) poll(threshold float64) error {
 	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), p.currentPrice)
 	promSetBigInt(promFMReportedRound.WithLabelValues(jobSpecID), p.currentRound)
 
-	return nil
+	return true, nil
 }
 
 func (p *PollingDeviationChecker) fetchPrices() (decimal.Decimal, error) {
