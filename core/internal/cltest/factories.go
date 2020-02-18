@@ -145,11 +145,12 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
-			Address:     NewAddress(),
-			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:       []string{"https://lambda.staging.devnet.tools/bnc/call"},
-			Threshold:   0.5,
-			Precision:   2,
+			Address:       NewAddress(),
+			RequestData:   models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:         []string{"https://lambda.staging.devnet.tools/bnc/call"},
+			IdleThreshold: models.Duration(time.Minute),
+			Threshold:     0.5,
+			Precision:     2,
 		},
 	}}
 	return j

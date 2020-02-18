@@ -333,7 +333,7 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
-	require.Equal(t, http.StatusText(http.StatusOK), http.StatusText(resp.StatusCode))
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
