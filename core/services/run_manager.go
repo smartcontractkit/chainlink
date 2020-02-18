@@ -53,7 +53,6 @@ type RunManager interface {
 	Create(
 		jobSpecID *models.ID,
 		initiator *models.Initiator,
-		data *models.JSON,
 		creationHeight *big.Int,
 		runRequest *models.RunRequest) (*models.JobRun, error)
 	CreateErrored(
@@ -104,7 +103,6 @@ func runCost(job *models.JobSpec, config orm.ConfigReader, adapters []*adapters.
 func NewRun(
 	job *models.JobSpec,
 	initiator *models.Initiator,
-	data *models.JSON,
 	currentHeight *big.Int,
 	runRequest *models.RunRequest,
 	config orm.ConfigReader,
@@ -120,7 +118,6 @@ func NewRun(
 		InitiatorID:    initiator.ID,
 		TaskRuns:       make([]models.TaskRun, len(job.Tasks)),
 		Status:         models.RunStatusInProgress,
-		Overrides:      *data,
 		CreationHeight: utils.NewBig(currentHeight),
 		ObservedHeight: utils.NewBig(currentHeight),
 		RunRequest:     *runRequest,
@@ -224,7 +221,6 @@ func (rm *runManager) CreateErrored(
 func (rm *runManager) Create(
 	jobSpecID *models.ID,
 	initiator *models.Initiator,
-	data *models.JSON,
 	creationHeight *big.Int,
 	runRequest *models.RunRequest,
 ) (*models.JobRun, error) {
@@ -261,7 +257,7 @@ func (rm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
-	run, adapters := NewRun(&job, initiator, data, creationHeight, runRequest, rm.config, rm.orm, now)
+	run, adapters := NewRun(&job, initiator, creationHeight, runRequest, rm.config, rm.orm, now)
 	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
 
@@ -345,11 +341,11 @@ func (rm *runManager) ResumePending(
 		return rm.updateWithError(&run, "Attempting to resume pending run with no remaining tasks %s", run.ID)
 	}
 
-	data, err := models.Merge(run.Overrides, input.Data)
+	data, err := models.Merge(run.RunRequest.RequestParams, input.Data)
 	if err != nil {
-		return rm.updateWithError(&run, "Error while merging onto overrides for run %s", run.ID)
+		return rm.updateWithError(&run, "Error while merging onto RequestParams for run %s", run.ID)
 	}
-	run.Overrides = data
+	run.RunRequest.RequestParams = data
 
 	currentTaskRun.ApplyBridgeRunResult(input)
 	run.ApplyBridgeRunResult(input)

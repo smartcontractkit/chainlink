@@ -227,9 +227,15 @@ func (le InitiatorLogEvent) BlockNumber() *big.Int {
 func (le InitiatorLogEvent) RunRequest() (RunRequest, error) {
 	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
 	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
+
+	requestParams, err := le.JSON()
+	if err != nil {
+		return RunRequest{}, err
+	}
 	return RunRequest{
-		BlockHash: &blockHash,
-		TxHash:    &txHash,
+		BlockHash:     &blockHash,
+		TxHash:        &txHash,
+		RequestParams: requestParams,
 	}, nil
 }
 
@@ -338,6 +344,12 @@ func (le RunLogEvent) Requester() common.Address {
 // RunRequest returns an RunRequest instance with all parameters
 // from a run log topic, like RequestID.
 func (le RunLogEvent) RunRequest() (RunRequest, error) {
+	requestParams, err := le.JSON()
+	if err != nil {
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return RunRequest{}, err
+	}
+
 	parser, err := parserFromLog(le.Log)
 	if err != nil {
 		return RunRequest{}, err
@@ -352,12 +364,14 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
 	str := parser.parseRequestID(le.Log)
 	requester := le.Requester()
+
 	return RunRequest{
-		RequestID: &str,
-		TxHash:    &txHash,
-		BlockHash: &blockHash,
-		Requester: &requester,
-		Payment:   payment,
+		RequestID:     &str,
+		TxHash:        &txHash,
+		BlockHash:     &blockHash,
+		Requester:     &requester,
+		Payment:       payment,
+		RequestParams: requestParams,
 	}, nil
 }
 

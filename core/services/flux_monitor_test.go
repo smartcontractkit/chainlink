@@ -187,8 +187,9 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000002"
 	}`, initr.InitiatorParams.Address.Hex())))
 	require.NoError(t, err)
-	rm.On("Create", job.ID, &initr, &data, mock.Anything, mock.Anything).
-		Return(&run, nil)
+	rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+		return runRequest.RequestParams == data
+	})).Return(&run, nil)
 
 	checker, err := services.NewPollingDeviationChecker(initr, rm, fetcher, time.Second)
 	require.NoError(t, err)
@@ -364,7 +365,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 			log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
 			log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
 			require.NoError(t, checker.ExportedRespondToNewRound(log))
-			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		})
 	}
 }
@@ -404,8 +405,9 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 	// Set up fetcher for 100; even if within deviation, forces the creation of run.
 	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe()
 
-	rm.On("Create", mock.Anything, mock.Anything, &data, mock.Anything, mock.Anything).
-		Return(nil, nil) // only round 6 triggers run.
+	rm.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+		return runRequest.RequestParams == data
+	})).Return(nil, nil) // only round 6 triggers run.
 
 	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
 	log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(6))
