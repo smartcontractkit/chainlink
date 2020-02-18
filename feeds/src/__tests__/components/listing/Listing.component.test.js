@@ -18,7 +18,7 @@ const groupMock = [
           name: 'pair name 1',
           path: '/link',
           valuePrefix: 'prefix ',
-          supported: ['supporter 1', 'supporter 2'],
+          sponsored: ['sponsor 1', 'sponsor 2'],
         },
       },
       {
@@ -27,7 +27,7 @@ const groupMock = [
           name: 'pair name 2',
           path: '/link2',
           valuePrefix: 'prefix2',
-          supported: ['supporter 1', 'supporter 2'],
+          sponsored: ['sponsor 1', 'sponsor 2'],
         },
       },
     ],
@@ -41,7 +41,7 @@ const groupMock = [
           name: 'pair name 3',
           path: '/link',
           valuePrefix: 'prefix',
-          supported: ['supporter 1', 'supporter 2'],
+          sponsored: ['sponsor 1', 'sponsor 2'],
         },
       },
       {
@@ -50,7 +50,7 @@ const groupMock = [
           name: 'pair name 4',
           path: '/link2',
           valuePrefix: 'prefix2',
-          supported: ['supporter 1', 'supporter 2'],
+          sponsored: ['sponsor 1', 'sponsor 2'],
         },
       },
     ],
@@ -93,13 +93,13 @@ describe('components/listing/Listing.component', () => {
     expect(container).toHaveTextContent('prefix2 answer2')
   })
 
-  it('should renders supported names', () => {
+  it('should renders sponsored names', () => {
     const { container } = render(
       <AllTheProviders>
         <Listing groups={groupMock} fetchAnswers={() => {}} />
       </AllTheProviders>,
     )
-    expect(container).toHaveTextContent('supporter 1')
-    expect(container).toHaveTextContent('supporter 2')
+    expect(container).toHaveTextContent('sponsor 1')
+    expect(container).toHaveTextContent('sponsor 2')
   })
 })

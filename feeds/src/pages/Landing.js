@@ -31,7 +31,7 @@ const LangingPage = () => (
           decentralized on-chain price reference data available. Composed of
           security reviewed, sybil resistant and fully independent nodes which
           are run by leading blockchain devops and security teams. Creating a
-          shared global resource which is supported by a growing list of top
+          shared global resource which is sponsored by a growing list of top
           DeFi Dapps.
         </p>
         <p>
@@ -46,7 +46,7 @@ const LangingPage = () => (
       </section>
     </div>
 
-    <section className="supporters-wrapper">
+    <section className="sponsors-wrapper">
       <div className="cta-integrate">
         <a
           onClick={() =>
@@ -65,8 +65,8 @@ const LangingPage = () => (
           </Button>
         </a>
       </div>
-      <h3>Made possible and supported by</h3>
-      <div className="supporters">
+      <h3>Made possible and sponsored by</h3>
+      <div className="sponsors">
         <a
           href="https://www.synthetix.io/"
           target="_blank"
