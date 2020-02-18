@@ -52,7 +52,7 @@ flux_monitor_test() {
   # Assert job ran
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $second_job_run_count
 
-  # Stop the job from affecting other tests
+  echo "archiving job to prevent it affecting other tests"
   chainlink jobs archive $(echo "$flux_monitor_job" | jq .id)
 }
 
