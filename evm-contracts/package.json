@@ -22,7 +22,8 @@
     "ethers": "^4.0.44",
     "jest": "^25.1.0",
     "ts-jest": "^25.2.0",
-    "typescript": "^3.7.5"
+    "typescript": "^3.7.5",
+    "solc": "git://github.com/smartcontractkit/solc-js.git#enhancement/solc-repo"
   },
   "files": [
     "abi/**/*",
@@ -33,7 +34,8 @@
   ],
   "optionalDependencies": {
     "@truffle/contract": "^4.1.8",
-    "ethers": "^4.0.44"
+    "ethers": "^4.0.44",
+    "@0x/sol-compiler/solc": "git://github.com/smartcontractkit/solc-js.git#enhancement/solc-repo"
   },
   "dependencies": {
     "@types/inquirer": "^6.5.0"
