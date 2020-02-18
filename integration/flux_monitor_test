@@ -37,7 +37,7 @@ flux_monitor_test() {
     --data '{"result":101}' \
     "$EXTERNAL_ADAPTER_URL/result"
 
-  sleep "$pollingDuration"
+  sleep "$pollingInterval"
 
   # Assert no jobs ran after nominal update
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
