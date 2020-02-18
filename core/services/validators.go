@@ -1,7 +1,9 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -28,7 +30,7 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 		fe.Add("Must have at least one Initiator and one Task")
 	}
 	for _, i := range j.Initiators {
-		if err := ValidateInitiator(i, j); err != nil {
+		if err := ValidateInitiator(i, j, store); err != nil {
 			fe.Merge(err)
 		}
 	}
@@ -91,7 +93,7 @@ func ValidateExternalInitiator(
 }
 
 // ValidateInitiator checks the Initiator for any application logic errors.
-func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
+func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	switch strings.ToLower(i.Type) {
 	case models.InitiatorRunAt:
 		return validateRunAtInitiator(i, j)
@@ -104,7 +106,7 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	case models.InitiatorRunLog:
 		return validateRunLogInitiator(i, j)
 	case models.InitiatorFluxMonitor:
-		return validateFluxMonitor(i, j)
+		return validateFluxMonitor(i, j, store)
 	case models.InitiatorWeb:
 		return nil
 	case models.InitiatorEthLog:
@@ -114,13 +116,11 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	}
 }
 
-func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
+func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
+
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
-	}
-	if len(i.Feeds) == 0 {
-		fe.Add("no feeds")
 	}
 	if i.IdleThreshold != 0 && i.IdleThreshold < i.PollingInterval {
 		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
@@ -136,8 +136,46 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
 	} else if i.PollingInterval < MinimumPollingInterval {
 		fe.Add("pollingInterval must be equal or greater than " + MinimumPollingInterval.String())
 	}
+	if err := validateFeeds(i.Feeds, store); err != nil {
+		fe.Add(err.Error())
+	}
 
 	return fe.CoerceEmptyToNil()
+}
+
+func validateFeeds(feeds models.Feeds, store *store.Store) error {
+	var feedsData []interface{}
+	if err := json.Unmarshal(feeds.Bytes(), &feedsData); err != nil {
+		return errors.New("invalid json for feeds parameter")
+	}
+	if len(feedsData) == 0 {
+		return errors.New("feeds field is empty")
+	}
+
+	var bridgeNames []string
+	for _, entry := range feedsData {
+		switch feed := entry.(type) {
+		case string:
+			if _, err := url.ParseRequestURI(feed); err != nil {
+				return err
+			}
+		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
+			bridgeName := feed["bridge"]
+			if bridgeName == nil {
+				return errors.New("Feeds object missing bridge key")
+			} else if len(feed) != 1 {
+				return errors.New("Unsupported keys in feed JSON")
+			}
+			bridgeNames = append(bridgeNames, bridgeName.(string))
+		default:
+			return errors.New("unknown feed type")
+		}
+	}
+	if _, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/guregu/null"
@@ -53,28 +54,31 @@ func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			urls := []string{}
+			var urls []*url.URL
 			for _, price := range test.prices {
 				s := httptest.NewServer(fakePriceResponder(t, ethUSDPairing, price))
 				defer s.Close()
-				urls = append(urls, s.URL)
+				newURL, err := url.ParseRequestURI(s.URL)
+				require.NoError(t, err)
+				urls = append(urls, newURL)
 			}
 
-			medianFetcher, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls...)
+			medianFetcher, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls)
 			require.NoError(t, err)
 
 			medianPrice, err := medianFetcher.Fetch()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, test.expect, medianPrice.String())
 		})
 	}
 }
 
-func TestNewMedianFetcherFromURLs_Error(t *testing.T) {
+func TestNewMedianFetcherFromURLs_EmptyError(t *testing.T) {
 	s1 := httptest.NewServer(fakePriceResponder(t, ethUSDPairing, decimal.NewFromInt(101)))
 	defer s1.Close()
+	var urls []*url.URL
 
-	_, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, s1.URL, "garbage")
+	_, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls)
 	require.Error(t, err)
 }
 
@@ -82,11 +86,12 @@ func TestHTTPFetcher_Happy(t *testing.T) {
 	btcUSDPairing := `{"data":{"coin":"BTC","market":"USD"}}`
 	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
 	defer s1.Close()
-
-	fetcher, err := newHTTPFetcher(defaultHTTPTimeout, btcUSDPairing, s1.URL)
+	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
+
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, btcUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, decimal.NewFromInt(9700), price)
 }
 
@@ -103,9 +108,10 @@ func TestHTTPFetcher_ErrorMessage(t *testing.T) {
 
 	server := httptest.NewServer(handler)
 	defer server.Close()
-
-	fetcher, err := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, server.URL)
+	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
+
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
 	assert.Error(t, err)
 	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
@@ -122,9 +128,10 @@ func TestHTTPFetcher_OnlyErrorMessage(t *testing.T) {
 
 	server := httptest.NewServer(handler)
 	defer server.Close()
-
-	fetcher, err := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, server.URL)
+	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
+
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
 	assert.Error(t, err)
 	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
@@ -140,9 +147,10 @@ func TestHTTPFetcher_NoResultNorErrorMessage(t *testing.T) {
 
 	server := httptest.NewServer(handler)
 	defer server.Close()
-
-	fetcher, err := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, server.URL)
+	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
+
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL)
 	price, err := fetcher.Fetch()
 	assert.Error(t, err)
 	assert.True(t, decimal.NewFromInt(0).Equal(price))

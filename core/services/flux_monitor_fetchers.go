@@ -34,23 +34,18 @@ type httpFetcher struct {
 
 func newHTTPFetcher(
 	timeout time.Duration,
-	requestData,
-	urlStr string,
-) (Fetcher, error) {
-	u, err := url.ParseRequestURI(urlStr)
-	if err != nil {
-		return nil, err
-	}
-
+	requestData string,
+	url *url.URL,
+) Fetcher {
 	client := &http.Client{Timeout: timeout, Transport: http.DefaultTransport}
 	client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
 	client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
 
 	return &httpFetcher{
 		client:      client,
-		url:         u,
+		url:         url,
 		requestData: requestData,
-	}, err
+	}
 }
 
 func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
@@ -113,15 +108,11 @@ type medianFetcher struct {
 func newMedianFetcherFromURLs(
 	timeout time.Duration,
 	requestData string,
-	priceURLs ...string,
+	priceURLs []*url.URL,
 ) (Fetcher, error) {
 	fetchers := []Fetcher{}
 	for _, url := range priceURLs {
-		ps, err := newHTTPFetcher(timeout, requestData, url)
-		if err != nil {
-			return nil, err
-		}
-
+		ps := newHTTPFetcher(timeout, requestData, url)
 		fetchers = append(fetchers, ps)
 	}
 

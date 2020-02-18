@@ -147,10 +147,27 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		InitiatorParams: models.InitiatorParams{
 			Address:       NewAddress(),
 			RequestData:   models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:         []string{"https://lambda.staging.devnet.tools/bnc/call"},
+			Feeds:         models.JSON{gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
 			IdleThreshold: models.Duration(time.Minute),
 			Threshold:     0.5,
 			Precision:     2,
+		},
+	}}
+	return j
+}
+
+// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
+func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorFluxMonitor,
+		InitiatorParams: models.InitiatorParams{
+			Address:     NewAddress(),
+			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       models.JSON{gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			Threshold:   0.5,
+			Precision:   2,
 		},
 	}}
 	return j

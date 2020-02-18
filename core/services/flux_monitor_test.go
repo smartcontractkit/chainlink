@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/url"
 	"testing"
 	"time"
 
@@ -47,7 +48,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 	})
 
 	checkerFactory := new(mocks.DeviationCheckerFactory)
-	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
@@ -85,7 +86,7 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 	dc := new(mocks.DeviationChecker)
 	dc.On("Start", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
 	checkerFactory := new(mocks.DeviationCheckerFactory)
-	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
@@ -106,7 +107,7 @@ func TestConcreteFluxMonitor_AddJobDisconnected(t *testing.T) {
 	runManager := new(mocks.RunManager)
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	dc := new(mocks.DeviationChecker)
-	checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	fm := services.NewFluxMonitor(store, runManager)
 	services.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
@@ -149,7 +150,7 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 		require.NoError(t, store.CreateJob(&job))
 		job, err := store.FindJob(job.ID)
 		require.NoError(t, err)
-		checkerFactory.On("New", job.Initiators[0], runManager).Return(dc, nil)
+		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	}
 
 	fm := services.NewFluxMonitor(store, runManager)
@@ -489,6 +490,64 @@ func TestOutsideDeviation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			actual := services.OutsideDeviation(test.curPrice, test.nextPrice, test.threshold)
 			assert.Equal(t, test.expectation, actual)
+		})
+	}
+}
+
+func TestExtractFeedURLs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	bridge := &models.BridgeType{
+		Name: models.MustNewTaskType("testbridge"),
+		URL:  cltest.WebURL(t, "https://testing.com/bridges"),
+	}
+	require.NoError(t, store.CreateBridgeType(bridge))
+
+	tests := []struct {
+		name        string
+		in          string
+		expectation []string
+	}{
+		{
+			"single",
+			`["https://lambda.staging.devnet.tools/bnc/call"]`,
+			[]string{"https://lambda.staging.devnet.tools/bnc/call"},
+		},
+		{
+			"double",
+			`["https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"]`,
+			[]string{"https://lambda.staging.devnet.tools/bnc/call", "https://lambda.staging.devnet.tools/cc/call"},
+		},
+		{
+			"bridge",
+			`[{"bridge":"testbridge"}]`,
+			[]string{"https://testing.com/bridges"},
+		},
+		{
+			"mixed",
+			`["https://lambda.staging.devnet.tools/bnc/call", {"bridge": "testbridge"}]`,
+			[]string{"https://lambda.staging.devnet.tools/bnc/call", "https://testing.com/bridges"},
+		},
+		{
+			"empty",
+			`[]`,
+			[]string{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			initiatorParams := models.InitiatorParams{
+				Feeds: cltest.JSONFromString(t, test.in),
+			}
+			var expectation []*url.URL
+			for _, urlString := range test.expectation {
+				expectation = append(expectation, cltest.MustParseURL(urlString))
+			}
+			val, err := services.ExtractFeedURLs(initiatorParams.Feeds, store.ORM)
+			require.NoError(t, err)
+			assert.Equal(t, val, expectation)
 		})
 	}
 }
