@@ -81,6 +81,20 @@ func (_m *JobSubscriber) RemoveJob(ID *models.ID) error {
 	return r0
 }
 
+// Start provides a mock function with given fields:
+func (_m *JobSubscriber) Start() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Stop provides a mock function with given fields:
 func (_m *JobSubscriber) Stop() error {
 	ret := _m.Called()

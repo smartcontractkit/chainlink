@@ -82,7 +82,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		return
 	}
 
-	jr, err := jrc.App.Create(j.ID, initiator, &data, nil, &models.RunRequest{})
+	jr, err := jrc.App.Create(j.ID, initiator, nil, &models.RunRequest{RequestParams: data})
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 		return
