@@ -5,11 +5,14 @@ import (
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
 	"chainlink/core/utils"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
+	"net/url"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -166,7 +169,7 @@ func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, jo
 			"job", job.ID.String(),
 			"initr", initr.ID,
 		)
-		checker, err := fm.checkerFactory.New(initr, fm.runManager)
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -200,12 +203,12 @@ func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager) (DeviationChecker, error)
+	New(models.Initiator, RunManager, *orm.ORM) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct{}
 
-func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager) (DeviationChecker, error) {
+func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager, orm *orm.ORM) (DeviationChecker, error) {
 	if initr.InitiatorParams.PollingInterval < MinimumPollingInterval {
 		return nil, fmt.Errorf(
 			"pollingInterval must be equal or greater than %s",
@@ -213,11 +216,15 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		)
 	}
 
+	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
+	if err != nil {
+		return nil, err
+	}
+
 	fetcher, err := newMedianFetcherFromURLs(
 		defaultHTTPTimeout,
 		initr.InitiatorParams.RequestData.String(),
-		initr.InitiatorParams.Feeds...)
-
+		urls)
 	if err != nil {
 		return nil, err
 	}
@@ -228,6 +235,50 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		fetcher,
 		initr.InitiatorParams.PollingInterval.Duration(),
 	)
+}
+
+// ExtractFeedURLs extracts a list of url.URLs from the feeds parameter of the initiator params
+func ExtractFeedURLs(feeds models.Feeds, orm *orm.ORM) ([]*url.URL, error) {
+	var feedsData []interface{}
+	var urls []*url.URL
+
+	err := json.Unmarshal(feeds.Bytes(), &feedsData)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range feedsData {
+		var bridgeURL *url.URL
+		var err error
+
+		switch feed := entry.(type) {
+		case string: // feed url - ex: "http://example.com"
+			bridgeURL, err = url.ParseRequestURI(feed)
+		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
+			bridgeName := feed["bridge"].(string)
+			bridgeURL, err = GetBridgeURLFromName(bridgeName, orm) // XXX: currently an n query
+		default:
+			err = errors.New("unable to extract feed URLs from json")
+		}
+
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, bridgeURL)
+	}
+
+	return urls, nil
+}
+
+// GetBridgeURLFromName looks up a bridge in the DB by name, then extracts the url
+func GetBridgeURLFromName(name string, orm *orm.ORM) (*url.URL, error) {
+	task := models.TaskType(name)
+	bridge, err := orm.FindBridge(task)
+	if err != nil {
+		return nil, err
+	}
+	bridgeURL := url.URL(bridge.URL)
+	return &bridgeURL, nil
 }
 
 //go:generate mockery -name DeviationChecker -output ../internal/mocks/ -case=underscore
