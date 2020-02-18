@@ -9,5 +9,4 @@ func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 	  ALTER TABLE initiators ADD COLUMN "idle_threshold" BigInt;
 	`).Error
-	return nil
 }
