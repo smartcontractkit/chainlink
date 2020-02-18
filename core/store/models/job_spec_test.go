@@ -42,8 +42,9 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 			initrReq: models.InitiatorRequest{
 				Type: models.InitiatorFluxMonitor,
 				InitiatorParams: models.InitiatorParams{
-					Threshold: 5,
-					Precision: 2,
+					IdleThreshold: models.Duration(5 * time.Second),
+					Precision:     2,
+					Threshold:     5,
 				},
 			},
 			jobSpec: job,
@@ -51,9 +52,10 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				Type:      models.InitiatorFluxMonitor,
 				JobSpecID: job.ID,
 				InitiatorParams: models.InitiatorParams{
-					Threshold:       5,
-					Precision:       2,
+					IdleThreshold:   models.Duration(5 * time.Second),
 					PollingInterval: models.FluxMonitorDefaultInitiatorParams.PollingInterval,
+					Precision:       2,
+					Threshold:       5,
 				},
 			},
 		},
