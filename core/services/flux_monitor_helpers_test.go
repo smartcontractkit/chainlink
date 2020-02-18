@@ -28,7 +28,7 @@ func (p *PollingDeviationChecker) ExportedRespondToNewRound(log eth.Log) error {
 	return p.respondToNewRound(log)
 }
 
-func (p *PollingDeviationChecker) ExportedPoll() error {
+func (p *PollingDeviationChecker) ExportedPoll() (bool, error) {
 	return p.poll(p.threshold)
 }
 
