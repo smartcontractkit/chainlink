@@ -53,7 +53,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

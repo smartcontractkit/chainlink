@@ -38,7 +38,7 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 func TestJobSpecsController_Index_noSort(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -87,7 +87,7 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -163,7 +163,7 @@ func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec,
 func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -219,7 +219,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	)
 	defer assertCalled()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	app.Start()
 
@@ -249,7 +249,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -276,7 +276,7 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 
 func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -298,7 +298,7 @@ func TestJobSpecsController_Create_FluxMonitor_disabled(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "FALSE")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
 	defer cleanup()
 
 	require.NoError(t, app.Start())
@@ -339,7 +339,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
 	defer cleanup()
 
 	require.NoError(t, app.Start())
@@ -364,7 +364,7 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
 	defer cleanup()
 
 	require.NoError(t, app.Start())
@@ -380,7 +380,7 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -399,7 +399,7 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 
 func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -418,7 +418,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 
 func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -437,7 +437,7 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 
 func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -472,7 +472,7 @@ func BenchmarkJobSpecsController_Show(b *testing.B) {
 func TestJobSpecsController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -506,7 +506,7 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 
 func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -519,7 +519,7 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 
 func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -532,7 +532,7 @@ func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 
 func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())
 
 	defer cleanup()
@@ -544,7 +544,7 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 func TestJobSpecsController_Destroy(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
