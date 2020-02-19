@@ -12,6 +12,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
+	"time"
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
@@ -30,7 +31,7 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		return completed.IsSet()
-	}).Should(gomega.BeTrue())
+	}, 10*time.Second).Should(gomega.BeTrue())
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
