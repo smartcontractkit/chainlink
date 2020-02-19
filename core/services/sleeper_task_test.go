@@ -94,8 +94,7 @@ func TestSleeperTask_WakeupNotBlockedWhileWorking(t *testing.T) {
 	sleeper.Stop()
 }
 
-// TODO: Do we really need to support restarting? It doesnt't appear to be used anywhere
-func TestSleeperTask_Restart(t *testing.T) {
+func TestSleeperTask_StartAfterStoppedReturnsError(t *testing.T) {
 	worker := testWorker{output: make(chan struct{})}
 	sleeper := services.NewSleeperTask(&worker)
 
@@ -106,12 +105,7 @@ func TestSleeperTask_Restart(t *testing.T) {
 
 	sleeper.Stop()
 
-	sleeper.Start()
-	sleeper.WakeUp()
-
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
-
-	sleeper.Stop()
+	assert.Error(t, sleeper.Stop())
 }
 
 func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
