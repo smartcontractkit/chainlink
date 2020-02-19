@@ -82,7 +82,7 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cltest.MockEthOnStore(t, store, cltest.Lenient)
+	cltest.MockEthOnStore(t, store, cltest.LenientEthMock)
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)

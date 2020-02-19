@@ -94,7 +94,7 @@ func TestCallerSubscriberClient_GetNonce(t *testing.T) {
 
 func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 
 	ethMock := app.EthMock
@@ -109,9 +109,6 @@ func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 
 func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
-	defer cleanup()
-	require.NoError(t, app.Start())
 
 	tests := []struct {
 		name     string
@@ -124,7 +121,15 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ethMock := app.MockCallerSubscriberClient()
+			app, cleanup := cltest.NewApplicationWithKey(t)
+
+			ethMock := app.EthMock
+			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
+				meth.Register("eth_getTransactionCount", "0x1")
+				meth.Register("eth_chainId", app.Store.Config.ChainID())
+			})
+			defer cleanup()
+			require.NoError(t, app.Start())
 			ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
 
 			ethMock.Register("eth_getBalance", test.input)
@@ -137,7 +142,7 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 
 func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	ethMock := app.EthMock
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
