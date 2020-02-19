@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"chainlink/core/cmd"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
@@ -228,6 +229,11 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
+	_, err := auth.Authenticate(store, "somepassword")
+	assert.NoError(t, err)
+	assert.True(t, store.KeyStore.HasAccounts())
+
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	initr.ID = 1
@@ -263,6 +269,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 		Return(big.NewInt(1), nil)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
+	ethClient.On("GetLatestSubmission", mock.Anything, mock.Anything).
+		Return(big.NewInt(0), big.NewInt(0), nil)
 
 	err = deviationChecker.Start(context.Background(), ethClient)
 	require.NoError(t, err)
@@ -344,6 +352,11 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
+	_, err := auth.Authenticate(store, "somepassword")
+	assert.NoError(t, err)
+	assert.True(t, store.KeyStore.HasAccounts())
+
 	// Set up fetcher to mark when polled
 	fetcher := new(mocks.Fetcher)
 	polled := make(chan struct{})
@@ -363,6 +376,8 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 		Return(big.NewInt(1), nil)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
+	ethClient.On("GetLatestSubmission", mock.Anything, mock.Anything).
+		Return(big.NewInt(0), big.NewInt(0), nil)
 
 	// Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager) // No mocks assert no runs are created
