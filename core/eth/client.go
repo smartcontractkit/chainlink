@@ -219,7 +219,6 @@ func (client *CallerSubscriberClient) GetLatestSubmission(aggregatorAddress comm
 	if err != nil {
 		return nil, nil, errors.Wrap(err, errMessage)
 	}
-	fmt.Println("result", result)
 
 	method, exists := aggregator.ABI.Methods["latestSubmission"]
 	if !exists {
