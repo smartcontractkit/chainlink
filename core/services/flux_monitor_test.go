@@ -225,6 +225,9 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 }
 
 func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	initr.ID = 1
@@ -245,6 +248,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 	fetcher := successFetcher(decimal.NewFromInt(100))
 	deviationChecker, err := services.NewPollingDeviationChecker(
+		store,
 		initr,
 		runManager,
 		&fetcher,

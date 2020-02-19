@@ -204,7 +204,7 @@ func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address)
 // for a given oracle address.
 func (client *CallerSubscriberClient) GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
 	errMessage := fmt.Sprintf("unable to fetch latest submission for %s from %s", oracleAddress.Hex(), aggregatorAddress.Hex())
-	aggregator, err := GetV5Contract(PrepaidAggregatorName)
+	aggregator, err := GetV6Contract(PrepaidAggregatorName)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
 	}
