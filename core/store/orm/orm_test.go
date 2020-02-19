@@ -716,7 +716,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	store := app.Store
@@ -734,7 +734,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
-	ethMock := app.MockCallerSubscriberClient()
+	ethMock := app.EthMock
 	one := uint64(1)
 
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))

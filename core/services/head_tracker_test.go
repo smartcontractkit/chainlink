@@ -25,9 +25,7 @@ func TestHeadTracker_New(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_chainId", store.Config.ChainID())
+	cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 
 	assert.Nil(t, store.CreateHead(cltest.Head(1)))
 	last := cltest.Head(16)
@@ -45,8 +43,7 @@ func TestHeadTracker_New_Limit_At_100(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_chainId", store.Config.ChainID())
+	cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 
 	for idx := 0; idx <= 200; idx++ {
 		assert.Nil(t, store.CreateHead(cltest.Head(idx)))
@@ -83,8 +80,7 @@ func TestHeadTracker_Get(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_chainId", store.Config.ChainID())
+			cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 			if test.initial != nil {
 				assert.Nil(t, store.CreateHead(test.initial))
 			}
@@ -110,11 +106,10 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store)
+	eth := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	defer ht.Stop()
 
-	eth.Register("eth_chainId", store.Config.ChainID())
 	eth.RegisterSubscription("newHeads")
 
 	assert.Nil(t, ht.Start())
@@ -127,7 +122,7 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	mocketh := cltest.MockEthOnStore(t, store)
+	mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
@@ -193,10 +188,9 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	mocketh := cltest.MockEthOnStore(t, store)
+	mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 	headers := make(chan eth.BlockHeader)
 	mocketh.RegisterSubscription("newHeads", headers)
-	mocketh.Register("eth_chainId", store.Config.ChainID())
 
 	lastSavedBN := big.NewInt(1)
 	currentBN := big.NewInt(2)
