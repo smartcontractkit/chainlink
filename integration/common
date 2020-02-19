@@ -90,6 +90,19 @@ deploy_v06_contracts() {
   export PREPAID_AGGREGATOR_ADDRESS=`cat log | grep 'Deployed PrepaidAggregator at:' | awk '{print$4}'`
 }
 
+setup_prepaid_aggregator() {
+  title "Setting up PrepaidAggregator contract..."
+  local log=$LOG_PATH/flux-monitor.log
+  yarn workspace @chainlink/integration-scripts setup-prepaid-aggregator | tee log
+  export LINK_TOKEN_ADDRESS=`cat log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
+  export PREPAID_AGGREGATOR_ADDRESS=`cat log | grep 'Deployed PrepaidAggregator at:' | awk '{print$4}'`
+}
+
+call_prepaid_aggregator() {
+  local log=$LOG_PATH/flux-monitor.log
+  yarn workspace @chainlink/integration-scripts call-prepaid-aggregator $@ | tee log
+}
+
 print_logs() {
   for log in $(find "$LOG_PATH" -maxdepth 1 -type f -iname '*.log'); do
     heading "$log"
