@@ -31,7 +31,6 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	app.Start()
 	app.MustSeedUserAPIKey()
 
 	called := false
@@ -56,7 +55,6 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	app.Start()
 	app.MustSeedUserAPIKey()
 
 	called := false
