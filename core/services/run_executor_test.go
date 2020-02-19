@@ -142,7 +142,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 
 	// FIXME: Can't think of a better way to do this
 	// Make sure Execute has some time to start the sleep task
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	runQueue := new(mocks.RunQueue)
 	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, clock)
