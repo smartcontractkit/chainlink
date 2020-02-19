@@ -622,3 +622,7 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 	jobRunID := models.NewID()
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }
+
+func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
+	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+}

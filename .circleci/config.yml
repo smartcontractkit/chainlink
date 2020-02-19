@@ -14,7 +14,7 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - '/go/pkg/mod'
       - run: ./tools/ci/init_gcloud
       - run: ./tools/ci/go_test | tee /tmp/go_test.txt
       - store_artifacts:
@@ -33,7 +33,7 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - '/go/pkg/mod'
       - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
       - store_artifacts:
           path: /tmp/gorace_test.txt
@@ -66,10 +66,9 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
-      - run: yarn workspace chainlinkv0.5 run setup
-      - run: yarn workspace chainlink run setup
-      - run: go test -p 3 -parallel 2 ./...
+            - '/go/pkg/mod'
+      - run: yarn setup:contracts
+      - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -83,10 +82,10 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - '/go/pkg/mod'
       - run: ./tools/ci/rust_test
   geth-postgres:
-    resource_class: large
+    resource_class: 2xlarge
     environment:
       GETH_MODE: true
     machine:
@@ -95,18 +94,18 @@ jobs:
     working_directory: ~/chainlink
     steps:
       - checkout
-      - run: cd ./tools/docker && ./compose test
+      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
   parity-postgres:
-    resource_class: large
+    resource_class: 2xlarge
     machine:
       image: ubuntu-1604:201903-01
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
       - checkout
-      - run: cd ./tools/docker && ./compose test
-  truffle:
-    resource_class: large
+      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+  solidity:
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
@@ -122,9 +121,25 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
       - run: pip3 install -r requirements.txt
-      - run: ./tools/ci/truffle_test
+      - run: ./tools/ci/solidity_test
       - store_artifacts:
           path: ./integration/logs
+  styleguide:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
       - image: smartcontract/builder:1.0.25
@@ -140,10 +155,9 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
-      - run: yarn workspace @chainlink/json-api-client
-      - store_artifacts:
-          path: ./integration/logs
+      - run: yarn workspace @chainlink/json-api-client run test
   operator-ui:
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
@@ -192,15 +206,33 @@ jobs:
       - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
-          command: yarn workspace @chainlink/explorer run test-ci:silent
+          command: yarn workspace @chainlink/explorer run test:ci
       - run:
-          name: Build json-api-client package
-          command: yarn workspace @chainlink/json-api-client run build
+          name: Run Client dependency setup
+          command: yarn workspace @chainlink/explorer-client run setup
       - run:
           name: Run Client Tests
-          command: yarn workspace @chainlink/explorer-client run test-ci:silent
+          command: yarn workspace @chainlink/explorer-client run test:ci
       - store_artifacts:
           path: ./integration/logs
+  feeds:
+    docker:
+      - image: smartcontract/builder:1.0.25
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - run:
+          name: Run Tests
+          command: yarn workspace @chainlink/feeds run test
   forks:
     machine:
       image: ubuntu-1604:201903-01
@@ -260,6 +292,7 @@ jobs:
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-chainlink:
+    resource_class: xlarge
     machine: true
     steps:
       - checkout
@@ -272,6 +305,7 @@ jobs:
           command: |
             DOCKER_TAG=circleci make docker
   build-chainlink-sgx:
+    resource_class: xlarge
     machine: true
     steps:
       - checkout
@@ -317,7 +351,7 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
   prepublish_npm:
-    resource_class: large
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.25
     steps:
@@ -342,6 +376,11 @@ workflows:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:
               only: /^v.*/
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
       - go-sqlite:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:
@@ -350,7 +389,7 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - truffle:
+      - solidity:
           filters:
             tags:
               only: /^v.*/
@@ -359,6 +398,10 @@ workflows:
             tags:
               only: /^v.*/
       - parity-postgres:
+          filters:
+            tags:
+              only: /^v.*/
+      - styleguide:
           filters:
             tags:
               only: /^v.*/
@@ -378,6 +421,10 @@ workflows:
           filters: # all branches, and /^explorer-v../ tags for build-publish...
             tags:
               only: /^explorer-v.*/
+      - feeds:
+          filters:
+            tags:
+              only: /^v.*/
       - lint:
           filters:
             tags:
@@ -395,6 +442,8 @@ workflows:
                 - master
       - build-publish-explorer:
           requires:
+            - styleguide
+            - json-api-client
             - explorer
           filters:
             branches:
@@ -418,9 +467,10 @@ workflows:
           requires:
             - go-sqlite
             - go-postgres
-            - truffle
+            - solidity
             - geth-postgres
             - parity-postgres
+            - styleguide
             - json-api-client
             - operator-ui
             - rust
@@ -435,7 +485,7 @@ workflows:
           requires:
             - go-sqlite
             - go-postgres
-            - truffle
+            - solidity
             - operator-ui
             - rust
             - explorer

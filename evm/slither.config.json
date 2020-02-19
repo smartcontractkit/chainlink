@@ -1,7 +1,0 @@
-{
-  "detectors_to_exclude": "naming-convention,pragma,solc-version",
-  "truffle_build_directory": "dist/artifacts",
-  "filter_paths": "tests,vendor",
-  "truffle_ignore_compile": true,
-  "truffle_version": "truffle"
-}

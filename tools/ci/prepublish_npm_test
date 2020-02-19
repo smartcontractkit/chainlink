@@ -2,5 +2,5 @@
 
 set -e
 
-yarn workspace chainlink prepublishOnly
-yarn workspace chainlinkv0.5 prepublishOnly
+yarn setup:contracts
+yarn workspace @chainlink/contracts prepublishOnly

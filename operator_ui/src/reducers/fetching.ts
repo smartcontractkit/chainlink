@@ -1,8 +1,12 @@
-import { RouterActionType } from 'actions'
-import { Action } from 'redux'
+import { Reducer } from 'redux'
+import { Actions, RouterActionType } from './actions'
 
 export interface State {
   count: number
+}
+
+const INITIAL_STATE: State = {
+  count: 0,
 }
 
 enum FetchPrefix {
@@ -11,11 +15,10 @@ enum FetchPrefix {
   RESPONSE = 'RESPONSE_',
 }
 
-const initialState: State = {
-  count: 0,
-}
-
-export default (state: State = initialState, action: Action<string>) => {
+const reducer: Reducer<State, Actions> = (
+  state = INITIAL_STATE,
+  action: Actions,
+) => {
   if (!action.type) {
     return state
   }
@@ -31,3 +34,5 @@ export default (state: State = initialState, action: Action<string>) => {
   }
   return state
 }
+
+export default reducer

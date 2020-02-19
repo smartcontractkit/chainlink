@@ -16,7 +16,7 @@
 //
 // This is mostly copied from the sign/dss package, with minor adjustments for
 // use with ethschnorr.
-package dss
+package ethdss
 
 import (
 	"bytes"
@@ -250,11 +250,7 @@ func (d *DSS) Signature() (ethschnorr.Signature, error) {
 	rv.Signature = secp256k1.ToInt(signature)
 	// commitmentPublicKey corresponds to V in step 4 of section 4.2
 	commitmentPublicKey := d.random.Commitments()[0]
-	rv.CommitmentPublicAddress, err = secp256k1.EthereumAddress(
-		commitmentPublicKey)
-	if err != nil {
-		return nil, err
-	}
+	rv.CommitmentPublicAddress = secp256k1.EthereumAddress(commitmentPublicKey)
 	return rv, nil
 }
 
@@ -263,10 +259,7 @@ func (d *DSS) Signature() (ethschnorr.Signature, error) {
 // has no effect on the correctness or robustness arguments from the paper.)
 func (d *DSS) hashSig() kyber.Scalar {
 	v := d.random.Commitments()[0] // Public-key commitment, in signature from d
-	vAddress, err := secp256k1.EthereumAddress(v)
-	if err != nil {
-		panic(err)
-	}
+	vAddress := secp256k1.EthereumAddress(v)
 	publicKey := d.long.Commitments()[0]
 	rv, err := ethschnorr.ChallengeHash(publicKey, vAddress, d.msg)
 	if err != nil {

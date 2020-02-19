@@ -26,15 +26,24 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	var request models.ChangePasswordRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
-	} else if user, err := c.App.GetStore().FindUser(); err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
-	} else if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
-		jsonAPIError(ctx, http.StatusConflict, errors.New("Old password does not match"))
-	} else if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(ctx, presenters.UserPresenter{User: &user}, "user")
+		return
 	}
+
+	user, err := c.App.GetStore().FindUser()
+	if err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+		return
+	}
+	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
+		jsonAPIError(ctx, http.StatusConflict, errors.New("Old password does not match"))
+		return
+	}
+	if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(ctx, presenters.UserPresenter{User: &user}, "user")
 }
 
 // NewAPIToken generates a new API token for a user overwriting any pre-existing one set.
@@ -42,17 +51,29 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 	var request models.ChangeAuthTokenRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
-	} else if user, err := c.App.GetStore().FindUser(); err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
-	} else if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
-		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
-	} else if newToken, err := user.GenerateAuthToken(); err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-	} else if err := c.App.GetStore().SaveUser(&user); err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponseWithStatus(ctx, newToken, "auth_token", http.StatusCreated)
+		return
 	}
+
+	user, err := c.App.GetStore().FindUser()
+	if err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+		return
+	}
+	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
+		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
+		return
+	}
+	newToken, err := user.GenerateAuthToken()
+	if err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	if err := c.App.GetStore().SaveUser(&user); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(ctx, newToken, "auth_token", http.StatusCreated)
 }
 
 // DeleteAPIToken deletes and disables a user's API token.
@@ -60,15 +81,27 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	var request models.ChangeAuthTokenRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
-	} else if user, err := c.App.GetStore().FindUser(); err != nil {
+		return
+	}
+
+	user, err := c.App.GetStore().FindUser()
+	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
-	} else if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
+		return
+	}
+	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
 		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
-	} else if user.DeleteAuthToken(); false {
+		return
+	}
+	if user.DeleteAuthToken(); false {
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
-	} else if err := c.App.GetStore().SaveUser(&user); err != nil {
+		return
+	}
+	if err := c.App.GetStore().SaveUser(&user); err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
-	} else {
+		return
+	}
+	{
 		jsonAPIResponseWithStatus(ctx, nil, "auth_token", http.StatusNoContent)
 	}
 }
@@ -110,11 +143,14 @@ func (c *UserController) saveNewPassword(user *models.User, newPassword string) 
 }
 
 func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User, newPassword string) error {
-	if sessionID, err := c.getCurrentSessionID(ctx); err != nil {
+	sessionID, err := c.getCurrentSessionID(ctx)
+	if err != nil {
 		return err
-	} else if err := c.App.GetStore().ClearNonCurrentSessions(sessionID); err != nil {
+	}
+	if err := c.App.GetStore().ClearNonCurrentSessions(sessionID); err != nil {
 		return fmt.Errorf("failed to clear non current user sessions: %+v", err)
-	} else if err := c.saveNewPassword(user, newPassword); err != nil {
+	}
+	if err := c.saveNewPassword(user, newPassword); err != nil {
 		return fmt.Errorf("failed to update current user password: %+v", err)
 	}
 	return nil
@@ -122,20 +158,25 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
 	txm := store.TxManager
-	if ethBalance, err := txm.GetEthBalance(account.Address); err != nil {
+	ethBalance, err := txm.GetEthBalance(account.Address)
+	if err != nil {
 		err = fmt.Errorf("Error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
-	} else if linkBalance, err := txm.GetLINKBalance(account.Address); err != nil {
+		return presenters.AccountBalance{}
+	}
+
+	linkBalance, err := txm.GetLINKBalance(account.Address)
+	if err != nil {
 		err = fmt.Errorf("Error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
-	} else {
-		return presenters.AccountBalance{
-			Address:     account.Address.Hex(),
-			EthBalance:  ethBalance,
-			LinkBalance: linkBalance,
-		}
+		return presenters.AccountBalance{}
 	}
-	return presenters.AccountBalance{}
+
+	return presenters.AccountBalance{
+		Address:     account.Address.Hex(),
+		EthBalance:  ethBalance,
+		LinkBalance: linkBalance,
+	}
 }

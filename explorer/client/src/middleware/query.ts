@@ -1,6 +1,6 @@
 import { Middleware } from 'redux'
-import { Query } from '../reducers/query'
 import { UpdateQueryAction } from '../reducers/actions'
+import { Query } from '../reducers/query'
 
 /**
  * Parse the current query string out of the browser location
@@ -15,6 +15,8 @@ function parseQuery(location: Location): Query {
   if (search) {
     return search
   }
+
+  return
 }
 
 /**

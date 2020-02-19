@@ -1,18 +1,18 @@
-import React, { useState, useRef } from 'react'
+import Avatar from '@material-ui/core/Avatar'
+import ClickAwayListener from '@material-ui/core/ClickAwayListener'
+import Fab from '@material-ui/core/Fab'
+import Grow from '@material-ui/core/Grow'
+import MenuList from '@material-ui/core/MenuList'
+import Paper from '@material-ui/core/Paper'
+import Popper from '@material-ui/core/Popper'
 import {
   createStyles,
-  withStyles,
   Theme,
+  withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
-import Popper from '@material-ui/core/Popper'
-import Grow from '@material-ui/core/Grow'
-import Fab from '@material-ui/core/Fab'
-import Paper from '@material-ui/core/Paper'
-import ClickAwayListener from '@material-ui/core/ClickAwayListener'
-import MenuList from '@material-ui/core/MenuList'
-import Avatar from '@material-ui/core/Avatar'
 import classNames from 'classnames'
+import React, { useRef, useState } from 'react'
 import face from './face.svg'
 
 const styles = ({ spacing, palette }: Theme) =>
@@ -30,10 +30,6 @@ const styles = ({ spacing, palette }: Theme) =>
       backgroundColor: palette.primary.main,
     },
   })
-
-interface Item {
-  text: string
-}
 
 interface Props extends WithStyles<typeof styles> {
   className?: string

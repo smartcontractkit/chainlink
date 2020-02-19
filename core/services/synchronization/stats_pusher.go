@@ -26,8 +26,20 @@ var (
 	})
 )
 
-// StatsPusher polls for events and pushes them via a WebSocketClient
-type StatsPusher struct {
+//go:generate mockery -name StatsPusher -output ../../internal/mocks/ -case=underscore
+
+// StatsPusher polls for events and pushes them via a WebSocketClient. Events
+// are consumed by the Explorer. Currently there is only one event type: an
+// encoding of a JobRun.
+type StatsPusher interface {
+	Start() error
+	Close() error
+	PushNow()
+	GetURL() url.URL
+	GetStatus() ConnectionStatus
+}
+
+type statsPusher struct {
 	ORM            *orm.ORM
 	WSClient       WebSocketClient
 	Period         time.Duration
@@ -43,7 +55,7 @@ const (
 )
 
 // NewStatsPusher returns a new event queuer
-func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters ...utils.Afterer) *StatsPusher {
+func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters ...utils.Afterer) StatsPusher {
 	var clock utils.Afterer
 	if len(afters) == 0 {
 		clock = utils.Clock{}
@@ -51,7 +63,7 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 		clock = afters[0]
 	}
 
-	sp := &StatsPusher{
+	sp := &statsPusher{
 		ORM:      orm,
 		WSClient: noopWebSocketClient{},
 		Period:   30 * time.Minute,
@@ -76,8 +88,16 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 	return sp
 }
 
+func (sp *statsPusher) GetURL() url.URL {
+	return sp.WSClient.Url()
+}
+
+func (sp *statsPusher) GetStatus() ConnectionStatus {
+	return sp.WSClient.Status()
+}
+
 // Start starts the stats pusher
-func (sp *StatsPusher) Start() error {
+func (sp *statsPusher) Start() error {
 	err := sp.WSClient.Start()
 	if err != nil {
 		return err
@@ -89,7 +109,7 @@ func (sp *StatsPusher) Start() error {
 }
 
 // Close shuts down the stats pusher
-func (sp *StatsPusher) Close() error {
+func (sp *statsPusher) Close() error {
 	if sp.cancel != nil {
 		sp.cancel()
 	}
@@ -104,7 +124,8 @@ func (sp *StatsPusher) Close() error {
 }
 
 // PushNow wakes up the stats pusher, asking it to push all queued events immediately.
-func (sp *StatsPusher) PushNow() {
+func (sp *statsPusher) PushNow() {
+	logger.Debug("PushNow")
 	select {
 	case sp.waker <- struct{}{}:
 	default:
@@ -115,7 +136,7 @@ type response struct {
 	Status int `json:"status"`
 }
 
-func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
+func (sp *statsPusher) eventLoop(parentCtx context.Context) {
 	logger.Debugw("Entered StatsPusher event loop")
 	for {
 		err := sp.pusherLoop(parentCtx)
@@ -135,7 +156,7 @@ func (sp *StatsPusher) eventLoop(parentCtx context.Context) {
 	}
 }
 
-func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
+func (sp *statsPusher) pusherLoop(parentCtx context.Context) error {
 	for {
 		select {
 		case <-sp.waker:
@@ -154,7 +175,7 @@ func (sp *StatsPusher) pusherLoop(parentCtx context.Context) error {
 	}
 }
 
-func (sp *StatsPusher) pushEvents() error {
+func (sp *statsPusher) pushEvents() error {
 	err := sp.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
 		return sp.syncEvent(event)
 	})
@@ -167,7 +188,7 @@ func (sp *StatsPusher) pushEvents() error {
 	return nil
 }
 
-func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
+func (sp *statsPusher) syncEvent(event *models.SyncEvent) error {
 	sp.WSClient.Send([]byte(event.Body))
 	numberEventsSent.Inc()
 
@@ -196,7 +217,7 @@ func (sp *StatsPusher) syncEvent(event *models.SyncEvent) error {
 	return nil
 }
 
-func createSyncEventWithStatsPusher(sp *StatsPusher, orm *orm.ORM) func(*gorm.Scope) {
+func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Scope) {
 	return func(scope *gorm.Scope) {
 		if scope.HasError() {
 			return
@@ -224,13 +245,11 @@ func createSyncEventWithStatsPusher(sp *StatsPusher, orm *orm.ORM) func(*gorm.Sc
 		event := models.SyncEvent{
 			Body: string(bodyBytes),
 		}
-		err = scope.DB().Save(&event).Error
+		err = scope.DB().Create(&event).Error
 		if err != nil {
-			scope.Err(errors.Wrap(err, "createSyncEvent#Save failed"))
+			scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
 			return
 		}
-
-		sp.PushNow()
 	}
 }
 

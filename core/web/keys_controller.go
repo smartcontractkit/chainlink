@@ -22,13 +22,22 @@ func (kc *KeysController) Create(c *gin.Context) {
 	request := models.CreateKeyRequest{}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if err := kc.App.GetStore().KeyStore.Unlock(request.CurrentPassword); err != nil {
-		jsonAPIError(c, http.StatusUnauthorized, err)
-	} else if account, err := kc.App.GetStore().KeyStore.NewAccount(request.CurrentPassword); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if err := kc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponseWithStatus(c, presenters.NewAccount{Account: &account}, "account", http.StatusCreated)
+		return
 	}
+	if err := kc.App.GetStore().KeyStore.Unlock(request.CurrentPassword); err != nil {
+		jsonAPIError(c, http.StatusUnauthorized, err)
+		return
+	}
+
+	account, err := kc.App.GetStore().KeyStore.NewAccount(request.CurrentPassword)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if err := kc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, presenters.NewAccount{Account: &account}, "account", http.StatusCreated)
 }

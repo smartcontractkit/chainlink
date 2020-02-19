@@ -398,6 +398,23 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	return client
 }
 
+func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes []byte) *models.JobRun {
+	job := NewJobWithWebInitiator()
+	err := ta.Store.CreateJob(&job)
+	require.NoError(ta.t, err)
+
+	jr := NewJobRun(job)
+	txHash := common.BytesToHash(txHashBytes)
+	jr.RunRequest.TxHash = &txHash
+	blockHash := common.BytesToHash(blockHashBytes)
+	jr.RunRequest.BlockHash = &blockHash
+
+	err = ta.Store.CreateJobRun(&jr)
+	require.NoError(ta.t, err)
+
+	return &jr
+}
+
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 	cleanupDB := PrepareTestDB(config)

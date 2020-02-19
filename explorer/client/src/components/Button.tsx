@@ -86,6 +86,7 @@ interface Props extends WithStyles<typeof styles> {
   disabled?: boolean
   className?: string
   variant?: ButtonVariant
+  size?: 'small' | 'medium' | 'large'
   // Ideally this would be typed as below. However the MuiButton type annotations
   // don't allow an object to be passed through.
   //
@@ -108,9 +109,10 @@ const Button: React.FC<Props> = ({
   className,
   children,
   onClick,
+  size,
 }) => {
   const curryProps = Object.assign(
-    { component, disabled, href, onClick, type },
+    { component, disabled, href, onClick, type, size },
     muiProps(variant, classes),
   )
   const cn = classNames(classes[variant as keyof typeof classes], className)

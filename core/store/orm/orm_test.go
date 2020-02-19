@@ -12,6 +12,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
 	"chainlink/core/services"
 	"chainlink/core/services/synchronization"
 	"chainlink/core/store/models"
@@ -643,7 +644,10 @@ func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	run := cltest.NewJobRun(job)
 	require.NoError(t, store.CreateJobRun(&run))
 
-	executor := services.NewRunExecutor(store)
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	executor := services.NewRunExecutor(store, pusher)
 	require.NoError(t, executor.Execute(run.ID))
 
 	cltest.WaitForJobRunStatus(t, store, run, models.RunStatusCompleted)
@@ -1358,7 +1362,9 @@ func TestJobs_ScopedInitiator(t *testing.T) {
 	assert.ElementsMatch(t, expectation, actual)
 }
 
-func TestJobs_MoreThanBatchWithArchives(t *testing.T) {
+// TestJobs_SQLiteBatchSizeIntegrity verifies the BatchSize is safe for SQLite
+// to handle.  Problems were experienced earlier with a size of 1001.
+func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -1367,7 +1373,7 @@ func TestJobs_MoreThanBatchWithArchives(t *testing.T) {
 	require.NoError(t, store.CreateJob(&archivedJob))
 
 	jobs := []models.JobSpec{}
-	jobNumber := 202
+	jobNumber := orm.BatchSize*2 + 1
 	for i := 0; i < jobNumber; i++ {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		require.NoError(t, store.CreateJob(&job))
@@ -1376,7 +1382,7 @@ func TestJobs_MoreThanBatchWithArchives(t *testing.T) {
 
 	counter := 0
 	err := store.Jobs(func(j *models.JobSpec) bool {
-		counter += 1
+		counter++
 		return true
 	}, models.InitiatorFluxMonitor)
 	require.NoError(t, err)
