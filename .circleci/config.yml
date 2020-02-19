@@ -250,7 +250,9 @@ jobs:
       - store_artifacts:
           path: ./integration/forks/logs
   build-publish-explorer:
-    machine: true
+    machine:
+        image: circleci/classic:201808-01
+        docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -265,7 +267,9 @@ jobs:
           command: |
             tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-explorer:
-    machine: true
+    machine:
+        image: circleci/classic:201808-01
+        docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -276,7 +280,10 @@ jobs:
           name: Docker build
           command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
   build-publish-chainlink:
-    machine: true
+    resource_class: large
+    machine:
+        image: circleci/classic:201808-01
+        docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -293,7 +300,9 @@ jobs:
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-chainlink:
     resource_class: xlarge
-    machine: true
+    machine:
+        image: circleci/classic:201808-01
+        docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -306,7 +315,9 @@ jobs:
             DOCKER_TAG=circleci make docker
   build-chainlink-sgx:
     resource_class: xlarge
-    machine: true
+    machine:
+        image: circleci/classic:201808-01
+        docker_layer_caching: true
     steps:
       - checkout
       - run:
