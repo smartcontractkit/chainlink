@@ -339,7 +339,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
 	defer cleanup()
 
 	require.NoError(t, app.Start())
