@@ -139,7 +139,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 
 func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t, cltest.Lenient)
 	app.Start()
 	defer cleanup()
 
