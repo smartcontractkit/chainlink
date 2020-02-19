@@ -30,9 +30,6 @@ deploy_v05_contracts
 deploy_v06_contracts
 ./flux_monitor_test
 
-setup_prepaid_aggregator
-./flux_monitor_test_multiple_oracles
-
 title 'End to end tests.'
 
 yarn workspace @chainlink/integration test:cypress
