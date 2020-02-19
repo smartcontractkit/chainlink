@@ -44,7 +44,7 @@ module.exports = {
       },
     },
     {
-      files: ['evm/box/**/*'],
+      files: ['evm-box/**/*'],
       env: { node: true, mocha: true },
       globals: {
         assert: 'readonly',
