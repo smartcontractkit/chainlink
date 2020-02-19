@@ -8,7 +8,7 @@ const scrollToTop = () => {
 
 const grid = { xs: 24, sm: 12, md: 8 }
 
-const Supported = ({ data }) => {
+const Sponsored = ({ data }) => {
   const [sliced] = useState(data.slice(0, 2))
 
   if (data.length <= 2) {
@@ -21,11 +21,11 @@ const Supported = ({ data }) => {
   return (
     <Popover
       content={data.map(name => (
-        <div className="listing-grid__item--supported-popover" key={name}>
+        <div className="listing-grid__item--sponsored-popover" key={name}>
           {name}
         </div>
       ))}
-      title="Supported by"
+      title="Sponsored by"
     >
       {sliced.map((name, i) => [i > 0 && ', ', <span key={name}>{name}</span>])}
       ...
@@ -45,13 +45,13 @@ const ListingGridRow = ({ item }) => (
             </>
           )}
         </div>
-        {item.config.supported.length > 0 && (
+        {item.config.sponsored.length > 0 && (
           <>
-            <div className="listing-grid__item--supported-title">
-              Supported by
+            <div className="listing-grid__item--sponsored-title">
+              Sponsored by
             </div>
-            <div className="listing-grid__item--supported">
-              <Supported data={item.config.supported} />
+            <div className="listing-grid__item--sponsored">
+              <Sponsored data={item.config.sponsored} />
             </div>
           </>
         )}
