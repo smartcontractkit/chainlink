@@ -20,7 +20,7 @@ const (
 type SleeperTask interface {
 	Start() error
 	Stop() error
-	WakeUp() error
+	WakeUp()
 }
 
 // Worker is a simple interface that represents some work to do repeatedly
@@ -101,18 +101,15 @@ func (s *sleeperTask) Stop() error {
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 // Idempotent, can be called multiple times but will only wake the worker once (until the worker finishes again)
-func (s *sleeperTask) WakeUp() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *sleeperTask) WakeUp() {
 	if s.state == stopped {
-		return errors.New("cannot wake up stopped sleeper task")
+		panic("cannot wake up stopped sleeper task")
 	}
 
 	select {
 	case s.waker <- struct{}{}:
 	default:
 	}
-	return nil
 }
 
 // workerLoop is the goroutine behind the sleeper task that waits for a signal

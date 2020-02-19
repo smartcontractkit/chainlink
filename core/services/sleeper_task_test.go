@@ -68,16 +68,14 @@ func TestSleeperTask_WakeupAfterStarted(t *testing.T) {
 	sleeper.Stop()
 }
 
-func TestSleeperTask_WakeupAfterStopped(t *testing.T) {
+func TestSleeperTask_WakeupAfterStoppedPanics(t *testing.T) {
 	worker := testWorker{output: make(chan struct{})}
 	sleeper := services.NewSleeperTask(&worker)
 
 	sleeper.Start()
 	sleeper.Stop()
 
-	err := sleeper.WakeUp()
-
-	assert.Error(t, err)
+	assert.Panics(t, sleeper.WakeUp, "expected sleeper.WakeUp() to panic on stopped sleeper, but it didn't")
 }
 
 func TestSleeperTask_WakeupNotBlockedWhileWorking(t *testing.T) {
