@@ -7,8 +7,13 @@ import (
 	"time"
 )
 
+type sleeperTaskState int
+
 const (
-	stopWaitTime = 5 * time.Second
+	stopWaitTime                  = 5 * time.Second
+	unstarted    sleeperTaskState = iota
+	started
+	stopped
 )
 
 // SleeperTask represents a task that waits in the background to process some work.
@@ -24,13 +29,12 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker  Worker
-	waker   chan struct{}
-	closer  chan struct{}
-	closed  chan struct{}
-	started bool
-	stopped bool
-	mutex   sync.Mutex
+	worker Worker
+	waker  chan struct{}
+	closer chan struct{}
+	closed chan struct{}
+	state  sleeperTaskState
+	mutex  sync.Mutex
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -44,13 +48,12 @@ type sleeperTask struct {
 //
 func NewSleeperTask(worker Worker) SleeperTask {
 	return &sleeperTask{
-		worker:  worker,
-		waker:   make(chan struct{}, 1),
-		closer:  make(chan struct{}, 1),
-		closed:  make(chan struct{}, 1),
-		started: false,
-		stopped: false,
-		mutex:   sync.Mutex{},
+		worker: worker,
+		waker:  make(chan struct{}, 1),
+		closer: make(chan struct{}, 1),
+		closed: make(chan struct{}, 1),
+		state:  unstarted,
+		mutex:  sync.Mutex{},
 	}
 }
 
@@ -59,12 +62,13 @@ func NewSleeperTask(worker Worker) SleeperTask {
 func (s *sleeperTask) Start() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.stopped {
+	switch s.state {
+	case stopped:
 		return errors.New("cannot start a sleeper task that has been stopped")
-	} else if s.started {
+	case started:
 		return errors.New("sleeper task is already started")
 	}
-	s.started = true
+	s.state = started
 	go s.workerLoop()
 	return nil
 }
@@ -75,11 +79,11 @@ func (s *sleeperTask) Start() error {
 // Stopped tasks cannot be restarted
 func (s *sleeperTask) Stop() error {
 	s.mutex.Lock()
-	if s.stopped {
+	if s.state == stopped {
 		s.mutex.Unlock()
 		return errors.New("sleeper task is already stopped")
 	}
-	s.stopped = true
+	s.state = stopped
 	s.mutex.Unlock()
 
 	s.closer <- struct{}{}
@@ -99,11 +103,10 @@ func (s *sleeperTask) Stop() error {
 // Idempotent, can be called multiple times but will only wake the worker once (until the worker finishes again)
 func (s *sleeperTask) WakeUp() error {
 	s.mutex.Lock()
-	if s.stopped {
-		s.mutex.Unlock()
+	defer s.mutex.Unlock()
+	if s.state == stopped {
 		return errors.New("cannot wake up stopped sleeper task")
 	}
-	s.mutex.Unlock()
 
 	select {
 	case s.waker <- struct{}{}:
