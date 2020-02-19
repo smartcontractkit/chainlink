@@ -1,0 +1,51 @@
+#!/bin/bash
+
+source $SRCROOT/integration/common
+
+title 'Flux Monitor test.'
+
+flux_monitor_test() {
+  local pollingInterval="5s"
+
+  local expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
+  local initial_job_run_count=$(expr $(chainlink -j runs list | jq length))
+  local first_job_run_count=$((initial_job_run_count + 1))
+  local second_job_run_count=$((first_job_run_count + 1))
+  local log=$LOG_PATH/flux_monitor.log
+
+  call_prepaid_aggregator latestRound # initial round should be 0
+  call_prepaid_aggregator reportingRound # initial round should be 0
+
+  # add flux monitor job to CL node
+  FLUX_MONITOR_JOB="$(
+     cat flux_monitor/fixtures/job.json \
+       | jq --arg address $PREPAID_AGGREGATOR_ADDRESS '.initiators[0].params.address = $address' \
+       | jq --arg url $EXTERNAL_ADAPTER_URL '.initiators[0].params.feeds[0] = $url' \
+       | jq --arg dur $pollingInterval '.initiators[0].params.pollingInterval = $dur'
+  )"
+  chainlink jobs create "$FLUX_MONITOR_JOB"
+
+  # # Check job counts
+  assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
+
+  # # Assert one job ran to update price
+  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
+  chainlink runs list
+
+  # change price feed
+  curl \
+    -H "Content-Type: application/json" \
+    --request PATCH \
+    --data '{"result":110}' \
+    "$EXTERNAL_ADAPTER_URL/result"
+
+  # # Assert job not run
+  sleep 10s
+  call_prepaid_aggregator latestRound # should still be on round 0
+  call_prepaid_aggregator reportingRound # should still be on round 0
+
+  chainlink runs list
+  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
+}
+
+flux_monitor_test

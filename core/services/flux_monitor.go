@@ -65,7 +65,7 @@ func NewFluxMonitor(store *store.Store, runManager RunManager) FluxMonitor {
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
-		checkerFactory: pollingDeviationCheckerFactory{},
+		checkerFactory: pollingDeviationCheckerFactory{store: store},
 	}
 }
 
@@ -237,7 +237,9 @@ type DeviationCheckerFactory interface {
 	New(models.Initiator, RunManager, *orm.ORM) (DeviationChecker, error)
 }
 
-type pollingDeviationCheckerFactory struct{}
+type pollingDeviationCheckerFactory struct {
+	store *store.Store
+}
 
 func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager, orm *orm.ORM) (DeviationChecker, error) {
 	if initr.InitiatorParams.PollingInterval < MinimumPollingInterval {
@@ -261,6 +263,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 	}
 
 	return NewPollingDeviationChecker(
+		f.store,
 		initr,
 		runManager,
 		fetcher,
@@ -323,6 +326,7 @@ type DeviationChecker interface {
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
+	store         *store.Store
 	initr         models.Initiator
 	address       common.Address
 	requestData   models.JSON
@@ -342,12 +346,14 @@ type PollingDeviationChecker struct {
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
 func NewPollingDeviationChecker(
+	store *store.Store,
 	initr models.Initiator,
 	runManager RunManager,
 	fetcher Fetcher,
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
+		store:         store,
 		initr:         initr,
 		address:       initr.InitiatorParams.Address,
 		requestData:   initr.InitiatorParams.RequestData,
@@ -387,7 +393,7 @@ func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) 
 	}
 
 	ctx, p.cancel = context.WithCancel(ctx)
-	go p.consume(ctx, roundSubscription)
+	go p.consume(ctx, roundSubscription, client)
 	return nil
 }
 
@@ -402,7 +408,7 @@ func stopTimer(arg *time.Timer) {
 	}
 }
 
-func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription eth.Subscription) {
+func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription eth.Subscription, client eth.Client) {
 	defer roundSubscription.Unsubscribe()
 
 	idleThreshold := p.idleThreshold
@@ -426,13 +432,21 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 			err := p.respondToNewRound(log)
 			logger.ErrorIf(err, "checker unable to respond to new round")
 		case <-time.After(p.delay):
-			ok, err := p.poll(p.threshold)
-			logger.ErrorIf(err, "checker unable to poll")
-			jobRunTriggered = ok
+			open, err := p.roundOpen(client)
+			logger.ErrorIf(err, "Unable to determine if round is open:")
+			if open {
+				ok, err := p.poll(p.threshold)
+				logger.ErrorIf(err, "checker unable to poll")
+				jobRunTriggered = ok
+			}
 		case <-idleThresholdTimer.C:
-			ok, err := p.poll(0)
-			logger.ErrorIf(err, "checker unable to poll")
-			jobRunTriggered = ok
+			open, err := p.roundOpen(client)
+			logger.ErrorIf(err, "Unable to determine if round is open:")
+			if open {
+				ok, err := p.poll(0)
+				logger.ErrorIf(err, "checker unable to poll")
+				jobRunTriggered = ok
+			}
 		}
 
 		if jobRunTriggered {
@@ -441,6 +455,19 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 			idleThresholdTimer.Reset(idleThreshold)
 		}
 	}
+}
+
+func (p *PollingDeviationChecker) roundOpen(client eth.Client) (bool, error) {
+	round, err := client.GetAggregatorRound(p.address)
+	if err != nil {
+		return false, err
+	}
+	nodeAddress := p.store.KeyStore.Accounts()[0].Address
+	_, lastRoundAnswered, err := client.GetLatestSubmission(p.address, nodeAddress)
+	if err != nil {
+		return false, err
+	}
+	return lastRoundAnswered.Cmp(round) < 0, nil
 }
 
 // Stop stops this instance from polling, cleaning up resources.
