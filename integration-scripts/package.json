@@ -21,8 +21,6 @@
     "deploy-v0.5-contracts": "node ./dist/src/deployV0.5Contracts",
     "deploy-v0.6-contracts": "node ./dist/src/deployV0.6Contracts",
     "initiate-service-agreement": "node ./dist/src/initiateServiceAgreement",
-    "call-prepaid-aggregator": "node ./dist/src/callPrepaidAggregator",
-    "setup-prepaid-aggregator": "node ./dist/src/setupPrepaidAggregator",
     "start-echo-server": "node ./dist/src/echoServer"
   },
   "dependencies": {
