@@ -32,8 +32,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Lenient flag prevents the mock eth client from panicking if an unexpected call is made
-const Lenient = "lenient"
+// LenientEthMock flag prevents the mock eth client from panicking if an unexpected call is made
+const LenientEthMock = "lenient"
 
 // EthMockRegisterChainID registers the common case of calling eth_chainId
 // and returns the store.config.ChainID
@@ -51,7 +51,7 @@ func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock 
 func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	mock := &EthMock{t: t, strict: true}
 	for _, flag := range flags {
-		if flag == Lenient {
+		if flag == LenientEthMock {
 			mock.strict = false
 		} else if flag == EthMockRegisterChainID {
 			mock.Register("eth_chainId", s.Config.ChainID())

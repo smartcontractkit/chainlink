@@ -320,7 +320,7 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 	config.Set("CHAINLINK_DEV", "FALSE")
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
 	defer cleanup()
 
 	require.NoError(t, app.Start())

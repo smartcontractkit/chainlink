@@ -716,7 +716,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	store := app.Store

@@ -94,7 +94,7 @@ func TestCallerSubscriberClient_GetNonce(t *testing.T) {
 
 func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 
 	ethMock := app.EthMock
@@ -109,7 +109,7 @@ func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 
 func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -137,7 +137,7 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 
 func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	ethMock := app.EthMock
 	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
