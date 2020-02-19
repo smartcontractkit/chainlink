@@ -19,7 +19,7 @@ import (
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
