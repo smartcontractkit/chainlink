@@ -28,7 +28,7 @@ func authSuccess(*store.Store, *gin.Context) error {
 }
 
 func TestAuthenticateByToken_Success(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	app.Start()
@@ -53,7 +53,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 }
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	app.Start()

@@ -46,7 +46,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 }
 
 func setupJobRunAndStore(t *testing.T, txHash []byte, blockHash []byte) (*store.Store, *models.ID, func()) {
-	app, cleanup := cltest.NewApplication(t, cltest.Lenient)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())
 	store := app.Store
 	jr := app.MustCreateJobRun(txHash, blockHash)
