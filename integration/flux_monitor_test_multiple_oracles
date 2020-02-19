@@ -2,7 +2,7 @@
 
 source $SRCROOT/integration/common
 
-title 'Flux Monitor test.'
+title 'Flux Monitor test with multiple oracles.'
 
 flux_monitor_test() {
   local pollingInterval="5s"
@@ -30,7 +30,6 @@ flux_monitor_test() {
 
   # # Assert one job ran to update price
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
-  chainlink runs list
 
   # change price feed
   curl \
@@ -44,7 +43,6 @@ flux_monitor_test() {
   call_prepaid_aggregator latestRound # should still be on round 0
   call_prepaid_aggregator reportingRound # should still be on round 0
 
-  chainlink runs list
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
 }
 
