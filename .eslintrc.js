@@ -38,13 +38,13 @@ module.exports = {
   overrides: [
     // enable jest for tests
     {
-      files: ['**/*.test.ts', '**/*.test.js'],
+      files: ['**/*.test.ts', '**/*.test.js', '**/__mocks__/**/*.js'],
       env: {
         jest: true,
       },
     },
     {
-      files: ['evm/v0.5/test/**/*', 'evm/box/**/*', 'evm/**/migrations/**/*'],
+      files: ['evm/box/**/*'],
       env: { node: true, mocha: true },
       globals: {
         assert: 'readonly',
@@ -58,6 +58,7 @@ module.exports = {
       files: [
         'explorer/client/**/*',
         'operator_ui/**/*',
+        'feeds/**/*',
         'styleguide/**/*',
         'tools/json-api-client/**/*',
         'tools/local-storage/**/*',

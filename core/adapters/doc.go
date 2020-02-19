@@ -70,6 +70,17 @@
 // value.
 //   { "type": "Multiply", "params": {"times": 100 }}
 //
+// Quotient
+//
+// The Quotient adapter gives the result of x / y where x is a specified value (dividend)
+// and y is the input value (result).
+// This can be useful for inverting outputs, e.g. if you have a USD/ETH conversion
+// rate and you want to flip it to ETH/USD you can use this adapter with a dividend of 1 to get
+// 1 / result.
+//
+// value.
+//   { "type": "Quotient", "params": {"dividend": 1 }}
+//
 // Random
 //
 // Random adapter generates a number between 0 and 2**256-1

@@ -3,8 +3,7 @@
   "version": "0.6.5",
   "license": "MIT",
   "scripts": {
-    "depcheck": "echo '@chainlink/tools' && depcheck || true",
-    "setup": "echo \"No setup required for @chainlink/tools\""
+    "depcheck": "echo '@chainlink/tools' && depcheck || true"
   },
   "engines": {
     "node": "~10.16"

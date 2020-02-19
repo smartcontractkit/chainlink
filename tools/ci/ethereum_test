@@ -26,6 +26,8 @@ cd $SRCROOT/integration
 ./ethlog_test
 deploy_v05_contracts
 ./service_agreement_test
+
+deploy_v06_contracts
 ./flux_monitor_test
 
 title 'End to end tests.'

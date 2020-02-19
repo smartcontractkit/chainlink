@@ -20,6 +20,13 @@ import (
 
 //go:generate mockery -name FluxMonitor -output ../internal/mocks/ -case=underscore
 
+// defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
+const defaultHTTPTimeout = 5 * time.Second
+
+// MinimumPollingInterval is the smallest possible polling interval the Flux
+// Monitor supports.
+const MinimumPollingInterval = models.Duration(defaultHTTPTimeout)
+
 // FluxMonitor is the interface encapsulating all functionality
 // needed to listen to price deviations and new round requests.
 type FluxMonitor interface {
@@ -43,8 +50,8 @@ type concreteFluxMonitor struct {
 }
 
 type addEntry struct {
-	job   *models.JobSpec
-	rchan chan error
+	job     *models.JobSpec
+	errChan chan error
 }
 
 // NewFluxMonitor creates a service that manages a collection of DeviationCheckers,
@@ -64,21 +71,14 @@ func (fm *concreteFluxMonitor) Start() error {
 	fm.connect = make(chan *models.Head)
 	fm.disconnect = make(chan struct{})
 
-	go fm.actionConsumer(fm.ctx) // start single goroutine consumer
+	go fm.actionConsumer(fm.ctx)
 
-	rchan := make(chan error, 1)
-	count := 0
-	err := fm.store.Jobs(func(j *models.JobSpec) bool { // add persisted jobs
-		fm.adds <- addEntry{j, rchan}
-		count++
+	var merr error
+	err := fm.store.Jobs(func(j *models.JobSpec) bool {
+		err := fm.AddJob(*j)
+		merr = multierr.Combine(merr, err)
 		return true
 	}, models.InitiatorFluxMonitor)
-
-	// Block until jobs have been added, returning errors if any.
-	var merr error
-	for i := 0; i < count; i++ {
-		merr = multierr.Combine(merr, <-rchan)
-	}
 	return multierr.Append(err, merr)
 }
 
@@ -111,7 +111,7 @@ func (fm *concreteFluxMonitor) actionConsumer(ctx context.Context) {
 			cancelConnection()
 			connected = false
 		case entry := <-fm.adds:
-			entry.rchan <- fm.addAction(connectionCtx, connected, entry.job, jobMap)
+			entry.errChan <- fm.addAction(connectionCtx, connected, entry.job, jobMap)
 		case jobID := <-fm.removes:
 			for _, checker := range jobMap[jobID.String()] {
 				checker.Stop()
@@ -139,9 +139,9 @@ func (fm *concreteFluxMonitor) OnNewHead(*models.Head) {}
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
-	rchan := make(chan error)
-	fm.adds <- addEntry{&job, rchan}
-	return <-rchan
+	errChan := make(chan error)
+	fm.adds <- addEntry{&job, errChan}
+	return <-errChan
 }
 
 func connectCheckers(ctx context.Context, jobMap map[string][]DeviationChecker, client eth.Client) {
@@ -205,6 +205,13 @@ type DeviationCheckerFactory interface {
 type pollingDeviationCheckerFactory struct{}
 
 func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager) (DeviationChecker, error) {
+	if initr.InitiatorParams.PollingInterval < MinimumPollingInterval {
+		return nil, fmt.Errorf(
+			"pollingInterval must be equal or greater than %s",
+			MinimumPollingInterval,
+		)
+	}
+
 	fetcher, err := newMedianFetcherFromURLs(
 		defaultHTTPTimeout,
 		initr.InitiatorParams.RequestData.String(),
@@ -214,7 +221,12 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		return nil, err
 	}
 
-	return NewPollingDeviationChecker(initr, runManager, fetcher, 1*time.Minute)
+	return NewPollingDeviationChecker(
+		initr,
+		runManager,
+		fetcher,
+		initr.InitiatorParams.PollingInterval.Duration(),
+	)
 }
 
 //go:generate mockery -name DeviationChecker -output ../internal/mocks/ -case=underscore
@@ -241,9 +253,6 @@ type PollingDeviationChecker struct {
 	cancel       context.CancelFunc
 	newRounds    chan eth.Log
 }
-
-// defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
-const defaultHTTPTimeout = 5 * time.Second
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
 func NewPollingDeviationChecker(
@@ -359,6 +368,9 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 		return err
 	}
 
+	jobSpecID := p.initr.JobSpecID.String()
+	promSetBigInt(promFMSeenRound.WithLabelValues(jobSpecID), requestedRound)
+
 	// skip if requested is not greater than current.
 	if requestedRound.Cmp(p.currentRound) < 1 {
 		logger.Infow(
@@ -379,6 +391,7 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 		"jobID", p.initr.JobSpecID,
 	)
 	p.currentRound = requestedRound
+
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
 		return err
@@ -397,10 +410,13 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 // is not met, or triggering a new job run if deviation is met.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) poll() error {
+	jobSpecID := p.initr.JobSpecID.String()
+
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
 		return err
 	}
+	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), nextPrice)
 
 	if !OutsideDeviation(p.currentPrice, nextPrice, p.threshold) {
 		return nil // early exit since deviation criteria not met.
@@ -419,6 +435,10 @@ func (p *PollingDeviationChecker) poll() error {
 
 	p.currentPrice = nextPrice
 	p.currentRound = nextRound
+
+	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), p.currentPrice)
+	promSetBigInt(promFMReportedRound.WithLabelValues(jobSpecID), p.currentRound)
+
 	return nil
 }
 
@@ -428,7 +448,7 @@ func (p *PollingDeviationChecker) fetchPrices() (decimal.Decimal, error) {
 }
 
 func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRound *big.Int) error {
-	aggregatorContract, err := eth.GetV5Contract(eth.PrepaidAggregatorName)
+	aggregatorContract, err := eth.GetV6Contract(eth.PrepaidAggregatorName)
 	if err != nil {
 		return err
 	}

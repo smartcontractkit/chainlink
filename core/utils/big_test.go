@@ -9,6 +9,61 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBigFloatMarshal(t *testing.T) {
+	tests := []struct {
+		obj BigFloat
+		exp string
+	}{
+		{BigFloat(*big.NewFloat(1)), `"1"`},
+	}
+
+	for _, tc := range tests {
+		buf, err := json.Marshal(&tc.obj)
+		require.NoError(t, err)
+		assert.Equal(t, tc.exp, string(buf))
+	}
+}
+
+func TestBigFloatUnmarshalFloat64(t *testing.T) {
+	tests := []struct {
+		payload float64
+		exp     *big.Float
+	}{
+		{-1, big.NewFloat(-1)},
+		{100, big.NewFloat(100)},
+		{3.146, big.NewFloat(3.146)},
+	}
+
+	for _, tc := range tests {
+		var b BigFloat
+		buf, err := json.Marshal(tc.payload)
+		require.NoError(t, err)
+		err = json.Unmarshal([]byte(buf), &b)
+		require.NoError(t, err)
+		assert.Equal(t, tc.exp.String(), b.Value().String())
+	}
+}
+
+func TestBigFloatUnmarshalString(t *testing.T) {
+	tests := []struct {
+		payload string
+		exp     *big.Float
+	}{
+		{"-1", big.NewFloat(-1)},
+		{"100", big.NewFloat(100)},
+		{"3.146", big.NewFloat(3.146)},
+	}
+
+	for _, tc := range tests {
+		var b BigFloat
+		buf, err := json.Marshal(tc.payload)
+		require.NoError(t, err)
+		err = json.Unmarshal([]byte(buf), &b)
+		require.NoError(t, err)
+		assert.Equal(t, tc.exp.String(), b.Value().String())
+	}
+}
+
 func TestBig_UnmarshalText(t *testing.T) {
 	t.Parallel()
 

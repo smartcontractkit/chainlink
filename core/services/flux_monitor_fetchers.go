@@ -12,6 +12,7 @@ import (
 
 	"github.com/guregu/null"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 )
@@ -41,8 +42,12 @@ func newHTTPFetcher(
 		return nil, err
 	}
 
+	client := &http.Client{Timeout: timeout, Transport: http.DefaultTransport}
+	client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
+	client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
+
 	return &httpFetcher{
-		client:      &http.Client{Timeout: timeout},
+		client:      client,
 		url:         u,
 		requestData: requestData,
 	}, err

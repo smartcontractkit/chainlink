@@ -2,13 +2,13 @@
   "name": "@chainlink/external-adapter",
   "version": "0.0.1",
   "description": "A simple, configurable external adapter suitable for testing Chainlink",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
     "start": "node .",
-    "setup": "echo \"No setup required for @chainlink/external-adapter\""
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean"
   },
   "devDependencies": {
     "@types/body-parser": "^1.17.1",

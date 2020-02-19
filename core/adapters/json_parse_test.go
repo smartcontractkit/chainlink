@@ -131,6 +131,20 @@ func TestJsonParse_Perform(t *testing.T) {
 	}
 }
 
+func TestJsonParse_Perform_WithPreParsedJSON(t *testing.T) {
+	var parsed models.JSON
+	err := json.Unmarshal([]byte(`{"high":"11850.00","last":"11779.99"}`), &parsed)
+	assert.NoError(t, err)
+
+	input := cltest.NewRunInputWithResult(parsed)
+
+	adapter := adapters.JSONParse{Path: []string{"last"}}
+	result := adapter.Perform(input, nil)
+	assert.Equal(t, `{"result":"11779.99"}`, result.Data().String())
+	assert.Equal(t, models.RunStatusCompleted, result.Status())
+	assert.NoError(t, result.Error())
+}
+
 func TestJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

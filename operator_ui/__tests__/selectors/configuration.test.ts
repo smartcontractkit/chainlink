@@ -1,5 +1,5 @@
-import { AppState } from 'reducers'
-import configurationSelector from 'selectors/configuration'
+import { AppState } from '../../src/reducers'
+import configurationSelector from '../../src/selectors/configuration'
 
 describe('selectors - configs', () => {
   it('returns a tuple per key/value pair', () => {

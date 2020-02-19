@@ -2,11 +2,45 @@ package utils
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
+
+const base10 = 10
+const precision = 10
+
+// BigFloat accepts both string and float JSON values.
+type BigFloat big.Float
+
+// MarshalJSON implements the json.Marshaler interface.
+func (b BigFloat) MarshalJSON() ([]byte, error) {
+	var j big.Float
+	j = big.Float(b)
+	return json.Marshal(&j)
+}
+
+// UnmarshalJSON implements the json.Unmarshal interface.
+func (b *BigFloat) UnmarshalJSON(buf []byte) error {
+	var f float64
+	if err := json.Unmarshal(buf, &f); err == nil {
+		*b = BigFloat(*big.NewFloat(f))
+		return nil
+	}
+	var bf big.Float
+	if err := json.Unmarshal(buf, &bf); err != nil {
+		return err
+	}
+	*b = BigFloat(bf)
+	return nil
+}
+
+// Value returns the big.Float value.
+func (b *BigFloat) Value() *big.Float {
+	return (*big.Float)(b)
+}
 
 // Big stores large integers and can deserialize a variety of inputs.
 type Big big.Int
@@ -22,7 +56,7 @@ func NewBig(i *big.Int) *Big {
 
 // MarshalText marshals this instance to base 10 number as string.
 func (b *Big) MarshalText() ([]byte, error) {
-	return []byte((*big.Int)(b).Text(10)), nil
+	return []byte((*big.Int)(b).Text(base10)), nil
 }
 
 // MarshalJSON marshals this instance to base 10 number as string.

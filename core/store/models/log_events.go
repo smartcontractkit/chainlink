@@ -13,6 +13,7 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/pkg/errors"
 )
 
@@ -67,7 +68,7 @@ var (
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
 	// the PrepaidAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorNewRoundLogTopic20191220 = eth.MustGetV5ContractEventID("PrepaidAggregator", "NewRound")
+	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("PrepaidAggregator", "NewRound")
 )
 
 type logRequestParser interface {
@@ -463,8 +464,13 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	idStart := requesterSize
 	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
-	cborStart := expirationEnd + versionSize + dataLocationSize + dataLengthSize
-	js, err := ParseCBOR(data[cborStart:])
+
+	dataLengthStart := expirationEnd + versionSize + dataLocationSize
+	cborStart := dataLengthStart + dataLengthSize
+
+	dataLength := whisperv6.BytesToUintBigEndian(data[dataLengthStart : dataLengthStart+32])
+
+	js, err := ParseCBOR(data[cborStart : cborStart+int(dataLength)])
 	if err != nil {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}

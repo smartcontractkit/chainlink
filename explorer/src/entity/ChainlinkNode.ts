@@ -1,3 +1,6 @@
+import { MinLength } from 'class-validator'
+import { randomBytes } from 'crypto'
+import { sha256 } from 'js-sha256'
 import {
   Column,
   Connection,
@@ -6,10 +9,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm'
-import { MinLength } from 'class-validator'
 import { JobRun } from './JobRun'
-import { sha256 } from 'js-sha256'
-import { randomBytes } from 'crypto'
 import { Session } from './Session'
 
 export interface ChainlinkNodePresenter {
@@ -85,7 +85,6 @@ function generateRandomString(size: number): string {
 }
 
 export const buildChainlinkNode = (
-  db: Connection,
   name: string,
   url?: string,
 ): [ChainlinkNode, string] => {

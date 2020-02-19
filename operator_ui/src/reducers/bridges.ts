@@ -1,49 +1,44 @@
+import { Reducer } from 'redux'
+import { Actions, ResourceActionType } from './actions'
+
 export interface State {
-  items: { [id: string]: object }
+  items: Record<string, object>
   currentPage: string[]
   count: number
 }
 
-const initialState: State = {
+const INITIAL_STATE: State = {
   items: {},
   currentPage: [],
   count: 0,
 }
 
-interface NormalizedBridgeResponse {
-  bridges: { [id: string]: object }
-}
-
-interface NormalizedBridgesResponse {
-  bridges: { [id: string]: object }
-  meta: {
-    currentPageBridges: {
-      data: { id: string }[]
-      meta: { count: number }
-    }
-  }
-}
-
-export type Action =
-  | { type: 'UPSERT_BRIDGES'; data: NormalizedBridgesResponse }
-  | { type: 'UPSERT_BRIDGE'; data: NormalizedBridgeResponse }
-
-export default (state: State = initialState, action: Action) => {
+const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
-    case 'UPSERT_BRIDGES': {
+    case ResourceActionType.UPSERT_BRIDGES: {
       const { bridges, meta } = action.data
+      const items = { ...state.items, ...bridges }
+      const currentPage = meta.currentPageBridges.data.map(b => b.id)
+      const count = meta.currentPageBridges.meta.count
 
-      return Object.assign({}, state, {
-        items: Object.assign({}, state.items, bridges),
-        currentPage: meta.currentPageBridges.data.map(b => b.id),
-        count: meta.currentPageBridges.meta.count,
-      })
+      return {
+        ...state,
+        items,
+        currentPage,
+        count,
+      }
     }
-    case 'UPSERT_BRIDGE':
-      return Object.assign({}, state, {
-        items: Object.assign({}, state.items, action.data.bridges),
-      })
+    case ResourceActionType.UPSERT_BRIDGE: {
+      const items = { ...state.items, ...action.data.bridges }
+
+      return {
+        ...state,
+        items,
+      }
+    }
     default:
       return state
   }
 }
+
+export default reducer

@@ -1,6 +1,6 @@
 # Chainlink
 
-[![Join the chat at https://gitter.im/smartcontractkit-chainlink/Lobby](https://badges.gitter.im/smartcontractkit-chainlink/Lobby.svg)](https://gitter.im/smartcontractkit-chainlink/Lobby)
+[![Join the chat at https://discordapp.com/invite/aSK4zew](https://img.shields.io/discord/592041321326182401.svg?logoColor=white)](https://discordapp.com/invite/aSK4zew)
 [![CircleCI](https://circleci.com/gh/smartcontractkit/chainlink.svg?style=shield)](https://circleci.com/gh/smartcontractkit/chainlink)
 [![Go Report Card](https://goreportcard.com/badge/github.com/smartcontractkit/chainlink)](https://goreportcard.com/report/github.com/smartcontractkit/chainlink)
 [![GoDoc](https://godoc.org/github.com/smartcontractkit/chainlink?status.svg)](https://godoc.org/github.com/smartcontractkit/chainlink)
@@ -80,7 +80,7 @@ This project contains several sub-projects, some with their own documentation.
 
 - [evm](/evm) - smart contract-related resources
   - [box](/evm/box) - [Chainlink Truffle box](https://www.trufflesuite.com/blog/using-truffle-to-interact-with-chainlink-smart-contracts)
-  - [v0.5](/evm/v0.5) - Chainlink using Solidity v0.5.0
+- [@chainlink/contracts](/evm-contracts) - smart contract-related resources
 - [examples](/examples) - collection of example Chainlink integrations
   - [testnet](/examples/testnet) - guide to creating, deploying and using Chainlinked smart contracts
 - [explorer](/explorer) - [Chainlink Explorer](https://explorer.chain.link/)
@@ -120,7 +120,7 @@ $ ./chainlink
 
 ```bash
 $ yarn
-$ make contracts
+$ yarn setup:contracts
 ```
 
 3. Ready for testing:
@@ -144,6 +144,10 @@ $ yarn install
 ```bash
 $ yarn run test-sol
 ```
+
+### Use of Go Generate
+
+Go generate is used to generate mocks in this project. Mocks are generate with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
 
 ### Development Tips
 

@@ -26,7 +26,10 @@ func TestRunExecutor_Execute(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	runExecutor := services.NewRunExecutor(store)
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	runExecutor := services.NewRunExecutor(store, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -60,7 +63,10 @@ func TestRunExecutor_Execute_Pending(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	runExecutor := services.NewRunExecutor(store)
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	runExecutor := services.NewRunExecutor(store, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -95,7 +101,10 @@ func TestRunExecutor_Execute_RunNotFoundError(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	runExecutor := services.NewRunExecutor(store)
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	runExecutor := services.NewRunExecutor(store, pusher)
 
 	err := runExecutor.Execute(models.NewID())
 	require.Error(t, err)
@@ -109,7 +118,10 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	clock := cltest.NewTriggerClock(t)
 	store.Clock = clock
 
-	runExecutor := services.NewRunExecutor(store)
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	runExecutor := services.NewRunExecutor(store, pusher)
 
 	j := models.NewJob()
 	i := models.Initiator{Type: models.InitiatorWeb}
@@ -133,7 +145,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	runQueue := new(mocks.RunQueue)
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, store.TxManager, clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, clock)
 	runManager.Cancel(run.ID)
 
 	clock.Trigger()
@@ -157,7 +169,10 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	runExecutor := services.NewRunExecutor(store)
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	runExecutor := services.NewRunExecutor(store, pusher)
 
 	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{cltest.NewTask(t, "noop")}
@@ -184,7 +199,11 @@ func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	runExecutor := services.NewRunExecutor(store)
+
+	pusher := new(mocks.StatsPusher)
+	pusher.On("PushNow").Return(nil)
+
+	runExecutor := services.NewRunExecutor(store, pusher)
 	requestBase := 2
 	requestParameter := 10
 	specParameter := 100

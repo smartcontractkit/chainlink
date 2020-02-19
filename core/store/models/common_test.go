@@ -348,3 +348,24 @@ func TestAnyTime_MarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestDuration_MarshalJSON(t *testing.T) {
+	tests := []struct {
+		name  string
+		input models.Duration
+		want  string
+	}{
+		{"zero", models.Duration(0), `"0s"`},
+		{"one second", models.Duration(time.Second), `"1s"`},
+		{"one minute", models.Duration(time.Minute), `"1m0s"`},
+		{"one hour", models.Duration(time.Hour), `"1h0m0s"`},
+		{"one hour thirty minutes", models.Duration(time.Hour + 30*time.Minute), `"1h30m0s"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			b, err := json.Marshal(&test.input)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, string(b))
+		})
+	}
+}

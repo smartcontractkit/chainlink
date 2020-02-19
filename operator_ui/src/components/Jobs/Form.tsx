@@ -109,6 +109,7 @@ const Form: React.FC<Props> = props => {
               type="submit"
               disabled={props.isSubmitting}
               className={props.classes.button}
+              size="large"
             >
               {props.actionText}
             </Button>

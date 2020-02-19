@@ -5,17 +5,13 @@ import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
+import { JobRunRepository } from '../../repositories/JobRunRepository'
+import { newChainlinkNode, sendSingleMessage } from '../../support/client'
 import { start, stop } from '../../support/server'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import createFixture from '../fixtures/JobRun.fixture.json'
 import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
 import { clearDb } from '../testdatabase'
-import { JobRunRepository } from '../../repositories/JobRunRepository'
-import {
-  ENDPOINT,
-  newChainlinkNode,
-  sendSingleMessage,
-} from '../../support/client'
 
 describe('realtime', () => {
   let server: Server
@@ -35,7 +31,7 @@ describe('realtime', () => {
       db,
       'legacy test chainlinkNode',
     )
-    ws = await newChainlinkNode(ENDPOINT, chainlinkNode.accessKey, secret)
+    ws = await newChainlinkNode(chainlinkNode.accessKey, secret)
   })
 
   afterEach(async () => {

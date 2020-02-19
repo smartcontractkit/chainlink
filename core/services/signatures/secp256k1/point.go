@@ -18,10 +18,9 @@ import (
 	"io"
 	"math/big"
 
-	"golang.org/x/crypto/sha3"
-
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/util/key"
+	"golang.org/x/crypto/sha3"
 )
 
 // btcec's public interface uses this affine representation for points on the
@@ -285,29 +284,17 @@ func (P *secp256k1Point) UnmarshalFrom(r io.Reader) (int, error) {
 }
 
 // EthereumAddress returns the 160-bit address corresponding to p as public key.
-func EthereumAddress(p kyber.Point) ([20]byte, error) {
-	// We don't bring go-ethereum in, here, because that uses cgo, and kyber wants
-	// to avoid that. The Ethereum address of P is the bottom 160 bits of
-	// keccak256(P.X‖P.Y), where P.X and P.Y are represented in 32 bytes as
-	// big-endian. See equations (277, 284) of Ethereum Yellow Paper version
-	// 3e36772, or go-ethereum's crypto.PubkeyToAddress.
-	q := p.(*secp256k1Point)
+func EthereumAddress(p kyber.Point) (rv [20]byte) {
+	// The Ethereum address of P is the bottom 160 bits of keccak256(P.X‖P.Y),
+	// where P.X and P.Y are represented in 32 bytes as big-endian. See equations
+	// (277, 284) of Ethereum Yellow Paper version 3e36772, or go-ethereum's
+	// crypto.PubkeyToAddress.
 	h := sha3.NewLegacyKeccak256()
-	x := q.X.Bytes()
-	var rv [20]byte
-	if _, err := h.Write(x[:]); err != nil {
-		return rv, fmt.Errorf("failed to hash x ordinate while calculating address")
+	if _, err := h.Write(LongMarshal(p)); err != nil {
+		panic(err)
 	}
-	y := q.Y.Bytes()
-	if _, err := h.Write(y[:]); err != nil {
-		return rv, fmt.Errorf("failed to hash y ordinate while calculating address")
-	}
-	k256 := h.Sum(nil)
-	if len(k256) != 32 {
-		return rv, fmt.Errorf("did not get a 256-bit hash back")
-	}
-	copy(rv[:], k256[len(k256)-20:])
-	return rv, nil
+	copy(rv[:], h.Sum(nil)[12:])
+	return rv
 }
 
 // IsSecp256k1Point returns true if p is a secp256k1Point
@@ -355,6 +342,29 @@ func LongMarshal(p kyber.Point) []byte {
 	xMarshal := p.(*secp256k1Point).X.Bytes()
 	yMarshal := p.(*secp256k1Point).Y.Bytes()
 	return append(xMarshal[:], yMarshal[:]...)
+}
+
+// LongUnmarshal returns the secp256k1 point represented by m, as a concatenated
+// pair of uint256's
+func LongUnmarshal(m []byte) (kyber.Point, error) {
+	if len(m) != 64 {
+		return nil, fmt.Errorf(
+			"0x%x does not represent an uncompressed secp256k1Point. Should be length 64, but is length %d",
+			m, len(m))
+	}
+	p := newPoint()
+	p.X.SetInt(big.NewInt(0).SetBytes(m[:32]))
+	p.Y.SetInt(big.NewInt(0).SetBytes(m[32:]))
+	if !ValidPublicKey(p) {
+		return nil, fmt.Errorf("%s is not a valid secp256k1 point", p)
+	}
+	return p, nil
+}
+
+// ScalarToPublicPoint returns the public secp256k1 point associated to s
+func ScalarToPublicPoint(s kyber.Scalar) kyber.Point {
+	publicPoint := (&Secp256k1{}).Point()
+	return publicPoint.Mul(s, nil)
 }
 
 // SetCoordinates returns the point (x,y), or panics if an invalid secp256k1Point

@@ -29,6 +29,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+// BatchSize is the safe number of records to cache during Batch calls for
+// SQLite without causing load problems.
+const BatchSize = 100
+
 var (
 	// ErrorNotFound is returned when finding a single value fails.
 	ErrorNotFound = gorm.ErrRecordNotFound
@@ -80,7 +84,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 
 	lockingStrategy, err := NewLockingStrategy(dialect, uri)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create ORM lock: %+v", err)
+		return nil, errors.Wrap(err, "unable to create ORM lock")
 	}
 
 	logger.Infof("Locking %v for exclusive access with %v timeout", dialect, displayTimeout(timeout))
@@ -94,7 +98,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 
 	db, err := initializeDatabase(string(dialect), uri)
 	if err != nil {
-		return nil, fmt.Errorf("unable to init DB: %+v", err)
+		return nil, errors.Wrap(err, "unable to init DB")
 	}
 
 	orm.db = db
@@ -123,7 +127,7 @@ func displayTimeout(timeout time.Duration) string {
 func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	db, err := gorm.Open(dialect, path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
+		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", path)
 	}
 
 	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
@@ -281,7 +285,7 @@ func (orm *ORM) FindJobRun(id *models.ID) (models.JobRun, error) {
 // AllSyncEvents returns all sync events
 func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 	orm.MustEnsureAdvisoryLock()
-	return Batch(1000, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		var events []models.SyncEvent
 		err := orm.db.
 			Limit(limit).
@@ -419,7 +423,7 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error {
 	orm.MustEnsureAdvisoryLock()
-	return Batch(100, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		scope := orm.db.Limit(limit).Offset(offset)
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
@@ -584,10 +588,10 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 		Order("created_at asc").
 		Pluck("ID", &runIDs).Error
 	if err != nil {
-		return fmt.Errorf("error finding job ids %v", err)
+		return errors.Wrap(err, "finding job ids")
 	}
 
-	return Batch(100, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		batchIDs := runIDs[offset:utils.MinUint(limit, uint(len(runIDs)))]
 		var runs []models.JobRun
 		err := orm.Unscoped().
@@ -595,7 +599,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 			Order("job_runs.created_at asc").
 			Find(&runs, "job_runs.id IN (?)", batchIDs).Error
 		if err != nil {
-			return 0, fmt.Errorf("error fetching job run batch: %v", err)
+			return 0, errors.Wrap(err, "error fetching job run batch")
 		}
 
 		for _, run := range runs {

@@ -1,4 +1,4 @@
-import jobRunsSelector from 'selectors/jobRuns'
+import jobRunsSelector from '../../src/selectors/jobRuns'
 
 describe('selectors - jobRuns', () => {
   it('returns the job runs for the given job spec id', () => {

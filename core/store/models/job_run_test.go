@@ -8,6 +8,7 @@ import (
 
 	"chainlink/core/assets"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/services/synchronization"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
@@ -58,10 +59,10 @@ func TestJobRun_RetrievingFromDBWithData(t *testing.T) {
 
 func TestJobRun_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
-	config, _ := cltest.NewConfig(t)
-	config.Set("EXPLORER_URL", "http://localhost:4201")
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	pusher := synchronization.NewStatsPusher(store.ORM, cltest.MustParseURL("http://localhost:4201"), "", "")
+	defer pusher.Close()
 
 	job := cltest.NewJobWithWebInitiator()
 	err := store.CreateJob(&job)

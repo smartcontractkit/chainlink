@@ -21,11 +21,16 @@ func (bdc *BulkDeletesController) Delete(c *gin.Context) {
 	request := &models.BulkDeleteRunRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if err := models.ValidateBulkDeleteRunRequest(request); err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if err := bdc.App.GetStore().BulkDeleteRuns(request); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponseWithStatus(c, nil, "nil", http.StatusNoContent)
+		return
 	}
+	if err := models.ValidateBulkDeleteRunRequest(request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	if err := bdc.App.GetStore().BulkDeleteRuns(request); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, nil, "nil", http.StatusNoContent)
 }

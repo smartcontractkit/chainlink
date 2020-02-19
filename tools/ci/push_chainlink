@@ -15,6 +15,12 @@ set -ex
 # to work with.
 #
 
+if [ -z "$DOCKERHUB_PASS" ]
+then
+  echo "Skipping dockerhub uploads because the necessary credentials are not present"
+  exit 0
+fi
+
 circle_branch="$1"
 circle_tag="$2"
 

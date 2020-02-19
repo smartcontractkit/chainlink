@@ -401,6 +401,42 @@ func (c Cron) String() string {
 	return string(c)
 }
 
+// Duration is a time duration.
+type Duration time.Duration
+
+// Duration returns the value as the standard time.Duration value.
+func (d Duration) Duration() time.Duration {
+	return time.Duration(d)
+}
+
+// String returns a string representing the duration in the form "72h3m0.5s".
+// Leading zero units are omitted. As a special case, durations less than one
+// second format use a smaller unit (milli-, micro-, or nanoseconds) to ensure
+// that the leading digit is non-zero. The zero duration formats as 0s.
+func (d Duration) String() string {
+	return time.Duration(d).String()
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (d *Duration) UnmarshalJSON(input []byte) error {
+	var txt string
+	err := json.Unmarshal(input, &txt)
+	if err != nil {
+		return err
+	}
+	v, err := time.ParseDuration(string(txt))
+	if err != nil {
+		return err
+	}
+	*d = Duration(v)
+	return nil
+}
+
 // WithdrawalRequest request to withdraw LINK.
 type WithdrawalRequest struct {
 	DestinationAddress common.Address `json:"address"`

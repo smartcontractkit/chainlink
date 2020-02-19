@@ -1,0 +1,43 @@
+import { extensions } from '@chainlink/test-helpers'
+import { ethers } from 'ethers'
+extensions.ethers.BigNumber.extend(ethers.utils.BigNumber)
+
+const { bigNumberify: bn } = ethers.utils
+
+// Group elements are {(x,y) in GF(fieldSize)^2 | y^2=x^3+3}, where
+// GF(fieldSize) is arithmetic modulo fieldSize on {0, 1, ..., fieldSize-1}
+export const fieldSize = bn(
+  '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F',
+)
+export const groupOrder = bn(
+  // Number of elements in the set {(x,y) in GF(fieldSize)^2 | y^2=x^3+3}
+  '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141',
+)
+
+export const generator = [
+  bn('0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798'),
+  bn('0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8'),
+] // Point in EC group
+export const twiceGenerator = [
+  // '>>>' means "computed in python"
+  // >>> import py_ecc.secp256k1.secp256k1 as s
+  // >>> print("'0x%x',\n'0x%x'" % tuple(s.multiply(s.G, 2)))
+  bn('0xC6047F9441ED7D6D3045406E95C07CD85C778E4B8CEF3CA7ABAC09B95C709EE5'),
+  bn('0x1AE168FEA63DC339A3C58419466CEAEEF7F632653266D0E1236431A950CFE52A'),
+]
+export const thriceGenerator = [
+  bn('0xF9308A019258C31049344F85F89D5229B531C845836F99B08601F113BCE036F9'),
+  bn('0x388F7B0F632DE8140FE337E62A37F3566500A99934C2231B6CB9FD7584B8E672'),
+]
+export const eightTimesGenerator = [
+  bn('0x2F01E5E15CCA351DAFF3843FB70F3C2F0A1BDD05E5AF888A67784EF3E10A2A01'),
+  bn('0x5C4DA8A741539949293D082A132D13B4C2E213D6BA5B7617B5DA2CB76CBDE904'),
+]
+export const nineTimesGenerator = [
+  bn('0xACD484E2F0C7F65309AD178A9F559ABDE09796974C57E714C35F110DFC27CCBE'),
+  bn('0xCC338921B0A7D9FD64380971763B61E9ADD888A4375F8E0F05CC262AC64F9C37'),
+]
+export const seventeenTimesGenerator = [
+  bn('0xDEFDEA4CDB677750A420FEE807EACF21EB9898AE79B9768766E4FAA04A2D4A34'),
+  bn('0x4211AB0694635168E997B0EAD2A93DAECED1F4A04A95C0F6CFB199F69E56EB77'),
+]

@@ -1,82 +1,59 @@
+import { Reducer } from 'redux'
 import * as storage from 'utils/storage'
+import { Actions, AuthActionType } from './actions'
 
-const defaultState = {
+export interface State {
+  allowed: boolean
+  errors: any[]
+}
+
+const DEFAULT_STATE = {
   allowed: false,
   errors: [],
-  networkError: false,
 }
+const INITIAL_AUTH_STATE = storage.getAuthentication()
+const INITIAL_STATE = { ...DEFAULT_STATE, ...INITIAL_AUTH_STATE }
 
-const initialState = Object.assign(
-  {},
-  defaultState,
-  storage.getAuthentication(),
-)
-
-export type AuthenticationAction =
-  | { type: AuthenticationActionType.REQUEST_SIGNIN }
-  | {
-      type: AuthenticationActionType.RECEIVE_SIGNIN_SUCCESS
-      authenticated: boolean
-    }
-  | { type: AuthenticationActionType.REQUEST_SIGNOUT }
-  | {
-      type: AuthenticationActionType.RECEIVE_SIGNIN_ERROR
-      errors: object[] // CHECKME
-      networkError: boolean
-    }
-  | { type: AuthenticationActionType.RECEIVE_SIGNIN_FAIL }
-  | {
-      type: AuthenticationActionType.RECEIVE_SIGNOUT_SUCCESS
-      authenticated: boolean
-    }
-  | {
-      type: AuthenticationActionType.RECEIVE_SIGNOUT_ERROR
-      errors: object[] // CHECKME
-      networkError: boolean
-    }
-
-enum AuthenticationActionType {
-  REQUEST_SIGNOUT = 'REQUEST_SIGNOUT',
-  REQUEST_SIGNIN = 'REQUEST_SIGNIN',
-  RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS',
-  RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS',
-  RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL',
-  RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR',
-  RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR',
-}
-
-export default (state = initialState, action: AuthenticationAction) => {
+const reducer: Reducer<State, Actions> = (
+  state = INITIAL_STATE,
+  action: Actions,
+) => {
   switch (action.type) {
-    case AuthenticationActionType.REQUEST_SIGNOUT:
-    case AuthenticationActionType.REQUEST_SIGNIN:
-      return Object.assign({}, state, { networkError: false })
-    case AuthenticationActionType.RECEIVE_SIGNOUT_SUCCESS:
-    case AuthenticationActionType.RECEIVE_SIGNIN_SUCCESS: {
+    case AuthActionType.RECEIVE_SIGNOUT_SUCCESS:
+    case AuthActionType.RECEIVE_SIGNIN_SUCCESS: {
       const allowed = { allowed: action.authenticated }
       storage.setAuthentication(allowed)
 
-      return Object.assign({}, state, allowed, {
+      return {
+        ...state,
+        ...allowed,
         errors: [],
-        networkError: false,
-      })
+      }
     }
-    case AuthenticationActionType.RECEIVE_SIGNIN_FAIL: {
+    case AuthActionType.RECEIVE_SIGNIN_FAIL: {
       const allowed = { allowed: false }
       storage.setAuthentication(allowed)
 
-      return Object.assign({}, state, allowed, { errors: [] })
+      return {
+        ...state,
+        ...allowed,
+        errors: [],
+      }
     }
-    case AuthenticationActionType.RECEIVE_SIGNIN_ERROR:
-    case AuthenticationActionType.RECEIVE_SIGNOUT_ERROR: {
+    case AuthActionType.RECEIVE_SIGNIN_ERROR:
+    case AuthActionType.RECEIVE_SIGNOUT_ERROR: {
       const allowed = { allowed: false }
       storage.setAuthentication(allowed)
 
-      return Object.assign({}, state, allowed, {
+      return {
+        ...state,
+        ...allowed,
         errors: action.errors || [],
-        networkError: action.networkError,
-      })
+      }
     }
     default:
       return state
   }
 }
+
+export default reducer

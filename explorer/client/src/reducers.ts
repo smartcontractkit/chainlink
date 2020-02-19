@@ -25,7 +25,9 @@ const reducer = combineReducers({
   taskRuns,
 })
 
-export const INITIAL_STATE = reducer(undefined, { type: 'initial_state' })
+export const INITIAL_STATE = reducer(undefined, {
+  type: 'initial_state' as any,
+})
 export type AppState = typeof INITIAL_STATE
 
 export default reducer

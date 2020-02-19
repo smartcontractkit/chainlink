@@ -11,6 +11,7 @@ import (
 	"chainlink/core/utils"
 
 	simplejson "github.com/bitly/go-simplejson"
+	gjson "github.com/tidwall/gjson"
 )
 
 // JSONParse holds a path to the desired field in a JSON object,
@@ -30,9 +31,18 @@ type JSONParse struct {
 //     ]
 //   }
 //
-// Then ["0","last"] would be the path, and "111" would be the returned value
+// Then ["0","last"] would be the path, and "1111" would be the returned value
 func (jpa *JSONParse) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
-	val, err := input.ResultString()
+	var val string
+	var err error
+
+	if input.Result().Type == gjson.JSON {
+		// Handle case where JSON comes "pre-packaged" as gjson e.g. from bridge (external adapters)
+		val = input.Result().Raw
+	} else {
+		val, err = input.ResultString()
+	}
+
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

@@ -87,12 +87,6 @@ func ValidateExternalInitiator(
 	} else if err != orm.ErrorNotFound {
 		return errors.Wrap(err, "validating external initiator")
 	}
-	// only validate URL if present
-	if exi.URL != nil {
-		if isURL := govalidator.IsURL((*exi.URL).String()); !isURL {
-			fe.Add("Invalid URL format")
-		}
-	}
 	return fe.CoerceEmptyToNil()
 }
 
@@ -123,16 +117,21 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
 	fe := models.NewJSONAPIErrors()
 	if i.Address == utils.ZeroAddress {
-		fe.Add("unable to create job config, no address")
+		fe.Add("no address")
 	}
 	if len(i.Feeds) == 0 {
-		fe.Add("unable to create job config, no feeds")
+		fe.Add("no feeds")
 	}
 	if i.Threshold <= 0 {
-		fe.Add("unable to create job config, bad threshold")
+		fe.Add("bad threshold")
 	}
 	if i.RequestData.String() == "" {
-		fe.Add("unable to create job config, no requestdata")
+		fe.Add("no requestdata")
+	}
+	if i.PollingInterval == 0 {
+		fe.Add("no pollingInterval")
+	} else if i.PollingInterval < MinimumPollingInterval {
+		fe.Add("pollingInterval must be equal or greater than " + MinimumPollingInterval.String())
 	}
 
 	return fe.CoerceEmptyToNil()
