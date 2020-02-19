@@ -1,7 +1,6 @@
 package eth_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"testing"
 
@@ -14,6 +13,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -312,10 +312,7 @@ func TestCallerSubscriberClient_GetLatestSubmission(t *testing.T) {
 		expectedRound  *big.Int
 	}{
 		{"zero", 0, 0, big.NewInt(0), big.NewInt(0)},
-		// {"small", "12", big.NewInt(12)},
-		// {"hex zero default", "0x", big.NewInt(0)},
-		// {"hex zero", "0x0", big.NewInt(0)},
-		// {"hex", "0x0100", big.NewInt(256)},
+		{"small", 8, 12, big.NewInt(8), big.NewInt(12)},
 	}
 
 	for _, test := range tests {
@@ -329,7 +326,7 @@ func TestCallerSubscriberClient_GetLatestSubmission(t *testing.T) {
 					require.NoError(t, err)
 					roundBytes, err := utils.EVMWordBigInt(big.NewInt(test.round))
 					require.NoError(t, err)
-					*res = hex.EncodeToString(append(answerBytes, roundBytes...))
+					*res = hexutil.Encode(append(answerBytes, roundBytes...))
 				})
 			answer, round, err := ethClient.GetLatestSubmission(aggregatorAddress, oracleAddress)
 			require.NoError(t, err)

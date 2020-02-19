@@ -2,7 +2,6 @@ package eth
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
@@ -225,7 +224,7 @@ func (client *CallerSubscriberClient) GetLatestSubmission(aggregatorAddress comm
 		return nil, nil, errors.New("cannot find method latestSubmission on ABI")
 	}
 
-	resultBytes, err := hex.DecodeString(result)
+	resultBytes, err := hexutil.Decode(result)
 	if err != nil {
 		return nil, nil, errors.WithStack(err)
 	}
