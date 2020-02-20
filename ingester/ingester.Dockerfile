@@ -1,19 +1,21 @@
-FROM golang:1.12-alpine as builder
-
-WORKDIR /go/src/github.com/smartcontractkit/aggregator-monitor
+FROM golang:1.13-alpine as builder
 
 RUN apk add --no-cache make curl git g++ gcc musl-dev linux-headers
-RUN go get -u github.com/gobuffalo/packr/v2/packr2
 
-ENV GO111MODULE=on
+WORKDIR /usr/local/src/chainlink/ingester
+
+# Do go mod download in a cacheable step
+ADD go.mod go.sum ./
+RUN go mod download
+
+# Build the ingester binary
 ADD . .
-RUN go install
 RUN go build
 
 # Copy into a second stage container
 FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
-COPY --from=builder /go/src/github.com/smartcontractkit/aggregator-monitor/aggregator-monitor /usr/local/bin/
+COPY --from=builder /usr/local/src/chainlink/ingester/ingester /usr/local/bin/
 
-ENTRYPOINT ["aggregator-monitor"]
+ENTRYPOINT ["ingester"]
