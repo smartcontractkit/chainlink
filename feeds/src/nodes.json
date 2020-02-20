@@ -263,5 +263,10 @@
     "address": "0x16d19adaF73CE34a346E0bF91108cfb26133a7bd",
     "name": "Chorus One",
     "networkId": 3
+  },
+  {
+    "address": "0x20a859058d4ae68301003b981d5d675795c64a70",
+    "name": "Staking Facilities",
+    "networkId": 3
   }
 ]
