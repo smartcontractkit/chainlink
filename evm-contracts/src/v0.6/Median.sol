@@ -6,6 +6,8 @@ import "./dev/SignedSafeMath.sol";
 library Median {
   using SignedSafeMath for int256;
 
+  int256 constant intMax = 57896044618658097711785492504343953926634992332820282019728792003956564819967;
+
   /**
    * @notice Returns the sorted middle, or the average of the two middle indexed items if the
    * array has an even number of elements.
@@ -55,7 +57,6 @@ library Median {
     // only want the median, some unnecessary comparators have been commented
     // out below. Network layout is taken from https://stackoverflow.com/a/46801450
 
-    int256 intMax = 57896044618658097711785492504343953926634992332820282019728792003956564819967;
     uint256 len = list.length;
     int256 x0 = list[0];
     if (len == 1) {return x0;}
