@@ -209,29 +209,29 @@ func (client *CallerSubscriberClient) GetLatestSubmission(aggregatorAddress comm
 	}
 	data, err := aggregator.EncodeMessageCall("latestSubmission", oracleAddress)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, errMessage)
+		return nil, nil, errors.Wrap(err, errMessage+"; unable to encode message call")
 	}
 
 	var result string
 	args := CallArgs{To: aggregatorAddress, Data: data}
 	err = client.Call(&result, "eth_call", args, "latest")
 	if err != nil {
-		return nil, nil, errors.Wrap(err, errMessage)
+		return nil, nil, errors.Wrap(err, errMessage+"; unable to call client")
 	}
 
 	method, exists := aggregator.ABI.Methods["latestSubmission"]
 	if !exists {
-		return nil, nil, errors.New("cannot find method latestSubmission on ABI")
+		return nil, nil, errors.New(errMessage + "; cannot find method latestSubmission on ABI")
 	}
 
 	resultBytes, err := hexutil.Decode(result)
 	if err != nil {
-		return nil, nil, errors.WithStack(err)
+		return nil, nil, errors.Wrap(err, errMessage+"; unable to decode result")
 	}
 
 	values, err := method.Outputs.UnpackValues(resultBytes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, errMessage+"; unable to unpack values")
 	}
 	latestAnswer := values[0].(*big.Int)
 	lastReportedRound := values[1].(*big.Int)
