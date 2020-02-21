@@ -19,4 +19,19 @@ library SignedSafeMath {
 
     return c;
   }
+
+  /**
+   * @notice Computes average of two signed integers, ensuring that the computation
+   * doesn't overflow.
+   * @dev If the result is not an integer, it is rounded towards zero. For example,
+   * avg(-3, -4) = -3
+   */
+  function avg(int256 _a, int256 _b)
+    internal
+    pure
+    returns (int256)
+  {
+    int256 remainder = (_a % 2 + _b % 2) / 2;
+    return add(add(_a / 2, _b / 2), remainder);
+  }
 }
