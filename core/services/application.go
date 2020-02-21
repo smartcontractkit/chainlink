@@ -125,7 +125,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
 		app.FluxMonitor.Start(),
-		app.JobSubscriber.Start(),
 
 		// HeadTracker deliberately started after
 		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
@@ -134,7 +133,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.HeadTracker.Start(),
 
 		app.Scheduler.Start(),
-		app.SessionReaper.Start(),
 	)
 }
 
