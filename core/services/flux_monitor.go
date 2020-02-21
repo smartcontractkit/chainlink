@@ -54,8 +54,9 @@ type concreteFluxMonitor struct {
 }
 
 type addEntry struct {
-	job     *models.JobSpec
-	errChan chan error
+	jobID    string
+	checkers []DeviationChecker
+	errChan  chan error
 }
 
 // NewFluxMonitor creates a service that manages a collection of DeviationCheckers,
@@ -77,12 +78,21 @@ func (fm *concreteFluxMonitor) Start() error {
 
 	go fm.actionConsumer(fm.ctx)
 
-	var merr error
+	count := 0
+	errChan := make(chan error)
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
-		err := fm.AddJob(*j)
-		merr = multierr.Combine(merr, err)
+		go func(j *models.JobSpec) {
+			errChan <- fm.AddJob(*j)
+		}(j)
+		count++
 		return true
 	}, models.InitiatorFluxMonitor)
+
+	var merr error
+	for i := 0; i < count; i++ {
+		err := <-errChan
+		merr = multierr.Combine(merr, err)
+	}
 	return multierr.Append(err, merr)
 }
 
@@ -115,7 +125,14 @@ func (fm *concreteFluxMonitor) actionConsumer(ctx context.Context) {
 			cancelConnection()
 			connected = false
 		case entry := <-fm.adds:
-			entry.errChan <- fm.addAction(connectionCtx, connected, entry.job, jobMap)
+			entry.errChan <- fm.addAction(
+				ctx,
+				connected,
+				jobMap,
+				fm.store,
+				entry.jobID,
+				entry.checkers,
+			)
 		case jobID := <-fm.removes:
 			for _, checker := range jobMap[jobID.String()] {
 				checker.Stop()
@@ -143,8 +160,21 @@ func (fm *concreteFluxMonitor) OnNewHead(*models.Head) {}
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
+	validCheckers := []DeviationChecker{}
+	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
+		logger.Debugw("Adding job to flux monitor",
+			"job", job.ID.String(),
+			"initr", initr.ID,
+		)
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM)
+		if err != nil {
+			return errors.Wrap(err, "factory unable to create checker")
+		}
+		validCheckers = append(validCheckers, checker)
+	}
+
 	errChan := make(chan error)
-	fm.adds <- addEntry{&job, errChan}
+	fm.adds <- addEntry{job.ID.String(), validCheckers, errChan}
 	return <-errChan
 }
 
@@ -159,31 +189,32 @@ func connectCheckers(ctx context.Context, jobMap map[string][]DeviationChecker, 
 	}
 }
 
-func (fm *concreteFluxMonitor) addAction(ctx context.Context, connected bool, job *models.JobSpec, jobMap map[string][]DeviationChecker) error {
-	if _, ok := jobMap[job.ID.String()]; ok {
-		return fmt.Errorf("job %s has already been added to flux monitor", job.ID)
-	}
-	validCheckers := []DeviationChecker{}
-	for _, initr := range job.InitiatorsFor(models.InitiatorFluxMonitor) {
-		logger.Debugw("Adding job to flux monitor",
-			"job", job.ID.String(),
-			"initr", initr.ID,
+func (fm *concreteFluxMonitor) addAction(
+	ctx context.Context,
+	connected bool,
+	jobMap map[string][]DeviationChecker,
+	store *store.Store,
+	jobSpecID string,
+	checkers []DeviationChecker,
+) error {
+	if _, ok := jobMap[jobSpecID]; ok {
+		return fmt.Errorf(
+			"job %s has already been added to flux monitor",
+			jobSpecID,
 		)
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM)
-		if err != nil {
-			return errors.Wrap(err, "factory unable to create checker")
-		}
-		if connected {
+	}
+
+	if connected {
+		for _, checker := range checkers {
 			err := connectSingleChecker(ctx, checker, fm.store.TxManager)
 			if err != nil {
 				return errors.Wrap(err, "unable to connect checker")
 			}
 		}
-		validCheckers = append(validCheckers, checker)
 	}
 
-	if len(validCheckers) > 0 {
-		jobMap[job.ID.String()] = validCheckers
+	if len(checkers) > 0 {
+		jobMap[jobSpecID] = checkers
 	}
 	return nil
 }
