@@ -509,7 +509,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     private
     ifMinAnswersReceived(_id)
   {
-    int256 newAnswer = Median.calculate(rounds[_id].details.answers);
+    int256 newAnswer = Median.calculateInplace(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
     rounds[_id].updatedAt = uint64(block.timestamp);
     rounds[_id].answeredInRound = _id;
