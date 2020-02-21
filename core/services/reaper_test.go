@@ -20,7 +20,6 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 	defer cleanup()
 
 	r := services.NewStoreReaper(store)
-	r.Start()
 	defer r.Stop()
 
 	tests := []struct {
