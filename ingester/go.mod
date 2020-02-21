@@ -10,4 +10,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.4.0
+	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5 // indirect
+	go.uber.org/multierr v1.4.0 // indirect
+	gopkg.in/guregu/null.v3 v3.4.0 // indirect
 )
