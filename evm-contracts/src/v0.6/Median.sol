@@ -53,9 +53,7 @@ library Median {
    */
   function shortList(int256[] memory list) private pure returns (int256) {
     // Uses an optimal sorting network (https://en.wikipedia.org/wiki/Sorting_network)
-    // for lists of length 9. Since we don't care about fully sorting list, but
-    // only want the median, some unnecessary comparators have been commented
-    // out below. Network layout is taken from https://stackoverflow.com/a/46801450
+    // for lists of length 9. Network layout is taken from https://stackoverflow.com/a/46801450
 
     uint256 len = list.length;
     int256 x0 = list[0];
@@ -95,6 +93,8 @@ library Median {
     if (x2 > x4) {(x2, x4) = (x4, x2);}
     if (x1 > x3) {(x1, x3) = (x3, x1);}
     if (x2 > x3) {(x2, x3) = (x3, x2);}
+    // Since we don't care about fully sorting list, but only want the median,
+    // some unnecessary comparators have been commented out below.
     // if (x5 > x8) {(x5, x8) = (x8, x5);}
     // if (x5 > x7) {(x5, x7) = (x7, x5);}
     // if (x5 > x6) {(x5, x6) = (x6, x5);}
