@@ -384,9 +384,9 @@ workflows:
   test:
     jobs:
       - check_if_rebase_needed:
-          filters: # all branches, and /^v../ tags for build-publish...
+          filters: 
             tags:
-              only: /^v.*/
+              ignore: /^v.*/
             branches:
               ignore:
                 - develop
