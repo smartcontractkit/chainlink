@@ -2,7 +2,6 @@ package services
 
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {
-	Start() error
 	Stop() error
 	WakeUp()
 }
@@ -13,9 +12,9 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker Worker
-	waker  chan struct{}
-	closer chan struct{}
+	worker      Worker
+	chQueue     chan struct{}
+	chQueueDone chan struct{}
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -28,42 +27,41 @@ type sleeperTask struct {
 // WakeUp does not block.
 //
 func NewSleeperTask(worker Worker) SleeperTask {
-	return &sleeperTask{
-		worker: worker,
-		waker:  make(chan struct{}, 1),
-		closer: make(chan struct{}, 1),
+	s := &sleeperTask{
+		worker:      worker,
+		chQueue:     make(chan struct{}, 1),
+		chQueueDone: make(chan struct{}),
 	}
-}
 
-// Start begins the SleeperTask
-func (s *sleeperTask) Start() error {
 	go s.workerLoop()
-	return nil
+
+	return s
 }
 
-// Stop stops the SleeperTask
+// Stop stops the SleeperTask.  It never returns an error.  Its error return
+// exists so as to satisfy other interfaces.
 func (s *sleeperTask) Stop() error {
-	s.closer <- struct{}{}
+	close(s.chQueue)
+	<-s.chQueueDone
 	return nil
 }
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
 	select {
-	case s.waker <- struct{}{}:
+	case s.chQueue <- struct{}{}:
 	default:
 	}
 }
 
-// workerLoop is the goroutine behind the sleeper task that waits for a signal
-// before kicking off the worker
 func (s *sleeperTask) workerLoop() {
-	for {
-		select {
-		case <-s.waker:
-			s.worker.Work()
-		case <-s.closer:
-			return
-		}
+	defer close(s.chQueueDone)
+
+	for range s.chQueue {
+		s.worker.Work()
+	}
+
+	if len(s.chQueue) > 0 {
+		s.worker.Work()
 	}
 }
