@@ -4,6 +4,7 @@ import { ReactComponent as Aave } from 'assets/aave.svg'
 import { ReactComponent as Loopring } from 'assets/loopring.svg'
 import { ReactComponent as Synthetix } from 'assets/synthetix.svg'
 import ampleforth from 'assets/ampleforth.png'
+import setprotocol from 'assets/setprotocol.png'
 import { Button } from 'antd'
 import { Header } from 'components/header'
 import ReactGA from 'react-ga'
@@ -96,6 +97,19 @@ const LangingPage = () => (
             title="Ampleforth"
             src={ampleforth}
             className="ampleforth"
+          />
+        </a>
+
+        <a
+          href="https://www.tokensets.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            alt="Set Protocol"
+            title="Set Protocol"
+            src={setprotocol}
+            className="setprotocol"
           />
         </a>
       </div>

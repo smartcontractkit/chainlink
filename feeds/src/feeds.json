@@ -135,6 +135,20 @@
     "threshold": 1
   },
   {
+    "contractAddress": "0x32dbd3214ac75223e27e575c53944307914f7a90",
+    "name": "LINK / USD",
+    "valuePrefix": "$",
+    "pair": ["LINK", "USD"],
+    "path": "link-usd",
+    "contractVersion": 2,
+    "networkId": 1,
+    "history": true,
+    "decimalPlaces": 3,
+    "multiply": "100000000",
+    "sponsored": ["Set protocol"],
+    "threshold": 1
+  },
+  {
     "contractAddress": "0x8770Afe90c52Fd117f29192866DE705F63e59407",
     "name": "LRC / ETH",
     "valuePrefix": "Ξ",
