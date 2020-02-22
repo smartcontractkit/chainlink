@@ -27,7 +27,7 @@
     "decimalPlaces": 3,
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
-    "threshold": 1
+    "threshold": 0.5
   },
   {
     "contractAddress": "0x05cf62c4ba0ccea3da680f9a8744ac51116d6231",
@@ -378,7 +378,7 @@
     "path": "btc-usd",
     "networkId": 3,
     "history": true,
-    "threshold": 1
+    "threshold": 0.5
   },
   {
     "contractAddress": "0x46aD082e62D86089b7365320081685115F50d8B3",
