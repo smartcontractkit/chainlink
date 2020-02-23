@@ -8,7 +8,7 @@ import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "./AggregatorInterface.sol";
-import "./Owned.sol";
+import "../Owned.sol";
 
 /**
  * @title The Prepaid Aggregator contract
