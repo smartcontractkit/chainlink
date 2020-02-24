@@ -63,7 +63,7 @@
   .sponsors {
     &-wrapper {
       text-align: center;
-      max-width: 800px;
+      max-width: 1000px;
       margin: 0 auto;
     }
     margin: 40px 0;
@@ -73,6 +73,10 @@
     align-items: center;
 
     .ampleforth {
+      width: 190px;
+    }
+
+    .setprotocol {
       width: 190px;
     }
 
@@ -87,7 +91,7 @@
     }
   }
 
-  @media (max-width: @screen-md) {
+  @media (max-width: @screen-lg) {
     .head__title {
       width: auto;
     }
@@ -95,7 +99,8 @@
     .sponsors {
       flex-direction: column;
       align-items: center;
-      svg {
+      svg,
+      img {
         margin-bottom: 30px;
       }
     }
