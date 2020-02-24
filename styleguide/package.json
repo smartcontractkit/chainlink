@@ -39,7 +39,7 @@
     "@storybook/addon-info": "^5.3.7",
     "@storybook/addon-links": "^5.2.5",
     "@storybook/addons": "^5.2.1",
-    "@storybook/react": "^5.1.10",
+    "@storybook/react": "^5.3.13",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.4.0",
     "@types/react": "^16.9.17",
