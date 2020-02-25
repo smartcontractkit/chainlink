@@ -2,9 +2,7 @@
 
 set -e
 
-yarn workspace @chainlink/box run lint
 yarn setup:contracts
 
 # These should be merged into a global test command
 yarn workspace @chainlink/contracts test
-yarn workspace @chainlink/box test

@@ -2,7 +2,8 @@ FROM node:10.16.3-alpine
 
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
-COPY yarn.lock package.json tsconfig.cjs.json ./
+COPY yarn.lock .yarnrc package.json tsconfig.cjs.json ./
+COPY .yarn .yarn
 COPY tools/cypress-job-server/package.json tools/cypress-job-server/
 
 # install deps for our integration scripts
