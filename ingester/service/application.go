@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"ingester/client"
+	"ingester/logger"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
-	log "github.com/sirupsen/logrus"
 )
 
 // Application is an instance of the aggregator monitor application containing
@@ -25,7 +25,7 @@ type InterruptHandler func()
 // NewApplication returns an instance of the Application with
 // all clients connected and services instantiated
 func NewApplication(config *Config) (*Application, error) {
-	log.Info("Starting the ingester")
+	logger.Info("Starting the ingester")
 
 	ec, err := client.NewClient(config.EthereumURL)
 	if err != nil {
@@ -42,7 +42,16 @@ func NewApplication(config *Config) (*Application, error) {
 	go func() {
 		for {
 			log := <-logChan
-			fmt.Println("got log", log.Address.Hex(), log.Topics, log.Data, log.BlockNumber, log.TxHash, log.TxIndex, log.BlockHash, log.Index, log.Removed)
+			logger.Debugw("Got Log",
+				"address", log.Address.Hex(),
+				"topics", log.Topics,
+				"data", log.Data,
+				"blockNumber", log.BlockNumber,
+				"txHash", log.TxHash,
+				"txIndex", log.TxIndex,
+				"blockHash", log.BlockHash,
+				"index", log.Index,
+				"removed", log.Removed)
 		}
 	}()
 
@@ -55,7 +64,7 @@ func NewApplication(config *Config) (*Application, error) {
 	go func() {
 		for {
 			head := <-headChan
-			fmt.Println("got head", head)
+			logger.Debugw("Got head", "head", head)
 		}
 	}()
 
@@ -72,5 +81,5 @@ func (a *Application) Start(ih InterruptHandler) {
 
 // Stop will call each services that requires a clean shutdown to stop
 func (a *Application) Stop() {
-	log.Info("Stopping the ingester")
+	logger.Info("Stopping the ingester")
 }

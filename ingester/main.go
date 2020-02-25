@@ -5,9 +5,9 @@ import (
 	"os/signal"
 	"time"
 
+	"ingester/logger"
 	"ingester/service"
 
-	"github.com/prometheus/common/log"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +30,7 @@ func generateCmd() *cobra.Command {
 func run(r runner) {
 	a, err := r(service.DefaultConfig())
 	if err != nil {
-		log.Fatalf("Failed to create application: %+v", err)
+		logger.Fatalf("Failed to create application: %+v", err)
 	}
 
 	a.Start(func() {
@@ -43,6 +43,6 @@ func run(r runner) {
 
 func main() {
 	if err := generateCmd().Execute(); err != nil {
-		log.Warn(err)
+		logger.Warn(err)
 	}
 }
