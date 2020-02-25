@@ -4,7 +4,10 @@ pragma solidity 0.6.2; // solhint-disable-line compiler-version
 ////////// DO NOT USE THIS IN PRODUCTION UNTIL IT HAS BEEN AUDITED /////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+import "../vendor/SafeMath.sol";
+
 import "../interfaces/LinkTokenInterface.sol";
+
 import "./VRF.sol";
 import "./VRFRequestIDBase.sol";
 import "./VRFConsumerBase.sol";
@@ -14,6 +17,8 @@ import "./VRFConsumerBase.sol";
  * @title with off-chain responses
  */
 contract VRFCoordinator is VRF, VRFRequestIDBase {
+
+  using SafeMath for uint256;
 
   LinkTokenInterface internal LINK;
 
@@ -130,7 +135,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     callbacks[requestId].seed = seed;
     emit RandomnessRequest(_keyHash, seed, serviceAgreements[_keyHash].jobID,
       _sender, _feePaid);
-    nonces[_keyHash][_sender] += 1;
+    nonces[_keyHash][_sender] = nonces[_keyHash][_sender].add(1);
   }
 
   /**
@@ -160,7 +165,8 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     Callback memory callback = callbacks[requestId];
     require(callback.callbackContract != address(0), "no corresponding request");
     uint256 randomness = VRF.randomValueFromVRFProof(_proof); // Reverts on failure
-    withdrawableTokens[serviceAgreements[currentKeyHash].vRFOracle] += callback.randomnessFee;
+    address oadd = serviceAgreements[currentKeyHash].vRFOracle;
+    withdrawableTokens[oadd] = withdrawableTokens[oadd].add(callback.randomnessFee);
     // Dummy variable; allows access to method selector in next line. See
     // https://github.com/ethereum/solidity/issues/3506#issuecomment-553727797
     VRFConsumerBase v;
@@ -181,7 +187,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     external
     hasAvailableFunds(_amount)
   {
-    withdrawableTokens[msg.sender] -= _amount;
+    withdrawableTokens[msg.sender] = withdrawableTokens[msg.sender].sub(_amount);
     assert(LINK.transfer(_recipient, _amount));
   }
 

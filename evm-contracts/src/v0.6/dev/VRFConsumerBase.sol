@@ -5,7 +5,10 @@ pragma solidity 0.6.2;
 ////////// DO NOT USE THIS IN PRODUCTION UNTIL IT HAS BEEN AUDITED /////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+import "../vendor/SafeMath.sol";
+
 import "../interfaces/LinkTokenInterface.sol";
+
 import "./VRFRequestIDBase.sol";
 
 /** ****************************************************************************
@@ -85,6 +88,8 @@ import "./VRFRequestIDBase.sol";
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
 
+  using SafeMath for uint256;
+
   /**
    * @notice fulfillRandomness handles the VRF response. Your contract must
    * @notice implement it.
@@ -131,7 +136,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     // nonces[_keyHash] must stay in sync with
     // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
     // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest)
-    nonces[_keyHash] += 1; 
+    nonces[_keyHash] = nonces[_keyHash].add(1); 
     return makeRequestId(_keyHash, vRFSeed);
   }
 
