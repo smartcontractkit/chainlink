@@ -18,7 +18,7 @@ import (
 type ETH interface {
 	SubscribeToLogs(chan<- types.Log, ethereum.FilterQuery) (Subscription, error)
 	TransactionByHash(txHash common.Hash) (*types.Transaction, error)
-	SubscribeToNewHeads(chan<- BlockHeader) (Subscription, error)
+	SubscribeToNewHeads(chan<- types.Header) (Subscription, error)
 }
 
 type eth struct {
@@ -47,31 +47,8 @@ func (c *eth) TransactionByHash(txHash common.Hash) (*types.Transaction, error) 
 	return &tx, c.rpc.Call(&tx, "eth_getTransactionByHash", txHash.String())
 }
 
-// BlockHeader represents a block header in the Ethereum blockchain.
-// Deliberately does not have required fields because some fields aren't
-// present depending on the Ethereum node.
-// i.e. Parity does not always send mixHash
-type BlockHeader struct {
-	ParentHash  common.Hash      `json:"parentHash"`
-	UncleHash   common.Hash      `json:"sha3Uncles"`
-	Coinbase    common.Address   `json:"miner"`
-	Root        common.Hash      `json:"stateRoot"`
-	TxHash      common.Hash      `json:"transactionsRoot"`
-	ReceiptHash common.Hash      `json:"receiptsRoot"`
-	Bloom       types.Bloom      `json:"logsBloom"`
-	Difficulty  hexutil.Big      `json:"difficulty"`
-	Number      hexutil.Big      `json:"number"`
-	GasLimit    hexutil.Uint64   `json:"gasLimit"`
-	GasUsed     hexutil.Uint64   `json:"gasUsed"`
-	Time        hexutil.Big      `json:"timestamp"`
-	Extra       hexutil.Bytes    `json:"extraData"`
-	Nonce       types.BlockNonce `json:"nonce"`
-	GethHash    common.Hash      `json:"mixHash"`
-	ParityHash  common.Hash      `json:"hash"`
-}
-
 // SubscribeToNewHeads returns an instantiated subscription type, subscribing to heads
-func (c *eth) SubscribeToNewHeads(channel chan<- BlockHeader) (Subscription, error) {
+func (c *eth) SubscribeToNewHeads(channel chan<- types.Header) (Subscription, error) {
 	ctx := context.Background()
 	sub, err := c.rpc.EthSubscribe(ctx, channel, "newHeads")
 	return sub, err
