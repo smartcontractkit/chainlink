@@ -246,6 +246,10 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 	return nil
 }
 
+// vrfRandomOutputHashPrefix is a domain-separation tag for the hash used to
+// compute the final VRF random output
+var vrfRandomOutputHashPrefix = common.BigToHash(three).Bytes()
+
 // VerifyProof is true iff gamma was generated in the mandated way from the
 // given publicKey and seed, and no error was encountered
 func (p *Proof) VerifyVRFProof() (bool, error) {
@@ -267,7 +271,8 @@ func (p *Proof) VerifyVRFProof() (bool, error) {
 	vPrime := linearCombination(p.C, p.Gamma, p.S, h)
 	uWitness := secp256k1.EthereumAddress(uPrime)
 	cPrime := ScalarFromCurvePoints(h, p.PublicKey, p.Gamma, uWitness, vPrime)
-	output := utils.MustHash(string(secp256k1.LongMarshal(p.Gamma)))
+	output := utils.MustHash(string(append(
+		vrfRandomOutputHashPrefix, secp256k1.LongMarshal(p.Gamma)...)))
 	return equal(p.C, cPrime) && equal(p.Output, output.Big()), nil
 }
 
@@ -297,7 +302,8 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
 		return nil, err
 	}
-	outputHash := utils.MustHash(string(secp256k1.LongMarshal(gamma)))
+	outputHash := utils.MustHash(string(append(vrfRandomOutputHashPrefix,
+		secp256k1.LongMarshal(gamma)...)))
 	rv := Proof{
 		PublicKey: publicKey,
 		Gamma:     gamma,

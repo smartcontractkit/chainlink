@@ -480,6 +480,10 @@ contract VRF {
       require(c == derivedC, "invalid proof");
     }
 
+  // Domain-separation tag for the hash used as the final VRF output.
+  // Corresponds to vrfRandomOutputHashPrefix in vrf.go
+  uint256 constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
+
   // Length of proof marshaled to bytes array. Shows layout of proof
   uint private constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
     64 + // Gamma
@@ -528,6 +532,6 @@ contract VRF {
         sHashWitness,
         zInv
       );
-      output = uint256(keccak256(abi.encode(gamma)));
+      output = uint256(keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, gamma)));
     }
 }
