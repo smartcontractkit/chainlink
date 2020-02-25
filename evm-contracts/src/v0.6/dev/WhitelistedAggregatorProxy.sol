@@ -1,7 +1,6 @@
 pragma solidity 0.6.2;
 
-import "./AggregatorInterface.sol";
-import "../Owned.sol";
+import "./AggregatorProxy.sol";
 import "./Whitelisted.sol";
 
 /**
@@ -10,22 +9,20 @@ import "./Whitelisted.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, Owned {
+contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
 
-  AggregatorInterface public aggregator;
-
-  constructor(address _aggregator) public Owned() {
-    setAggregator(_aggregator);
+  constructor(address _aggregator) public AggregatorProxy(_aggregator) {
   }
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
+   * @dev overridden funcion to add the isWhitelisted() modifier
    */
   function latestAnswer()
     external
     view
-    virtual
     override
+    isWhitelisted()
     returns (int256)
   {
     return _latestAnswer();
@@ -33,12 +30,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
+   * @dev overridden funcion to add the isWhitelisted() modifier
    */
   function latestTimestamp()
     external
     view
-    virtual
     override
+    isWhitelisted()
     returns (uint256)
   {
     return _latestTimestamp();
@@ -47,12 +45,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   /**
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
+   * @dev overridden funcion to add the isWhitelisted() modifier
    */
   function getAnswer(uint256 _roundId)
     external
     view
-    virtual
     override
+    isWhitelisted()
     returns (int256)
   {
     return _getAnswer(_roundId);
@@ -61,12 +60,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   /**
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
+   * @dev overridden funcion to add the isWhitelisted() modifier
    */
   function getTimestamp(uint256 _roundId)
     external
     view
-    virtual
     override
+    isWhitelisted()
     returns (uint256)
   {
     return _getTimestamp(_roundId);
@@ -74,80 +74,15 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   /**
    * @notice get the latest completed round where the answer was updated
+   * @dev overridden funcion to add the isWhitelisted() modifier
    */
   function latestRound()
     external
     view
-    virtual
     override
+    isWhitelisted()
     returns (uint256)
   {
     return _latestRound();
-  }
-
-  /**
-   * @notice Allows the owner to update the aggregator address.
-   * @param _aggregator The new address for the aggregator contract
-   */
-  function setAggregator(address _aggregator)
-    public
-    onlyOwner()
-  {
-    aggregator = AggregatorInterface(_aggregator);
-  }
-
-  /**
-   * @notice Allows the owner to destroy the contract if it is not intended to
-   * be used any longer.
-   */
-  function destroy()
-    external
-    onlyOwner()
-  {
-    selfdestruct(owner);
-  }
-
-  /*
-   * Internal
-   */
-
-  function _latestAnswer()
-    internal
-    view
-    returns (int256)
-  {
-    return aggregator.latestAnswer();
-  }
-
-  function _latestTimestamp()
-    internal
-    view
-    returns (uint256)
-  {
-    return aggregator.latestTimestamp();
-  }
-
-  function _getAnswer(uint256 _roundId)
-    internal
-    view
-    returns (int256)
-  {
-    return aggregator.getAnswer(_roundId);
-  }
-
-  function _getTimestamp(uint256 _roundId)
-    internal
-    view
-    returns (uint256)
-  {
-    return aggregator.getTimestamp(_roundId);
-  }
-
-  function _latestRound()
-    internal
-    view
-    returns (uint256)
-  {
-    return aggregator.latestRound();
   }
 }
