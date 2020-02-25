@@ -12,9 +12,9 @@ type Config struct {
 	// ResponseTimeout is the duration to wait before the response is treated as timed-out to alert on
 	ResponseTimeout time.Duration `mapstructure:"response-timeout"`
 	// NetworkID is the Ethereum Chain ID for the contracts you want to listen to
-	NetworkID int `mapstructure:"network-id"`
+	NetworkID int `mapstructure:"eth-chain-id"`
 	// EthereumURL is the websocket endpoint the monitor uses to watch the aggregator contracts
-	EthereumURL string `mapstructure:"ethereum-url"`
+	EthereumURL string `mapstructure:"eth-url"`
 }
 
 // NewConfig will return an instantiated config based on the passed in defaults
@@ -36,8 +36,8 @@ func NewConfig(defaults map[string]interface{}) *Config {
 func DefaultConfig() *Config {
 	return NewConfig(map[string]interface{}{
 		"response-timeout": time.Minute * 5,
-		"network-id":       1,
-		"ethereum-url":     "ws://localhost:8545",
+		"eth-chain-id":     1,
+		"eth-url":          "ws://localhost:8545",
 	})
 }
 
