@@ -51,7 +51,8 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	versions := readVersionsDB(t)
 	require.NotEmpty(t, versions.gethVersion,
 		`version DB should have a "GETH_VERSION:" line`)
-	require.Equal(t, versions.gethVersion, gethParams.Version)
+	require.Equal(t, versions.gethVersion, gethParams.Version,
+		"please re-run `go generate` in core/services/vrf")
 	for _, contractVersionInfo := range versions.contractVersions {
 		compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			t, contractVersionInfo)
