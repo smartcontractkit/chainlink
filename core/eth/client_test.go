@@ -288,7 +288,7 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 	}
 }
 
-func TestCallerSubscriberClient_GetLatestSubmission(t *testing.T) {
+func TestCallerSubscriberClient_GetAggregatorLatestSubmission(t *testing.T) {
 	caller := new(mocks.CallerSubscriber)
 	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
 	aggregatorAddress := cltest.NewAddress()
@@ -326,7 +326,7 @@ func TestCallerSubscriberClient_GetLatestSubmission(t *testing.T) {
 					require.NoError(t, err)
 					*res = hexutil.Encode(append(answerBytes, roundBytes...))
 				})
-			answer, round, err := ethClient.GetLatestSubmission(aggregatorAddress, oracleAddress)
+			answer, round, err := ethClient.GetAggregatorLatestSubmission(aggregatorAddress, oracleAddress)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectedAnswer.String(), answer.String())
 			assert.Equal(t, test.expectedRound.String(), round.String())
