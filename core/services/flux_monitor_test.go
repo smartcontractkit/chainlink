@@ -660,7 +660,7 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 			fetcher = successFetcher(decimal.NewFromInt(300))
 
 			if test.shouldUpdate {
-				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, time.Millisecond, "pollIFRoundOpen triggers Job Run")
+				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, time.Millisecond, "pollIfRoundOpen triggers Job Run")
 			} else {
 				time.Sleep(2 * time.Second)
 				require.Len(t, jobRunCreated, 1, "no Job Runs created")
