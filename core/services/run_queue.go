@@ -66,8 +66,8 @@ func (rq *runQueue) Stop() {
 // Run tells the job runner to start executing a job
 func (rq *runQueue) Run(run *models.JobRun) {
 	rq.workersMutex.Lock()
-	defer rq.workersMutex.Unlock()
 	if rq.stopRequested {
+		rq.workersMutex.Unlock()
 		return
 	}
 
@@ -75,10 +75,12 @@ func (rq *runQueue) Run(run *models.JobRun) {
 	defer numberRunsQueued.Inc()
 	if queueCount, present := rq.workers[runID]; present {
 		rq.workers[runID] = queueCount + 1
+		rq.workersMutex.Unlock()
 		return
 	}
 	rq.workers[runID] = 1
 	numberRunQueueWorkers.Set(float64(len(rq.workers)))
+	rq.workersMutex.Unlock()
 
 	rq.workersWg.Add(1)
 	go func() {
