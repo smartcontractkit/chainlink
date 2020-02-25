@@ -156,8 +156,8 @@ func (_m *Client) GetEthBalance(address common.Address) (*assets.Eth, error) {
 	return r0, r1
 }
 
-// GetLatestSubmission provides a mock function with given fields: aggregatorAddress, oracleAddress
-func (_m *Client) GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
+// GetAggregatorLatestSubmission provides a mock function with given fields: aggregatorAddress, oracleAddress
+func (_m *Client) GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
 	ret := _m.Called(aggregatorAddress, oracleAddress)
 
 	var r0 *big.Int
