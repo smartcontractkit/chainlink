@@ -33,6 +33,7 @@
   "main": "src/index.ts",
   "dependencies": {
     "argon2": "^0.25.1",
+    "bignumber.js": "^9.0.0",
     "class-validator": "^0.11.0",
     "cookie-session": "^1.3.3",
     "cors": "^2.8.5",

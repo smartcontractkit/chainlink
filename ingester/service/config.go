@@ -15,6 +15,8 @@ type Config struct {
 	NetworkID int `mapstructure:"eth-chain-id"`
 	// EthereumURL is the websocket endpoint the monitor uses to watch the aggregator contracts
 	EthereumURL string `mapstructure:"eth-url"`
+	// DatabaseURL is the url of the postgres server where the ingester saves results
+	DatabaseURL string `mapstructure:"db-url"`
 }
 
 // NewConfig will return an instantiated config based on the passed in defaults
@@ -38,6 +40,7 @@ func DefaultConfig() *Config {
 		"response-timeout": time.Minute * 5,
 		"eth-chain-id":     1,
 		"eth-url":          "ws://localhost:8545",
+		"db-url":           "postgres://localhost:5432/explorer?sslmode=disable",
 	})
 }
 
