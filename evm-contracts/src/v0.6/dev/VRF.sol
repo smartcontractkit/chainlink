@@ -222,7 +222,7 @@ contract VRF {
 
   // Domain-separation tag for initial hash in hashToCurve. Corresponds to
   // vrf.go/hashToCurveHashPrefix
-  uint256 HASH_TO_CURVE_HASH_PREFIX = 1;
+  uint256 constant HASH_TO_CURVE_HASH_PREFIX = 1;
 
   // Cryptographic hash function onto the curve.
   //
@@ -419,6 +419,10 @@ contract VRF {
       return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
 
+  // Domain-separation tag for the hash taken in scalarFromCurvePoints.
+  // Corresponds to scalarFromCurveHashPrefix in vrf.go
+  uint256 constant SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
+
   // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurvePoints, and
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
   // The draft calls (in step 7, via the definition of string_to_int, in
@@ -435,7 +439,8 @@ contract VRF {
     address uWitness, uint256[2] memory v)
     internal pure returns (uint256 s) {
       return uint256(
-        keccak256(abi.encodePacked(hash, pk, gamma, v, uWitness)));
+        keccak256(abi.encodePacked(SCALAR_FROM_CURVE_POINTS_HASH_PREFIX,
+                                   hash, pk, gamma, v, uWitness)));
     }
 
   // True if (gamma, c, s) is a correctly constructed randomness proof from pk

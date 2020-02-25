@@ -148,6 +148,7 @@ func fieldHash(msg []byte) *big.Int {
 }
 
 // hashToCurveHashPrefix is domain-separation tag for initial HashToCurve hash.
+// Corresponds to HASH_TO_CURVE_HASH_PREFIX in VRF.sol.
 var hashToCurveHashPrefix = common.BigToHash(one).Bytes()
 
 // HashToCurve is a cryptographic hash function which outputs a secp256k1 point,
@@ -172,6 +173,11 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 	return rv, nil
 }
 
+// scalarFromCurveHashPrefix is a domain-separation tag for the hash taken in
+// ScalarFromCurve. Corresponds to SCALAR_FROM_CURVE_POINTS_HASH_PREFIX in
+// VRF.sol.
+var scalarFromCurveHashPrefix = common.BigToHash(two).Bytes()
+
 // ScalarFromCurve returns a hash for the curve points. Corresponds to the
 // hash computed in VRF.sol#ScalarFromCurvePoints
 func ScalarFromCurvePoints(
@@ -181,8 +187,8 @@ func ScalarFromCurvePoints(
 		panic("bad arguments to vrf.ScalarFromCurvePoints")
 	}
 	// msg will contain abi.encodePacked(hash, pk, gamma, v, uWitness)
-	msg := secp256k1.LongMarshal(hash)
-	for _, p := range []kyber.Point{pk, gamma, v} {
+	msg := scalarFromCurveHashPrefix
+	for _, p := range []kyber.Point{hash, pk, gamma, v} {
 		msg = append(msg, secp256k1.LongMarshal(p)...)
 	}
 	msg = append(msg, uWitness[:]...)
