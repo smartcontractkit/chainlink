@@ -13,6 +13,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -282,6 +283,53 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 			result, err := ethClient.GetAggregatorRound(address)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectation, result)
+			caller.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCallerSubscriberClient_GetLatestSubmission(t *testing.T) {
+	caller := new(mocks.CallerSubscriber)
+	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+	aggregatorAddress := cltest.NewAddress()
+	oracleAddress := cltest.NewAddress()
+
+	const aggregatorLatestSubmission = "bb07bacd"
+	aggregatorLatestSubmissionSelector := eth.HexToFunctionSelector(aggregatorLatestSubmission)
+
+	callData := utils.ConcatBytes(aggregatorLatestSubmissionSelector.Bytes(), oracleAddress.Hash().Bytes())
+
+	expectedCallArgs := eth.CallArgs{
+		To:   aggregatorAddress,
+		Data: callData,
+	}
+
+	tests := []struct {
+		name           string
+		answer         int64
+		round          int64
+		expectedAnswer *big.Int
+		expectedRound  *big.Int
+	}{
+		{"zero", 0, 0, big.NewInt(0), big.NewInt(0)},
+		{"small", 8, 12, big.NewInt(8), big.NewInt(12)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
+					answerBytes, err := utils.EVMWordSignedBigInt(big.NewInt(test.answer))
+					require.NoError(t, err)
+					roundBytes, err := utils.EVMWordBigInt(big.NewInt(test.round))
+					require.NoError(t, err)
+					*res = hexutil.Encode(append(answerBytes, roundBytes...))
+				})
+			answer, round, err := ethClient.GetLatestSubmission(aggregatorAddress, oracleAddress)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedAnswer.String(), answer.String())
+			assert.Equal(t, test.expectedRound.String(), round.String())
 			caller.AssertExpectations(t)
 		})
 	}

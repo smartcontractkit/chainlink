@@ -21995,6 +21995,10 @@ hr {
   top: -10px;
   position: relative;
 }
+.landing-page .sponsors .nexusmutual {
+  background-color: #20252e;
+  width: 190px;
+}
 .landing-page .sponsors > svg,
 .landing-page .sponsors > img {
   margin: 20px 0;
