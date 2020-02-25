@@ -70,49 +70,11 @@ describe('AggregatorProxy', () => {
       'acceptOwnership',
       'owner',
       'transferOwnership',
-      // Whitelisted methods:
-      'addToWhitelist',
-      'removeFromWhitelist',
-      'whitelisted',
     ])
-  })
-
-  describe('if the caller is not whitelisted', () => {
-    it('latestAnswer reverts', async () => {
-      matchers.evmRevert(async () => {
-        await proxy.connect(personas.Carol).latestAnswer()
-      }, 'Not whitelisted')
-    })
-
-    it('latestTimestamp reverts', async () => {
-      matchers.evmRevert(async () => {
-        await proxy.connect(personas.Carol).latestTimestamp()
-      }, 'Not whitelisted')
-    })
-
-    it('getAnswer reverts', async () => {
-      matchers.evmRevert(async () => {
-        await proxy.connect(personas.Carol).getAnswer(1)
-      }, 'Not whitelisted')
-    })
-
-    it('getTimestamp reverts', async () => {
-      matchers.evmRevert(async () => {
-        await proxy.connect(personas.Carol).getTimestamp(1)
-      }, 'Not whitelisted')
-    })
-
-    it('latestRound reverts', async () => {
-      matchers.evmRevert(async () => {
-        await proxy.connect(personas.Carol).latestRound()
-      }, 'Not whitelisted')
-    })
   })
 
   describe('#latestAnswer', () => {
     beforeEach(async () => {
-      await proxy.connect(defaultAccount).addToWhitelist(defaultAccount.address)
-
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
 
@@ -160,8 +122,6 @@ describe('AggregatorProxy', () => {
 
   describe('#latestTimestamp', () => {
     beforeEach(async () => {
-      await proxy.connect(defaultAccount).addToWhitelist(defaultAccount.address)
-
       const requestTx = await aggregator.requestRateUpdate()
       const receipt = await requestTx.wait()
       const request = oracle.decodeRunRequest(receipt.logs?.[3])
