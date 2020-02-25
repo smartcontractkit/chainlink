@@ -147,6 +147,9 @@ func fieldHash(msg []byte) *big.Int {
 	return rv
 }
 
+// hashToCurveHashPrefix is domain-separation tag for initial HashToCurve hash.
+var hashToCurveHashPrefix = common.BigToHash(one).Bytes()
+
 // HashToCurve is a cryptographic hash function which outputs a secp256k1 point,
 // or an error. It passes each candidate x ordinate to ordinates function.
 func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
@@ -154,7 +157,8 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(zero) >= 0) {
 		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
 	}
-	x := fieldHash(append(secp256k1.LongMarshal(p), uint256ToBytes32(input)...))
+	x := fieldHash(append(hashToCurveHashPrefix, append(secp256k1.LongMarshal(p),
+		uint256ToBytes32(input)...)...))
 	ordinates(x)
 	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+7 is a square
 		x.Set(fieldHash(common.BigToHash(x).Bytes()))

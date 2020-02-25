@@ -220,6 +220,10 @@ contract VRF {
       }
     }
 
+  // Domain-separation tag for initial hash in hashToCurve. Corresponds to
+  // vrf.go/hashToCurveHashPrefix
+  uint256 HASH_TO_CURVE_HASH_PREFIX = 1;
+
   // Cryptographic hash function onto the curve.
   //
   // Corresponds to algorithm in section 5.4.1.1 of the draft standard. (But see
@@ -236,7 +240,8 @@ contract VRF {
   // https://www.pivotaltracker.com/story/show/171120900
   function hashToCurve(uint256[2] memory pk, uint256 input)
     internal view returns (uint256[2] memory rv) {
-      rv = newCandidateSecp256k1Point(abi.encodePacked(pk, input));
+      rv = newCandidateSecp256k1Point(abi.encodePacked(HASH_TO_CURVE_HASH_PREFIX,
+                                                       pk, input));
       while (!isOnCurve(rv)) {
         rv = newCandidateSecp256k1Point(abi.encodePacked(rv[0]));
       }
