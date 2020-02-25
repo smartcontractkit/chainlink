@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/ethereum/go-ethereum v1.9.9
 	github.com/fatih/color v1.3.0
+	github.com/jinzhu/gorm v1.9.12
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/common v0.0.0-20181113130724-41aa239b4cce
 	github.com/satori/uuid v1.2.0
