@@ -27,7 +27,8 @@ ENV PATH=/chainlink/tools/bin:./node_modules/.bin:$PATH
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
-COPY yarn.lock package.json ./
+COPY yarn.lock package.json .yarnrc ./
+COPY .yarn .yarn
 COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json evm-test-helpers/

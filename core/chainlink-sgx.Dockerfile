@@ -11,7 +11,8 @@ COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
 # Install yarn dependencies
-COPY yarn.lock package.json ./
+COPY yarn.lock package.json .yarnrc ./
+COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
