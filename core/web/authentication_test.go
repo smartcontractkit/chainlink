@@ -4,6 +4,7 @@ import (
 	"chainlink/core/auth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store"
+	"chainlink/core/store/models"
 	"chainlink/core/web"
 	"net/http"
 	"net/http/httptest"
@@ -15,28 +16,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func authError(*store.Store, *gin.Context) error {
+func authError(web.AuthStorer, *gin.Context) error {
 	return errors.New("random error")
 }
 
-func authFailure(*store.Store, *gin.Context) error {
+func authFailure(web.AuthStorer, *gin.Context) error {
 	return auth.ErrorAuthFailed
 }
 
-func authSuccess(*store.Store, *gin.Context) error {
+func authSuccess(web.AuthStorer, *gin.Context) error {
 	return nil
 }
 
+type userFindFailer struct {
+	*store.Store
+	err error
+}
+
+func (u userFindFailer) FindUser() (models.User, error) {
+	return models.User{}, u.err
+}
+
+type userFindSuccesser struct {
+	*store.Store
+	user models.User
+}
+
+func (u userFindSuccesser) FindUser() (models.User, error) {
+	return u.user, nil
+}
+
 func TestAuthenticateByToken_Success(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	app.Start()
-	app.MustSeedUserAPIKey()
+	user := cltest.MustUser(cltest.APIEmail, cltest.Password)
+	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
+	err := user.SetAuthToken(&apiToken)
+	require.NoError(t, err)
+	store := userFindSuccesser{user: user}
 
 	called := false
 	router := gin.New()
-	router.Use(web.RequireAuth(app.GetStore(), web.AuthenticateByToken))
+	router.Use(web.RequireAuth(store, web.AuthenticateByToken))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")
@@ -53,15 +72,11 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 }
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	app.Start()
-	app.MustSeedUserAPIKey()
+	store := userFindFailer{err: auth.ErrorAuthFailed}
 
 	called := false
 	router := gin.New()
-	router.Use(web.RequireAuth(app.GetStore(), web.AuthenticateByToken))
+	router.Use(web.RequireAuth(store, web.AuthenticateByToken))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")
@@ -79,7 +94,7 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 
 func TestRequireAuth_NoneRequired(t *testing.T) {
 	called := false
-	var store *store.Store
+	var store web.AuthStorer
 	router := gin.New()
 	router.Use(web.RequireAuth(store))
 	router.GET("/", func(c *gin.Context) {
@@ -97,7 +112,7 @@ func TestRequireAuth_NoneRequired(t *testing.T) {
 
 func TestRequireAuth_AuthFailed(t *testing.T) {
 	called := false
-	var store *store.Store
+	var store web.AuthStorer
 	router := gin.New()
 	router.Use(web.RequireAuth(store, authFailure))
 	router.GET("/", func(c *gin.Context) {
@@ -115,7 +130,7 @@ func TestRequireAuth_AuthFailed(t *testing.T) {
 
 func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 	called := false
-	var store *store.Store
+	var store web.AuthStorer
 	router := gin.New()
 	router.Use(web.RequireAuth(store, authFailure, authSuccess))
 	router.GET("/", func(c *gin.Context) {
@@ -133,7 +148,7 @@ func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 
 func TestRequireAuth_Error(t *testing.T) {
 	called := false
-	var store *store.Store
+	var store web.AuthStorer
 	router := gin.New()
 	router.Use(web.RequireAuth(store, authError, authSuccess))
 	router.GET("/", func(c *gin.Context) {
