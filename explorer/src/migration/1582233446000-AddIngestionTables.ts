@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class AddIngestionTables1582233446 implements MigrationInterface {
+export class AddIngestionTables1582233446000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
     await queryRunner.query(`
 CREATE TABLE head (
