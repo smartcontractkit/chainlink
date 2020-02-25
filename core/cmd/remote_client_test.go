@@ -196,7 +196,6 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			set := flag.NewFlagSet("create", 0)
 			assert.NoError(t, set.Parse([]string{test.input}))
 			c := cli.NewContext(nil, set, nil)
@@ -477,7 +476,6 @@ func TestClient_CreateBridge(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-
 			set := flag.NewFlagSet("bridge", 0)
 			set.Parse([]string{test.param})
 			c := cli.NewContext(nil, set, nil)

@@ -607,6 +607,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config, configCleanup := cltest.NewConfig(t)
 			defer configCleanup()
+			config.Set("DATABASE_TIMEOUT", "10s") // Lots of parallelized tests
 			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
 			defer cleanup()

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"chainlink/core/assets"
+	"chainlink/core/gracefulpanic"
 	"chainlink/core/store/migrations/migration1564007745"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -202,7 +203,7 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 	// ORM installed
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	defer os.RemoveAll(config.RootDir())
-	orm, err := NewORM(NormalizedDatabaseURL(config), config.DatabaseTimeout())
+	orm, err := NewORM(NormalizedDatabaseURL(config), config.DatabaseTimeout(), gracefulpanic.NewSignal())
 	require.NoError(t, err)
 	require.NotNil(t, orm)
 	orm.SetLogging(true)
