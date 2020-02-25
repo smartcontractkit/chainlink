@@ -32,7 +32,7 @@ type Client interface {
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
 	GetAggregatorRound(address common.Address) (*big.Int, error)
-	GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
+	GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
@@ -199,9 +199,9 @@ func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address)
 	return round, nil
 }
 
-// GetLatestSubmission returns the latest submission as a tuple, (answer, round)
+// GetAggregatorLatestSubmission returns the latest submission as a tuple, (answer, round)
 // for a given oracle address.
-func (client *CallerSubscriberClient) GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
+func (client *CallerSubscriberClient) GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
 	errMessage := fmt.Sprintf("unable to fetch latest submission for %s from %s", oracleAddress.Hex(), aggregatorAddress.Hex())
 	aggregator, err := GetV6Contract(FluxAggregatorName)
 	if err != nil {

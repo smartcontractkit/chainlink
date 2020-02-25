@@ -477,7 +477,7 @@ func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
 		return false, err
 	}
 	nodeAddress := p.store.KeyStore.Accounts()[0].Address
-	_, lastRoundAnswered, err := client.GetLatestSubmission(p.address, nodeAddress)
+	_, lastRoundAnswered, err := client.GetAggregatorLatestSubmission(p.address, nodeAddress)
 	if err != nil {
 		return false, err
 	}
