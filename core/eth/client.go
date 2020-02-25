@@ -32,6 +32,7 @@ type Client interface {
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
 	GetAggregatorRound(address common.Address) (*big.Int, error)
+	GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
@@ -196,6 +197,45 @@ func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address)
 			"unable to fetch aggregator round from %s", address.Hex())
 	}
 	return round, nil
+}
+
+// GetLatestSubmission returns the latest submission as a tuple, (answer, round)
+// for a given oracle address.
+func (client *CallerSubscriberClient) GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
+	errMessage := fmt.Sprintf("unable to fetch latest submission for %s from %s", oracleAddress.Hex(), aggregatorAddress.Hex())
+	aggregator, err := GetV6Contract(PrepaidAggregatorName)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
+	}
+	data, err := aggregator.EncodeMessageCall("latestSubmission", oracleAddress)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, errMessage+"- unable to encode message call")
+	}
+
+	var result string
+	args := CallArgs{To: aggregatorAddress, Data: data}
+	err = client.Call(&result, "eth_call", args, "latest")
+	if err != nil {
+		return nil, nil, errors.Wrap(err, errMessage+"- unable to call client")
+	}
+
+	method, exists := aggregator.ABI.Methods["latestSubmission"]
+	if !exists {
+		return nil, nil, errors.New(errMessage + "- cannot find method latestSubmission on ABI")
+	}
+
+	resultBytes, err := hexutil.Decode(result)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, errMessage+"- unable to decode result")
+	}
+
+	values, err := method.Outputs.UnpackValues(resultBytes)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, errMessage+"- unable to unpack values")
+	}
+	latestAnswer := values[0].(*big.Int)
+	lastReportedRound := values[1].(*big.Int)
+	return latestAnswer, lastReportedRound, nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.

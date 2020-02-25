@@ -371,6 +371,38 @@ func (_m *TxManager) GetLINKBalance(address common.Address) (*assets.Link, error
 	return r0, r1
 }
 
+// GetLatestSubmission provides a mock function with given fields: aggregatorAddress, oracleAddress
+func (_m *TxManager) GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
+	ret := _m.Called(aggregatorAddress, oracleAddress)
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(common.Address, common.Address) *big.Int); ok {
+		r0 = rf(aggregatorAddress, oracleAddress)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 *big.Int
+	if rf, ok := ret.Get(1).(func(common.Address, common.Address) *big.Int); ok {
+		r1 = rf(aggregatorAddress, oracleAddress)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*big.Int)
+		}
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(common.Address, common.Address) error); ok {
+		r2 = rf(aggregatorAddress, oracleAddress)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // GetLogs provides a mock function with given fields: q
 func (_m *TxManager) GetLogs(q ethereum.FilterQuery) ([]eth.Log, error) {
 	ret := _m.Called(q)
