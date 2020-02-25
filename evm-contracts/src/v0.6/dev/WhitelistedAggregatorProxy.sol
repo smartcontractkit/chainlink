@@ -8,6 +8,8 @@ import "./Whitelisted.sol";
  * @notice This contract provides a consistent address for the
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
+ * @notice Only whitelisted addresses are allowed to access getters for
+ * aggregated answers and round information.
  */
 contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
 
