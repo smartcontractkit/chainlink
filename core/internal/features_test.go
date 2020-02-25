@@ -6,20 +6,29 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/auth"
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/logger"
+	"chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/services/vrf"
 	"chainlink/core/store/models"
+	"chainlink/core/store/models/vrfkey"
 	"chainlink/core/utils"
 	"chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -977,4 +986,103 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jrs[0])
 	eth.EventuallyAllCalled(t)
+}
+
+// Copied and modified from TestIntegration_RunLog
+func TestIntegration_RandomnessRequest(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+	eth := app.MockCallerSubscriberClient()
+	logs := make(chan ethpkg.Log, 1)
+	txHash := cltest.NewHash()
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
+		eth.Register("eth_sendRawTransaction", txHash)
+		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+			Hash:        cltest.NewHash(),
+			BlockNumber: cltest.Int(10),
+		})
+	})
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	eth.Register("eth_chainId", config.ChainID())
+	app.Start()
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/randomness_job.json")
+	rawKey := j.Tasks[0].Params.Get("publicKey").String()
+	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
+	require.NoError(t, err)
+	var sk int64 = 1
+	coordinatorAddress := j.Initiators[0].Address
+
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	require.Equal(t, &provingKey.PublicKey, pk,
+		"public key in fixture %s does not match secret key in test %d (which has public key %s)",
+		pk, sk, provingKey.PublicKey.String())
+	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
+	r := vrf.RandomnessRequestLog{
+		KeyHash: provingKey.PublicKey.Hash(),
+		Seed:    big.NewInt(2),
+		JobID:   common.BytesToHash(rawID),
+		Sender:  cltest.NewAddress(),
+		Fee:     assets.NewLink(100),
+	}
+	requestlog := cltest.NewRandomnessRequestLog(t, r, coordinatorAddress, 1)
+
+	logs <- requestlog
+	cltest.WaitForRuns(t, j, app.Store, 1)
+	runs, err := app.Store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
+	require.Len(t, runs, 1)
+	jr := runs[0]
+	require.Len(t, jr.TaskRuns, 2)
+	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
+	require.True(t, eth.AllCalled(), eth.Remaining())
+	require.Len(t, attempts, 1)
+
+	rawTx, err := hexutil.Decode(attempts[0].SignedRawTx)
+	require.NoError(t, err)
+	var tx *types.Transaction
+	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
+	fixtureToAddress := j.Tasks[1].Params.Get("address").String()
+	require.Equal(t, *tx.To(), common.HexToAddress(fixtureToAddress))
+	payload := tx.Data()
+	require.Equal(t, hexutil.Encode(payload[:4]), vrf.FulfillSelector())
+	proofContainer := make(map[string]interface{})
+	err = vrf.FulfillMethod().Inputs.UnpackIntoMap(proofContainer, payload[4:])
+	require.NoError(t, err)
+	proof, ok := proofContainer["_proof"].([]byte)
+	require.True(t, ok)
+	require.Len(t, proof, vrf.ProofLength)
+	publicPoint, err := provingKey.PublicKey.Point()
+	require.NoError(t, err)
+	require.Equal(t, proof[:64], secp256k1.LongMarshal(publicPoint))
+	goProof, err := vrf.UnmarshalSolidityProof(proof)
+	require.NoError(t, err, "problem parsing solidity proof")
+	proofValid, err := goProof.VerifyVRFProof()
+	require.NoError(t, err, "problem verifying solidity proof")
+	require.True(t, proofValid)
+
+	// Check that a log from a different address is rejected. (The node will only
+	// ever see this situation if the ethereum.FilterQuery for this job breaks,
+	// but it's hard to test that without a full integration test.)
+	badAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
+	badRequestlog := cltest.NewRandomnessRequestLog(t, r, badAddress, 1)
+	logs <- badRequestlog
+	expectedLogTemplate := `log received from address %s, but expect logs from %s`
+	expectedLog := fmt.Sprintf(expectedLogTemplate, badAddress.String(),
+		coordinatorAddress.String())
+	millisecondsWaited := 0
+	expectedLogDeadline := 200
+	for !strings.Contains(logger.TestMemoryLog().String(), expectedLog) &&
+		millisecondsWaited < expectedLogDeadline {
+		time.Sleep(time.Millisecond)
+		millisecondsWaited += 1
+		if millisecondsWaited >= expectedLogDeadline {
+			assert.Fail(t, "message about log with bad source address not found")
+		}
+	}
 }

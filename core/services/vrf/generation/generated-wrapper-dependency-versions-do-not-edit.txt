@@ -1,0 +1,6 @@
+GETH_VERSION: 1.9.11
+link_token_interface: ./generation/../../../../evm-contracts/abi/v0.4/LinkToken.json 02e6019beee919f3439768c2525de788d42efd73cc484199d540cf9ed326637a
+solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 37323e90d064503ebfb0a2c9d6c40d4787fac916df659d082c3927f7f3de6b09
+solidity_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json 18103209b01fc80500c5d5c11d10d9621fc6280adb2d0413728008170b87386f
+solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json ead6375e6871b3880c93288374ab6c101229ef23f109548ff1f00278dd480b0c
+solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json ac693bcf54a7168d3ced6dfcb7ffa613f37faf1287ac53aac6f8fa40e392d4c4
