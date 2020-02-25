@@ -91,6 +91,7 @@ describe('PrepaidAggregator', () => {
       'getAnswer',
       'getOracles',
       'getOriginatingRoundOfAnswer',
+      'getRoundStartedAt',
       'getTimedOutStatus',
       'getTimestamp',
       'latestAnswer',
@@ -105,6 +106,7 @@ describe('PrepaidAggregator', () => {
       'decimals',
       'removeOracle',
       'reportingRound',
+      'reportingRoundStartedAt',
       'restartDelay',
       'timeout',
       'updateAnswer',
@@ -345,6 +347,23 @@ describe('PrepaidAggregator', () => {
         }
 
         matchers.bigNum(ethers.constants.One, await aggregator.reportingRound())
+      })
+
+      it('sets the startedAt time for the reportingRound', async () => {
+        matchers.bigNum(
+          ethers.constants.Zero,
+          await aggregator.reportingRoundStartedAt(),
+        )
+
+        await aggregator
+          .connect(oracleAddresses[0])
+          .updateAnswer(nextRound, answer)
+
+        const startedAt = (
+          await aggregator.reportingRoundStartedAt()
+        ).toNumber()
+
+        expect(startedAt).not.toBe(0)
       })
 
       it('announces a new round by emitting a log', async () => {
@@ -664,6 +683,31 @@ describe('PrepaidAggregator', () => {
         const currentTimestamp = await aggregator.getTimestamp(i)
         assert.isAtLeast(currentTimestamp.toNumber(), lastTimestamp.toNumber())
         lastTimestamp = currentTimestamp
+      }
+    })
+  })
+
+  describe('#getRoundStartedAt', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+
+      for (let i = 0; i < 10; i++) {
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, i)
+        nextRound++
+      }
+    })
+
+    it('retrieves the startedAt time for past rounds', async () => {
+      let prevStartedAt = (await aggregator.getRoundStartedAt(0)).toNumber()
+
+      for (let i = 1; i < nextRound; i++) {
+        const currentStartedAt = (
+          await aggregator.getRoundStartedAt(i)
+        ).toNumber()
+        expect(prevStartedAt).toBeLessThanOrEqual(currentStartedAt)
+        prevStartedAt = currentStartedAt
       }
     })
   })
