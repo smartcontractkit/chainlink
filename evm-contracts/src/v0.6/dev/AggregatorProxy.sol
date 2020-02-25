@@ -2,6 +2,7 @@ pragma solidity 0.6.2;
 
 import "./AggregatorInterface.sol";
 import "../Owned.sol";
+import "./Whitelisted.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -9,7 +10,7 @@ import "../Owned.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, Owned {
+contract AggregatorProxy is AggregatorInterface, Owned, Whitelisted {
 
   AggregatorInterface public aggregator;
 
@@ -24,6 +25,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     external
     view
     override
+    isWhitelisted()
     returns (int256)
   {
     return aggregator.latestAnswer();
@@ -36,6 +38,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     external
     view
     override
+    isWhitelisted()
     returns (uint256)
   {
     return aggregator.latestTimestamp();
@@ -49,6 +52,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     external
     view
     override
+    isWhitelisted()
     returns (int256)
   {
     return aggregator.getAnswer(_roundId);
@@ -62,6 +66,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     external
     view
     override
+    isWhitelisted()
     returns (uint256)
   {
     return aggregator.getTimestamp(_roundId);
@@ -74,6 +79,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     external
     view
     override
+    isWhitelisted()
     returns (uint256)
   {
     return aggregator.latestRound();
