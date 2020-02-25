@@ -29,6 +29,7 @@ func TestSessionsController_Create(t *testing.T) {
 
 	config := app.Store.Config
 	client := http.Client{}
+
 	tests := []struct {
 		name        string
 		email       string
@@ -117,6 +118,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 	config := app.Store.Config
 	client := http.Client{}
+
 	tests := []struct {
 		name, sessionID string
 		success         bool

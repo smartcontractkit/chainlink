@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"chainlink/core/assets"
+	"chainlink/core/gracefulpanic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"

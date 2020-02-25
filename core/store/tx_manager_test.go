@@ -1062,7 +1062,6 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 
 	customGasPrice := utils.NewBig(big.NewInt(1337))
 	customGasLimit := uint64(10009)
-
 	defaultGasPrice := utils.NewBig(config.EthGasPriceDefault())
 
 	tests := []struct {

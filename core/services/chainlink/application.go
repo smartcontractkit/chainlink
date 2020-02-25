@@ -65,6 +65,7 @@ type ChainlinkApplication struct {
 	SessionReaper            services.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
+	shutdownSignal           gracefulpanic.Signal
 }
 
 // NewApplication initializes a new store if one is not already
@@ -72,7 +73,8 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application)) Application {
-	store := store.NewStore(config)
+	shutdownSignal := gracefulpanic.NewSignal()
+	store := store.NewStore(config, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
 	statsPusher := synchronization.NewStatsPusher(
@@ -97,6 +99,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		SessionReaper:            services.NewStoreReaper(store),
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
+		shutdownSignal:           shutdownSignal,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{
@@ -127,7 +130,7 @@ func (app *ChainlinkApplication) Start() error {
 	go func() {
 		select {
 		case <-sigs:
-		case <-gracefulpanic.Wait():
+		case <-app.shutdownSignal.Wait():
 		}
 		logger.ErrorIf(app.Stop())
 		app.Exiter(0)
