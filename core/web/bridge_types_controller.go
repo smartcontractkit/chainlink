@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 
@@ -14,7 +15,7 @@ import (
 
 // BridgeTypesController manages BridgeType requests in the node.
 type BridgeTypesController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create adds the BridgeType to the given context.

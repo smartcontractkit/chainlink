@@ -1,4 +1,4 @@
-package services
+package chainlink
 
 import (
 	"os"
@@ -8,6 +8,8 @@ import (
 
 	"chainlink/core/gracefulpanic"
 	"chainlink/core/logger"
+	"chainlink/core/services"
+	"chainlink/core/services/fluxmonitor"
 	"chainlink/core/services/synchronization"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
@@ -17,6 +19,19 @@ import (
 	"github.com/gobuffalo/packr"
 	"go.uber.org/multierr"
 )
+
+// headTrackableCallback is a simple wrapper around an On Connect callback
+type headTrackableCallback struct {
+	onConnect func()
+}
+
+func (c *headTrackableCallback) Connect(*models.Head) error {
+	c.onConnect()
+	return nil
+}
+
+func (c *headTrackableCallback) Disconnect()            {}
+func (c *headTrackableCallback) OnNewHead(*models.Head) {}
 
 //go:generate mockery -name Application -output ../internal/mocks/ -case=underscore
 
@@ -31,7 +46,7 @@ type Application interface {
 	ArchiveJob(*models.ID) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
-	RunManager
+	services.RunManager
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -39,15 +54,15 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	Exiter      func(int)
-	HeadTracker *HeadTracker
+	HeadTracker *services.HeadTracker
 	StatsPusher synchronization.StatsPusher
-	RunManager
-	RunQueue                 RunQueue
-	JobSubscriber            JobSubscriber
-	FluxMonitor              FluxMonitor
-	Scheduler                *Scheduler
+	services.RunManager
+	RunQueue                 services.RunQueue
+	JobSubscriber            services.JobSubscriber
+	FluxMonitor              fluxmonitor.Service
+	Scheduler                *services.Scheduler
 	Store                    *store.Store
-	SessionReaper            SleeperTask
+	SessionReaper            services.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 }
@@ -63,11 +78,11 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	statsPusher := synchronization.NewStatsPusher(
 		store.ORM, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
 	)
-	runExecutor := NewRunExecutor(store, statsPusher)
-	runQueue := NewRunQueue(runExecutor)
-	runManager := NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
-	jobSubscriber := NewJobSubscriber(store, runManager)
-	fluxMonitor := NewFluxMonitor(store, runManager)
+	runExecutor := services.NewRunExecutor(store, statsPusher)
+	runQueue := services.NewRunQueue(runExecutor)
+	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
+	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	fluxMonitor := fluxmonitor.New(store, runManager)
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
@@ -77,9 +92,9 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
 		RunQueue:                 runQueue,
-		Scheduler:                NewScheduler(store, runManager),
+		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
-		SessionReaper:            NewStoreReaper(store),
+		SessionReaper:            services.NewStoreReaper(store),
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
 	}
@@ -96,7 +111,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		}}
 		headTrackables = append(headTrackables, headTrackable)
 	}
-	app.HeadTracker = NewHeadTracker(store, headTrackables)
+	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
 
 	return app
 }
@@ -217,14 +232,14 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 // NewBox returns the packr.Box instance that holds the static assets to
 // be delivered by the router.
 func (app *ChainlinkApplication) NewBox() packr.Box {
-	return packr.NewBox("../../operator_ui/dist")
+	return packr.NewBox("../../../operator_ui/dist")
 }
 
 type pendingConnectionResumer struct {
-	runManager RunManager
+	runManager services.RunManager
 }
 
-func newPendingConnectionResumer(runManager RunManager) *pendingConnectionResumer {
+func newPendingConnectionResumer(runManager services.RunManager) *pendingConnectionResumer {
 	return &pendingConnectionResumer{runManager: runManager}
 }
 

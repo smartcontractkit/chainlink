@@ -1,4 +1,4 @@
-package services
+package fluxmonitor
 
 import (
 	"chainlink/core/eth"
@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ExportedSetCheckerFactory(fm FluxMonitor, fac DeviationCheckerFactory) {
+func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
 	impl := fm.(*concreteFluxMonitor)
 	impl.checkerFactory = fac
 }

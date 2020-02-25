@@ -5,6 +5,7 @@ import (
 
 	"chainlink/core/auth"
 	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
@@ -15,7 +16,7 @@ import (
 
 // ExternalInitiatorsController manages external initiators
 type ExternalInitiatorsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create builds and saves a new service agreement record.

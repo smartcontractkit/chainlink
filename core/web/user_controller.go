@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
@@ -18,7 +18,7 @@ import (
 
 // UserController manages the current Session's User User.
 type UserController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // UpdatePassword changes the password for the current User.

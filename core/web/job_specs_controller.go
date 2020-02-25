@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
@@ -14,7 +15,7 @@ import (
 
 // JobSpecsController manages JobSpec requests.
 type JobSpecsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Index lists JobSpecs, one page at a time.

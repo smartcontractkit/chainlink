@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
@@ -17,7 +17,7 @@ import (
 
 // JobRunsController manages JobRun requests in the node.
 type JobRunsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Index returns paginated JobRuns for a given JobSpec

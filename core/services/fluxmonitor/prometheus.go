@@ -1,4 +1,4 @@
-package services
+package fluxmonitor
 
 import (
 	"math/big"
