@@ -1,4 +1,4 @@
-package services
+package fluxmonitor
 
 import (
 	"chainlink/core/logger"
@@ -17,7 +17,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-//go:generate mockery -name Fetcher -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name Fetcher -output ../../internal/mocks/ -case=underscore
 
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.

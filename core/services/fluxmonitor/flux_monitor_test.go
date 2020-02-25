@@ -1,10 +1,10 @@
-package services_test
+package fluxmonitor_test
 
 import (
 	"chainlink/core/cmd"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
-	"chainlink/core/services"
+	"chainlink/core/services/fluxmonitor"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 	"context"
@@ -50,8 +50,8 @@ func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
 
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
-	fm := services.NewFluxMonitor(store, runManager)
-	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	fm := fluxmonitor.New(store, runManager)
+	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
 	require.NoError(t, fm.Connect(nil))
@@ -88,8 +88,8 @@ func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
 	dc.On("Start", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
-	fm := services.NewFluxMonitor(store, runManager)
-	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	fm := fluxmonitor.New(store, runManager)
+	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
 	require.NoError(t, fm.Connect(nil))
@@ -109,8 +109,8 @@ func TestConcreteFluxMonitor_AddJobDisconnected(t *testing.T) {
 	checkerFactory := new(mocks.DeviationCheckerFactory)
 	dc := new(mocks.DeviationChecker)
 	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
-	fm := services.NewFluxMonitor(store, runManager)
-	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	fm := fluxmonitor.New(store, runManager)
+	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
 
@@ -124,8 +124,8 @@ func TestConcreteFluxMonitor_AddJobNonFluxMonitor(t *testing.T) {
 	job := cltest.NewJobWithRunLogInitiator()
 	runManager := new(mocks.RunManager)
 	checkerFactory := new(mocks.DeviationCheckerFactory)
-	fm := services.NewFluxMonitor(store, runManager)
-	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	fm := fluxmonitor.New(store, runManager)
+	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 	require.NoError(t, fm.Start())
 	defer fm.Stop()
 
@@ -154,8 +154,8 @@ func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
 		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
 	}
 
-	fm := services.NewFluxMonitor(store, runManager)
-	services.ExportedSetCheckerFactory(fm, checkerFactory)
+	fm := fluxmonitor.New(store, runManager)
+	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 	err := fm.Start()
 	require.NoError(t, err)
 	defer fm.Stop()
@@ -174,7 +174,7 @@ func TestConcreteFluxMonitor_StopWithoutStart(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 
-	fm := services.NewFluxMonitor(store, runManager)
+	fm := fluxmonitor.New(store, runManager)
 	fm.Stop()
 }
 
@@ -202,7 +202,7 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 		return runRequest.RequestParams == data
 	})).Return(&run, nil)
 
-	checker, err := services.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Second)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Second)
 	require.NoError(t, err)
 
 	ethClient := new(mocks.Client)
@@ -253,7 +253,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 		})
 
 	fetcher := successFetcher(decimal.NewFromInt(100))
-	deviationChecker, err := services.NewPollingDeviationChecker(
+	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		initr,
 		runManager,
@@ -297,7 +297,7 @@ func TestPollingDeviationChecker_StartError(t *testing.T) {
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(0), errors.New("deliberate test error"))
 
-	checker, err := services.NewPollingDeviationChecker(store, initr, rm, nil, time.Second)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, nil, time.Second)
 	require.NoError(t, err)
 	require.Error(t, checker.Start(context.Background(), ethClient))
 }
@@ -321,7 +321,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
-	checker, err := services.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Millisecond)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
 
 	// Set up fetcher to mark when polled
@@ -381,7 +381,7 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 
 	// Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager) // No mocks assert no runs are created
-	checker, err := services.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Millisecond)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -414,7 +414,7 @@ func TestPollingDeviationChecker_StopWithoutStart(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	checker, err := services.NewPollingDeviationChecker(store, initr, rm, nil, time.Second)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, nil, time.Second)
 	require.NoError(t, err)
 	checker.Stop()
 }
@@ -439,7 +439,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 	// Initialize
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
-	checker, err := services.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Minute)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Minute)
 	require.NoError(t, err)
 	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
 	ethClient.AssertExpectations(t)
@@ -455,7 +455,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+			log := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
 			log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
 			require.NoError(t, checker.ExportedRespondToNewRound(log))
 			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
@@ -484,7 +484,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 	// Initialize
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
-	checker, err := services.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Minute)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Minute)
 	require.NoError(t, err)
 	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
 	ethClient.AssertExpectations(t)
@@ -505,7 +505,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 		return runRequest.RequestParams == data
 	})).Return(nil, nil) // only round 6 triggers run.
 
-	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+	log := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
 	log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(6))
 	require.NoError(t, checker.ExportedRespondToNewRound(log))
 	fetcher.AssertExpectations(t)
@@ -528,7 +528,7 @@ func TestOutsideDeviation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := services.OutsideDeviation(test.curPrice, test.nextPrice, test.threshold)
+			actual := fluxmonitor.OutsideDeviation(test.curPrice, test.nextPrice, test.threshold)
 			assert.Equal(t, test.expectation, actual)
 		})
 	}
@@ -585,7 +585,7 @@ func TestExtractFeedURLs(t *testing.T) {
 			for _, urlString := range test.expectation {
 				expectation = append(expectation, cltest.MustParseURL(urlString))
 			}
-			val, err := services.ExtractFeedURLs(initiatorParams.Feeds, store.ORM)
+			val, err := fluxmonitor.ExtractFeedURLs(initiatorParams.Feeds, store.ORM)
 			require.NoError(t, err)
 			assert.Equal(t, val, expectation)
 		})
@@ -635,7 +635,7 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 				})
 
 			fetcher := successFetcher(decimal.NewFromInt(200))
-			deviationChecker, err := services.NewPollingDeviationChecker(
+			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
 				initr,
 				runManager,

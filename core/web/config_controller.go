@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/presenters"
 	"chainlink/core/utils"
 
@@ -13,7 +13,7 @@ import (
 
 // ConfigController manages config variables
 type ConfigController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Show returns the whitelist of config variables
