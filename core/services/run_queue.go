@@ -66,6 +66,7 @@ func (rq *runQueue) Stop() {
 // Run tells the job runner to start executing a job
 func (rq *runQueue) Run(run *models.JobRun) {
 	rq.workersMutex.Lock()
+	defer rq.workersMutex.Unlock()
 	if rq.stopRequested {
 		return
 	}
@@ -100,7 +101,6 @@ func (rq *runQueue) Run(run *models.JobRun) {
 
 		rq.workersWg.Done()
 	}()
-	rq.workersMutex.Unlock()
 }
 
 // WorkerCount returns the number of workers currently processing a job run
