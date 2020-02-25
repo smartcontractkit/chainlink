@@ -5,6 +5,7 @@ import { ReactComponent as Loopring } from 'assets/loopring.svg'
 import { ReactComponent as Synthetix } from 'assets/synthetix.svg'
 import ampleforth from 'assets/ampleforth.png'
 import setprotocol from 'assets/setprotocol.png'
+import nexusmutual from 'assets/nexus-mutual.png'
 import { Button } from 'antd'
 import { Header } from 'components/header'
 import ReactGA from 'react-ga'
@@ -99,7 +100,9 @@ const LangingPage = () => (
             className="ampleforth"
           />
         </a>
+      </div>
 
+      <div className="sponsors sponsors__small">
         <a
           href="https://www.tokensets.com/"
           target="_blank"
@@ -110,6 +113,19 @@ const LangingPage = () => (
             title="Set Protocol"
             src={setprotocol}
             className="setprotocol"
+          />
+        </a>
+
+        <a
+          href="https://nexusmutual.io"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            alt="Nexus Mutual"
+            title="Nexus Mutual"
+            src={nexusmutual}
+            className="nexusmutual"
           />
         </a>
       </div>
