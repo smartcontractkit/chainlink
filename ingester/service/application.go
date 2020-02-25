@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"fmt"
 
 	"ingester/client"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
+	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 )
 
 // Application is an instance of the aggregator monitor application containing
@@ -25,11 +27,22 @@ type InterruptHandler func()
 // NewApplication returns an instance of the Application with
 // all clients connected and services instantiated
 func NewApplication(config *Config) (*Application, error) {
-	logger.Info("Starting the ingester")
+	logger.SetLogger(logger.CreateTestLogger(-1))
+
+	logger.Infow(
+		"Starting the Chainlink Ingester",
+		"eth-url", config.EthereumURL,
+		"db-url", config.DatabaseURL,
+		"eth-chain-id", config.NetworkID)
 
 	ec, err := client.NewClient(config.EthereumURL)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to ETH client: %+v", err)
+	}
+
+	pool, err := sql.Open("postgres", config.DatabaseURL)
+	if err != nil {
+		return nil, err
 	}
 
 	q := ethereum.FilterQuery{}
@@ -40,8 +53,8 @@ func NewApplication(config *Config) (*Application, error) {
 	}
 
 	go func() {
-		for {
-			log := <-logChan
+		logger.Debug("Listening for logs")
+		for log := range logChan {
 			logger.Debugw("Got Log",
 				"address", log.Address.Hex(),
 				"topics", log.Topics,
@@ -55,16 +68,38 @@ func NewApplication(config *Config) (*Application, error) {
 		}
 	}()
 
-	headChan := make(chan client.BlockHeader)
+	headChan := make(chan types.Header)
 	_, err = ec.SubscribeToNewHeads(headChan)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
-		for {
-			head := <-headChan
+		logger.Debug("Listening for heads")
+		for head := range headChan {
+			nonce := make([]byte, 8)
+			copy(nonce, head.Nonce[:])
+
 			logger.Debugw("Got head", "head", head)
+			_, err := pool.Exec(`INSERT INTO "ethereum_head" (parent_hash, uncle_hash, coinbase, root, tx_hash, receipt_hash, bloom, difficulty, number, gas_limit, gas_used, time, extra, mix_digest, nonce) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);`,
+				head.ParentHash,
+				head.UncleHash,
+				head.Coinbase,
+				head.Root,
+				head.TxHash,
+				head.ReceiptHash,
+				head.Bloom.Bytes(),
+				head.Difficulty.String(),
+				head.Number.String(),
+				head.GasLimit,
+				head.GasUsed,
+				head.Time,
+				head.Extra,
+				head.MixDigest,
+				nonce)
+			if err != nil {
+				logger.Errorw("Insert failed", "error", err)
+			}
 		}
 	}()
 
@@ -81,5 +116,5 @@ func (a *Application) Start(ih InterruptHandler) {
 
 // Stop will call each services that requires a clean shutdown to stop
 func (a *Application) Stop() {
-	logger.Info("Stopping the ingester")
+	logger.Info("Shutting down")
 }
