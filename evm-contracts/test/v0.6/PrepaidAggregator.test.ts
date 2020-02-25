@@ -727,7 +727,13 @@ describe('PrepaidAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
 
       for (let i = 0; i < 10; i++) {
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, i)
