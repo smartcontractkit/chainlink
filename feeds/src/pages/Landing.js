@@ -1,14 +1,8 @@
 import React from 'react'
 import { Listing } from 'components/listing'
-import { ReactComponent as Aave } from 'assets/aave.svg'
-import { ReactComponent as Loopring } from 'assets/loopring.svg'
-import { ReactComponent as Synthetix } from 'assets/synthetix.svg'
-import ampleforth from 'assets/ampleforth.png'
-import setprotocol from 'assets/setprotocol.png'
-import nexusmutual from 'assets/nexus-mutual.png'
-import { Button } from 'antd'
 import { Header } from 'components/header'
-import ReactGA from 'react-ga'
+import { NodesLogos } from 'components/nodesLogos'
+import { SponsorsLogos } from 'components/sponsorsLogos'
 
 const LangingPage = () => (
   <div className="page-wrapper landing-page">
@@ -48,88 +42,8 @@ const LangingPage = () => (
       </section>
     </div>
 
-    <section className="sponsors-wrapper">
-      <div className="cta-integrate">
-        <a
-          onClick={() =>
-            ReactGA.event({
-              category: 'Form Conversion',
-              action: 'Click on Button',
-              label: 'Integrate with Chainlink',
-            })
-          }
-          href="https://chainlinkcommunity.typeform.com/to/XcgLVP"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Button type="primary" shape="round" size="large">
-            Integrate with Chainlink
-          </Button>
-        </a>
-      </div>
-      <h3>Made possible and sponsored by</h3>
-      <div className="sponsors">
-        <a
-          href="https://www.synthetix.io/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Synthetix />
-        </a>
-
-        <a
-          href="https://loopring.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Loopring className="loopring" />
-        </a>
-
-        <a href="https://aave.com/" target="_blank" rel="noopener noreferrer">
-          <Aave />
-        </a>
-        <a
-          href="https://www.ampleforth.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            alt="Ampleforth"
-            title="Ampleforth"
-            src={ampleforth}
-            className="ampleforth"
-          />
-        </a>
-      </div>
-
-      <div className="sponsors sponsors__small">
-        <a
-          href="https://www.tokensets.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            alt="Set Protocol"
-            title="Set Protocol"
-            src={setprotocol}
-            className="setprotocol"
-          />
-        </a>
-
-        <a
-          href="https://nexusmutual.io"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            alt="Nexus Mutual"
-            title="Nexus Mutual"
-            src={nexusmutual}
-            className="nexusmutual"
-          />
-        </a>
-      </div>
-    </section>
+    <SponsorsLogos />
+    <NodesLogos />
   </div>
 )
 
