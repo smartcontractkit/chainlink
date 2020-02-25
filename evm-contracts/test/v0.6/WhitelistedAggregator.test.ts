@@ -31,7 +31,7 @@ describe('WhitelistedAggregator', () => {
   let nextRound: number
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await aggregatorFactory
+    aggregator = await (aggregatorFactory as any)
       .connect(personas.Carol)
       .deploy(
         link.address,
@@ -39,6 +39,9 @@ describe('WhitelistedAggregator', () => {
         timeout,
         decimals,
         h.toBytes32String(description),
+        // Remove when this PR gets merged:
+        // https://github.com/ethereum-ts/TypeChain/pull/218
+        { gasLimit: 5_500_000 },
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
