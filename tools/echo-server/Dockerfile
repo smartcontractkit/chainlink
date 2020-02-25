@@ -2,7 +2,9 @@ FROM node:10.16-alpine
 
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
-COPY yarn.lock package.json tsconfig.cjs.json ./
+COPY yarn.lock package.json .yarnrc tsconfig.cjs.json ./
+COPY .yarn .yarn
+
 COPY tools/echo-server/package.json tools/echo-server/
 
 # install deps for our integration scripts
