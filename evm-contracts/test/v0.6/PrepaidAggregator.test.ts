@@ -110,6 +110,7 @@ describe('PrepaidAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
+      'updateRequesterPermission',
       'withdraw',
       'withdrawFunds',
       'withdrawable',
@@ -1687,6 +1688,8 @@ describe('PrepaidAggregator', () => {
         .updateAnswer(nextRound, answer)
       nextRound = nextRound + 1
 
+      await aggregator.updateRequesterPermission(personas.Carol.address, true)
+
       await aggregator
         .connect(personas.Carol)
     })
@@ -1730,6 +1733,56 @@ describe('PrepaidAggregator', () => {
           )
           matchers.bigNum(nextRound + 1, h.eventArgs(event).roundId)
         })
+      })
+    })
+  })
+
+  describe('#updateRequesterPermission', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(personas.Neil.address, 1, 1, 0)
+
+      await aggregator
+        .connect(personas.Neil)
+        .updateAnswer(nextRound, answer)
+      nextRound = nextRound + 1
+    })
+
+    describe('when called by a the owner', () => {
+      it('allows the specified address to start new rounds', async () => {
+        await aggregator.updateRequesterPermission(personas.Neil.address, true)
+
+        await aggregator.connect(personas.Neil).startNewRound()
+      })
+
+      describe('when called by a the owner', () => {
+        beforeEach(async () => {
+          await aggregator.updateRequesterPermission(personas.Neil.address, true)
+        })
+
+        it('does not allow the specified address to start new rounds', async () => {
+          await aggregator.updateRequesterPermission(personas.Neil.address, false)
+
+          await matchers.evmRevert(
+            aggregator.connect(personas.Neil).startNewRound(),
+            'Only whitelisted requesters can call',
+          )
+        })
+      })
+    })
+
+    describe('when called by a the owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator.connect(personas.Neil).updateRequesterPermission(personas.Neil.address, true),
+          'Only callable by owner',
+        )
+
+        await matchers.evmRevert(
+          aggregator.connect(personas.Neil).startNewRound(),
+          'Only whitelisted requesters can call',
+        )
       })
     })
   })

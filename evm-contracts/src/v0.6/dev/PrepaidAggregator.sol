@@ -67,6 +67,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
+  mapping(address => bool) internal requesters;
   address[] private oracleAddresses;
 
   event AvailableFundsUpdated(uint256 indexed amount);
@@ -481,6 +482,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
    */
   function startNewRound()
     external
+    onlyWhitelistedRequesters()
   {
     uint32 current = reportingRoundId;
 
@@ -488,6 +490,18 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     require(eligible, 'Cannot start a round mid-round');
 
     initializeNewRound(current.add(1));
+  }
+
+  /**
+   * @notice allows the owner to specify nex non-oracles to start new rounds
+   * @param _requester is the address to set permissions for
+   * @param _allowed is a boolean specifying whether they can start new rounds or not
+   */
+  function updateRequesterPermission(address _requester, bool _allowed)
+    external
+    onlyOwner()
+  {
+    requesters[_requester] = _allowed;
   }
 
   /**
@@ -731,6 +745,11 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
 
   modifier onlyWithPreviousAnswer(uint32 _id) {
     require(rounds[_id.sub(1)].updatedAt != 0, "Must have a previous answer to pull from");
+    _;
+  }
+
+  modifier onlyWhitelistedRequesters() {
+    require(requesters[msg.sender], "Only whitelisted requesters can call");
     _;
   }
 
