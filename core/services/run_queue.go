@@ -34,9 +34,10 @@ type RunQueue interface {
 }
 
 type runQueue struct {
-	workersMutex sync.RWMutex
-	workers      map[string]int
-	workersWg    sync.WaitGroup
+	workersMutex  sync.RWMutex
+	workers       map[string]int
+	workersWg     sync.WaitGroup
+	stopRequested bool
 
 	runExecutor RunExecutor
 }
@@ -56,16 +57,22 @@ func (rq *runQueue) Start() error {
 
 // Stop closes all open worker channels.
 func (rq *runQueue) Stop() {
+	rq.workersMutex.Lock()
+	rq.stopRequested = true
+	rq.workersMutex.Unlock()
 	rq.workersWg.Wait()
 }
 
 // Run tells the job runner to start executing a job
 func (rq *runQueue) Run(run *models.JobRun) {
-	runID := run.ID.String()
-
-	defer numberRunsQueued.Inc()
-
 	rq.workersMutex.Lock()
+	if rq.stopRequested {
+		rq.workersMutex.Unlock()
+		return
+	}
+
+	runID := run.ID.String()
+	defer numberRunsQueued.Inc()
 	if queueCount, present := rq.workers[runID]; present {
 		rq.workers[runID] = queueCount + 1
 		rq.workersMutex.Unlock()
