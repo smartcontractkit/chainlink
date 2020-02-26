@@ -649,10 +649,14 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 				Return(decimal.NewFromInt(100), nil)
 			ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 				Return(big.NewInt(test.aggregatorRound), nil)
-			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-				Return(fakeSubscription(), nil)
+			ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
+				Return(big.NewInt(test.aggregatorRound), nil)
+			ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
+				Return(false, nil)
 			ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
 				Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
+			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+				Return(fakeSubscription(), nil)
 
 			err = deviationChecker.Start(context.Background(), ethClient)
 			require.NoError(t, err)

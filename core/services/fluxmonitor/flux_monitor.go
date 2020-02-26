@@ -476,12 +476,21 @@ func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	reportingRound, err := client.GetAggregatorReportingRound(p.address)
+	if err != nil {
+		return false, err
+	}
 	nodeAddress := p.store.KeyStore.Accounts()[0].Address
 	_, lastRoundAnswered, err := client.GetAggregatorLatestSubmission(p.address, nodeAddress)
 	if err != nil {
 		return false, err
 	}
-	return lastRoundAnswered.Cmp(latestRound) <= 0, nil
+	reportingRoundExpired, err := client.GetAggregatorTimedOutStatus(p.address, reportingRound)
+	if err != nil {
+		return false, err
+	}
+	nodeElegibleToAnswer := lastRoundAnswered.Cmp(latestRound) <= 0
+	return nodeElegibleToAnswer || reportingRoundExpired, nil
 }
 
 // Stop stops this instance from polling, cleaning up resources.
