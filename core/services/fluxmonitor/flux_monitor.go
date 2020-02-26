@@ -1,4 +1,4 @@
-package services
+package fluxmonitor
 
 import (
 	"chainlink/core/eth"
@@ -22,7 +22,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-//go:generate mockery -name FluxMonitor -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name FluxMonitor -output ../../internal/mocks/ -case=underscore
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
 const defaultHTTPTimeout = 5 * time.Second
@@ -31,9 +31,18 @@ const defaultHTTPTimeout = 5 * time.Second
 // Monitor supports.
 const MinimumPollingInterval = models.Duration(defaultHTTPTimeout)
 
-// FluxMonitor is the interface encapsulating all functionality
+type RunManager interface {
+	Create(
+		jobSpecID *models.ID,
+		initiator *models.Initiator,
+		creationHeight *big.Int,
+		runRequest *models.RunRequest,
+	) (*models.JobRun, error)
+}
+
+// Service is the interface encapsulating all functionality
 // needed to listen to price deviations and new round requests.
-type FluxMonitor interface {
+type Service interface {
 	store.HeadTrackable // (Dis)Connect methods handle initial boot and intermittent connectivity.
 	AddJob(models.JobSpec) error
 	RemoveJob(*models.ID)
@@ -59,9 +68,12 @@ type addEntry struct {
 	errChan  chan error
 }
 
-// NewFluxMonitor creates a service that manages a collection of DeviationCheckers,
+// New creates a service that manages a collection of DeviationCheckers,
 // one per initiator of type InitiatorFluxMonitor for added jobs.
-func NewFluxMonitor(store *store.Store, runManager RunManager) FluxMonitor {
+func New(
+	store *store.Store,
+	runManager RunManager,
+) Service {
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
@@ -229,7 +241,7 @@ func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
 	fm.removes <- ID
 }
 
-//go:generate mockery -name DeviationCheckerFactory -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
@@ -315,7 +327,7 @@ func GetBridgeURLFromName(name string, orm *orm.ORM) (*url.URL, error) {
 	return &bridgeURL, nil
 }
 
-//go:generate mockery -name DeviationChecker -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
 // DeviationChecker encapsulate methods needed to initialize and check prices
 // for price deviations.

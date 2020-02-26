@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
@@ -14,7 +14,7 @@ import (
 
 // TransactionsController displays Ethereum transactions requests.
 type TransactionsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Index returns paginated transaction attempts

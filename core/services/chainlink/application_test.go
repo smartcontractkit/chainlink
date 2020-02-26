@@ -1,6 +1,6 @@
 // +build !windows
 
-package services_test
+package chainlink_test
 
 import (
 	"syscall"
