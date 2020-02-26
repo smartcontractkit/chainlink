@@ -57,7 +57,6 @@ describe('AggregatorProxy', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(whitelistedAggregatorProxyFactory, [
       'aggregator',
-      'destroy',
       'getAnswer',
       'getTimestamp',
       'latestAnswer',

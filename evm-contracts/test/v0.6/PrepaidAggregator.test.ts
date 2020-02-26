@@ -1681,7 +1681,7 @@ describe('PrepaidAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, 1, 1, 0)
+        .addOracle(personas.Neil.address, personas.Neil.address, 1, 1, 0)
 
       await aggregator
         .connect(personas.Neil)
@@ -1706,7 +1706,7 @@ describe('PrepaidAggregator', () => {
       matchers.bigNum(nextRound, h.eventArgs(event).roundId)
     })
 
-    describe('when there is a round in progress', async () => {
+    describe('when there is a round in progress', () => {
       beforeEach(async () => {
         await aggregator.startNewRound()
       })
@@ -1718,7 +1718,7 @@ describe('PrepaidAggregator', () => {
         )
       })
 
-      describe('when that round has timed out', async () => {
+      describe('when that round has timed out', () => {
         beforeEach(async () => {
           await h.increaseTimeBy(timeout + 1, provider)
           await h.mineBlock(provider)
@@ -1741,7 +1741,7 @@ describe('PrepaidAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, 1, 1, 0)
+        .addOracle(personas.Neil.address, personas.Neil.address, 1, 1, 0)
 
       await aggregator
         .connect(personas.Neil)
