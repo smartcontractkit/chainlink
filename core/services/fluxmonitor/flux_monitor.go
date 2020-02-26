@@ -444,11 +444,9 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 			err := p.respondToNewRound(log)
 			logger.ErrorIf(err, "checker unable to respond to new round")
 		case <-time.After(p.delay):
-			jobRunTriggered = p.pollIfEligible(client)
+			jobRunTriggered = p.pollIfEligible(client, p.threshold)
 		case <-idleThresholdTimer.C:
-			ok, err := p.poll(0)
-			logger.ErrorIf(err, "checker unable to poll")
-			jobRunTriggered = ok
+			jobRunTriggered = p.pollIfEligible(client, 0)
 		}
 
 		if jobRunTriggered {
@@ -459,14 +457,14 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 	}
 }
 
-func (p *PollingDeviationChecker) pollIfEligible(client eth.Client) bool {
+func (p *PollingDeviationChecker) pollIfEligible(client eth.Client, threshold float64) bool {
 	open, err := p.isEligibleToPoll(client)
 	logger.ErrorIf(err, "Unable to determine if round is open:")
 	if !open {
 		logger.Info("Round is currently not open to new submissions - polling paused")
 		return false
 	}
-	ok, err := p.poll(p.threshold)
+	ok, err := p.poll(threshold)
 	logger.ErrorIf(err, "checker unable to poll")
 	return ok
 }
