@@ -32,6 +32,7 @@ type Client interface {
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
 	GetAggregatorLatestRound(address common.Address) (*big.Int, error)
+	GetAggregatorReportingRound(address common.Address) (*big.Int, error)
 	GetAggregatorTimeout(address common.Address) (*big.Int, error)
 	GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error)
 	GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
@@ -182,14 +183,41 @@ func (client *CallerSubscriberClient) GetAggregatorLatestRound(address common.Ad
 	}
 	data, err := aggregator.EncodeMessageCall("latestRound")
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator latest round from %s", address.Hex()))
 	}
 
 	var result string
 	args := CallArgs{To: address, Data: data}
 	err = client.Call(&result, "eth_call", args, "latest")
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator round from %s", address.Hex()))
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator latest round from %s", address.Hex()))
+	}
+
+	round, err := newBigIntFromString(result)
+	if err != nil {
+		return nil, errors.Wrapf(
+			fmt.Errorf("unable to parse int from %s", result),
+			"unable to fetch aggregator round from %s", address.Hex())
+	}
+	return round, nil
+}
+
+// GetAggregatorReportingRound returns the latest round at the given address.
+func (client *CallerSubscriberClient) GetAggregatorReportingRound(address common.Address) (*big.Int, error) {
+	aggregator, err := GetV6Contract(PrepaidAggregatorName)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
+	}
+	data, err := aggregator.EncodeMessageCall("reportingRound")
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator reporting round from %s", address.Hex()))
+	}
+
+	var result string
+	args := CallArgs{To: address, Data: data}
+	err = client.Call(&result, "eth_call", args, "latest")
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator reporting round from %s", address.Hex()))
 	}
 
 	round, err := newBigIntFromString(result)
