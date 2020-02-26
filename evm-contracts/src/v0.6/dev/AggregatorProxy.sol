@@ -95,17 +95,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     aggregator = AggregatorInterface(_aggregator);
   }
 
-  /**
-   * @notice Allows the owner to destroy the contract if it is not intended to
-   * be used any longer.
-   */
-  function destroy()
-    external
-    onlyOwner()
-  {
-    selfdestruct(owner);
-  }
-
   /*
    * Internal
    */
