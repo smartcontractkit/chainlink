@@ -460,7 +460,7 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 }
 
 func (p *PollingDeviationChecker) pollIfEligible(client eth.Client) bool {
-	open, err := p.isRoundOpen(client)
+	open, err := p.isEligibleToPoll(client)
 	logger.ErrorIf(err, "Unable to determine if round is open:")
 	if !open {
 		logger.Info("Round is currently not open to new submissions - polling paused")
