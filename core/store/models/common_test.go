@@ -11,9 +11,9 @@ import (
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ugorji/go/codec"
 )
 
 func TestJSON_Merge(t *testing.T) {
@@ -220,8 +220,9 @@ func TestJSON_CBOR(t *testing.T) {
 			assert.NoError(t, err)
 
 			var decoded interface{}
-			cbor := codec.NewDecoderBytes(encoded, new(codec.CborHandle))
-			assert.NoError(t, cbor.Decode(&decoded))
+			err = cbor.Unmarshal(encoded, &decoded)
+
+			assert.NoError(t, err)
 
 			decoded, err = utils.CoerceInterfaceMapToStringMap(decoded)
 			assert.NoError(t, err)
