@@ -288,6 +288,50 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 	}
 }
 
+func TestCallerSubscriberClient_GetAggregatorTimeout(t *testing.T) {
+	address := cltest.NewAddress()
+
+	const aggregatorTimeoutID = "0x70dea79a"
+	aggregatorTimeoutSelector := eth.HexToFunctionSelector(aggregatorTimeoutID)
+
+	expectedCallArgs := eth.CallArgs{
+		To:   address,
+		Data: aggregatorTimeoutSelector.Bytes(),
+	}
+	large, ok := new(big.Int).SetString("52050000000000000000", 10)
+	require.True(t, ok)
+
+	tests := []struct {
+		name, response string
+		expectation    *big.Int
+	}{
+		{"zero", "0", big.NewInt(0)},
+		{"small", "12", big.NewInt(12)},
+		{"large", "52050000000000000000", large},
+		{"hex zero default", "0x", big.NewInt(0)},
+		{"hex zero", "0x0", big.NewInt(0)},
+		{"hex", "0x0100", big.NewInt(256)},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			caller := new(mocks.CallerSubscriber)
+			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+
+			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
+					*res = test.response
+				})
+			result, err := ethClient.GetAggregatorTimeout(address)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, result)
+			caller.AssertExpectations(t)
+		})
+	}
+}
+
 func TestCallerSubscriberClient_GetAggregatorLatestSubmission(t *testing.T) {
 	caller := new(mocks.CallerSubscriber)
 	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
