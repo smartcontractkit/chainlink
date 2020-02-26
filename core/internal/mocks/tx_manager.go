@@ -267,8 +267,8 @@ func (_m *TxManager) GetAggregatorPrice(address common.Address, precision int32)
 	return r0, r1
 }
 
-// GetAggregatorRound provides a mock function with given fields: address
-func (_m *TxManager) GetAggregatorRound(address common.Address) (*big.Int, error) {
+// GetAggregatorLatestRound provides a mock function with given fields: address
+func (_m *TxManager) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
 	ret := _m.Called(address)
 
 	var r0 *big.Int
