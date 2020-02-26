@@ -1744,7 +1744,7 @@ describe('PrepaidAggregator', () => {
       nextRound = nextRound + 1
     })
 
-    describe('when called by a the owner', () => {
+    describe('when called by the owner', () => {
       it('allows the specified address to start new rounds', async () => {
         await aggregator.updateRequesterPermission(personas.Neil.address, true)
 
