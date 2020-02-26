@@ -606,10 +606,10 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			config, configCleanup := cltest.NewConfig(t)
-			defer configCleanup()
 			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
 			defer cleanup()
+			defer configCleanup()
 
 			app.StartAndConnect()
 
