@@ -592,7 +592,7 @@ func TestExtractFeedURLs(t *testing.T) {
 	}
 }
 
-func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
+func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -610,16 +610,19 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 	jobRun := cltest.NewJobRun(job)
 
 	tests := []struct {
-		name                string
-		aggregatorRound     int64
-		latestRoundAnswered int64
-		shouldUpdate        bool
+		name                     string
+		aggregatorRound          int64
+		latestRoundAnswered      int64
+		aggregatorTimedOutStatus bool
+		shouldUpdate             bool
 	}{
-		{"much less than", 1, 10, false},
-		{"less than", 1, 2, false},
-		{"equal", 1, 1, true},
-		{"greater than", 2, 1, true},
-		{"much greater than", 10, 1, true},
+		// {"much less than", 1, 10, false, false},
+		{"aggregator round less than latest round", 1, 2, false, false},
+		{"aggregator round equals latest round", 1, 1, false, true},
+		{"aggregator round greater than latest round", 2, 1, false, true},
+		// {"much greater than", 10, 1, false, true},
+		{"timed out", 1, 2, true, true},
+		{"not timed out", 1, 2, false, false},
 	}
 
 	for _, test := range tests {
@@ -650,90 +653,11 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 			ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 				Return(big.NewInt(test.aggregatorRound), nil)
 			ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
-				Return(big.NewInt(test.aggregatorRound), nil)
-			ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
-				Return(false, nil)
-			ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
-				Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
-			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-				Return(fakeSubscription(), nil)
-
-			err = deviationChecker.Start(context.Background(), ethClient)
-			require.NoError(t, err)
-			require.Len(t, jobRunCreated, 1, "initial job run")
-			fetcher = successFetcher(decimal.NewFromInt(300))
-
-			if test.shouldUpdate {
-				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, time.Millisecond, "pollIfEligible triggers Job Run")
-			} else {
-				time.Sleep(2 * time.Second)
-				require.Len(t, jobRunCreated, 1, "no Job Runs created")
-			}
-
-			deviationChecker.Stop()
-		})
-	}
-}
-
-func TestPollingDeviationChecker_PollIfRoundTimedOut(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
-	_, err := auth.Authenticate(store, "somepassword")
-	assert.NoError(t, err)
-	assert.True(t, store.KeyStore.HasAccounts())
-
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-	initr.PollingInterval = models.Duration(5 * time.Millisecond)
-	initr.IdleThreshold = models.Duration(time.Hour) // long enough to prevent running during test
-
-	jobRun := cltest.NewJobRun(job)
-
-	tests := []struct {
-		name                     string
-		aggregatorTimedOutStatus bool
-		shouldUpdate             bool
-	}{
-		{"timed out", true, true},
-		{"not timed out", false, false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-
-			runManager := new(mocks.RunManager)
-
-			jobRunCreated := make(chan struct{}, 100)
-			runManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-				Return(&jobRun, nil).
-				Run(func(args mock.Arguments) {
-					jobRunCreated <- struct{}{}
-				})
-
-			fetcher := successFetcher(decimal.NewFromInt(200))
-			deviationChecker, err := services.NewPollingDeviationChecker(
-				store,
-				initr,
-				runManager,
-				&fetcher,
-				time.Second,
-			)
-			require.NoError(t, err)
-
-			ethClient := new(mocks.Client)
-			ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-				Return(decimal.NewFromInt(100), nil)
-			ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-				Return(big.NewInt(1), nil)
-			ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
-				Return(big.NewInt(2), nil)
+				Return(big.NewInt(test.aggregatorRound+1), nil)
 			ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
 				Return(test.aggregatorTimedOutStatus, nil)
 			ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
-				Return(big.NewInt(0), big.NewInt(2), nil)
+				Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
 			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 				Return(fakeSubscription(), nil)
 
