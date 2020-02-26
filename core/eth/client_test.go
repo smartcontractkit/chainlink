@@ -244,7 +244,7 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 	}
 }
 
-func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
+func TestCallerSubscriberClient_GetAggregatorLatestRound(t *testing.T) {
 	address := cltest.NewAddress()
 
 	const aggregatorLatestRoundID = "668a0f02"
@@ -280,7 +280,7 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 					res := args.Get(0).(*string)
 					*res = test.response
 				})
-			result, err := ethClient.GetAggregatorRound(address)
+			result, err := ethClient.GetAggregatorLatestRound(address)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectation, result)
 			caller.AssertExpectations(t)

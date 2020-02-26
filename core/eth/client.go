@@ -31,7 +31,7 @@ type Client interface {
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
-	GetAggregatorRound(address common.Address) (*big.Int, error)
+	GetAggregatorLatestRound(address common.Address) (*big.Int, error)
 	GetAggregatorTimeout(address common.Address) (*big.Int, error)
 	GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error)
 	GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
@@ -174,8 +174,8 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 	return raw.Div(precisionDivisor), nil
 }
 
-// GetAggregatorRound returns the latest round at the given address.
-func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address) (*big.Int, error) {
+// GetAggregatorLatestRound returns the latest round at the given address.
+func (client *CallerSubscriberClient) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
 	aggregator, err := GetV6Contract(FluxAggregatorName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
@@ -205,9 +205,9 @@ func (client *CallerSubscriberClient) GetAggregatorRound(address common.Address)
 func (client *CallerSubscriberClient) GetAggregatorTimeout(address common.Address) (*big.Int, error) {
 	errMessage := fmt.Sprintf("unable to fetch aggregator timeout from %s", address.Hex())
 
-	aggregator, err := GetV6Contract(PrepaidAggregatorName)
+	aggregator, err := GetV6Contract(FluxAggregatorName)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
+		return nil, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
 	}
 	data, err := aggregator.EncodeMessageCall("timeout")
 	if err != nil {
@@ -234,9 +234,9 @@ func (client *CallerSubscriberClient) GetAggregatorTimeout(address common.Addres
 func (client *CallerSubscriberClient) GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error) {
 	errMessage := fmt.Sprintf("unable to fetch aggregator timed out status from %s", address.Hex())
 
-	aggregator, err := GetV6Contract(PrepaidAggregatorName)
+	aggregator, err := GetV6Contract(FluxAggregatorName)
 	if err != nil {
-		return false, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
+		return false, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
 	}
 	data, err := aggregator.EncodeMessageCall("getTimedOutStatus", round)
 	if err != nil {

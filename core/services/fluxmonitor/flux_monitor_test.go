@@ -208,7 +208,7 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
 
 	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient)) // setup
@@ -265,7 +265,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
@@ -314,7 +314,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
@@ -372,7 +372,7 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
@@ -433,7 +433,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(currentRound), nil)
 
 	// Initialize
@@ -478,7 +478,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(currentRound), nil)
 
 	// Initialize
@@ -647,7 +647,7 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 			ethClient := new(mocks.Client)
 			ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 				Return(decimal.NewFromInt(100), nil)
-			ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+			ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 				Return(big.NewInt(test.aggregatorRound), nil)
 			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 				Return(fakeSubscription(), nil)

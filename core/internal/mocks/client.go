@@ -75,8 +75,8 @@ func (_m *Client) GetAggregatorPrice(address common.Address, precision int32) (d
 	return r0, r1
 }
 
-// GetAggregatorRound provides a mock function with given fields: address
-func (_m *Client) GetAggregatorRound(address common.Address) (*big.Int, error) {
+// GetAggregatorLatestRound provides a mock function with given fields: address
+func (_m *Client) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
 	ret := _m.Called(address)
 
 	var r0 *big.Int
