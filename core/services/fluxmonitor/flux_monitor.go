@@ -444,7 +444,7 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 			err := p.respondToNewRound(log)
 			logger.ErrorIf(err, "checker unable to respond to new round")
 		case <-time.After(p.delay):
-			jobRunTriggered = p.pollIfRoundOpen(client)
+			jobRunTriggered = p.pollIfEligible(client)
 		case <-idleThresholdTimer.C:
 			ok, err := p.poll(0)
 			logger.ErrorIf(err, "checker unable to poll")
@@ -459,7 +459,7 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 	}
 }
 
-func (p *PollingDeviationChecker) pollIfRoundOpen(client eth.Client) bool {
+func (p *PollingDeviationChecker) pollIfEligible(client eth.Client) bool {
 	open, err := p.isRoundOpen(client)
 	logger.ErrorIf(err, "Unable to determine if round is open:")
 	if !open {
@@ -471,12 +471,20 @@ func (p *PollingDeviationChecker) pollIfRoundOpen(client eth.Client) bool {
 	return ok
 }
 
-func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
-	latestRound, err := client.GetAggregatorLatestRound(p.address)
+func (p *PollingDeviationChecker) isEligibleToPoll(client eth.Client) (bool, error) {
+	roundIsOpen, err := p.isRoundOpen(client)
 	if err != nil {
 		return false, err
 	}
-	reportingRound, err := client.GetAggregatorReportingRound(p.address)
+	reportingRoundExpired, err := p.isRoundTimedOut(client)
+	if err != nil {
+		return false, err
+	}
+	return roundIsOpen || reportingRoundExpired, nil
+}
+
+func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
+	latestRound, err := client.GetAggregatorLatestRound(p.address)
 	if err != nil {
 		return false, err
 	}
@@ -485,12 +493,20 @@ func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	roundIsOpen := lastRoundAnswered.Cmp(latestRound) <= 0
+	return roundIsOpen, nil
+}
+
+func (p *PollingDeviationChecker) isRoundTimedOut(client eth.Client) (bool, error) {
+	reportingRound, err := client.GetAggregatorReportingRound(p.address)
+	if err != nil {
+		return false, err
+	}
 	reportingRoundExpired, err := client.GetAggregatorTimedOutStatus(p.address, reportingRound)
 	if err != nil {
 		return false, err
 	}
-	nodeElegibleToAnswer := lastRoundAnswered.Cmp(latestRound) <= 0
-	return nodeElegibleToAnswer || reportingRoundExpired, nil
+	return reportingRoundExpired, nil
 }
 
 // Stop stops this instance from polling, cleaning up resources.
