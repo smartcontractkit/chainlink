@@ -6,7 +6,7 @@ import (
 
 	"chainlink/core/utils"
 
-	"github.com/ugorji/go/codec"
+	"github.com/fxamacker/cbor/v2"
 )
 
 // ParseCBOR attempts to coerce the input byte array into valid CBOR
@@ -18,8 +18,7 @@ func ParseCBOR(b []byte) (JSON, error) {
 
 	var m map[interface{}]interface{}
 
-	cbor := codec.NewDecoderBytes(autoAddMapDelimiters(b), new(codec.CborHandle))
-	if err := cbor.Decode(&m); err != nil {
+	if err := cbor.Unmarshal(autoAddMapDelimiters(b), &m); err != nil {
 		return JSON{}, err
 	}
 
