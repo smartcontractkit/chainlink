@@ -114,11 +114,13 @@ export function publicAbi(
 export function eventExists(
   receipt: ContractReceipt,
   eventDescription: EventDescription,
-) {
+): ethers.Event {
   const event = findEventIn(receipt, eventDescription)
   if (!event) {
     throw Error(
       `Unable to find ${eventDescription.name} in transaction receipt`,
     )
   }
+
+  return event
 }
