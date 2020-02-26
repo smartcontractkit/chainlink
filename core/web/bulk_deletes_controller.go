@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +11,7 @@ import (
 
 // BulkDeletesController manages background tasks that delete resources given a query
 type BulkDeletesController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Delete removes all runs given a query

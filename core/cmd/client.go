@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -57,20 +57,20 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(*orm.Config, ...func(services.Application)) services.Application
+	NewApplication(*orm.Config, ...func(chainlink.Application)) chainlink.Application
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
-	return services.NewApplication(config, onConnectCallbacks...)
+func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
+	return chainlink.NewApplication(config, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.
 type Runner interface {
-	Run(services.Application) error
+	Run(chainlink.Application) error
 }
 
 // ChainlinkRunner is used to run the node application.
@@ -78,9 +78,9 @@ type ChainlinkRunner struct{}
 
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
-func (n ChainlinkRunner) Run(app services.Application) error {
+func (n ChainlinkRunner) Run(app chainlink.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
-	handler := web.Router(app.(*services.ChainlinkApplication))
+	handler := web.Router(app.(*chainlink.ChainlinkApplication))
 	config := app.GetStore().Config
 	var g errgroup.Group
 

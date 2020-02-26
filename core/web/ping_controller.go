@@ -3,14 +3,14 @@ package web
 import (
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 
 	"github.com/gin-gonic/gin"
 )
 
 // PingController has the ping endpoint.
 type PingController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Show returns pong.
