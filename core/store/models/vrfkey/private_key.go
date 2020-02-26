@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
@@ -40,7 +41,7 @@ func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
 // k.MarshaledProof(seed) is a VRF proof of randomness using k and seed, in the
 // form required by VRF.sol's randomValueFromVRFProof
 func (k *PrivateKey) MarshaledProof(seed *big.Int) (vrf.MarshaledProof, error) {
-	proof, err := vrf.GenerateProof(secp256k1.ToInt(k.k), seed)
+	proof, err := vrf.GenerateProof(secp256k1.ScalarToHash(k.k), common.BigToHash(seed))
 	if err != nil {
 		return vrf.MarshaledProof{}, err
 	}
