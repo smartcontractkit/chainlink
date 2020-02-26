@@ -86,6 +86,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     uint32 indexed round,
     address indexed oracle
   );
+  event RequesterPermissionSet(address indexed requester, bool allowed);
 
   uint32 constant private ROUND_MAX = 2**32-1;
 
@@ -502,6 +503,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     onlyOwner()
   {
     requesters[_requester] = _allowed;
+
+    emit RequesterPermissionSet(_requester, _allowed);
   }
 
   /**
