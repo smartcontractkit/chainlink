@@ -60,7 +60,6 @@ describe('AggregatorProxy', () => {
       'latestAnswer',
       'latestRound',
       'getAnswer',
-      'destroy',
       'setAggregator',
       'latestTimestamp',
       'getTimestamp',

@@ -2,7 +2,6 @@ pragma solidity 0.6.2;
 
 import "./AggregatorInterface.sol";
 import "../Owned.sol";
-import "./Whitelisted.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -94,17 +93,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     onlyOwner()
   {
     aggregator = AggregatorInterface(_aggregator);
-  }
-
-  /**
-   * @notice Allows the owner to destroy the contract if it is not intended to
-   * be used any longer.
-   */
-  function destroy()
-    external
-    onlyOwner()
-  {
-    selfdestruct(owner);
   }
 
   /*
