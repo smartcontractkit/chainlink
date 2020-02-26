@@ -7,18 +7,18 @@ import {
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
-import { PrepaidAggregatorFactory } from '../../ethers/v0.6/PrepaidAggregatorFactory'
+import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
-const prepaidAggregatorFactory = new PrepaidAggregatorFactory()
+const fluxAggregatorFactory = new FluxAggregatorFactory()
 
 beforeAll(async () => {
   personas = await setup.users(provider).then(x => x.personas)
 })
 
-describe('PrepaidAggregator', () => {
+describe('FluxAggregator', () => {
   const paymentAmount = h.toWei('3')
   const deposit = h.toWei('100')
   const answer = 100
@@ -29,13 +29,13 @@ describe('PrepaidAggregator', () => {
   const decimals = 18
   const description = 'LINK/USD'
 
-  let aggregator: contract.Instance<PrepaidAggregatorFactory>
+  let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
   let nextRound: number
   let oracleAddresses: ethers.Wallet[]
 
   async function updateFutureRounds(
-    aggregator: contract.Instance<PrepaidAggregatorFactory>,
+    aggregator: contract.Instance<FluxAggregatorFactory>,
     overrides: {
       minAnswers?: ethers.utils.BigNumberish
       maxAnswers?: ethers.utils.BigNumberish
@@ -63,7 +63,7 @@ describe('PrepaidAggregator', () => {
   }
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await prepaidAggregatorFactory
+    aggregator = await fluxAggregatorFactory
       .connect(personas.Carol)
       .deploy(
         link.address,
@@ -83,7 +83,7 @@ describe('PrepaidAggregator', () => {
   })
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(prepaidAggregatorFactory, [
+    matchers.publicAbi(fluxAggregatorFactory, [
       'addOracle',
       'allocatedFunds',
       'availableFunds',

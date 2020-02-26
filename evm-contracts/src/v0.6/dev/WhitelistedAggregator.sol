@@ -1,14 +1,14 @@
 pragma solidity 0.6.2;
 
-import "./PrepaidAggregator.sol";
+import "./FluxAggregator.sol";
 import "./Whitelisted.sol";
 
 /**
  * @title Whitelisted Prepaid Aggregator contract
  * @notice This contract requires addresses to be added to a whitelist
- * in order to read the answers stored in the PrepaidAggregator contract
+ * in order to read the answers stored in the FluxAggregator contract
  */
-contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
+contract WhitelistedAggregator is FluxAggregator, Whitelisted {
 
   constructor(
     address _link,
@@ -16,7 +16,7 @@ contract WhitelistedAggregator is PrepaidAggregator, Whitelisted {
     uint32 _timeout,
     uint8 _decimals,
     bytes32 _description
-  ) public PrepaidAggregator(
+  ) public FluxAggregator(
     _link,
     _paymentAmount,
     _timeout,
