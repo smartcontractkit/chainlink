@@ -1,9 +1,4 @@
-import {
-  contract,
-  helpers as h,
-  matchers,
-  setup,
-} from '@chainlink/test-helpers'
+import { contract, helpers as h, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
@@ -1677,6 +1672,34 @@ describe('PrepaidAggregator', () => {
 
       const newBalance = await aggregator.availableFunds()
       matchers.bigNum(originalBalance.add(deposit), newBalance)
+    })
+  })
+
+  describe('#startNewRound', () => {
+    it('announces a new round via log event', async () => {
+      const tx = await aggregator.startNewRound()
+      const receipt = await tx.wait()
+      const event = matchers.eventExists(
+        receipt,
+        aggregator.interface.events.NewRound,
+      )
+      const args = h.eventArgs(event)
+
+      assert.equal('NewRound(uint256,address,uint256)', event.eventSignature)
+      matchers.bigNum(nextRound, args.roundId)
+    })
+
+    describe('when there is a round in progress', async () => {
+      beforeEach(async () => {
+        await aggregator.startNewRound()
+      })
+
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator.startNewRound(),
+          'Cannot start a round mid-round',
+        )
+      })
     })
   })
 })

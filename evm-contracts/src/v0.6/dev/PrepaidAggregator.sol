@@ -120,7 +120,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     onlyValidRoundId(uint32(_round))
     onlyValidOracleRound(uint32(_round))
   {
-    startNewRound(uint32(_round));
+    initializeNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
     payOracle(uint32(_round));
@@ -450,6 +450,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   }
 
   /**
+<<<<<<< HEAD
    * @notice get the admin address of an oracle
    * @param _oracle is the address of the oracle whose admin is being queried
    */
@@ -473,6 +474,19 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     oracles[_oracle].admin = _newAdmin;
 
     emit OracleAdminUpdated(_oracle, _newAdmin);
+  }
+
+  /**
+   * @notice allows non-oracles to request a new round
+   */
+  function startNewRound()
+    external
+  {
+    uint32 current = reportingRoundId;
+
+    require(rounds[current].updatedAt > 0, 'Cannot start a round mid-round');
+
+    initializeNewRound(current.add(1));
   }
 
   /**
@@ -535,7 +549,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
    * Private
    */
 
-  function startNewRound(uint32 _id)
+  function initializeNewRound(uint32 _id)
     private
     ifNewRound(_id)
     ifDelayed(_id)
