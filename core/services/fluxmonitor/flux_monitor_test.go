@@ -267,6 +267,13 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
+	ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(2), nil)
+	ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
+		Return(false, nil)
+	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
+		Return(big.NewInt(0), big.NewInt(1), nil)
+
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
 	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
