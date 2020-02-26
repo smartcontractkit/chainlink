@@ -6,7 +6,6 @@ import "./SafeMath128.sol";
 import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/WithdrawalInterface.sol";
 import "./AggregatorInterface.sol";
 import "../Owned.sol";
 
@@ -18,7 +17,7 @@ import "../Owned.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
+contract PrepaidAggregator is AggregatorInterface, Owned {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
@@ -48,6 +47,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     uint32 lastStartedRound;
     int256 latestAnswer;
     uint16 index;
+    address admin;
   }
 
   uint128 public allocatedFunds;
@@ -79,6 +79,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   );
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
+  event OracleAdminUpdated(address indexed oracle, address indexed newAdmin);
   event SubmissionReceived(
     int256 indexed answer,
     uint32 indexed round,
@@ -130,6 +131,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
    * @notice called by the owner to add a new Oracle and update the round
    * related parameters
    * @param _oracle is the address of the new Oracle being added
+   * @param _admin is the admin address of the new oracle. Only this address
+   * is allowed to access the oracle's funds.
    * @param _minAnswers is the new minimum answer count for each round
    * @param _maxAnswers is the new maximum answer count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
@@ -137,6 +140,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
    */
   function addOracle(
     address _oracle,
+    address _admin,
     uint32 _minAnswers,
     uint32 _maxAnswers,
     uint32 _restartDelay
@@ -146,12 +150,19 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     onlyUnenabledAddress(_oracle)
   {
     require(oracleCount() < 42, "cannot add more than 42 oracles");
+    require(_admin != address(0), "admin address must not be 0x0");
+    require(
+      oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin,
+      "cannot modify previously-set admin address"
+    );
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleAddresses.push(_oracle);
     oracles[_oracle].index = uint16(oracleAddresses.length.sub(1));
+    oracles[_oracle].admin = _admin;
 
     emit OracleAdded(_oracle);
+    emit OracleAdminUpdated(_oracle, _admin);
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
@@ -382,29 +393,31 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
   /**
    * @notice query the available amount of LINK for an oracle to withdraw
    */
-  function withdrawable()
+  function withdrawable(address _oracle)
     external
     view
-    override
     returns (uint256)
   {
-    return oracles[msg.sender].withdrawable;
+    return oracles[_oracle].withdrawable;
   }
 
   /**
-   * @notice transfers the oracle's LINK to another address
+   * @notice transfers the oracle's LINK to another address. Can only be called
+   * by the oracle's admin.
+   * @param _oracle is the oracle whose LINK is transferred
    * @param _recipient is the address to send the LINK to
    * @param _amount is the amount of LINK to send
    */
-  function withdraw(address _recipient, uint256 _amount)
+  function withdraw(address _oracle, address _recipient, uint256 _amount)
     external
-    override
   {
+    require(oracles[_oracle].admin == msg.sender, "Only admin can withdraw");
+
     uint128 amount = uint128(_amount);
-    uint128 available = oracles[msg.sender].withdrawable;
+    uint128 available = oracles[_oracle].withdrawable;
     require(available >= amount, "Insufficient balance");
 
-    oracles[msg.sender].withdrawable = available.sub(amount);
+    oracles[_oracle].withdrawable = available.sub(amount);
     allocatedFunds = allocatedFunds.sub(amount);
 
     assert(LINK.transfer(_recipient, uint256(amount)));
@@ -434,6 +447,32 @@ contract PrepaidAggregator is AggregatorInterface, Owned, WithdrawalInterface {
     returns (int256, uint256)
   {
     return (oracles[_oracle].latestAnswer, oracles[_oracle].lastReportedRound);
+  }
+
+  /**
+   * @notice get the admin address of an oracle
+   * @param _oracle is the address of the oracle whose admin is being queried
+   */
+  function getAdmin(address _oracle)
+    external
+    view
+    returns (address)
+  {
+    return oracles[_oracle].admin;
+  }
+
+  /**
+   * @notice update the admin address for an oracle
+   * @param _oracle is the address of the oracle whose admin is being updated
+   * @param _newAdmin is the new admin address
+   */
+  function updateAdmin(address _oracle, address _newAdmin)
+    external
+  {
+    require(oracles[_oracle].admin == msg.sender, "Only admin can update admin");
+    oracles[_oracle].admin = _newAdmin;
+
+    emit OracleAdminUpdated(_oracle, _newAdmin);
   }
 
   /**
