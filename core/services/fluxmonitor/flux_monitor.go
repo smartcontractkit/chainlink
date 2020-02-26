@@ -473,12 +473,14 @@ func (p *PollingDeviationChecker) isEligibleToPoll(client eth.Client) (bool, err
 	roundIsOpen, err := p.isRoundOpen(client)
 	if err != nil {
 		return false, err
+	} else if roundIsOpen {
+		return true, nil
 	}
 	reportingRoundExpired, err := p.isRoundTimedOut(client)
 	if err != nil {
 		return false, err
 	}
-	return roundIsOpen || reportingRoundExpired, nil
+	return reportingRoundExpired, nil
 }
 
 func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
