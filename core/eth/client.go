@@ -146,7 +146,7 @@ func newDecimalFromString(arg string) (decimal.Decimal, error) {
 	return decimal.NewFromString(arg)
 }
 
-// GetAggregatorPrice returns the current price at the given address.
+// GetAggregatorPrice returns the current price at the given aggregator address.
 func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
 	aggregator, err := GetV6Contract(FluxAggregatorName)
 	if err != nil {
@@ -174,7 +174,7 @@ func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address,
 	return raw.Div(precisionDivisor), nil
 }
 
-// GetAggregatorLatestRound returns the latest round at the given address.
+// GetAggregatorLatestRound returns the latest round at the given aggregator address.
 func (client *CallerSubscriberClient) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
 	aggregator, err := GetV6Contract(FluxAggregatorName)
 	if err != nil {
@@ -201,7 +201,7 @@ func (client *CallerSubscriberClient) GetAggregatorLatestRound(address common.Ad
 	return round, nil
 }
 
-// GetAggregatorReportingRound returns the latest round at the given address.
+// GetAggregatorReportingRound returns the reporting round at the given aggregator address.
 func (client *CallerSubscriberClient) GetAggregatorReportingRound(address common.Address) (*big.Int, error) {
 	aggregator, err := GetV6Contract(PrepaidAggregatorName)
 	if err != nil {
