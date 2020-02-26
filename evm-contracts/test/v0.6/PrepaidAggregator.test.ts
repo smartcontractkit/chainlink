@@ -1771,17 +1771,11 @@ describe('PrepaidAggregator', () => {
 
       describe('when permission is removed by the owner', () => {
         beforeEach(async () => {
-          await aggregator.setAuthorization(
-            personas.Neil.address,
-            true,
-          )
+          await aggregator.setAuthorization(personas.Neil.address, true)
         })
 
         it('does not allow the specified address to start new rounds', async () => {
-          await aggregator.setAuthorization(
-            personas.Neil.address,
-            false,
-          )
+          await aggregator.setAuthorization(personas.Neil.address, false)
 
           await matchers.evmRevert(
             aggregator.connect(personas.Neil).startNewRound(),
