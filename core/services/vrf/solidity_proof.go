@@ -125,6 +125,7 @@ func UnmarshalSolidityProof(proof []byte) (rv Proof, err error) {
 	rv.C = i().SetBytes(proof[128:160])
 	rv.S = i().SetBytes(proof[160:192])
 	rv.Seed = i().SetBytes(proof[192:224])
-	rv.Output = utils.MustHash(string(rawGamma)).Big()
+	rv.Output = utils.MustHash(string(vrfRandomOutputHashPrefix) +
+		string(rawGamma)).Big()
 	return rv, nil
 }
