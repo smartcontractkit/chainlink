@@ -104,6 +104,7 @@ describe('PrepaidAggregator', () => {
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
+      'startNewRound',
       'timeout',
       'updateAdmin',
       'updateAnswer',
@@ -1676,6 +1677,20 @@ describe('PrepaidAggregator', () => {
   })
 
   describe('#startNewRound', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(personas.Neil.address, 1, 1, 0)
+
+      await aggregator
+        .connect(personas.Neil)
+        .updateAnswer(nextRound, answer)
+      nextRound = nextRound + 1
+
+      await aggregator
+        .connect(personas.Carol)
+    })
+
     it('announces a new round via log event', async () => {
       const tx = await aggregator.startNewRound()
       const receipt = await tx.wait()
@@ -1683,10 +1698,9 @@ describe('PrepaidAggregator', () => {
         receipt,
         aggregator.interface.events.NewRound,
       )
-      const args = h.eventArgs(event)
 
       assert.equal('NewRound(uint256,address,uint256)', event.eventSignature)
-      matchers.bigNum(nextRound, args.roundId)
+      matchers.bigNum(nextRound, h.eventArgs(event).roundId)
     })
 
     describe('when there is a round in progress', async () => {
@@ -1699,6 +1713,23 @@ describe('PrepaidAggregator', () => {
           aggregator.startNewRound(),
           'Cannot start a round mid-round',
         )
+      })
+
+      describe('when that round has timed out', async () => {
+        beforeEach(async () => {
+          await h.increaseTimeBy(timeout + 1, provider)
+          await h.mineBlock(provider)
+        })
+
+        it('starts a new round', async () => {
+          const tx = await aggregator.startNewRound()
+          const receipt = await tx.wait()
+          const event = matchers.eventExists(
+            receipt,
+            aggregator.interface.events.NewRound,
+          )
+          matchers.bigNum(nextRound + 1, h.eventArgs(event).roundId)
+        })
       })
     })
   })
