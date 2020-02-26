@@ -332,6 +332,46 @@ func TestCallerSubscriberClient_GetAggregatorTimeout(t *testing.T) {
 	}
 }
 
+func TestCallerSubscriberClient_GetAggregatorTimedOutStatus(t *testing.T) {
+	const aggregatorTimedOutStatusID = "0x25b6ae00"
+	address := cltest.NewAddress()
+	aggregatorTimedOutStatusSelector := eth.HexToFunctionSelector(aggregatorTimedOutStatusID)
+	roundBytes := common.Hex2BytesFixed(hexutil.EncodeUint64(0), 32)
+	callData := utils.ConcatBytes(aggregatorTimedOutStatusSelector.Bytes(), roundBytes)
+
+	expectedCallArgs := eth.CallArgs{
+		To:   address,
+		Data: callData,
+	}
+
+	tests := []struct {
+		name        string
+		response    bool
+		expectation bool
+	}{
+		{"true", true, true},
+		{"false", false, false},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			caller := new(mocks.CallerSubscriber)
+			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+
+			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*bool)
+					*res = test.response
+				})
+			result, err := ethClient.GetAggregatorTimedOutStatus(address, big.NewInt(0))
+			require.NoError(t, err)
+			assert.Equal(t, test.expectation, result)
+			caller.AssertExpectations(t)
+		})
+	}
+}
+
 func TestCallerSubscriberClient_GetAggregatorLatestSubmission(t *testing.T) {
 	caller := new(mocks.CallerSubscriber)
 	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
