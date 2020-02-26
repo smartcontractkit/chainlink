@@ -1767,7 +1767,7 @@ describe('PrepaidAggregator', () => {
         assert.equal(args.allowed, true)
       })
 
-      describe('when called by a the owner', () => {
+      describe('when permission is removed by the owner', () => {
         beforeEach(async () => {
           await aggregator.updateRequesterPermission(
             personas.Neil.address,
