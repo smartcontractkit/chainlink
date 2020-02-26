@@ -486,8 +486,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   {
     uint32 current = reportingRoundId;
 
-    bool eligible = rounds[current].updatedAt > 0 || timedOut(current);
-    require(eligible, 'Cannot start a round mid-round');
+    require(rounds[current].updatedAt > 0 || timedOut(current), 'Cannot start a round mid-round');
 
     initializeNewRound(current.add(1));
   }
