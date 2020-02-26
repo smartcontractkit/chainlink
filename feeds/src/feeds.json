@@ -160,7 +160,7 @@
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
     "sponsored": ["Loopring"],
-    "threshold": 1
+    "threshold": 2
   },
   {
     "contractAddress": "0x1EeaF25f2ECbcAf204ECADc8Db7B0db9DA845327",
