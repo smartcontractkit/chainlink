@@ -33,7 +33,6 @@ type Client interface {
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
 	GetAggregatorLatestRound(address common.Address) (*big.Int, error)
 	GetAggregatorReportingRound(address common.Address) (*big.Int, error)
-	GetAggregatorTimeout(address common.Address) (*big.Int, error)
 	GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error)
 	GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
@@ -225,35 +224,6 @@ func (client *CallerSubscriberClient) GetAggregatorReportingRound(address common
 		return nil, errors.Wrapf(
 			fmt.Errorf("unable to parse int from %s", result),
 			"unable to fetch aggregator round from %s", address.Hex())
-	}
-	return round, nil
-}
-
-// GetAggregatorTimeout returns the latest round at the given address.
-func (client *CallerSubscriberClient) GetAggregatorTimeout(address common.Address) (*big.Int, error) {
-	errMessage := fmt.Sprintf("unable to fetch aggregator timeout from %s", address.Hex())
-
-	aggregator, err := GetV6Contract(FluxAggregatorName)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
-	}
-	data, err := aggregator.EncodeMessageCall("timeout")
-	if err != nil {
-		return nil, errors.Wrap(err, errMessage)
-	}
-
-	var result string
-	args := CallArgs{To: address, Data: data}
-	err = client.Call(&result, "eth_call", args, "latest")
-	if err != nil {
-		return nil, errors.Wrap(err, errMessage)
-	}
-
-	round, err := newBigIntFromString(result)
-	if err != nil {
-		return nil, errors.Wrapf(
-			fmt.Errorf("unable to parse int from %s", result),
-			errMessage)
 	}
 	return round, nil
 }
