@@ -472,7 +472,7 @@ func (p *PollingDeviationChecker) pollIfRoundOpen(client eth.Client) bool {
 }
 
 func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
-	latestRound, err := client.GetAggregatorRound(p.address)
+	latestRound, err := client.GetAggregatorLatestRound(p.address)
 	if err != nil {
 		return false, err
 	}
@@ -501,7 +501,7 @@ func (p *PollingDeviationChecker) fetchAggregatorData(client eth.Client) error {
 	}
 	p.currentPrice = price
 
-	round, err := client.GetAggregatorRound(p.address)
+	round, err := client.GetAggregatorLatestRound(p.address)
 	if err != nil {
 		return err
 	}
