@@ -228,7 +228,7 @@ func (client *CallerSubscriberClient) GetAggregatorReportingRound(address common
 	return round, nil
 }
 
-// GetAggregatorTimedOutStatus returns the latest round at the given address.
+// GetAggregatorTimedOutStatus returns the a boolean indicating whether the provided round has timed out or not
 func (client *CallerSubscriberClient) GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error) {
 	errMessage := fmt.Sprintf("unable to fetch aggregator timed out status from %s", address.Hex())
 
