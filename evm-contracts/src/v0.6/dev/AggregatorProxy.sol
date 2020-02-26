@@ -2,7 +2,6 @@ pragma solidity 0.6.2;
 
 import "./AggregatorInterface.sol";
 import "../Owned.sol";
-import "./Whitelisted.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
