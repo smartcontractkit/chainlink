@@ -1,4 +1,9 @@
-import { contract, helpers as h, matchers, setup } from '@chainlink/test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  setup,
+} from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
@@ -110,7 +115,7 @@ describe('PrepaidAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'updateRequesterPermission',
+      'setAuthorization',
       'withdraw',
       'withdrawFunds',
       'withdrawable',
@@ -1686,7 +1691,7 @@ describe('PrepaidAggregator', () => {
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       nextRound = nextRound + 1
 
-      await aggregator.updateRequesterPermission(personas.Carol.address, true)
+      await aggregator.setAuthorization(personas.Carol.address, true)
 
       await aggregator.connect(personas.Carol)
     })
@@ -1746,20 +1751,20 @@ describe('PrepaidAggregator', () => {
 
     describe('when called by the owner', () => {
       it('allows the specified address to start new rounds', async () => {
-        await aggregator.updateRequesterPermission(personas.Neil.address, true)
+        await aggregator.setAuthorization(personas.Neil.address, true)
 
         await aggregator.connect(personas.Neil).startNewRound()
       })
 
       it('emits a log announcing the update', async () => {
-        const tx = await aggregator.updateRequesterPermission(
+        const tx = await aggregator.setAuthorization(
           personas.Neil.address,
           true,
         )
         const receipt = await tx.wait()
         const event = matchers.eventExists(
           receipt,
-          aggregator.interface.events.RequesterPermissionSet,
+          aggregator.interface.events.RequesterAuthorizationSet,
         )
         const args = h.eventArgs(event)
 
@@ -1769,33 +1774,33 @@ describe('PrepaidAggregator', () => {
 
       describe('when permission is removed by the owner', () => {
         beforeEach(async () => {
-          await aggregator.updateRequesterPermission(
+          await aggregator.setAuthorization(
             personas.Neil.address,
             true,
           )
         })
 
         it('does not allow the specified address to start new rounds', async () => {
-          await aggregator.updateRequesterPermission(
+          await aggregator.setAuthorization(
             personas.Neil.address,
             false,
           )
 
           await matchers.evmRevert(
             aggregator.connect(personas.Neil).startNewRound(),
-            'Only whitelisted requesters can call',
+            'Only authorized requesters can call',
           )
         })
 
         it('emits a log announcing the update', async () => {
-          const tx = await aggregator.updateRequesterPermission(
+          const tx = await aggregator.setAuthorization(
             personas.Neil.address,
             false,
           )
           const receipt = await tx.wait()
           const event = matchers.eventExists(
             receipt,
-            aggregator.interface.events.RequesterPermissionSet,
+            aggregator.interface.events.RequesterAuthorizationSet,
           )
           const args = h.eventArgs(event)
 
@@ -1810,13 +1815,13 @@ describe('PrepaidAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .updateRequesterPermission(personas.Neil.address, true),
+            .setAuthorization(personas.Neil.address, true),
           'Only callable by owner',
         )
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).startNewRound(),
-          'Only whitelisted requesters can call',
+          'Only authorized requesters can call',
         )
       })
     })

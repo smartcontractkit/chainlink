@@ -67,7 +67,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
-  mapping(address => bool) internal requesters;
+  mapping(address => bool) internal authorizedRequesters;
   address[] private oracleAddresses;
 
   event AvailableFundsUpdated(uint256 indexed amount);
@@ -86,7 +86,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     uint32 indexed round,
     address indexed oracle
   );
-  event RequesterPermissionSet(address indexed requester, bool allowed);
+  event RequesterAuthorizationSet(address indexed requester, bool allowed);
 
   uint32 constant private ROUND_MAX = 2**32-1;
 
@@ -452,7 +452,6 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   }
 
   /**
-<<<<<<< HEAD
    * @notice get the admin address of an oracle
    * @param _oracle is the address of the oracle whose admin is being queried
    */
@@ -483,7 +482,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
    */
   function startNewRound()
     external
-    onlyWhitelistedRequesters()
+    onlyAuthorizedRequesters()
   {
     uint32 current = reportingRoundId;
 
@@ -498,13 +497,13 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
    * @param _requester is the address to set permissions for
    * @param _allowed is a boolean specifying whether they can start new rounds or not
    */
-  function updateRequesterPermission(address _requester, bool _allowed)
+  function setAuthorization(address _requester, bool _allowed)
     external
     onlyOwner()
   {
-    requesters[_requester] = _allowed;
+    authorizedRequesters[_requester] = _allowed;
 
-    emit RequesterPermissionSet(_requester, _allowed);
+    emit RequesterAuthorizationSet(_requester, _allowed);
   }
 
   /**
@@ -751,8 +750,8 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     _;
   }
 
-  modifier onlyWhitelistedRequesters() {
-    require(requesters[msg.sender], "Only whitelisted requesters can call");
+  modifier onlyAuthorizedRequesters() {
+    require(authorizedRequesters[msg.sender], "Only authorized requesters can call");
     _;
   }
 
