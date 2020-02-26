@@ -492,7 +492,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice allows the owner to specify nex non-oracles to start new rounds
+   * @notice allows the owner to specify new non-oracles to start new rounds
    * @param _requester is the address to set permissions for
    * @param _allowed is a boolean specifying whether they can start new rounds or not
    */

@@ -1692,8 +1692,6 @@ describe('PrepaidAggregator', () => {
       nextRound = nextRound + 1
 
       await aggregator.setAuthorization(personas.Carol.address, true)
-
-      await aggregator.connect(personas.Carol)
     })
 
     it('announces a new round via log event', async () => {
@@ -1704,7 +1702,6 @@ describe('PrepaidAggregator', () => {
         aggregator.interface.events.NewRound,
       )
 
-      assert.equal('NewRound(uint256,address,uint256)', event.eventSignature)
       matchers.bigNum(nextRound, h.eventArgs(event).roundId)
     })
 
