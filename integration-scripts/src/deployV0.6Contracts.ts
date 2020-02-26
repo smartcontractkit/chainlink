@@ -30,7 +30,13 @@ export async function deployContracts() {
     ethers.utils.formatBytes32String('ETH/USD'),
   )
   const { CHAINLINK_NODE_ADDRESS } = getArgs(['CHAINLINK_NODE_ADDRESS'])
-  await prepaidAggregator.addOracle(CHAINLINK_NODE_ADDRESS, 1, 1, 0)
+  await prepaidAggregator.addOracle(
+    CHAINLINK_NODE_ADDRESS,
+    CHAINLINK_NODE_ADDRESS,
+    1,
+    1,
+    0,
+  )
 
   return {
     linkToken,
