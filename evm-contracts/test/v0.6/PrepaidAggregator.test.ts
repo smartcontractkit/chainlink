@@ -1805,7 +1805,7 @@ describe('PrepaidAggregator', () => {
       })
     })
 
-    describe('when called by a the owner', () => {
+    describe('when called by a stranger', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator
