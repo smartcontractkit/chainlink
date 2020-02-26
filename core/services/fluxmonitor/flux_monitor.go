@@ -617,7 +617,7 @@ func (p *PollingDeviationChecker) fetchPrices() (decimal.Decimal, error) {
 }
 
 func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRound *big.Int) error {
-	aggregatorContract, err := eth.GetV6Contract(eth.PrepaidAggregatorName)
+	aggregatorContract, err := eth.GetV6Contract(eth.FluxAggregatorName)
 	if err != nil {
 		return err
 	}

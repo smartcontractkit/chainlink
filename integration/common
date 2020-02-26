@@ -87,7 +87,7 @@ deploy_v06_contracts() {
   local log=$LOG_PATH/deployv0.6.log
   yarn workspace @chainlink/integration-scripts deploy-v0.6-contracts | tee log
   export LINK_TOKEN_ADDRESS=`cat log | grep 'Deployed LinkToken at:' | awk '{print$4}'`
-  export PREPAID_AGGREGATOR_ADDRESS=`cat log | grep 'Deployed PrepaidAggregator at:' | awk '{print$4}'`
+  export PREPAID_AGGREGATOR_ADDRESS=`cat log | grep 'Deployed FluxAggregator at:' | awk '{print$4}'`
 }
 
 print_logs() {

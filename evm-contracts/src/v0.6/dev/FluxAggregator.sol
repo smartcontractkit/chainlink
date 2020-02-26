@@ -17,7 +17,7 @@ import "../Owned.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract PrepaidAggregator is AggregatorInterface, Owned {
+contract FluxAggregator is AggregatorInterface, Owned {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
