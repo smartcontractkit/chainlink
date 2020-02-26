@@ -4,6 +4,7 @@ import aave from 'assets/sponsors/aave.png'
 import ampleforth from 'assets/sponsors/ampleforth.png'
 import loopring from 'assets/sponsors/loopring.png'
 import nexusmutual from 'assets/sponsors/nexusmutual.png'
+import openlaw from 'assets/sponsors/openlaw.png'
 import setprotocol from 'assets/sponsors/setprotocol.png'
 import synthetix from 'assets/sponsors/synthetix.png'
 import ReactGA from 'react-ga'
@@ -39,6 +40,11 @@ const list = [
     name: 'Nexusmutual',
     url: 'https://nexusmutual.io',
     src: nexusmutual,
+  },
+  {
+    name: 'OpenLaw',
+    url: 'https://www.openlaw.io',
+    src: openlaw,
   },
 ]
 
