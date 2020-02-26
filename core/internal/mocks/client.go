@@ -22,6 +22,29 @@ type Client struct {
 	mock.Mock
 }
 
+// GetAggregatorLatestRound provides a mock function with given fields: address
+func (_m *Client) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
+	ret := _m.Called(address)
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
+		r0 = rf(address)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
+		r1 = rf(address)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAggregatorLatestSubmission provides a mock function with given fields: aggregatorAddress, oracleAddress
 func (_m *Client) GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
 	ret := _m.Called(aggregatorAddress, oracleAddress)
@@ -75,8 +98,8 @@ func (_m *Client) GetAggregatorPrice(address common.Address, precision int32) (d
 	return r0, r1
 }
 
-// GetAggregatorLatestRound provides a mock function with given fields: address
-func (_m *Client) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
+// GetAggregatorReportingRound provides a mock function with given fields: address
+func (_m *Client) GetAggregatorReportingRound(address common.Address) (*big.Int, error) {
 	ret := _m.Called(address)
 
 	var r0 *big.Int
