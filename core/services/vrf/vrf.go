@@ -325,19 +325,13 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 // secretKey and seed must be less than secp256k1 group order. (Without this
 // constraint on the seed, the samples and the possible public keys would
 // deviate very slightly from uniform distribution.)
-func GenerateProof(secretKey, seed *big.Int) (*Proof, error) {
-	if secretKey.Cmp(zero) < 0 || seed.Cmp(zero) < 0 {
-		return nil, fmt.Errorf("seed and/or secret key must be non-negative")
-	}
-	if secretKey.Cmp(secp256k1.GroupOrder) >= 0 || seed.Cmp(secp256k1.GroupOrder) >= 0 {
-		return nil, fmt.Errorf("seed and/or secret key must be less than group order")
-	}
+func GenerateProof(secretKey, seed common.Hash) (*Proof, error) {
 	for {
 		nonce, err := rand.Int(rand.Reader, secp256k1.GroupOrder)
 		if err != nil {
 			return nil, err
 		}
-		proof, err := generateProofWithNonce(secretKey, seed, nonce)
+		proof, err := generateProofWithNonce(secretKey.Big(), seed.Big(), nonce)
 		switch {
 		case err == ErrCGammaEqualsSHash:
 			// This is cryptographically impossible, but if it were ever to happen, we
