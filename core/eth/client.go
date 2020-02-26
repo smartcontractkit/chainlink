@@ -33,6 +33,7 @@ type Client interface {
 	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
 	GetAggregatorRound(address common.Address) (*big.Int, error)
 	GetAggregatorTimeout(address common.Address) (*big.Int, error)
+	GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error)
 	GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
@@ -227,6 +228,29 @@ func (client *CallerSubscriberClient) GetAggregatorTimeout(address common.Addres
 			errMessage)
 	}
 	return round, nil
+}
+
+// GetAggregatorTimedOutStatus returns the latest round at the given address.
+func (client *CallerSubscriberClient) GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error) {
+	errMessage := fmt.Sprintf("unable to fetch aggregator timed out status from %s", address.Hex())
+
+	aggregator, err := GetV6Contract(PrepaidAggregatorName)
+	if err != nil {
+		return false, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
+	}
+	data, err := aggregator.EncodeMessageCall("getTimedOutStatus", round)
+	if err != nil {
+		return false, errors.Wrap(err, errMessage+"- unable to encode message call")
+	}
+
+	var result bool
+	args := CallArgs{To: address, Data: data}
+	err = client.Call(&result, "eth_call", args, "latest")
+	if err != nil {
+		return false, errors.Wrap(err, errMessage)
+	}
+
+	return result, nil
 }
 
 // GetAggregatorLatestSubmission returns the latest submission as a tuple, (answer, round)
