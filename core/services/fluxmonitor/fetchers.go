@@ -134,14 +134,15 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 }
 
 func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
-	var err error
-	prices := make([]decimal.Decimal, len(m.fetchers))
+	prices := []decimal.Decimal{}
 	fetchErrors := []error{}
-	for i, fetcher := range m.fetchers {
-		prices[i], err = fetcher.Fetch()
+	for _, fetcher := range m.fetchers {
+		price, err := fetcher.Fetch()
 		if err != nil {
 			logger.Error(err)
 			fetchErrors = append(fetchErrors, err)
+		} else {
+			prices = append(prices, price)
 		}
 	}
 
