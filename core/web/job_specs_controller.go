@@ -49,8 +49,9 @@ func (jsc *JobSpecsController) requireImplemented(js models.JobSpec) error {
 	return nil
 }
 
-// getAndCheckJobSpec(c) returns a validated job spec from c, or errors. On
-// error, a non-zero HTTP status is returned.
+// getAndCheckJobSpec(c) returns a validated job spec from c, or errors. The
+// httpStatus return value is only meaningful on error, and in that case
+// reflects the type of failure to be reported back to the client.
 func (jsc *JobSpecsController) getAndCheckJobSpec(
 	c *gin.Context) (js models.JobSpec, httpStatus int, err error) {
 	var jsr models.JobSpecRequest
@@ -86,9 +87,10 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	// TODO(alx): Roundtrip the presenters.JobSpec through JSON, back to a
-	// JobSpec, and validate it. This will warn developers when there's a
-	// disparity in the presenters logic for the spec.
+	// TODO(alx)[If you encounter this TODO in addressing some other issue, you
+	// are not obliged to fix it]: Roundtrip the presenters.JobSpec through JSON,
+	// back to a JobSpec, and validate it. This will warn developers when there's
+	// a disparity in the presenters logic for the spec.
 	// https://www.pivotaltracker.com/story/show/171169052
 	jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 }
