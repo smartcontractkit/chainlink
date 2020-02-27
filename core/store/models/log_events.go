@@ -25,7 +25,7 @@ const (
 	RequestLogTopicPayment
 )
 
-// Descriptive indices of the PrepaidAggregator's NewRound Topic Array:
+// Descriptive indices of the FluxAggregator's NewRound Topic Array:
 // event NewRound(uint256 indexed roundId, address indexed startedBy);
 const (
 	NewRoundTopicSignature = iota
@@ -67,8 +67,8 @@ var (
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
-	// the PrepaidAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("PrepaidAggregator", "NewRound")
+	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
+	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "NewRound")
 )
 
 type logRequestParser interface {

@@ -1,4 +1,4 @@
-import { PrepaidAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/PrepaidAggregatorFactory'
+import { FluxAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/FluxAggregatorFactory'
 import { ethers } from 'ethers'
 import {
   createProvider,
@@ -21,8 +21,8 @@ export async function deployContracts() {
 
   const linkToken = await deployLinkTokenContract()
 
-  const prepaidAggregator = await deployContract(
-    { Factory: PrepaidAggregatorFactory, signer, name: 'PrepaidAggregator' },
+  const fluxAggregator = await deployContract(
+    { Factory: FluxAggregatorFactory, signer, name: 'FluxAggregator' },
     linkToken.address,
     1,
     3,
@@ -30,7 +30,7 @@ export async function deployContracts() {
     ethers.utils.formatBytes32String('ETH/USD'),
   )
   const { CHAINLINK_NODE_ADDRESS } = getArgs(['CHAINLINK_NODE_ADDRESS'])
-  await prepaidAggregator.addOracle(
+  await fluxAggregator.addOracle(
     CHAINLINK_NODE_ADDRESS,
     CHAINLINK_NODE_ADDRESS,
     1,
@@ -40,6 +40,6 @@ export async function deployContracts() {
 
   return {
     linkToken,
-    prepaidAggregator,
+    fluxAggregator,
   }
 }
