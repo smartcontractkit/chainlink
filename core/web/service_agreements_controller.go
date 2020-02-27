@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
@@ -15,7 +16,7 @@ import (
 
 // ServiceAgreementsController manages service agreements.
 type ServiceAgreementsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create builds and saves a new service agreement record.

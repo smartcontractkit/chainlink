@@ -21,7 +21,7 @@ import (
 	"chainlink/core/auth"
 	"chainlink/core/cmd"
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -142,7 +142,7 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	t testing.TB
-	*services.ChainlinkApplication
+	*chainlink.ChainlinkApplication
 	Config           *TestConfig
 	Server           *httptest.Server
 	wsServer         *httptest.Server
@@ -223,9 +223,9 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 	cleanupDB := PrepareTestDB(tc)
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := services.NewApplication(tc.Config, func(app services.Application) {
+	app := chainlink.NewApplication(tc.Config, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
-	}).(*services.ChainlinkApplication)
+	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
 	ta.EthMock = MockEthOnStore(t, app.Store, flags...)
 
@@ -243,7 +243,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 	}
 }
 
-func newServer(app services.Application) *httptest.Server {
+func newServer(app chainlink.Application) *httptest.Server {
 	engine := web.Router(app)
 	return httptest.NewServer(engine)
 }

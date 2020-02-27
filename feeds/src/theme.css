@@ -21973,48 +21973,35 @@ hr {
   text-align: center;
   margin-bottom: 60px;
 }
-.landing-page .sponsors {
-  margin: 40px 0;
+.landing-page .logos {
   display: flex;
   justify-items: center;
   justify-content: space-between;
   align-items: center;
 }
-.landing-page .sponsors-wrapper {
+.landing-page .logos-wrapper {
   text-align: center;
   max-width: 1000px;
-  margin: 0 auto;
+  margin: 100px auto;
 }
-.landing-page .sponsors .ampleforth {
-  width: 190px;
+.landing-page .logos-wrapper h3 {
+  margin-bottom: 22px;
+  font-weight: 500;
+  font-size: 26px;
 }
-.landing-page .sponsors .setprotocol {
-  width: 190px;
+.landing-page .logos .grayscale {
+  filter: grayscale(100%);
 }
-.landing-page .sponsors .loopring {
-  top: -10px;
-  position: relative;
+.landing-page .logos .grayscale:hover {
+  filter: grayscale(0%);
 }
-.landing-page .sponsors .nexusmutual {
-  background-color: #20252e;
-  width: 190px;
+.landing-page .logos .logo-item {
+  margin: 30px;
+  display: block;
 }
-.landing-page .sponsors > svg,
-.landing-page .sponsors > img {
-  margin: 20px 0;
-}
-@media (max-width: 992px) {
-  .landing-page .head__title {
-    width: auto;
-  }
-  .landing-page .sponsors {
-    flex-direction: column;
-    align-items: center;
-  }
-  .landing-page .sponsors svg,
-  .landing-page .sponsors img {
-    margin-bottom: 30px;
-  }
+.landing-page .logos .logo-item svg,
+.landing-page .logos .logo-item img {
+  width: 100%;
 }
 .footer {
   margin-top: 200px;

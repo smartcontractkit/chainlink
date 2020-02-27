@@ -11,7 +11,7 @@
     "history": true,
     "decimalPlaces": 3,
     "multiply": "100000000",
-    "sponsored": ["Synthetix", "Loopring"],
+    "sponsored": ["Synthetix", "Loopring", "OpenLaw"],
     "threshold": 0.5
   },
   {
@@ -160,7 +160,7 @@
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
     "sponsored": ["Loopring"],
-    "threshold": 1
+    "threshold": 5
   },
   {
     "contractAddress": "0x1EeaF25f2ECbcAf204ECADc8Db7B0db9DA845327",

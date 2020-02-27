@@ -21,7 +21,7 @@ import (
 	"chainlink/core/cmd"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -448,24 +448,24 @@ func (rm *RendererMock) Render(v interface{}) error {
 
 // InstanceAppFactory is an InstanceAppFactory
 type InstanceAppFactory struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
 	return f.App
 }
 
 type seededAppFactory struct {
-	Application services.Application
+	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
 	return noopStopApplication{s.Application}
 }
 
 type noopStopApplication struct {
-	services.Application
+	chainlink.Application
 }
 
 func (a noopStopApplication) Stop() error {
@@ -494,7 +494,7 @@ type BlockedRunner struct {
 }
 
 // Run runs the blocked runner, doesn't return until the channel is signalled
-func (r BlockedRunner) Run(app services.Application) error {
+func (r BlockedRunner) Run(app chainlink.Application) error {
 	<-r.Done
 	return nil
 }
@@ -503,7 +503,7 @@ func (r BlockedRunner) Run(app services.Application) error {
 type EmptyRunner struct{}
 
 // Run runs the empty runner
-func (r EmptyRunner) Run(app services.Application) error {
+func (r EmptyRunner) Run(app chainlink.Application) error {
 	return nil
 }
 

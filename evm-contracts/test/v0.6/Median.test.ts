@@ -255,32 +255,21 @@ describe('Median', () => {
   describe('validate sorting network', () => {
     const net = [
       [0, 1],
-      [1, 2],
-      [0, 1],
-      [3, 4],
-      [6, 7],
-      [4, 5],
-      [7, 8],
-      [3, 4],
-      [6, 7],
-      [0, 3],
-      [3, 6],
-      [0, 3],
-      [1, 4],
-      [4, 7],
-      [1, 4],
-      [5, 8],
-      [2, 5],
-      [2, 4],
-      [4, 6],
-      [2, 4],
-      [1, 3],
       [2, 3],
-      // These last three comparators are commented out in the contract,
-      // because they cannot affect the median.
-      [5, 8],
-      [5, 7],
+      [4, 5],
+      [0, 2],
+      [1, 3],
+      [4, 6],
+      [1, 2],
       [5, 6],
+      [0, 4],
+      [1, 5],
+      [2, 6],
+      [1, 4],
+      [3, 6],
+      [2, 4],
+      [3, 5],
+      [3, 4],
     ]
 
     // See: https://en.wikipedia.org/wiki/Sorting_network#Zero-one_principle
@@ -293,10 +282,8 @@ describe('Median', () => {
         }
       }
 
-      for (let n = 0; n < (1 << 9) - 1; n++) {
+      for (let n = 0; n < (1 << 7) - 1; n++) {
         const list = [
-          (n >> 8) & 1,
-          (n >> 7) & 1,
           (n >> 6) & 1,
           (n >> 5) & 1,
           (n >> 4) & 1,
