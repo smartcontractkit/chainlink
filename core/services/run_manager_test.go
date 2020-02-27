@@ -18,6 +18,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -609,10 +610,9 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			defer configCleanup()
 			config.Set("DATABASE_TIMEOUT", "10s") // Lots of parallelized tests
 			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment)
-			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
-			defer cleanup()
 
-			app.StartAndConnect()
+			store, storeCleanup := cltest.NewStoreWithConfig(config)
+			defer storeCleanup()
 
 			bt := &models.BridgeType{
 				Name:                   models.MustNewTaskType("expensiveBridge"),
@@ -620,7 +620,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 				Confirmations:          0,
 				MinimumContractPayment: test.bridgePayment,
 			}
-			require.NoError(t, app.Store.CreateBridgeType(bt))
+			require.NoError(t, store.CreateBridgeType(bt))
 
 			job := cltest.NewJobWithRunLogInitiator()
 			job.MinPayment = test.jobMinimumPayment
@@ -628,7 +628,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 				cltest.NewTask(t, "NoOp"),
 				cltest.NewTask(t, bt.Name.String()),
 			}
-			require.NoError(t, app.Store.CreateJob(&job))
+			require.NoError(t, store.CreateJob(&job))
 			initiator := job.Initiators[0]
 
 			creationHeight := big.NewInt(1)
@@ -637,10 +637,21 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			runRequest.Payment = test.inputPayment
 			runRequest.RequestParams = cltest.JSONFromString(t, `{"random": "input"}`)
 
-			run, err := app.RunManager.Create(job.ID, &initiator, creationHeight, runRequest)
+			pusher := new(mocks.StatsPusher)
+			pusher.On("PushNow").Return(nil)
+
+			runQueue := new(mocks.RunQueue)
+			runQueue.On("Run", mock.Anything).Return(nil)
+
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+			run, err := runManager.Create(job.ID, &initiator, creationHeight, runRequest)
 			require.NoError(t, err)
 
-			assert.Equal(t, test.jobStatus, run.Status)
+			runManager.ResumeAllConfirming(big.NewInt(3821))
+
+			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
+				return run.Status
+			}).Should(gomega.Equal(test.jobStatus))
 		})
 	}
 }
