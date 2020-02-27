@@ -6,7 +6,7 @@ import "./dev/SignedSafeMath.sol";
 library Median {
   using SignedSafeMath for int256;
 
-  int256 constant intMax = 57896044618658097711785492504343953926634992332820282019728792003956564819967;
+  int256 constant INT_MAX = 2**255-1;
 
   /**
    * @notice Returns the sorted middle, or the average of the two middle indexed items if the
@@ -21,12 +21,7 @@ library Median {
     pure
     returns (int256)
   {
-    require(0 < list.length, "list must not be empty");
-    if (list.length <= 9) {
-      return shortList(list);
-    } else {
-      return longList(copy(list));
-    }
+    return calculateInplace(copy(list));
   }
 
   /**
@@ -39,86 +34,6 @@ library Median {
     returns (int256)
   {
     require(0 < list.length, "list must not be empty");
-    if (list.length <= 9) {
-      return shortList(list);
-    } else {
-      return longList(list);
-    }
-  }
-
-  /**
-   * @notice Optimized median computation for lists of length at most 9
-   * @dev Assumes that 0 < list.len <= 9
-   * @dev Does not modify list
-   */
-  function shortList(int256[] memory list)
-    private
-    pure
-    returns (int256)
-  {
-    // Uses an optimal sorting network (https://en.wikipedia.org/wiki/Sorting_network)
-    // for lists of length 9. Network layout is taken from https://stackoverflow.com/a/46801450
-
-    uint256 len = list.length;
-    int256 x0 = list[0];
-    if (len == 1) {return x0;}
-    // --- end of subnetwork for lists of length <= 1
-    int256 x1 = list[1];
-    if (x0 > x1) {(x0, x1) = (x1, x0);}
-    if (len == 2) {return SignedSafeMath.avg(x0, x1);}
-    // --- end of subnetwork for lists of length <= 2
-    int256 x2 = list[2];
-    if (x1 > x2) {(x1, x2) = (x2, x1);}
-    if (x0 > x1) {(x0, x1) = (x1, x0);}
-    if (len == 3) {return x1;}
-    // --- end of subnetwork for lists of length <= 3
-    int256 x3 = list[3];
-    int256 x4 = 4 < len ? list[4] : intMax;
-    int256 x5 = 5 < len ? list[5] : intMax;
-    int256 x6 = 6 < len ? list[6] : intMax;
-    int256 x7 = 7 < len ? list[7] : intMax;
-    int256 x8 = 8 < len ? list[8] : intMax;
-    if (x3 > x4) {(x3, x4) = (x4, x3);}
-    if (x6 > x7) {(x6, x7) = (x7, x6);}
-    if (x4 > x5) {(x4, x5) = (x5, x4);}
-    if (x7 > x8) {(x7, x8) = (x8, x7);}
-    if (x3 > x4) {(x3, x4) = (x4, x3);}
-    if (x6 > x7) {(x6, x7) = (x7, x6);}
-    if (x0 > x3) {(x0, x3) = (x3, x0);}
-    if (x3 > x6) {(x3, x6) = (x6, x3);}
-    if (x0 > x3) {(x0, x3) = (x3, x0);}
-    if (x1 > x4) {(x1, x4) = (x4, x1);}
-    if (x4 > x7) {(x4, x7) = (x7, x4);}
-    if (x1 > x4) {(x1, x4) = (x4, x1);}
-    if (x5 > x8) {(x5, x8) = (x8, x5);}
-    if (x2 > x5) {(x2, x5) = (x5, x2);}
-    if (x2 > x4) {(x2, x4) = (x4, x2);}
-    if (x4 > x6) {(x4, x6) = (x6, x4);}
-    if (x2 > x4) {(x2, x4) = (x4, x2);}
-    if (x1 > x3) {(x1, x3) = (x3, x1);}
-    if (x2 > x3) {(x2, x3) = (x3, x2);}
-    // Since we don't care about fully sorting list, but only want the median,
-    // some unnecessary comparators have been commented out below.
-    // if (x5 > x8) {(x5, x8) = (x8, x5);}
-    // if (x5 > x7) {(x5, x7) = (x7, x5);}
-    // if (x5 > x6) {(x5, x6) = (x6, x5);}
-    if (len == 4) {return SignedSafeMath.avg(x1, x2);}
-    if (len == 5) {return x2;}
-    if (len == 6) {return SignedSafeMath.avg(x2, x3);}
-    if (len == 7) {return x3;}
-    if (len == 8) {return SignedSafeMath.avg(x3, x4);}
-    if (len == 9) {return x4;}
-    revert("list.length > 9");
-  }
-
-  /**
-   * @notice Median computation for lists of any length
-   */
-  function longList(int256[] memory list)
-    private
-    pure
-    returns (int256)
-  {
     uint256 len = list.length;
     uint256 middleIndex = len / 2;
     if (len % 2 == 0) {
@@ -132,6 +47,11 @@ library Median {
   }
 
   /**
+   * @notice Maximum length of list that shortSelectTwo can handle
+   */
+  uint256 constant SHORTSELECTTWO_MAX_LENGTH = 7;
+
+  /**
    * @notice Select the k1-th and k2-th element from list of length at most 7
    * @dev Uses an optimal sorting network
    */
@@ -142,39 +62,39 @@ library Median {
     uint256 k1,
     uint256 k2
   )
-    public
+    private
     pure
     returns (int256 k1th, int256 k2th)
   {
     // Uses an optimal sorting network (https://en.wikipedia.org/wiki/Sorting_network)
     // for lists of length 7. Network layout is taken from
-    // http://jgamble.ripco.net/cgi-bin/nw.cgi?inputs=7&algorithm=best&output=svg
+    // http://jgamble.ripco.net/cgi-bin/nw.cgi?inputs=7&algorithm=hibbard&output=svg
 
     uint256 len = hi + 1 - lo;
     int256 x0 = list[lo + 0];
-    int256 x1 = 1 < len ? list[lo + 1] : intMax;
-    int256 x2 = 2 < len ? list[lo + 2] : intMax;
-    int256 x3 = 3 < len ? list[lo + 3] : intMax;
-    int256 x4 = 4 < len ? list[lo + 4] : intMax;
-    int256 x5 = 5 < len ? list[lo + 5] : intMax;
-    int256 x6 = 6 < len ? list[lo + 6] : intMax;
+    int256 x1 = 1 < len ? list[lo + 1] : INT_MAX;
+    int256 x2 = 2 < len ? list[lo + 2] : INT_MAX;
+    int256 x3 = 3 < len ? list[lo + 3] : INT_MAX;
+    int256 x4 = 4 < len ? list[lo + 4] : INT_MAX;
+    int256 x5 = 5 < len ? list[lo + 5] : INT_MAX;
+    int256 x6 = 6 < len ? list[lo + 6] : INT_MAX;
 
-    if (x1 > x2) {(x1, x2) = (x2, x1);}
-    if (x3 > x4) {(x3, x4) = (x4, x3);}
-    if (x5 > x6) {(x5, x6) = (x6, x5);}
-    if (x0 > x2) {(x0, x2) = (x2, x0);}
-    if (x3 > x5) {(x3, x5) = (x5, x3);}
-    if (x4 > x6) {(x4, x6) = (x6, x4);}
     if (x0 > x1) {(x0, x1) = (x1, x0);}
+    if (x2 > x3) {(x2, x3) = (x3, x2);}
     if (x4 > x5) {(x4, x5) = (x5, x4);}
-    if (x2 > x6) {(x2, x6) = (x6, x2);}
+    if (x0 > x2) {(x0, x2) = (x2, x0);}
+    if (x1 > x3) {(x1, x3) = (x3, x1);}
+    if (x4 > x6) {(x4, x6) = (x6, x4);}
+    if (x1 > x2) {(x1, x2) = (x2, x1);}
+    if (x5 > x6) {(x5, x6) = (x6, x5);}
     if (x0 > x4) {(x0, x4) = (x4, x0);}
     if (x1 > x5) {(x1, x5) = (x5, x1);}
-    if (x0 > x3) {(x0, x3) = (x3, x0);}
-    if (x2 > x5) {(x2, x5) = (x5, x2);}
-    if (x1 > x3) {(x1, x3) = (x3, x1);}
+    if (x2 > x6) {(x2, x6) = (x6, x2);}
+    if (x1 > x4) {(x1, x4) = (x4, x1);}
+    if (x3 > x6) {(x3, x6) = (x6, x3);}
     if (x2 > x4) {(x2, x4) = (x4, x2);}
-    if (x2 > x3) {(x2, x3) = (x3, x2);}
+    if (x3 > x5) {(x3, x5) = (x5, x3);}
+    if (x3 > x4) {(x3, x4) = (x4, x3);}
 
     uint256 index1 = k1 - lo;
     if (index1 == 0) {k1th = x0;}
@@ -198,7 +118,6 @@ library Median {
     else {revert("k2 out of bounds");}
   }
 
-
   /**
    * @notice Selects the k-th ranked element from list, looking only at indices between lo and hi
    * (inclusive). Modifies list in-place.
@@ -211,7 +130,7 @@ library Median {
     require(lo <= k);
     require(k <= hi);
     while (lo < hi) {
-      if (hi - lo < 7) {
+      if (hi - lo < SHORTSELECTTWO_MAX_LENGTH) {
         int256 ignore;
         (kth, ignore) = shortSelectTwo(list, lo, hi, k, k);
         return kth;
@@ -241,7 +160,7 @@ library Median {
     uint256 k1,
     uint256 k2
   )
-    internal
+    internal // for testing
     pure
     returns (int256 k1th, int256 k2th)
   {
@@ -250,7 +169,7 @@ library Median {
     require(lo <= k2 && k2 <= hi);
 
     while (true) {
-      if (hi - lo < 7) {
+      if (hi - lo < SHORTSELECTTWO_MAX_LENGTH) {
         return shortSelectTwo(list, lo, hi, k1, k2);
       }
       uint256 pivotIdx = partition(list, lo, hi);
