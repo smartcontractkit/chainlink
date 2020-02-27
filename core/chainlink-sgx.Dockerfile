@@ -1,5 +1,5 @@
 # Build Chainlink with SGX
-FROM smartcontract/builder:1.0.29 as builder
+FROM smartcontract/builder:1.0.30 as builder
 
 WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
