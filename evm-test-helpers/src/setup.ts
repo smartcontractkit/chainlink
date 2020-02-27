@@ -5,48 +5,47 @@
  * optimizing test times via snapshots, and making test accounts.
  */
 
-import {
-  RevertTraceSubprovider,
-  SolCompilerArtifactAdapter,
-  Web3ProviderEngine,
-} from '@0x/sol-trace'
-import {
-  FakeGasEstimateSubprovider,
-  GanacheSubprovider,
-} from '@0x/subproviders'
+import env from '@nomiclabs/buidler'
+import { IEthereumProvider } from '@nomiclabs/buidler/types'
 import { ethers } from 'ethers'
-import * as path from 'path'
+import { JsonRpcProvider } from 'ethers/providers'
 import { makeDebug } from './debug'
 import { createFundedWallet } from './wallet'
-
 const debug = makeDebug('helpers')
+
+export class EthersProviderWrapper extends JsonRpcProvider {
+  private readonly _buidlerProvider: IEthereumProvider
+
+  constructor(buidlerProvider: IEthereumProvider) {
+    super()
+    this._buidlerProvider = buidlerProvider
+  }
+
+  public async send(method: string, params: any): Promise<any> {
+    const result = await this._buidlerProvider.send(method, params)
+
+    // We replicate ethers' behavior.
+    this.emit('debug', {
+      action: 'send',
+      request: {
+        id: 42,
+        jsonrpc: '2.0',
+        method,
+        params,
+      },
+      response: result,
+      provider: this,
+    })
+
+    return result
+  }
+}
 
 /**
  * Create a test provider which uses an in-memory, in-process chain
  */
 export function provider(): ethers.providers.JsonRpcProvider {
-  const providerEngine = new Web3ProviderEngine()
-  providerEngine.addProvider(new FakeGasEstimateSubprovider(5 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
-
-  if (process.env.DEBUG) {
-    debug('Debugging enabled, using sol-trace module...')
-    const defaultFromAddress = ''
-    const artifactAdapter = new SolCompilerArtifactAdapter(
-      path.resolve('dist/artifacts'),
-      path.resolve('contracts'),
-    )
-    const revertTraceSubprovider = new RevertTraceSubprovider(
-      artifactAdapter,
-      defaultFromAddress,
-      true,
-    )
-    providerEngine.addProvider(revertTraceSubprovider)
-  }
-
-  providerEngine.addProvider(new GanacheSubprovider({}))
-  providerEngine.start()
-
-  return new ethers.providers.Web3Provider(providerEngine)
+  return new EthersProviderWrapper(env.ethereum)
 }
 
 /**
@@ -87,7 +86,7 @@ export function snapshot(
       hasDeployed = true
     } else {
       d('reverting to snapshot: %s', snapshotId)
-      await provider.send('evm_revert', snapshotId)
+      await provider.send('evm_revert', [snapshotId])
 
       d('re-creating snapshot..')
       /* eslint-disable-next-line require-atomic-updates */
