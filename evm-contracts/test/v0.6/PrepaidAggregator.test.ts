@@ -109,11 +109,13 @@ describe('PrepaidAggregator', () => {
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
+      'startNewRound',
       'timeout',
       'updateAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
+      'setAuthorization',
       'withdraw',
       'withdrawFunds',
       'withdrawable',
@@ -1677,6 +1679,142 @@ describe('PrepaidAggregator', () => {
 
       const newBalance = await aggregator.availableFunds()
       matchers.bigNum(originalBalance.add(deposit), newBalance)
+    })
+  })
+
+  describe('#startNewRound', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(personas.Neil.address, personas.Neil.address, 1, 1, 0)
+
+      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      nextRound = nextRound + 1
+
+      await aggregator.setAuthorization(personas.Carol.address, true)
+    })
+
+    it('announces a new round via log event', async () => {
+      const tx = await aggregator.startNewRound()
+      const receipt = await tx.wait()
+      const event = matchers.eventExists(
+        receipt,
+        aggregator.interface.events.NewRound,
+      )
+
+      matchers.bigNum(nextRound, h.eventArgs(event).roundId)
+    })
+
+    describe('when there is a round in progress', () => {
+      beforeEach(async () => {
+        await aggregator.startNewRound()
+      })
+
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator.startNewRound(),
+          'Cannot start a round mid-round',
+        )
+      })
+
+      describe('when that round has timed out', () => {
+        beforeEach(async () => {
+          await h.increaseTimeBy(timeout + 1, provider)
+          await h.mineBlock(provider)
+        })
+
+        it('starts a new round', async () => {
+          const tx = await aggregator.startNewRound()
+          const receipt = await tx.wait()
+          const event = matchers.eventExists(
+            receipt,
+            aggregator.interface.events.NewRound,
+          )
+          matchers.bigNum(nextRound + 1, h.eventArgs(event).roundId)
+        })
+      })
+    })
+  })
+
+  describe('#updateRequesterPermission', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(personas.Neil.address, personas.Neil.address, 1, 1, 0)
+
+      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      nextRound = nextRound + 1
+    })
+
+    describe('when called by the owner', () => {
+      it('allows the specified address to start new rounds', async () => {
+        await aggregator.setAuthorization(personas.Neil.address, true)
+
+        await aggregator.connect(personas.Neil).startNewRound()
+      })
+
+      it('emits a log announcing the update', async () => {
+        const tx = await aggregator.setAuthorization(
+          personas.Neil.address,
+          true,
+        )
+        const receipt = await tx.wait()
+        const event = matchers.eventExists(
+          receipt,
+          aggregator.interface.events.RequesterAuthorizationSet,
+        )
+        const args = h.eventArgs(event)
+
+        assert.equal(args.requester, personas.Neil.address)
+        assert.equal(args.allowed, true)
+      })
+
+      describe('when permission is removed by the owner', () => {
+        beforeEach(async () => {
+          await aggregator.setAuthorization(personas.Neil.address, true)
+        })
+
+        it('does not allow the specified address to start new rounds', async () => {
+          await aggregator.setAuthorization(personas.Neil.address, false)
+
+          await matchers.evmRevert(
+            aggregator.connect(personas.Neil).startNewRound(),
+            'Only authorized requesters can call',
+          )
+        })
+
+        it('emits a log announcing the update', async () => {
+          const tx = await aggregator.setAuthorization(
+            personas.Neil.address,
+            false,
+          )
+          const receipt = await tx.wait()
+          const event = matchers.eventExists(
+            receipt,
+            aggregator.interface.events.RequesterAuthorizationSet,
+          )
+          const args = h.eventArgs(event)
+
+          assert.equal(args.requester, personas.Neil.address)
+          assert.equal(args.allowed, false)
+        })
+      })
+    })
+
+    describe('when called by a stranger', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Neil)
+            .setAuthorization(personas.Neil.address, true),
+          'Only callable by owner',
+        )
+
+        await matchers.evmRevert(
+          aggregator.connect(personas.Neil).startNewRound(),
+          'Only authorized requesters can call',
+        )
+      })
     })
   })
 })

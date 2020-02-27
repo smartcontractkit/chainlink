@@ -67,6 +67,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   LinkTokenInterface private LINK;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
+  mapping(address => bool) internal authorizedRequesters;
   address[] private oracleAddresses;
 
   event AvailableFundsUpdated(uint256 indexed amount);
@@ -85,6 +86,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     uint32 indexed round,
     address indexed oracle
   );
+  event RequesterAuthorizationSet(address indexed requester, bool allowed);
 
   uint32 constant private ROUND_MAX = 2**32-1;
 
@@ -120,7 +122,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
     onlyValidRoundId(uint32(_round))
     onlyValidOracleRound(uint32(_round))
   {
-    startNewRound(uint32(_round));
+    initializeNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
     payOracle(uint32(_round));
@@ -476,6 +478,34 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
   }
 
   /**
+   * @notice allows non-oracles to request a new round
+   */
+  function startNewRound()
+    external
+    onlyAuthorizedRequesters()
+  {
+    uint32 current = reportingRoundId;
+
+    require(rounds[current].updatedAt > 0 || timedOut(current), 'Cannot start a round mid-round');
+
+    initializeNewRound(current.add(1));
+  }
+
+  /**
+   * @notice allows the owner to specify new non-oracles to start new rounds
+   * @param _requester is the address to set permissions for
+   * @param _allowed is a boolean specifying whether they can start new rounds or not
+   */
+  function setAuthorization(address _requester, bool _allowed)
+    external
+    onlyOwner()
+  {
+    authorizedRequesters[_requester] = _allowed;
+
+    emit RequesterAuthorizationSet(_requester, _allowed);
+  }
+
+  /**
    * @notice called through LINK's transferAndCall to update available funds
    * in the same transaction as the funds were transfered to the aggregator
    */
@@ -535,7 +565,7 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
    * Private
    */
 
-  function startNewRound(uint32 _id)
+  function initializeNewRound(uint32 _id)
     private
     ifNewRound(_id)
     ifDelayed(_id)
@@ -716,6 +746,11 @@ contract PrepaidAggregator is AggregatorInterface, Owned {
 
   modifier onlyWithPreviousAnswer(uint32 _id) {
     require(rounds[_id.sub(1)].updatedAt != 0, "Must have a previous answer to pull from");
+    _;
+  }
+
+  modifier onlyAuthorizedRequesters() {
+    require(authorizedRequesters[msg.sender], "Only authorized requesters can call");
     _;
   }
 
