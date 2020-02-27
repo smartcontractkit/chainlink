@@ -48,18 +48,18 @@ const list = [
   },
 ]
 
-const Logo = ({ node }) => (
+const Logo = ({ item }) => (
   <a
     className="logo-item"
-    href={node.url}
+    href={item.url}
     target="_blank"
     rel="noopener noreferrer"
   >
     <img
-      alt={node.name}
-      title={node.name}
-      src={node.src}
-      className={node.name}
+      alt={item.name}
+      title={item.name}
+      src={item.src}
+      className={item.name}
     />
   </a>
 )
@@ -84,12 +84,12 @@ const SponsorsLogos = () => (
         </Button>
       </a>
     </div>
-    <h3>Made possible and sponsored by</h3>
+    <h3>Used and Sponsored By</h3>
     <div className="logos">
       <Row gutter={18} type="flex" justify="space-around">
-        {list.map((node, i) => (
+        {list.map((sponsor, i) => (
           <Col key={i} {...grid}>
-            <Logo node={node} />
+            <Logo item={sponsor} />
           </Col>
         ))}
       </Row>
