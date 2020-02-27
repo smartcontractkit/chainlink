@@ -51,7 +51,11 @@ library Median {
    * @dev Assumes that 0 < list.len <= 9
    * @dev Does not modify list
    */
-  function shortList(int256[] memory list) private pure returns (int256) {
+  function shortList(int256[] memory list)
+    private
+    pure
+    returns (int256)
+  {
     // Uses an optimal sorting network (https://en.wikipedia.org/wiki/Sorting_network)
     // for lists of length 9. Network layout is taken from https://stackoverflow.com/a/46801450
 
@@ -128,18 +132,91 @@ library Median {
   }
 
   /**
+   * @notice Select the k1-th and k2-th element from list of length at most 7
+   * @dev Uses an optimal sorting network
+   */
+  function shortSelectTwo(
+    int256[] memory list,
+    uint256 lo,
+    uint256 hi,
+    uint256 k1,
+    uint256 k2
+  )
+    public
+    pure
+    returns (int256 k1th, int256 k2th)
+  {
+    // Uses an optimal sorting network (https://en.wikipedia.org/wiki/Sorting_network)
+    // for lists of length 7. Network layout is taken from
+    // http://jgamble.ripco.net/cgi-bin/nw.cgi?inputs=7&algorithm=best&output=svg
+
+    uint256 len = hi + 1 - lo;
+    int256 x0 = list[lo + 0];
+    int256 x1 = 1 < len ? list[lo + 1] : intMax;
+    int256 x2 = 2 < len ? list[lo + 2] : intMax;
+    int256 x3 = 3 < len ? list[lo + 3] : intMax;
+    int256 x4 = 4 < len ? list[lo + 4] : intMax;
+    int256 x5 = 5 < len ? list[lo + 5] : intMax;
+    int256 x6 = 6 < len ? list[lo + 6] : intMax;
+
+    if (x1 > x2) {(x1, x2) = (x2, x1);}
+    if (x3 > x4) {(x3, x4) = (x4, x3);}
+    if (x5 > x6) {(x5, x6) = (x6, x5);}
+    if (x0 > x2) {(x0, x2) = (x2, x0);}
+    if (x3 > x5) {(x3, x5) = (x5, x3);}
+    if (x4 > x6) {(x4, x6) = (x6, x4);}
+    if (x0 > x1) {(x0, x1) = (x1, x0);}
+    if (x4 > x5) {(x4, x5) = (x5, x4);}
+    if (x2 > x6) {(x2, x6) = (x6, x2);}
+    if (x0 > x4) {(x0, x4) = (x4, x0);}
+    if (x1 > x5) {(x1, x5) = (x5, x1);}
+    if (x0 > x3) {(x0, x3) = (x3, x0);}
+    if (x2 > x5) {(x2, x5) = (x5, x2);}
+    if (x1 > x3) {(x1, x3) = (x3, x1);}
+    if (x2 > x4) {(x2, x4) = (x4, x2);}
+    if (x2 > x3) {(x2, x3) = (x3, x2);}
+
+    uint256 index1 = k1 - lo;
+    if (index1 == 0) {k1th = x0;}
+    else if (index1 == 1) {k1th = x1;}
+    else if (index1 == 2) {k1th = x2;}
+    else if (index1 == 3) {k1th = x3;}
+    else if (index1 == 4) {k1th = x4;}
+    else if (index1 == 5) {k1th = x5;}
+    else if (index1 == 6) {k1th = x6;}
+    else {revert("k1 out of bounds");}
+
+    uint256 index2 = k2 - lo;
+    if (k1 == k2) {return (k1th, k1th);}
+    else if (index2 == 0) {return (k1th, x0);}
+    else if (index2 == 1) {return (k1th, x1);}
+    else if (index2 == 2) {return (k1th, x2);}
+    else if (index2 == 3) {return (k1th, x3);}
+    else if (index2 == 4) {return (k1th, x4);}
+    else if (index2 == 5) {return (k1th, x5);}
+    else if (index2 == 6) {return (k1th, x6);}
+    else {revert("k2 out of bounds");}
+  }
+
+
+  /**
    * @notice Selects the k-th ranked element from list, looking only at indices between lo and hi
    * (inclusive). Modifies list in-place.
    */
-  function quickselect(int256[] memory list, uint lo, uint hi, uint k)
+  function quickselect(int256[] memory list, uint256 lo, uint256 hi, uint256 k)
     private
     pure
-    returns (int256)
+    returns (int256 kth)
   {
     require(lo <= k);
     require(k <= hi);
     while (lo < hi) {
-      uint pivotIndex = partition(list, lo, hi);
+      if (hi - lo < 7) {
+        int256 ignore;
+        (kth, ignore) = shortSelectTwo(list, lo, hi, k, k);
+        return kth;
+      }
+      uint256 pivotIndex = partition(list, lo, hi);
       if (k <= pivotIndex) {
         // since pivotIndex < (original hi passed to partition),
         // termination is guaranteed in this case
@@ -157,26 +234,35 @@ library Median {
    * @notice Selects the k1-th and k2-th ranked elements from list, looking only at indices between
    * lo and hi (inclusive). Modifies list in-place.
    */
-  function quickselectTwo(int256[] memory list, uint lo, uint hi, uint k1, uint k2)
+  function quickselectTwo(
+    int256[] memory list,
+    uint256 lo,
+    uint256 hi,
+    uint256 k1,
+    uint256 k2
+  )
     internal
     pure
-    returns (int256, int256)
+    returns (int256 k1th, int256 k2th)
   {
     require(k1 < k2);
     require(lo <= k1 && k1 <= hi);
     require(lo <= k2 && k2 <= hi);
 
     while (true) {
-      uint pivotIdx = partition(list, lo, hi);
+      if (hi - lo < 7) {
+        return shortSelectTwo(list, lo, hi, k1, k2);
+      }
+      uint256 pivotIdx = partition(list, lo, hi);
       if (k2 <= pivotIdx) {
         hi = pivotIdx;
       } else if (pivotIdx < k1) {
         lo = pivotIdx + 1;
       } else {
         assert(k1 <= pivotIdx && pivotIdx < k2);
-        int256 r1 = quickselect(list, lo, pivotIdx, k1);
-        int256 r2 = quickselect(list, pivotIdx + 1, hi, k2);
-        return (r1, r2);
+        k1th = quickselect(list, lo, pivotIdx, k1);
+        k2th = quickselect(list, pivotIdx + 1, hi, k2);
+        return (k1th, k2th);
       }
     }
   }
@@ -189,7 +275,7 @@ library Median {
    * - forall j in [lo, i]. list[j] <= list[i]
    * - forall j in [i, hi]. list[i] <= list[j]
    */
-  function partition(int256[] memory list, uint lo, uint hi)
+  function partition(int256[] memory list, uint256 lo, uint256 hi)
     private
     pure
     returns (uint256)
