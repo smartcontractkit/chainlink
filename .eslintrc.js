@@ -43,16 +43,6 @@ module.exports = {
         jest: true,
       },
     },
-    {
-      files: ['evm-box/**/*'],
-      env: { node: true, mocha: true },
-      globals: {
-        assert: 'readonly',
-        artifacts: 'readonly',
-        web3: 'readonly',
-        contract: 'readonly',
-      },
-    },
     // add react linting for all of our react projects
     {
       files: [
