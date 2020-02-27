@@ -184,30 +184,30 @@ const list = [
   },
 ]
 
-const Logo = ({ node }) => (
+const Logo = ({ item }) => (
   <a
     className="logo-item grayscale"
-    href={node.url}
+    href={item.url}
     target="_blank"
     rel="noopener noreferrer"
   >
     <img
-      alt={node.name}
-      title={node.name}
-      src={node.src}
-      className={node.name}
+      alt={item.name}
+      title={item.name}
+      src={item.src}
+      className={item.name}
     />
   </a>
 )
 
 const NodesLogos = () => (
   <section className="logos-wrapper">
-    <h3>Leading node operator services</h3>
+    <h3>Decentralized and Operated By</h3>
     <div className="logos">
       <Row gutter={18} type="flex" justify="space-around">
         {list.map((node, i) => (
           <Col key={i} {...grid}>
-            <Logo node={node} />
+            <Logo item={node} />
           </Col>
         ))}
       </Row>
