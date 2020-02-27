@@ -119,6 +119,7 @@ describe('FluxAggregator', () => {
       'withdraw',
       'withdrawFunds',
       'withdrawable',
+      'VERSION',
       // Owned methods:
       'acceptOwnership',
       'owner',
@@ -153,6 +154,10 @@ describe('FluxAggregator', () => {
         ethers.utils.formatBytes32String(description),
         await aggregator.description(),
       )
+    })
+
+    it('sets the description', async () => {
+      matchers.bigNum(2, await aggregator.VERSION())
     })
   })
 
