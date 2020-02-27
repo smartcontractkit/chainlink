@@ -1615,7 +1615,7 @@ impl Num for BigDecimal {
                     _ => exp,
                 };
 
-                (base, try!(i64::from_str(exp)))
+                (base, i64::from_str(exp)?)
             }
         };
 
@@ -1645,7 +1645,7 @@ impl Num for BigDecimal {
         };
 
         let scale = decimal_offset - exponent_value;
-        let big_int = try!(BigInt::from_str_radix(&digits, radix));
+        let big_int = BigInt::from_str_radix(&digits, radix)?;
 
         Ok(BigDecimal::new(big_int, scale))
     }

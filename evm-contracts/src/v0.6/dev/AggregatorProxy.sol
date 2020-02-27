@@ -23,10 +23,11 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   function latestAnswer()
     external
     view
+    virtual
     override
     returns (int256)
   {
-    return aggregator.latestAnswer();
+    return _latestAnswer();
   }
 
   /**
@@ -35,10 +36,11 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   function latestTimestamp()
     external
     view
+    virtual
     override
     returns (uint256)
   {
-    return aggregator.latestTimestamp();
+    return _latestTimestamp();
   }
 
   /**
@@ -48,10 +50,11 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   function getAnswer(uint256 _roundId)
     external
     view
+    virtual
     override
     returns (int256)
   {
-    return aggregator.getAnswer(_roundId);
+    return _getAnswer(_roundId);
   }
 
   /**
@@ -61,10 +64,11 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   function getTimestamp(uint256 _roundId)
     external
     view
+    virtual
     override
     returns (uint256)
   {
-    return aggregator.getTimestamp(_roundId);
+    return _getTimestamp(_roundId);
   }
 
   /**
@@ -73,10 +77,11 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   function latestRound()
     external
     view
+    virtual
     override
     returns (uint256)
   {
-    return aggregator.latestRound();
+    return _latestRound();
   }
 
   /**
@@ -90,15 +95,47 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     aggregator = AggregatorInterface(_aggregator);
   }
 
-  /**
-   * @notice Allows the owner to destroy the contract if it is not intended to
-   * be used any longer.
+  /*
+   * Internal
    */
-  function destroy()
-    external
-    onlyOwner()
+
+  function _latestAnswer()
+    internal
+    view
+    returns (int256)
   {
-    selfdestruct(owner);
+    return aggregator.latestAnswer();
   }
 
+  function _latestTimestamp()
+    internal
+    view
+    returns (uint256)
+  {
+    return aggregator.latestTimestamp();
+  }
+
+  function _getAnswer(uint256 _roundId)
+    internal
+    view
+    returns (int256)
+  {
+    return aggregator.getAnswer(_roundId);
+  }
+
+  function _getTimestamp(uint256 _roundId)
+    internal
+    view
+    returns (uint256)
+  {
+    return aggregator.getTimestamp(_roundId);
+  }
+
+  function _latestRound()
+    internal
+    view
+    returns (uint256)
+  {
+    return aggregator.latestRound();
+  }
 }

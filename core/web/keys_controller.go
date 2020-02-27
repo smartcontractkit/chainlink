@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
 
@@ -12,7 +12,7 @@ import (
 
 // KeysController manages account keys
 type KeysController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create adds a new account

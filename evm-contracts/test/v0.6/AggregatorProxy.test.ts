@@ -62,7 +62,6 @@ describe('AggregatorProxy', () => {
       'latestAnswer',
       'latestRound',
       'getAnswer',
-      'destroy',
       'setAggregator',
       'latestTimestamp',
       'getTimestamp',
@@ -216,31 +215,6 @@ describe('AggregatorProxy', () => {
         })
 
         assert.equal(aggregator.address, await proxy.aggregator())
-      })
-    })
-  })
-
-  describe('#destroy', () => {
-    beforeEach(async () => {
-      await proxy.transferOwnership(personas.Carol.address)
-      await proxy.connect(personas.Carol).acceptOwnership()
-    })
-
-    describe('when called by the owner', () => {
-      it('succeeds', async () => {
-        await proxy.connect(personas.Carol).destroy()
-
-        assert.equal('0x', await provider.getCode(proxy.address))
-      })
-    })
-
-    describe('when called by a non-owner', () => {
-      it('fails', async () => {
-        await matchers.evmRevert(async () => {
-          await proxy.connect(personas.Eddy).destroy()
-        })
-
-        assert.notEqual('0x', await provider.getCode(proxy.address))
       })
     })
   })

@@ -31,7 +31,7 @@ describe('WhitelistedAggregator', () => {
   let nextRound: number
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await aggregatorFactory
+    aggregator = await (aggregatorFactory as any)
       .connect(personas.Carol)
       .deploy(
         link.address,
@@ -39,6 +39,9 @@ describe('WhitelistedAggregator', () => {
         timeout,
         decimals,
         h.toBytes32String(description),
+        // Remove when this PR gets merged:
+        // https://github.com/ethereum-ts/TypeChain/pull/218
+        { gasLimit: 5_500_000 },
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
@@ -57,6 +60,7 @@ describe('WhitelistedAggregator', () => {
       'allocatedFunds',
       'availableFunds',
       'description',
+      'getAdmin',
       'getAnswer',
       'getOracles',
       'getOriginatingRoundOfAnswer',
@@ -78,7 +82,10 @@ describe('WhitelistedAggregator', () => {
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
+      'setAuthorization',
+      'startNewRound',
       'timeout',
+      'updateAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
@@ -86,6 +93,7 @@ describe('WhitelistedAggregator', () => {
       'withdraw',
       'withdrawFunds',
       'withdrawable',
+      'VERSION',
       // Owned methods:
       'acceptOwnership',
       'owner',
@@ -118,7 +126,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 
@@ -151,7 +165,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 
@@ -186,7 +206,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 
@@ -217,7 +243,13 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .addOracle(
+          personas.Neil.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
     })
 

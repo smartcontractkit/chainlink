@@ -15,10 +15,10 @@ import (
 	"github.com/jinzhu/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/mrwonko/cron"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"github.com/ugorji/go/codec"
 )
 
 // RunStatus is a string that represents the run status
@@ -241,14 +241,12 @@ func (j JSON) Delete(key string) (JSON, error) {
 
 // CBOR returns a bytes array of the JSON map or array encoded to CBOR.
 func (j JSON) CBOR() ([]byte, error) {
-	var b []byte
-	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
-
 	switch v := j.Result.Value().(type) {
 	case map[string]interface{}, []interface{}, nil:
-		return b, cbor.Encode(v)
+		return cbor.Marshal(v)
 	default:
-		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
+		var b []byte
+		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
 	}
 }
 
