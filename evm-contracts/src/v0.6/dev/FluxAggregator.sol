@@ -50,6 +50,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     address admin;
   }
 
+  uint256 constant public VERSION = 2;
+
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
