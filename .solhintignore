@@ -5,7 +5,6 @@ examples/testnet/contracts/Oracle.sol
 examples/testnet/contracts/Aggregator.sol
 examples/testnet/contracts/AggregatorProxy.sol
 evm/contracts/lib
-evm/box/node_modules
 evm/node_modules
 evm/contracts/vendor
 evm/v0.5/contracts/vendor
