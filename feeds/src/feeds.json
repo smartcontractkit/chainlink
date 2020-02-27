@@ -11,7 +11,7 @@
     "history": true,
     "decimalPlaces": 3,
     "multiply": "100000000",
-    "sponsored": ["Synthetix", "Loopring"],
+    "sponsored": ["Synthetix", "Loopring", "OpenLaw"],
     "threshold": 0.5
   },
   {
