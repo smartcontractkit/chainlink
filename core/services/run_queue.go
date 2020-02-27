@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"chainlink/core/logger"
 	"chainlink/core/store/models"
@@ -34,81 +35,149 @@ type RunQueue interface {
 }
 
 type runQueue struct {
-	workersMutex  sync.RWMutex
-	workers       map[string]int
-	workersWg     sync.WaitGroup
-	stopRequested bool
+	runExecutor  RunExecutor
+	workers      map[models.ID]*singleJobSpecWorker
+	numWorkers   int32
+	chRuns       chan *models.JobRun
+	chStop       chan struct{}
+	chDone       chan struct{}
+	chWorkerDone chan models.ID
+}
 
-	runExecutor RunExecutor
+type singleJobSpecWorker struct {
+	chAddRun chan struct{}
+	chDone   chan struct{}
 }
 
 // NewRunQueue initializes a RunQueue.
 func NewRunQueue(runExecutor RunExecutor) RunQueue {
 	return &runQueue{
-		workers:     make(map[string]int),
-		runExecutor: runExecutor,
+		workers:      make(map[models.ID]*singleJobSpecWorker),
+		runExecutor:  runExecutor,
+		chRuns:       make(chan *models.JobRun),
+		chStop:       make(chan struct{}),
+		chDone:       make(chan struct{}),
+		chWorkerDone: make(chan models.ID),
 	}
 }
 
 // Start prepares the job runner for accepting runs to execute.
 func (rq *runQueue) Start() error {
+	go rq.orchestrateWorkers()
 	return nil
 }
 
 // Stop closes all open worker channels.
 func (rq *runQueue) Stop() {
-	rq.workersMutex.Lock()
-	rq.stopRequested = true
-	rq.workersMutex.Unlock()
-	rq.workersWg.Wait()
+	close(rq.chStop)
+	<-rq.chDone
 }
 
 // Run tells the job runner to start executing a job
 func (rq *runQueue) Run(run *models.JobRun) {
-	rq.workersMutex.Lock()
-	if rq.stopRequested {
-		rq.workersMutex.Unlock()
-		return
+	select {
+	case rq.chRuns <- run:
+	case <-rq.chStop:
 	}
+}
 
-	runID := run.ID.String()
-	defer numberRunsQueued.Inc()
-	if queueCount, present := rq.workers[runID]; present {
-		rq.workers[runID] = queueCount + 1
-		rq.workersMutex.Unlock()
-		return
-	}
-	rq.workers[runID] = 1
-	numberRunQueueWorkers.Set(float64(len(rq.workers)))
-	rq.workersMutex.Unlock()
-
-	rq.workersWg.Add(1)
-	go func() {
-		for {
-			rq.workersMutex.Lock()
-			queueCount := rq.workers[runID]
-			if queueCount <= 0 {
-				delete(rq.workers, runID)
-				numberRunQueueWorkers.Set(float64(len(rq.workers)))
-				rq.workersMutex.Unlock()
-				break
+func (rq *runQueue) orchestrateWorkers() {
+	defer close(rq.chDone)
+	for {
+		select {
+		case run := <-rq.chRuns:
+			worker, exists := rq.workers[*run.ID]
+			if !exists {
+				worker = &singleJobSpecWorker{make(chan struct{}), make(chan struct{})}
+				rq.workers[*run.ID] = worker
+				atomic.AddInt32(&rq.numWorkers, 1)
+				go rq.singleJobSpecWorkerLoop(run, worker)
 			}
-			rq.workers[runID] = queueCount - 1
-			rq.workersMutex.Unlock()
+			worker.chAddRun <- struct{}{}
 
-			if err := rq.runExecutor.Execute(run.ID); err != nil {
-				logger.Errorw(fmt.Sprint("Error executing run ", runID), "error", err)
+		case jobID := <-rq.chWorkerDone:
+			delete(rq.workers, jobID)
+			atomic.AddInt32(&rq.numWorkers, -1)
+
+		case <-rq.chStop:
+			for _, run := range rq.workers {
+				<-run.chDone
+			}
+			return
+		}
+	}
+}
+
+func (rq *runQueue) singleJobSpecWorkerLoop(run *models.JobRun, worker *singleJobSpecWorker) {
+	defer close(worker.chDone)
+
+	var (
+		startOnce       sync.Once
+		chWorkerStarted = make(chan struct{})
+		chResume        = make(chan int)
+		chRunComplete   = make(chan struct{})
+	)
+
+	// The worker goroutine accepts job run requests from the CoordinateWorkAndDeath loop
+	// below.  It can accept further requests after work has begun.  Once its queue of work
+	// is empty, it sends a "die" request to that loop, which may or may not be permitted
+	// depending on whether further requests are already inbound.
+	go func() {
+		for n := range chResume {
+			startOnce.Do(func() { close(chWorkerStarted) })
+
+			for i := 0; i < n; i++ {
+				select {
+				case <-rq.chStop:
+					return
+				default:
+					if err := rq.runExecutor.Execute(run.ID); err != nil {
+						logger.Errorw(fmt.Sprint("Error executing run ", *run.ID), "error", err)
+					}
+				}
+			}
+			select {
+			case chRunComplete <- struct{}{}:
+			case <-rq.chStop:
+				return
 			}
 		}
-
-		rq.workersWg.Done()
 	}()
+
+	// The CoordinateWorkAndDeath loop accepts job run requests from orchestrateWorkers and
+	// "die" requests from the worker, coordinating them such that we can avoid a race in the
+	// edge case where both types of request arrive simultaneously.
+	n := 0
+CoordinateWorkAndDeath:
+	for {
+		select {
+		case <-worker.chAddRun:
+			select {
+			case chResume <- n + 1:
+				n = 0
+			case <-chWorkerStarted:
+				n++
+			}
+		case <-chRunComplete:
+			if n > 0 {
+				chResume <- n
+				n = 0
+			} else {
+				select {
+				case rq.chWorkerDone <- *run.ID:
+					close(chResume)
+					return
+				default:
+					continue CoordinateWorkAndDeath
+				}
+			}
+		case <-rq.chStop:
+			return
+		}
+	}
 }
 
 // WorkerCount returns the number of workers currently processing a job run
 func (rq *runQueue) WorkerCount() int {
-	rq.workersMutex.RLock()
-	defer rq.workersMutex.RUnlock()
-
-	return len(rq.workers)
+	return int(atomic.LoadInt32(&rq.numWorkers))
 }
