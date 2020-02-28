@@ -18,8 +18,8 @@ if [ "$ERR" != "0" ]; then
     echo
     echo "in the directory $SOLIDITY_DIR"
     echo
-    echo "This is probably a problem with a solidity contract, in the directory"
-    echo "evm/v0.6/contracts."
+    echo "This is probably a problem with a solidity contract, under the"
+    echo "directory evm-contracts/src/."
     echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
     echo
     echo "$OUT"
