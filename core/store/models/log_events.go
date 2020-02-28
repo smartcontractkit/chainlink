@@ -409,6 +409,10 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	start := idSize + versionSize + dataLocationSize + dataLengthSize
 
+	if len(data) < start {
+		return JSON{}, errors.New("malformed data")
+	}
+
 	js, err := ParseCBOR(data[start:])
 	if err != nil {
 		return js, err
@@ -440,6 +444,9 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	data := log.Data
 	cborStart := idSize + versionSize + callbackAddrSize + callbackFuncSize + expirationSize + dataLocationSize + dataLengthSize
 
+	if len(data) < cborStart {
+		return JSON{}, errors.New("malformed data")
+	}
 	js, err := ParseCBOR(data[cborStart:])
 	if err != nil {
 		return js, err
@@ -482,7 +489,15 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	dataLengthStart := expirationEnd + versionSize + dataLocationSize
 	cborStart := dataLengthStart + dataLengthSize
 
+	if len(log.Data) < dataLengthStart+32 {
+		return JSON{}, errors.New("malformed data")
+	}
+
 	dataLength := whisperv6.BytesToUintBigEndian(data[dataLengthStart : dataLengthStart+32])
+
+	if len(log.Data) < cborStart+int(dataLength) {
+		return JSON{}, errors.New("cbor too short")
+	}
 
 	js, err := ParseCBOR(data[cborStart : cborStart+int(dataLength)])
 	if err != nil {
