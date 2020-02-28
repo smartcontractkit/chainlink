@@ -221,6 +221,34 @@ func TestMedianFetcher_MajorityFetches(t *testing.T) {
 	}
 }
 
+func TestMedianFetcher_MajorityFetchesCalculatesCorrectMedian(t *testing.T) {
+	hf50 := newFixedPricedFetcher(decimal.NewFromInt(50))
+	hf75 := newFixedPricedFetcher(decimal.NewFromInt(75))
+	hf100 := newFixedPricedFetcher(decimal.NewFromInt(100))
+	hf999 := newFixedPricedFetcher(decimal.NewFromInt(999))
+	ef := newErroringPricedFetcher()
+
+	tests := []struct {
+		name           string
+		fetchers       []Fetcher
+		expectedMedian string
+	}{
+		{"3/5", []Fetcher{hf50, hf75, hf100, ef, ef}, "75"},
+		{"4/7", []Fetcher{hf50, hf75, hf100, hf999, ef, ef, ef}, "87.5"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			medianFetcher, err := newMedianFetcher(test.fetchers...)
+			require.NoError(t, err)
+
+			medianPrice, err := medianFetcher.Fetch()
+			assert.NoError(t, err)
+			assert.Equal(t, medianPrice.String(), test.expectedMedian)
+		})
+	}
+}
+
 func TestMedianFetcher_MinorityErrors(t *testing.T) {
 	hf := newFixedPricedFetcher(decimal.NewFromInt(100)) // healthy fetcher
 	ef := newErroringPricedFetcher()                     // erroring fetcher

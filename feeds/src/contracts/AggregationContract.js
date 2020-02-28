@@ -186,8 +186,12 @@ export default class AggregationContract {
   async listenNextAnswerId(callback) {
     clearInterval(this.answerIdInterval)
     this.answerIdInterval = setInterval(async () => {
-      const answerId = await this.nextAnswerId()
-      return callback(answerId)
+      try {
+        const answerId = await this.nextAnswerId()
+        return callback(answerId)
+      } catch {
+        console.error('Error: Failed to fetch nextAnswerId')
+      }
     }, 4000)
   }
 
