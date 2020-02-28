@@ -83,6 +83,10 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	binPath := "compilerOutput.evm.bytecode.object"
 	isLINKCompilerOutput :=
 		path.Base(versionInfo.compilerArtifactPath) == "LinkToken.json"
+	if isLINKCompilerOutput {
+		abiPath = "abi"
+		binPath = "bytecode"
+	}
 	// Normalize the whitespace in the ABI JSON
 	abiBytes := stripWhitespace(gjson.GetBytes(compilerJSON, abiPath).String(), "")
 	binBytes := gjson.GetBytes(compilerJSON, binPath).String()
