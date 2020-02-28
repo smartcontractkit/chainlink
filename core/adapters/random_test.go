@@ -58,11 +58,11 @@ func TestRandom_Perform(t *testing.T) {
 	actualProof := proof[utils.EVMWordByteLen:]
 	randomOutput, err := vRFVerifier(t).RandomValueFromVRFProof(nil, actualProof)
 	require.NoError(t, err, "proof was invalid")
-	expected, ok := big.NewInt(0).SetString(
-		// Depends on vrfkey.json, and will need to be changed if that changes.
-		"b86810e6a71a7990fa7cdb56db2bc6a2c804aa6505e53f1f6ac8e5f052a27621", 16)
-	assert.True(t, randomOutput.Cmp(expected) == 0)
-	require.True(t, ok)
+	expected := common.HexToHash(
+		"c0a5642a409290ac65d9d44a4c52e53f31921ff1b7d235c585193a18190c82f1")
+	assert.Equal(t, expected, common.BigToHash(randomOutput),
+		"unexpected VRF output; perhas vrfkey.json or the output hashing function "+
+			"in RandomValueFromVRFProof has changed?")
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
 	input = models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
