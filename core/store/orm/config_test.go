@@ -161,32 +161,6 @@ func TestStore_urlParser(t *testing.T) {
 	}
 }
 
-func TestConfig_NormalizedDatabaseURL(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name, uri, expect string
-	}{
-		{"default", "", "/root/db.sqlite3"},
-		{"root", "/root/db.sqlite3", "/root/db.sqlite3"},
-		{"windows root", `C:\root\db.sqlite3`, `C:\root\db.sqlite3`},
-		{"garbage", "89324*$*#@(=", "89324*$*#@(="},
-		{"relative path", "store/db/here", "store/db/here"},
-		{"file uri", "file://host/path", "file://host/path"},
-		{"postgres uri", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"},
-		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config := NewConfig()
-			config.Set("ROOT", "/root")
-			config.Set("DATABASE_URL", test.uri)
-			assert.Equal(t, test.expect, NormalizedDatabaseURL(config))
-		})
-	}
-}
-
 func TestConfig_EthGasPriceDefault(t *testing.T) {
 	t.Parallel()
 
@@ -202,7 +176,7 @@ func TestConfig_EthGasPriceDefault(t *testing.T) {
 	// ORM installed
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	defer os.RemoveAll(config.RootDir())
-	orm, err := NewORM(NormalizedDatabaseURL(config), config.DatabaseTimeout())
+	orm, err := NewORM(config.DatabaseURL(), config.DatabaseTimeout())
 	require.NoError(t, err)
 	require.NotNil(t, orm)
 	orm.SetLogging(true)
