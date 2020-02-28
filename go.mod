@@ -38,6 +38,7 @@ require (
 	github.com/guregu/null v3.4.0+incompatible
 	github.com/imdario/mergo v0.3.8
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
+	github.com/joshlf/go-acl v0.0.0-20160831041400-9bd0587fe97d
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lib/pq v1.3.0
