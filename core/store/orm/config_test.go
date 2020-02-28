@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"chainlink/core/assets"
-	"chainlink/core/store/migrations/migration1564007745"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -159,50 +157,4 @@ func TestStore_urlParser(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestConfig_EthGasPriceDefault(t *testing.T) {
-	t.Parallel()
-
-	config := NewConfig()
-
-	// Get default value
-	def := config.EthGasPriceDefault()
-
-	// No orm installed
-	err := config.SetEthGasPriceDefault(big.NewInt(0))
-	require.Error(t, err)
-
-	// ORM installed
-	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
-	defer os.RemoveAll(config.RootDir())
-	orm, err := NewORM(config.DatabaseURL(), config.DatabaseTimeout())
-	require.NoError(t, err)
-	require.NotNil(t, orm)
-	orm.SetLogging(true)
-	err = orm.RawDB(func(db *gorm.DB) error {
-		return migration1564007745.Migrate(db)
-	})
-	require.NoError(t, err)
-
-	config.SetRuntimeStore(orm)
-
-	// Value still stays as the default
-	require.Equal(t, def, config.EthGasPriceDefault())
-
-	// Override
-	newValue := new(big.Int).Add(def, big.NewInt(1))
-	err = config.SetEthGasPriceDefault(newValue)
-	require.NoError(t, err)
-
-	// Value changes
-	require.Equal(t, newValue, config.EthGasPriceDefault())
-
-	// Set again
-	newerValue := new(big.Int).Add(def, big.NewInt(2))
-	err = config.SetEthGasPriceDefault(newerValue)
-	require.NoError(t, err)
-
-	// Value changes
-	require.Equal(t, newerValue, config.EthGasPriceDefault())
 }
