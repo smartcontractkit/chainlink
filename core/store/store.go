@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jinzhu/gorm"
+	"github.com/joshlf/go-acl"
 	"github.com/pkg/errors"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
@@ -147,6 +149,7 @@ func newStoreWithDialerAndKeyStore(
 	config *orm.Config,
 	dialer Dialer,
 	keyStoreGenerator func() *KeyStore) *Store {
+	InitRootDirectory(config)
 
 	orm, err := initializeORM(config)
 	if err != nil {
@@ -171,6 +174,19 @@ func newStoreWithDialerAndKeyStore(
 		TxManager: txManager,
 	}
 	return store
+}
+
+// InitRootDirectory creates the root directory folder where the keystore lives.
+// It also sets the default file permissions to 0700.
+func InitRootDirectory(config *orm.Config) {
+	var permission os.FileMode = 0700
+	if err := os.MkdirAll(config.RootDir(), os.FileMode(permission)); err != nil {
+		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
+	}
+	rootDirACL := acl.FromUnix(permission)
+	if err := acl.SetDefault(config.RootDir(), rootDirACL); err != nil {
+		logger.Fatal(fmt.Sprintf("Unable to set ACL on project root dir: %+v", err))
+	}
 }
 
 // Start initiates all of Store's dependencies including the TxManager.

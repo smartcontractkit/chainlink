@@ -10,13 +10,13 @@ import (
 
 	"chainlink/core/logger"
 	"chainlink/core/services/chainlink"
+	"chainlink/core/store"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 	"chainlink/core/utils"
 
-	"github.com/joshlf/go-acl"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )
@@ -24,7 +24,7 @@ import (
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
-	initRootDirectory(cli)
+	store.InitRootDirectory(cli.Config)
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
@@ -69,17 +69,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	return cli.errorOut(cli.Runner.Run(app))
-}
-
-func initRootDirectory(cli *Client) {
-	var permission os.FileMode = 0700
-	if err := os.MkdirAll(cli.Config.RootDir(), os.FileMode(permission)); err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
-	}
-	rootDirACL := acl.FromUnix(permission)
-	if err := acl.SetDefault(cli.Config.RootDir(), rootDirACL); err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to set ACL on project root dir: %+v", err))
-	}
 }
 
 func loggedStop(app chainlink.Application) {
