@@ -80,9 +80,6 @@ func initRootDirectory(cli *Client) {
 	if err := acl.SetDefault(cli.Config.RootDir(), rootDirACL); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to set ACL on project root dir: %+v", err))
 	}
-	if err := acl.Set(cli.Config.RootDir(), rootDirACL); err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to set ACL on project root dir: %+v", err))
-	}
 }
 
 func loggedStop(app chainlink.Application) {
