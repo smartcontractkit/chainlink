@@ -209,23 +209,20 @@ func mapToJSON(m map[string]interface{}) (JSON, error) {
 
 // Add returns a new instance of JSON with the new value added.
 func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
-	return j.MultiAdd([]KV{{insertKey, insertValue}})
+	return j.MultiAdd(KV{insertKey: insertValue})
 }
 
 // KV represents a key/value pair to be added to a JSON object
-type KV struct {
-	Key   string
-	Value interface{}
-}
+type KV map[string]interface{}
 
 // MultiAdd returns a new instance of j with the new values added.
-func (j JSON) MultiAdd(keyValues []KV) (JSON, error) {
+func (j JSON) MultiAdd(keyValues KV) (JSON, error) {
 	output, err := j.AsMap()
 	if err != nil {
 		return JSON{}, err
 	}
-	for _, kv := range keyValues {
-		output[kv.Key] = kv.Value
+	for key, value := range keyValues {
+		output[key] = value
 	}
 	return mapToJSON(output)
 }

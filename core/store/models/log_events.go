@@ -431,10 +431,10 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 	if err != nil {
 		return js, err
 	}
-	return js.MultiAdd([]KV{
-		{"address", log.Address.String()},
-		{"dataPrefix", bytesToHex(data[:idSize])},
-		{"functionSelector", OracleFullfillmentFunctionID0original},
+	return js.MultiAdd(KV{
+		"address":          log.Address.String(),
+		"dataPrefix":       bytesToHex(data[:idSize]),
+		"functionSelector": OracleFullfillmentFunctionID0original,
 	})
 }
 
@@ -461,10 +461,10 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	dataPrefix := bytesToHex(append(append(data[:idSize],
 		log.Topics[RequestLogTopicPayment].Bytes()...),
 		data[callbackAndExpStart:callbackAndExpEnd]...))
-	return js.MultiAdd([]KV{
-		{"address", log.Address.String()},
-		{"dataPrefix", dataPrefix},
-		{"functionSelector", OracleFulfillmentFunctionID20190123withFulfillmentParams},
+	return js.MultiAdd(KV{
+		"address":          log.Address.String(),
+		"dataPrefix":       dataPrefix,
+		"functionSelector": OracleFulfillmentFunctionID20190123withFulfillmentParams,
 	})
 }
 
@@ -493,10 +493,10 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	if err != nil {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}
-	return js.MultiAdd([]KV{
-		{"address", log.Address.String()},
-		{"dataPrefix", bytesToHex(data[idStart:expirationEnd])},
-		{"functionSelector", OracleFulfillmentFunctionID20190128withoutCast},
+	return js.MultiAdd(KV{
+		"address":          log.Address.String(),
+		"dataPrefix":       bytesToHex(data[idStart:expirationEnd]),
+		"functionSelector": OracleFulfillmentFunctionID20190128withoutCast,
 	})
 }
 
