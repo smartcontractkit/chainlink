@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -149,10 +148,6 @@ func newStoreWithDialerAndKeyStore(
 	dialer Dialer,
 	keyStoreGenerator func() *KeyStore) *Store {
 
-	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
-	if err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
-	}
 	orm, err := initializeORM(config)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to initialize ORM: %+v", err))
