@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -99,7 +100,7 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	_, err = io.WriteString(hasher, hashMsg)
 	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
 	recompileCommand := fmt.Sprintf("`%s && go generate`", compileCommand(t))
-	require.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
+	assert.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
 		"compiler artifact %s has changed; please rerun %s for the vrf package",
 		apath, recompileCommand)
 
@@ -117,7 +118,7 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			sourcePath = filepath.Join(contractPath, sourcePath)
 			actualSource, err := ioutil.ReadFile(sourcePath)
 			require.NoError(t, err, "could not read "+sourcePath)
-			require.Equal(t, string(actualSource), sourceCode,
+			assert.Equal(t, string(actualSource), sourceCode,
 				"%s has changed; please rerun %s for the vrf package",
 				sourcePath, recompileCommand)
 		}
