@@ -145,7 +145,7 @@ func DeduceDialect(path string) (DialectName, error) {
 	case "postgresql", "postgres":
 		return DialectPostgres, nil
 	default:
-		return "", fmt.Errorf("unsupported database dialect: %s", path)
+		return "", fmt.Errorf("missing or unsupported database path: \"%s\". Did you forget to specify DATABASE_URL?", path)
 	}
 }
 
