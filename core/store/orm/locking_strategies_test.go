@@ -1,8 +1,6 @@
 package orm_test
 
 import (
-	"os"
-	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -20,10 +18,6 @@ import (
 )
 
 func TestNewLockingStrategy(t *testing.T) {
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	c := tc.Config
-
 	tests := []struct {
 		name        string
 		dialectName orm.DialectName
@@ -104,14 +98,14 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	defer cleanup()
 
 	if store.Config.DatabaseURL() == "" {
-		t.Skip("No postgres DatabaseURL set.")
+		panic("No postgres DatabaseURL set.")
 	}
 
 	connErr, dbErr := store.ORM.LockingStrategyHelperSimulateDisconnect()
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
-	orm2, err := orm.NewORM(orm.NormalizedDatabaseURL(store.Config), store.Config.DatabaseTimeout())
+	orm2, err := orm.NewORM(store.Config.DatabaseURL(), store.Config.DatabaseTimeout())
 	require.NoError(t, err)
 	defer orm2.Close()
 
