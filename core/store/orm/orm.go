@@ -22,15 +22,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
 // BatchSize is the safe number of records to cache during Batch calls for
 // SQLite without causing load problems.
+// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
 const BatchSize = 100
 
 var (
@@ -46,8 +45,6 @@ type DialectName string
 const (
 	// DialectPostgres represents the postgres dialect.
 	DialectPostgres DialectName = "postgres"
-	// DialectSqlite represents the sqlite dialect.
-	DialectSqlite = "sqlite3"
 )
 
 // ORM contains the database object used by Chainlink.
@@ -67,9 +64,7 @@ var (
 // mapError tries to coerce the error into package defined errors.
 func mapError(err error) error {
 	err = errors.Cause(err)
-	if v, ok := err.(sqlite3.Error); ok && v.Code == sqlite3.ErrConstraint {
-		return ErrorConflict
-	} else if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
+	if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
 		return ErrorConflict
 	}
 	return err
@@ -136,14 +131,6 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := dbutil.SetSqlitePragmas(db); err != nil {
-		return nil, err
-	}
-
-	if err := dbutil.LimitSqliteOpenConnections(db); err != nil {
-		return nil, err
-	}
-
 	return db, nil
 }
 
@@ -157,16 +144,9 @@ func DeduceDialect(path string) (DialectName, error) {
 	switch scheme {
 	case "postgresql", "postgres":
 		return DialectPostgres, nil
-	case "file", "":
-		if len(strings.Split(url.Path, " ")) > 1 {
-			return "", errors.New("error deducing ORM dialect, no spaces allowed, please use a postgres URL or file path")
-		}
-		return DialectSqlite, nil
-	case "sqlite3", "sqlite":
-		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
+	default:
+		return "", fmt.Errorf("unsupported database dialect: %s", path)
 	}
-
-	return DialectSqlite, nil
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
@@ -325,8 +305,6 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 // Encourages the use of transactions for gorm calls that translate
 // into multiple sql calls, i.e. orm.SaveJobRun(run), which are better suited
 // in a database transaction.
-// Improves efficiency in sqlite by preventing autocommit on each line, instead
-// Batch committing at the end of the transaction.
 func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	orm.MustEnsureAdvisoryLock()
 	dbtx := orm.db.Begin()
@@ -1101,8 +1079,6 @@ func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		// NOTE: SQLite doesn't support compound delete statements, so delete run
-		// results for job_runs ...
 		err := dbtx.Exec(`
 			DELETE
 			FROM run_results

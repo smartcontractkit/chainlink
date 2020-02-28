@@ -1165,10 +1165,12 @@ func TestORM_DeduceDialect(t *testing.T) {
 		expect           orm.DialectName
 		wantError        bool
 	}{
-		{"windows full path", `D:/node-0/node/db.sqlite3`, `sqlite3`, false},
-		{"relative file", "db.sqlite", "sqlite3", false},
-		{"relative dir path", "store/db/here", "sqlite3", false},
-		{"file url", "file://host/path", "sqlite3", false},
+		// Old sqlite URLs included to verify that they error since sqlite
+		// support has been dropped
+		{"windows full path", `D:/node-0/node/db.sqlite3`, `sqlite3`, true},
+		{"relative file", "db.sqlite", "sqlite3", true},
+		{"relative dir path", "store/db/here", "sqlite3", true},
+		{"file url", "file://host/path", "sqlite3", true},
 		{"sqlite url", "sqlite:///path/to/sqlite.db", "", true},
 		{"sqlite3 url", "sqlite3:///path/to/sqlite.db", "", true},
 		{"postgres url", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
