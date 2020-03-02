@@ -36,12 +36,12 @@ type RunQueue interface {
 
 type runQueue struct {
 	runExecutor  RunExecutor
-	workers      map[models.ID]*singleJobSpecWorker
-	numWorkers   int32
-	chRuns       chan *models.JobRun
-	chStop       chan struct{}
-	chDone       chan struct{}
-	chWorkerDone chan models.ID
+	workers      map[models.ID]*singleJobSpecWorker // Access to this field is serialized through the select in orchestrateWorkers().
+	numWorkers   int32                              // Note: every access to this field must be atomic, as it is shared between goroutines
+	chRuns       chan models.ID                     // Run requests arrive from the Chainlink application via this channel
+	chStop       chan struct{}                      // A shutdown request arrives from the Chainlink application via this channel
+	chDone       chan struct{}                      // When the runQueue has finished shutting down, it sends a message on this channel to unblock Stop()
+	chWorkerDone chan models.ID                     // When an individual job spec worker runs out of work, it shuts down and sends a message on this channel
 }
 
 type singleJobSpecWorker struct {
@@ -53,9 +53,9 @@ type singleJobSpecWorker struct {
 // NewRunQueue initializes a RunQueue.
 func NewRunQueue(runExecutor RunExecutor) RunQueue {
 	return &runQueue{
-		workers:      make(map[models.ID]*singleJobSpecWorker),
 		runExecutor:  runExecutor,
-		chRuns:       make(chan *models.JobRun),
+		workers:      make(map[models.ID]*singleJobSpecWorker),
+		chRuns:       make(chan models.ID),
 		chStop:       make(chan struct{}),
 		chDone:       make(chan struct{}),
 		chWorkerDone: make(chan models.ID),
@@ -77,7 +77,7 @@ func (rq *runQueue) Stop() {
 // Run tells the job runner to start executing a job
 func (rq *runQueue) Run(run *models.JobRun) {
 	select {
-	case rq.chRuns <- run:
+	case rq.chRuns <- *run.ID:
 	case <-rq.chStop:
 	}
 }
@@ -86,13 +86,13 @@ func (rq *runQueue) orchestrateWorkers() {
 	defer close(rq.chDone)
 	for {
 		select {
-		case run := <-rq.chRuns:
-			worker, exists := rq.workers[*run.ID]
+		case jobID := <-rq.chRuns:
+			worker, exists := rq.workers[jobID]
 			if !exists {
 				worker = &singleJobSpecWorker{make(chan struct{}), make(chan struct{}), make(chan struct{})}
-				rq.workers[*run.ID] = worker
+				rq.workers[jobID] = worker
 				atomic.AddInt32(&rq.numWorkers, 1)
-				go rq.runSingleJobSpecWorker(run.ID, worker)
+				go rq.runSingleJobSpecWorker(jobID, worker)
 				worker.chAddRun <- struct{}{}
 			} else {
 				select {
@@ -101,29 +101,33 @@ func (rq *runQueue) orchestrateWorkers() {
 					// If the worker is just spinning down as new work is coming in, allow it
 					// to die and spin up a new one.
 					worker = &singleJobSpecWorker{make(chan struct{}), make(chan struct{}), make(chan struct{})}
-					rq.workers[*run.ID] = worker
+					rq.workers[jobID] = worker
 					atomic.AddInt32(&rq.numWorkers, 1)
-					go rq.runSingleJobSpecWorker(run.ID, worker)
+					go rq.runSingleJobSpecWorker(jobID, worker)
 					worker.chAddRun <- struct{}{}
 				}
 			}
 
 		case jobID := <-rq.chWorkerDone:
 			delete(rq.workers, jobID)
-			atomic.AddInt32(&rq.numWorkers, -1)
+			if n := atomic.AddInt32(&rq.numWorkers, -1); n < 0 {
+				panic("numWorkers should never be < 0")
+			}
 
 		case <-rq.chStop:
-			for _, run := range rq.workers {
-				run.chStop <- struct{}{}
-				<-run.chDone
-				atomic.AddInt32(&rq.numWorkers, -1)
+			for _, worker := range rq.workers {
+				worker.chStop <- struct{}{}
+				<-worker.chDone
+				if n := atomic.AddInt32(&rq.numWorkers, -1); n < 0 {
+					panic("numWorkers should never be < 0")
+				}
 			}
 			return
 		}
 	}
 }
 
-func (rq *runQueue) runSingleJobSpecWorker(runID *models.ID, worker *singleJobSpecWorker) {
+func (rq *runQueue) runSingleJobSpecWorker(jobID models.ID, worker *singleJobSpecWorker) {
 	defer close(worker.chDone)
 
 	promNumberRunQueueWorkers.Inc()
@@ -152,8 +156,8 @@ func (rq *runQueue) runSingleJobSpecWorker(runID *models.ID, worker *singleJobSp
 
 				promNumberRunsQueued.Inc()
 
-				if err := rq.runExecutor.Execute(runID); err != nil {
-					logger.Errorw(fmt.Sprint("Error executing run ", *runID), "error", err)
+				if err := rq.runExecutor.Execute(&jobID); err != nil {
+					logger.Errorw(fmt.Sprint("Error executing run ", jobID.String()), "error", err)
 				}
 			}
 			select {
@@ -190,7 +194,7 @@ func (rq *runQueue) runSingleJobSpecWorker(runID *models.ID, worker *singleJobSp
 			} else {
 				// If we hit 0 runs, shut down the worker.
 				select {
-				case rq.chWorkerDone <- *runID:
+				case rq.chWorkerDone <- jobID:
 				case <-worker.chStop:
 				}
 				close(chResume)
