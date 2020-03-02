@@ -31,7 +31,7 @@
     "shelljs": "^0.8.3",
     "ts-generator": "^0.0.8",
     "tslib": "^1",
-    "typechain": "^1.0.4",
+    "typechain": "^1.0.5",
     "typechain-target-ethers": "^1.0.3"
   },
   "devDependencies": {
