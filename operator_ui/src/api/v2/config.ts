@@ -1,4 +1,5 @@
 import * as jsonapi from '@chainlink/json-api-client'
+import { boundMethod } from 'autobind-decorator'
 import * as presenters from 'core/store/presenters'
 
 /**
@@ -7,15 +8,21 @@ import * as presenters from 'core/store/presenters'
  * @example "<application>/config"
  */
 const SHOW_ENDPOINT = '/v2/config'
-const show = jsonapi.fetchResource<{}, presenters.ConfigWhitelist, {}>(
-  SHOW_ENDPOINT,
-)
 
-/**
- * Get configuration variables
- */
-export function getConfiguration(): Promise<
-  jsonapi.ApiResponse<presenters.ConfigWhitelist>
-> {
-  return show()
+export class Config {
+  constructor(private api: jsonapi.Api) {}
+
+  /**
+   * Get configuration variables
+   */
+  @boundMethod
+  public getConfiguration(): Promise<
+    jsonapi.ApiResponse<presenters.ConfigWhitelist>
+  > {
+    return this.show()
+  }
+
+  private show = this.api.fetchResource<{}, presenters.ConfigWhitelist, {}>(
+    SHOW_ENDPOINT,
+  )
 }

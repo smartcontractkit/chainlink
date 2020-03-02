@@ -1,9 +1,20 @@
-import * as bridgeTypes from './bridgeTypes'
-import * as bulkDeleteRuns from './bulkDeleteRuns'
-import * as config from './config'
-import * as runs from './runs'
-import * as specs from './specs'
-import * as transactions from './transactions'
-import * as user from './user'
+import { Api } from '@chainlink/json-api-client'
+import { BridgeTypes } from './bridgeTypes'
+import { BulkDeleteRuns } from './bulkDeleteRuns'
+import { Config } from './config'
+import { Runs } from './runs'
+import { Specs } from './specs'
+import { Transactions } from './transactions'
+import { User } from './user'
 
-export { runs, specs, user, config, bulkDeleteRuns, transactions, bridgeTypes }
+export class V2 {
+  constructor(private api: Api) {}
+
+  public bridgeTypes = new BridgeTypes(this.api)
+  public bulkDeleteRuns = new BulkDeleteRuns(this.api)
+  public config = new Config(this.api)
+  public runs = new Runs(this.api)
+  public specs = new Specs(this.api)
+  public transactions = new Transactions(this.api)
+  public user = new User(this.api)
+}
