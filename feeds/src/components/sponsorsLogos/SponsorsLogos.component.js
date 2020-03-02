@@ -7,6 +7,8 @@ import nexusmutual from 'assets/sponsors/nexusmutual.png'
 import openlaw from 'assets/sponsors/openlaw.png'
 import setprotocol from 'assets/sponsors/setprotocol.png'
 import synthetix from 'assets/sponsors/synthetix.png'
+import dmm from 'assets/sponsors/dmm.png'
+
 import ReactGA from 'react-ga'
 
 const grid = { xs: 24, sm: 12, md: 8 }
@@ -45,6 +47,11 @@ const list = [
     name: 'OpenLaw',
     url: 'https://www.openlaw.io',
     src: openlaw,
+  },
+  {
+    name: 'DMM',
+    url: 'https://defimoneymarket.com',
+    src: dmm,
   },
 ]
 
