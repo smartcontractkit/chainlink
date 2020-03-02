@@ -203,9 +203,9 @@ func (client *CallerSubscriberClient) GetAggregatorLatestRound(address common.Ad
 
 // GetAggregatorReportingRound returns the reporting round at the given aggregator address.
 func (client *CallerSubscriberClient) GetAggregatorReportingRound(address common.Address) (*big.Int, error) {
-	aggregator, err := GetV6Contract(PrepaidAggregatorName)
+	aggregator, err := GetV6Contract(FluxAggregatorName)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to get contract "+PrepaidAggregatorName)
+		return nil, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
 	}
 	data, err := aggregator.EncodeMessageCall("reportingRound")
 	if err != nil {
