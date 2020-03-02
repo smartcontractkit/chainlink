@@ -5,15 +5,15 @@ import {
   ResourceObject,
 } from 'json-api-normalizer'
 import pathToRegexp from 'path-to-regexp'
-import fetchWithTimeout from '../fetchWithTimeout'
 import {
   AuthenticationError,
   BadRequestError,
-  UnprocessableEntityError,
+  ErrorItem,
   ServerError,
   UnknownResponseError,
-  ErrorItem,
+  UnprocessableEntityError,
 } from '../errors'
+import fetchWithTimeout from '../fetchWithTimeout'
 import * as http from './http'
 
 /**
@@ -65,27 +65,44 @@ export interface PaginatedApiResponse<T extends AttributesObject>
     }
   > {}
 
-export const fetchResource = methodFactory(http.Method.GET)
-export const createResource = methodFactory(http.Method.POST)
-export const updateResource = methodFactory(http.Method.PATCH)
-export const deleteResource = methodFactory(http.Method.DELETE)
+export class Api {
+  constructor(private options: { base?: string }) {}
 
-function methodFactory(method: http.Method) {
-  return function<Params, T, NamedPathParams extends object = object>(
-    url: string,
-  ): Method<Params, T, NamedPathParams> {
-    const toPath = pathToRegexp.compile<NamedPathParams>(url)
+  public fetchResource = this.methodFactory(http.Method.GET)
+  public GET = this.methodFactory(http.Method.GET)
 
-    return (params, namedPathParams) => {
-      // if required, compile our path with its named path parameters
-      const path = namedPathParams ? toPath(namedPathParams) : url
-      // add query string options if its a GET method
-      const query = method === http.Method.GET ? params : {}
-      const uri = http.formatURI(path, query)
-      const options = http.getOptions(method)
-      const fetch = fetchWithTimeout(uri, options(params))
+  public createResource = this.methodFactory(http.Method.POST)
+  public POST = this.methodFactory(http.Method.POST)
 
-      return fetch.then(v => parseResponse(v))
+  public updateResource = this.methodFactory(http.Method.PATCH)
+  public PATCH = this.methodFactory(http.Method.PATCH)
+
+  public deleteResource = this.methodFactory(http.Method.DELETE)
+  public DELETE = this.methodFactory(http.Method.DELETE)
+
+  private methodFactory(method: http.Method) {
+    return <Params, T, NamedPathParams extends object = object>(
+      url: string,
+    ): Method<Params, T, NamedPathParams> => {
+      const toPath = pathToRegexp.compile<NamedPathParams>(url)
+
+      return (params, namedPathParams) => {
+        // if required, compile our path with its named path parameters
+        const path = namedPathParams ? toPath(namedPathParams) : url
+        // add query string options if its a GET method
+        const query = method === http.Method.GET ? params : {}
+        const u = http.createUrl(
+          this.options.base ?? location.origin,
+          path,
+          query,
+        )
+
+        const options = http.getOptions(method)
+
+        const fetch = fetchWithTimeout(u.toString(), options(params))
+
+        return fetch.then(v => parseResponse(v))
+      }
     }
   }
 }
