@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -38,14 +39,14 @@ type runQueue struct {
 	runExecutor  RunExecutor
 	workers      map[models.ID]*singleJobSpecWorker // Access to this field is serialized through the select in orchestrateWorkers().
 	numWorkers   int32                              // Note: every access to this field must be atomic, as it is shared between goroutines
-	chRuns       chan models.ID                     // Run requests arrive from the Chainlink application via this channel
+	chRuns       chan *models.JobRun                // Run requests arrive from the Chainlink application via this channel
 	chStop       chan struct{}                      // A shutdown request arrives from the Chainlink application via this channel
 	chDone       chan struct{}                      // When the runQueue has finished shutting down, it sends a message on this channel to unblock Stop()
 	chWorkerDone chan models.ID                     // When an individual job spec worker runs out of work, it shuts down and sends a message on this channel
 }
 
 type singleJobSpecWorker struct {
-	chAddRun chan struct{}
+	chAddRun chan *models.JobRun
 	chStop   chan struct{}
 	chDone   chan struct{}
 }
@@ -55,7 +56,7 @@ func NewRunQueue(runExecutor RunExecutor) RunQueue {
 	return &runQueue{
 		runExecutor:  runExecutor,
 		workers:      make(map[models.ID]*singleJobSpecWorker),
-		chRuns:       make(chan models.ID),
+		chRuns:       make(chan *models.JobRun),
 		chStop:       make(chan struct{}),
 		chDone:       make(chan struct{}),
 		chWorkerDone: make(chan models.ID),
@@ -77,7 +78,7 @@ func (rq *runQueue) Stop() {
 // Run tells the job runner to start executing a job
 func (rq *runQueue) Run(run *models.JobRun) {
 	select {
-	case rq.chRuns <- *run.ID:
+	case rq.chRuns <- run:
 	case <-rq.chStop:
 	}
 }
@@ -86,30 +87,30 @@ func (rq *runQueue) orchestrateWorkers() {
 	defer close(rq.chDone)
 	for {
 		select {
-		case jobID := <-rq.chRuns:
-			worker, exists := rq.workers[jobID]
+		case run := <-rq.chRuns:
+			worker, exists := rq.workers[*run.JobSpecID]
 			if !exists {
-				worker = &singleJobSpecWorker{make(chan struct{}), make(chan struct{}), make(chan struct{})}
-				rq.workers[jobID] = worker
+				worker = &singleJobSpecWorker{make(chan *models.JobRun), make(chan struct{}), make(chan struct{})}
+				rq.workers[*run.JobSpecID] = worker
 				atomic.AddInt32(&rq.numWorkers, 1)
-				go rq.runSingleJobSpecWorker(jobID, worker)
-				worker.chAddRun <- struct{}{}
+				go rq.runSingleJobSpecWorker(*run.JobSpecID, worker)
+				worker.chAddRun <- run
 			} else {
 				select {
-				case worker.chAddRun <- struct{}{}:
+				case worker.chAddRun <- run:
 				case <-worker.chDone:
 					// If the worker is just spinning down as new work is coming in, allow it
 					// to die and spin up a new one.
-					worker = &singleJobSpecWorker{make(chan struct{}), make(chan struct{}), make(chan struct{})}
-					rq.workers[jobID] = worker
+					worker = &singleJobSpecWorker{make(chan *models.JobRun), make(chan struct{}), make(chan struct{})}
+					rq.workers[*run.JobSpecID] = worker
 					atomic.AddInt32(&rq.numWorkers, 1)
-					go rq.runSingleJobSpecWorker(jobID, worker)
-					worker.chAddRun <- struct{}{}
+					go rq.runSingleJobSpecWorker(*run.JobSpecID, worker)
+					worker.chAddRun <- run
 				}
 			}
 
-		case jobID := <-rq.chWorkerDone:
-			delete(rq.workers, jobID)
+		case jobSpecID := <-rq.chWorkerDone:
+			delete(rq.workers, jobSpecID)
 			if n := atomic.AddInt32(&rq.numWorkers, -1); n < 0 {
 				panic("numWorkers should never be < 0")
 			}
@@ -127,7 +128,7 @@ func (rq *runQueue) orchestrateWorkers() {
 	}
 }
 
-func (rq *runQueue) runSingleJobSpecWorker(jobID models.ID, worker *singleJobSpecWorker) {
+func (rq *runQueue) runSingleJobSpecWorker(jobSpecID models.ID, worker *singleJobSpecWorker) {
 	defer close(worker.chDone)
 
 	promNumberRunQueueWorkers.Inc()
@@ -135,7 +136,7 @@ func (rq *runQueue) runSingleJobSpecWorker(jobID models.ID, worker *singleJobSpe
 	var (
 		startOnce       sync.Once
 		chWorkerStarted = make(chan struct{})
-		chResume        = make(chan int)
+		chResume        = make(chan []models.ID)
 		chWorkComplete  = make(chan struct{})
 	)
 
@@ -144,10 +145,10 @@ func (rq *runQueue) runSingleJobSpecWorker(jobID models.ID, worker *singleJobSpe
 	// it sends a "work finished" message to that loop, which may or may not cause it to
 	// spin down, depending on whether further requests are already enqueued.
 	go func() {
-		for numRunsRequested := range chResume {
+		for runsRequested := range chResume {
 			startOnce.Do(func() { close(chWorkerStarted) })
 
-			for i := 0; i < numRunsRequested; i++ {
+			for _, runID := range runsRequested {
 				select {
 				case <-worker.chStop:
 					return
@@ -156,8 +157,8 @@ func (rq *runQueue) runSingleJobSpecWorker(jobID models.ID, worker *singleJobSpe
 
 				promNumberRunsQueued.Inc()
 
-				if err := rq.runExecutor.Execute(&jobID); err != nil {
-					logger.Errorw(fmt.Sprint("Error executing run ", jobID.String()), "error", err)
+				if err := rq.runExecutor.Execute(&runID); err != nil {
+					logger.Errorw(fmt.Sprint("Error executing run ", runID.String()), "error", err)
 				}
 			}
 			select {
@@ -171,15 +172,19 @@ func (rq *runQueue) runSingleJobSpecWorker(jobID models.ID, worker *singleJobSpe
 	// The coordinator loop accepts "do job run" requests from orchestrateWorkers, "work finished"
 	// signals from the worker goroutine, and "stop" messages from the Chainlink application,
 	// coordinating them such that we can avoid races when messages arrive simultaneously.
-	numRunsRequested := 0
+	var runsRequested []models.ID
 	for {
 		select {
-		case <-worker.chAddRun:
-			numRunsRequested++
+		case run := <-worker.chAddRun:
+			if !bytes.Equal(run.JobSpecID.Bytes(), jobSpecID.Bytes()) {
+				panic("worker received a run request from another job spec")
+			}
+
+			runsRequested = append(runsRequested, *run.ID)
 
 			select {
-			case chResume <- numRunsRequested:
-				numRunsRequested = 0
+			case chResume <- runsRequested:
+				runsRequested = nil
 			case <-chWorkerStarted:
 				// If we couldn't send the worker a work request, make sure it's not because it
 				// simply hasn't had a chance to start yet.  Avoids a race when .Stop() is called
@@ -187,14 +192,14 @@ func (rq *runQueue) runSingleJobSpecWorker(jobID models.ID, worker *singleJobSpe
 			}
 
 		case <-chWorkComplete:
-			if numRunsRequested > 0 {
+			if len(runsRequested) > 0 {
 				// If we've queued up more runs while the worker was working, keep it going.
-				chResume <- numRunsRequested
-				numRunsRequested = 0
+				chResume <- runsRequested
+				runsRequested = nil
 			} else {
 				// If we hit 0 runs, shut down the worker.
 				select {
-				case rq.chWorkerDone <- jobID:
+				case rq.chWorkerDone <- jobSpecID:
 				case <-worker.chStop:
 				}
 				close(chResume)

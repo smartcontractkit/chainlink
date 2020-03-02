@@ -30,7 +30,7 @@ func TestRunQueue(t *testing.T) {
 			executeJobChannel <- struct{}{}
 		})
 
-	runQueue.Run(&models.JobRun{ID: models.NewID()})
+	runQueue.Run(&models.JobRun{ID: models.NewID(), JobSpecID: models.NewID()})
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()
@@ -65,14 +65,18 @@ func TestRunQueue_OneWorkerPerRun(t *testing.T) {
 			executeJobChannel <- struct{}{}
 		})
 
-	runQueue.Run(&models.JobRun{ID: models.NewID()})
-	runQueue.Run(&models.JobRun{ID: models.NewID()})
+	jobSpecID1 := models.NewID()
+	jobSpecID2 := models.NewID()
+	runQueue.Run(&models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID1})
+	runQueue.Run(&models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID1})
+	runQueue.Run(&models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID2})
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()
 	}).Should(gomega.Equal(2))
 
 	cltest.CallbackOrTimeout(t, "Execute", func() {
+		<-executeJobChannel
 		<-executeJobChannel
 		<-executeJobChannel
 	})
@@ -103,8 +107,9 @@ func TestRunQueue_OneWorkerForSameRunTriggeredMultipleTimes(t *testing.T) {
 		})
 
 	id := models.NewID()
-	runQueue.Run(&models.JobRun{ID: id})
-	runQueue.Run(&models.JobRun{ID: id})
+	jobSpecID := models.NewID()
+	runQueue.Run(&models.JobRun{ID: id, JobSpecID: jobSpecID})
+	runQueue.Run(&models.JobRun{ID: id, JobSpecID: jobSpecID})
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()
