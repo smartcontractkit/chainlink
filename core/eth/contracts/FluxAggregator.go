@@ -116,16 +116,14 @@ func (fa *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (*LogSubscription,
 
 // Price returns the current price at the given aggregator address.
 func (fa *FluxAggregator) Price(precision int32) (decimal.Decimal, error) {
-	var result string
+	var result *big.Int
 	err := fa.Call(&result, "latestAnswer")
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, "unable to encode message call")
 	}
+	//return decimal.NewFromBigInt(result, -precision), nil
 
-	raw, err := newDecimalFromString(result)
-	if err != nil {
-		return decimal.Decimal{}, errors.Wrapf(err, "unable to fetch aggregator price from %s", fa.address.Hex())
-	}
+	raw := decimal.NewFromBigInt(result, 0)
 	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
 	return raw.Div(precisionDivisor), nil
 
@@ -164,14 +162,12 @@ func (fa *FluxAggregator) TimedOutStatus(round *big.Int) (bool, error) {
 // LatestSubmission returns the latest submission as a tuple, (answer, round)
 // for a given oracle address.
 func (fa *FluxAggregator) LatestSubmission(oracleAddress common.Address) (*big.Int, *big.Int, error) {
-	var result struct {
-		LatestAnswer        *big.Int
-		LatestReportedRound *big.Int
-	}
-
+	result := make([]interface{}, 2)
 	err := fa.Call(&result, "latestSubmission", oracleAddress)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to encode message call")
 	}
-	return result.LatestAnswer, result.LatestReportedRound, nil
+	latestAnswer := result[0].(*big.Int)
+	latestReportedRound := result[1].(*big.Int)
+	return latestAnswer, latestReportedRound, nil
 }

@@ -1,16 +1,38 @@
 package contracts_test
 
 import (
+	"encoding"
+	"fmt"
+	"math/big"
 	"testing"
 
 	"chainlink/core/eth"
+	"chainlink/core/eth/contracts"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
+	"chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
+func base10StringToEVMUintHex(t *testing.T, strings ...string) string {
+	var allBytes []byte
+	for _, s := range strings {
+		i, ok := big.NewInt(0).SetString(s, 10)
+		require.True(t, ok)
+		bs, err := utils.EVMWordBigInt(i)
+		require.NoError(t, err)
+		allBytes = append(allBytes, bs...)
+	}
+	return fmt.Sprintf("0x%0x", allBytes)
+}
+
+func TestFluxAggregatorClient_Price(t *testing.T) {
 	address := cltest.NewAddress()
 
 	// aggregatorLatestAnswerID is the first 4 bytes of the keccak256 of
@@ -28,32 +50,36 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 		precision      int32
 		expectation    decimal.Decimal
 	}{
-		{"hex - Zero", "0x", 2, decimal.NewFromFloat(0)},
-		{"hex", "0x0100", 2, decimal.NewFromFloat(2.56)},
-		{"decimal", "10000000000000", 11, decimal.NewFromInt(100)},
-		{"large decimal", "52050000000000000000", 11, decimal.RequireFromString("520500000")},
+		{"hex - Zero", base10StringToEVMUintHex(t, "0"), 2, decimal.NewFromFloat(0)},
+		{"hex", base10StringToEVMUintHex(t, "256"), 2, decimal.NewFromFloat(2.56)},
+		{"decimal", base10StringToEVMUintHex(t, "10000000000000"), 11, decimal.NewFromInt(100)},
+		{"large decimal", base10StringToEVMUintHex(t, "52050000000000000000"), 11, decimal.RequireFromString("520500000")},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			caller := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+			ethClient := new(mocks.Client)
 
-			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
-					res := args.Get(0).(*string)
-					*res = test.response
+					res := args.Get(0)
+					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
+					require.NoError(t, err)
 				})
-			result, err := ethClient.GetAggregatorPrice(address, test.precision)
+
+			fa, err := contracts.NewFluxAggregator(ethClient, address)
+			require.NoError(t, err)
+
+			result, err := fa.Price(test.precision)
 			require.NoError(t, err)
 			assert.True(t, test.expectation.Equal(result))
-			caller.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
 
-func TestCallerSubscriberClient_GetAggregatorLatestRound(t *testing.T) {
+func TestFluxAggregatorClient_LatestRound(t *testing.T) {
 	address := cltest.NewAddress()
 
 	const aggregatorLatestRoundID = "668a0f02"
@@ -70,34 +96,35 @@ func TestCallerSubscriberClient_GetAggregatorLatestRound(t *testing.T) {
 		name, response string
 		expectation    *big.Int
 	}{
-		{"zero", "0", big.NewInt(0)},
-		{"small", "12", big.NewInt(12)},
-		{"large", "52050000000000000000", large},
-		{"hex zero default", "0x", big.NewInt(0)},
-		{"hex zero", "0x0", big.NewInt(0)},
-		{"hex", "0x0100", big.NewInt(256)},
+		{"zero", base10StringToEVMUintHex(t, "0"), big.NewInt(0)},
+		{"small", base10StringToEVMUintHex(t, "12"), big.NewInt(12)},
+		{"large", base10StringToEVMUintHex(t, "52050000000000000000"), large},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			caller := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+			ethClient := new(mocks.Client)
 
-			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
-					res := args.Get(0).(*string)
-					*res = test.response
+					res := args.Get(0)
+					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
+					require.NoError(t, err)
 				})
-			result, err := ethClient.GetAggregatorLatestRound(address)
+
+			fa, err := contracts.NewFluxAggregator(ethClient, address)
 			require.NoError(t, err)
-			assert.Equal(t, test.expectation, result)
-			caller.AssertExpectations(t)
+
+			result, err := fa.LatestRound()
+			require.NoError(t, err)
+			require.True(t, test.expectation.Cmp(result) == 0)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
 
-func TestCallerSubscriberClient_GetAggregatorReportingRound(t *testing.T) {
+func TestFluxAggregatorClient_ReportingRound(t *testing.T) {
 	address := cltest.NewAddress()
 
 	const aggregatorReportingRoundID = "6fb4bb4e"
@@ -114,34 +141,35 @@ func TestCallerSubscriberClient_GetAggregatorReportingRound(t *testing.T) {
 		name, response string
 		expectation    *big.Int
 	}{
-		{"zero", "0", big.NewInt(0)},
-		{"small", "12", big.NewInt(12)},
-		{"large", "52050000000000000000", large},
-		{"hex zero default", "0x", big.NewInt(0)},
-		{"hex zero", "0x0", big.NewInt(0)},
-		{"hex", "0x0100", big.NewInt(256)},
+		{"zero", base10StringToEVMUintHex(t, "0"), big.NewInt(0)},
+		{"small", base10StringToEVMUintHex(t, "12"), big.NewInt(12)},
+		{"large", base10StringToEVMUintHex(t, "52050000000000000000"), large},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			caller := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+			ethClient := new(mocks.Client)
 
-			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
-					res := args.Get(0).(*string)
-					*res = test.response
+					res := args.Get(0)
+					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
+					require.NoError(t, err)
 				})
-			result, err := ethClient.GetAggregatorReportingRound(address)
+
+			fa, err := contracts.NewFluxAggregator(ethClient, address)
 			require.NoError(t, err)
-			assert.Equal(t, test.expectation, result)
-			caller.AssertExpectations(t)
+
+			result, err := fa.ReportingRound()
+			require.NoError(t, err)
+			require.True(t, test.expectation.Cmp(result) == 0)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
 
-func TestCallerSubscriberClient_GetAggregatorTimedOutStatus(t *testing.T) {
+func TestFluxAggregatorClient_TimedOutStatus(t *testing.T) {
 	const aggregatorTimedOutStatusID = "25b6ae00"
 	address := cltest.NewAddress()
 	aggregatorTimedOutStatusSelector := eth.HexToFunctionSelector(aggregatorTimedOutStatusID)
@@ -153,37 +181,42 @@ func TestCallerSubscriberClient_GetAggregatorTimedOutStatus(t *testing.T) {
 		Data: callData,
 	}
 
+	var evmFalse = "0x0000000000000000000000000000000000000000000000000000000000000000"
+	var evmTrue = "0x0000000000000000000000000000000000000000000000000000000000000001"
+
 	tests := []struct {
 		name        string
-		response    bool
+		response    string
 		expectation bool
 	}{
-		{"true", true, true},
-		{"false", false, false},
+		{"true", evmTrue, true},
+		{"false", evmFalse, false},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			caller := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+			ethClient := new(mocks.Client)
 
-			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
-					res := args.Get(0).(*bool)
-					*res = test.response
+					res := args.Get(0)
+					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
+					require.NoError(t, err)
 				})
-			result, err := ethClient.GetAggregatorTimedOutStatus(address, big.NewInt(0))
+
+			fa, err := contracts.NewFluxAggregator(ethClient, address)
+			require.NoError(t, err)
+
+			result, err := fa.TimedOutStatus(big.NewInt(0))
 			require.NoError(t, err)
 			assert.Equal(t, test.expectation, result)
-			caller.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
 
-func TestCallerSubscriberClient_GetAggregatorLatestSubmission(t *testing.T) {
-	caller := new(mocks.CallerSubscriber)
-	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+func TestFluxAggregatorClient_LatestSubmission(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
 	oracleAddress := cltest.NewAddress()
 
@@ -199,31 +232,34 @@ func TestCallerSubscriberClient_GetAggregatorLatestSubmission(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		answer         int64
-		round          int64
+		response       string
 		expectedAnswer *big.Int
 		expectedRound  *big.Int
 	}{
-		{"zero", 0, 0, big.NewInt(0), big.NewInt(0)},
-		{"small", 8, 12, big.NewInt(8), big.NewInt(12)},
+		{"zero", base10StringToEVMUintHex(t, "0", "0"), big.NewInt(0), big.NewInt(0)},
+		{"small", base10StringToEVMUintHex(t, "8", "12"), big.NewInt(8), big.NewInt(12)},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+			ethClient := new(mocks.Client)
+
+			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
-					res := args.Get(0).(*string)
-					answerBytes, err := utils.EVMWordSignedBigInt(big.NewInt(test.answer))
+					res := args.Get(0)
+					fmt.Println("ZZZZ ~>", test.response)
+					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
 					require.NoError(t, err)
-					roundBytes, err := utils.EVMWordBigInt(big.NewInt(test.round))
-					require.NoError(t, err)
-					*res = hexutil.Encode(append(answerBytes, roundBytes...))
 				})
-			answer, round, err := ethClient.GetAggregatorLatestSubmission(aggregatorAddress, oracleAddress)
+
+			fa, err := contracts.NewFluxAggregator(ethClient, aggregatorAddress)
+			require.NoError(t, err)
+
+			answer, round, err := fa.LatestSubmission(oracleAddress)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectedAnswer.String(), answer.String())
 			assert.Equal(t, test.expectedRound.String(), round.String())
-			caller.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
