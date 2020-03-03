@@ -88,11 +88,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	// TODO(alx)[If you encounter this TODO in addressing some other issue, you
-	// are not obliged to fix it]: Roundtrip the presenters.JobSpec through JSON,
-	// back to a JobSpec, and validate it. This will warn developers when there's
-	// a disparity in the presenters logic for the spec.
-	// https://www.pivotaltracker.com/story/show/171169052
+	// TODO: https://www.pivotaltracker.com/story/show/171169052
 	jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 }
 
