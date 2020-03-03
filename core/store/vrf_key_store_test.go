@@ -25,7 +25,7 @@ var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
-func vRFVerifier() *solidity_verifier_wrapper.VRFTestHelper {
+func vrfVerifier() *solidity_verifier_wrapper.VRFTestHelper {
 	ethereumKey, _ := crypto.GenerateKey()
 	auth := bind.NewKeyedTransactor(ethereumKey)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
@@ -85,7 +85,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	require.NoError(t, err, "should be able to get a specific key")
 	assert.True(t, bytes.Equal(encryptedKey.PublicKey[:], key[:]),
 		"should have recovered the encrypted key for the requested public key")
-	verifier := vRFVerifier() // Generated proof is valid
+	verifier := vrfVerifier() // Generated proof is valid
 	_, err = verifier.RandomValueFromVRFProof(nil, proof[:])
 	require.NoError(t, err,
 		"failed to get VRF proof output from solidity VRF contract")
