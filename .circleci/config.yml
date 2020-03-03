@@ -32,7 +32,8 @@ jobs:
       #       - "/go/pkg/mod"
       # - run: yarn setup:contracts
       - run: apt-get update; apt-get install acl
-      - run: setfacl -m g:green:rwx /var/www
+      - run: mkdir ~/chainlink
+      - run: setfacl -Rbd -m u::rwx ~/chainlink
       # - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
