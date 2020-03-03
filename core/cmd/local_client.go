@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -20,6 +21,9 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )
+
+// ownerPermsMask are the file permission bits reserved for owner.
+const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -38,6 +42,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
+	if err := checkFilePermissions(cli.Config.RootDir()); err != nil {
+		return cli.errorOut(err)
+	}
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
@@ -83,6 +90,25 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 func loggedStop(app chainlink.Application) {
 	logger.WarnIf(app.Stop())
+}
+
+func checkFilePermissions(directory string) error {
+	err := filepath.Walk(directory,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			fileMode := info.Mode()
+			// bitwise &^ used to check if file has any invalid permissions
+			if fileMode&^ownerPermsMask != 0 && !fileMode.IsDir() {
+				return fmt.Errorf("%s has overly permissive file permissions, %s", path, fileMode.String())
+			}
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func passwordFromFile(pwdFile string) (string, error) {

@@ -13,6 +13,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// this permission grants read / write accccess to file owners only
+const readWritePerms = os.FileMode(0600)
+
 var logger *Logger
 
 func init() {
@@ -67,11 +70,11 @@ func SetLogger(zl *zap.Logger) {
 func CreateProductionLogger(
 	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *zap.Logger {
 	config := zap.NewProductionConfig()
+	destination := logFileURI(dir)
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
 	if toDisk {
-		destination := logFileURI(dir)
 		config.OutputPaths = append(config.OutputPaths, destination)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
@@ -81,6 +84,13 @@ func CreateProductionLogger(
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if toDisk {
+		if err := os.Chmod(destination, readWritePerms); err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	return zl
 }
 
