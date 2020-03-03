@@ -112,7 +112,7 @@ func abiEncode(fnABI *abi.Method, args map[string]interface{}) ([]byte, error) {
 		}
 
 		if !isSupportedABIType(&input.Type) {
-			errors.Errorf(
+			return nil, errors.Errorf(
 				"argument %s has unsupported ABI type %s",
 				name, input.Type)
 		}
