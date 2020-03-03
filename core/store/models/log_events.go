@@ -69,6 +69,12 @@ var (
 	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
 	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
 	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "NewRound")
+	// AggregatorRoundDetailsUpdatedLogTopic20191220 is the RoundDetailsUpdated filter topic for
+	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
+	AggregatorRoundDetailsUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "RoundDetailsUpdated")
+	// AggregatorAnswerUpdatedLogTopic20191220 is the AnswerUpdated filter topic for
+	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
+	AggregatorAnswerUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "AnswerUpdated")
 )
 
 type logRequestParser interface {
@@ -129,7 +135,7 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 		return q, nil
 
 	case InitiatorFluxMonitor:
-		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
+		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220, AggregatorUpdatedRoundDetailsLogTopic20191220, AggregatorAnswerUpdatedLogTopic20191220}}
 		return q, nil
 
 	default:
