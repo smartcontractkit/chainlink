@@ -31,7 +31,7 @@ jobs:
           paths:
             - "/go/pkg/mod"
       - run: yarn setup:contracts
-      - run: apk add acl
+      - run: apt-get install acl
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
