@@ -83,7 +83,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
               <a
                 target="_BLANK"
                 rel="noopener noreferrer"
-                href={`https://market.link/search/nodes?&search=${data.address}`}
+                href={`https://market.link/search/nodes?search=${data.address}`}
               >
                 Market.link
               </a>
