@@ -4,11 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
@@ -19,8 +17,6 @@ func NewLockingStrategy(dialect DialectName, dbpath string) (LockingStrategy, er
 	switch dialect {
 	case DialectPostgres:
 		return NewPostgresLockingStrategy(dbpath)
-	case DialectSqlite:
-		return NewFileLockingStrategy(dbpath)
 	}
 
 	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", dialect, dbpath)
@@ -33,56 +29,11 @@ type LockingStrategy interface {
 	Unlock(timeout time.Duration) error
 }
 
-// FileLockingStrategy uses a file lock on disk to ensure exclusive access.
-type FileLockingStrategy struct {
-	path     string
-	fileLock *flock.Flock
-	m        *sync.Mutex
-}
-
-// NewFileLockingStrategy creates a new instance of FileLockingStrategy
-// at the passed path.
-func NewFileLockingStrategy(dbpath string) (LockingStrategy, error) {
-	directory := filepath.Dir(dbpath)
-	lockPath := filepath.Join(directory, "chainlink.lock")
-	return &FileLockingStrategy{
-		path:     lockPath,
-		fileLock: flock.New(lockPath),
-		m:        &sync.Mutex{},
-	}, nil
-}
-
-// Lock returns immediately and assumes is always unlocked.
-func (s *FileLockingStrategy) Lock(timeout time.Duration) error {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	var err error
-	locked := make(chan struct{})
-	go func() {
-		err = s.fileLock.Lock()
-		close(locked)
-	}()
-	select {
-	case <-locked:
-	case <-normalizedTimeout(timeout):
-		return fmt.Errorf("file locking strategy timed out for %s", s.path)
-	}
-	return err
-}
-
 func normalizedTimeout(timeout time.Duration) <-chan time.Time {
 	if timeout == 0 {
 		return make(chan time.Time) // never time out
 	}
 	return time.After(timeout)
-}
-
-// Unlock is a noop.
-func (s *FileLockingStrategy) Unlock(timeout time.Duration) error {
-	s.m.Lock()
-	defer s.m.Unlock()
-	return s.fileLock.Unlock()
 }
 
 // PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive

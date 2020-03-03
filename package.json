@@ -31,7 +31,8 @@
     "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
     "setup:integration": "yarn wsrun -mre -p @chainlink/integration* -t setup",
     "setup:explorer": "yarn wsrun -mre -p '@chainlink/explorer*' -t setup",
-    "clean": "wsrun -me clean"
+    "clean": "wsrun -me clean",
+    "postinstall": "patch-package"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.15.0",
@@ -41,13 +42,16 @@
     "eslint-plugin-prettier": "^3.1.2",
     "eslint-plugin-react": "^7.17.0",
     "eslint-plugin-react-hooks": "^2.3.0",
+    "patch-package": "^6.2.1",
+    "postinstall-postinstall": "^2.0.0",
     "prettier": "^1.19.1",
     "typescript": "^3.7.4",
     "wsrun": "^5.2.0"
   },
   "resolutions": {
     "**/sha3": "^2.0.7",
-    "**/keccak": "^3.0.0"
+    "**/keccak": "^3.0.0",
+    "**/source-map-support": "0.5.16"
   },
   "dependencies": {
     "tslib": "^1.10.0"

@@ -1,45 +1,8 @@
 version: 2.1
 jobs:
-  go-sqlite:
-    docker:
-      - image: smartcontract/builder:1.0.29
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod download
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - '/go/pkg/mod'
-      - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/go_test | tee /tmp/go_test.txt
-      - store_artifacts:
-          path: /tmp/go_test.txt
-  go-sqlite-race:
-    resource_class: large
-    docker:
-      - image: smartcontract/builder:1.0.29
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - '/go/pkg/mod'
-      - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
-      - store_artifacts:
-          path: /tmp/gorace_test.txt
   go-postgres:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -71,7 +34,7 @@ jobs:
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -107,7 +70,7 @@ jobs:
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -126,7 +89,7 @@ jobs:
           path: ./integration/logs
   styleguide:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -142,7 +105,7 @@ jobs:
       - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -159,7 +122,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -217,7 +180,7 @@ jobs:
           path: ./integration/logs
   feeds:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -330,7 +293,7 @@ jobs:
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -347,7 +310,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -364,7 +327,7 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.30
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -392,10 +355,6 @@ workflows:
                 - develop
                 - /^release\/.*/
                 - master
-      - go-sqlite:
-          filters: # all branches, and /^v../ tags for build-publish...
-            tags:
-              only: /^v.*/
       - go-postgres:
           filters:
             tags:
@@ -476,7 +435,6 @@ workflows:
               only: /^v.*/
       - build-publish-chainlink:
           requires:
-            - go-sqlite
             - go-postgres
             - solidity
             - geth-postgres
@@ -494,7 +452,6 @@ workflows:
               only: /^v.*/ # handles final versioned releases
       - reportcoverage:
           requires:
-            - go-sqlite
             - go-postgres
             - solidity
             - operator-ui

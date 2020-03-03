@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@types/cbor": "^5.0.0",
-    "@types/chai": "^4.2.4",
+    "@types/chai": "^4.2.9",
     "@types/debug": "^4.1.5",
     "@types/ganache-core": "^2.7.0",
     "@types/jest": "^24.0.25",
@@ -35,7 +35,7 @@
     "jest-circus": "^24.9.0",
     "rimraf": "^3.0.1",
     "ts-jest": "^24.1.0",
-    "typechain": "^1.0.4",
+    "typechain": "^1.0.5",
     "typechain-target-ethers": "^1.0.3",
     "typescript": "^3.7.4"
   },

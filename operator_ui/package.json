@@ -86,7 +86,7 @@
     "depcheck": "^0.9.1",
     "enzyme": "^3.11.0",
     "enzyme-adapter-react-16": "^1.15.1",
-    "fetch-mock": "^7.3.1",
+    "fetch-mock": "^9.0.0",
     "jest": "^24.9.0",
     "jest-silent-reporter": "^0.1.2",
     "mock-local-storage": "^1.1.11",
