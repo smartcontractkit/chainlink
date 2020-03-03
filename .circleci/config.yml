@@ -29,8 +29,9 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}
           paths:
-            - '/go/pkg/mod'
+            - "/go/pkg/mod"
       - run: yarn setup:contracts
+      - run: apk add acl
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
@@ -45,7 +46,7 @@ jobs:
           name: Save Go Vendor Cache
           key: go-mod-{{ checksum "go.sum" }}-v2
           paths:
-            - '/go/pkg/mod'
+            - "/go/pkg/mod"
       - run: ./tools/ci/rust_test
   geth-postgres:
     resource_class: 2xlarge
@@ -214,8 +215,8 @@ jobs:
           path: ./integration/forks/logs
   build-publish-explorer:
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -231,8 +232,8 @@ jobs:
             tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-explorer:
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -245,8 +246,8 @@ jobs:
   build-publish-chainlink:
     resource_class: large
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -264,8 +265,8 @@ jobs:
   build-chainlink:
     resource_class: xlarge
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -279,8 +280,8 @@ jobs:
   build-chainlink-sgx:
     resource_class: xlarge
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
