@@ -26,7 +26,7 @@ var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
-func vRFVerifier(t *testing.T) *solidity_verifier_wrapper.VRFTestHelper {
+func vrfVerifier(t *testing.T) *solidity_verifier_wrapper.VRFTestHelper {
 	ethereumKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	auth := bind.NewKeyedTransactor(ethereumKey)
@@ -56,7 +56,7 @@ func TestRandom_Perform(t *testing.T) {
 	length := big.NewInt(0).SetBytes(proof[:utils.EVMWordByteLen]).Uint64()
 	require.Equal(t, length, uint64(len(proof)-utils.EVMWordByteLen))
 	actualProof := proof[utils.EVMWordByteLen:]
-	randomOutput, err := vRFVerifier(t).RandomValueFromVRFProof(nil, actualProof)
+	randomOutput, err := vrfVerifier(t).RandomValueFromVRFProof(nil, actualProof)
 	require.NoError(t, err, "proof was invalid")
 	expected := common.HexToHash(
 		"c0a5642a409290ac65d9d44a4c52e53f31921ff1b7d235c585193a18190c82f1")
