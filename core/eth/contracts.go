@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -210,37 +211,37 @@ func capitalise(input string) string {
 	return abi.ToCamelCase(input)
 }
 
-func (contract *Contract) Connect(ethClient CallerSubscriber, address common.Address) *ConnectedContract {
+func (contract *Contract) Connect(ethClient Client, address common.Address) *ConnectedContract {
 	return &ConnectedContract{contract, ethClient, address}
 }
 
 type ConnectedContract struct {
 	*Contract
-	ethClient CallerSubscriber
+	ethClient Client
 	address   common.Address
 }
 
 func (contract *ConnectedContract) Call(result interface{}, methodName string, args ...interface{}) error {
 	data, err := contract.EncodeMessageCall(methodName, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, errMessage+"- unable to encode message call")
+		return errors.Wrap(err, "unable to encode message call")
 	}
 
-	var result string
-	args := CallArgs{To: contract.address, Data: data}
-	err = contract.ethClient.Call(&result, "eth_call", args, "latest")
+	var rawResult string
+	callArgs := CallArgs{To: contract.address, Data: data}
+	err = contract.ethClient.Call(&rawResult, "eth_call", callArgs, "latest")
 	if err != nil {
-		return nil, errors.Wrap(err, errMessage+"- unable to call client")
+		return errors.Wrap(err, "unable to call client")
 	}
 
-	resultBytes, err := hexutil.Decode(result)
+	resultBytes, err := hexutil.Decode(rawResult)
 	if err != nil {
-		return nil, errors.Wrap(err, errMessage+"- unable to decode result")
+		return errors.Wrap(err, "unable to decode result")
 	}
 
 	err = contract.ABI.Unpack(result, methodName, resultBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, errMessage+"- unable to unpack values")
+		return errors.Wrap(err, "unable to unpack values")
 	}
 	return nil
 }
