@@ -5,12 +5,12 @@ import jobRunsSerializer from '../serializers/jobRunsSerializer'
 import jobRunSerializer from '../serializers/jobRunSerializer'
 import { getCustomRepository } from 'typeorm'
 import { JobRunRepository } from '../repositories/JobRunRepository'
-import { parseParams as parsePaginationParams } from '../utils/pagination'
+import * as pagination from '../utils/pagination'
 
 const router = Router()
 
 const searchParams = (req: Request): SearchParams => {
-  const params = parsePaginationParams(req.query)
+  const params = pagination.parseParams(req.query)
 
   return {
     ...params,
