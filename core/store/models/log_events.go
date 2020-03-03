@@ -13,6 +13,7 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/pkg/errors"
 )
 
@@ -24,7 +25,7 @@ const (
 	RequestLogTopicPayment
 )
 
-// Descriptive indices of the PrepaidAggregator's NewRound Topic Array:
+// Descriptive indices of the FluxAggregator's NewRound Topic Array:
 // event NewRound(uint256 indexed roundId, address indexed startedBy);
 const (
 	NewRoundTopicSignature = iota
@@ -66,8 +67,8 @@ var (
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
 	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
-	// the PrepaidAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorNewRoundLogTopic20191220 = eth.MustGetV5ContractEventID("PrepaidAggregator", "NewRound")
+	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
+	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "NewRound")
 )
 
 type logRequestParser interface {
@@ -226,9 +227,15 @@ func (le InitiatorLogEvent) BlockNumber() *big.Int {
 func (le InitiatorLogEvent) RunRequest() (RunRequest, error) {
 	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
 	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
+
+	requestParams, err := le.JSON()
+	if err != nil {
+		return RunRequest{}, err
+	}
 	return RunRequest{
-		BlockHash: &blockHash,
-		TxHash:    &txHash,
+		BlockHash:     &blockHash,
+		TxHash:        &txHash,
+		RequestParams: requestParams,
 	}, nil
 }
 
@@ -337,6 +344,12 @@ func (le RunLogEvent) Requester() common.Address {
 // RunRequest returns an RunRequest instance with all parameters
 // from a run log topic, like RequestID.
 func (le RunLogEvent) RunRequest() (RunRequest, error) {
+	requestParams, err := le.JSON()
+	if err != nil {
+		logger.Errorw(err.Error(), le.ForLogger()...)
+		return RunRequest{}, err
+	}
+
 	parser, err := parserFromLog(le.Log)
 	if err != nil {
 		return RunRequest{}, err
@@ -351,12 +364,14 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
 	str := parser.parseRequestID(le.Log)
 	requester := le.Requester()
+
 	return RunRequest{
-		RequestID: &str,
-		TxHash:    &txHash,
-		BlockHash: &blockHash,
-		Requester: &requester,
-		Payment:   payment,
+		RequestID:     &str,
+		TxHash:        &txHash,
+		BlockHash:     &blockHash,
+		Requester:     &requester,
+		Payment:       payment,
+		RequestParams: requestParams,
 	}, nil
 }
 
@@ -394,6 +409,10 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	start := idSize + versionSize + dataLocationSize + dataLengthSize
 
+	if len(data) < start {
+		return JSON{}, errors.New("malformed data")
+	}
+
 	js, err := ParseCBOR(data[start:])
 	if err != nil {
 		return js, err
@@ -425,6 +444,9 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	data := log.Data
 	cborStart := idSize + versionSize + callbackAddrSize + callbackFuncSize + expirationSize + dataLocationSize + dataLengthSize
 
+	if len(data) < cborStart {
+		return JSON{}, errors.New("malformed data")
+	}
 	js, err := ParseCBOR(data[cborStart:])
 	if err != nil {
 		return js, err
@@ -463,8 +485,21 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	data := log.Data
 	idStart := requesterSize
 	expirationEnd := idStart + idSize + paymentSize + callbackAddrSize + callbackFuncSize + expirationSize
-	cborStart := expirationEnd + versionSize + dataLocationSize + dataLengthSize
-	js, err := ParseCBOR(data[cborStart:])
+
+	dataLengthStart := expirationEnd + versionSize + dataLocationSize
+	cborStart := dataLengthStart + dataLengthSize
+
+	if len(log.Data) < dataLengthStart+32 {
+		return JSON{}, errors.New("malformed data")
+	}
+
+	dataLength := whisperv6.BytesToUintBigEndian(data[dataLengthStart : dataLengthStart+32])
+
+	if len(log.Data) < cborStart+int(dataLength) {
+		return JSON{}, errors.New("cbor too short")
+	}
+
+	js, err := ParseCBOR(data[cborStart : cborStart+int(dataLength)])
 	if err != nil {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}

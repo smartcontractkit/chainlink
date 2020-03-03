@@ -1,5 +1,5 @@
+import { partialAsFull } from '@chainlink/ts-test-helpers'
 import status from '../../utils/status'
-import { partialAsFull } from '../support/mocks'
 import { JobRun, TaskRun } from 'explorer/models'
 
 const COMPLETED_ETHTX_WITHOUT_STATUS = partialAsFull<TaskRun>({

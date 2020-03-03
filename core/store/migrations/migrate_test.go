@@ -12,6 +12,7 @@ import (
 	"chainlink/core/store/migrations"
 	"chainlink/core/store/migrations/migration0"
 	"chainlink/core/store/migrations/migration1560881855"
+	"chainlink/core/store/migrations/migration1570675883"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/utils"
@@ -29,7 +30,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	cleanupDB := cltest.PrepareTestDB(tc)
-	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout())
 	require.NoError(t, err)
 	orm.SetLogging(true)
 
@@ -302,7 +303,7 @@ func TestMigrate_Migration1570675883(t *testing.T) {
 
 		require.NoError(t, migrations.MigrateTo(db, "1570675883"))
 
-		jobRunFound := models.JobRun{}
+		jobRunFound := migration1570675883.JobRun{}
 		require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
 		assert.Equal(t, `{"a": "b"}`, jobRunFound.Overrides.String())
 		require.Error(t, db.Where("id = ?", overrides.ID).Find(&overrides).Error)

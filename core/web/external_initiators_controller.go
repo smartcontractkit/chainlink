@@ -1,47 +1,56 @@
 package web
 
 import (
-	"errors"
 	"net/http"
 
 	"chainlink/core/auth"
 	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 // ExternalInitiatorsController manages external initiators
 type ExternalInitiatorsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create builds and saves a new service agreement record.
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &models.ExternalInitiatorRequest{}
 	if !eic.App.GetStore().Config.Dev() && !eic.App.GetStore().Config.FeatureExternalInitiators() {
-		jsonAPIError(c,
-			http.StatusMethodNotAllowed,
-			errors.New("The External Initiator feature is disabled by configuration"),
-		)
+		err := errors.New("The External Initiator feature is disabled by configuration")
+		jsonAPIError(c, http.StatusMethodNotAllowed, err)
 		return
 	}
 
 	eia := auth.NewToken()
 	if err := c.ShouldBindJSON(eir); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if ei, err := models.NewExternalInitiator(eia, eir); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if err := services.ValidateExternalInitiator(eir, eic.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if err := eic.App.GetStore().CreateExternalInitiator(ei); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		resp := presenters.NewExternalInitiatorAuthentication(*ei, *eia)
-		jsonAPIResponseWithStatus(c, resp, "external initiator authentication", http.StatusCreated)
+		return
 	}
+
+	ei, err := models.NewExternalInitiator(eia, eir)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := services.ValidateExternalInitiator(eir, eic.App.GetStore()); err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+	if err := eic.App.GetStore().CreateExternalInitiator(ei); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	resp := presenters.NewExternalInitiatorAuthentication(*ei, *eia)
+	jsonAPIResponseWithStatus(c, resp, "external initiator authentication", http.StatusCreated)
 }
 
 // Destroy deletes an ExternalInitiator
@@ -52,11 +61,15 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 	}
 
 	name := c.Param("Name")
-	if exi, err := eic.App.GetStore().FindExternalInitiatorByName(name); err == orm.ErrorNotFound {
+	exi, err := eic.App.GetStore().FindExternalInitiatorByName(name)
+	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("external initiator not found"))
-	} else if err := eic.App.GetStore().DeleteExternalInitiator(exi.Name); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
+		return
 	}
+	if err := eic.App.GetStore().DeleteExternalInitiator(exi.Name); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
 }

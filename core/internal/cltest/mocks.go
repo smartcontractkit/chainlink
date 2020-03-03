@@ -21,7 +21,7 @@ import (
 	"chainlink/core/cmd"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -32,8 +32,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Strict flag makes the mock eth client panic if an unexpected call is made
-const Strict = "strict"
+// LenientEthMock flag prevents the mock eth client from panicking if an unexpected call is made
+const LenientEthMock = "lenient"
+
+// EthMockRegisterChainID registers the common case of calling eth_chainId
+// and returns the store.config.ChainID
+const EthMockRegisterChainID = "eth_mock_register_chain_id"
 
 // MockCallerSubscriberClient create new EthMock Client
 func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock {
@@ -45,10 +49,12 @@ func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock 
 
 // MockEthOnStore given store return new EthMock Client
 func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
-	mock := &EthMock{t: t}
+	mock := &EthMock{t: t, strict: true}
 	for _, flag := range flags {
-		if flag == Strict {
-			mock.strict = true
+		if flag == LenientEthMock {
+			mock.strict = false
+		} else if flag == EthMockRegisterChainID {
+			mock.Register("eth_chainId", s.Config.ChainID())
 		}
 	}
 	eth := &eth.CallerSubscriberClient{CallerSubscriber: mock}
@@ -199,8 +205,6 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 	err := fmt.Errorf("EthMock: Method %v not registered", method)
 	if mock.strict {
 		mock.t.Errorf("%s\n%s", err, debug.Stack())
-	} else {
-		mock.t.Logf("%s\n%s", err, debug.Stack())
 	}
 	return err
 }
@@ -444,24 +448,24 @@ func (rm *RendererMock) Render(v interface{}) error {
 
 // InstanceAppFactory is an InstanceAppFactory
 type InstanceAppFactory struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
 	return f.App
 }
 
 type seededAppFactory struct {
-	Application services.Application
+	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(services.Application)) services.Application {
+func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
 	return noopStopApplication{s.Application}
 }
 
 type noopStopApplication struct {
-	services.Application
+	chainlink.Application
 }
 
 func (a noopStopApplication) Stop() error {
@@ -484,7 +488,7 @@ type BlockedRunner struct {
 }
 
 // Run runs the blocked runner, doesn't return until the channel is signalled
-func (r BlockedRunner) Run(app services.Application) error {
+func (r BlockedRunner) Run(app chainlink.Application) error {
 	<-r.Done
 	return nil
 }
@@ -493,7 +497,7 @@ func (r BlockedRunner) Run(app services.Application) error {
 type EmptyRunner struct{}
 
 // Run runs the empty runner
-func (r EmptyRunner) Run(app services.Application) error {
+func (r EmptyRunner) Run(app chainlink.Application) error {
 	return nil
 }
 

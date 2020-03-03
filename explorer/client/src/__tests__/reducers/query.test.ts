@@ -1,6 +1,7 @@
 import { createStore, applyMiddleware } from 'redux'
 import { createQueryMiddleware } from '../../middleware'
 import reducer from '../../reducers'
+import { UpdateQueryAction } from '../../reducers/actions'
 
 describe('reducers/search', () => {
   it('returns an initial state', () => {
@@ -19,7 +20,7 @@ describe('reducers/search', () => {
     } as Location
     const middleware = [createQueryMiddleware(location)]
     const store = createStore(reducer, applyMiddleware(...middleware))
-    const action = { type: 'FOO', data: 'BAR' }
+    const action: UpdateQueryAction = { type: 'QUERY_UPDATED', data: 'BAR' }
 
     store.dispatch(action)
     const state = store.getState()

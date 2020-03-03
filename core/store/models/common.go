@@ -15,10 +15,10 @@ import (
 	"github.com/jinzhu/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/mrwonko/cron"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"github.com/ugorji/go/codec"
 )
 
 // RunStatus is a string that represents the run status
@@ -220,13 +220,11 @@ func (j JSON) Delete(key string) (JSON, error) {
 
 // CBOR returns a bytes array of the JSON map or array encoded to CBOR.
 func (j JSON) CBOR() ([]byte, error) {
-	var b []byte
-	cbor := codec.NewEncoderBytes(&b, new(codec.CborHandle))
-
 	switch v := j.Result.Value().(type) {
 	case map[string]interface{}, []interface{}, nil:
-		return b, cbor.Encode(v)
+		return cbor.Marshal(v)
 	default:
+		var b []byte
 		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
 	}
 }
@@ -399,6 +397,42 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 // String returns the current Cron spec string.
 func (c Cron) String() string {
 	return string(c)
+}
+
+// Duration is a time duration.
+type Duration time.Duration
+
+// Duration returns the value as the standard time.Duration value.
+func (d Duration) Duration() time.Duration {
+	return time.Duration(d)
+}
+
+// String returns a string representing the duration in the form "72h3m0.5s".
+// Leading zero units are omitted. As a special case, durations less than one
+// second format use a smaller unit (milli-, micro-, or nanoseconds) to ensure
+// that the leading digit is non-zero. The zero duration formats as 0s.
+func (d Duration) String() string {
+	return time.Duration(d).String()
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (d *Duration) UnmarshalJSON(input []byte) error {
+	var txt string
+	err := json.Unmarshal(input, &txt)
+	if err != nil {
+		return err
+	}
+	v, err := time.ParseDuration(string(txt))
+	if err != nil {
+		return err
+	}
+	*d = Duration(v)
+	return nil
 }
 
 // WithdrawalRequest request to withdraw LINK.

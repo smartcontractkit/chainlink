@@ -5,15 +5,24 @@ source $SRCROOT/integration/common
 title 'Flux Monitor test.'
 
 flux_monitor_test() {
-  expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
-  initial_job_run_count=$(expr $(chainlink -j runs list | jq length))
-  first_job_run_count=$((initial_job_run_count + 1))
-  second_job_run_count=$((first_job_run_count + 1))
   local log=$LOG_PATH/flux_monitor.log
+  local expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
+
+  local pollingInterval="5s"
+
+  local initial_job_run_count=$(expr $(chainlink -j runs list | jq length))
+  local first_job_run_count=$((initial_job_run_count + 1))
+  local second_job_run_count=$((first_job_run_count + 1))
+  local third_job_run_count=$((second_job_run_count + 1))
+
 
   # add flux monitor job to CL node
-  FLUX_MONITOR_JOB=$(cat flux_monitor/fixtures/job.json | jq --arg address $PREPAID_AGGREGATOR_ADDRESS '.initiators[0].params.address = $address')
-  chainlink jobs create "$FLUX_MONITOR_JOB"
+  local flux_monitor_job="$(
+     cat flux_monitor/fixtures/job.json \
+       | jq --arg address $PREPAID_AGGREGATOR_ADDRESS '.initiators[0].params.address = $address' \
+       | jq --arg url $EXTERNAL_ADAPTER_URL '.initiators[0].params.feeds[0] = $url'
+  )"
+  flux_monitor_job="$(chainlink -j jobs create "$flux_monitor_job")"
 
   # Check job counts
   assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
@@ -21,32 +30,30 @@ flux_monitor_test() {
   # Assert one job ran to update price
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
 
-  # TODO - once FM's check feed interval is configurable, update this test to change the
-  # feed's price and ensure FM initiates additional job run
-
   # nominally change price feed
-  # curl \
-  #   -H "Content-Type: application/json" \
-  #   --request PATCH \
-  #   --data '{"result":101}' \
-  #   "$EXTERNAL_ADAPTER_URL/result"
+  curl \
+    -H "Content-Type: application/json" \
+    --request PATCH \
+    --data '{"result":101}' \
+    "$EXTERNAL_ADAPTER_URL/result"
 
-  # sleep 20
+  sleep "$pollingInterval"
 
   # Assert no jobs ran after nominal update
-  # assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
+  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
 
   # change price feed
-  # curl \
-  #   -H "Content-Type: application/json" \
-  #   --request PATCH \
-  #   --data '{"result":110}' \
-  #   "$EXTERNAL_ADAPTER_URL/result"
-
-  # sleep 20
+  curl \
+    -H "Content-Type: application/json" \
+    --request PATCH \
+    --data '{"result":110}' \
+    "$EXTERNAL_ADAPTER_URL/result"
 
   # Assert job ran
-  # assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $second_job_run_count
+  assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $second_job_run_count
+
+  echo "archiving job to prevent it affecting other tests"
+  chainlink jobs archive $(echo "$flux_monitor_job" | jq .id)
 }
 
 flux_monitor_test

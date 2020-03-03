@@ -60,6 +60,18 @@ func TestParseRunLog(t *testing.T) {
 				"dataPrefix":"0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f80000000000000000000000000000000000000000000000000de0b6b3a76400010000000000000000000000009fbda871d559710256a2502a2517b794b482db40042f2b6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005c4a7338",
 				"functionSelector":"0x4ab0d190"}`),
 		},
+		{
+			name:        "20190207 without indexes and padded CBOR",
+			log:         cltest.LogFromFixture(t, "testdata/request20200212paddedCBOR.json"),
+			wantErrored: false,
+			wantData: cltest.JSONFromString(t, `{
+				"address":"0xfeb35e1f7abe4ef198b7c8df895e19767f3ab8a5",
+				"dataprefix":"0xe947f54ec4d3cab0588684217b029cd9421ea25c59f3309bef6e8fb0d75ff5310000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000650c346f84248abc27e716ea3c6de20f7fbbdb7992cdaaf300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005e1b7f6b",
+				"functionselector":"0x4ab0d190", 
+				"get":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd",
+				"path":"usd",
+				"times":100}`),
+		},
 	}
 
 	for _, test := range tests {
@@ -226,7 +238,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithKey(t)
 			defer cleanup()
 
-			ethMock := app.MockCallerSubscriberClient()
+			ethMock := app.EthMock
 			logs := make(chan eth.Log, 1)
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_getTransactionCount", "0x1")

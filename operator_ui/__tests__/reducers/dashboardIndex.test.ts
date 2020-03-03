@@ -1,20 +1,16 @@
-import reducer from 'reducers'
-import { Action } from 'reducers/dashboardIndex'
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import reducer, { INITIAL_STATE } from '../../src/reducers'
+import {
+  UpsertRecentJobRunsAction,
+  ResourceActionType,
+} from '../../src/reducers/actions'
 
 describe('connectors/reducers/dashboardIndex', () => {
-  it('returns an initial state', () => {
-    const state = reducer(undefined, {} as Action)
-
-    expect(state.dashboardIndex).toEqual({
-      recentJobRuns: undefined,
-      jobRunsCount: undefined,
-    })
-  })
-
   it('UPSERT_RECENT_JOB_RUNS stores the order of recent runs and total count', () => {
-    const action = {
-      type: 'UPSERT_RECENT_JOB_RUNS',
+    const action = partialAsFull<UpsertRecentJobRunsAction>({
+      type: ResourceActionType.UPSERT_RECENT_JOB_RUNS,
       data: {
+        runs: {},
         meta: {
           recentJobRuns: {
             data: [{ id: 'b' }, { id: 'a' }],
@@ -22,8 +18,8 @@ describe('connectors/reducers/dashboardIndex', () => {
           },
         },
       },
-    }
-    const state = reducer(undefined, action)
+    })
+    const state = reducer(INITIAL_STATE, action)
 
     expect(state.dashboardIndex.recentJobRuns).toEqual(['b', 'a'])
     expect(state.dashboardIndex.jobRunsCount).toEqual(100)

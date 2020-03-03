@@ -10,8 +10,10 @@ import (
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
 	strpkg "chainlink/core/store"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -47,6 +49,7 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			jsonStr := cltest.JSONFromFixture(t, test.path).Get("result").String()
 			var receipt eth.TxReceipt
@@ -70,6 +73,7 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			receipt := cltest.TxReceiptFromFixture(t, test.path)
 			assert.Equal(t, test.want, receipt.FulfilledRunLog())
@@ -79,38 +83,48 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 
 func TestCallerSubscriberClient_GetNonce(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	require.NoError(t, app.Start())
 
-	ethMock := app.MockCallerSubscriberClient()
-	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
-	ethMock.Register("eth_getTransactionCount", "0x0100")
-	result, err := ethClientObject.GetNonce(cltest.NewAddress())
-	assert.NoError(t, err)
+	ethClientMock := new(mocks.CallerSubscriber)
+	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
+	address := cltest.NewAddress()
+	response := "0x0100"
+
+	ethClientMock.On("Call", mock.Anything, "eth_getTransactionCount", address.String(), "pending").
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			res := args.Get(0).(*string)
+			*res = response
+		})
+
+	result, err := ethClient.GetNonce(address)
+	require.NoError(t, err)
+
 	var expected uint64 = 256
-	assert.Equal(t, result, expected)
+	require.Equal(t, result, expected)
 }
 
 func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	require.NoError(t, app.Start())
 
-	ethMock := app.MockCallerSubscriberClient()
-	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
-	ethMock.Register("eth_sendRawTransaction", common.Hash{1})
-	result, err := ethClientObject.SendRawTx("test")
+	ethClientMock := new(mocks.CallerSubscriber)
+	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
+	txData := "0xdeadbeef"
+	returnedHash := cltest.NewHash()
+
+	ethClientMock.On("Call", mock.Anything, "eth_sendRawTransaction", txData).
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			res := args.Get(0).(*common.Hash)
+			*res = returnedHash
+		})
+
+	result, err := ethClient.SendRawTx(txData)
 	assert.NoError(t, err)
-	assert.Equal(t, result, common.Hash{1})
+	assert.Equal(t, result, returnedHash)
 }
 
 func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	require.NoError(t, app.Start())
 
 	tests := []struct {
 		name     string
@@ -122,12 +136,19 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ethMock := app.MockCallerSubscriberClient()
-			ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
+			ethClientMock := new(mocks.CallerSubscriber)
+			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
 
-			ethMock.Register("eth_getBalance", test.input)
-			result, err := ethClientObject.GetEthBalance(cltest.NewAddress())
+			ethClientMock.On("Call", mock.Anything, "eth_getBalance", mock.Anything, "latest").
+				Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
+					*res = test.input
+				})
+
+			result, err := ethClient.GetEthBalance(cltest.NewAddress())
 			assert.NoError(t, err)
 			assert.Equal(t, test.expected, result.String())
 		})
@@ -136,31 +157,51 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 
 func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	require.NoError(t, app.Start())
 
-	ethMock := app.MockCallerSubscriberClient()
-	ethClientObject := app.Store.TxManager.(*strpkg.EthTxManager).Client
+	expectedBig, _ := big.NewInt(0).SetString("100000000000000000000000000000000000000", 10)
 
-	ethMock.Register("eth_call", "0x0100") // 256
-	result, err := ethClientObject.GetERC20Balance(cltest.NewAddress(), cltest.NewAddress())
-	assert.NoError(t, err)
-	expected := big.NewInt(256)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, result)
+	tests := []struct {
+		name     string
+		input    string
+		expected *big.Int
+	}{
+		{"small", "0x0100", big.NewInt(256)},
+		{"big", "0x4b3b4ca85a86c47a098a224000000000", expectedBig},
+	}
 
-	ethMock.Register("eth_call", "0x4b3b4ca85a86c47a098a224000000000") // 1e38
-	result, err = ethClientObject.GetERC20Balance(cltest.NewAddress(), cltest.NewAddress())
-	expected = big.NewInt(0)
-	expected.SetString("100000000000000000000000000000000000000", 10)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, result)
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+
+			ethClientMock := new(mocks.CallerSubscriber)
+			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
+
+			contractAddress := cltest.NewAddress()
+			userAddress := cltest.NewAddress()
+
+			functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+			data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
+			callArgs := eth.CallArgs{
+				To:   contractAddress,
+				Data: data,
+			}
+
+			ethClientMock.On("Call", mock.Anything, "eth_call", callArgs, "latest").
+				Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
+					*res = test.input
+				})
+
+			result, err := ethClient.GetERC20Balance(userAddress, contractAddress)
+			assert.NoError(t, err)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expected, result)
+		})
+	}
 }
 
 func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
-	caller := new(mocks.CallerSubscriber)
-	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
 	address := cltest.NewAddress()
 
 	// aggregatorLatestAnswerID is the first 4 bytes of the keccak256 of
@@ -178,13 +219,18 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 		precision      int32
 		expectation    decimal.Decimal
 	}{
+		{"hex - Zero", "0x", 2, decimal.NewFromFloat(0)},
 		{"hex", "0x0100", 2, decimal.NewFromFloat(2.56)},
 		{"decimal", "10000000000000", 11, decimal.NewFromInt(100)},
 		{"large decimal", "52050000000000000000", 11, decimal.RequireFromString("520500000")},
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			caller := new(mocks.CallerSubscriber)
+			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+
 			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0).(*string)
@@ -199,8 +245,6 @@ func TestCallerSubscriberClient_GetAggregatorPrice(t *testing.T) {
 }
 
 func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
-	caller := new(mocks.CallerSubscriber)
-	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
 	address := cltest.NewAddress()
 
 	const aggregatorLatestRoundID = "668a0f02"
@@ -220,10 +264,17 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 		{"zero", "0", big.NewInt(0)},
 		{"small", "12", big.NewInt(12)},
 		{"large", "52050000000000000000", large},
+		{"hex zero default", "0x", big.NewInt(0)},
+		{"hex zero", "0x0", big.NewInt(0)},
+		{"hex", "0x0100", big.NewInt(256)},
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			caller := new(mocks.CallerSubscriber)
+			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+
 			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0).(*string)
@@ -232,6 +283,53 @@ func TestCallerSubscriberClient_GetAggregatorRound(t *testing.T) {
 			result, err := ethClient.GetAggregatorRound(address)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectation, result)
+			caller.AssertExpectations(t)
+		})
+	}
+}
+
+func TestCallerSubscriberClient_GetLatestSubmission(t *testing.T) {
+	caller := new(mocks.CallerSubscriber)
+	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: caller}
+	aggregatorAddress := cltest.NewAddress()
+	oracleAddress := cltest.NewAddress()
+
+	const aggregatorLatestSubmission = "bb07bacd"
+	aggregatorLatestSubmissionSelector := eth.HexToFunctionSelector(aggregatorLatestSubmission)
+
+	callData := utils.ConcatBytes(aggregatorLatestSubmissionSelector.Bytes(), oracleAddress.Hash().Bytes())
+
+	expectedCallArgs := eth.CallArgs{
+		To:   aggregatorAddress,
+		Data: callData,
+	}
+
+	tests := []struct {
+		name           string
+		answer         int64
+		round          int64
+		expectedAnswer *big.Int
+		expectedRound  *big.Int
+	}{
+		{"zero", 0, 0, big.NewInt(0), big.NewInt(0)},
+		{"small", 8, 12, big.NewInt(8), big.NewInt(12)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			caller.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0).(*string)
+					answerBytes, err := utils.EVMWordSignedBigInt(big.NewInt(test.answer))
+					require.NoError(t, err)
+					roundBytes, err := utils.EVMWordBigInt(big.NewInt(test.round))
+					require.NoError(t, err)
+					*res = hexutil.Encode(append(answerBytes, roundBytes...))
+				})
+			answer, round, err := ethClient.GetLatestSubmission(aggregatorAddress, oracleAddress)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedAnswer.String(), answer.String())
+			assert.Equal(t, test.expectedRound.String(), round.String())
 			caller.AssertExpectations(t)
 		})
 	}

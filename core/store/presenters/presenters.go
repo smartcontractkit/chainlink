@@ -16,6 +16,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/logger"
+	"chainlink/core/services/synchronization"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -379,12 +380,13 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		}{i.Name}, nil
 	case models.InitiatorFluxMonitor:
 		return struct {
-			Address     common.Address `json:"address"`
-			RequestData models.JSON    `json:"requestData"`
-			Feeds       models.Feeds   `json:"feeds"`
-			Threshold   float32        `json:"threshold"`
-			Precision   int32          `json:"precision"`
-		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision}, nil
+			Address         common.Address  `json:"address"`
+			RequestData     models.JSON     `json:"requestData"`
+			Feeds           models.JSON     `json:"feeds"`
+			Threshold       float32         `json:"threshold"`
+			Precision       int32           `json:"precision"`
+			PollingInterval models.Duration `json:"pollingInterval"`
+		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision, i.PollingInterval}, nil
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
 	}
@@ -681,12 +683,11 @@ type ExplorerStatus struct {
 }
 
 // NewExplorerStatus returns an initialized ExplorerStatus from the store
-func NewExplorerStatus(store *store.Store) ExplorerStatus {
-	client := store.StatsPusher.WSClient
-	url := client.Url()
+func NewExplorerStatus(statsPusher synchronization.StatsPusher) ExplorerStatus {
+	url := statsPusher.GetURL()
 
 	return ExplorerStatus{
-		Status: string(client.Status()),
+		Status: string(statsPusher.GetStatus()),
 		Url:    url.String(),
 	}
 }

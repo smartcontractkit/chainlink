@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
@@ -14,7 +14,7 @@ import (
 
 // TransactionsController displays Ethereum transactions requests.
 type TransactionsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Index returns paginated transaction attempts
@@ -33,11 +33,16 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 //  "<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
-	if txAttempt, err := tc.App.GetStore().FindTxAttempt(hash); errors.Cause(err) == orm.ErrorNotFound {
+
+	txAttempt, err := tc.App.GetStore().FindTxAttempt(hash)
+	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
-	} else if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(c, presenters.NewTxFromAttempt(*txAttempt), "transaction")
+		return
 	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewTxFromAttempt(*txAttempt), "transaction")
 }

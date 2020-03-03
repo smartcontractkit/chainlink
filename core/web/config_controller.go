@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/presenters"
 	"chainlink/core/utils"
 
@@ -13,7 +13,7 @@ import (
 
 // ConfigController manages config variables
 type ConfigController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Show returns the whitelist of config variables
@@ -23,9 +23,10 @@ func (cc *ConfigController) Show(c *gin.Context) {
 	cw, err := presenters.NewConfigWhitelist(cc.App.GetStore())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
-	} else {
-		jsonAPIResponse(c, cw, "config")
+		return
 	}
+
+	jsonAPIResponse(c, cw, "config")
 }
 
 type configPatchRequest struct {
@@ -59,18 +60,21 @@ func (*ConfigPatchResponse) SetID(string) error {
 // Patch updates one or more configuration options
 func (cc *ConfigController) Patch(c *gin.Context) {
 	request := &configPatchRequest{}
+	if err := c.ShouldBindJSON(request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	if err := cc.App.GetStore().SetConfigValue("EthGasPriceDefault", request.EthGasPriceDefault); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
+		return
+	}
+
 	response := &ConfigPatchResponse{
 		EthGasPriceDefault: Change{
 			From: cc.App.GetStore().Config.EthGasPriceDefault().String(),
+			To:   request.EthGasPriceDefault.String(),
 		},
 	}
-
-	if err := c.ShouldBindJSON(request); err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-	} else if err := cc.App.GetStore().SetConfigValue("EthGasPriceDefault", request.EthGasPriceDefault); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
-	} else {
-		response.EthGasPriceDefault.To = request.EthGasPriceDefault.String()
-		jsonAPIResponse(c, response, "config")
-	}
+	jsonAPIResponse(c, response, "config")
 }

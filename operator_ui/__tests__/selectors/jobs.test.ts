@@ -1,15 +1,20 @@
-import jobsSelector from 'selectors/jobs'
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import { INITIAL_STATE, AppState } from '../../src/reducers'
+import jobsSelector from '../../src/selectors/jobs'
 
 describe('selectors - jobs', () => {
+  type JobsState = typeof INITIAL_STATE.jobs
+
   it('returns the jobs in the current page', () => {
-    const state = {
-      jobs: {
-        currentPage: ['jobA', 'jobB'],
-        items: {
-          jobA: { id: 'jobA' },
-          jobB: { id: 'jobB' },
-        },
+    const jobsState = partialAsFull<JobsState>({
+      currentPage: ['jobA', 'jobB'],
+      items: {
+        jobA: { id: 'jobA' },
+        jobB: { id: 'jobB' },
       },
+    })
+    const state: Pick<AppState, 'jobs'> = {
+      jobs: jobsState,
     }
     const jobs = jobsSelector(state)
 
@@ -17,13 +22,14 @@ describe('selectors - jobs', () => {
   })
 
   it('excludes job items that are not present', () => {
-    const state = {
-      jobs: {
-        currentPage: ['jobA', 'jobB'],
-        items: {
-          jobA: { id: 'jobA' },
-        },
+    const jobsState = partialAsFull<JobsState>({
+      currentPage: ['jobA', 'jobB'],
+      items: {
+        jobA: { id: 'jobA' },
       },
+    })
+    const state: Pick<AppState, 'jobs'> = {
+      jobs: jobsState,
     }
     const jobs = jobsSelector(state)
 

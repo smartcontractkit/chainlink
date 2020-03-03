@@ -21,12 +21,11 @@ var endAtISO8601 = endAt.Format(time.RFC3339)
 func TestServiceAgreementsController_Create(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
-	require.NoError(t, app.Start())
+	app.EthMock.RegisterSubscription("logs")
 
-	eth := cltest.MockEthOnStore(t, app.GetStore())
-	eth.RegisterSubscription("logs")
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 	base := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
@@ -65,7 +64,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 					jobids = append(jobids, j.ID)
 				}
 				assert.Contains(t, jobids, createdSA.JobSpec.ID)
-				eth.EventuallyAllCalled(t)
+				app.EthMock.EventuallyAllCalled(t)
 			}
 		})
 	}
@@ -74,12 +73,11 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
-	require.NoError(t, app.Start())
+	app.EthMock.RegisterSubscription("logs")
 
-	eth := cltest.MockEthOnStore(t, app.GetStore())
-	eth.RegisterSubscription("logs")
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
@@ -102,12 +100,12 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	assert.Equal(t, response1.ID, response2.ID)
 	assert.Equal(t, response1.JobSpec.ID, response2.JobSpec.ID)
-	eth.EventuallyAllCalled(t)
+	app.EthMock.EventuallyAllCalled(t)
 }
 
 func TestServiceAgreementsController_Show(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
@@ -17,7 +17,7 @@ import (
 
 // TransfersController can send LINK tokens to another address
 type TransfersController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create sends ETH from the Chainlink's account to a specified address.
@@ -25,18 +25,24 @@ type TransfersController struct {
 // Example: "<application>/withdrawals"
 func (tc *TransfersController) Create(c *gin.Context) {
 	var tr models.SendEtherRequest
-
-	store := tc.App.GetStore()
-
 	if err := c.ShouldBindJSON(&tr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if from, err := retrieveFromAddress(tr.FromAddress, store); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-	} else if tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
-	} else {
-		jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
+		return
 	}
+
+	store := tc.App.GetStore()
+	from, err := retrieveFromAddress(tr.FromAddress, store)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+	tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewTx(tx), "transaction")
 }
 
 func retrieveFromAddress(from common.Address, store *store.Store) (common.Address, error) {

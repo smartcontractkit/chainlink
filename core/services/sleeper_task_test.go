@@ -1,118 +1,112 @@
-package services
+package services_test
 
 import (
-	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"chainlink/core/services"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 )
 
-type testWorker struct {
-	output chan struct{}
+type countingWorker struct {
+	numJobsPerformed int32
+	delay            time.Duration
 }
 
-func (t *testWorker) Work() {
-	t.output <- struct{}{}
+func (t *countingWorker) Work() {
+	if t.delay != 0 {
+		time.Sleep(t.delay)
+	}
+	// Without an atomic, the race detector fails
+	atomic.AddInt32(&t.numJobsPerformed, 1)
 }
 
-func TestSleeperTask(t *testing.T) {
-	worker := testWorker{output: make(chan struct{})}
-	sleeper := NewSleeperTask(&worker)
-
-	sleeper.Start()
-	sleeper.WakeUp()
-
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
-
-	sleeper.Stop()
+func (t *countingWorker) getNumJobsPerformed() int {
+	return int(atomic.LoadInt32(&t.numJobsPerformed))
 }
 
-func TestSleeperTask_WakeupBeforeStarted(t *testing.T) {
-	worker := testWorker{output: make(chan struct{})}
-	sleeper := NewSleeperTask(&worker)
+func TestSleeperTask_WakeupAfterStopPanics(t *testing.T) {
+	t.Parallel()
 
-	sleeper.WakeUp()
-	sleeper.Start()
-
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
-
-	sleeper.Stop()
-}
-
-func TestSleeperTask_Restart(t *testing.T) {
-	worker := testWorker{output: make(chan struct{})}
-	sleeper := NewSleeperTask(&worker)
-
-	sleeper.Start()
-	sleeper.WakeUp()
-
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+	worker := &countingWorker{}
+	sleeper := services.NewSleeperTask(worker)
 
 	sleeper.Stop()
 
-	sleeper.Start()
+	require.Panics(t, func() {
+		sleeper.WakeUp()
+	})
+	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(0))
+}
+
+func TestSleeperTask_CallingStopTwicePanics(t *testing.T) {
+	t.Parallel()
+
+	worker := &countingWorker{}
+	sleeper := services.NewSleeperTask(worker)
+	sleeper.Stop()
+	require.Panics(t, func() {
+		sleeper.Stop()
+	})
+}
+
+func TestSleeperTask_WakeupPerformsWork(t *testing.T) {
+	t.Parallel()
+
+	worker := &countingWorker{}
+	sleeper := services.NewSleeperTask(worker)
+
 	sleeper.WakeUp()
-
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
-
+	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(1))
 	sleeper.Stop()
 }
 
-func TestSleeperTask_SenderNotBlockedWhileWorking(t *testing.T) {
-	worker := testWorker{output: make(chan struct{})}
-	sleeper := NewSleeperTask(&worker)
-
-	sleeper.Start()
-
-	sleeper.WakeUp()
-	sleeper.WakeUp()
-
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
-
-	sleeper.Stop()
+type controllableWorker struct {
+	countingWorker
+	awaitWorkStarted chan struct{}
+	allowResumeWork  chan struct{}
+	ignoreSignals    bool
 }
 
-func TestSleeperTask_StopWithoutStartNonBlocking(t *testing.T) {
-	worker := testWorker{output: make(chan struct{})}
-	sleeper := NewSleeperTask(&worker)
-
-	sleeper.Start()
-	sleeper.WakeUp()
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
-
-	sleeper.Stop()
-	sleeper.Stop()
+func (w *controllableWorker) Work() {
+	if !w.ignoreSignals {
+		w.awaitWorkStarted <- struct{}{}
+		<-w.allowResumeWork
+	}
+	w.countingWorker.Work()
+	time.Sleep(500 * time.Millisecond)
 }
 
-type slowWorker struct {
-	mutex  sync.Mutex
-	output chan struct{}
+func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
+	t.Parallel()
+
+	worker := &controllableWorker{awaitWorkStarted: make(chan struct{}), allowResumeWork: make(chan struct{})}
+	sleeper := services.NewSleeperTask(worker)
+
+	sleeper.WakeUp()
+	<-worker.awaitWorkStarted
+	sleeper.WakeUp()
+	sleeper.WakeUp()
+	worker.ignoreSignals = true
+	worker.allowResumeWork <- struct{}{}
+	sleeper.Stop()
+
+	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(2))
+	gomega.NewGomegaWithT(t).Consistently(worker.getNumJobsPerformed).Should(gomega.BeNumerically("<", 3))
 }
 
-func (t *slowWorker) Work() {
-	t.output <- struct{}{}
-	t.mutex.Lock()
-	t.mutex.Unlock()
-}
+func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
+	t.Parallel()
 
-func TestSleeperTask_WakeWhileWorkingRepeatsWork(t *testing.T) {
-	worker := slowWorker{output: make(chan struct{})}
-	sleeper := NewSleeperTask(&worker)
+	worker := &countingWorker{delay: 200 * time.Millisecond}
+	sleeper := services.NewSleeperTask(worker)
 
-	sleeper.Start()
-
-	// Lock the worker's mutex so it's blocked *after* sending to the output
-	// channel, this guarantees that the worker blocks till we unlock the mutex
-	worker.mutex.Lock()
 	sleeper.WakeUp()
-	// Make sure an item is received in the channel so we know the worker is blocking
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
-
-	// Wake up the sleeper
-	sleeper.WakeUp()
-	// Now release the worker
-	worker.mutex.Unlock()
-	gomega.NewGomegaWithT(t).Eventually(worker.output).Should(gomega.Receive(&struct{}{}))
+	require.Equal(t, worker.getNumJobsPerformed(), 0)
 
 	sleeper.Stop()
+	require.Equal(t, worker.getNumJobsPerformed(), 1)
 }

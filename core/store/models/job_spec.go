@@ -4,16 +4,17 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
 	"chainlink/core/assets"
+	"chainlink/core/logger"
 	clnull "chainlink/core/null"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/imdario/mergo"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	null "gopkg.in/guregu/null.v3"
@@ -213,10 +214,27 @@ type InitiatorParams struct {
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
 
-	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
-	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
-	Threshold   float32 `json:"threshold,omitempty" gorm:"type:float"`
-	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
+	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
+	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
+	Feeds           Feeds    `json:"feeds,omitempty" gorm:"type:text"`
+	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
+	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
+	PollingInterval Duration `json:"pollingInterval,omitempty"`
+}
+
+// FluxMonitorDefaultInitiatorParams are the default parameters for Flux
+// Monitor Job Specs.
+var FluxMonitorDefaultInitiatorParams = InitiatorParams{
+	PollingInterval: Duration(time.Minute),
+}
+
+// SetDefaultValues returns a InitiatorParams with empty fields set to their
+// default value.
+func (i *InitiatorParams) SetDefaultValues(typ string) {
+	if typ == InitiatorFluxMonitor {
+		err := mergo.Merge(i, &FluxMonitorDefaultInitiatorParams)
+		logger.PanicIf(errors.Wrap(err, "type level dependent error covered by tests"))
+	}
 }
 
 // Topics handle the serialization of ethereum log topics to and from the data store.
@@ -246,60 +264,6 @@ func (t Topics) Value() (driver.Value, error) {
 	return string(j), nil
 }
 
-// Feeds holds all flux monitor feed URLs, serializing into the db
-// with ; delimited strings.
-type Feeds []string
-
-// Scan populates the current Feeds value with the passed in value, usually a
-// string from an underlying database.
-func (f *Feeds) Scan(value interface{}) error {
-	if value == nil {
-		*f = []string{}
-		return nil
-	}
-	str, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to Feeds", value, value)
-	}
-
-	return f.UnmarshalJSON([]byte(str))
-}
-
-// Value returns this instance serialized for database storage.
-func (f Feeds) Value() (driver.Value, error) {
-	if len(f) == 0 {
-		return nil, nil
-	}
-
-	bytes, err := f.MarshalJSON()
-	return string(bytes), err
-}
-
-// MarshalJSON marshals this instance to JSON as an array of strings.
-func (f Feeds) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]string(f))
-}
-
-// UnmarshalJSON deserializes the json input into this instance.
-func (f *Feeds) UnmarshalJSON(input []byte) error {
-	arr := []string{}
-	err := json.Unmarshal(input, &arr)
-	if err != nil {
-		return err
-	}
-	for _, entry := range arr {
-		if entry == "" {
-			return errors.New("can't have an empty string as a feed")
-		}
-		_, err := url.ParseRequestURI(entry)
-		if err != nil {
-			return err
-		}
-	}
-	*f = arr
-	return nil
-}
-
 // NewInitiatorFromRequest creates an Initiator from the corresponding
 // parameters in a InitiatorRequest
 func NewInitiatorFromRequest(
@@ -315,6 +279,7 @@ func NewInitiatorFromRequest(
 		Type:            strings.ToLower(initr.Type),
 		InitiatorParams: initr.InitiatorParams,
 	}
+	ret.InitiatorParams.SetDefaultValues(ret.Type)
 	return ret
 }
 
@@ -323,6 +288,10 @@ func (i Initiator) IsLogInitiated() bool {
 	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog ||
 		i.Type == InitiatorServiceAgreementExecutionLog
 }
+
+// Feeds holds the json of the feeds parameter in the job spec. It is an array of
+// URL strings and/or objects containing the names of bridges
+type Feeds = JSON
 
 // TaskSpec is the definition of work to be carried out. The
 // Type will be an adapter, and the Params will contain any

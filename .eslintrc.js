@@ -38,19 +38,9 @@ module.exports = {
   overrides: [
     // enable jest for tests
     {
-      files: ['**/*.test.ts', '**/*.test.js'],
+      files: ['**/*.test.ts', '**/*.test.js', '**/__mocks__/**/*.js'],
       env: {
         jest: true,
-      },
-    },
-    {
-      files: ['evm/v0.5/test/**/*', 'evm/box/**/*', 'evm/**/migrations/**/*'],
-      env: { node: true, mocha: true },
-      globals: {
-        assert: 'readonly',
-        artifacts: 'readonly',
-        web3: 'readonly',
-        contract: 'readonly',
       },
     },
     // add react linting for all of our react projects
@@ -58,6 +48,7 @@ module.exports = {
       files: [
         'explorer/client/**/*',
         'operator_ui/**/*',
+        'feeds/**/*',
         'styleguide/**/*',
         'tools/json-api-client/**/*',
         'tools/local-storage/**/*',

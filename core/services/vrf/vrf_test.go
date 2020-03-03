@@ -1,7 +1,6 @@
 package vrf
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -79,8 +78,7 @@ func TestVRF_HashToCurve(t *testing.T) {
 
 func TestVRF_ScalarFromCurvePoints(t *testing.T) {
 	g := Generator
-	ga, err := secp256k1.EthereumAddress(g)
-	require.NoError(t, err)
+	ga := secp256k1.EthereumAddress(g)
 	s := ScalarFromCurvePoints(g, g, g, ga, g)
 	eS := "2b1049accb1596a24517f96761b22600a690ee5c6b6cadae3fa522e7d95ba338"
 	// See 'Computes the same hashed scalar from curve points as the golang code' in Curve.js
@@ -99,10 +97,6 @@ func TestVRF_GenerateProof(t *testing.T) {
 	assert.True(t, publicKey.Equal(proof.PublicKey))
 	gammaX, gammaY := CoordsFromPoint(proof.Gamma)
 	// See 'Accepts a valid VRF proof' in VRF.js. These outputs are used there
-	fmt.Printf("cGamma %+v\n", rcurve.Point().Mul(secp256k1.IntToScalar(proof.C), proof.Gamma))
-	h, err := HashToCurve(publicKey, seed)
-	require.NoError(t, err)
-	fmt.Printf("sHash %+v\n", rcurve.Point().Mul(secp256k1.IntToScalar(proof.S), h))
 	gX := "530fddd863609aa12030a07c5fdb323bb392a88343cea123b7f074883d2654c4"
 	gY := "6fd4ee394bf2a3de542c0e5f3c86fc8f75b278a017701a59d69bdf5134dd6b70"
 	assert.Equal(t, bigFromHex(gX), gammaX)

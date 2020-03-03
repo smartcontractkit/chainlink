@@ -1,34 +1,29 @@
 package orm_test
 
 import (
-	"os"
-	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	"chainlink/core/gracefulpanic"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 
 	"github.com/jinzhu/gorm"
+	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewLockingStrategy(t *testing.T) {
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	c := tc.Config
-
 	tests := []struct {
 		name        string
 		dialectName orm.DialectName
 		path        string
 		expect      reflect.Type
 	}{
-		{"sqlite", orm.DialectSqlite, c.RootDir(), reflect.ValueOf(&orm.FileLockingStrategy{}).Type()},
 		{"postgres", orm.DialectPostgres, "postgres://something:5432", reflect.ValueOf(&orm.PostgresLockingStrategy{}).Type()},
 	}
 
@@ -40,31 +35,6 @@ func TestNewLockingStrategy(t *testing.T) {
 			require.Equal(t, test.expect, rtype)
 		})
 	}
-}
-
-func TestFileLockingStrategy_Lock(t *testing.T) {
-	const delay = 10 * time.Millisecond
-
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	c := tc.Config
-
-	require.NoError(t, os.MkdirAll(c.RootDir(), 0700))
-	defer os.RemoveAll(c.RootDir())
-
-	dbpath := filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
-	ls, err := orm.NewFileLockingStrategy(dbpath)
-	require.NoError(t, err)
-	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
-
-	ls2, err := orm.NewFileLockingStrategy(dbpath)
-	require.NoError(t, err)
-	require.Error(t, ls2.Lock(delay), "should not get 2nd exclusive lock")
-
-	require.NoError(t, ls.Unlock(delay))
-
-	require.NoError(t, ls2.Lock(delay), "allow another to lock after unlock")
-	require.NoError(t, ls2.Unlock(delay))
 }
 
 func TestPostgresLockingStrategy_Lock(t *testing.T) {
@@ -128,14 +98,14 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	defer cleanup()
 
 	if store.Config.DatabaseURL() == "" {
-		t.Skip("No postgres DatabaseURL set.")
+		panic("No postgres DatabaseURL set.")
 	}
 
 	connErr, dbErr := store.ORM.LockingStrategyHelperSimulateDisconnect()
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
-	orm2, err := orm.NewORM(orm.NormalizedDatabaseURL(store.Config), store.Config.DatabaseTimeout())
+	orm2, err := orm.NewORM(store.Config.DatabaseURL(), store.Config.DatabaseTimeout())
 	require.NoError(t, err)
 	defer orm2.Close()
 
@@ -144,9 +114,8 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	})
 	require.NoError(t, err)
 
-	require.Panics(t, func() {
-		_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
-	})
+	_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
+	gomega.NewGomegaWithT(t).Eventually(gracefulpanic.Wait()).Should(gomega.BeClosed())
 }
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
@@ -171,7 +140,6 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, err)
 	defer lock.Unlock(delay)
 
-	require.Panics(t, func() {
-		_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
-	})
+	_ = store.ORM.RawDB(func(db *gorm.DB) error { return nil })
+	gomega.NewGomegaWithT(t).Eventually(gracefulpanic.Wait()).Should(gomega.BeClosed())
 }

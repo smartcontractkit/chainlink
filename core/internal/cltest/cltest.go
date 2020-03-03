@@ -21,7 +21,7 @@ import (
 	"chainlink/core/auth"
 	"chainlink/core/cmd"
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -142,12 +142,13 @@ func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	t testing.TB
-	*services.ChainlinkApplication
+	*chainlink.ChainlinkApplication
 	Config           *TestConfig
 	Server           *httptest.Server
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
 	Started          bool
+	EthMock          *EthMock
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -182,11 +183,11 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
-func NewApplication(t testing.TB) (*TestApplication, func()) {
+func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
 	t.Helper()
 
 	c, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfig(t, c)
+	app, cleanup := NewApplicationWithConfig(t, c, flags...)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -194,11 +195,11 @@ func NewApplication(t testing.TB) (*TestApplication, func()) {
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
-func NewApplicationWithKey(t testing.TB) (*TestApplication, func()) {
+func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, func()) {
 	t.Helper()
 
 	config, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := NewApplicationWithConfigAndKey(t, config, flags...)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -207,26 +208,26 @@ func NewApplicationWithKey(t testing.TB) (*TestApplication, func()) {
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, tc)
+	app, cleanup := NewApplicationWithConfig(t, tc, flags...)
 	app.ImportKey(key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
 	return app, cleanup
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
 	t.Helper()
 
 	cleanupDB := PrepareTestDB(tc)
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := services.NewApplication(tc.Config, func(app services.Application) {
+	app := chainlink.NewApplication(tc.Config, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
-	}).(*services.ChainlinkApplication)
+	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
-	ethMock := MockEthOnStore(t, app.Store)
+	ta.EthMock = MockEthOnStore(t, app.Store, flags...)
 
 	server := newServer(ta)
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
@@ -238,11 +239,11 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig) (*TestApplication, f
 	return ta, func() {
 		require.NoError(t, ta.Stop())
 		cleanupDB()
-		require.True(t, ethMock.AllCalled(), ethMock.Remaining())
+		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
 }
 
-func newServer(app services.Application) *httptest.Server {
+func newServer(app chainlink.Application) *httptest.Server {
 	engine := web.Router(app)
 	return httptest.NewServer(engine)
 }
@@ -268,11 +269,11 @@ func (ta *TestApplication) StartAndConnect() error {
 		return err
 	}
 
-	return ta.WaitForConnection()
+	return ta.waitForConnection()
 }
 
-// WaitForConnection wait for the StartAndConnect callback to be called
-func (ta *TestApplication) WaitForConnection() error {
+// waitForConnection wait for the StartAndConnect callback to be called
+func (ta *TestApplication) waitForConnection() error {
 	select {
 	case <-time.After(4 * time.Second):
 		return errors.New("TestApplication#StartAndConnect() timed out")
@@ -281,20 +282,21 @@ func (ta *TestApplication) WaitForConnection() error {
 	}
 }
 
-func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-	ethMock := ta.MockCallerSubscriberClient()
-	ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
-		ethMock.Register("eth_chainId", ta.Config.ChainID())
-		ethMock.Register("eth_getTransactionCount", `0x0`)
-	})
+// TODO: DELETE THIS
+// func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
+//     ethMock := ta.MockCallerSubscriberClient()
+//     ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
+//         ethMock.Register("eth_chainId", ta.Config.ChainID())
+//         ethMock.Register("eth_getTransactionCount", `0x0`)
+//     })
 
-	err := ta.Start()
-	if err != nil {
-		return ethMock, err
-	}
+//     err := ta.Start()
+//     if err != nil {
+//         return ethMock, err
+//     }
 
-	return ethMock, ta.WaitForConnection()
-}
+//     return ethMock, ta.WaitForConnection()
+// }
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
@@ -396,6 +398,23 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
 	}
 	return client
+}
+
+func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes []byte) *models.JobRun {
+	job := NewJobWithWebInitiator()
+	err := ta.Store.CreateJob(&job)
+	require.NoError(ta.t, err)
+
+	jr := NewJobRun(job)
+	txHash := common.BytesToHash(txHashBytes)
+	jr.RunRequest.TxHash = &txHash
+	blockHash := common.BytesToHash(blockHashBytes)
+	jr.RunRequest.BlockHash = &blockHash
+
+	err = ta.Store.CreateJobRun(&jr)
+	require.NoError(ta.t, err)
+
+	return &jr
 }
 
 // NewStoreWithConfig creates a new store with given config

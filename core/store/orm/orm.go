@@ -22,12 +22,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
+
+// BatchSize is the safe number of records to cache during Batch calls for
+// SQLite without causing load problems.
+// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
+const BatchSize = 100
 
 var (
 	// ErrorNotFound is returned when finding a single value fails.
@@ -42,8 +45,6 @@ type DialectName string
 const (
 	// DialectPostgres represents the postgres dialect.
 	DialectPostgres DialectName = "postgres"
-	// DialectSqlite represents the sqlite dialect.
-	DialectSqlite = "sqlite3"
 )
 
 // ORM contains the database object used by Chainlink.
@@ -63,9 +64,7 @@ var (
 // mapError tries to coerce the error into package defined errors.
 func mapError(err error) error {
 	err = errors.Cause(err)
-	if v, ok := err.(sqlite3.Error); ok && v.Code == sqlite3.ErrConstraint {
-		return ErrorConflict
-	} else if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
+	if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
 		return ErrorConflict
 	}
 	return err
@@ -80,7 +79,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 
 	lockingStrategy, err := NewLockingStrategy(dialect, uri)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create ORM lock: %+v", err)
+		return nil, errors.Wrap(err, "unable to create ORM lock")
 	}
 
 	logger.Infof("Locking %v for exclusive access with %v timeout", dialect, displayTimeout(timeout))
@@ -94,7 +93,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 
 	db, err := initializeDatabase(string(dialect), uri)
 	if err != nil {
-		return nil, fmt.Errorf("unable to init DB: %+v", err)
+		return nil, errors.Wrap(err, "unable to init DB")
 	}
 
 	orm.db = db
@@ -123,20 +122,12 @@ func displayTimeout(timeout time.Duration) string {
 func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 	db, err := gorm.Open(dialect, path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open %s for gorm DB: %+v", path, err)
+		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", path)
 	}
 
 	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
 
 	if err := dbutil.SetTimezone(db); err != nil {
-		return nil, err
-	}
-
-	if err := dbutil.SetSqlitePragmas(db); err != nil {
-		return nil, err
-	}
-
-	if err := dbutil.LimitSqliteOpenConnections(db); err != nil {
 		return nil, err
 	}
 
@@ -153,16 +144,9 @@ func DeduceDialect(path string) (DialectName, error) {
 	switch scheme {
 	case "postgresql", "postgres":
 		return DialectPostgres, nil
-	case "file", "":
-		if len(strings.Split(url.Path, " ")) > 1 {
-			return "", errors.New("error deducing ORM dialect, no spaces allowed, please use a postgres URL or file path")
-		}
-		return DialectSqlite, nil
-	case "sqlite3", "sqlite":
-		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
+	default:
+		return "", fmt.Errorf("missing or unsupported database path: \"%s\". Did you forget to specify DATABASE_URL?", path)
 	}
-
-	return DialectSqlite, nil
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
@@ -211,6 +195,19 @@ func (orm *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
 	orm.MustEnsureAdvisoryLock()
 	var bt models.BridgeType
 	return bt, orm.db.First(&bt, "name = ?", name.String()).Error
+}
+
+// FindBridgesByNames finds multiple bridges by their names.
+func (orm *ORM) FindBridgesByNames(names []string) ([]models.BridgeType, error) {
+	orm.MustEnsureAdvisoryLock()
+	var bt []models.BridgeType
+	if err := orm.db.Where("name IN (?)", names).Find(&bt).Error; err != nil {
+		return nil, err
+	}
+	if len(bt) != len(names) {
+		return nil, errors.New("bridge names don't exist or duplicates present")
+	}
+	return bt, nil
 }
 
 // PendingBridgeType returns the bridge type of the current pending task,
@@ -281,7 +278,7 @@ func (orm *ORM) FindJobRun(id *models.ID) (models.JobRun, error) {
 // AllSyncEvents returns all sync events
 func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 	orm.MustEnsureAdvisoryLock()
-	return Batch(1000, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		var events []models.SyncEvent
 		err := orm.db.
 			Limit(limit).
@@ -308,8 +305,6 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 // Encourages the use of transactions for gorm calls that translate
 // into multiple sql calls, i.e. orm.SaveJobRun(run), which are better suited
 // in a database transaction.
-// Improves efficiency in sqlite by preventing autocommit on each line, instead
-// Batch committing at the end of the transaction.
 func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	orm.MustEnsureAdvisoryLock()
 	dbtx := orm.db.Begin()
@@ -419,7 +414,7 @@ func (orm *ORM) FindServiceAgreement(id string) (models.ServiceAgreement, error)
 // Jobs fetches all jobs.
 func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error {
 	orm.MustEnsureAdvisoryLock()
-	return Batch(100, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		scope := orm.db.Limit(limit).Offset(offset)
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
@@ -584,10 +579,10 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 		Order("created_at asc").
 		Pluck("ID", &runIDs).Error
 	if err != nil {
-		return fmt.Errorf("error finding job ids %v", err)
+		return errors.Wrap(err, "finding job ids")
 	}
 
-	return Batch(100, func(offset, limit uint) (uint, error) {
+	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
 		batchIDs := runIDs[offset:utils.MinUint(limit, uint(len(runIDs)))]
 		var runs []models.JobRun
 		err := orm.Unscoped().
@@ -595,7 +590,7 @@ func (orm *ORM) UnscopedJobRunsWithStatus(cb func(*models.JobRun), statuses ...m
 			Order("job_runs.created_at asc").
 			Find(&runs, "job_runs.id IN (?)", batchIDs).Error
 		if err != nil {
-			return 0, fmt.Errorf("error fetching job run batch: %v", err)
+			return 0, errors.Wrap(err, "error fetching job run batch")
 		}
 
 		for _, run := range runs {
@@ -1084,8 +1079,6 @@ func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		// NOTE: SQLite doesn't support compound delete statements, so delete run
-		// results for job_runs ...
 		err := dbtx.Exec(`
 			DELETE
 			FROM run_results

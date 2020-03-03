@@ -1,17 +1,24 @@
-import transactionsSelector from 'selectors/transactions'
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import { INITIAL_STATE, AppState } from '../../src/reducers'
+import transactionsSelector from '../../src/selectors/transactions'
 
 describe('selectors - transactions', () => {
-  const CURRENT_PAGE = ['transactionA', 'transactionB']
+  type State = Pick<AppState, 'transactions' | 'transactionsIndex'>
+  type TransactionsIndexState = typeof INITIAL_STATE.transactionsIndex
+  const transactionsIndexState = partialAsFull<TransactionsIndexState>({
+    currentPage: ['transactionA', 'transactionB'],
+  })
 
   it('returns the transactions in the current page', () => {
-    const state = {
-      transactionsIndex: { currentPage: CURRENT_PAGE },
-      transactions: {
-        items: {
-          transactionA: { id: 'transactionA' },
-          transactionB: { id: 'transactionB' },
-        },
+    const transactionsState = {
+      items: {
+        transactionA: { id: 'transactionA' },
+        transactionB: { id: 'transactionB' },
       },
+    }
+    const state: State = {
+      transactionsIndex: transactionsIndexState,
+      transactions: transactionsState,
     }
     const transactions = transactionsSelector(state)
 
@@ -22,13 +29,14 @@ describe('selectors - transactions', () => {
   })
 
   it('excludes transaction items that are not present', () => {
-    const state = {
-      transactionsIndex: { currentPage: CURRENT_PAGE },
-      transactions: {
-        items: {
-          transactionA: { id: 'transactionA' },
-        },
+    const transactionsState = {
+      items: {
+        transactionA: { id: 'transactionA' },
       },
+    }
+    const state: State = {
+      transactionsIndex: transactionsIndexState,
+      transactions: transactionsState,
     }
     const transactions = transactionsSelector(state)
 

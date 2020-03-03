@@ -18,8 +18,8 @@ RUN apt-get update \
     && apt-get -y install jq \
     # Install dependencies needed to run cypress with chrome
     && apt-get install -y xvfb libgtk-3-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 fonts-liberation libappindicator3-1 xdg-utils
-RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-RUN dpkg -i google-chrome-stable_current_amd64.deb
+RUN wget -O ./chrome79.deb https://www.slimjet.com/chrome/download-chrome.php?file=files%2F79.0.3945.88%2Fgoogle-chrome-stable_current_amd64.deb
+RUN dpkg -i chrome79.deb
 
 ENV PATH=/chainlink/tools/bin:./node_modules/.bin:$PATH
 
@@ -27,9 +27,12 @@ ENV PATH=/chainlink/tools/bin:./node_modules/.bin:$PATH
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
-COPY yarn.lock package.json ./
-COPY evm/package.json evm/
-COPY evm/v0.5/package.json evm/v0.5/
+COPY yarn.lock package.json .yarnrc ./
+COPY .yarn .yarn
+COPY belt/package.json ./belt/
+COPY belt/bin ./belt/bin
+COPY evm-test-helpers/package.json evm-test-helpers/
+COPY evm-contracts/package.json ./evm-contracts/
 COPY integration/package.json integration/
 COPY integration-scripts/package.json integration-scripts/
 
@@ -41,13 +44,15 @@ COPY tools/ci/ethereum_test tools/ci/
 COPY tools/docker tools/docker/
 
 # copy over all our dependencies
-COPY evm evm
+COPY tsconfig.cjs.json tsconfig.es6.json ./
+COPY belt belt
+COPY evm-test-helpers evm-test-helpers
+COPY evm-contracts evm-contracts
 COPY integration integration
 COPY integration-scripts integration-scripts
 
+
 # setup our integration testing scripts
-RUN yarn workspace chainlinkv0.5 setup
-RUN yarn workspace chainlink setup
-RUN yarn workspace @chainlink/integration-scripts setup
+RUN yarn setup:integration
 
 ENTRYPOINT [ "tools/ci/ethereum_test" ]

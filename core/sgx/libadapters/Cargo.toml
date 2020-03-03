@@ -1,7 +1,7 @@
 [package]
 name = "adapters"
 version = "0.1.0"
-authors = ["John Barker <john@smartcontract.com>"]
+authors = ["John Barker <dev@j16r.net>"]
 build = "build.rs"
 
 [lib]
@@ -22,6 +22,6 @@ libc = "*"
 utils = { path = "../utils" }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
-sgx_trts = { path = "/opt/rust-sgx-sdk/sgx_trts" }
-sgx_types = { path = "/opt/rust-sgx-sdk/sgx_types" }
-sgx_urts = { path = "/opt/rust-sgx-sdk/sgx_urts" }
+sgx_trts = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_types = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }
+sgx_urts = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git" }

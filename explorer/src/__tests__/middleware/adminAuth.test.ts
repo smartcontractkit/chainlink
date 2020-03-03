@@ -1,21 +1,21 @@
-import express from 'express'
 import bodyParser from 'body-parser'
-import request from 'supertest'
+import cookieSession from 'cookie-session'
+import express from 'express'
 import http from 'http'
 import httpStatus from 'http-status-codes'
-import cookieSession from 'cookie-session'
+import request from 'supertest'
 import { Connection } from 'typeorm'
 import { getDb } from '../../database'
-import { clearDb } from '../testdatabase'
+import adminAuth from '../../middleware/adminAuth'
 import { createAdmin } from '../../support/admin'
 import { stop } from '../../support/server'
-import adminAuth from '../../middleware/adminAuth'
 import {
-  ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
-  ADMIN_USERNAME_PARAM,
   ADMIN_PASSWORD_PARAM,
+  ADMIN_USERNAME_HEADER,
+  ADMIN_USERNAME_PARAM,
 } from '../../utils/constants'
+import { clearDb } from '../testdatabase'
 
 const USERNAME = 'myadmin'
 const PASSWORD = 'validpassword'
@@ -32,7 +32,7 @@ app.use(
   }),
 )
 app.use(ROUTE_PATH, adminAuth)
-app.use(ROUTE_PATH, (req, res) => res.sendStatus(200))
+app.use(ROUTE_PATH, (_, res) => res.sendStatus(200))
 
 let server: http.Server
 let db: Connection

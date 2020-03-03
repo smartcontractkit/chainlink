@@ -38,7 +38,7 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 func TestRendererTable_RenderConfiguration(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()

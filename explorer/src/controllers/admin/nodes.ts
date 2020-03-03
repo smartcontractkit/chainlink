@@ -1,7 +1,7 @@
-import { Router } from 'express'
-import { Connection } from 'typeorm'
 import { validate } from 'class-validator'
+import { Router } from 'express'
 import httpStatus from 'http-status-codes'
+import { Connection, getCustomRepository } from 'typeorm'
 import { getDb } from '../../database'
 import {
   buildChainlinkNode,
@@ -9,13 +9,12 @@ import {
   jobCountReport,
   uptime as nodeUptime,
 } from '../../entity/ChainlinkNode'
+import { ChainlinkNodeRepository } from '../../repositories/ChainlinkNodeRepository'
+import chainlinkNodeShowSerializer from '../../serializers/chainlinkNodeShowSerializer'
+import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
 import { PostgresErrorCode } from '../../utils/constants'
 import { isPostgresError } from '../../utils/errors'
 import { parseParams } from '../../utils/pagination'
-import { getCustomRepository } from 'typeorm'
-import { ChainlinkNodeRepository } from '../../repositories/ChainlinkNodeRepository'
-import chainlinkNodesSerializer from '../../serializers/chainlinkNodesSerializer'
-import chainlinkNodeShowSerializer from '../../serializers/chainlinkNodeShowSerializer'
 
 const router = Router()
 
@@ -37,7 +36,7 @@ router.post('/nodes', async (req, res) => {
   const name = req.body.name
   const url = req.body.url
   const db = await getDb()
-  const [node, secret] = buildChainlinkNode(db, name, url)
+  const [node, secret] = buildChainlinkNode(name, url)
   const errors = await validate(node)
 
   if (errors.length === 0) {

@@ -1,11 +1,18 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import * as api from './api'
-import * as models from 'core/store/models'
+import { RunStatus } from './core/store/models'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
 import { AppState } from './reducers'
+import {
+  RouterActionType,
+  NotifyActionType,
+  AuthActionType,
+  ResourceActionType,
+  RedirectAction,
+} from './reducers/actions'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
   T
@@ -19,69 +26,39 @@ type Errors =
   | jsonapi.ServerError
   | jsonapi.UnknownResponseError
 
-const createAction = (type: string) => ({ type })
-
 const createErrorAction = (error: Error, type: string) => ({
   type,
   error: error.stack,
 })
 
-export enum RouterActionType {
-  REDIRECT = 'REDIRECT',
-  MATCH_ROUTE = 'MATCH_ROUTE',
-}
-
-const redirectToSignOut = () => ({
+const REDIRECT_TO_SIGNOUT_ACTION: RedirectAction = {
   type: RouterActionType.REDIRECT,
   to: '/signout',
-})
+}
 
 const curryErrorHandler = (dispatch: Dispatch, type: string) => (
   error: Error,
 ) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    dispatch(redirectToSignOut())
+    dispatch(REDIRECT_TO_SIGNOUT_ACTION)
   } else {
     dispatch(createErrorAction(error, type))
   }
 }
 
-export const MATCH_ROUTE = 'MATCH_ROUTE'
-
-interface Match {
-  url: string
-  params: object
-}
-
-export const matchRoute = (match: Match) => {
-  return {
-    type: RouterActionType.MATCH_ROUTE,
-    match,
-  }
-}
-
-export const NOTIFY_SUCCESS = 'NOTIFY_SUCCESS'
-
 export const notifySuccess = (component: React.ReactNode, props: object) => {
   return {
-    type: NOTIFY_SUCCESS,
+    type: NotifyActionType.NOTIFY_SUCCESS,
     component,
     props,
   }
 }
 
-export const NOTIFY_ERROR = 'NOTIFY_ERROR'
-
 export const notifyError = (component: React.ReactNode, error: Error) => ({
-  type: NOTIFY_ERROR,
+  type: NotifyActionType.NOTIFY_ERROR,
   component,
   error,
 })
-
-export const REQUEST_SIGNIN = 'REQUEST_SIGNIN'
-export const RECEIVE_SIGNIN_SUCCESS = 'RECEIVE_SIGNIN_SUCCESS'
-export const RECEIVE_SIGNIN_FAIL = 'RECEIVE_SIGNIN_FAIL'
-export const RECEIVE_SIGNIN_ERROR = 'RECEIVE_SIGNIN_ERROR'
 
 /**
  * The type of any function
@@ -106,16 +83,16 @@ const signInSuccessAction = (doc: UnboxApi<typeof api.createSession>) => {
   const signDoc = doc
 
   return {
-    type: RECEIVE_SIGNIN_SUCCESS,
+    type: AuthActionType.RECEIVE_SIGNIN_SUCCESS,
     authenticated: signDoc.data.attributes.authenticated,
   }
 }
 
-const signInFailAction = () => ({ type: RECEIVE_SIGNIN_FAIL })
+const signInFailAction = () => ({ type: AuthActionType.RECEIVE_SIGNIN_FAIL })
 
 function sendSignIn(data: Parameter<typeof api.createSession>) {
   return (dispatch: Dispatch) => {
-    dispatch(createAction(REQUEST_SIGNIN))
+    dispatch({ type: AuthActionType.REQUEST_SIGNIN })
 
     return api
       .createSession(data)
@@ -124,52 +101,40 @@ function sendSignIn(data: Parameter<typeof api.createSession>) {
         if (error instanceof jsonapi.AuthenticationError) {
           dispatch(signInFailAction())
         } else {
-          dispatch(createErrorAction(error, RECEIVE_SIGNIN_ERROR))
+          dispatch(
+            createErrorAction(error, AuthActionType.RECEIVE_SIGNIN_ERROR),
+          )
         }
       })
   }
 }
 
-export const REQUEST_SIGNOUT = 'REQUEST_SIGNOUT'
-export const RECEIVE_SIGNOUT_SUCCESS = 'RECEIVE_SIGNOUT_SUCCESS'
-export const RECEIVE_SIGNOUT_ERROR = 'RECEIVE_SIGNOUT_ERROR'
-
 export const receiveSignoutSuccess = () => ({
-  type: RECEIVE_SIGNOUT_SUCCESS,
+  type: AuthActionType.RECEIVE_SIGNOUT_SUCCESS,
   authenticated: false,
 })
 
 function sendSignOut() {
   return (dispatch: Dispatch) => {
-    dispatch(createAction(REQUEST_SIGNOUT))
+    dispatch({ type: AuthActionType.REQUEST_SIGNOUT })
     return api
       .destroySession()
       .then(() => dispatch(receiveSignoutSuccess()))
-      .catch(curryErrorHandler(dispatch, RECEIVE_SIGNIN_ERROR))
+      .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
   }
 }
 
-export const REQUEST_CREATE = 'REQUEST_CREATE'
-export const RECEIVE_CREATE_SUCCESS = 'RECEIVE_CREATE_SUCCESS'
-export const RECEIVE_CREATE_ERROR = 'RECEIVE_CREATE_ERROR'
-
-const receiveCreateSuccessAction = () => ({ type: RECEIVE_CREATE_SUCCESS })
-
-export const REQUEST_DELETE = 'REQUEST_DELETE'
-export const RECEIVE_DELETE_SUCCESS = 'RECEIVE_DELETE_SUCCESS'
-export const RECEIVE_DELETE_ERROR = 'RECEIVE_DELETE_ERROR'
+const RECEIVE_CREATE_SUCCESS_ACTION = {
+  type: ResourceActionType.RECEIVE_CREATE_SUCCESS,
+}
 
 const receiveDeleteSuccess = (id: string) => ({
-  type: RECEIVE_DELETE_SUCCESS,
+  type: ResourceActionType.RECEIVE_DELETE_SUCCESS,
   id,
 })
 
-export const REQUEST_UPDATE = 'REQUEST_UPDATE'
-export const RECEIVE_UPDATE_SUCCESS = 'RECEIVE_UPDATE_SUCCESS'
-export const RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR'
-
 const receiveUpdateSuccess = (response: Response) => ({
-  type: RECEIVE_UPDATE_SUCCESS,
+  type: ResourceActionType.RECEIVE_UPDATE_SUCCESS,
   response,
 })
 
@@ -183,15 +148,19 @@ export const createJobSpec = (
   errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
-    dispatch(createAction(REQUEST_CREATE))
+    dispatch({ type: ResourceActionType.REQUEST_CREATE })
+
     return api.v2.specs
       .createJobSpec(data)
       .then(doc => {
-        dispatch(receiveCreateSuccessAction())
+        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc))
       })
       .catch((error: Errors) => {
-        curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_CREATE_ERROR,
+        )(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
@@ -203,7 +172,8 @@ export const deleteJobSpec = (
   errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
-    dispatch(createAction(REQUEST_DELETE))
+    dispatch({ type: ResourceActionType.REQUEST_DELETE })
+
     return api.v2.specs
       .destroyJobSpec(id)
       .then(doc => {
@@ -211,7 +181,10 @@ export const deleteJobSpec = (
         dispatch(notifySuccess(successCallback, doc))
       })
       .catch((error: Errors) => {
-        curryErrorHandler(dispatch, RECEIVE_DELETE_ERROR)(error)
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_DELETE_ERROR,
+        )(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
@@ -223,15 +196,19 @@ export const createJobRun = (
   errorCallback: React.ReactNode,
 ): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
   return (dispatch: Dispatch) => {
-    dispatch(createAction(REQUEST_CREATE))
+    dispatch({ type: ResourceActionType.REQUEST_CREATE })
+
     return api.v2.runs
       .createJobSpecRun(id)
       .then(doc => {
-        dispatch(receiveCreateSuccessAction())
+        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc))
       })
       .catch((error: Errors) => {
-        curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_CREATE_ERROR,
+        )(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
@@ -243,16 +220,20 @@ export const createBridge = (
   errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
-    dispatch(createAction(REQUEST_CREATE))
+    dispatch({ type: ResourceActionType.REQUEST_CREATE })
+
     return api.v2.bridgeTypes
       .createBridge(data)
 
       .then((doc: any) => {
-        dispatch(receiveCreateSuccessAction())
+        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc.data))
       })
       .catch((error: Errors) => {
-        curryErrorHandler(dispatch, RECEIVE_CREATE_ERROR)(error)
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_CREATE_ERROR,
+        )(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
@@ -264,7 +245,8 @@ export const updateBridge = (
   errorCallback: React.ReactNode,
 ) => {
   return (dispatch: Dispatch) => {
-    dispatch(createAction(REQUEST_UPDATE))
+    dispatch({ type: ResourceActionType.REQUEST_UPDATE })
+
     return api.v2.bridgeTypes
       .updateBridge(params)
       .then((doc: any) => {
@@ -272,7 +254,10 @@ export const updateBridge = (
         dispatch(notifySuccess(successCallback, doc.data))
       })
       .catch((error: Errors) => {
-        curryErrorHandler(dispatch, RECEIVE_UPDATE_ERROR)(error)
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_UPDATE_ERROR,
+        )(error)
         dispatch(notifyError(errorCallback, error))
       })
   }
@@ -285,7 +270,7 @@ export const updateBridge = (
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    dispatch(redirectToSignOut())
+    dispatch(REDIRECT_TO_SIGNOUT_ACTION)
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
   }
@@ -420,14 +405,14 @@ export const deleteCompletedJobRuns = (updatedBefore: string) =>
     'DELETE_COMPLETED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
-  )({ status: [models.RunStatus.COMPLETED], updatedBefore })
+  )({ status: [RunStatus.COMPLETED], updatedBefore })
 
 export const deleteErroredJobRuns = (updatedBefore: string) =>
   request(
     'DELETE_ERRORED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
-  )({ status: [models.RunStatus.ERRORED], updatedBefore })
+  )({ status: [RunStatus.ERRORED], updatedBefore })
 
 export const fetchTransactions = request(
   'TRANSACTIONS',

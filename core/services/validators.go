@@ -1,12 +1,15 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"chainlink/core/adapters"
 	"chainlink/core/assets"
+	"chainlink/core/services/fluxmonitor"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -28,7 +31,7 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 		fe.Add("Must have at least one Initiator and one Task")
 	}
 	for _, i := range j.Initiators {
-		if err := ValidateInitiator(i, j); err != nil {
+		if err := ValidateInitiator(i, j, store); err != nil {
 			fe.Merge(err)
 		}
 	}
@@ -87,17 +90,11 @@ func ValidateExternalInitiator(
 	} else if err != orm.ErrorNotFound {
 		return errors.Wrap(err, "validating external initiator")
 	}
-	// only validate URL if present
-	if exi.URL != nil {
-		if isURL := govalidator.IsURL((*exi.URL).String()); !isURL {
-			fe.Add("Invalid URL format")
-		}
-	}
 	return fe.CoerceEmptyToNil()
 }
 
 // ValidateInitiator checks the Initiator for any application logic errors.
-func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
+func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	switch strings.ToLower(i.Type) {
 	case models.InitiatorRunAt:
 		return validateRunAtInitiator(i, j)
@@ -110,7 +107,7 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	case models.InitiatorRunLog:
 		return validateRunLogInitiator(i, j)
 	case models.InitiatorFluxMonitor:
-		return validateFluxMonitor(i, j)
+		return validateFluxMonitor(i, j, store)
 	case models.InitiatorWeb:
 		return nil
 	case models.InitiatorEthLog:
@@ -120,22 +117,66 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec) error {
 	}
 }
 
-func validateFluxMonitor(i models.Initiator, j models.JobSpec) error {
+func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
+
 	if i.Address == utils.ZeroAddress {
-		fe.Add("unable to create job config, no address")
+		fe.Add("no address")
 	}
-	if len(i.Feeds) == 0 {
-		fe.Add("unable to create job config, no feeds")
+	if i.IdleThreshold != 0 && i.IdleThreshold < i.PollingInterval {
+		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
 	}
 	if i.Threshold <= 0 {
-		fe.Add("unable to create job config, bad threshold")
+		fe.Add("bad threshold")
 	}
 	if i.RequestData.String() == "" {
-		fe.Add("unable to create job config, no requestdata")
+		fe.Add("no requestdata")
+	}
+	if i.PollingInterval == 0 {
+		fe.Add("no pollingInterval")
+	} else if i.PollingInterval < fluxmonitor.MinimumPollingInterval {
+		fe.Add("pollingInterval must be equal or greater than " + fluxmonitor.MinimumPollingInterval.String())
+	}
+	if err := validateFeeds(i.Feeds, store); err != nil {
+		fe.Add(err.Error())
 	}
 
 	return fe.CoerceEmptyToNil()
+}
+
+func validateFeeds(feeds models.Feeds, store *store.Store) error {
+	var feedsData []interface{}
+	if err := json.Unmarshal(feeds.Bytes(), &feedsData); err != nil {
+		return errors.New("invalid json for feeds parameter")
+	}
+	if len(feedsData) == 0 {
+		return errors.New("feeds field is empty")
+	}
+
+	var bridgeNames []string
+	for _, entry := range feedsData {
+		switch feed := entry.(type) {
+		case string:
+			if _, err := url.ParseRequestURI(feed); err != nil {
+				return err
+			}
+		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
+			bridgeName := feed["bridge"]
+			if bridgeName == nil {
+				return errors.New("Feeds object missing bridge key")
+			} else if len(feed) != 1 {
+				return errors.New("Unsupported keys in feed JSON")
+			}
+			bridgeNames = append(bridgeNames, bridgeName.(string))
+		default:
+			return errors.New("unknown feed type")
+		}
+	}
+	if _, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {

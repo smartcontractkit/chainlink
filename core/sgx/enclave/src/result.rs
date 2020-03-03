@@ -1,4 +1,5 @@
 use std::string::{String, ToString};
+use serde::{Serialize, Deserialize};
 
 #[derive(Debug)]
 pub enum Error {
@@ -13,7 +14,7 @@ pub fn get_value(object: &serde_json::Value, key: &str) -> Result<String, Error>
     }
 }
 
-pub fn new(result: &RunResult) -> RunResult {
+pub fn new(_result: &RunResult) -> RunResult {
     RunResult {
         ..Default::default()
     }

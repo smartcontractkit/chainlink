@@ -16,11 +16,11 @@ import (
 	"time"
 
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
-	"github.com/chenjiandongx/ginprom"
+	"github.com/Depado/ginprom"
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/expvar"
@@ -28,15 +28,20 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
 	"github.com/unrolled/secure"
 )
 
+var prometheus *ginprom.Prometheus
+
 func init() {
 	gin.DebugPrintRouteFunc = printRoutes
+
+	// ensure metrics are regsitered once per instance to avoid registering
+	// metrics multiple times (panic)
+	prometheus = ginprom.New(ginprom.Namespace("service"))
 }
 
 func printRoutes(httpMethod, absolutePath, handlerName string, nuHandlers int) {
@@ -54,9 +59,9 @@ const (
 	SessionExternalInitiatorKey = "external_initiator"
 )
 
-func explorerStatus(app services.Application) gin.HandlerFunc {
+func explorerStatus(app chainlink.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		es := presenters.NewExplorerStatus(app.GetStore())
+		es := presenters.NewExplorerStatus(app.GetStatsPusher())
 		b, err := json.Marshal(es)
 		if err != nil {
 			panic(err)
@@ -68,7 +73,7 @@ func explorerStatus(app services.Application) gin.HandlerFunc {
 }
 
 // Router listens and responds to requests to the node for valid paths.
-func Router(app services.Application) *gin.Engine {
+func Router(app chainlink.Application) *gin.Engine {
 	engine := gin.New()
 	store := app.GetStore()
 	config := store.Config
@@ -80,13 +85,14 @@ func Router(app services.Application) *gin.Engine {
 	sessionStore.Options(config.SessionOptions())
 	cors := uiCorsHandler(config)
 
+	prometheus.Use(engine)
 	engine.Use(
 		limits.RequestSizeLimiter(config.DefaultHTTPLimit()),
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
 		secureMiddleware(config),
-		ginprom.PromMiddleware(&ginprom.PromOpts{}),
+		prometheus.Instrument(),
 	)
 	engine.Use(helmet.Default())
 
@@ -149,9 +155,7 @@ func secureMiddleware(config orm.ConfigReader) gin.HandlerFunc {
 
 	return secureFunc
 }
-func metricRoutes(app services.Application, r *gin.RouterGroup) {
-	r.GET("/metrics", ginprom.PromHandler(promhttp.Handler()))
-
+func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", RequireAuth(app.GetStore(), AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
@@ -180,7 +184,7 @@ func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
 	}
 }
 
-func sessionRoutes(app services.Application, r *gin.RouterGroup) {
+func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	unauth := r.Group("/", rateLimiter(20*time.Second, 5))
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
@@ -188,7 +192,7 @@ func sessionRoutes(app services.Application, r *gin.RouterGroup) {
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
-func v2Routes(app services.Application, r *gin.RouterGroup) {
+func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	unauthedv2 := r.Group("/v2")
 
 	jr := JobRunsController{app}
@@ -363,11 +367,8 @@ func uiCorsHandler(config orm.ConfigReader) gin.HandlerFunc {
 	}
 	if config.AllowOrigins() == "*" {
 		c.AllowAllOrigins = true
-	} else {
-		allowOrigins := strings.Split(config.AllowOrigins(), ",")
-		if len(allowOrigins) > 0 {
-			c.AllowOrigins = allowOrigins
-		}
+	} else if allowOrigins := strings.Split(config.AllowOrigins(), ","); len(allowOrigins) > 0 {
+		c.AllowOrigins = allowOrigins
 	}
 	return cors.New(c)
 }

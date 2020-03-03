@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"chainlink/core/assets"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
 	"chainlink/core/utils"
@@ -16,7 +16,7 @@ import (
 
 // WithdrawalsController can send LINK tokens to another address
 type WithdrawalsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 var naz = assets.NewLink(1)
@@ -27,25 +27,33 @@ var naz = assets.NewLink(1)
 //
 // Example: "<application>/withdrawals"
 func (abc *WithdrawalsController) Create(c *gin.Context) {
-	store := abc.App.GetStore()
-	txm := store.TxManager
 	wr := models.WithdrawalRequest{}
-
 	if err := c.ShouldBindJSON(&wr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	addressWasNotSpecifiedInRequest := utils.ZeroAddress
-
 	if wr.Amount.Cmp(naz) < 0 {
-		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf(
-			"Must withdraw at least %v LINK", naz.String()))
-	} else if wr.DestinationAddress == addressWasNotSpecifiedInRequest {
+		err := fmt.Errorf("Must withdraw at least %v LINK", naz.String())
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	addressWasNotSpecifiedInRequest := utils.ZeroAddress
+	if wr.DestinationAddress == addressWasNotSpecifiedInRequest {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("Invalid withdrawal address"))
-	} else if linkBalance, err := txm.ContractLINKBalance(wr); err != nil {
+		return
+	}
+
+	store := abc.App.GetStore()
+	txm := store.TxManager
+	linkBalance, err := txm.ContractLINKBalance(wr)
+	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else if linkBalance.Cmp(wr.Amount) < 0 {
+		return
+	}
+
+	if linkBalance.Cmp(wr.Amount) < 0 {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf(
 			"Insufficient link balance. Withdrawal Amount: %v "+
 				"Link Balance: %v",
@@ -56,7 +64,8 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	hash, err := txm.WithdrawLINK(wr)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-	} else {
-		jsonAPIResponse(c, presenters.NewTx(&models.Tx{Hash: hash}), "transaction")
+		return
 	}
+
+	jsonAPIResponse(c, presenters.NewTx(&models.Tx{Hash: hash}), "transaction")
 }

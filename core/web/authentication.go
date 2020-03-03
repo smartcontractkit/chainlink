@@ -2,7 +2,6 @@ package web
 
 import (
 	"chainlink/core/auth"
-	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"net/http"
@@ -25,7 +24,13 @@ const (
 	ExternalInitiatorSecretHeader = "X-Chainlink-EA-Secret"
 )
 
-type authType func(store *store.Store, ctx *gin.Context) error
+type AuthStorer interface {
+	AuthorizedUserWithSession(sessionID string) (models.User, error)
+	FindExternalInitiator(eia *auth.Token) (*models.ExternalInitiator, error)
+	FindUser() (models.User, error)
+}
+
+type authType func(store AuthStorer, ctx *gin.Context) error
 
 func authenticatedUser(c *gin.Context) (*models.User, bool) {
 	obj, ok := c.Get(SessionUserKey)
@@ -35,7 +40,7 @@ func authenticatedUser(c *gin.Context) (*models.User, bool) {
 	return obj.(*models.User), ok
 }
 
-func AuthenticateExternalInitiator(store *store.Store, c *gin.Context) error {
+func AuthenticateExternalInitiator(store AuthStorer, c *gin.Context) error {
 	eia := &auth.Token{
 		AccessKey: c.GetHeader(ExternalInitiatorAccessKeyHeader),
 		Secret:    c.GetHeader(ExternalInitiatorSecretHeader),
@@ -72,7 +77,7 @@ func authenticatedEI(c *gin.Context) (*models.ExternalInitiator, bool) {
 }
 
 // AuthenticateByToken authenticates a User by their API token.
-func AuthenticateByToken(store *store.Store, c *gin.Context) error {
+func AuthenticateByToken(store AuthStorer, c *gin.Context) error {
 	token := &auth.Token{
 		AccessKey: c.GetHeader(APIKey),
 		Secret:    c.GetHeader(APISecret),
@@ -97,7 +102,7 @@ func AuthenticateByToken(store *store.Store, c *gin.Context) error {
 
 var _ authType = AuthenticateByToken
 
-func AuthenticateBySession(store *store.Store, c *gin.Context) error {
+func AuthenticateBySession(store AuthStorer, c *gin.Context) error {
 	session := sessions.Default(c)
 	sessionID, ok := session.Get(SessionIDKey).(string)
 	if !ok {
@@ -114,7 +119,7 @@ func AuthenticateBySession(store *store.Store, c *gin.Context) error {
 
 var _ authType = AuthenticateBySession
 
-func RequireAuth(store *store.Store, methods ...authType) gin.HandlerFunc {
+func RequireAuth(store AuthStorer, methods ...authType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var err error
 		for _, method := range methods {

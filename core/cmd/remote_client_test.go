@@ -14,7 +14,6 @@ import (
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -25,13 +24,12 @@ import (
 func TestClient_DisplayAccountBalance(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
-	require.NoError(t, app.Start())
+	app.EthMock.Register("eth_getBalance", "0x0100")
+	app.EthMock.Register("eth_call", "0x0100")
 
-	ethMock := app.MockCallerSubscriberClient()
-	ethMock.Register("eth_getBalance", "0x0100")
-	ethMock.Register("eth_call", "0x0100")
+	require.NoError(t, app.Start())
 
 	client, r := app.NewClientAndRenderer()
 
@@ -45,7 +43,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 func TestClient_IndexJobSpecs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -65,7 +63,7 @@ func TestClient_IndexJobSpecs(t *testing.T) {
 func TestClient_ShowJobRun_Exists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -87,7 +85,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -103,7 +101,7 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 func TestClient_IndexJobRuns(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -131,7 +129,7 @@ func TestClient_IndexJobRuns(t *testing.T) {
 func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -151,7 +149,7 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -169,7 +167,7 @@ var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
 func TestClient_CreateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -231,7 +229,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 			defer cleanup()
 			require.NoError(t, app.Start())
 
@@ -270,7 +268,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 			defer cleanup()
 			require.NoError(t, app.Start())
 
@@ -292,7 +290,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 func TestClient_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -316,7 +314,7 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -332,7 +330,7 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestClient_CreateJobSpec(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -368,7 +366,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 func TestClient_ArchiveJobSpec(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -390,7 +388,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -408,7 +406,7 @@ func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 func TestClient_CreateJobRun(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -457,7 +455,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 func TestClient_CreateBridge(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -495,7 +493,7 @@ func TestClient_CreateBridge(t *testing.T) {
 func TestClient_IndexBridges(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -526,7 +524,7 @@ func TestClient_IndexBridges(t *testing.T) {
 func TestClient_ShowBridge(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -550,7 +548,7 @@ func TestClient_ShowBridge(t *testing.T) {
 func TestClient_RemoveBridge(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -575,7 +573,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -613,7 +611,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 func TestClient_WithdrawSuccess(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication(t)
+	app, cleanup := setupWithdrawalsApplication(t)
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 
@@ -623,16 +621,20 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 
+	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	})
 	assert.Nil(t, client.Withdraw(c))
 }
 
 func TestClient_WithdrawNoArgs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication(t)
+	app, cleanup := setupWithdrawalsApplication(t)
 	defer cleanup()
 
-	assert.NoError(t, utils.JustError(app.MockStartAndConnect()))
+	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("admin withdraw", 0)
@@ -650,50 +652,47 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, ethMockCheck := setupWithdrawalsApplication(t)
+	app, cleanup := setupWithdrawalsApplication(t)
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	cliParserRouter := cmd.NewApp(client)
+
+	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	})
 	assert.Nil(t, cliParserRouter.Run([]string{
 		"chainlink", "admin", "withdraw",
 		"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", "1234",
 		"--from=" +
 			"0x3141592653589793238462643383279502884197"}))
-	ethMockCheck(t)
 }
 
-func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func(), func(*testing.T)) {
+func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func()) {
 	config, _ := cltest.NewConfig(t)
 	oca := common.HexToAddress("0xDEADB3333333F")
 	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 
-	hash := cltest.NewHash()
 	nonce := "0x100"
-	ethMock := app.MockCallerSubscriberClient()
 
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
+	app.EthMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", nonce)
 		ethMock.Register("eth_chainId", config.ChainID())
 	})
 
-	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
-		ethMock.Register("eth_sendRawTransaction", hash)
-	})
-
-	return app, cleanup, ethMock.EventuallyAllCalled
+	return app, cleanup
 }
 
 func TestClient_SendEther(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication(t)
+	app, cleanup := setupWithdrawalsApplication(t)
 	defer cleanup()
 
-	assert.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("sendether", 0)
@@ -701,21 +700,28 @@ func TestClient_SendEther(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 
+	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	})
 	assert.NoError(t, client.SendEther(c))
 }
 
 func TestClient_SendEther_From(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication(t)
+	app, cleanup := setupWithdrawalsApplication(t)
 	defer cleanup()
 
-	assert.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("sendether", 0)
 	set.String("from", app.Store.TxManager.NextActiveAccount().Address.String(), "")
 	set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"})
+
+	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+	})
 
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)
@@ -726,7 +732,7 @@ func TestClient_SendEther_From(t *testing.T) {
 func TestClient_ChangePassword(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -763,7 +769,7 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_IndexTransactions(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -798,7 +804,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 func TestClient_ShowTransaction(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -820,7 +826,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 func TestClient_IndexTxAttempts(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -855,7 +861,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 func TestClient_CreateExtraKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -875,7 +881,7 @@ func TestClient_CreateExtraKey(t *testing.T) {
 func TestClient_SetMinimumGasPrice(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup, _ := setupWithdrawalsApplication(t)
+	app, cleanup := setupWithdrawalsApplication(t)
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect())
 
@@ -885,6 +891,7 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 
+	// app.EthMock.Register("eth_call", "0xDE0B6B3A7640000")
 	assert.NoError(t, client.SetMinimumGasPrice(c))
 	assert.Equal(t, big.NewInt(8616460799), app.Store.Config.EthGasPriceDefault())
 
@@ -902,7 +909,7 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 func TestClient_GetConfiguration(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -927,13 +934,8 @@ func TestClient_GetConfiguration(t *testing.T) {
 func TestClient_CancelJobRun(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	ethMock := app.MockCallerSubscriberClient()
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", 0)
-		ethMock.Register("eth_chainId", app.Config.ChainID())
-	})
 	require.NoError(t, app.Start())
 
 	job := cltest.NewJobWithWebInitiator()

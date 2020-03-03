@@ -1,4 +1,4 @@
-import transactionSelector from 'selectors/transaction'
+import transactionSelector from '../../src/selectors/transaction'
 
 describe('selectors - transaction', () => {
   it('returns the transaction item for the given id and null otherwise', () => {
