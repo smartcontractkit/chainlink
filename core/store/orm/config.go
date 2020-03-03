@@ -28,6 +28,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// this permission grants read / write accccess to file owners only
+const readWritePerms = os.FileMode(0600)
+
 // Config holds parameters used by the application which can be overridden by
 // setting environment variables.
 //
@@ -447,7 +450,7 @@ func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	}
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
-	return key, ioutil.WriteFile(sessionPath, []byte(str), 0644)
+	return key, ioutil.WriteFile(sessionPath, []byte(str), readWritePerms)
 }
 
 func parseAddress(str string) (interface{}, error) {
