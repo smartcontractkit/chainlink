@@ -227,19 +227,14 @@ func (contract *ConnectedContract) Call(result interface{}, methodName string, a
 		return errors.Wrap(err, "unable to encode message call")
 	}
 
-	var rawResult string
+	var rawResult hexutil.Bytes
 	callArgs := CallArgs{To: contract.address, Data: data}
 	err = contract.ethClient.Call(&rawResult, "eth_call", callArgs, "latest")
 	if err != nil {
 		return errors.Wrap(err, "unable to call client")
 	}
 
-	resultBytes, err := hexutil.Decode(rawResult)
-	if err != nil {
-		return errors.Wrap(err, "unable to decode result")
-	}
-
-	err = contract.ABI.Unpack(result, methodName, resultBytes)
+	err = contract.ABI.Unpack(result, methodName, rawResult)
 	if err != nil {
 		return errors.Wrap(err, "unable to unpack values")
 	}
