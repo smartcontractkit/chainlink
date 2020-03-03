@@ -2,9 +2,7 @@ package eth
 
 import (
 	"context"
-	"fmt"
 	"math/big"
-	"strings"
 
 	"chainlink/core/assets"
 	"chainlink/core/utils"
@@ -12,8 +10,6 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 )
 
 const (
@@ -26,6 +22,7 @@ const (
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
+	CallerSubscriber
 	LogSubscriber
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
@@ -113,32 +110,6 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 	}
 	numLinkBigInt.SetString(result, 0)
 	return numLinkBigInt, nil
-}
-
-var dec10 = decimal.NewFromInt(10)
-
-func newBigIntFromString(arg string) (*big.Int, error) {
-	if arg == "0x" {
-		// Oddly a legal value for zero
-		arg = "0x0"
-	}
-	ret, ok := new(big.Int).SetString(arg, 0)
-	if !ok {
-		return nil, fmt.Errorf("cannot convert '%s' to big int", arg)
-	}
-	return ret, nil
-}
-
-func newDecimalFromString(arg string) (decimal.Decimal, error) {
-	if strings.HasPrefix(arg, "0x") {
-		// decimal package does not parse Hex values
-		value, err := newBigIntFromString(arg)
-		if err != nil {
-			return decimal.Zero, fmt.Errorf("cannot convert '%s' to decimal", arg)
-		}
-		return decimal.NewFromString(value.Text(10))
-	}
-	return decimal.NewFromString(arg)
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.

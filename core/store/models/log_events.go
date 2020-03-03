@@ -134,10 +134,6 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
 		return q, nil
 
-	case InitiatorFluxMonitor:
-		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220, AggregatorUpdatedRoundDetailsLogTopic20191220, AggregatorAnswerUpdatedLogTopic20191220}}
-		return q, nil
-
 	default:
 		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
 	}

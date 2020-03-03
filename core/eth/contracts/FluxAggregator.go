@@ -7,7 +7,10 @@ import (
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 type FluxAggregator struct {
@@ -20,20 +23,23 @@ type LogNewRound struct {
 	RoundID   *big.Int       `abi:"roundId"`
 	StartedBy common.Address `abi:"startedBy"`
 	StartedAt *big.Int       `abi:"startedAt"`
+	Address   common.Address `abi:"-"`
 }
 
 type LogRoundDetailsUpdated struct {
-	PaymentAmount  *big.Int `abi:"paymentAmount"`
-	MinAnswerCount *big.Int `abi:"minAnswerCount"`
-	MaxAnswerCount *big.Int `abi:"maxAnswerCount"`
-	RestartDelay   *big.Int `abi:"restartDelay"`
-	Timeout        *big.Int `abi:"timeout"`
+	PaymentAmount  *big.Int       `abi:"paymentAmount"`
+	MinAnswerCount *big.Int       `abi:"minAnswerCount"`
+	MaxAnswerCount *big.Int       `abi:"maxAnswerCount"`
+	RestartDelay   *big.Int       `abi:"restartDelay"`
+	Timeout        *big.Int       `abi:"timeout"`
+	Address        common.Address `abi:"-"`
 }
 
 type LogAnswerUpdated struct {
-	Current   *big.Int `abi:"current"`
-	RoundID   *big.Int `abi:"roundId"`
-	Timestamp *big.Int `abi:"timestamp"`
+	Current   *big.Int       `abi:"current"`
+	RoundID   *big.Int       `abi:"roundId"`
+	Timestamp *big.Int       `abi:"timestamp"`
+	Address   common.Address `abi:"-"`
 }
 
 func NewFluxAggregator(ethClient eth.Client, address common.Address) (*FluxAggregator, error) {
@@ -50,7 +56,7 @@ func (fa *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (*LogSubscription,
 		filterQuery = ethereum.FilterQuery{
 			FromBlock: fromBlock,
 			Addresses: utils.WithoutZeroAddresses([]common.Address{fa.address}),
-			Topics:    [][]common.Hash{{models.AggregatorNewRoundLogTopic20191220, models.AggregatorUpdatedRoundDetailsLogTopic20191220, models.AggregatorAnswerUpdatedLogTopic20191220}},
+			Topics:    [][]common.Hash{{models.AggregatorNewRoundLogTopic20191220, models.AggregatorRoundDetailsUpdatedLogTopic20191220, models.AggregatorAnswerUpdatedLogTopic20191220}},
 		}
 		chLogs    = make(chan MaybeDecodedLog)
 		chRawLogs = make(chan eth.Log)
@@ -80,19 +86,22 @@ func (fa *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (*LogSubscription,
 				}
 
 				switch rawLog.Topics[0] {
-				case models.AggregatorLogNewRoundTopic20191220:
+				case models.AggregatorNewRoundLogTopic20191220:
 					var decodedLog LogNewRound
 					err = fa.Contract.UnpackLog(&decodedLog, "NewRound", rawLog)
+					decodedLog.Address = fa.address
 					chLogs <- MaybeDecodedLog{decodedLog, err}
 
-				case models.AggregatorLogRoundDetailsUpdatedTopic20191220:
+				case models.AggregatorRoundDetailsUpdatedLogTopic20191220:
 					var decodedLog LogRoundDetailsUpdated
 					err = fa.Contract.UnpackLog(&decodedLog, "RoundDetailsUpdated", rawLog)
+					decodedLog.Address = fa.address
 					chLogs <- MaybeDecodedLog{decodedLog, err}
 
-				case models.AggregatorLogAnswerUpdatedTopic20191220:
+				case models.AggregatorAnswerUpdatedLogTopic20191220:
 					var decodedLog LogAnswerUpdated
 					err = fa.Contract.UnpackLog(&decodedLog, "AnswerUpdated", rawLog)
+					decodedLog.Address = fa.address
 					chLogs <- MaybeDecodedLog{decodedLog, err}
 
 				default:
@@ -102,7 +111,7 @@ func (fa *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (*LogSubscription,
 		}
 	}()
 
-	return &LogSubscription{chLogs}, nil
+	return &LogSubscription{subscription, chLogs}, nil
 }
 
 // Price returns the current price at the given aggregator address.
@@ -110,12 +119,12 @@ func (fa *FluxAggregator) Price(precision int32) (decimal.Decimal, error) {
 	var result string
 	err := fa.Call(&result, "latestAnswer")
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to encode message call")
+		return decimal.Decimal{}, errors.Wrap(err, "unable to encode message call")
 	}
 
 	raw, err := newDecimalFromString(result)
 	if err != nil {
-		return decimal.Decimal{}, errors.Wrap(err, errors.Errorf("unable to fetch aggregator price from %s", address.Hex()))
+		return decimal.Decimal{}, errors.Wrapf(err, "unable to fetch aggregator price from %s", fa.address.Hex())
 	}
 	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
 	return raw.Div(precisionDivisor), nil
@@ -143,11 +152,11 @@ func (fa *FluxAggregator) ReportingRound() (*big.Int, error) {
 }
 
 // TimedOutStatus returns the a boolean indicating whether the provided round has timed out or not
-func (client *CallerSubscriberClient) TimedOutStatus(round *big.Int) (bool, error) {
+func (fa *FluxAggregator) TimedOutStatus(round *big.Int) (bool, error) {
 	var result bool
 	err := fa.Call(&result, "getTimedOutStatus", round)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to encode message call")
+		return false, errors.Wrap(err, "unable to encode message call")
 	}
 	return result, nil
 }
