@@ -122,8 +122,7 @@ func (c Config) DatabaseTimeout() time.Duration {
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
-// a properly formatted URL, with a valid scheme (postgres://, file://), or
-// an empty string, so the application defaults to .chainlink/db.sqlite.
+// a properly formatted URL, with a valid scheme (postgres://)
 func (c Config) DatabaseURL() string {
 	return c.viper.GetString(EnvVarName("DatabaseURL"))
 }
@@ -427,15 +426,6 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 		log.Fatalf(fmt.Sprintf(`Invalid default for %s: "%s"`, name, defaultValue))
 	}
 	return v
-}
-
-// NormalizedDatabaseURL returns the DatabaseURL with the empty default
-// coerced to a sqlite3 URL.
-func NormalizedDatabaseURL(c ConfigReader) string {
-	if c.DatabaseURL() == "" {
-		return filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
-	}
-	return c.DatabaseURL()
 }
 
 // SecretGenerator is the interface for objects that generate a secret
