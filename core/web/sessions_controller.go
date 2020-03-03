@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 
 	"github.com/gin-gonic/contrib/sessions"
@@ -15,7 +15,7 @@ import (
 
 // SessionsController manages session requests.
 type SessionsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create creates a session ID for the given user credentials, and returns it

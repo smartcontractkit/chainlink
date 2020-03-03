@@ -1,6 +1,7 @@
 import React from 'react'
 import { Icon } from 'antd'
 import CountDown from './CountDown.component'
+import Percent from './Percent.component'
 import Legend from './Legend.component'
 import TooltipQuestion from 'components/shared/TooltipQuestion'
 import { humanizeUnixTimestamp, networkName, MAINNET_ID } from 'utils/'
@@ -62,6 +63,18 @@ function NetworkGraphInfo({
         </div>
         <h2 className="network-graph-info__item--value">
           {options.valuePrefix || ''} {currentAnswer || '...'}
+        </h2>
+      </div>
+
+      <div className="network-graph-info__item">
+        <div className="network-graph-info__item--label">
+          Deviation Threshold{' '}
+          <TooltipQuestion
+            title={`Deviation percentage in price required to trigger an update`}
+          />
+        </div>
+        <h2 className="network-graph-info__item--value">
+          <Percent value={options.threshold} />
         </h2>
       </div>
 

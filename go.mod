@@ -16,8 +16,9 @@ require (
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/elastic/gosigar v0.10.4 // indirect
-	github.com/ethereum/go-ethereum v1.9.10
+	github.com/ethereum/go-ethereum v1.9.11
 	github.com/fatih/color v1.9.0
+	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/gin-contrib/cors v1.3.0
@@ -55,7 +56,7 @@ require (
 	github.com/shopspring/decimal v0.0.0-20191130220710-360f2bc03045
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/viper v1.6.2
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	github.com/tidwall/gjson v1.5.0
 	github.com/tidwall/sjson v1.0.4
@@ -68,7 +69,7 @@ require (
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.12
 	go.uber.org/multierr v1.4.0
-	go.uber.org/zap v1.13.0
+	go.uber.org/zap v1.14.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/text v0.3.2

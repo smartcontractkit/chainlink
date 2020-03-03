@@ -44,7 +44,7 @@ func TestStore_Close(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	store := app.GetStore()
@@ -78,7 +78,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	app.AddUnlockedKey() // second account
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -129,7 +129,11 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	require.NoError(t, utils.JustError(app.MockStartAndConnect()))
+	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
+		meth.Register("eth_getTransactionCount", "0x1")
+		meth.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+	require.NoError(t, app.StartAndConnect())
 	store := app.GetStore()
 
 	// assert sync worked on NewApplication

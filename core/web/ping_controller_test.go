@@ -16,7 +16,7 @@ import (
 func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -32,7 +32,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -71,7 +71,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -31,7 +31,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
 
-	app := cli.AppFactory.NewApplication(cli.Config, func(app services.Application) {
+	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
 		logNodeBalance(store)
 		logIfNonceOutOfSync(store)
@@ -69,7 +69,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
-func loggedStop(app services.Application) {
+func loggedStop(app chainlink.Application) {
 	logger.WarnIf(app.Stop())
 }
 

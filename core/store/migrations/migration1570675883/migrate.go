@@ -2,7 +2,17 @@ package migration1570675883
 
 import (
 	"github.com/jinzhu/gorm"
+	"chainlink/core/store/models"
 )
+
+type JobRun struct {
+	models.JobRun
+	Overrides models.JSON
+}
+
+func (JobRun) TableName() string {
+	return "job_runs"
+}
 
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`

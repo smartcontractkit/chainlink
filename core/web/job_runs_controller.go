@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
@@ -17,7 +17,7 @@ import (
 
 // JobRunsController manages JobRun requests in the node.
 type JobRunsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Index returns paginated JobRuns for a given JobSpec
@@ -82,7 +82,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		return
 	}
 
-	jr, err := jrc.App.Create(j.ID, initiator, &data, nil, &models.RunRequest{})
+	jr, err := jrc.App.Create(j.ID, initiator, nil, &models.RunRequest{RequestParams: data})
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 		return

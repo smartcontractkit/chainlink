@@ -7,7 +7,9 @@ core/
 **/public/**
 **/build/**
 **/fixtures/**
-evm-box
+**/lib/**
+evm-contracts/ethers
+evm-contracts/truffle
 truffle-config.js
 truffle.js
 gethload.js

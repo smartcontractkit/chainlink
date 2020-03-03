@@ -1,5 +1,5 @@
 # Build Chainlink
-FROM smartcontract/builder:1.0.25 as builder
+FROM smartcontract/builder:1.0.29 as builder
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -9,7 +9,8 @@ COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
 # Install yarn dependencies
-COPY yarn.lock package.json ./
+COPY yarn.lock package.json .yarnrc ./
+COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
