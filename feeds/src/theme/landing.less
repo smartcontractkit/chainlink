@@ -60,43 +60,37 @@
     margin-bottom: 60px;
   }
 
-  .supporters {
+  .logos {
     &-wrapper {
       text-align: center;
-      max-width: 800px;
-      margin: 0 auto;
+      max-width: 1000px;
+      margin: 100px auto;
+
+      h3 {
+        margin-bottom: 22px;
+        font-weight: 500;
+        font-size: 26px;
+      }
     }
-    margin: 40px 0;
+
     display: flex;
     justify-items: center;
     justify-content: space-between;
     align-items: center;
 
-    .ampleforth {
-      width: 190px;
+    .grayscale {
+      filter: grayscale(100%);
+      &:hover {
+        filter: grayscale(0%);
+      }
     }
 
-    .loopring {
-      top: -10px;
-      position: relative;
-    }
-
-    & > svg,
-    & > img {
-      margin: 20px 0;
-    }
-  }
-
-  @media (max-width: @screen-md) {
-    .head__title {
-      width: auto;
-    }
-
-    .supporters {
-      flex-direction: column;
-      align-items: center;
-      svg {
-        margin-bottom: 30px;
+    .logo-item {
+      margin: 30px;
+      display: block;
+      svg,
+      img {
+        width: 100%;
       }
     }
   }

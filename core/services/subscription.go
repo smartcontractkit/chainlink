@@ -141,16 +141,12 @@ func ReceiveLogRequest(runManager RunManager, le models.LogRequest) {
 	}
 
 	le.ToDebug()
-	data, err := le.JSON()
-	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
-		return
-	}
 
-	runJob(runManager, le, data)
+	runJob(runManager, le)
+
 }
 
-func runJob(runManager RunManager, le models.LogRequest, data models.JSON) {
+func runJob(runManager RunManager, le models.LogRequest) {
 	jobSpecID := le.GetJobSpecID()
 	initiator := le.GetInitiator()
 
@@ -171,7 +167,7 @@ func runJob(runManager RunManager, le models.LogRequest, data models.JSON) {
 		return
 	}
 
-	_, err = runManager.Create(jobSpecID, &initiator, &data, le.BlockNumber(), &rr)
+	_, err = runManager.Create(jobSpecID, &initiator, le.BlockNumber(), &rr)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}

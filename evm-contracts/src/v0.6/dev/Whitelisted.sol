@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "./Owned.sol";
+import "../Owned.sol";
 
 /**
  * @title Whitelisted

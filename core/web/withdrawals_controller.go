@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"chainlink/core/assets"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
 	"chainlink/core/utils"
@@ -16,7 +16,7 @@ import (
 
 // WithdrawalsController can send LINK tokens to another address
 type WithdrawalsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 var naz = assets.NewLink(1)

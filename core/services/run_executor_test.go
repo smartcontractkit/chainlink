@@ -142,7 +142,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 
 	// FIXME: Can't think of a better way to do this
 	// Make sure Execute has some time to start the sleep task
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	runQueue := new(mocks.RunQueue)
 	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, clock)
@@ -212,7 +212,7 @@ func TestJobRunner_prioritizeSpecParamsOverRequestParams(t *testing.T) {
 	j.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeMultiply, Params: taskParams}}
 	assert.NoError(t, store.CreateJob(&j))
 	run := cltest.NewJobRun(j)
-	run.Overrides = cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v, "result": %v}`, requestParameter, requestBase))
+	run.RunRequest.RequestParams = cltest.JSONFromString(t, fmt.Sprintf(`{"times":%v, "result": %v}`, requestParameter, requestBase))
 	assert.NoError(t, store.CreateJobRun(&run))
 
 	require.NoError(t, runExecutor.Execute(run.ID))

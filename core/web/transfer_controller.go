@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/presenters"
@@ -17,7 +17,7 @@ import (
 
 // TransfersController can send LINK tokens to another address
 type TransfersController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Create sends ETH from the Chainlink's account to a specified address.

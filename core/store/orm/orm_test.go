@@ -152,10 +152,9 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	job := cltest.NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
 
-	rr := models.NewRunRequest()
-	data := cltest.JSONFromString(t, `{"random": "input"}`)
+	rr := models.NewRunRequest(models.JSON{})
 	currentHeight := big.NewInt(0)
-	run, _ := services.NewRun(&job, &job.Initiators[0], &data, currentHeight, rr, store.Config, store.ORM, time.Now())
+	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, time.Now())
 	require.NoError(t, store.CreateJobRun(run))
 
 	requestCount, err := store.ORM.CountOf(&models.RunRequest{})
@@ -629,6 +628,45 @@ func TestORM_FindBridge(t *testing.T) {
 	}
 }
 
+func TestORM_FindBridgesByNames(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	bt1 := models.BridgeType{}
+	bt1.Name = models.MustNewTaskType("bridge1")
+	bt1.URL = cltest.WebURL(t, "http://bridge1.com")
+	require.NoError(t, store.CreateBridgeType(&bt1))
+
+	bt2 := models.BridgeType{}
+	bt2.Name = models.MustNewTaskType("bridge2")
+	bt2.URL = cltest.WebURL(t, "http://bridge2.com")
+	require.NoError(t, store.CreateBridgeType(&bt2))
+
+	cases := []struct {
+		description string
+		arguments   []string
+		expectation []models.BridgeType
+		errored     bool
+	}{
+		{"finds one bridge", []string{"bridge1"}, []models.BridgeType{bt1}, false},
+		{"finds multiple bridges", []string{"bridge1", "bridge2"}, []models.BridgeType{bt1, bt2}, false},
+		{"errors on duplicates", []string{"bridge1", "bridge1"}, nil, true},
+		{"errors on non-existent bridge names", []string{"bridge1", "doesnotexist"}, nil, true},
+	}
+
+	for _, test := range cases {
+		t.Run(test.description, func(t *testing.T) {
+			bridges, err := store.FindBridgesByNames(test.arguments)
+			assert.Equal(t, test.errored, err != nil)
+			if test.expectation != nil {
+				assert.Equal(t, bridges, test.expectation)
+			}
+		})
+	}
+}
+
 func TestORM_PendingBridgeType_alreadyCompleted(t *testing.T) {
 	t.Parallel()
 
@@ -678,7 +716,7 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	store := app.Store
@@ -696,7 +734,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
-	ethMock := app.MockCallerSubscriberClient()
+	ethMock := app.EthMock
 	one := uint64(1)
 
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))

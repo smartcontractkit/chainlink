@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"chainlink/core/logger"
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 	"chainlink/core/store/orm"
 	"chainlink/core/store/presenters"
 
@@ -59,7 +59,7 @@ const (
 	SessionExternalInitiatorKey = "external_initiator"
 )
 
-func explorerStatus(app services.Application) gin.HandlerFunc {
+func explorerStatus(app chainlink.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		es := presenters.NewExplorerStatus(app.GetStatsPusher())
 		b, err := json.Marshal(es)
@@ -73,7 +73,7 @@ func explorerStatus(app services.Application) gin.HandlerFunc {
 }
 
 // Router listens and responds to requests to the node for valid paths.
-func Router(app services.Application) *gin.Engine {
+func Router(app chainlink.Application) *gin.Engine {
 	engine := gin.New()
 	store := app.GetStore()
 	config := store.Config
@@ -155,7 +155,7 @@ func secureMiddleware(config orm.ConfigReader) gin.HandlerFunc {
 
 	return secureFunc
 }
-func metricRoutes(app services.Application, r *gin.RouterGroup) {
+func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", RequireAuth(app.GetStore(), AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
@@ -184,7 +184,7 @@ func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
 	}
 }
 
-func sessionRoutes(app services.Application, r *gin.RouterGroup) {
+func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	unauth := r.Group("/", rateLimiter(20*time.Second, 5))
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
@@ -192,7 +192,7 @@ func sessionRoutes(app services.Application, r *gin.RouterGroup) {
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
-func v2Routes(app services.Application, r *gin.RouterGroup) {
+func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	unauthedv2 := r.Group("/v2")
 
 	jr := JobRunsController{app}

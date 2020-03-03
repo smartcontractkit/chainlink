@@ -21,7 +21,7 @@ func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
 	user := cltest.MustUser("email@test.net", "password123")
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	app.Start()
 	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
@@ -79,7 +79,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	user := cltest.MustUser("email@test.net", "password123")
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	app.Start()
 	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
@@ -106,7 +106,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
 	seedUser := cltest.MustUser("email@test.net", "password123")
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	app.Start()
 	err := app.Store.SaveUser(&seedUser)
 	assert.NoError(t, err)
@@ -151,7 +151,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	client := http.Client{}
 	user := cltest.MustUser("email@test.net", "password123")
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 
 	app.Start()

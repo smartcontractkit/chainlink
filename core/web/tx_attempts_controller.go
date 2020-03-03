@@ -1,14 +1,14 @@
 package web
 
 import (
-	"chainlink/core/services"
+	"chainlink/core/services/chainlink"
 
 	"github.com/gin-gonic/gin"
 )
 
 // TxAttemptsController lists TxAttempts requests.
 type TxAttemptsController struct {
-	App services.Application
+	App chainlink.Application
 }
 
 // Index returns paginated transaction attempts

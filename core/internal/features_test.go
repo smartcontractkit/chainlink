@@ -28,10 +28,8 @@ import (
 func TestIntegration_Scheduler(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/scheduler_job.json")
@@ -60,7 +58,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	config := app.Config
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth := app.EthMock
 
 	newHeads := make(chan ethpkg.BlockHeader)
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
@@ -145,7 +143,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	thirdTxSafeAt := thirdTxSentAt + config.MinOutgoingConfirmations()
 
 	newHeads := make(chan ethpkg.BlockHeader)
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth := app.EthMock
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_chainId", config.ChainID())
@@ -242,10 +240,8 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	app.InstantClock()
 
 	require.NoError(t, app.Start())
@@ -260,10 +256,10 @@ func TestIntegration_RunAt(t *testing.T) {
 
 func TestIntegration_EthLog(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 
-	eth := app.MockCallerSubscriberClient()
+	eth := app.EthMock
 	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
@@ -311,10 +307,10 @@ func TestIntegration_RunLog(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
 			defer cfgCleanup()
 			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
-			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.LenientEthMock)
 			defer cleanup()
 
-			eth := app.MockCallerSubscriberClient()
+			eth := app.EthMock
 			logs := make(chan ethpkg.Log, 1)
 			newHeads := eth.RegisterNewHeads()
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -373,7 +369,7 @@ func TestIntegration_StartAt(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth := app.EthMock
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
@@ -390,7 +386,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t)
 	defer cleanup()
 
-	eth := app.MockCallerSubscriberClient()
+	eth := app.EthMock
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	logs := make(chan ethpkg.Log, 1)
 	newHeads := make(chan ethpkg.BlockHeader, 10)
@@ -446,10 +442,8 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	bridgeURL := cltest.WebURL(t, "https://test.chain.link/always")
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", bridgeURL)
 	require.NoError(t, app.Start())
@@ -498,10 +492,8 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
 	bta := &models.BridgeTypeAuthentication{}
@@ -547,10 +539,10 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 func TestIntegration_WeiWatchers(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 
-	eth := app.MockCallerSubscriberClient()
+	eth := app.EthMock
 	eth.RegisterNewHead(1)
 	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -582,10 +574,8 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 }
 
 func TestIntegration_MultiplierInt256(t *testing.T) {
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/int256_job.json")
@@ -597,10 +587,8 @@ func TestIntegration_MultiplierInt256(t *testing.T) {
 }
 
 func TestIntegration_MultiplierUint256(t *testing.T) {
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/uint256_job.json")
@@ -614,18 +602,14 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
-
-	eth := app.MockCallerSubscriberClient()
+	eth := app.EthMock
 	newHeads := make(chan ethpkg.BlockHeader)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
-		eth.Register("eth_chainId", config.ChainID())
 	})
 	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(100)))
 	require.NoError(t, app.StartAndConnect())
@@ -665,7 +649,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 
-	eth := app.MockCallerSubscriberClient()
+	eth := app.EthMock
 	logs := make(chan ethpkg.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
@@ -708,10 +692,8 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", wsserver.URL.String())
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", config.ChainID())
 
 	app.InstantClock()
 	require.NoError(t, app.Start())
@@ -737,10 +719,8 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	t.Parallel()
 
 	sleepSeconds := 4
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")
@@ -756,10 +736,8 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 func TestIntegration_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
 	exInitr := struct {
@@ -819,10 +797,8 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
 	eiCreate := map[string]string{
@@ -851,11 +827,9 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 }
 
 func TestIntegration_AuthToken(t *testing.T) {
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
-	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	require.NoError(t, app.Start())
 
 	// set up user
@@ -878,7 +852,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Start, connect, and initialize node
 	newHeads := make(chan ethpkg.BlockHeader)
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth := app.EthMock
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
@@ -916,7 +890,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
-	job.Initiators[0].InitiatorParams.Feeds = models.Feeds([]string{mockServer.URL})
+	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -934,17 +908,17 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// Check the FM price on completed run output
 	jr := cltest.WaitForJobRunToComplete(t, app.GetStore(), jrs[0])
 
-	overrides := jr.Overrides
-	assert.Equal(t, "102", overrides.Get("result").String())
+	requestParams := jr.RunRequest.RequestParams
+	assert.Equal(t, "102", requestParams.Get("result").String())
 	assert.Equal(
 		t,
 		"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", // from testdata/flux_monitor_job.json
-		overrides.Get("address").String())
-	assert.Equal(t, "0xe6330cf7", overrides.Get("functionSelector").String())
+		requestParams.Get("address").String())
+	assert.Equal(t, "0xe6330cf7", requestParams.Get("functionSelector").String())
 	assert.Equal(
 		t,
 		"0x0000000000000000000000000000000000000000000000000000000000000002",
-		overrides.Get("dataPrefix").String())
+		requestParams.Get("dataPrefix").String())
 }
 
 func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
@@ -952,7 +926,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	defer cleanup()
 
 	// Start, connect, and initialize node
-	eth := app.MockCallerSubscriberClient(cltest.Strict)
+	eth := app.EthMock
 	eth.Context("app.StartAndConnect()", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
@@ -981,7 +955,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
-	job.Initiators[0].InitiatorParams.Feeds = models.Feeds([]string{mockServer.URL})
+	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	_ = cltest.WaitForRuns(t, j, app.Store, 0)
