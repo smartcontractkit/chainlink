@@ -137,6 +137,8 @@ func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error
 	}
 }
 
+//go:generate mockery -name LogRequest -output ../../internal/mocks/ -case=underscore
+
 // LogRequest is the interface to allow polymorphic functionality of different
 // types of LogEvents.
 // i.e. EthLogEvent, RunLogEvent, ServiceAgreementLogEvent, OracleLogEvent

@@ -131,6 +131,12 @@ func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
 // ReceiveLogRequest parses the log and runs the job indicated by a RunLog or
 // ServiceAgreementExecutionLog. (Both log events have the same format.)
 func ReceiveLogRequest(runManager RunManager, le models.LogRequest) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorw("recovered panic in ReceiveLogRequest", "error", err)
+		}
+	}()
+
 	if !le.Validate() {
 		return
 	}

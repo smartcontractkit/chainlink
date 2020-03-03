@@ -108,6 +108,89 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	g.Eventually(func() int32 { return atomic.LoadInt32(&count) }).Should(gomega.Equal(int32(2)))
 }
 
+func TestServices_ReceiveLogRequest_RecoversFromUnexpectedPanics(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		mock func() *mocks.LogRequest
+	}{
+		{
+			"Validate panic",
+			func() *mocks.LogRequest {
+				l := new(mocks.LogRequest)
+				l.On("Validate").Return().Run(func(_ mock.Arguments) {
+					panic("Validate panic")
+				})
+				return l
+			},
+		},
+		{
+			"GetLog panic",
+			func() *mocks.LogRequest {
+				l := new(mocks.LogRequest)
+				l.On("Validate").Return(true)
+				l.On("GetLog").Return().Run(func(_ mock.Arguments) {
+					panic("GetLog panic")
+				})
+				return l
+			},
+		},
+		{
+			"GetJobSpecID panic",
+			func() *mocks.LogRequest {
+				l := new(mocks.LogRequest)
+				l.On("Validate").Return(true)
+				l.On("GetLog").Return(ethpkg.Log{})
+				l.On("ToDebug").Return()
+				l.On("GetJobSpecID").Return().Run(func(_ mock.Arguments) {
+					panic("GetLog panic")
+				})
+				return l
+			},
+		},
+		{
+			"RunRequest panic",
+			func() *mocks.LogRequest {
+				l := new(mocks.LogRequest)
+				l.On("Validate").Return(true)
+				l.On("GetLog").Return(ethpkg.Log{})
+				l.On("ToDebug").Return()
+
+				job := cltest.NewJobWithLogInitiator()
+				l.On("GetJobSpecID").Return(job.ID)
+				l.On("GetInitiator").Return(job.Initiators[0])
+				l.On("ValidateRequester").Return(nil)
+
+				l.On("RunRequest").Return().Run(func(_ mock.Arguments) {
+					panic("GetLog panic")
+				})
+
+				return l
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			jobSpec := cltest.NewJobWithLogInitiator()
+			require.NoError(t, store.CreateJob(&jobSpec))
+
+			logRequest := test.mock()
+
+			jm := new(mocks.RunManager)
+			assert.NotPanics(t, func() {
+				services.ReceiveLogRequest(jm, logRequest)
+			})
+
+			logRequest.AssertExpectations(t)
+		})
+	}
+}
+
 func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 	t.Parallel()
 
@@ -119,17 +202,13 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 
 	log := models.InitiatorLogEvent{
 		Initiator: jobSpec.Initiators[0],
-		Log: ethpkg.Log{
-			Removed: true,
-		},
+		Log:       ethpkg.Log{},
 	}
 
-	_, err := store.ORM.CountOf(&models.JobRun{})
-	require.NoError(t, err)
-
 	jm := new(mocks.RunManager)
-	services.ReceiveLogRequest(jm, log)
-	jm.AssertExpectations(t)
+	assert.NotPanics(t, func() {
+		services.ReceiveLogRequest(jm, log)
+	})
 }
 
 func TestServices_StartJobSubscription(t *testing.T) {
