@@ -338,21 +338,23 @@ type DeviationChecker interface {
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	store          *store.Store
-	fluxAggregator *contracts.FluxAggregator
-	initr          models.Initiator
-	address        common.Address
-	requestData    models.JSON
-	idleThreshold  time.Duration
-	threshold      float64
-	precision      int32
-	runManager     RunManager
-	currentPrice   decimal.Decimal
-	currentRound   *big.Int
-	fetcher        Fetcher
-	delay          time.Duration
-	cancel         context.CancelFunc
-	chLogs         chan contracts.MaybeDecodedLog
+	store                 *store.Store
+	fluxAggregator        *contracts.FluxAggregator
+	initr                 models.Initiator
+	address               common.Address
+	requestData           models.JSON
+	idleThreshold         time.Duration
+	roundTimeout          time.Duration
+	currentRoundStartedAt time.Time
+	threshold             float64
+	precision             int32
+	runManager            RunManager
+	currentPrice          decimal.Decimal
+	currentRound          *big.Int
+	fetcher               Fetcher
+	delay                 time.Duration
+	cancel                context.CancelFunc
+	chLogs                chan contracts.MaybeDecodedLog
 
 	waitOnStop chan struct{}
 }
@@ -366,20 +368,19 @@ func NewPollingDeviationChecker(
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
-		store:          store,
-		fluxAggregator: fluxAggregator,
-		initr:          initr,
-		address:        initr.InitiatorParams.Address,
-		requestData:    initr.InitiatorParams.RequestData,
-		idleThreshold:  initr.InitiatorParams.IdleThreshold.Duration(),
-		threshold:      float64(initr.InitiatorParams.Threshold),
-		precision:      initr.InitiatorParams.Precision,
-		runManager:     runManager,
-		currentPrice:   decimal.NewFromInt(0),
-		currentRound:   big.NewInt(0),
-		fetcher:        fetcher,
-		delay:          delay,
-		newRounds:      make(chan eth.Log),
+		store:         store,
+		initr:         initr,
+		address:       initr.InitiatorParams.Address,
+		requestData:   initr.InitiatorParams.RequestData,
+		idleThreshold: initr.InitiatorParams.IdleThreshold.Duration(),
+		threshold:     float64(initr.InitiatorParams.Threshold),
+		precision:     initr.InitiatorParams.Precision,
+		runManager:    runManager,
+		currentPrice:  decimal.NewFromInt(0),
+		currentRound:  big.NewInt(0),
+		fetcher:       fetcher,
+		delay:         delay,
+		chLogs:        make(chan contracts.MaybeDecodedLog),
 
 		waitOnStop: make(chan struct{}),
 	}, nil
@@ -387,18 +388,18 @@ func NewPollingDeviationChecker(
 
 // Start begins the CSP consumer in a single goroutine to
 // poll the price adapters and listen to NewRound events.
-func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) error {
+func (p *PollingDeviationChecker) Start(ctx context.Context, ethClient eth.Client) error {
 	logger.Debugw("Starting checker for job",
 		"job", p.initr.JobSpecID.String(),
 		"initr", p.initr.ID)
 
 	fluxAggregator, err := contracts.NewFluxAggregator(ethClient, p.address)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	p.fluxAggregator = fluxAggregator
 
-	err := p.fetchAggregatorData(client)
+	err = p.fetchAggregatorData(ethClient)
 	if err != nil {
 		return err
 	}
@@ -414,7 +415,7 @@ func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) 
 	}
 
 	ctx, p.cancel = context.WithCancel(ctx)
-	go p.consume(ctx, roundSubscription, client)
+	go p.consume(ctx, roundSubscription, ethClient)
 	return nil
 }
 
@@ -499,7 +500,7 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log contracts.LogAns
 }
 
 func (p *PollingDeviationChecker) respondToRoundDetailsUpdatedLog(log contracts.LogRoundDetailsUpdated) error {
-	p.roundTimeout = log.Timeout.Int64() * time.Second
+	p.roundTimeout = time.Duration(log.Timeout.Int64()) * time.Second
 	return nil
 }
 
@@ -532,7 +533,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		"jobID", p.initr.JobSpecID,
 	)
 	p.currentRound = requestedRound
-	p.currentRoundStartedAt = log.StartedAt
+	p.currentRoundStartedAt = time.Unix(log.StartedAt.Int64(), 0)
 
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
@@ -575,12 +576,12 @@ func (p *PollingDeviationChecker) isEligibleToPoll(client eth.Client) (bool, err
 }
 
 func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
-	latestRound, err := p.fluxAggregator.LatestRound(p.address)
+	latestRound, err := p.fluxAggregator.LatestRound()
 	if err != nil {
 		return false, err
 	}
 	nodeAddress := p.store.KeyStore.Accounts()[0].Address
-	_, lastRoundAnswered, err := p.fluxAggregator.LatestSubmission(p.address, nodeAddress)
+	_, lastRoundAnswered, err := p.fluxAggregator.LatestSubmission(nodeAddress)
 	if err != nil {
 		return false, err
 	}
@@ -589,11 +590,11 @@ func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
 }
 
 func (p *PollingDeviationChecker) isRoundTimedOut(client eth.Client) (bool, error) {
-	reportingRound, err := p.fluxAggregator.ReportingRound(p.address)
+	reportingRound, err := p.fluxAggregator.ReportingRound()
 	if err != nil {
 		return false, err
 	}
-	reportingRoundExpired, err := p.fluxAggregator.TimedOutStatus(p.address, reportingRound)
+	reportingRoundExpired, err := p.fluxAggregator.TimedOutStatus(reportingRound)
 	if err != nil {
 		return false, err
 	}
@@ -603,13 +604,13 @@ func (p *PollingDeviationChecker) isRoundTimedOut(client eth.Client) (bool, erro
 // fetchAggregatorData retrieves the price that's on-chain, with which we check
 // the deviation against.
 func (p *PollingDeviationChecker) fetchAggregatorData(client eth.Client) error {
-	price, err := p.fluxAggregator.Price(p.address, p.precision)
+	price, err := p.fluxAggregator.Price(p.precision)
 	if err != nil {
 		return err
 	}
 	p.currentPrice = price
 
-	round, err := p.fluxAggregator.LatestRound(p.address)
+	round, err := p.fluxAggregator.LatestRound()
 	if err != nil {
 		return err
 	}
