@@ -2,6 +2,7 @@ package fluxmonitor
 
 import (
 	"chainlink/core/eth"
+	"chainlink/core/eth/contracts"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
@@ -22,7 +23,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+//go:generate sh -c "cat ../../../evm-contracts/abi/v0.6/FluxAggregator.json | jq .compilerOutput.abi | abigen --abi - --out ../../eth/contracts/flux_aggregator.go --pkg contracts --type FluxAggregator"
 //go:generate mockery -name FluxMonitor -output ../../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
 const defaultHTTPTimeout = 5 * time.Second
@@ -241,8 +245,6 @@ func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
 	fm.removes <- ID
 }
 
-//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
-
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
@@ -327,8 +329,6 @@ func GetBridgeURLFromName(name string, orm *orm.ORM) (*url.URL, error) {
 	return &bridgeURL, nil
 }
 
-//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
-
 // DeviationChecker encapsulate methods needed to initialize and check prices
 // for price deviations.
 type DeviationChecker interface {
@@ -338,20 +338,21 @@ type DeviationChecker interface {
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	store         *store.Store
-	initr         models.Initiator
-	address       common.Address
-	requestData   models.JSON
-	idleThreshold time.Duration
-	threshold     float64
-	precision     int32
-	runManager    RunManager
-	currentPrice  decimal.Decimal
-	currentRound  *big.Int
-	fetcher       Fetcher
-	delay         time.Duration
-	cancel        context.CancelFunc
-	newRounds     chan eth.Log
+	store          *store.Store
+	// fluxAggregator *contracts.FluxAggregator
+	initr          models.Initiator
+	address        common.Address
+	requestData    models.JSON
+	idleThreshold  time.Duration
+	threshold      float64
+	precision      int32
+	runManager     RunManager
+	currentPrice   decimal.Decimal
+	currentRound   *big.Int
+	fetcher        Fetcher
+	delay          time.Duration
+	cancel         context.CancelFunc
+	newRounds      chan eth.Log
 
 	waitOnStop chan struct{}
 }
@@ -364,8 +365,10 @@ func NewPollingDeviationChecker(
 	fetcher Fetcher,
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
+	// fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, )
 	return &PollingDeviationChecker{
-		store:         store,
+		store: store,
+		// fluxAggregator: store.client....
 		initr:         initr,
 		address:       initr.InitiatorParams.Address,
 		requestData:   initr.InitiatorParams.RequestData,
