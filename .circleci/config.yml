@@ -1,42 +1,5 @@
 version: 2.1
 jobs:
-  go-sqlite:
-    docker:
-      - image: smartcontract/builder:1.0.29
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod download
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - '/go/pkg/mod'
-      - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/go_test | tee /tmp/go_test.txt
-      - store_artifacts:
-          path: /tmp/go_test.txt
-  go-sqlite-race:
-    resource_class: large
-    docker:
-      - image: smartcontract/builder:1.0.29
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - '/go/pkg/mod'
-      - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
-      - store_artifacts:
-          path: /tmp/gorace_test.txt
   go-postgres:
     docker:
       - image: smartcontract/builder:1.0.29
@@ -392,10 +355,6 @@ workflows:
                 - develop
                 - /^release\/.*/
                 - master
-      - go-sqlite:
-          filters: # all branches, and /^v../ tags for build-publish...
-            tags:
-              only: /^v.*/
       - go-postgres:
           filters:
             tags:
@@ -476,7 +435,6 @@ workflows:
               only: /^v.*/
       - build-publish-chainlink:
           requires:
-            - go-sqlite
             - go-postgres
             - solidity
             - geth-postgres
@@ -494,7 +452,6 @@ workflows:
               only: /^v.*/ # handles final versioned releases
       - reportcoverage:
           requires:
-            - go-sqlite
             - go-postgres
             - solidity
             - operator-ui

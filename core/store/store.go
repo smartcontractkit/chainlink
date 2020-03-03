@@ -124,9 +124,7 @@ func (ed *EthDialer) Dial(urlString string) (eth.CallerSubscriber, error) {
 	return newLazyRPCWrapper(urlString, ed.limiter)
 }
 
-// NewStore will create a new database file at the config's RootDir if
-// it is not already present, otherwise it will use the existing db.sqlite3
-// file.
+// NewStore will create a new store using the Eth dialer
 func NewStore(config *orm.Config) *Store {
 	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()))
 }
@@ -234,7 +232,7 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 }
 
 func initializeORM(config *orm.Config) (*orm.ORM, error) {
-	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
