@@ -88,7 +88,7 @@ func CreateProductionLogger(
 // CreateTestLogger creates a logger that directs output to PrettyConsole
 // configured for test output, and to the buffer testMemoryLog.
 func CreateTestLogger(lvl zapcore.Level) *zap.Logger {
-	var _ *MemorySink = TestMemoryLog() // Make sure memory log is created
+	var _ *MemorySink = MemoryLogTestingOnly() // Make sure memory log is created
 	color.NoColor = false
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(lvl)

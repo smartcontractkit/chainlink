@@ -46,7 +46,7 @@ func registerMemorySink() {
 	}
 }
 
-func TestMemoryLog() *MemorySink {
+func MemoryLogTestingOnly() *MemorySink {
 	createSinkOnce.Do(registerMemorySink)
 	return testMemoryLog
 }
