@@ -103,7 +103,7 @@
 //   WARNING: required to provide. Solutions to these limitations are planned.
 //
 // Here is an example of a Random task specification. For an example of a full
-// jobspec using this, see ../internal/fixtures/web/randomness_job.json.
+// jobspec using this, see ../internal/testdata/randomness_job.json.
 //
 //  {
 //    "type": "Random",
