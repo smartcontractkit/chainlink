@@ -3,7 +3,6 @@
 package mocks
 
 import (
-	eth "chainlink/core/eth"
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"
@@ -14,13 +13,13 @@ type DeviationChecker struct {
 	mock.Mock
 }
 
-// Start provides a mock function with given fields: _a0, _a1
-func (_m *DeviationChecker) Start(_a0 context.Context, _a1 eth.Client) error {
-	ret := _m.Called(_a0, _a1)
+// Start provides a mock function with given fields: _a0
+func (_m *DeviationChecker) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, eth.Client) error); ok {
-		r0 = rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}

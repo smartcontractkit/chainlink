@@ -9,15 +9,22 @@ type MaybeDecodedLog struct {
 	Error error
 }
 
-type LogSubscription struct {
+//go:generate mockery -name LogSubscription -output ../../internal/mocks/ -case=underscore
+
+type LogSubscription interface {
+	Logs() <-chan MaybeDecodedLog
+	Unsubscribe()
+}
+
+type logSubscription struct {
 	subscription eth.Subscription
 	chLogs       chan MaybeDecodedLog
 }
 
-func (s *LogSubscription) Logs() <-chan MaybeDecodedLog {
+func (s *logSubscription) Logs() <-chan MaybeDecodedLog {
 	return s.chLogs
 }
 
-func (s *LogSubscription) Unsubscribe() {
+func (s *logSubscription) Unsubscribe() {
 	s.subscription.Unsubscribe()
 }
