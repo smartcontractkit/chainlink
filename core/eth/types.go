@@ -120,8 +120,8 @@ func (txr *TxReceipt) Unconfirmed() bool {
 }
 
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
-// ChainlinkClient.validateChainlinkCallback(requestId).
-// https://chainlink/blob/master/evm/contracts/ChainlinkClient.sol
+// ChainlinkClient.validateChainlinkCallback(requestId). See
+// ../../evm-contracts/src/v0.6/ChainlinkClient.sol
 var ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 
 // FulfilledRunLog returns true if this tx receipt is the result of a
