@@ -1076,7 +1076,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		coordinatorAddress.String())
 	millisecondsWaited := 0
 	expectedLogDeadline := 200
-	for !strings.Contains(logger.TestMemoryLog().String(), expectedLog) &&
+	for !strings.Contains(logger.MemoryLogTestingOnly().String(), expectedLog) &&
 		millisecondsWaited < expectedLogDeadline {
 		time.Sleep(time.Millisecond)
 		millisecondsWaited += 1
