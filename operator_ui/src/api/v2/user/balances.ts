@@ -1,4 +1,5 @@
 import * as jsonapi from '@chainlink/json-api-client'
+import { boundMethod } from 'autobind-decorator'
 import * as presenters from 'core/store/presenters'
 
 /**
@@ -7,17 +8,23 @@ import * as presenters from 'core/store/presenters'
  * @example "<application>/user/balances"
  */
 const ACCOUNT_BALANCES_ENDPOINT = '/v2/user/balances'
-const accountBalances = jsonapi.fetchResource<
-  {},
-  presenters.AccountBalance[],
-  {}
->(ACCOUNT_BALANCES_ENDPOINT)
 
-/**
- * Get account balances in ETH and LINK
- */
-export function getAccountBalances(): Promise<
-  jsonapi.ApiResponse<presenters.AccountBalance[]>
-> {
-  return accountBalances()
+export class Balances {
+  constructor(private api: jsonapi.Api) {}
+
+  /**
+   * Get account balances in ETH and LINK
+   */
+  @boundMethod
+  public getAccountBalances(): Promise<
+    jsonapi.ApiResponse<presenters.AccountBalance[]>
+  > {
+    return this.accountBalances()
+  }
+
+  private accountBalances = this.api.fetchResource<
+    {},
+    presenters.AccountBalance[],
+    {}
+  >(ACCOUNT_BALANCES_ENDPOINT)
 }

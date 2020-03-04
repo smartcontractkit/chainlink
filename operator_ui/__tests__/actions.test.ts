@@ -1,14 +1,14 @@
+import { partialAsFull } from '@chainlink/ts-test-helpers'
+import * as models from 'core/store/models'
 import { bindActionCreators, Middleware } from 'redux'
 import configureStore from 'redux-mock-store'
 import thunk from 'redux-thunk'
-import { partialAsFull } from '@chainlink/ts-test-helpers'
-import * as models from 'core/store/models'
 import * as actionCreators from '../src/actions'
 import { ResourceActionType } from '../src/reducers/actions'
 import jsonApiJobSpecFactory from '../support/factories/jsonApiJobSpec'
 import jsonApiJobSpecRunFactory from '../support/factories/jsonApiJobSpecRun'
-import isoDate, { MINUTE_MS } from '../support/test-helpers/isoDate'
 import globPath from '../support/test-helpers/globPath'
+import isoDate, { MINUTE_MS } from '../support/test-helpers/isoDate'
 
 describe('fetchJob', () => {
   it('maintains dashed keys', done => {

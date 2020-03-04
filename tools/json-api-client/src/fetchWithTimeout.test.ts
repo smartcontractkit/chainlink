@@ -1,4 +1,4 @@
-import fetchWithTimeout from '../src/fetchWithTimeout'
+import fetchWithTimeout from './fetchWithTimeout'
 
 describe('fetchWithTimeout', () => {
   it('rejects fetch requests after timeout period', () => {
