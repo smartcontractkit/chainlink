@@ -13,45 +13,57 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type FluxAggregator struct {
-	*eth.ConnectedContract
+//go:generate mockery -name FluxAggregator -output ../../internal/mocks/ -case=underscore
+
+type FluxAggregator interface {
+	eth.ConnectedContract
+	SubscribeToLogs(fromBlock *big.Int) (LogSubscription, error)
+	LatestAnswer(precision int32) (decimal.Decimal, error)
+	LatestRound() (*big.Int, error)
+	ReportingRound() (*big.Int, error)
+	TimedOutStatus(round *big.Int) (bool, error)
+	LatestSubmission(oracleAddress common.Address) (*big.Int, *big.Int, error)
+}
+
+type fluxAggregator struct {
+	eth.ConnectedContract
 	ethClient eth.Client
 	address   common.Address
 }
 
 type LogNewRound struct {
-	RoundID   *big.Int       `abi:"roundId"`
-	StartedBy common.Address `abi:"startedBy"`
-	StartedAt *big.Int       `abi:"startedAt"`
-	Address   common.Address `abi:"-"`
+	RoundId   *big.Int
+	StartedBy common.Address
+	StartedAt *big.Int
+	Address   common.Address
 }
 
 type LogRoundDetailsUpdated struct {
-	PaymentAmount  *big.Int       `abi:"paymentAmount"`
-	MinAnswerCount *big.Int       `abi:"minAnswerCount"`
-	MaxAnswerCount *big.Int       `abi:"maxAnswerCount"`
-	RestartDelay   *big.Int       `abi:"restartDelay"`
-	Timeout        *big.Int       `abi:"timeout"`
-	Address        common.Address `abi:"-"`
+	PaymentAmount  *big.Int
+	MinAnswerCount *big.Int
+	MaxAnswerCount *big.Int
+	RestartDelay   *big.Int
+	Timeout        *big.Int
+	Address        common.Address
 }
 
 type LogAnswerUpdated struct {
-	Current   *big.Int       `abi:"current"`
-	RoundID   *big.Int       `abi:"roundId"`
-	Timestamp *big.Int       `abi:"timestamp"`
-	Address   common.Address `abi:"-"`
+	Current   *big.Int
+	RoundID   *big.Int
+	Timestamp *big.Int
+	Address   common.Address
 }
 
-func NewFluxAggregator(ethClient eth.Client, address common.Address) (*FluxAggregator, error) {
+func NewFluxAggregator(ethClient eth.Client, address common.Address) (FluxAggregator, error) {
 	contract, err := eth.GetV6Contract(eth.FluxAggregatorName)
 	if err != nil {
 		return nil, err
 	}
-	connectedContract := contract.Connect(ethClient, address)
-	return &FluxAggregator{connectedContract, ethClient, address}, nil
+	connectedContract := eth.NewConnectedContract(contract, ethClient, address)
+	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
-func (fa *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (*LogSubscription, error) {
+func (fa *fluxAggregator) SubscribeToLogs(fromBlock *big.Int) (LogSubscription, error) {
 	var (
 		filterQuery = ethereum.FilterQuery{
 			FromBlock: fromBlock,
@@ -75,7 +87,6 @@ func (fa *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (*LogSubscription,
 				chLogs <- MaybeDecodedLog{nil, err}
 
 			case rawLog, stillOpen := <-chRawLogs:
-				// @@TODO: make sure that calling .Unsubscribe() closes chRawLogs
 				if !stillOpen {
 					select {
 					case err := <-subscription.Err():
@@ -88,41 +99,38 @@ func (fa *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (*LogSubscription,
 				switch rawLog.Topics[0] {
 				case models.AggregatorNewRoundLogTopic20191220:
 					var decodedLog LogNewRound
-					err = fa.Contract.UnpackLog(&decodedLog, "NewRound", rawLog)
+					err = fa.UnpackLog(&decodedLog, "NewRound", rawLog)
 					decodedLog.Address = fa.address
 					chLogs <- MaybeDecodedLog{decodedLog, err}
 
 				case models.AggregatorRoundDetailsUpdatedLogTopic20191220:
 					var decodedLog LogRoundDetailsUpdated
-					err = fa.Contract.UnpackLog(&decodedLog, "RoundDetailsUpdated", rawLog)
+					err = fa.UnpackLog(&decodedLog, "RoundDetailsUpdated", rawLog)
 					decodedLog.Address = fa.address
 					chLogs <- MaybeDecodedLog{decodedLog, err}
 
 				case models.AggregatorAnswerUpdatedLogTopic20191220:
 					var decodedLog LogAnswerUpdated
-					err = fa.Contract.UnpackLog(&decodedLog, "AnswerUpdated", rawLog)
+					err = fa.UnpackLog(&decodedLog, "AnswerUpdated", rawLog)
 					decodedLog.Address = fa.address
 					chLogs <- MaybeDecodedLog{decodedLog, err}
-
-				default:
-					// @@TODO: warn?
 				}
 			}
 		}
 	}()
 
-	return &LogSubscription{subscription, chLogs}, nil
+	return &logSubscription{subscription, chLogs}, nil
 }
 
+var dec10 = decimal.NewFromInt(10)
+
 // Price returns the current price at the given aggregator address.
-func (fa *FluxAggregator) Price(precision int32) (decimal.Decimal, error) {
+func (fa *fluxAggregator) LatestAnswer(precision int32) (decimal.Decimal, error) {
 	var result *big.Int
 	err := fa.Call(&result, "latestAnswer")
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, "unable to encode message call")
 	}
-	//return decimal.NewFromBigInt(result, -precision), nil
-
 	raw := decimal.NewFromBigInt(result, 0)
 	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
 	return raw.Div(precisionDivisor), nil
@@ -130,7 +138,7 @@ func (fa *FluxAggregator) Price(precision int32) (decimal.Decimal, error) {
 }
 
 // LatestRound returns the latest round at the given aggregator address.
-func (fa *FluxAggregator) LatestRound() (*big.Int, error) {
+func (fa *fluxAggregator) LatestRound() (*big.Int, error) {
 	var result *big.Int
 	err := fa.Call(&result, "latestRound")
 	if err != nil {
@@ -140,7 +148,7 @@ func (fa *FluxAggregator) LatestRound() (*big.Int, error) {
 }
 
 // ReportingRound returns the reporting round at the given aggregator address.
-func (fa *FluxAggregator) ReportingRound() (*big.Int, error) {
+func (fa *fluxAggregator) ReportingRound() (*big.Int, error) {
 	var result *big.Int
 	err := fa.Call(&result, "reportingRound")
 	if err != nil {
@@ -150,7 +158,7 @@ func (fa *FluxAggregator) ReportingRound() (*big.Int, error) {
 }
 
 // TimedOutStatus returns the a boolean indicating whether the provided round has timed out or not
-func (fa *FluxAggregator) TimedOutStatus(round *big.Int) (bool, error) {
+func (fa *fluxAggregator) TimedOutStatus(round *big.Int) (bool, error) {
 	var result bool
 	err := fa.Call(&result, "getTimedOutStatus", round)
 	if err != nil {
@@ -161,7 +169,7 @@ func (fa *FluxAggregator) TimedOutStatus(round *big.Int) (bool, error) {
 
 // LatestSubmission returns the latest submission as a tuple, (answer, round)
 // for a given oracle address.
-func (fa *FluxAggregator) LatestSubmission(oracleAddress common.Address) (*big.Int, *big.Int, error) {
+func (fa *fluxAggregator) LatestSubmission(oracleAddress common.Address) (*big.Int, *big.Int, error) {
 	result := make([]interface{}, 2)
 	err := fa.Call(&result, "latestSubmission", oracleAddress)
 	if err != nil {
