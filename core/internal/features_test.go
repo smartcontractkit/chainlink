@@ -1009,7 +1009,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	eth.Register("eth_chainId", config.ChainID())
 	app.Start()
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/randomness_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "testdata/randomness_job.json")
 	rawKey := j.Tasks[0].Params.Get("publicKey").String()
 	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
 	require.NoError(t, err)
