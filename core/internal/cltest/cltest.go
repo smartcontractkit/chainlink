@@ -38,6 +38,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -1180,4 +1181,12 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	result := input.Data.Get("result")
 	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
 	return result.String()
+}
+
+func MustParseDecimalFromString(t *testing.T, input string) decimal.Decimal {
+	result, err := decimal.NewFromString(input)
+	if err != nil {
+		logger.Panic(err)
+	}
+	return result
 }
