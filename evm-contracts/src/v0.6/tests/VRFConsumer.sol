@@ -1,8 +1,8 @@
 pragma solidity 0.6.2;
 
 import "../interfaces/LinkTokenInterface.sol";
-import "../dev/VRFCoordinator.sol";
-import "../dev/VRFConsumerBase.sol";
+import "../VRFCoordinator.sol";
+import "../VRFConsumerBase.sol";
 
 contract VRFConsumer is VRFConsumerBase {
 

@@ -1,8 +1,8 @@
 pragma solidity 0.6.2;
 
-import "../vendor/SafeMath.sol";
+import "./vendor/SafeMath.sol";
 
-import "../interfaces/LinkTokenInterface.sol";
+import "./interfaces/LinkTokenInterface.sol";
 
 import "./VRF.sol";
 import "./VRFRequestIDBase.sol";

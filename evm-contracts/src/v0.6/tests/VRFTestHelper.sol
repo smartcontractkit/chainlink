@@ -1,6 +1,6 @@
 pragma solidity 0.6.2;
 
-import "../dev/VRF.sol";
+import "../VRF.sol";
 
 /** ***********************************************************************
     @notice Testing harness for VRF.sol, exposing its internal methods. Not to
