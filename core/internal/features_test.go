@@ -988,7 +988,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 }
 
-// Copied and modified from TestIntegration_RunLog
 func TestIntegration_RandomnessRequest(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
