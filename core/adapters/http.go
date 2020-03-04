@@ -11,11 +11,27 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
+	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 )
+
+const defaultTimeout = 5 * time.Second
+
+func ParseTimeout(timeoutS string) time.Duration {
+	if timeoutS == "" {
+		return defaultTimeout
+	}
+	timeout, err := time.ParseDuration(timeoutS)
+	if err != nil {
+		logger.Warnf("got invalid value for timeout: %s", timeoutS)
+		return defaultTimeout
+	}
+	return timeout
+}
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
@@ -24,6 +40,11 @@ type HTTPGet struct {
 	Headers      http.Header     `json:"headers"`
 	QueryParams  QueryParameters `json:"queryParams"`
 	ExtendedPath ExtendedPath    `json:"extPath"`
+	Timeout      string          `json:"timeout,omitempty"`
+}
+
+func (hga *HTTPGet) GetTimeout() time.Duration {
+	return ParseTimeout(hga.Timeout)
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -33,7 +54,7 @@ func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.Ru
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	return sendRequest(input, request, store.Config.DefaultHTTPLimit(), hga.GetTimeout())
 }
 
 // GetURL retrieves the GET field if set otherwise returns the URL field
@@ -64,6 +85,11 @@ type HTTPPost struct {
 	QueryParams  QueryParameters `json:"queryParams"`
 	Body         *string         `json:"body,omitempty"`
 	ExtendedPath ExtendedPath    `json:"extPath"`
+	Timeout      string          `json:"timeout,omitempty"`
+}
+
+func (hpa *HTTPPost) GetTimeout() time.Duration {
+	return ParseTimeout(hpa.Timeout)
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -73,7 +99,7 @@ func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.R
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	return sendRequest(input, request, store.Config.DefaultHTTPLimit(), hpa.GetTimeout())
 }
 
 // GetURL retrieves the POST field if set otherwise returns the URL field
@@ -132,11 +158,14 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunInput, request *http.Request, limit int64) models.RunOutput {
+func sendRequest(input models.RunInput, request *http.Request, limit int64, timeout time.Duration) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   timeout,
+	}
 	response, err := client.Do(request)
 	if err != nil {
 		return models.NewRunOutputError(err)

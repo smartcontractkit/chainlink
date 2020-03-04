@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"chainlink/core/adapters"
 	"chainlink/core/internal/cltest"
@@ -284,25 +285,25 @@ func TestHttpPost_Perform(t *testing.T) {
 func TestQueryParameters_Success(t *testing.T) {
 	t.Parallel()
 
-	baseUrl := "http://example.com"
+	baseURL := "http://example.com"
 
 	cases := []struct {
 		name           string
 		queryParams    string
-		startingUrl    string
+		startingURL    string
 		expectedParams adapters.QueryParameters
 		expectedURL    string
 	}{
 		{"empty",
 			`""`,
-			baseUrl,
+			baseURL,
 			adapters.QueryParameters{},
-			baseUrl,
+			baseURL,
 		},
 		{
 			"array of params",
 			`["firstKey","firstVal","secondKey","secondVal"]`,
-			baseUrl,
+			baseURL,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -312,7 +313,7 @@ func TestQueryParameters_Success(t *testing.T) {
 		{
 			"string of params",
 			`"firstKey=firstVal&secondKey=secondVal"`,
-			baseUrl,
+			baseURL,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -322,7 +323,7 @@ func TestQueryParameters_Success(t *testing.T) {
 		{
 			"string has question mark",
 			`"?firstKey=firstVal&secondKey=secondVal"`,
-			baseUrl,
+			baseURL,
 			adapters.QueryParameters{
 				"firstKey":  []string{"firstVal"},
 				"secondKey": []string{"secondVal"},
@@ -346,11 +347,11 @@ func TestQueryParameters_Success(t *testing.T) {
 			qp := adapters.QueryParameters{}
 			err := json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         cltest.WebURL(t, test.startingURL),
 				QueryParams: qp,
 			}
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         cltest.WebURL(t, test.startingURL),
 				QueryParams: qp,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -367,28 +368,28 @@ func TestQueryParameters_Success(t *testing.T) {
 func TestQueryParameters_Error(t *testing.T) {
 	t.Parallel()
 
-	baseUrl := "http://example.com"
+	baseURL := "http://example.com"
 
 	cases := []struct {
 		name           string
 		queryParams    string
-		startingUrl    string
+		startingURL    string
 		expectedParams adapters.QueryParameters
 		expectedURL    string
 	}{
 		{
 			"odd number of params",
 			`["firstKey","firstVal","secondKey","secondVal","bad"]`,
-			baseUrl,
+			baseURL,
 			adapters.QueryParameters{},
-			baseUrl,
+			baseURL,
 		},
 		{
 			"bad format of string",
 			`"firstKey=firstVal&secondKey=secondVal&bad"`,
-			baseUrl,
+			baseURL,
 			adapters.QueryParameters{},
-			baseUrl,
+			baseURL,
 		},
 	}
 
@@ -397,11 +398,11 @@ func TestQueryParameters_Error(t *testing.T) {
 			qp := adapters.QueryParameters{}
 			err := json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         cltest.WebURL(t, test.startingURL),
 				QueryParams: qp,
 			}
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, test.startingUrl),
+				URL:         cltest.WebURL(t, test.startingURL),
 				QueryParams: qp,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -418,25 +419,25 @@ func TestQueryParameters_Error(t *testing.T) {
 func TestExtendedPath_Success(t *testing.T) {
 	t.Parallel()
 
-	baseUrl := "http://example.com"
+	baseURL := "http://example.com"
 
 	cases := []struct {
 		name         string
-		startingUrl  string
+		startingURL  string
 		path         string
 		expectedPath adapters.ExtendedPath
 		expectedURL  string
 	}{
 		{
 			"empty",
-			baseUrl,
+			baseURL,
 			`""`,
 			adapters.ExtendedPath{""},
-			baseUrl,
+			baseURL,
 		},
 		{
 			"two paths",
-			baseUrl,
+			baseURL,
 			`"one/two"`,
 			adapters.ExtendedPath{
 				"one",
@@ -466,7 +467,7 @@ func TestExtendedPath_Success(t *testing.T) {
 		},
 		{
 			"input as arrays",
-			baseUrl,
+			baseURL,
 			`["one","two"]`,
 			adapters.ExtendedPath{
 				"one",
@@ -476,7 +477,7 @@ func TestExtendedPath_Success(t *testing.T) {
 		},
 		{
 			"input begins with slash",
-			baseUrl,
+			baseURL,
 			`"/one/two"`,
 			adapters.ExtendedPath{
 				"",
@@ -487,7 +488,7 @@ func TestExtendedPath_Success(t *testing.T) {
 		},
 		{
 			"input ends with slash",
-			baseUrl,
+			baseURL,
 			`"one/two/"`,
 			adapters.ExtendedPath{
 				"one",
@@ -503,11 +504,11 @@ func TestExtendedPath_Success(t *testing.T) {
 			ep := adapters.ExtendedPath{}
 			err := json.Unmarshal([]byte(test.path), &ep)
 			hga := adapters.HTTPGet{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          cltest.WebURL(t, test.startingURL),
 				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          cltest.WebURL(t, test.startingURL),
 				ExtendedPath: ep,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -524,21 +525,21 @@ func TestExtendedPath_Success(t *testing.T) {
 func TestExtendedPath_Error(t *testing.T) {
 	t.Parallel()
 
-	baseUrl := "http://example.com"
+	baseURL := "http://example.com"
 
 	cases := []struct {
 		name         string
-		startingUrl  string
+		startingURL  string
 		path         string
 		expectedPath adapters.ExtendedPath
 		expectedURL  string
 	}{
 		{
 			"bad array input",
-			baseUrl,
+			baseURL,
 			`["one","two"`,
 			adapters.ExtendedPath{},
-			baseUrl,
+			baseURL,
 		},
 	}
 
@@ -547,11 +548,11 @@ func TestExtendedPath_Error(t *testing.T) {
 			ep := adapters.ExtendedPath{}
 			err := json.Unmarshal([]byte(test.path), &ep)
 			hga := adapters.HTTPGet{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          cltest.WebURL(t, test.startingURL),
 				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          cltest.WebURL(t, test.startingURL),
 				ExtendedPath: ep,
 			}
 			requestGET, _ := hga.GetRequest()
@@ -569,39 +570,39 @@ func TestExtendedPath_Error(t *testing.T) {
 func TestHTTP_BuildingURL(t *testing.T) {
 	t.Parallel()
 
-	baseUrl := "http://example.com"
+	baseURL := "http://example.com"
 
 	cases := []struct {
 		name        string
-		startingUrl string
+		startingURL string
 		path        string
 		queryParams string
 		expectedURL string
 	}{
 		{
 			"one of each",
-			baseUrl,
+			baseURL,
 			`"one"`,
 			`"firstKey=firstVal"`,
 			"http://example.com/one?firstKey=firstVal",
 		},
 		{
 			"query params no path",
-			baseUrl,
+			baseURL,
 			`""`,
 			`"firstKey=firstVal"`,
 			"http://example.com?firstKey=firstVal",
 		},
 		{
 			"path no query params",
-			baseUrl,
+			baseURL,
 			`"one"`,
 			`""`,
 			"http://example.com/one",
 		},
 		{
 			"many of each",
-			baseUrl,
+			baseURL,
 			`"one/two/three"`,
 			`"firstKey=firstVal&secondKey=secondVal"`,
 			"http://example.com/one/two/three?firstKey=firstVal&secondKey=secondVal",
@@ -636,12 +637,12 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			err := json.Unmarshal([]byte(test.path), &ep)
 			err = json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          cltest.WebURL(t, test.startingURL),
 				QueryParams:  qp,
 				ExtendedPath: ep,
 			}
 			hpa := adapters.HTTPPost{
-				URL:          cltest.WebURL(t, test.startingUrl),
+				URL:          cltest.WebURL(t, test.startingURL),
 				QueryParams:  qp,
 				ExtendedPath: ep,
 			}
@@ -650,6 +651,43 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			requestPOST, _ := hpa.GetRequest("")
 			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
 			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestHTTP_Adapter_GetTimeout(t *testing.T) {
+	t.Parallel()
+
+	var hga adapters.HTTPGet
+	err := json.Unmarshal([]byte(`{"timeout": "500ms"}`), &hga)
+	require.NoError(t, err)
+
+	assert.Equal(t, hga.Timeout, "500ms")
+	assert.Equal(t, hga.GetTimeout(), 500*time.Millisecond)
+
+	var hpa adapters.HTTPPost
+	err = json.Unmarshal([]byte(`{"timeout": "500ms"}`), &hpa)
+	require.NoError(t, err)
+
+	assert.Equal(t, hpa.Timeout, "500ms")
+	assert.Equal(t, hpa.GetTimeout(), 500*time.Millisecond)
+}
+
+func TestHTTP_Adapter_ParseTimeout(t *testing.T) {
+	t.Parallel()
+	defaultTimeout := 5 * time.Second
+
+	tests := []struct {
+		input    string
+		expected time.Duration
+	}{
+		{"", defaultTimeout},
+		{"rubbish", defaultTimeout},
+		{"1h", time.Hour},
+	}
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			assert.Equal(t, test.expected, adapters.ParseTimeout(test.input))
 		})
 	}
 }
