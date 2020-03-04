@@ -19,11 +19,12 @@ import (
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL          models.WebURL   `json:"url"`
-	GET          models.WebURL   `json:"get"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL             models.WebURL   `json:"url"`
+	GET             models.WebURL   `json:"get"`
+	Headers         http.Header     `json:"headers"`
+	QueryParams     QueryParameters `json:"queryParams"`
+	ExtendedPath    ExtendedPath    `json:"extPath"`
+	FollowRedirects bool            `json:"followRedirects"`
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -33,7 +34,11 @@ func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.Ru
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	opts := make([]int, 1)
+	if !hga.FollowRedirects {
+		opts = append(opts, disableFollowRedirects)
+	}
+	return sendRequest(input, request, store.Config.DefaultHTTPLimit(), opts...)
 }
 
 // GetURL retrieves the GET field if set otherwise returns the URL field
@@ -58,12 +63,13 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL          models.WebURL   `json:"url"`
-	POST         models.WebURL   `json:"post"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	Body         *string         `json:"body,omitempty"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL             models.WebURL   `json:"url"`
+	POST            models.WebURL   `json:"post"`
+	Headers         http.Header     `json:"headers"`
+	QueryParams     QueryParameters `json:"queryParams"`
+	Body            *string         `json:"body,omitempty"`
+	ExtendedPath    ExtendedPath    `json:"extPath"`
+	FollowRedirects bool            `json:"followRedirects"`
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -73,7 +79,11 @@ func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.R
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	opts := make([]int, 1)
+	if !hpa.FollowRedirects {
+		opts = append(opts, disableFollowRedirects)
+	}
+	return sendRequest(input, request, store.Config.DefaultHTTPLimit(), opts...)
 }
 
 // GetURL retrieves the POST field if set otherwise returns the URL field
@@ -132,11 +142,23 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunInput, request *http.Request, limit int64) models.RunOutput {
+const (
+	disableFollowRedirects = iota
+)
+
+func sendRequest(input models.RunInput, request *http.Request, limit int64, options ...int) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
 	client := &http.Client{Transport: tr}
+
+	for opt := range options {
+		if opt == disableFollowRedirects {
+			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			}
+		}
+	}
 	response, err := client.Do(request)
 	if err != nil {
 		return models.NewRunOutputError(err)
