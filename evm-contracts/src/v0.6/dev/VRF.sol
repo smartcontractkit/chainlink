@@ -1,10 +1,6 @@
 // solhint-disable-next-line compiler-version
 pragma solidity 0.6.2;
 
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
-
 /** ****************************************************************************
   * @notice Verification of verifiable-random-function (VRF) proofs, following
   * @notice https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.3
