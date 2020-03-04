@@ -7,10 +7,9 @@
     "node": "~10.16"
   },
   "scripts": {
-    "cypressJobServer": "cross-env ts-node cypress/support/cypressJobServer.ts",
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
     "test": "yarn test:cypress && yarn test:forks",
-    "test:cypress": "cross-env NODE_ENV=test cypress run --browser=chrome",
+    "test:cypress": "cypress run --browser=chrome",
     "test:forks": "./forks/test"
   },
   "dependencies": {},
