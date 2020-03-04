@@ -1,4 +1,4 @@
-FROM node:10.16
+FROM henrynguyen5/base:1.0.2
 
 # Install docker and docker compose
 RUN apt-get update \
@@ -38,7 +38,7 @@ COPY integration-scripts/package.json integration-scripts/
 
 # install deps for our integration scripts
 RUN yarn
-
+RUN yarn cypress install
 # copy our CI test
 COPY tools/ci/ethereum_test tools/ci/
 COPY tools/docker tools/docker/

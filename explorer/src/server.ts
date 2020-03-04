@@ -1,4 +1,3 @@
-import cookieSession from 'cookie-session'
 import express from 'express'
 import helmet from 'helmet'
 import http from 'http'
@@ -6,7 +5,6 @@ import mime from 'mime-types'
 import { Environment, ExplorerConfig } from './config'
 import * as controllers from './controllers'
 import { addRequestLogging, logger } from './logging'
-import adminAuth from './middleware/adminAuth'
 import seed from './seed'
 import { bootstrapRealtime } from './server/realtime'
 
