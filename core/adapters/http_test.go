@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-	"time"
 
 	"chainlink/core/adapters"
 	"chainlink/core/internal/cltest"
@@ -651,43 +650,6 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			requestPOST, _ := hpa.GetRequest("")
 			assert.Equal(t, test.expectedURL, requestPOST.URL.String())
 			assert.Nil(t, err)
-		})
-	}
-}
-
-func TestHTTP_Adapter_GetTimeout(t *testing.T) {
-	t.Parallel()
-
-	var hga adapters.HTTPGet
-	err := json.Unmarshal([]byte(`{"timeout": "500ms"}`), &hga)
-	require.NoError(t, err)
-
-	assert.Equal(t, hga.Timeout, "500ms")
-	assert.Equal(t, hga.GetTimeout(), 500*time.Millisecond)
-
-	var hpa adapters.HTTPPost
-	err = json.Unmarshal([]byte(`{"timeout": "500ms"}`), &hpa)
-	require.NoError(t, err)
-
-	assert.Equal(t, hpa.Timeout, "500ms")
-	assert.Equal(t, hpa.GetTimeout(), 500*time.Millisecond)
-}
-
-func TestHTTP_Adapter_ParseTimeout(t *testing.T) {
-	t.Parallel()
-	defaultTimeout := 5 * time.Second
-
-	tests := []struct {
-		input    string
-		expected time.Duration
-	}{
-		{"", defaultTimeout},
-		{"rubbish", defaultTimeout},
-		{"1h", time.Hour},
-	}
-	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			assert.Equal(t, test.expected, adapters.ParseTimeout(test.input))
 		})
 	}
 }
