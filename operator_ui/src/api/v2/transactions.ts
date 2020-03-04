@@ -1,4 +1,5 @@
 import * as jsonapi from '@chainlink/json-api-client'
+import { boundMethod } from 'autobind-decorator'
 import * as presenters from 'core/store/presenters'
 
 /**
@@ -6,9 +7,6 @@ import * as presenters from 'core/store/presenters'
  */
 type IndexParams = jsonapi.PaginatedRequestParams
 const INDEX_ENDPOINT = '/v2/transactions'
-const index = jsonapi.fetchResource<IndexParams, presenters.Tx[]>(
-  INDEX_ENDPOINT,
-)
 
 /**
  * Show returns the details of a Ethereum Transasction details.
@@ -19,19 +17,32 @@ interface ShowPathParams {
   txHash: string
 }
 const SHOW_ENDPOINT = '/v2/transactions/:txHash'
-const show = jsonapi.fetchResource<undefined, presenters.Tx, ShowPathParams>(
-  SHOW_ENDPOINT,
-)
 
-export function getTransactions(
-  page: number,
-  size: number,
-): Promise<jsonapi.PaginatedApiResponse<presenters.Tx[]>> {
-  return index({ page, size })
-}
+export class Transactions {
+  constructor(private api: jsonapi.Api) {}
 
-export function getTransaction(
-  txHash: string,
-): Promise<jsonapi.ApiResponse<presenters.Tx>> {
-  return show(undefined, { txHash })
+  @boundMethod
+  public getTransactions(
+    page: number,
+    size: number,
+  ): Promise<jsonapi.PaginatedApiResponse<presenters.Tx[]>> {
+    return this.index({ page, size })
+  }
+
+  @boundMethod
+  public getTransaction(
+    txHash: string,
+  ): Promise<jsonapi.ApiResponse<presenters.Tx>> {
+    return this.show(undefined, { txHash })
+  }
+
+  private index = this.api.fetchResource<IndexParams, presenters.Tx[]>(
+    INDEX_ENDPOINT,
+  )
+
+  private show = this.api.fetchResource<
+    undefined,
+    presenters.Tx,
+    ShowPathParams
+  >(SHOW_ENDPOINT)
 }
