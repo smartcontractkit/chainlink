@@ -1,4 +1,4 @@
-FROM node:10.16.3 as builder
+FROM henrynguyen5/base:1.0.2 as builder
 
 RUN apt-get update && apt-get install -y libudev-dev libusb-dev libusb-1.0-0
 
