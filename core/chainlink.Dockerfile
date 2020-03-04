@@ -1,10 +1,9 @@
 # Build Chainlink
-FROM henrynguyen5/base:1.0.2 as builder
+FROM henrynguyen5/base:1.0.3 as builder
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-WORKDIR /chainlink
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
