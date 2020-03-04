@@ -26,10 +26,11 @@ const (
 )
 
 // Descriptive indices of the FluxAggregator's NewRound Topic Array:
-// event NewRound(uint256 indexed roundId, address indexed startedBy);
+// event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
 const (
 	NewRoundTopicSignature = iota
 	NewRoundTopicRoundID
+	NewRoundTopicStartedBy
 )
 
 const (

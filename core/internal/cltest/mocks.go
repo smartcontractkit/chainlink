@@ -213,16 +213,19 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 // Call, falling back to reflection if the values dont support the required
 // encoding interfaces
 func assignResult(result, response interface{}) error {
-	unmarshaler, uok := result.(encoding.TextUnmarshaler)
-	marshaler, mok := response.(encoding.TextMarshaler)
-
-	if uok && mok {
-		bytes, err := marshaler.MarshalText()
-		if err != nil {
-			return err
+	if unmarshaler, ok := result.(encoding.TextUnmarshaler); ok {
+		switch resp := response.(type) {
+		case encoding.TextMarshaler:
+			bytes, err := resp.MarshalText()
+			if err != nil {
+				return err
+			}
+			return unmarshaler.UnmarshalText(bytes)
+		case string:
+			return unmarshaler.UnmarshalText([]byte(resp))
+		case []byte:
+			return unmarshaler.UnmarshalText(resp)
 		}
-
-		return unmarshaler.UnmarshalText(bytes)
 	}
 
 	ref := reflect.ValueOf(result)

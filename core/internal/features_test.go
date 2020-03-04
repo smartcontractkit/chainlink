@@ -863,8 +863,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		mock.Register("eth_call", "10000") // 10,000 cents
-		mock.Register("eth_call", "0x1")   // aggregator round: 1
+		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "10000")) // 10,000 cents
+		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "1"))     // aggregator round: 1
 	})
 
 	// Have server respond with 102 for price when FM checks external price

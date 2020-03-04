@@ -522,6 +522,18 @@ func Int(val interface{}) *utils.Big {
 	}
 }
 
+func MustEVMUintHexFromBase10String(t *testing.T, strings ...string) string {
+	var allBytes []byte
+	for _, s := range strings {
+		i, ok := big.NewInt(0).SetString(s, 10)
+		require.True(t, ok)
+		bs, err := utils.EVMWordBigInt(i)
+		require.NoError(t, err)
+		allBytes = append(allBytes, bs...)
+	}
+	return fmt.Sprintf("0x%0x", allBytes)
+}
+
 type MockSigner struct{}
 
 func (s MockSigner) SignHash(common.Hash) (models.Signature, error) {
