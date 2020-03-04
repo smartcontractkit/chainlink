@@ -16,13 +16,15 @@ const oraclesList = createSelector([oracles], list => {
     names[n.address.toUpperCase()] = n.name
   })
 
-  const result = list.map(a => {
-    return {
-      address: a,
-      name: names[a.toUpperCase()] || 'Unknown',
-      type: 'oracle',
-    }
-  })
+  const result = list
+    .map(a => {
+      return {
+        address: a,
+        name: names[a.toUpperCase()] || 'Unknown',
+        type: 'oracle',
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return result
 })
