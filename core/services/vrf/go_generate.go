@@ -28,7 +28,7 @@ package vrf
 // might be worthwhile to generate the the wrappers using a static container
 // with abigen and solc, which will complete much faster. E.g.
 //
-//   abigen -sol ../../../evm/v0.5/contracts/VRFAll.sol -pkg vrf -out solidity_interfaces.go
+//   abigen -sol ../../../evm-contracts/src/v0.6/VRFAll.sol -pkg vrf -out solidity_interfaces.go
 //
 // where VRFAll.sol simply contains `import "contract_path";` instructions for
 // all the contracts you wish to target. This runs in about 0.25 seconds in my

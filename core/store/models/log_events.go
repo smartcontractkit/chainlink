@@ -58,7 +58,7 @@ var (
 	RunLogTopic20190207withoutIndexes = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
-	// https://chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
+	// ../../../evm-contracts/src/v0.5/dev/Coordinator.sol#RunRequest
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
 	// RandomnessRequestLogTopic is the signature for the event log
 	// VRFCoordinator.RandomnessRequest.
