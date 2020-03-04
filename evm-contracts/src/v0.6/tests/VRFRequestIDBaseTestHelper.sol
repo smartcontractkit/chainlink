@@ -1,6 +1,6 @@
 pragma solidity 0.6.2;
 
-import "../dev/VRFRequestIDBase.sol";
+import "../VRFRequestIDBase.sol";
 
 contract VRFRequestIDBaseTestHelper is VRFRequestIDBase {
 
