@@ -1,18 +1,21 @@
 package fluxmonitor_test
 
 import (
-	"chainlink/core/cmd"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/services/fluxmonitor"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
 	"context"
 	"fmt"
 	"math/big"
 	"net/url"
 	"testing"
 	"time"
+
+	"chainlink/core/cmd"
+	"chainlink/core/eth"
+	"chainlink/core/eth/contracts"
+	"chainlink/core/internal/cltest"
+	"chainlink/core/internal/mocks"
+	"chainlink/core/services/fluxmonitor"
+	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -22,16 +25,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	updateAnswerHash     = utils.MustHash("updateAnswer(uint256,int256)")
+	updateAnswerSelector = updateAnswerHash[:4]
+)
+
 type successFetcher decimal.Decimal
 
 func (f *successFetcher) Fetch() (decimal.Decimal, error) {
 	return decimal.Decimal(*f), nil
 }
 
-func fakeSubscription() *mocks.Subscription {
-	sub := new(mocks.Subscription)
+func fakeSubscription() *mocks.LogSubscription {
+	sub := new(mocks.LogSubscription)
 	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
+	sub.On("Logs").Return(make(<-chan contracts.MaybeDecodedLog))
 	return sub
 }
 
@@ -189,35 +197,37 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
 	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
 			"result": "102",
 			"address": "%s",
-			"functionSelector": "0xe6330cf7",
+			"functionSelector": "0x%x",
 			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000002"
-	}`, initr.InitiatorParams.Address.Hex())))
+	}`, initr.InitiatorParams.Address.Hex(), updateAnswerSelector)))
 	require.NoError(t, err)
-	rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+
+	rm := new(mocks.RunManager)
+	rm.On("Create", job.ID, &initr, mock.AnythingOfType("*big.Int"), mock.MatchedBy(func(runRequest *models.RunRequest) bool {
 		return runRequest.RequestParams == data
 	})).Return(&run, nil)
 
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Second)
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
+	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
+	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Second)
 	require.NoError(t, err)
 
-	ethClient := new(mocks.Client)
-	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-		Return(big.NewInt(1), nil)
-
-	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient)) // setup
-	ethClient.AssertExpectations(t)
+	err = checker.ExportedFetchAggregatorData()
+	require.NoError(t, err) // setup
 	assert.Equal(t, decimal.NewFromInt(100), checker.ExportedCurrentPrice())
 	assert.Equal(t, big.NewInt(1), checker.ExportedCurrentRound())
 
 	_, err = checker.ExportedPoll()
 	require.NoError(t, err) // main entry point
+
+	fluxAggregator.AssertExpectations(t)
 
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
@@ -253,8 +263,20 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 		})
 
 	fetcher := successFetcher(decimal.NewFromInt(100))
+
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
+	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
+	fluxAggregator.On("ReportingRound").Return(big.NewInt(2), nil)
+	fluxAggregator.On("TimedOutStatus", mock.Anything).Return(false, nil)
+	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+	fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(1), nil)
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(fakeSubscription(), nil)
+	fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(0), nil)
+
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
+		fluxAggregator,
 		initr,
 		runManager,
 		&fetcher,
@@ -262,24 +284,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ethClient := new(mocks.Client)
-	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-		Return(big.NewInt(1), nil)
-	ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
-		Return(big.NewInt(2), nil)
-	ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
-		Return(false, nil)
-	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
-		Return(big.NewInt(0), big.NewInt(1), nil)
-
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-		Return(fakeSubscription(), nil)
-	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
-		Return(big.NewInt(0), big.NewInt(0), nil)
-
-	err = deviationChecker.Start(context.Background(), ethClient)
+	err = deviationChecker.Start(context.Background())
 	require.NoError(t, err)
 	require.Len(t, jobRunCreated, 0, "no Job Runs created")
 
@@ -300,13 +305,13 @@ func TestPollingDeviationChecker_StartError(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	ethClient := new(mocks.Client)
-	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(0), errors.New("deliberate test error"))
 
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, nil, time.Second)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, nil, time.Second)
 	require.NoError(t, err)
-	require.Error(t, checker.Start(context.Background(), ethClient))
+	require.Error(t, checker.Start(context.Background()))
 }
 
 func TestPollingDeviationChecker_StartStop(t *testing.T) {
@@ -318,17 +323,14 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	ethClient := new(mocks.Client)
-	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-		Return(big.NewInt(1), nil)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-		Return(fakeSubscription(), nil)
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
+	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(fakeSubscription(), nil)
 
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Millisecond)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
 
 	// Set up fetcher to mark when polled
@@ -340,7 +342,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	// Start() with no delay to speed up test and polling.
 	done := make(chan struct{})
 	go func() {
-		checker.Start(context.Background(), ethClient) // Start() polling
+		checker.Start(context.Background()) // Start() polling
 		done <- struct{}{}
 	}()
 
@@ -376,25 +378,21 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	ethClient := new(mocks.Client)
-	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-		Return(big.NewInt(1), nil)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-		Return(fakeSubscription(), nil)
-	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
-		Return(big.NewInt(0), big.NewInt(0), nil)
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
+	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(fakeSubscription(), nil)
+	fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(0), nil)
 
 	// Start() with no delay to speed up test and polling.
 	rm := new(mocks.RunManager) // No mocks assert no runs are created
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Millisecond)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Millisecond)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		checker.Start(ctx, ethClient) // Start() polling until cancel()
+		checker.Start(ctx) // Start() polling until cancel()
 		done <- struct{}{}
 	}()
 
@@ -421,7 +419,7 @@ func TestPollingDeviationChecker_StopWithoutStart(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, nil, time.Second)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, nil, initr, rm, nil, time.Second)
 	require.NoError(t, err)
 	checker.Stop()
 }
@@ -437,34 +435,42 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	ethClient := new(mocks.Client)
-	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-		Return(big.NewInt(currentRound), nil)
-
 	// Initialize
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Minute)
+	fluxAggregator := new(mocks.FluxAggregator)
+
+	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
+	fluxAggregator.On("LatestRound").Return(big.NewInt(currentRound), nil)
+
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Minute)
 	require.NoError(t, err)
-	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
-	ethClient.AssertExpectations(t)
+	require.NoError(t, checker.ExportedFetchAggregatorData())
+	fluxAggregator.AssertExpectations(t)
 
 	// Send rounds less than or equal to current, sequentially
 	tests := []struct {
 		name  string
 		round uint64
 	}{
-		{"less than", 4},
-		{"equal", 5},
+		{"less than", uint64(currentRound - 1)},
+		{"equal", uint64(currentRound)},
 	}
+
+	faABI, err := eth.GetV6Contract(eth.FluxAggregatorName)
+	require.NoError(t, err)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			log := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
 			log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
-			require.NoError(t, checker.ExportedRespondToNewRound(log))
+
+			var decodedLog contracts.LogNewRound
+			err := faABI.UnpackLog(&decodedLog, "NewRound", log)
+			require.NoError(t, err)
+
+			_, _, err = checker.ExportedRespondToLog(decodedLog)
+			require.NoError(t, err)
 			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		})
 	}
@@ -482,19 +488,17 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 	initr := job.Initiators[0]
 	initr.ID = 1
 
-	ethClient := new(mocks.Client)
-	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-		Return(big.NewInt(currentRound), nil)
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
+	fluxAggregator.On("LatestRound").Return(big.NewInt(currentRound), nil)
+	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
 
 	// Initialize
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, initr, rm, fetcher, time.Minute)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Minute)
 	require.NoError(t, err)
-	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient))
-	ethClient.AssertExpectations(t)
+	require.NoError(t, checker.ExportedFetchAggregatorData())
 
 	// Send log greater than current
 	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
@@ -512,9 +516,21 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 		return runRequest.RequestParams == data
 	})).Return(nil, nil) // only round 6 triggers run.
 
+	faABI, err := eth.GetV6Contract(eth.FluxAggregatorName)
+	require.NoError(t, err)
+
 	log := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
 	log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(6))
-	require.NoError(t, checker.ExportedRespondToNewRound(log))
+	log.Data = utils.EVMWordUint64(uint64(time.Now().UTC().Unix()))
+
+	var decodedLog contracts.LogNewRound
+	err = faABI.UnpackLog(&decodedLog, "NewRound", log)
+	require.NoError(t, err)
+
+	_, _, err = checker.ExportedRespondToLog(decodedLog)
+	require.NoError(t, err)
+
+	fluxAggregator.AssertExpectations(t)
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
 }
@@ -645,42 +661,38 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				})
 
 			fetcher := successFetcher(decimal.NewFromInt(200))
+
+			fluxAggregator := new(mocks.FluxAggregator)
+			fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
+			fluxAggregator.On("LatestRound").Return(big.NewInt(test.aggregatorRound), nil)
+			fluxAggregator.On("ReportingRound").Return(big.NewInt(test.aggregatorRound+1), nil)
+			fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+			fluxAggregator.On("TimedOutStatus", mock.Anything).Return(test.aggregatorTimedOutStatus, nil)
+			fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(fakeSubscription(), nil)
+
 			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
+				fluxAggregator,
 				initr,
 				runManager,
 				&fetcher,
 				time.Second,
 			)
 			require.NoError(t, err)
+			defer deviationChecker.Stop()
 
-			ethClient := new(mocks.Client)
-			ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
-				Return(decimal.NewFromInt(100), nil)
-			ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
-				Return(big.NewInt(test.aggregatorRound), nil)
-			ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
-				Return(big.NewInt(test.aggregatorRound+1), nil)
-			ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
-				Return(test.aggregatorTimedOutStatus, nil)
-			ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
-				Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
-			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
-				Return(fakeSubscription(), nil)
-
-			err = deviationChecker.Start(context.Background(), ethClient)
+			err = deviationChecker.Start(context.Background())
 			require.NoError(t, err)
 			require.Len(t, jobRunCreated, 1, "initial job run")
 			fetcher = successFetcher(decimal.NewFromInt(300))
 
 			if test.shouldUpdate {
-				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, time.Millisecond, "pollIfEligible triggers Job Run")
+				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, 100*time.Millisecond, "pollIfEligible triggers Job Run")
 			} else {
 				time.Sleep(2 * time.Second)
 				require.Len(t, jobRunCreated, 1, "no Job Runs created")
 			}
-
-			deviationChecker.Stop()
 		})
 	}
 }

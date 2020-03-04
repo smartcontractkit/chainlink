@@ -2,7 +2,6 @@ package contracts_test
 
 import (
 	"encoding"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -20,19 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func base10StringToEVMUintHex(t *testing.T, strings ...string) string {
-	var allBytes []byte
-	for _, s := range strings {
-		i, ok := big.NewInt(0).SetString(s, 10)
-		require.True(t, ok)
-		bs, err := utils.EVMWordBigInt(i)
-		require.NoError(t, err)
-		allBytes = append(allBytes, bs...)
-	}
-	return fmt.Sprintf("0x%0x", allBytes)
-}
-
-func TestFluxAggregatorClient_Price(t *testing.T) {
+func TestFluxAggregatorClient_LatestAnswer(t *testing.T) {
 	address := cltest.NewAddress()
 
 	// aggregatorLatestAnswerID is the first 4 bytes of the keccak256 of
@@ -50,10 +37,10 @@ func TestFluxAggregatorClient_Price(t *testing.T) {
 		precision      int32
 		expectation    decimal.Decimal
 	}{
-		{"hex - Zero", base10StringToEVMUintHex(t, "0"), 2, decimal.NewFromFloat(0)},
-		{"hex", base10StringToEVMUintHex(t, "256"), 2, decimal.NewFromFloat(2.56)},
-		{"decimal", base10StringToEVMUintHex(t, "10000000000000"), 11, decimal.NewFromInt(100)},
-		{"large decimal", base10StringToEVMUintHex(t, "52050000000000000000"), 11, decimal.RequireFromString("520500000")},
+		{"hex - Zero", cltest.MustEVMUintHexFromBase10String(t, "0"), 2, decimal.NewFromFloat(0)},
+		{"hex", cltest.MustEVMUintHexFromBase10String(t, "256"), 2, decimal.NewFromFloat(2.56)},
+		{"decimal", cltest.MustEVMUintHexFromBase10String(t, "10000000000000"), 11, decimal.NewFromInt(100)},
+		{"large decimal", cltest.MustEVMUintHexFromBase10String(t, "52050000000000000000"), 11, decimal.RequireFromString("520500000")},
 	}
 
 	for _, test := range tests {
@@ -71,7 +58,7 @@ func TestFluxAggregatorClient_Price(t *testing.T) {
 			fa, err := contracts.NewFluxAggregator(ethClient, address)
 			require.NoError(t, err)
 
-			result, err := fa.Price(test.precision)
+			result, err := fa.LatestAnswer(test.precision)
 			require.NoError(t, err)
 			assert.True(t, test.expectation.Equal(result))
 			ethClient.AssertExpectations(t)
@@ -96,9 +83,9 @@ func TestFluxAggregatorClient_LatestRound(t *testing.T) {
 		name, response string
 		expectation    *big.Int
 	}{
-		{"zero", base10StringToEVMUintHex(t, "0"), big.NewInt(0)},
-		{"small", base10StringToEVMUintHex(t, "12"), big.NewInt(12)},
-		{"large", base10StringToEVMUintHex(t, "52050000000000000000"), large},
+		{"zero", cltest.MustEVMUintHexFromBase10String(t, "0"), big.NewInt(0)},
+		{"small", cltest.MustEVMUintHexFromBase10String(t, "12"), big.NewInt(12)},
+		{"large", cltest.MustEVMUintHexFromBase10String(t, "52050000000000000000"), large},
 	}
 
 	for _, test := range tests {
@@ -141,9 +128,9 @@ func TestFluxAggregatorClient_ReportingRound(t *testing.T) {
 		name, response string
 		expectation    *big.Int
 	}{
-		{"zero", base10StringToEVMUintHex(t, "0"), big.NewInt(0)},
-		{"small", base10StringToEVMUintHex(t, "12"), big.NewInt(12)},
-		{"large", base10StringToEVMUintHex(t, "52050000000000000000"), large},
+		{"zero", cltest.MustEVMUintHexFromBase10String(t, "0"), big.NewInt(0)},
+		{"small", cltest.MustEVMUintHexFromBase10String(t, "12"), big.NewInt(12)},
+		{"large", cltest.MustEVMUintHexFromBase10String(t, "52050000000000000000"), large},
 	}
 
 	for _, test := range tests {
@@ -236,8 +223,8 @@ func TestFluxAggregatorClient_LatestSubmission(t *testing.T) {
 		expectedAnswer *big.Int
 		expectedRound  *big.Int
 	}{
-		{"zero", base10StringToEVMUintHex(t, "0", "0"), big.NewInt(0), big.NewInt(0)},
-		{"small", base10StringToEVMUintHex(t, "8", "12"), big.NewInt(8), big.NewInt(12)},
+		{"zero", cltest.MustEVMUintHexFromBase10String(t, "0", "0"), big.NewInt(0), big.NewInt(0)},
+		{"small", cltest.MustEVMUintHexFromBase10String(t, "8", "12"), big.NewInt(8), big.NewInt(12)},
 	}
 
 	for _, test := range tests {
@@ -247,7 +234,6 @@ func TestFluxAggregatorClient_LatestSubmission(t *testing.T) {
 			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0)
-					fmt.Println("ZZZZ ~>", test.response)
 					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
 					require.NoError(t, err)
 				})
