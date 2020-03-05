@@ -17,7 +17,7 @@ import (
 
 type FluxAggregator interface {
 	eth.ConnectedContract
-	SubscribeToLogs(fromBlock *big.Int) (LogSubscription, error)
+	SubscribeToLogs(chMaybeLogs chan<- eth.MaybeDecodedLog) eth.UnsubscribeFunc
 	LatestAnswer(precision int32) (decimal.Decimal, error)
 	LatestRound() (*big.Int, error)
 	ReportingRound() (*big.Int, error)
@@ -32,13 +32,16 @@ type fluxAggregator struct {
 }
 
 type LogNewRound struct {
-	RoundId   *big.Int
+	Raw *eth.Log
+
+	RoundID   *big.Int
 	StartedBy common.Address
 	StartedAt *big.Int
-	Address   common.Address
 }
 
 type LogRoundDetailsUpdated struct {
+	Raw *eth.Log
+
 	PaymentAmount  *big.Int
 	MinAnswerCount *big.Int
 	MaxAnswerCount *big.Int
@@ -48,82 +51,34 @@ type LogRoundDetailsUpdated struct {
 }
 
 type LogAnswerUpdated struct {
+	Raw *eth.Log
+
 	Current   *big.Int
 	RoundID   *big.Int
 	Timestamp *big.Int
 	Address   common.Address
 }
 
-func NewFluxAggregator(ethClient eth.Client, address common.Address) (FluxAggregator, error) {
+var fluxAggregatorLogTypes = map[common.Hash]interface{}{
+	models.AggregatorNewRoundLogTopic20191220:            LogNewRound{},
+	models.AggregatorRoundDetailsUpdatedLogTopic20191220: LogRoundDetailsUpdated{},
+	models.AggregatorAnswerUpdatedLogTopic20191220:       LogAnswerUpdated{},
+}
+
+func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) (FluxAggregator, error) {
 	contract, err := eth.GetV6Contract(eth.FluxAggregatorName)
 	if err != nil {
 		return nil, err
 	}
-	connectedContract := eth.NewConnectedContract(contract, ethClient, address)
+	connectedContract := eth.NewConnectedContract(contract, address, ethClient, logBroadcaster)
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
-func (fa *fluxAggregator) SubscribeToLogs(fromBlock *big.Int) (LogSubscription, error) {
-	var (
-		filterQuery = ethereum.FilterQuery{
-			FromBlock: fromBlock,
-			Addresses: utils.WithoutZeroAddresses([]common.Address{fa.address}),
-			Topics:    [][]common.Hash{{models.AggregatorNewRoundLogTopic20191220, models.AggregatorRoundDetailsUpdatedLogTopic20191220, models.AggregatorAnswerUpdatedLogTopic20191220}},
-		}
-		chLogs    = make(chan MaybeDecodedLog)
-		chRawLogs = make(chan eth.Log)
-	)
-
-	subscription, err := fa.ethClient.SubscribeToLogs(chRawLogs, filterQuery)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(chLogs)
-		for {
-			select {
-			case err := <-subscription.Err():
-				chLogs <- MaybeDecodedLog{nil, err}
-
-			case rawLog, stillOpen := <-chRawLogs:
-				// @@TODO: make sure that calling .Unsubscribe() closes chRawLogs
-				if !stillOpen {
-					select {
-					case err := <-subscription.Err():
-						chLogs <- MaybeDecodedLog{nil, err}
-					default:
-					}
-					return
-				}
-
-				switch rawLog.Topics[0] {
-				case models.AggregatorNewRoundLogTopic20191220:
-					var decodedLog LogNewRound
-					err = fa.UnpackLog(&decodedLog, "NewRound", rawLog)
-					decodedLog.Address = fa.address
-					chLogs <- MaybeDecodedLog{decodedLog, err}
-
-				case models.AggregatorRoundDetailsUpdatedLogTopic20191220:
-					var decodedLog LogRoundDetailsUpdated
-					err = fa.UnpackLog(&decodedLog, "RoundDetailsUpdated", rawLog)
-					decodedLog.Address = fa.address
-					chLogs <- MaybeDecodedLog{decodedLog, err}
-
-				case models.AggregatorAnswerUpdatedLogTopic20191220:
-					var decodedLog LogAnswerUpdated
-					err = fa.UnpackLog(&decodedLog, "AnswerUpdated", rawLog)
-					decodedLog.Address = fa.address
-					chLogs <- MaybeDecodedLog{decodedLog, err}
-
-				default:
-					// @@TODO: warn?
-				}
-			}
-		}
-	}()
-
-	return &logSubscription{subscription, chLogs}, nil
+func (fa *fluxAggregator) SubscribeToLogs(chMaybeLogs chan<- eth.MaybeDecodedLog) eth.UnsubscribeFunc {
+	listener := NewDecodingLogListener(fa, fluxAggregatorLogTypes, func(decodedLog interface{}, err error) {
+		chMaybeLogs <- eth.MaybeDecodedLog{decodedLog, err}
+	})
+	return fa.ConnectedContract.SubscribeToLogs(listener)
 }
 
 // Price returns the current price at the given aggregator address.

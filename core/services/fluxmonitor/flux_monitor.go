@@ -272,7 +272,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		return nil, err
 	}
 
-	fluxAggregator, err := contracts.NewFluxAggregator(f.store.TxManager, initr.InitiatorParams.Address)
+	fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, f.store.TxManager, f.store.LogBroadcaster)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +355,6 @@ type PollingDeviationChecker struct {
 	fetcher               Fetcher
 	delay                 time.Duration
 	cancel                context.CancelFunc
-	chLogs                chan contracts.MaybeDecodedLog
 
 	waitOnStop chan struct{}
 }
@@ -382,7 +381,6 @@ func NewPollingDeviationChecker(
 		currentRound:   big.NewInt(0),
 		fetcher:        fetcher,
 		delay:          delay,
-		chLogs:         make(chan contracts.MaybeDecodedLog),
 
 		waitOnStop: make(chan struct{}),
 	}, nil
@@ -400,10 +398,8 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) error {
 		return err
 	}
 
-	roundSubscription, err := p.fluxAggregator.SubscribeToLogs(nil)
-	if err != nil {
-		return err
-	}
+	chMaybeLogs := make(chan eth.MaybeDecodedLog)
+	unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(chMaybeLogs)
 
 	_, err = p.poll(p.threshold)
 	if err != nil {
@@ -411,7 +407,7 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) error {
 	}
 
 	ctx, p.cancel = context.WithCancel(ctx)
-	go p.consume(ctx, roundSubscription)
+	go p.consume(ctx, chLogs, unsubscribeLogs)
 	return nil
 }
 
@@ -434,8 +430,8 @@ func stopTimer(arg *time.Timer) {
 	}
 }
 
-func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription contracts.LogSubscription) {
-	defer roundSubscription.Unsubscribe()
+func (p *PollingDeviationChecker) consume(ctx context.Context, chMaybeLogs chan eth.MaybeDecodedLog, unsubscribeLogs eth.UnsubscribeFunc) {
+	defer unsubscribeLogs()
 
 	idleThreshold := p.idleThreshold
 	if idleThreshold == 0 {
@@ -443,7 +439,7 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 	}
 
 	idleThresholdTimer := time.NewTimer(idleThreshold)
-	defer stopTimer(idleThresholdTimer)
+	defer func() { stopTimer(idleThresholdTimer) }()
 
 Loop:
 	for {
@@ -453,7 +449,7 @@ Loop:
 		case <-ctx.Done():
 			close(p.waitOnStop)
 			return
-		case maybeLog := <-roundSubscription.Logs():
+		case maybeLog := <-chLogs:
 			if maybeLog.Error != nil {
 				logger.Error(errors.WithStack(maybeLog.Error))
 				// @@TODO: other error handling?

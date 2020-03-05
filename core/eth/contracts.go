@@ -225,16 +225,26 @@ func capitalise(input string) string {
 type ConnectedContract interface {
 	Contract
 	Call(result interface{}, methodName string, args ...interface{}) error
+	SubscribeToLogs(listener LogListener) UnsubscribeFunc
 }
 
 type connectedContract struct {
 	Contract
-	ethClient Client
-	address   common.Address
+	address        common.Address
+	ethClient      Client
+	logBroadcaster LogBroadcaster
+	nativeLogTypes map[string]interface{}
 }
 
-func NewConnectedContract(contract Contract, ethClient Client, address common.Address) ConnectedContract {
-	return &connectedContract{contract, ethClient, address}
+type UnsubscribeFunc func()
+
+func NewConnectedContract(
+	contract Contract,
+	address common.Address,
+	ethClient Client,
+	logBroadcaster LogBroadcaster,
+) ConnectedContract {
+	return &connectedContract{contract, address, ethClient, logBroadcaster}
 }
 
 func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) error {
@@ -255,4 +265,9 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 		return errors.Wrap(err, "unable to unpack values")
 	}
 	return nil
+}
+
+func (contract *connectedContract) SubscribeToLogs(listener LogListener) UnsubscribeFunc {
+	contract.logBroadcaster.Register(contract.address, listener)
+	return func() { contract.logBroadcaster.Unregister(contract.address, listener) }
 }
