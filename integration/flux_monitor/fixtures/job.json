@@ -3,7 +3,7 @@
     {
       "type": "fluxmonitor",
       "params": {
-        "address": "0x0000000000000000000000000000000000000000",
+        "address": "0x0000000000000000000000000000000000000010",
         "requestData": {
           "data": {
             "coin": "ETH",
