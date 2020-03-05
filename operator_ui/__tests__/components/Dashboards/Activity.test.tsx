@@ -1,5 +1,5 @@
 import React from 'react'
-import { partialAsFull } from '@chainlink/ts-test-helpers'
+import { partialAsFull } from '@chainlink/ts-helpers'
 import { JobRun } from 'operator_ui'
 import mountWithTheme from '../../../support/test-helpers/mountWithTheme'
 import Activity from '../../../src/components/Dashboards/Activity'
