@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.cjs.json",
+  "compilerOptions": {
+    "outDir": "./dist" /* Redirect output structure to the directory. */
+  },
+  "include": ["@types", "tests", "test-helpers", "fixtures", "ethers"],
+  "references": [
+    { "path": "../../evm-test-helpers" },
+    { "path": "../../evm-contracts" },
+    { "path": "../../operator_ui" }
+  ]
+}

@@ -12,6 +12,7 @@
     "operator_ui",
     "styleguide",
     "tools",
+    "tools/ci-ts",
     "tools/cypress-job-server",
     "tools/echo-server",
     "tools/external-adapter",
