@@ -109,6 +109,7 @@ describe('FluxAggregator', () => {
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
+      'roundState',
       'startNewRound',
       'timeout',
       'updateAdmin',
@@ -271,10 +272,7 @@ describe('FluxAggregator', () => {
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(
-          aggregator.updateAnswer(nextRound + 1, answer),
-          'Not eligible to bump round',
-        )
+        await matchers.evmRevert(aggregator.updateAnswer(nextRound + 1, answer))
       })
     })
 
@@ -340,7 +338,6 @@ describe('FluxAggregator', () => {
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
-          'Cannot update round reports',
         )
       })
     })
@@ -354,7 +351,6 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
-          'Round not currently eligible for reporting',
         )
       })
     })
@@ -409,7 +405,6 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound + 1, answer),
-          'Must report on current round',
         )
       })
     })
@@ -418,7 +413,6 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Carol).updateAnswer(nextRound, answer),
-          'Only updatable by whitelisted oracles',
         )
       })
     })
@@ -433,7 +427,6 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
-          'SafeMath: subtraction overflow',
         )
       })
     })
@@ -500,7 +493,6 @@ describe('FluxAggregator', () => {
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
-          'Not eligible to bump round',
         )
       })
     })
@@ -539,12 +531,10 @@ describe('FluxAggregator', () => {
         it('reverts', async () => {
           await matchers.evmRevert(
             aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
-            'Round not currently eligible for reporting',
           )
 
           await matchers.evmRevert(
             aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
-            'Round not currently eligible for reporting',
           )
         })
       })
@@ -645,7 +635,6 @@ describe('FluxAggregator', () => {
           // expected to revert because the sender started the last round
           await matchers.evmRevert(
             aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
-            'Round not currently eligible for reporting',
           )
         })
 
@@ -836,7 +825,6 @@ describe('FluxAggregator', () => {
               maxAns,
               rrDelay,
             ),
-          'Address is already recorded as an oracle',
         )
       })
     })
@@ -853,7 +841,6 @@ describe('FluxAggregator', () => {
               maxAns,
               rrDelay,
             ),
-          'Only callable by owner',
         )
       })
     })
@@ -889,7 +876,6 @@ describe('FluxAggregator', () => {
       it('does not allow the oracle to update the round', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
-          'New oracles cannot participate in in-progress rounds',
         )
       })
 
@@ -1014,7 +1000,6 @@ describe('FluxAggregator', () => {
               1,
               rrDelay,
             ),
-          'cannot modify previously-set admin address',
         )
       })
     })
@@ -1040,7 +1025,6 @@ describe('FluxAggregator', () => {
               limit + 1,
               rrDelay,
             ),
-          `cannot add more than ${limit} oracles`,
         )
       })
     })
@@ -1121,7 +1105,6 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Carol)
             .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay),
-          'Address is not a whitelisted oracle',
         )
       })
     })
@@ -1144,7 +1127,6 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Ned)
             .removeOracle(personas.Neil.address, 0, 0, rrDelay),
-          'Only callable by owner',
         )
       })
     })
@@ -1165,7 +1147,6 @@ describe('FluxAggregator', () => {
         // cannot participate in future rounds
         await matchers.evmRevert(
           aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
-          'Oracle has been removed from whitelist',
         )
       })
     })
@@ -1304,7 +1285,6 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Carol)
             .withdrawFunds(personas.Carol.address, deposit),
-          'Insufficient funds',
         )
       })
 
@@ -1329,7 +1309,6 @@ describe('FluxAggregator', () => {
             aggregator
               .connect(personas.Carol)
               .withdrawFunds(personas.Carol.address, deposit),
-            'Insufficient funds',
           )
 
           matchers.bigNum(
@@ -1346,7 +1325,6 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Eddy)
             .withdrawFunds(personas.Carol.address, deposit),
-          'Only callable by owner',
         )
 
         matchers.bigNum(deposit, await aggregator.availableFunds())
@@ -1430,7 +1408,6 @@ describe('FluxAggregator', () => {
           updateFutureRounds(aggregator, {
             maxAnswers: 4,
           }),
-          'Cannot have the answer max higher oracle count',
         )
       })
     })
@@ -1442,7 +1419,6 @@ describe('FluxAggregator', () => {
             minAnswers: 3,
             maxAnswers: 2,
           }),
-          'Cannot have the answer minimum higher the max',
         )
       })
     })
@@ -1453,7 +1429,6 @@ describe('FluxAggregator', () => {
           updateFutureRounds(aggregator, {
             restartDelay: 3,
           }),
-          'Restart delay must be less than oracle count',
         )
       })
     })
@@ -1462,7 +1437,6 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           updateFutureRounds(aggregator.connect(personas.Ned)),
-          'Only callable by owner',
         )
       })
     })
@@ -1581,7 +1555,6 @@ describe('FluxAggregator', () => {
               personas.Neil.address,
               paymentAmount.add(ethers.utils.bigNumberify(1)),
             ),
-          'Insufficient balance',
         )
       })
     })
@@ -1596,7 +1569,6 @@ describe('FluxAggregator', () => {
               personas.Nelly.address,
               ethers.utils.bigNumberify(1),
             ),
-          'Only admin can withdraw',
         )
       })
     })
@@ -1642,7 +1614,6 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Carol)
             .updateAdmin(personas.Ned.address, personas.Nelly.address),
-          'Only admin can update admin',
         )
       })
     })
@@ -1653,7 +1624,6 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Ned)
             .updateAdmin(personas.Ned.address, personas.Nelly.address),
-          'Only admin can update admin',
         )
       })
     })
@@ -1705,10 +1675,7 @@ describe('FluxAggregator', () => {
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(
-          aggregator.startNewRound(),
-          'Cannot start a round mid-round',
-        )
+        await matchers.evmRevert(aggregator.startNewRound())
       })
 
       describe('when that round has timed out', () => {
@@ -1773,7 +1740,6 @@ describe('FluxAggregator', () => {
 
           await matchers.evmRevert(
             aggregator.connect(personas.Neil).startNewRound(),
-            'Only authorized requesters can call',
           )
         })
 
@@ -1801,12 +1767,10 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Neil)
             .setAuthorization(personas.Neil.address, true),
-          'Only callable by owner',
         )
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).startNewRound(),
-          'Only authorized requesters can call',
         )
       })
     })

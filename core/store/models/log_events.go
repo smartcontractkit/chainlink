@@ -27,14 +27,6 @@ const (
 	RequestLogTopicPayment
 )
 
-// Descriptive indices of the FluxAggregator's NewRound Topic Array:
-// event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
-const (
-	NewRoundTopicSignature = iota
-	NewRoundTopicRoundID
-	NewRoundTopicStartedBy
-)
-
 const (
 	evmWordSize      = common.HashLength
 	requesterSize    = evmWordSize
@@ -72,15 +64,6 @@ var (
 	// OracleFulfillmentFunctionID20190128withoutCast is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
-	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
-	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "NewRound")
-	// AggregatorRoundDetailsUpdatedLogTopic20191220 is the RoundDetailsUpdated filter topic for
-	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorRoundDetailsUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "RoundDetailsUpdated")
-	// AggregatorAnswerUpdatedLogTopic20191220 is the AnswerUpdated filter topic for
-	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorAnswerUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "AnswerUpdated")
 )
 
 type logRequestParser interface {
@@ -525,16 +508,6 @@ func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) string {
 	return common.BytesToHash(log.Data[start : start+idSize]).Hex()
 }
 
-// ParseNewRoundLog pulls the round from the aggregator log event.
-func ParseNewRoundLog(log eth.Log) (*big.Int, error) {
-	encodedRound := log.Topics[NewRoundTopicRoundID]
-	round, ok := new(big.Int).SetString(encodedRound.Hex(), 0)
-	if !ok {
-		return nil, fmt.Errorf("unable to parse new round log from %s", encodedRound.Hex())
-	}
-	return round, nil
-}
-
 func bytesToHex(data []byte) string {
 	return utils.AddHexPrefix(hex.EncodeToString(data))
 }
@@ -548,4 +521,11 @@ func IDToTopic(id *ID) common.Hash {
 // IDToHexTopic encodes the string representation of the ID
 func IDToHexTopic(id *ID) common.Hash {
 	return common.BytesToHash([]byte(id.String()))
+}
+
+type LogCursor struct {
+	Name        string `gorm:"primary_key"`
+	Initialized bool   `gorm:"not null;default true"`
+	BlockIndex  uint64 `gorm:"not null;default 0"`
+	LogIndex    uint64 `gorm:"not null;default 0"`
 }

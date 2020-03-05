@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -871,8 +872,11 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "10000")) // 10,000 cents
-		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "1"))     // aggregator round: 1
+		var data []byte
+		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
+		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
 	// Have server respond with 102 for price when FM checks external price
@@ -899,6 +903,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(5 * time.Second)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -943,9 +948,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
-	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "10000")) // 10,000 cents
-		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "1"))     // aggregator round: 1
+	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
+		var data []byte
+		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
+		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
 	// Have price adapter server respond with 100 for price on initialization,
@@ -964,6 +972,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(10 * time.Second)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	_ = cltest.WaitForRuns(t, j, app.Store, 0)
@@ -972,6 +981,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Send a NewRound log event to trigger a run.
 	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+	log.Address = job.Initiators[0].InitiatorParams.Address
+
 	attemptHash := cltest.NewHash()
 	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        attemptHash,
@@ -980,6 +991,13 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	eth.Context("ethTx.Perform() for new round send", func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", attemptHash)         // Initial tx attempt sent
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+	})
+	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
+		var data []byte
+		data = append(data, utils.EVMWordUint64(3)...)     // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
+		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 	newRounds <- log
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
