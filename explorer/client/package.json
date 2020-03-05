@@ -55,7 +55,7 @@
     "title-case": "^3.0.2"
   },
   "devDependencies": {
-    "@chainlink/ts-test-helpers": "0.0.1",
+    "@chainlink/ts-helpers": "0.0.1",
     "@craco/craco": "^5.5.0",
     "@types/classnames": "^2.2.7",
     "@types/enzyme": "^3.9.1",

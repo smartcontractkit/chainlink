@@ -18,7 +18,7 @@
     "tools/json-api-client",
     "tools/local-storage",
     "tools/redux",
-    "tools/ts-test-helpers",
+    "tools/ts-helpers",
     "belt"
   ],
   "engines": {
