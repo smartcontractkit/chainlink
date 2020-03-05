@@ -274,7 +274,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
 		Return(big.NewInt(0), big.NewInt(1), nil)
 
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
 	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
 		Return(big.NewInt(0), big.NewInt(0), nil)
@@ -323,7 +323,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
 
 	rm := new(mocks.RunManager)
@@ -381,7 +381,7 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 		Return(decimal.NewFromInt(100), nil)
 	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
 	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
 		Return(big.NewInt(0), big.NewInt(0), nil)
@@ -665,7 +665,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				Return(test.aggregatorTimedOutStatus, nil)
 			ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
 				Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
-			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
+			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 				Return(fakeSubscription(), nil)
 
 			err = deviationChecker.Start(context.Background(), ethClient)
