@@ -46,7 +46,12 @@ async function sendEthlogTransaction({
         _comment: 'Trigger on logs emitted by ethLog contract',
       },
     ],
-    tasks: [{ type: 'HttpPost', params: { url: echoServerUrl } }],
+    tasks: [
+      {
+        type: 'HttpPostWithUnrestrictedNetworkAccess',
+        params: { url: echoServerUrl },
+      },
+    ],
   }
   const specsUrl = url.resolve(chainlinkUrl, '/v2/specs')
   const Job = await request.post(specsUrl, { json: job }).catch((e: any) => {
