@@ -1,14 +1,12 @@
 package contracts
 
 import (
-	"context"
 	"math/big"
 
 	"chainlink/core/eth"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -18,12 +16,7 @@ import (
 
 type FluxAggregator interface {
 	eth.ConnectedContract
-	SubscribeToLogs(ctx context.Context, fromBlock *big.Int) (LogSubscription, error)
-	LatestAnswer(precision int32) (decimal.Decimal, error)
-	LatestRound() (*big.Int, error)
-	ReportingRound() (*big.Int, error)
-	TimedOutStatus(round *big.Int) (bool, error)
-	LatestSubmission(oracleAddress common.Address) (*big.Int, *big.Int, error)
+	RoundState() (FluxAggregatorRoundState, error)
 }
 
 type fluxAggregator struct {
@@ -33,97 +26,63 @@ type fluxAggregator struct {
 }
 
 type LogNewRound struct {
+	eth.Log
 	RoundId   *big.Int
 	StartedBy common.Address
 	StartedAt *big.Int
-	Address   common.Address
 }
 
 type LogRoundDetailsUpdated struct {
+	eth.Log
 	PaymentAmount  *big.Int
 	MinAnswerCount uint32
 	MaxAnswerCount uint32
 	RestartDelay   uint32
 	Timeout        uint32
-	Address        common.Address
 }
 
 type LogAnswerUpdated struct {
+	eth.Log
 	Current   *big.Int
 	RoundId   *big.Int
 	Timestamp *big.Int
-	Address   common.Address
 }
 
-func NewFluxAggregator(ethClient eth.Client, address common.Address) (FluxAggregator, error) {
+var fluxAggregatorLogTypes = map[common.Hash]interface{}{
+	models.AggregatorNewRoundLogTopic20191220:            LogNewRound{},
+	models.AggregatorRoundDetailsUpdatedLogTopic20191220: LogRoundDetailsUpdated{},
+	models.AggregatorAnswerUpdatedLogTopic20191220:       LogAnswerUpdated{},
+}
+
+func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) (FluxAggregator, error) {
 	codec, err := eth.GetV6ContractCodec(eth.FluxAggregatorName)
 	if err != nil {
 		return nil, err
 	}
-	connectedContract := eth.NewConnectedContract(codec, ethClient, address)
+	connectedContract := eth.NewConnectedContract(codec, address, ethClient, logBroadcaster)
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
-func (fa *fluxAggregator) SubscribeToLogs(ctx context.Context, fromBlock *big.Int) (LogSubscription, error) {
-	var (
-		filterQuery = ethereum.FilterQuery{
-			FromBlock: fromBlock,
-			Addresses: utils.WithoutZeroAddresses([]common.Address{fa.address}),
-			Topics:    [][]common.Hash{{models.AggregatorNewRoundLogTopic20191220, models.AggregatorRoundDetailsUpdatedLogTopic20191220, models.AggregatorAnswerUpdatedLogTopic20191220}},
-		}
-		chLogs    = make(chan MaybeDecodedLog)
-		chRawLogs = make(chan eth.Log)
+func (fa *fluxAggregator) SubscribeToLogs(listener eth.LogListener) eth.UnsubscribeFunc {
+	return fa.ConnectedContract.SubscribeToLogs(
+		eth.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
 	)
-
-	subscription, err := fa.ethClient.SubscribeToLogs(ctx, chRawLogs, filterQuery)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(chLogs)
-		for {
-			select {
-			case err := <-subscription.Err():
-				chLogs <- MaybeDecodedLog{nil, err}
-
-			case rawLog, stillOpen := <-chRawLogs:
-				if !stillOpen {
-					select {
-					case err := <-subscription.Err():
-						chLogs <- MaybeDecodedLog{nil, err}
-					default:
-					}
-					return
-				}
-
-				switch rawLog.Topics[0] {
-				case models.AggregatorNewRoundLogTopic20191220:
-					var decodedLog LogNewRound
-					err = fa.UnpackLog(&decodedLog, "NewRound", rawLog)
-					decodedLog.Address = fa.address
-					chLogs <- MaybeDecodedLog{decodedLog, err}
-
-				case models.AggregatorRoundDetailsUpdatedLogTopic20191220:
-					var decodedLog LogRoundDetailsUpdated
-					err = fa.UnpackLog(&decodedLog, "RoundDetailsUpdated", rawLog)
-					decodedLog.Address = fa.address
-					chLogs <- MaybeDecodedLog{decodedLog, err}
-
-				case models.AggregatorAnswerUpdatedLogTopic20191220:
-					var decodedLog LogAnswerUpdated
-					err = fa.UnpackLog(&decodedLog, "AnswerUpdated", rawLog)
-					decodedLog.Address = fa.address
-					chLogs <- MaybeDecodedLog{decodedLog, err}
-				}
-			}
-		}
-	}()
-
-	return &logSubscription{subscription, chLogs}, nil
 }
 
-var dec10 = decimal.NewFromInt(10)
+type FluxAggregatorRoundState struct {
+	ReportableRoundID *big.Int `abi:"_reportableRoundId"`
+	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
+	LatestAnswer      *big.Int `abi:"_latestAnswer"`
+}
+
+func (fa *fluxAggregator) RoundState() (FluxAggregatorRoundState, error) {
+	var result FluxAggregatorRoundState
+	err := fa.Call(&result, "roundState")
+	if err != nil {
+		return FluxAggregatorRoundState{}, errors.Wrap(err, "unable to encode message call")
+	}
+	return result, nil
+}
 
 // Price returns the current price at the given aggregator address.
 func (fa *fluxAggregator) LatestAnswer(precision int32) (decimal.Decimal, error) {
@@ -132,10 +91,7 @@ func (fa *fluxAggregator) LatestAnswer(precision int32) (decimal.Decimal, error)
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, "unable to encode message call")
 	}
-	raw := decimal.NewFromBigInt(result, 0)
-	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
-	return raw.Div(precisionDivisor), nil
-
+	return utils.DecimalFromBigInt(result, precision), nil
 }
 
 // LatestRound returns the latest round at the given aggregator address.

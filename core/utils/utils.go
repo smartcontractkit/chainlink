@@ -25,6 +25,7 @@ import (
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 	null "gopkg.in/guregu/null.v3"
@@ -514,4 +515,13 @@ func Uint256ToHex(n *big.Int) (string, error) {
 		return "", err
 	}
 	return common.BigToHash(n).Hex(), nil
+}
+
+var dec10 = decimal.NewFromInt(10)
+
+func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
+	return decimal.NewFromBigInt(i, -precision)
+	raw := decimal.NewFromBigInt(i, 0)
+	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
+	return raw.Div(precisionDivisor)
 }

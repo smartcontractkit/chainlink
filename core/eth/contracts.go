@@ -15,7 +15,7 @@ import (
 )
 
 type ContractCodec interface {
-	ABI() abi.ABI
+	ABI() *abi.ABI
 	GetMethodID(method string) ([]byte, error)
 	EncodeMessageCall(method string, args ...interface{}) ([]byte, error)
 	UnpackLog(out interface{}, event string, log Log) error
@@ -63,8 +63,8 @@ func GetV6ContractCodec(name string) (ContractCodec, error) {
 	return getContractCodec(name, box)
 }
 
-func (contract *contractCodec) ABI() abi.ABI {
-	return contract.abi
+func (contract *contractCodec) ABI() *abi.ABI {
+	return &contract.abi
 }
 
 // EncodeMessageCall encodes method name and arguments into a byte array
@@ -113,16 +113,25 @@ func (cc *contractCodec) UnpackLog(out interface{}, event string, log Log) error
 type ConnectedContract interface {
 	ContractCodec
 	Call(result interface{}, methodName string, args ...interface{}) error
+	SubscribeToLogs(listener LogListener) UnsubscribeFunc
 }
 
 type connectedContract struct {
 	ContractCodec
-	ethClient Client
-	address   common.Address
+	address        common.Address
+	ethClient      Client
+	logBroadcaster LogBroadcaster
 }
 
-func NewConnectedContract(cc ContractCodec, ethClient Client, address common.Address) ConnectedContract {
-	return &connectedContract{cc, ethClient, address}
+type UnsubscribeFunc func()
+
+func NewConnectedContract(
+	codec ContractCodec,
+	address common.Address,
+	ethClient Client,
+	logBroadcaster LogBroadcaster,
+) ConnectedContract {
+	return &connectedContract{codec, address, ethClient, logBroadcaster}
 }
 
 func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) error {
@@ -140,4 +149,9 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 
 	err = contract.ABI().Unpack(result, methodName, rawResult)
 	return errors.Wrap(err, "unable to unpack values")
+}
+
+func (contract *connectedContract) SubscribeToLogs(listener LogListener) UnsubscribeFunc {
+	contract.logBroadcaster.Register(contract.address, listener)
+	return func() { contract.logBroadcaster.Unregister(contract.address, listener) }
 }

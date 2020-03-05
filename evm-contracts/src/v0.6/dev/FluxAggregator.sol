@@ -674,6 +674,46 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return currentRound.add(1);
   }
 
+  function roundState()
+    external
+    view
+    returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestAnswer)
+  {
+    if (finished(reportingRoundId) || timedOut(reportingRoundId)) {
+      return (reportingRoundId.add(1), eligibleToSubmit(), rounds[latestRoundId].answer);
+    }
+    return (reportingRoundId, eligibleToSubmit(), rounds[latestRoundId].answer);
+  }
+
+  function eligibleToSubmit()
+    private
+    view
+    returns (bool)
+  {
+    bool finishedOrTimedOut = finished(reportingRoundId) || timedOut(reportingRoundId);
+    uint32 startingRound = oracles[msg.sender].startingRound;
+    if (startingRound == 0) {
+      return false;
+    }
+    uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
+    if (startingRound > reportableRoundId) {
+      return false;
+    } else if (oracles[msg.sender].endingRound < reportableRoundId) {
+      return false;
+    } else if (oracles[msg.sender].lastReportedRound >= reportableRoundId) {
+      return false;
+    } else if (rounds[reportableRoundId].details.maxAnswers == 0) {
+      return false;
+    } else if (finishedOrTimedOut) {
+      uint32 lastStartedRound = oracles[msg.sender].lastStartedRound;
+      if (reportableRoundId <= lastStartedRound + restartDelay && lastStartedRound > 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   /**
    * Modifiers
    */

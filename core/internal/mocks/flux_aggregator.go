@@ -9,8 +9,6 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	context "context"
-
 	contracts "chainlink/core/eth/contracts"
 
 	decimal "github.com/shopspring/decimal"
@@ -26,14 +24,16 @@ type FluxAggregator struct {
 }
 
 // ABI provides a mock function with given fields:
-func (_m *FluxAggregator) ABI() abi.ABI {
+func (_m *FluxAggregator) ABI() *abi.ABI {
 	ret := _m.Called()
 
-	var r0 abi.ABI
-	if rf, ok := ret.Get(0).(func() abi.ABI); ok {
+	var r0 *abi.ABI
+	if rf, ok := ret.Get(0).(func() *abi.ABI); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(abi.ABI)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*abi.ABI)
+		}
 	}
 
 	return r0
@@ -204,27 +204,41 @@ func (_m *FluxAggregator) ReportingRound() (*big.Int, error) {
 	return r0, r1
 }
 
-// SubscribeToLogs provides a mock function with given fields: ctx, fromBlock
-func (_m *FluxAggregator) SubscribeToLogs(ctx context.Context, fromBlock *big.Int) (contracts.LogSubscription, error) {
-	ret := _m.Called(ctx, fromBlock)
+// RoundState provides a mock function with given fields:
+func (_m *FluxAggregator) RoundState() (contracts.FluxAggregatorRoundState, error) {
+	ret := _m.Called()
 
-	var r0 contracts.LogSubscription
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) contracts.LogSubscription); ok {
-		r0 = rf(ctx, fromBlock)
+	var r0 contracts.FluxAggregatorRoundState
+	if rf, ok := ret.Get(0).(func() contracts.FluxAggregatorRoundState); ok {
+		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(contracts.LogSubscription)
-		}
+		r0 = ret.Get(0).(contracts.FluxAggregatorRoundState)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
-		r1 = rf(ctx, fromBlock)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
+}
+
+// SubscribeToLogs provides a mock function with given fields: listener
+func (_m *FluxAggregator) SubscribeToLogs(listener eth.LogListener) eth.UnsubscribeFunc {
+	ret := _m.Called(listener)
+
+	var r0 eth.UnsubscribeFunc
+	if rf, ok := ret.Get(0).(func(eth.LogListener) eth.UnsubscribeFunc); ok {
+		r0 = rf(listener)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(eth.UnsubscribeFunc)
+		}
+	}
+
+	return r0
 }
 
 // TimedOutStatus provides a mock function with given fields: round

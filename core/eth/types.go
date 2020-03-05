@@ -58,6 +58,26 @@ func (log Log) GetTopic(idx uint) (common.Hash, error) {
 	return log.Topics[idx], nil
 }
 
+func (log Log) Copy() Log {
+	var cpy Log
+	cpy.Address = log.Address
+	if cpy.Topics != nil {
+		cpy.Topics = make([]common.Hash, len(log.Topics))
+		copy(cpy.Topics, log.Topics)
+	}
+	if cpy.Data != nil {
+		cpy.Data = make([]byte, len(log.Data))
+		copy(cpy.Data, log.Data)
+	}
+	cpy.BlockNumber = log.BlockNumber
+	cpy.TxHash = log.TxHash
+	cpy.TxIndex = log.TxIndex
+	cpy.BlockHash = log.BlockHash
+	cpy.Index = log.Index
+	cpy.Removed = log.Removed
+	return cpy
+}
+
 // logMarshaling represents an ethereum event log.
 //
 // NOTE: If this is changed, gen_log_json.go must be changed accordingly. It was
