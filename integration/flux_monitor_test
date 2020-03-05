@@ -8,7 +8,7 @@ flux_monitor_test() {
   local log=$LOG_PATH/flux_monitor.log
   local expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
 
-  local pollingInterval="5s"
+  local pollingInterval="8s"
 
   local initial_job_run_count=$(expr $(chainlink -j runs list | jq length))
   local first_job_run_count=$((initial_job_run_count + 1))
@@ -22,12 +22,16 @@ flux_monitor_test() {
        | jq --arg address $PREPAID_AGGREGATOR_ADDRESS '.initiators[0].params.address = $address' \
        | jq --arg url $EXTERNAL_ADAPTER_URL '.initiators[0].params.feeds[0] = $url'
   )"
+  echo "Flux Monitor Job: $flux_monitor_job"
   flux_monitor_job="$(chainlink -j jobs create "$flux_monitor_job")"
 
   # Check job counts
   assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
 
+  sleep 3s
+
   # Assert one job ran to update price
+  echo "Assert initial job run"
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
 
   # nominally change price feed
@@ -40,6 +44,7 @@ flux_monitor_test() {
   sleep "$pollingInterval"
 
   # Assert no jobs ran after nominal update
+  echo "Assert no job run after nominal update"
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $first_job_run_count
 
   # change price feed
@@ -50,6 +55,7 @@ flux_monitor_test() {
     "$EXTERNAL_ADAPTER_URL/result"
 
   # Assert job ran
+  echo "Assert job run after large update"
   assert "Flux Monitor Runs count" "chainlink -j runs list | jq length" $second_job_run_count
 
   echo "archiving job to prevent it affecting other tests"

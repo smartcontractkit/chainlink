@@ -3,19 +3,14 @@
 package mocks
 
 import (
-	big "math/big"
-
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
-
 	common "github.com/ethereum/go-ethereum/common"
 
-	context "context"
+	contracts "chainlink/core/services/eth/contracts"
 
-	contracts "chainlink/core/eth/contracts"
+	coreeth "chainlink/core/eth"
 
-	decimal "github.com/shopspring/decimal"
-
-	eth "chainlink/core/eth"
+	eth "chainlink/core/services/eth"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -26,14 +21,16 @@ type FluxAggregator struct {
 }
 
 // ABI provides a mock function with given fields:
-func (_m *FluxAggregator) ABI() abi.ABI {
+func (_m *FluxAggregator) ABI() *abi.ABI {
 	ret := _m.Called()
 
-	var r0 abi.ABI
-	if rf, ok := ret.Get(0).(func() abi.ABI); ok {
+	var r0 *abi.ABI
+	if rf, ok := ret.Get(0).(func() *abi.ABI); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(abi.ABI)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*abi.ABI)
+		}
 	}
 
 	return r0
@@ -105,20 +102,20 @@ func (_m *FluxAggregator) GetMethodID(method string) ([]byte, error) {
 	return r0, r1
 }
 
-// LatestAnswer provides a mock function with given fields: precision
-func (_m *FluxAggregator) LatestAnswer(precision int32) (decimal.Decimal, error) {
-	ret := _m.Called(precision)
+// RoundState provides a mock function with given fields: oracle
+func (_m *FluxAggregator) RoundState(oracle common.Address) (contracts.FluxAggregatorRoundState, error) {
+	ret := _m.Called(oracle)
 
-	var r0 decimal.Decimal
-	if rf, ok := ret.Get(0).(func(int32) decimal.Decimal); ok {
-		r0 = rf(precision)
+	var r0 contracts.FluxAggregatorRoundState
+	if rf, ok := ret.Get(0).(func(common.Address) contracts.FluxAggregatorRoundState); ok {
+		r0 = rf(oracle)
 	} else {
-		r0 = ret.Get(0).(decimal.Decimal)
+		r0 = ret.Get(0).(contracts.FluxAggregatorRoundState)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(int32) error); ok {
-		r1 = rf(precision)
+	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
+		r1 = rf(oracle)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -126,134 +123,35 @@ func (_m *FluxAggregator) LatestAnswer(precision int32) (decimal.Decimal, error)
 	return r0, r1
 }
 
-// LatestRound provides a mock function with given fields:
-func (_m *FluxAggregator) LatestRound() (*big.Int, error) {
-	ret := _m.Called()
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// LatestSubmission provides a mock function with given fields: oracleAddress
-func (_m *FluxAggregator) LatestSubmission(oracleAddress common.Address) (*big.Int, *big.Int, error) {
-	ret := _m.Called(oracleAddress)
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
-		r0 = rf(oracleAddress)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 *big.Int
-	if rf, ok := ret.Get(1).(func(common.Address) *big.Int); ok {
-		r1 = rf(oracleAddress)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(*big.Int)
-		}
-	}
-
-	var r2 error
-	if rf, ok := ret.Get(2).(func(common.Address) error); ok {
-		r2 = rf(oracleAddress)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// ReportingRound provides a mock function with given fields:
-func (_m *FluxAggregator) ReportingRound() (*big.Int, error) {
-	ret := _m.Called()
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// SubscribeToLogs provides a mock function with given fields: ctx, fromBlock
-func (_m *FluxAggregator) SubscribeToLogs(ctx context.Context, fromBlock *big.Int) (contracts.LogSubscription, error) {
-	ret := _m.Called(ctx, fromBlock)
-
-	var r0 contracts.LogSubscription
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) contracts.LogSubscription); ok {
-		r0 = rf(ctx, fromBlock)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(contracts.LogSubscription)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
-		r1 = rf(ctx, fromBlock)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// TimedOutStatus provides a mock function with given fields: round
-func (_m *FluxAggregator) TimedOutStatus(round *big.Int) (bool, error) {
-	ret := _m.Called(round)
+// SubscribeToLogs provides a mock function with given fields: listener
+func (_m *FluxAggregator) SubscribeToLogs(listener eth.LogListener) (bool, eth.UnsubscribeFunc) {
+	ret := _m.Called(listener)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*big.Int) bool); ok {
-		r0 = rf(round)
+	if rf, ok := ret.Get(0).(func(eth.LogListener) bool); ok {
+		r0 = rf(listener)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
-		r1 = rf(round)
+	var r1 eth.UnsubscribeFunc
+	if rf, ok := ret.Get(1).(func(eth.LogListener) eth.UnsubscribeFunc); ok {
+		r1 = rf(listener)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(eth.UnsubscribeFunc)
+		}
 	}
 
 	return r0, r1
 }
 
 // UnpackLog provides a mock function with given fields: out, event, log
-func (_m *FluxAggregator) UnpackLog(out interface{}, event string, log eth.Log) error {
+func (_m *FluxAggregator) UnpackLog(out interface{}, event string, log coreeth.Log) error {
 	ret := _m.Called(out, event, log)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(interface{}, string, eth.Log) error); ok {
+	if rf, ok := ret.Get(0).(func(interface{}, string, coreeth.Log) error); ok {
 		r0 = rf(out, event, log)
 	} else {
 		r0 = ret.Error(0)
