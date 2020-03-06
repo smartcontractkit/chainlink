@@ -51,6 +51,10 @@ type LogSubscriber interface {
 //go:generate mockery -name Subscription -output ../internal/mocks/ -case=underscore
 
 // Subscription holds the methods for an ethereum log subscription.
+//
+// The Unsubscribe method cancels the sending of events. You must call Unsubscribe in all
+// cases to ensure that resources related to the subscription are released. It can be
+// called any number of times.
 type Subscription interface {
 	Err() <-chan error
 	Unsubscribe()
