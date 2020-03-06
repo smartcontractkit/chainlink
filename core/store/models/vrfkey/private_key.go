@@ -12,7 +12,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.dedis.ch/kyber/v3"
 )
+
+// PrivateKey represents the secret used to construct a VRF proof.
+//
+// Don't serialize directly, use Encrypt method, with user-supplied passphrase.
+// The unencrypted PrivateKey struct should only live in-memory.
+//
+// Only use it if you absolutely need it (i.e., for a novel crypto protocol.)
+// Implement whatever cryptography you need on this struct, so your callers
+// don't need to know the secret key explicitly. (See, e.g., MarshaledProof.)
+type PrivateKey struct {
+	k         kyber.Scalar
+	PublicKey PublicKey
+}
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
