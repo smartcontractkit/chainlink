@@ -14,4 +14,9 @@ const start = async () => {
   server()
 }
 
-start().catch(logger.error)
+start().catch(e => {
+  logger.error({
+    message: `Exception during startup: ${e.message}`,
+    stack: e.stack,
+  })
+})
