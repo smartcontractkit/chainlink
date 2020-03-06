@@ -5,8 +5,9 @@ package adapters
 import (
 	"chainlink/core/store"
 	"chainlink/core/store/models"
-	"fmt"
-	"math/big"
+
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 // Perform returns the input's "result" field, multiplied times the adapter's
@@ -16,13 +17,12 @@ import (
 // set to "100", the result's value will be "9999.4".
 func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	val := input.Result()
-	i, ok := (&big.Float{}).SetString(val.String())
-	if !ok {
-		return models.NewRunOutputError(fmt.Errorf("cannot parse into big.Float: %v", val.String()))
+	dec, err := decimal.NewFromString(val.String())
+	if err != nil {
+		return models.NewRunOutputError(errors.Wrapf(err, "cannot parse into big.Float: %v", val.String()))
 	}
-
 	if ma.Times != nil {
-		i.Mul(i, ma.Times)
+		dec = dec.Mul(*ma.Times)
 	}
-	return models.NewRunOutputCompleteWithResult(i.String())
+	return models.NewRunOutputCompleteWithResult(dec.String())
 }
