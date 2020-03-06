@@ -6,8 +6,12 @@ export const addRequestLogging = (app: express.Express) => {
   app.use(PinoHttp)
 }
 
-export const logger = pino({
+const options: any = {
   name: 'Explorer',
-  level: 'debug',
-  prettyPrint: { colorize: true },
-})
+  level: 'warn',
+}
+if (process.env.EXPLORER_DEV) {
+  options['prettyPrint'] = { colorize: true }
+  options['level'] = 'debug'
+}
+export const logger = pino(options)
