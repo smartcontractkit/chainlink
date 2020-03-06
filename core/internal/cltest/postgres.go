@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"regexp"
+	"strings"
 	"testing"
 
 	"chainlink/core/store/dbutil"
@@ -46,7 +48,16 @@ func createPostgresChildDB(tc *TestConfig, originalURL string) func() {
 }
 
 func createTestDB(t testing.TB, parsed *url.URL) *url.URL {
-	dbname := fmt.Sprintf("%s_%s", parsed.Path[1:], models.NewID().String())
+	dbname := fmt.Sprintf("%s_%s_%s", parsed.Path[0:], models.NewID().String()[:8], t.Name())
+	dbname = strings.Replace(dbname, "/", "_", -1)
+	dbname = strings.Replace(dbname, "Test", "", 1)
+	dbname = strings.ToLower(dbname)
+	var safeCharsOnly = regexp.MustCompile(`[^0-9a-z_]+`)
+	dbname = safeCharsOnly.ReplaceAllString(dbname, "")
+	// NOTE: PostgreSQL's Max Identifier Length Is 63 Bytes
+	if len(dbname) > 63 {
+		dbname = dbname[:63]
+	}
 	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
 	if err != nil {
 		t.Fatalf("unable to open postgres database for creating test db: %+v", err)
