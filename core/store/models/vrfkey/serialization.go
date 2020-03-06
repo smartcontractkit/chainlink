@@ -11,6 +11,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+// EncryptedSecretKey contains encrypted private key to be serialized to DB
+//
+// We could re-use geth's key handling, here, but this makes it much harder to
+// misuse VRF proving keys as ethereum keys or vice versa.
+type EncryptedSecretKey struct {
+	PublicKey PublicKey     `gorm:"primary_key;type:varchar(68)"`
+	VRFKey    gethKeyStruct `json:"vrf_key" gorm:"type:text"`
+}
+
 // passwordPrefix is added to the beginning of the passwords for
 // EncryptedSecretKey's, so that VRF keys can't casually be used as ethereum
 // keys, and vice-versa. If you want to do that, DON'T.
@@ -124,6 +133,13 @@ func (k *PublicKey) Scan(value interface{}) error {
 		return errors.Wrapf(err, "while scanning %s as PublicKey", rawKey)
 	}
 	return nil
+}
+
+// Copied from go-ethereum/accounts/keystore/key.go's encryptedKeyJSONV3
+type gethKeyStruct struct {
+	Address string              `json:"address"`
+	Crypto  keystore.CryptoJSON `json:"crypto"`
+	Version int                 `json:"version"`
 }
 
 func (k gethKeyStruct) Value() (driver.Value, error) {

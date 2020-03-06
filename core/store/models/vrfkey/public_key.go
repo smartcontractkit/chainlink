@@ -11,6 +11,9 @@ import (
 	"chainlink/core/utils"
 )
 
+// PublicKey is a secp256k1 point in compressed format
+type PublicKey [CompressedPublicKeyLength]byte
+
 // CompressedPublicKeyLength is the length of a secp256k1 public key's x
 // ordinate as a uint256, concatenated with 00 if y is even, 01 if odd.
 const CompressedPublicKeyLength = 33
