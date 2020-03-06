@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -78,21 +77,6 @@ func CreateProductionLogger(
 	}
 	config.Level.SetLevel(lvl)
 
-	zl, err := config.Build(zap.AddCallerSkip(1))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return zl
-}
-
-// CreateTestLogger creates a logger that directs output to PrettyConsole
-// configured for test output, and to the buffer testMemoryLog.
-func CreateTestLogger(lvl zapcore.Level) *zap.Logger {
-	var _ *MemorySink = MemoryLogTestingOnly() // Make sure memory log is created
-	color.NoColor = false
-	config := zap.NewProductionConfig()
-	config.Level.SetLevel(lvl)
-	config.OutputPaths = []string{"pretty://console", "memory://"}
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)

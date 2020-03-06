@@ -1,12 +1,18 @@
-package logger
+package cltest
 
 // Based on https://stackoverflow.com/a/52737940
 
 import (
 	"bytes"
+	"log"
+	"net/url"
 	"sync"
 
+	"chainlink/core/logger"
+
+	"github.com/fatih/color"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // MemorySink implements zap.Sink by writing all messages to a buffer.
@@ -41,7 +47,9 @@ var createSinkOnce sync.Once
 
 func registerMemorySink() {
 	testMemoryLog = &MemorySink{m: sync.Mutex{}, b: bytes.Buffer{}}
-	if err := zap.RegisterSink("memory", prettyConsoleSink(testMemoryLog)); err != nil {
+	if err := zap.RegisterSink("memory", func(*url.URL) (zap.Sink, error) {
+		return logger.PrettyConsole{testMemoryLog}, nil
+	}); err != nil {
 		panic(err)
 	}
 }
@@ -49,4 +57,19 @@ func registerMemorySink() {
 func MemoryLogTestingOnly() *MemorySink {
 	createSinkOnce.Do(registerMemorySink)
 	return testMemoryLog
+}
+
+// CreateTestLogger creates a logger that directs output to PrettyConsole
+// configured for test output, and to the buffer testMemoryLog.
+func CreateTestLogger(lvl zapcore.Level) *zap.Logger {
+	var _ *MemorySink = MemoryLogTestingOnly() // Make sure memory log is created
+	color.NoColor = false
+	config := zap.NewProductionConfig()
+	config.Level.SetLevel(lvl)
+	config.OutputPaths = []string{"pretty://console", "memory://"}
+	zl, err := config.Build(zap.AddCallerSkip(1))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return zl
 }

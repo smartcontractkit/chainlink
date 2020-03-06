@@ -17,7 +17,6 @@ import (
 	"chainlink/core/auth"
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
-	"chainlink/core/logger"
 	"chainlink/core/services/signatures/secp256k1"
 	"chainlink/core/services/vrf"
 	"chainlink/core/store/models"
@@ -1076,7 +1075,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		coordinatorAddress.String())
 	millisecondsWaited := 0
 	expectedLogDeadline := 200
-	for !strings.Contains(logger.MemoryLogTestingOnly().String(), expectedLog) &&
+	for !strings.Contains(cltest.MemoryLogTestingOnly().String(), expectedLog) &&
 		millisecondsWaited < expectedLogDeadline {
 		time.Sleep(time.Millisecond)
 		millisecondsWaited += 1
