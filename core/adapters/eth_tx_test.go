@@ -155,6 +155,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	require.NoError(t, output.Error())
 	assert.True(t, output.Status().PendingConfirmations())
+	assert.Equal(t, input.Data(), output.Data())
 
 	txManager.AssertExpectations(t)
 }
@@ -293,6 +294,7 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	require.NoError(t, output.Error())
 	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.Equal(t, input.Data(), output.Data())
 
 	txManager.AssertExpectations(t)
 }
@@ -308,11 +310,12 @@ func TestEthTxAdapter_Perform_NotConnectedWhenPendingConfirmations(t *testing.T)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
-	input := *models.NewRunInput(models.NewID(), models.JSON{}, models.RunStatusPendingConfirmations)
-	data := adapter.Perform(input, store)
+	input := *models.NewRunInputWithResult(models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations)
+	output := adapter.Perform(input, store)
 
-	require.NoError(t, data.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status())
+	require.NoError(t, output.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.Equal(t, input.Data(), output.Data())
 
 	txManager.AssertExpectations(t)
 }
