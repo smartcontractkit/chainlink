@@ -191,6 +191,11 @@ func addReceiptToResult(
 		}
 	}
 
+	if receipt == nil {
+		err := errors.New("missing receipt for transaction")
+		return models.NewRunOutputError(err)
+	}
+
 	receipts = append(receipts, *receipt)
 	var err error
 	data, err = data.Add("ethereumReceipts", receipts)
