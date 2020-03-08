@@ -70,7 +70,7 @@ func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
-	logger.SetLogger(logger.CreateTestLogger(lvl))
+	logger.SetLogger(CreateTestLogger(lvl))
 }
 
 func logLevelFromEnv() zapcore.Level {
