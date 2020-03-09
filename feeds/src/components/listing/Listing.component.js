@@ -33,10 +33,27 @@ const Sponsored = ({ data }) => {
   )
 }
 
-const ListingGridRow = ({ item }) => (
+const CompareOffchain = ({ item }) => {
+  let content = 'No offchain comparison'
+
+  if (item.config.compare_offchain) {
+    content = <a href={item.config.compare_offchain}>Compare Offchain</a>
+  }
+
+  return (
+    <div className="listing-grid__item--offchain-comparison">{content}</div>
+  )
+}
+
+const ListingGridRow = ({ item, compareOffchain }) => (
   <Col {...grid}>
-    <Link to={item.config.path} onClick={scrollToTop}>
-      <div className="listing-grid__item">
+    <div className="listing-grid__item">
+      {compareOffchain && <CompareOffchain item={item} />}
+      <Link
+        to={item.config.path}
+        onClick={scrollToTop}
+        className="listing-grid__item--link"
+      >
         <div className="listing-grid__item--name">{item.config.name}</div>
         <div className="listing-grid__item--answer">
           {item.answer && (
@@ -55,20 +72,24 @@ const ListingGridRow = ({ item }) => (
             </div>
           </>
         )}
-      </div>
-    </Link>
+      </Link>
+    </div>
   </Col>
 )
 
-const ListingGrid = ({ list }) => (
+const ListingGrid = ({ list, compareOffchain }) => (
   <>
     {list.map(item => (
-      <ListingGridRow item={item} key={item.config.name} />
+      <ListingGridRow
+        item={item}
+        compareOffchain={compareOffchain}
+        key={item.config.name}
+      />
     ))}
   </>
 )
 
-const Listing = ({ fetchAnswers, groups }) => {
+const Listing = ({ fetchAnswers, groups, compareOffchain }) => {
   useEffect(() => {
     fetchAnswers()
   }, [fetchAnswers])
@@ -80,7 +101,7 @@ const Listing = ({ fetchAnswers, groups }) => {
             Decentralized Price Reference Data for {group.name} Pairs
           </h3>
           <Row gutter={18} className="listing-grid">
-            <ListingGrid list={group.list} />
+            <ListingGrid list={group.list} compareOffchain={compareOffchain} />
           </Row>
         </div>
       ))}
