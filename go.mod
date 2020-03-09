@@ -63,7 +63,7 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
-	github.com/urfave/cli v1.22.2
+	github.com/urfave/cli v1.22.3
 	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172
 	go.dedis.ch/fixbuf v1.0.3
