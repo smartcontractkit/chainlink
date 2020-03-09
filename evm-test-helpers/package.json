@@ -22,7 +22,7 @@
     "chai": "^4.2.0",
     "chalk": "^2.4.2",
     "debug": "^4.1.1",
-    "ethers": "^4.0.44"
+    "ethers": "^4.0.45"
   },
   "devDependencies": {
     "@types/cbor": "^5.0.0",
