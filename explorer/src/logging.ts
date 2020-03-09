@@ -15,5 +15,5 @@ if (process.env.EXPLORER_DEV) {
 export const logger = pino(options)
 
 export const addRequestLogging = (app: express.Express) => {
-  app.use(PinoHttp(logger))
+  app.use(PinoHttp({ logger }))
 }
