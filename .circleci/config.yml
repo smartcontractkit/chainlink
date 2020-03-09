@@ -37,15 +37,6 @@ jobs:
       - image: smartcontract/builder:1.0.30
     steps:
       - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}-v2
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}-v2
-          paths:
-            - '/go/pkg/mod'
       - run: ./tools/ci/rust_test
   geth-postgres:
     resource_class: 2xlarge
