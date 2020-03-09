@@ -1,39 +1,35 @@
 import { ethers } from 'ethers'
-import { exec } from 'shelljs'
-import { JobSpec, RunResult } from '../../../operator_ui/@types/operator_ui'
+import execa from 'execa'
+import { JobSpec, JobRun } from '../../../operator_ui/@types/operator_ui'
 
-function runCommand(command: string): Promise<string> {
-  return new Promise((res, rej) => {
-    exec(command, { silent: true }, (code, stdout, stderr) => {
-      code === 0 ? res(stdout) : rej(stderr)
-    })
-  })
-}
+const API_CREDENTIALS_PATH = '/run/secrets/apicredentials'
 
-export async function login() {
-  return runCommand('chainlink admin login --file /run/secrets/apicredentials')
+export async function login(): Promise<void> {
+  await execa('chainlink', ['admin', 'login', '--file', API_CREDENTIALS_PATH])
 }
 
 export async function getJobs(): Promise<JobSpec[]> {
-  const result = await runCommand('chainlink -j jobs list')
-  return JSON.parse(result) as JobSpec[]
+  const { stdout } = await execa('chainlink', ['-j', 'jobs', 'list'])
+  return JSON.parse(stdout) as JobSpec[]
 }
 
-export async function getRunResults(): Promise<RunResult[]> {
-  const result = await runCommand('chainlink -j runs list')
-  return JSON.parse(result) as RunResult[]
+export async function getJobRuns(): Promise<JobRun[]> {
+  const { stdout } = await execa('chainlink', ['-j', 'runs', 'list'])
+  return JSON.parse(stdout) as JobRun[]
 }
 
 export async function createJob(jobSpec: string): Promise<JobSpec> {
-  const result = await runCommand(`chainlink -j jobs create '${jobSpec}'`)
-  return JSON.parse(result) as JobSpec
+  const { stdout } = await execa('chainlink', ['-j', 'jobs', 'create', jobSpec])
+  return JSON.parse(stdout) as JobSpec
 }
 
-export async function archiveJob(jobId: string): Promise<boolean> {
-  await runCommand(`chainlink -j jobs archive '${jobId}'`)
-  return true
+export async function archiveJob(jobId: string): Promise<void> {
+  await execa('chainlink', ['-j', 'jobs', 'archive', jobId])
 }
 
+/**
+ * interface for the data describing the CL node's keys
+ */
 interface KeyInfo {
   address: string
   ethBalance: ethers.utils.BigNumber
@@ -41,6 +37,6 @@ interface KeyInfo {
 }
 
 export async function getAdminInfo(): Promise<KeyInfo[]> {
-  const result = await runCommand('chainlink -j admin info')
-  return JSON.parse(result) as KeyInfo[]
+  const { stdout } = await execa('chainlink', ['-j', 'admin', 'info'])
+  return JSON.parse(stdout) as KeyInfo[]
 }

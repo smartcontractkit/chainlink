@@ -1,17 +1,5 @@
-import { Compiler } from '@0x/sol-compiler'
-import {
-  RevertTraceSubprovider,
-  SolCompilerArtifactAdapter,
-  Web3ProviderEngine,
-} from '@0x/sol-trace'
-import {
-  FakeGasEstimateSubprovider,
-  GanacheSubprovider,
-} from '@0x/subproviders'
 import chalk from 'chalk'
 import { ethers } from 'ethers'
-import { join, resolve } from 'path'
-import { cp, rm } from 'shelljs'
 import 'source-map-support/register'
 
 /**
@@ -32,92 +20,6 @@ export const credentials = {
 }
 
 export const GETH_DEV_ADDRESS = '0x7db75251a74f40b15631109ba44d33283ed48528'
-
-export async function createTraceProvider() {
-  const mnemonic =
-    'dose weasel clever culture letter volume endorse used harvest ripple circle install'
-  const accountIndex = 0
-  const path = `m/44'/60'/${accountIndex}'/0/0`
-  const root = resolve(__dirname, '../')
-  const evmv05Contracts = join(
-    resolve(__dirname, '../../'),
-    'evm',
-    'v0.5',
-    'contracts',
-  )
-  const contracts = join(root, 'contracts', 'v0.5')
-  const artifacts = join(root, 'artifacts')
-  console.warn(chalk.yellow('Removing contracts/v0.5 dir:', contracts))
-  rm('-rf', contracts)
-  console.warn(chalk.yellow('Removing artifacts dir:', artifacts))
-  rm('-r', artifacts)
-  console.log(
-    chalk.green(`Copying contracts from ${evmv05Contracts} to ${contracts}`),
-  )
-  cp('-r', evmv05Contracts, contracts)
-
-  const compiler = new Compiler({
-    artifactsDir: artifacts,
-    contracts: '*',
-    contractsDir: contracts,
-    solcVersion: '0.5.0',
-    useDockerisedSolc: false,
-    compilerSettings: {
-      outputSelection: {
-        '*': {
-          '*': [
-            'abi',
-            'evm.bytecode.object',
-            'evm.bytecode.sourceMap',
-            'evm.deployedBytecode.object',
-            'evm.deployedBytecode.sourceMap',
-          ],
-        },
-      },
-    },
-  })
-
-  console.log(chalk.green('Compiling contracts in:', contracts))
-  console.log(chalk.green('Outputting artifacts to:', artifacts))
-  await compiler.compileAsync()
-
-  const defaultFromAddress = await ethers.Wallet.fromMnemonic(
-    mnemonic,
-    path,
-  ).getAddress()
-  console.log(
-    chalk.green(
-      'Default from address derived from mnemonic:',
-      defaultFromAddress,
-    ),
-  )
-
-  const artifactAdapter = new SolCompilerArtifactAdapter(artifacts, contracts)
-  const revertTraceSubprovider = new RevertTraceSubprovider(
-    artifactAdapter,
-    defaultFromAddress,
-    true,
-  )
-
-  const providerEngine = new Web3ProviderEngine()
-  providerEngine.addProvider(new FakeGasEstimateSubprovider(4 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
-  providerEngine.addProvider(revertTraceSubprovider)
-  providerEngine.addProvider(
-    // Start an in-process ganache instance
-    new GanacheSubprovider({
-      mnemonic,
-      hdPath: path,
-      vmErrorsOnRPCResponse: true,
-    }),
-  )
-  providerEngine.start()
-
-  const provider = new ethers.providers.Web3Provider(providerEngine)
-  const accounts = await provider.listAccounts()
-  console.log(chalk.green(`Accounts from provider: ${accounts}`))
-
-  return { provider, defaultFromAddress }
-}
 
 export function createProvider(): ethers.providers.JsonRpcProvider {
   const port = process.env.ETH_HTTP_PORT || `18545`
@@ -205,7 +107,14 @@ export async function wait(ms: number) {
   })
 }
 
-export async function assertEventually(
+/**
+ * assertAsync asserts that a condition is evantually met, with a
+ * default timeout of 20 seconds
+ * @param f function to run every second and check for truthy return value
+ * @param errorMessage error message to print if unseccessful
+ * @param timeout timeout
+ */
+export async function assertAsync(
   f: () => boolean | Promise<boolean>,
   errorMessage: string,
   timeout = 20000,

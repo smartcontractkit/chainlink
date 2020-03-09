@@ -40,6 +40,8 @@ Commands:
 
     test                  Run integration test suite
     test:dev              Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
+    test:ts               Run integration test suite in typescript (WIP)
+    test:ts:dev           Run integration test suite with /tools/ci-ts bind-mounted (WIP)
 
     integration | i       Run docker-compose with config for integration tests
     dev:integration | di  Run docker-compose with dev config for integration tests

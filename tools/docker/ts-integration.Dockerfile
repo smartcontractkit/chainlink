@@ -33,13 +33,7 @@ COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json evm-test-helpers/
 COPY evm-contracts/package.json ./evm-contracts/
-COPY integration/package.json integration/
-COPY integration-scripts/package.json integration-scripts/
 COPY tools/ci-ts/package.json tools/ci-ts/
-
-
-# install deps for our integration scripts
-RUN yarn
 
 # copy our CI test
 COPY tools/docker tools/docker/
@@ -49,10 +43,11 @@ COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
 COPY evm-contracts evm-contracts
-COPY integration integration
-COPY integration-scripts integration-scripts
 COPY operator_ui operator_ui
 COPY tools/ci-ts tools/ci-ts
 
-# setup our integration testing scripts
-RUN yarn setup:integration
+# install deps for our integration scripts
+RUN yarn
+
+# setup contracts
+RUN yarn setup:contracts
