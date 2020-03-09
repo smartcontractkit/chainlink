@@ -175,7 +175,7 @@ export async function uptime(db: Connection, node: ChainlinkNode | number) {
 
 // uptime from completed sessions
 async function historicUptime(db: Connection, id: number): Promise<number> {
-  const { seconds } = (await db
+  const queryResult = await db
     .createQueryBuilder()
     .select(
       `EXTRACT(EPOCH FROM session."finishedAt" - session."createdAt") as seconds`,
@@ -183,14 +183,15 @@ async function historicUptime(db: Connection, id: number): Promise<number> {
     .from(Session, 'session')
     .where({ chainlinkNodeId: id })
     .andWhere('session.finishedAt is not null')
-    // NOTE: If there are no sessions, SELECT EXTRACT... returns null
-    .getRawOne()) || { seconds: 0 }
+    .getRawOne()
+  // NOTE: If there are no sessions, SELECT EXTRACT... returns null
+  const seconds = queryResult?.seconds ?? 0
   return Math.max(0, seconds)
 }
 
 // uptime from current open session
 async function currentUptime(db: Connection, id: number): Promise<number> {
-  const { seconds } = (await db
+  const queryResult = await db
     .createQueryBuilder()
     .select(
       `FLOOR(EXTRACT(EPOCH FROM (now() - session."createdAt"))) as seconds`,
@@ -198,7 +199,8 @@ async function currentUptime(db: Connection, id: number): Promise<number> {
     .from(Session, 'session')
     .where({ chainlinkNodeId: id })
     .andWhere('session."finishedAt" is null')
-    // NOTE: If there are no sessions, SELECT EXTRACT... returns null
-    .getRawOne()) || { seconds: 0 }
+    .getRawOne()
+  // NOTE: If there are no sessions, SELECT EXTRACT... returns null
+  const seconds = queryResult?.seconds ?? 0
   return Math.max(0, seconds)
 }
