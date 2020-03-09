@@ -2,7 +2,6 @@ package fluxmonitor
 
 import (
 	"chainlink/core/eth"
-	"chainlink/core/eth/contracts"
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
@@ -23,7 +22,6 @@ import (
 	"go.uber.org/multierr"
 )
 
-//go:generate sh -c "cat ../../../evm-contracts/abi/v0.6/FluxAggregator.json | jq .compilerOutput.abi | abigen --abi - --out ../../eth/contracts/flux_aggregator.go --pkg contracts --type FluxAggregator"
 //go:generate mockery -name FluxMonitor -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
@@ -338,21 +336,20 @@ type DeviationChecker interface {
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	store          *store.Store
-	// fluxAggregator *contracts.FluxAggregator
-	initr          models.Initiator
-	address        common.Address
-	requestData    models.JSON
-	idleThreshold  time.Duration
-	threshold      float64
-	precision      int32
-	runManager     RunManager
-	currentPrice   decimal.Decimal
-	currentRound   *big.Int
-	fetcher        Fetcher
-	delay          time.Duration
-	cancel         context.CancelFunc
-	newRounds      chan eth.Log
+	store         *store.Store
+	initr         models.Initiator
+	address       common.Address
+	requestData   models.JSON
+	idleThreshold time.Duration
+	threshold     float64
+	precision     int32
+	runManager    RunManager
+	currentPrice  decimal.Decimal
+	currentRound  *big.Int
+	fetcher       Fetcher
+	delay         time.Duration
+	cancel        context.CancelFunc
+	newRounds     chan eth.Log
 
 	waitOnStop chan struct{}
 }
@@ -365,10 +362,8 @@ func NewPollingDeviationChecker(
 	fetcher Fetcher,
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
-	// fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, )
 	return &PollingDeviationChecker{
-		store: store,
-		// fluxAggregator: store.client....
+		store:         store,
 		initr:         initr,
 		address:       initr.InitiatorParams.Address,
 		requestData:   initr.InitiatorParams.RequestData,
