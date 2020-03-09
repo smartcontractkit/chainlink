@@ -232,10 +232,10 @@ func IsClientEmptyError(err error) bool {
 }
 
 func pendingConfirmationsOrConnection(input models.RunInput) models.RunOutput {
-	// If the input is not pending confirmations next time it may, then it may
-	// submit a new transaction.
+	// If the input is not pending confirmations next time
+	// then it may submit a new transaction.
 	if input.Status().PendingConfirmations() {
-		return models.NewRunOutputPendingConfirmations()
+		return models.NewRunOutputPendingConfirmationsWithData(input.Data())
 	}
 	return models.NewRunOutputPendingConnection()
 }
