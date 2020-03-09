@@ -165,6 +165,16 @@ If we want to quickly test new changes we make to `integration/` or `tools/ci/et
 $ ./compose test:dev
 ```
 
+Still a work in progress, you can run the tests in typescript (instead of bash) by using
+
+```sh
+$ ./compose test:ts
+# or
+$ ./compose test:ts:dev
+```
+
+Eventually, these tests should replace the bash tests entirely
+
 ### Running specifically cypress tests
 
 See the README within the [integration folder.](../../integration/README.md)

@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist" /* Redirect output structure to the directory. */
   },
-  "include": ["@types", "tests", "test-helpers", "fixtures", "ethers"],
+  "include": ["tests", "test-helpers", "fixtures"],
   "references": [
     { "path": "../../evm-test-helpers" },
     { "path": "../../evm-contracts" },
