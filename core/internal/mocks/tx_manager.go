@@ -214,6 +214,61 @@ func (_m *TxManager) Disconnect() {
 	_m.Called()
 }
 
+// GetAggregatorLatestRound provides a mock function with given fields: address
+func (_m *TxManager) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
+	ret := _m.Called(address)
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
+		r0 = rf(address)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
+		r1 = rf(address)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetAggregatorLatestSubmission provides a mock function with given fields: aggregatorAddress, oracleAddress
+func (_m *TxManager) GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
+	ret := _m.Called(aggregatorAddress, oracleAddress)
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(common.Address, common.Address) *big.Int); ok {
+		r0 = rf(aggregatorAddress, oracleAddress)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 *big.Int
+	if rf, ok := ret.Get(1).(func(common.Address, common.Address) *big.Int); ok {
+		r1 = rf(aggregatorAddress, oracleAddress)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*big.Int)
+		}
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(common.Address, common.Address) error); ok {
+		r2 = rf(aggregatorAddress, oracleAddress)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // GetAggregatorPrice provides a mock function with given fields: address, precision
 func (_m *TxManager) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
 	ret := _m.Called(address, precision)
@@ -235,8 +290,8 @@ func (_m *TxManager) GetAggregatorPrice(address common.Address, precision int32)
 	return r0, r1
 }
 
-// GetAggregatorRound provides a mock function with given fields: address
-func (_m *TxManager) GetAggregatorRound(address common.Address) (*big.Int, error) {
+// GetAggregatorReportingRound provides a mock function with given fields: address
+func (_m *TxManager) GetAggregatorReportingRound(address common.Address) (*big.Int, error) {
 	ret := _m.Called(address)
 
 	var r0 *big.Int
@@ -251,6 +306,27 @@ func (_m *TxManager) GetAggregatorRound(address common.Address) (*big.Int, error
 	var r1 error
 	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
 		r1 = rf(address)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetAggregatorTimedOutStatus provides a mock function with given fields: address, round
+func (_m *TxManager) GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error) {
+	ret := _m.Called(address, round)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) bool); ok {
+		r0 = rf(address, round)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Address, *big.Int) error); ok {
+		r1 = rf(address, round)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -369,38 +445,6 @@ func (_m *TxManager) GetLINKBalance(address common.Address) (*assets.Link, error
 	}
 
 	return r0, r1
-}
-
-// GetLatestSubmission provides a mock function with given fields: aggregatorAddress, oracleAddress
-func (_m *TxManager) GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
-	ret := _m.Called(aggregatorAddress, oracleAddress)
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address, common.Address) *big.Int); ok {
-		r0 = rf(aggregatorAddress, oracleAddress)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 *big.Int
-	if rf, ok := ret.Get(1).(func(common.Address, common.Address) *big.Int); ok {
-		r1 = rf(aggregatorAddress, oracleAddress)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(*big.Int)
-		}
-	}
-
-	var r2 error
-	if rf, ok := ret.Get(2).(func(common.Address, common.Address) error); ok {
-		r2 = rf(aggregatorAddress, oracleAddress)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
 }
 
 // GetLogs provides a mock function with given fields: q

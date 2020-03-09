@@ -23,6 +23,8 @@ import (
 )
 
 //go:generate mockery -name FluxMonitor -output ../../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
 const defaultHTTPTimeout = 5 * time.Second
@@ -241,8 +243,6 @@ func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
 	fm.removes <- ID
 }
 
-//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
-
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
@@ -326,8 +326,6 @@ func GetBridgeURLFromName(name string, orm *orm.ORM) (*url.URL, error) {
 	bridgeURL := url.URL(bridge.URL)
 	return &bridgeURL, nil
 }
-
-//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
 // DeviationChecker encapsulate methods needed to initialize and check prices
 // for price deviations.
@@ -444,11 +442,9 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 			err := p.respondToNewRound(log)
 			logger.ErrorIf(err, "checker unable to respond to new round")
 		case <-time.After(p.delay):
-			jobRunTriggered = p.pollIfRoundOpen(client)
+			jobRunTriggered = p.pollIfEligible(client, p.threshold)
 		case <-idleThresholdTimer.C:
-			ok, err := p.poll(0)
-			logger.ErrorIf(err, "checker unable to poll")
-			jobRunTriggered = ok
+			jobRunTriggered = p.pollIfEligible(client, 0)
 		}
 
 		if jobRunTriggered {
@@ -459,29 +455,56 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 	}
 }
 
-func (p *PollingDeviationChecker) pollIfRoundOpen(client eth.Client) bool {
-	open, err := p.isRoundOpen(client)
+func (p *PollingDeviationChecker) pollIfEligible(client eth.Client, threshold float64) bool {
+	open, err := p.isEligibleToPoll(client)
 	logger.ErrorIf(err, "Unable to determine if round is open:")
 	if !open {
 		logger.Info("Round is currently not open to new submissions - polling paused")
 		return false
 	}
-	ok, err := p.poll(p.threshold)
+	ok, err := p.poll(threshold)
 	logger.ErrorIf(err, "checker unable to poll")
 	return ok
 }
 
+func (p *PollingDeviationChecker) isEligibleToPoll(client eth.Client) (bool, error) {
+	roundIsOpen, err := p.isRoundOpen(client)
+	if err != nil {
+		return false, err
+	} else if roundIsOpen {
+		return true, nil
+	}
+	reportingRoundExpired, err := p.isRoundTimedOut(client)
+	if err != nil {
+		return false, err
+	}
+	return reportingRoundExpired, nil
+}
+
 func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
-	latestRound, err := client.GetAggregatorRound(p.address)
+	latestRound, err := client.GetAggregatorLatestRound(p.address)
 	if err != nil {
 		return false, err
 	}
 	nodeAddress := p.store.KeyStore.Accounts()[0].Address
-	_, lastRoundAnswered, err := client.GetLatestSubmission(p.address, nodeAddress)
+	_, lastRoundAnswered, err := client.GetAggregatorLatestSubmission(p.address, nodeAddress)
 	if err != nil {
 		return false, err
 	}
-	return lastRoundAnswered.Cmp(latestRound) <= 0, nil
+	roundIsOpen := lastRoundAnswered.Cmp(latestRound) <= 0
+	return roundIsOpen, nil
+}
+
+func (p *PollingDeviationChecker) isRoundTimedOut(client eth.Client) (bool, error) {
+	reportingRound, err := client.GetAggregatorReportingRound(p.address)
+	if err != nil {
+		return false, err
+	}
+	reportingRoundExpired, err := client.GetAggregatorTimedOutStatus(p.address, reportingRound)
+	if err != nil {
+		return false, err
+	}
+	return reportingRoundExpired, nil
 }
 
 // Stop stops this instance from polling, cleaning up resources.
@@ -501,7 +524,7 @@ func (p *PollingDeviationChecker) fetchAggregatorData(client eth.Client) error {
 	}
 	p.currentPrice = price
 
-	round, err := client.GetAggregatorRound(p.address)
+	round, err := client.GetAggregatorLatestRound(p.address)
 	if err != nil {
 		return err
 	}
