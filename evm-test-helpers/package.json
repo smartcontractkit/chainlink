@@ -32,7 +32,7 @@
     "@types/jest": "^24.0.25",
     "@types/node": "^12.7.5",
     "jest": "^24.9.0",
-    "jest-circus": "^24.9.0",
+    "jest-circus": "^25.1.0",
     "rimraf": "^3.0.1",
     "ts-jest": "^24.1.0",
     "typechain": "^1.0.5",
