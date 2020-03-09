@@ -28,7 +28,7 @@ const Sponsored = ({ data }) => {
       title="Sponsored by"
     >
       {sliced.map((name, i) => [i > 0 && ', ', <span key={name}>{name}</span>])}
-      ...
+      , (+{data.length - 2})
     </Popover>
   )
 }
