@@ -6,7 +6,7 @@ services:
       - devnet
   devnet:
     container_name: parity
-    image: smartcontract/devnet:st-peters
+    image: smartcontract/devnet:latest
     user: root
     command: --config /devnet/miner.toml --db-path /devnet/database
     ports:
