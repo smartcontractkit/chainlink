@@ -5,15 +5,12 @@ import { Header } from 'components/header'
 import { NodesLogos } from 'components/nodesLogos'
 import { SponsorsLogos } from 'components/sponsorsLogos'
 
-const COMPARE_OFFCHAIN = 'compare_offchain'
-
-function useQuery() {
-  return new URLSearchParams(useLocation().search)
+function useOffchainQuery() {
+  const query = new URLSearchParams(useLocation().search)
+  return query.get('compare_offchain') === 'true'
 }
 
 const LangingPage = () => {
-  const query = useQuery()
-
   return (
     <div className="page-wrapper landing-page">
       <div className="page-container">
@@ -48,7 +45,7 @@ const LangingPage = () => {
           </p>
         </section>
         <section>
-          <Listing compareOffchain={query.get(COMPARE_OFFCHAIN) === 'true'} />
+          <Listing compareOffchain={useOffchainQuery()} />
         </section>
       </div>
 
