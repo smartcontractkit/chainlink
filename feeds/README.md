@@ -66,3 +66,15 @@ Deploy the newly built image by releasing the container from the root of the mon
 ```
 $ heroku container:release web -a the-app-name
 ```
+
+## Hidden Features
+
+### Display Offchain Comparison Links
+
+On the landing page you can enable a link to an offchain price comparison resource with the `compare_offchain` query parameter.
+
+```
+https://feeds.chain.link?compare_offchain=true
+```
+
+![display-offchain-comparison](./docs/feed-landing-compare-offchain.png)
