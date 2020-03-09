@@ -208,7 +208,7 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
 
 	require.NoError(t, checker.ExportedFetchAggregatorData(ethClient)) // setup
@@ -265,11 +265,18 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
+	ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
+		Return(big.NewInt(2), nil)
+	ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
+		Return(false, nil)
+	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
+		Return(big.NewInt(0), big.NewInt(1), nil)
+
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
-	ethClient.On("GetLatestSubmission", mock.Anything, mock.Anything).
+	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
 		Return(big.NewInt(0), big.NewInt(0), nil)
 
 	err = deviationChecker.Start(context.Background(), ethClient)
@@ -314,7 +321,7 @@ func TestPollingDeviationChecker_StartStop(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
@@ -372,11 +379,11 @@ func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(1), nil)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 		Return(fakeSubscription(), nil)
-	ethClient.On("GetLatestSubmission", mock.Anything, mock.Anything).
+	ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
 		Return(big.NewInt(0), big.NewInt(0), nil)
 
 	// Start() with no delay to speed up test and polling.
@@ -433,7 +440,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(currentRound), nil)
 
 	// Initialize
@@ -478,7 +485,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 	ethClient := new(mocks.Client)
 	ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 		Return(decimal.NewFromInt(100), nil)
-	ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+	ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 		Return(big.NewInt(currentRound), nil)
 
 	// Initialize
@@ -592,7 +599,7 @@ func TestExtractFeedURLs(t *testing.T) {
 	}
 }
 
-func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
+func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -610,16 +617,19 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 	jobRun := cltest.NewJobRun(job)
 
 	tests := []struct {
-		name                string
-		aggregatorRound     int64
-		latestRoundAnswered int64
-		shouldUpdate        bool
+		name                     string
+		aggregatorRound          int64
+		latestRoundAnswered      int64
+		aggregatorTimedOutStatus bool
+		shouldUpdate             bool
 	}{
-		{"much less than", 1, 10, false},
-		{"less than", 1, 2, false},
-		{"equal", 1, 1, true},
-		{"greater than", 2, 1, true},
-		{"much greater than", 10, 1, true},
+		// {"much less than", 1, 10, false, false},
+		{"aggregator round less than latest round", 1, 2, false, false},
+		{"aggregator round equals latest round", 1, 1, false, true},
+		{"aggregator round greater than latest round", 2, 1, false, true},
+		// {"much greater than", 10, 1, false, true},
+		{"timed out", 1, 2, true, true},
+		{"not timed out", 1, 2, false, false},
 	}
 
 	for _, test := range tests {
@@ -647,12 +657,16 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 			ethClient := new(mocks.Client)
 			ethClient.On("GetAggregatorPrice", initr.InitiatorParams.Address, initr.InitiatorParams.Precision).
 				Return(decimal.NewFromInt(100), nil)
-			ethClient.On("GetAggregatorRound", initr.InitiatorParams.Address).
+			ethClient.On("GetAggregatorLatestRound", initr.InitiatorParams.Address).
 				Return(big.NewInt(test.aggregatorRound), nil)
+			ethClient.On("GetAggregatorReportingRound", initr.InitiatorParams.Address).
+				Return(big.NewInt(test.aggregatorRound+1), nil)
+			ethClient.On("GetAggregatorTimedOutStatus", mock.Anything, mock.Anything).
+				Return(test.aggregatorTimedOutStatus, nil)
+			ethClient.On("GetAggregatorLatestSubmission", mock.Anything, mock.Anything).
+				Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
 			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything).
 				Return(fakeSubscription(), nil)
-			ethClient.On("GetLatestSubmission", mock.Anything, mock.Anything).
-				Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
 
 			err = deviationChecker.Start(context.Background(), ethClient)
 			require.NoError(t, err)
@@ -660,7 +674,7 @@ func TestPollingDeviationChecker_PollIfRoundOpen(t *testing.T) {
 			fetcher = successFetcher(decimal.NewFromInt(300))
 
 			if test.shouldUpdate {
-				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, time.Millisecond, "pollIfRoundOpen triggers Job Run")
+				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, time.Millisecond, "pollIfEligible triggers Job Run")
 			} else {
 				time.Sleep(2 * time.Second)
 				require.Len(t, jobRunCreated, 1, "no Job Runs created")
