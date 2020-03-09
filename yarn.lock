@@ -17261,10 +17261,10 @@ mkdirp@*, mkdirp@0.5.1, mkdirp@0.5.x, mkdirp@0.x, mkdirp@^0.5.0, mkdirp@^0.5.1, 
   dependencies:
     minimist "0.0.8"
 
-mock-fs@^4.1.0, mock-fs@^4.10.4:
-  version "4.10.4"
-  resolved "https://registry.npmjs.org/mock-fs/-/mock-fs-4.10.4.tgz#4eaa3d6f7da2f44e1f3dd6b462cbbcb7b082e3d4"
-  integrity sha512-gDfZDLaPIvtOusbusLinfx6YSe2YpQsDT8qdP41P47dQ/NQggtkHukz7hwqgt8QvMBmAv+Z6DGmXPyb5BWX2nQ==
+mock-fs@^4.1.0, mock-fs@^4.11.0:
+  version "4.11.0"
+  resolved "https://registry.npmjs.org/mock-fs/-/mock-fs-4.11.0.tgz#0828107e4b843a6ba855ecebfe3c6e073b69db92"
+  integrity sha512-Yp4o3/ZA15wsXqJTT+R+9w2AYIkD1i80Lds47wDbuUhOvQvm+O2EfjFZSz0pMgZZSPHRhGxgcd2+GL4+jZMtdw==
 
 mock-local-storage@^1.1.11:
   version "1.1.11"
