@@ -44,7 +44,7 @@
     "@types/shelljs": "^0.8.6",
     "globby": "^10",
     "jest": "^25.1.0",
-    "mock-fs": "^4.10.4",
+    "mock-fs": "^4.11.0",
     "ts-jest": "^25.2.0",
     "ts-node": "^8",
     "typescript": "^3.7.5"
