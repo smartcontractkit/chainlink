@@ -37,7 +37,11 @@ const CompareOffchain = ({ item }) => {
   let content = 'No offchain comparison'
 
   if (item.config.compare_offchain) {
-    content = <a href={item.config.compare_offchain}>Compare Offchain</a>
+    content = (
+      <a href={item.config.compare_offchain} rel="noopener noreferrer">
+        Compare Offchain
+      </a>
+    )
   }
 
   return (
