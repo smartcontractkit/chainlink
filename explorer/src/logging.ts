@@ -1,6 +1,6 @@
+import express from 'express'
 import PinoHttp from 'express-pino-logger'
 import pino from 'pino'
-import express from 'express'
 import { Logger } from 'typeorm'
 
 const options: Parameters<typeof pino>[0] = {
@@ -23,17 +23,18 @@ export const addRequestLogging = (app: express.Express) => {
 }
 
 export class TypeOrmLogger implements Logger {
+  private logger = logger.child({ module: 'TypeORM' })
+
   public logQuery(query: string, parameters?: any[]): any {
-    logger.trace({ msg: query, parameters })
+    this.logger.trace(query, { parameters })
   }
 
   public logQueryError(error: string, query: string, parameters?: any[]): any {
-    logger.error({ msg: 'DB query failed', error, query, parameters })
+    this.logger.error('DB query failed', { error, query, parameters })
   }
 
   public logQuerySlow(time: number, query: string, parameters?: any[]): any {
-    logger.warn({
-      msg: 'Slow DB query detected',
+    this.logger.warn('Slow DB query detected', {
       duration: time,
       query,
       parameters,
@@ -41,16 +42,14 @@ export class TypeOrmLogger implements Logger {
   }
 
   public logSchemaBuild(message: string): any {
-    logger.trace({ msg: message })
+    this.logger.trace(message)
   }
 
   public logMigration(message: string): any {
-    logger.info({ msg: message })
+    this.logger.info(message)
   }
 
   public log(level: 'log' | 'info' | 'warn', message: any): any {
-    const output =
-      typeof message === 'object' ? JSON.stringify(1, null, message) : message
-    logger[level]({ msg: `TypeORM: ${output}` })
+    this.logger[level](message)
   }
 }
