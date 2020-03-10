@@ -187,7 +187,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "bZx"],
     "threshold": 2
   },
   {
@@ -229,7 +229,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "bZx"],
     "threshold": 2
   },
   {
@@ -243,7 +243,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "bZx"],
     "threshold": 1
   },
   {
@@ -285,7 +285,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "bZx"],
     "threshold": 2
   },
   {
@@ -313,7 +313,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "Nexus Mutual"],
+    "sponsored": ["Aave", "Nexus Mutual", "bZx"],
     "threshold": 1
   },
   {
@@ -355,7 +355,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "bZx"],
     "threshold": 1
   },
   {
