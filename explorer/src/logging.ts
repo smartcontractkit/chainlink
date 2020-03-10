@@ -11,10 +11,10 @@ const options: any = {
   },
 }
 if (process.env.EXPLORER_DEV) {
-  options['prettyPrint'] = { colorize: true }
-  options['level'] = 'debug'
+  options.prettyPrint = { colorize: true }
+  options.level = 'debug'
 } else if (process.env.NODE_ENV === 'test') {
-  options['level'] = 'silent'
+  options.level = 'silent'
 }
 export const logger = pino(options)
 
