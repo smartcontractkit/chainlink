@@ -4,27 +4,27 @@ import { JobSpec, JobRun } from '../../../operator_ui/@types/operator_ui'
 
 const API_CREDENTIALS_PATH = '/run/secrets/apicredentials'
 
-export async function login(): Promise<void> {
-  await execa('chainlink', ['admin', 'login', '--file', API_CREDENTIALS_PATH])
+export function login(): void {
+  execa.sync('chainlink', ['admin', 'login', '--file', API_CREDENTIALS_PATH])
 }
 
-export async function getJobs(): Promise<JobSpec[]> {
-  const { stdout } = await execa('chainlink', ['-j', 'jobs', 'list'])
+export function getJobs(): JobSpec[] {
+  const { stdout } = execa.sync('chainlink', ['-j', 'jobs', 'list'])
   return JSON.parse(stdout) as JobSpec[]
 }
 
-export async function getJobRuns(): Promise<JobRun[]> {
-  const { stdout } = await execa('chainlink', ['-j', 'runs', 'list'])
+export function getJobRuns(): JobRun[] {
+  const { stdout } = execa.sync('chainlink', ['-j', 'runs', 'list'])
   return JSON.parse(stdout) as JobRun[]
 }
 
-export async function createJob(jobSpec: string): Promise<JobSpec> {
-  const { stdout } = await execa('chainlink', ['-j', 'jobs', 'create', jobSpec])
+export function createJob(jobSpec: string): JobSpec {
+  const { stdout } = execa.sync('chainlink', ['-j', 'jobs', 'create', jobSpec])
   return JSON.parse(stdout) as JobSpec
 }
 
-export async function archiveJob(jobId: string): Promise<void> {
-  await execa('chainlink', ['-j', 'jobs', 'archive', jobId])
+export function archiveJob(jobId: string): void {
+  execa.sync('chainlink', ['-j', 'jobs', 'archive', jobId])
 }
 
 /**
@@ -36,7 +36,7 @@ interface KeyInfo {
   linkBalance: ethers.utils.BigNumber
 }
 
-export async function getAdminInfo(): Promise<KeyInfo[]> {
-  const { stdout } = await execa('chainlink', ['-j', 'admin', 'info'])
+export function getAdminInfo(): KeyInfo[] {
+  const { stdout } = execa.sync('chainlink', ['-j', 'admin', 'info'])
   return JSON.parse(stdout) as KeyInfo[]
 }
