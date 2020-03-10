@@ -1,6 +1,7 @@
 import 'reflect-metadata'
 import { createConnection, Connection } from 'typeorm'
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions'
+import { TypeOrmLogger } from './logging'
 import options from '../ormconfig.json'
 
 const overridableKeys = ['host', 'port', 'username', 'password', 'database']
@@ -26,7 +27,7 @@ const loadOptions = (env?: string) => {
 // Loads the following ENV vars, giving them precedence.
 // i.e. TYPEORM_PORT will replace "port" in ormconfig.json.
 const mergeOptions = (): PostgresConnectionOptions => {
-  const envOptions: { [key: string]: string } = {}
+  const envOptions: { [key: string]: any } = { logger: new TypeOrmLogger() }
   for (const v of overridableKeys) {
     const envVar = process.env[`TYPEORM_${v.toUpperCase()}`]
     if (envVar) {
