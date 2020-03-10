@@ -16,7 +16,7 @@ const start = async () => {
 
 start().catch(e => {
   logger.error({
-    message: `Exception during startup: ${e.message}`,
+    msg: `Exception during startup: ${e.message}`,
     stack: e.stack,
   })
 })
