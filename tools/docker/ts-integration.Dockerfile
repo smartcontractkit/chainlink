@@ -43,7 +43,7 @@ COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
 COPY evm-contracts evm-contracts
-COPY operator_ui operator_ui
+COPY operator_ui/@types operator_ui/@types/
 COPY tools/ci-ts tools/ci-ts
 
 # install deps for our integration scripts
