@@ -3,7 +3,7 @@ import pino from 'pino'
 import express from 'express'
 import { Logger } from 'typeorm'
 
-const options: any = {
+const options: Parameters<typeof pino>[0] = {
   name: 'Explorer',
   level: 'warn',
   redact: {
