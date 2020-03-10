@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.cjs.json",
   "compilerOptions": {
-    "outDir": "./dist" /* Redirect output structure to the directory. */
+    "noEmit": true
   },
   "include": ["tests", "test-helpers", "fixtures"],
   "references": [
