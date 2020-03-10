@@ -112,6 +112,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     timeout = _timeout;
     decimals = _decimals;
     description = _description;
+    rounds[0].updatedAt = uint64(block.timestamp.sub(uint256(_timeout)));
   }
 
   /**
@@ -128,7 +129,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
     payOracle(uint32(_round));
-    deleteRound(uint32(_round));
+    deleteRoundDetails(uint32(_round));
   }
 
   /**
@@ -636,7 +637,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     emit SubmissionReceived(_answer, _id, msg.sender);
   }
 
-  function deleteRound(uint32 _id)
+  function deleteRoundDetails(uint32 _id)
     private
     ifMaxAnswersReceived(_id)
   {
