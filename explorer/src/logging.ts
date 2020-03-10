@@ -5,6 +5,9 @@ import express from 'express'
 const options: any = {
   name: 'Explorer',
   level: 'warn',
+  redact: {
+    paths: ['req.headers', 'res.headers'],
+  },
 }
 if (process.env.EXPLORER_DEV) {
   options['prettyPrint'] = { colorize: true }
