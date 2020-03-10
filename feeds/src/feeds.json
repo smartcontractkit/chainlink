@@ -373,6 +373,20 @@
     "threshold": 2
   },
   {
+    "contractAddress": "0xB836ADc21C241b096A98Dd677eD25a6E3EFA8e94",
+    "name": "XHV / USD",
+    "valuePrefix": "$",
+    "pair": ["XHV", "USD"],
+    "path": "xhv-usd",
+    "contractVersion": 2,
+    "networkId": 1,
+    "history": false,
+    "multiply": "100000000",
+    "decimalPlaces": 9,
+    "sponsored": ["Haven Protocol"],
+    "threshold": 2
+  },
+  {
     "contractAddress": "0xEa7302472d58761582408F8512C24fc5bb8DBB70",
     "name": "BNB / USD",
     "pair": ["BNB", "USD"],
