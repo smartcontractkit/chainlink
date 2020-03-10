@@ -9,6 +9,7 @@ import setprotocol from 'assets/sponsors/setprotocol.png'
 import synthetix from 'assets/sponsors/synthetix.png'
 import dmm from 'assets/sponsors/dmm.png'
 import bzx from 'assets/sponsors/bzx.png'
+import haven from 'assets/sponsors/haven.png'
 
 import ReactGA from 'react-ga'
 
@@ -58,6 +59,11 @@ const list = [
     name: 'bZx',
     url: 'https://bzx.network',
     src: bzx,
+  },
+  {
+    name: 'Haven Protocol',
+    url: 'https://havenprotocol.org',
+    src: haven,
   },
 ]
 
