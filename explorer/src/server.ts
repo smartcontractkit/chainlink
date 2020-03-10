@@ -73,7 +73,7 @@ const server = (port: number = DEFAULT_PORT): http.Server => {
   bootstrapRealtime(httpServer)
 
   return httpServer.listen(port, () => {
-    logger.info(`server started, listening on port ${port}`)
+    logger.info(`Server started, listening on port ${port}`)
   })
 }
 
