@@ -8,6 +8,7 @@ import (
 	"ingester/logger"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 )
@@ -55,16 +56,28 @@ func NewApplication(config *Config) (*Application, error) {
 	go func() {
 		logger.Debug("Listening for logs")
 		for log := range logChan {
-			logger.Debugw("Got Log",
-				"address", log.Address.Hex(),
-				"topics", log.Topics,
-				"data", log.Data,
-				"blockNumber", log.BlockNumber,
-				"txHash", log.TxHash,
-				"txIndex", log.TxIndex,
-				"blockHash", log.BlockHash,
-				"index", log.Index,
-				"removed", log.Removed)
+			address := make([]byte, 20)
+			copy(address, log.Address[:])
+
+			topics := make([]byte, len(log.Topics)*len(common.Hash{}))
+			for index, topic := range log.Topics {
+				copy(topics[index*len(common.Hash{}):], topic.Bytes())
+			}
+
+			logger.Debugw("Oberved new log", "blockHash", log.BlockHash, "index", log.Index, "removed", log.Removed)
+			_, err := pool.Exec(`INSERT INTO "ethereum_log" ("address", "topics", "data", "blockNumber", "txHash", "txIndex", "blockHash", "index", "removed") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				address,
+				topics,
+				log.Data,
+				log.BlockNumber,
+				log.TxHash.Bytes(),
+				log.TxIndex,
+				log.BlockHash.Bytes(),
+				log.Index,
+				log.Removed)
+			if err != nil {
+				logger.Errorw("Insert failed", "error", err)
+			}
 		}
 	}()
 
@@ -80,8 +93,9 @@ func NewApplication(config *Config) (*Application, error) {
 			nonce := make([]byte, 8)
 			copy(nonce, head.Nonce[:])
 
-			logger.Debugw("Got head", "head", head)
-			_, err := pool.Exec(`INSERT INTO "ethereum_head" (parent_hash, uncle_hash, coinbase, root, tx_hash, receipt_hash, bloom, difficulty, number, gas_limit, gas_used, time, extra, mix_digest, nonce) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);`,
+			logger.Debugw("Observed new head", "blockHeight", head.Number, "blockHash", head.Hash())
+			_, err := pool.Exec(`INSERT INTO "ethereum_head" ("blockHash", "parentHash", "uncleHash", "coinbase", "root", "txHash", "receiptHash", "bloom", "difficulty", "number", "gasLimit", "gasUsed", "time", "extra", "mixDigest", "nonce") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);`,
+				head.Hash().Bytes(),
 				head.ParentHash,
 				head.UncleHash,
 				head.Coinbase,

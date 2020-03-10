@@ -53,6 +53,7 @@ export function request<
 > {
   return (...args: TApiArgs) => {
     return dispatch => {
+      console.log('dispatch', dispatch)
       dispatch({ type: `REQUEST_${type}` })
 
       return requestData(...args)

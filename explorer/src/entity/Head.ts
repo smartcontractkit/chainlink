@@ -55,6 +55,9 @@ export class Head {
 
   @Column('bytea')
   public nonce: Buffer
+
+  @Column()
+  createdAt: Date
 }
 
 @Entity({ name: 'ethereum_log' })
@@ -85,4 +88,7 @@ export class Log {
 
   @Column()
   public removed: boolean
+
+  @Column()
+  createdAt: Date
 }

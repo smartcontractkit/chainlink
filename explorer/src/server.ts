@@ -60,6 +60,7 @@ const server = (port: number = DEFAULT_PORT): http.Server => {
     controllers.adminLogin,
     controllers.adminLogout,
     controllers.adminNodes,
+    controllers.adminHeads,
   ]
   ADMIN_CONTROLLERS.forEach(c => app.use('/api/v1/admin', c))
 
