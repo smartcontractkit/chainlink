@@ -70,7 +70,7 @@ function NetworkGraphInfo({
         <div className="network-graph-info__item--label">
           Deviation Threshold{' '}
           <TooltipQuestion
-            title={`Deviation percentage in price required to trigger an update`}
+            title={`A new trusted answer is written when the price moves more than the deviation threshold`}
           />
         </div>
         <h2 className="network-graph-info__item--value">
