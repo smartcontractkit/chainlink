@@ -408,7 +408,8 @@
     "multiply": "100000000",
     "decimalPlaces": 9,
     "sponsored": ["Haven Protocol"],
-    "threshold": 2
+    "threshold": 2,
+    "compare_offchain": "https://www.coingecko.com/en/coins/haven/usd"
   },
   {
     "contractAddress": "0xEa7302472d58761582408F8512C24fc5bb8DBB70",
