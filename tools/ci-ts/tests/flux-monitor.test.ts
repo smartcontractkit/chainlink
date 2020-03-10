@@ -38,11 +38,11 @@ async function assertJobRun(
   count: number,
   errorMessage: string,
 ) {
-  await assertAsync(async () => {
-    const jobRuns = await clClient.getJobRuns()
+  await assertAsync(() => {
+    const jobRuns = clClient.getJobRuns()
     const jobRun = jobRuns[jobRuns.length - 1]
     return (
-      (await clClient.getJobRuns()).length === count &&
+      clClient.getJobRuns().length === count &&
       jobRun.status === 'completed' &&
       jobRun.jobId === jobId
     )
@@ -56,8 +56,8 @@ describe('flux monitor eth client integration', () => {
   let node1Address: string
 
   beforeAll(async () => {
-    await clClient.login()
-    node1Address = (await clClient.getAdminInfo())[0].address
+    clClient.login()
+    node1Address = clClient.getAdminInfo()[0].address
     await fundAddress(carol.address)
     await fundAddress(node1Address)
     linkToken = await linkTokenFactory.deploy()
@@ -65,7 +65,7 @@ describe('flux monitor eth client integration', () => {
   })
 
   afterEach(async () => {
-    await clClient.archiveJob(job.id)
+    clClient.archiveJob(job.id)
     await changePriceFeed(100) // original price
   })
 
@@ -98,23 +98,23 @@ describe('flux monitor eth client integration', () => {
       'Unable to fund FluxAggregator',
     )
 
-    const initialJobCount = (await clClient.getJobs()).length
-    const initialRunCount = (await clClient.getJobRuns()).length
+    const initialJobCount = clClient.getJobs().length
+    const initialRunCount = clClient.getJobRuns().length
 
     // create FM job
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
-    job = await clClient.createJob(JSON.stringify(fluxMonitorJob))
-    assert.equal((await clClient.getJobs()).length, initialJobCount + 1)
+    job = clClient.createJob(JSON.stringify(fluxMonitorJob))
+    assert.equal(clClient.getJobs().length, initialJobCount + 1)
 
     // Job should trigger initial FM run
     await assertJobRun(job.id, initialRunCount + 1, 'initial job never run')
-    matchers.bigNum(await fluxAggregator.latestAnswer(), 10000)
+    matchers.bigNum(10000, await fluxAggregator.latestAnswer())
 
     // Nominally change price feed
     await changePriceFeed(101)
     await wait(10000)
     assert.equal(
-      (await clClient.getJobRuns()).length,
+      clClient.getJobRuns().length,
       initialRunCount + 1,
       'Flux Monitor should not run job after nominal price deviation',
     )
@@ -122,6 +122,6 @@ describe('flux monitor eth client integration', () => {
     // Significantly change price feed
     await changePriceFeed(110)
     await assertJobRun(job.id, initialRunCount + 2, 'second job never run')
-    matchers.bigNum(await fluxAggregator.latestAnswer(), 11000)
+    matchers.bigNum(11000, await fluxAggregator.latestAnswer())
   })
 })
