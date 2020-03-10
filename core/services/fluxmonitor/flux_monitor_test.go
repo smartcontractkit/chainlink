@@ -207,7 +207,7 @@ func TestPollingDeviationChecker_PollHappy(t *testing.T) {
 	require.NoError(t, err)
 
 	rm := new(mocks.RunManager)
-	rm.On("Create", job.ID, &initr, mock.AnythingOfType("*big.Int"), mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+	rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
 		return runRequest.RequestParams == data
 	})).Return(&run, nil)
 
