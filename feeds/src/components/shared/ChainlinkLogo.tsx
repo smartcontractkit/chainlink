@@ -1,6 +1,16 @@
 import React from 'react'
 
-const ChainlinkLogo = ({ width = 37.8, height = 43.6, fill = '#375BD2' }) => {
+interface Props {
+  width: number
+  height: number
+  fill: string
+}
+
+const ChainlinkLogo: React.FC<Props> = ({
+  width = 37.8,
+  height = 43.6,
+  fill = '#375BD2',
+}) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

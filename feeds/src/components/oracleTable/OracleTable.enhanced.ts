@@ -5,7 +5,7 @@ import {
   aggregationOperations,
 } from 'state/ducks/aggregation'
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state: any) => ({
   networkGraphNodes: aggregationSelectors.networkGraphNodes(state),
   networkGraphState: aggregationSelectors.networkGraphState(state),
   ethGasPrice: state.aggregation.ethGasPrice,

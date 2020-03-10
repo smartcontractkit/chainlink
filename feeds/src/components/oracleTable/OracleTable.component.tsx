@@ -2,15 +2,30 @@ import React, { useEffect, useState } from 'react'
 import _ from 'lodash'
 import { Table, Icon } from 'antd'
 import { humanizeUnixTimestamp } from 'utils'
+/* import { DispatchBinding } from '@chainlink/ts-helpers' */
 
-const OracleTable = ({
+interface StateProps {
+  networkGraphState: any
+  networkGraphNodes: any
+  fetchEthGasPrice: any
+  ethGasPrice: any
+}
+
+interface DispatchProps {
+  fetchEthGasPrice: any
+  /* fetchEthGasPrice: DispatchBinding<typeof aggregationOperations.fetchEthGasPrice> */
+}
+
+export interface Props extends StateProps, DispatchProps {}
+
+const OracleTable: React.FC<Props> = ({
   networkGraphState,
   networkGraphNodes,
   fetchEthGasPrice,
   ethGasPrice,
 }) => {
-  const [data, setData] = useState()
-  const [gasPrice, setGasPrice] = useState()
+  const [data, setData] = useState<any | undefined>()
+  const [gasPrice, setGasPrice] = useState<any | undefined>()
 
   useEffect(() => {
     fetchEthGasPrice()
@@ -24,8 +39,8 @@ const OracleTable = ({
 
   useEffect(() => {
     const mergedData = networkGraphNodes
-      .filter(node => node.type === 'oracle')
-      .map(oracle => {
+      .filter((node: any) => node.type === 'oracle')
+      .map((oracle: any) => {
         const state = _.find(networkGraphState, { sender: oracle.address })
         return {
           oracle,
@@ -41,16 +56,16 @@ const OracleTable = ({
       title: 'Oracle',
       dataIndex: 'oracle.name',
       key: 'name',
-      sorter: (a, b) =>
+      sorter: (a: any, b: any): number =>
         a.oracle.name.localeCompare(b && b.oracle && b.oracle.name),
     },
+
     {
       title: 'Answer',
       dataIndex: 'state.responseFormatted',
       key: 'answer',
-      sorter: (a, b) => {
-        if (!a.state || !b.state) return
-
+      sorter: (a: any, b: any): number => {
+        if (!a.state || !b.state) return 0
         return a.state.responseFormatted - b.state.responseFormatted
       },
     },
@@ -58,17 +73,21 @@ const OracleTable = ({
       title: 'Gas Price (Gwei)',
       dataIndex: 'state.meta.gasPrice',
       key: 'gas',
-      sorter: (a, b) => {
-        if (!a.state || !b.state) return
+      sorter: (a: any, b: any): number => {
+        if (!a.state || !b.state) return 0
         return a.state.meta.gasPrice - b.state.meta.gasPrice
       },
-      defaultSortOrder: 'descend',
+      defaultSortOrder: 'descend' as 'descend',
     },
     {
       title: 'Date',
       dataIndex: 'state.meta.timestamp',
       key: 'timestamp',
-      render: timestamp => humanizeUnixTimestamp(timestamp),
+      sorter: (a: any, b: any): number => {
+        if (!a.state || !b.state) return 0
+        return a.state.meta.gasPrice - b.state.meta.gasPrice
+      },
+      render: (timestamp: number) => humanizeUnixTimestamp(timestamp),
     },
   ]
 
