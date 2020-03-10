@@ -49,6 +49,8 @@ export class TypeOrmLogger implements Logger {
   }
 
   public log(level: 'log' | 'info' | 'warn', message: any): any {
-    logger[level]({ msg: `TypeORM: ${message}` })
+    const output =
+      typeof message === 'object' ? JSON.stringify(1, null, message) : message
+    logger[level]({ msg: `TypeORM: ${output}` })
   }
 }
