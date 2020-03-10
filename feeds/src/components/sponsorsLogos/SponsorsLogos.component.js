@@ -8,6 +8,7 @@ import openlaw from 'assets/sponsors/openlaw.png'
 import setprotocol from 'assets/sponsors/setprotocol.png'
 import synthetix from 'assets/sponsors/synthetix.png'
 import dmm from 'assets/sponsors/dmm.png'
+import bzx from 'assets/sponsors/bzx.png'
 
 import ReactGA from 'react-ga'
 
@@ -52,6 +53,11 @@ const list = [
     name: 'DMM',
     url: 'https://defimoneymarket.com',
     src: dmm,
+  },
+  {
+    name: 'bZx',
+    url: 'https://bzx.network',
+    src: bzx,
   },
 ]
 
