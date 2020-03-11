@@ -2,9 +2,7 @@ package eth
 
 import (
 	"context"
-	"fmt"
 	"math/big"
-	"strings"
 
 	"chainlink/core/assets"
 	"chainlink/core/utils"
@@ -12,8 +10,6 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 )
 
 const (
@@ -26,15 +22,11 @@ const (
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
+	CallerSubscriber
 	LogSubscriber
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
-	GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error)
-	GetAggregatorLatestRound(address common.Address) (*big.Int, error)
-	GetAggregatorReportingRound(address common.Address) (*big.Int, error)
-	GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error)
-	GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
@@ -124,176 +116,6 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 	}
 	numLinkBigInt.SetString(result, 0)
 	return numLinkBigInt, nil
-}
-
-var dec10 = decimal.NewFromInt(10)
-
-func newBigIntFromString(arg string) (*big.Int, error) {
-	if arg == "0x" {
-		// Oddly a legal value for zero
-		arg = "0x0"
-	}
-	ret, ok := new(big.Int).SetString(arg, 0)
-	if !ok {
-		return nil, fmt.Errorf("cannot convert '%s' to big int", arg)
-	}
-	return ret, nil
-}
-
-func newDecimalFromString(arg string) (decimal.Decimal, error) {
-	if strings.HasPrefix(arg, "0x") {
-		// decimal package does not parse Hex values
-		value, err := newBigIntFromString(arg)
-		if err != nil {
-			return decimal.Zero, fmt.Errorf("cannot convert '%s' to decimal", arg)
-		}
-		return decimal.NewFromString(value.Text(10))
-	}
-	return decimal.NewFromString(arg)
-}
-
-// GetAggregatorPrice returns the current price at the given aggregator address.
-func (client *CallerSubscriberClient) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
-	aggregator, err := GetV6Contract(FluxAggregatorName)
-	if err != nil {
-		return decimal.Decimal{}, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
-	}
-	data, err := aggregator.EncodeMessageCall("latestAnswer")
-	if err != nil {
-		return decimal.Decimal{}, errors.Wrap(err, "unable to encode latestAnswer message for contract "+FluxAggregatorName)
-	}
-
-	var result string
-	args := CallArgs{
-		To:   address,
-		Data: data,
-	}
-	err = client.Call(&result, "eth_call", args, "latest")
-	if err != nil {
-		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
-	}
-	raw, err := newDecimalFromString(result)
-	if err != nil {
-		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator price from %s", address.Hex()))
-	}
-	precisionDivisor := dec10.Pow(decimal.NewFromInt32(precision))
-	return raw.Div(precisionDivisor), nil
-}
-
-// GetAggregatorLatestRound returns the latest round at the given aggregator address.
-func (client *CallerSubscriberClient) GetAggregatorLatestRound(address common.Address) (*big.Int, error) {
-	aggregator, err := GetV6Contract(FluxAggregatorName)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
-	}
-	data, err := aggregator.EncodeMessageCall("latestRound")
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator latest round from %s", address.Hex()))
-	}
-
-	var result string
-	args := CallArgs{To: address, Data: data}
-	err = client.Call(&result, "eth_call", args, "latest")
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator latest round from %s", address.Hex()))
-	}
-
-	round, err := newBigIntFromString(result)
-	if err != nil {
-		return nil, errors.Wrapf(
-			fmt.Errorf("unable to parse int from %s", result),
-			"unable to fetch aggregator round from %s", address.Hex())
-	}
-	return round, nil
-}
-
-// GetAggregatorReportingRound returns the reporting round at the given aggregator address.
-func (client *CallerSubscriberClient) GetAggregatorReportingRound(address common.Address) (*big.Int, error) {
-	aggregator, err := GetV6Contract(FluxAggregatorName)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
-	}
-	data, err := aggregator.EncodeMessageCall("reportingRound")
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator reporting round from %s", address.Hex()))
-	}
-
-	var result string
-	args := CallArgs{To: address, Data: data}
-	err = client.Call(&result, "eth_call", args, "latest")
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unable to fetch aggregator reporting round from %s", address.Hex()))
-	}
-
-	round, err := newBigIntFromString(result)
-	if err != nil {
-		return nil, errors.Wrapf(
-			fmt.Errorf("unable to parse int from %s", result),
-			"unable to fetch aggregator round from %s", address.Hex())
-	}
-	return round, nil
-}
-
-// GetAggregatorTimedOutStatus returns the a boolean indicating whether the provided round has timed out or not
-func (client *CallerSubscriberClient) GetAggregatorTimedOutStatus(address common.Address, round *big.Int) (bool, error) {
-	errMessage := fmt.Sprintf("unable to fetch aggregator timed out status from %s", address.Hex())
-
-	aggregator, err := GetV6Contract(FluxAggregatorName)
-	if err != nil {
-		return false, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
-	}
-	data, err := aggregator.EncodeMessageCall("getTimedOutStatus", round)
-	if err != nil {
-		return false, errors.Wrap(err, errMessage+"- unable to encode message call")
-	}
-
-	var result bool
-	args := CallArgs{To: address, Data: data}
-	err = client.Call(&result, "eth_call", args, "latest")
-	if err != nil {
-		return false, errors.Wrap(err, errMessage)
-	}
-
-	return result, nil
-}
-
-// GetAggregatorLatestSubmission returns the latest submission as a tuple, (answer, round)
-// for a given oracle address.
-func (client *CallerSubscriberClient) GetAggregatorLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
-	errMessage := fmt.Sprintf("unable to fetch latest submission for %s from %s", oracleAddress.Hex(), aggregatorAddress.Hex())
-	aggregator, err := GetV6Contract(FluxAggregatorName)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to get contract "+FluxAggregatorName)
-	}
-	data, err := aggregator.EncodeMessageCall("latestSubmission", oracleAddress)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, errMessage+"- unable to encode message call")
-	}
-
-	var result string
-	args := CallArgs{To: aggregatorAddress, Data: data}
-	err = client.Call(&result, "eth_call", args, "latest")
-	if err != nil {
-		return nil, nil, errors.Wrap(err, errMessage+"- unable to call client")
-	}
-
-	method, exists := aggregator.ABI.Methods["latestSubmission"]
-	if !exists {
-		return nil, nil, errors.New(errMessage + "- cannot find method latestSubmission on ABI")
-	}
-
-	resultBytes, err := hexutil.Decode(result)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, errMessage+"- unable to decode result")
-	}
-
-	values, err := method.Outputs.UnpackValues(resultBytes)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, errMessage+"- unable to unpack values")
-	}
-	latestAnswer := values[0].(*big.Int)
-	lastReportedRound := values[1].(*big.Int)
-	return latestAnswer, lastReportedRound, nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.

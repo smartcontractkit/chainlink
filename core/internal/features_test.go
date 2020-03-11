@@ -871,8 +871,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		mock.Register("eth_call", "10000") // 10,000 cents
-		mock.Register("eth_call", "0x1")   // aggregator round: 1
+		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "10000")) // 10,000 cents
+		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "1"))     // aggregator round: 1
 	})
 
 	// Have server respond with 102 for price when FM checks external price
@@ -909,7 +909,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	eth.Context("ethTx.Perform() for safe", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 		eth.Register("eth_getBalance", "0x100")
-		eth.Register("eth_call", "0x100")
+		eth.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "256"))
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(10)}
 
@@ -944,8 +944,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		mock.Register("eth_call", "10000") // 10,000 cents
-		mock.Register("eth_call", "0x1")   // aggregator round: 1
+		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "10000")) // 10,000 cents
+		mock.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "1"))     // aggregator round: 1
 	})
 
 	// Have price adapter server respond with 100 for price on initialization,

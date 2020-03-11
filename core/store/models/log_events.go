@@ -28,10 +28,11 @@ const (
 )
 
 // Descriptive indices of the FluxAggregator's NewRound Topic Array:
-// event NewRound(uint256 indexed roundId, address indexed startedBy);
+// event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
 const (
 	NewRoundTopicSignature = iota
 	NewRoundTopicRoundID
+	NewRoundTopicStartedBy
 )
 
 const (
@@ -74,6 +75,12 @@ var (
 	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
 	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
 	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "NewRound")
+	// AggregatorRoundDetailsUpdatedLogTopic20191220 is the RoundDetailsUpdated filter topic for
+	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
+	AggregatorRoundDetailsUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "RoundDetailsUpdated")
+	// AggregatorAnswerUpdatedLogTopic20191220 is the AnswerUpdated filter topic for
+	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
+	AggregatorAnswerUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "AnswerUpdated")
 )
 
 type logRequestParser interface {
@@ -149,8 +156,6 @@ func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err
 		// [][]common.Hash) clarifies their type for reflect.DeepEqual
 		q.Topics = make([][]common.Hash, len(i.Topics))
 		copy(q.Topics, i.Topics)
-	case i.Type == InitiatorFluxMonitor:
-		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
 	case initiationRequiresJobSpecID(i.Type):
 		q.Topics = [][]common.Hash{
 			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetContract(t *testing.T) {
+func TestGetContractCodec(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -23,7 +23,7 @@ func TestGetContract(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			contract, err := GetContract(test.contract)
+			contract, err := GetContractCodec(test.contract)
 			if test.expectErr {
 				assert.Error(t, err)
 				assert.Nil(t, contract)
@@ -41,11 +41,11 @@ var address common.Address = common.HexToAddress(
 
 // NB: This test needs a compiled oracle contract, which can be built with
 // `yarn workspace chainlink run setup` in the base project directory.
-func TestContract_EncodeMessageCall(t *testing.T) {
+func TestContractCodec_EncodeMessageCall(t *testing.T) {
 	t.Parallel()
 
 	// Test with the Oracle contract
-	oracle, err := GetContract("Oracle")
+	oracle, err := GetContractCodec("Oracle")
 	require.NoError(t, err)
 	require.NotNil(t, oracle)
 
@@ -56,11 +56,11 @@ func TestContract_EncodeMessageCall(t *testing.T) {
 
 // NB: This test needs a compiled oracle contract, which can be built with
 // `yarn workspace chainlink run setup` in the base project directory.
-func TestContract_EncodeMessageCall_errors(t *testing.T) {
+func TestContractCodec_EncodeMessageCall_errors(t *testing.T) {
 	t.Parallel()
 
 	// Test with the Oracle contract
-	oracle, err := GetContract("Oracle")
+	oracle, err := GetContractCodec("Oracle")
 	require.NoError(t, err)
 	require.NotNil(t, oracle)
 
