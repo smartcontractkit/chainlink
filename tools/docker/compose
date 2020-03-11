@@ -47,8 +47,8 @@ Commands:
     dev:integration | di  Run docker-compose with dev config for integration tests
     dev                   Run docker-compose with dev config for the core node and operator-ui
 
-    eth:clean             Reset blockchain data to genesis state
-    cl:clean              Reset chainlink database
+    eth:restart             Reset blockchain data to genesis state
+    cl:restart              Reset chainlink database
 
     *                     Run docker-compose with base config"
 

@@ -103,8 +103,20 @@ export async function deployContract<T extends DeployFactory>(
 
 export async function wait(ms: number) {
   return new Promise(res => {
-    setTimeout(() => res(), ms)
+    setTimeout(res, ms)
   })
+}
+
+export async function waitForService(endpoint: string, timeout = 20000) {
+  await assertAsync(
+    async () => {
+      return fetch(endpoint)
+        .then(() => true)
+        .catch(() => false)
+    },
+    `${endpoint} is unreachable after ${timeout}ms`,
+    timeout,
+  )
 }
 
 /**
