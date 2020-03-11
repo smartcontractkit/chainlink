@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,10 +12,18 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
+
+	"github.com/avast/retry-go"
+)
+
+const (
+	httpDefaultTimeout  = 15 * time.Second
+	httpDefaultAttempts = uint(5)
 )
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
@@ -137,7 +146,9 @@ func sendRequest(input models.RunInput, request *http.Request, limit int64) mode
 		DisableCompression: true,
 	}
 	client := &http.Client{Transport: tr}
-	response, err := client.Do(request)
+
+	response, err := withRetry(client, request)
+
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -156,6 +167,30 @@ func sendRequest(input models.RunInput, request *http.Request, limit int64) mode
 	}
 
 	return models.NewRunOutputCompleteWithResult(responseBody)
+}
+
+func withRetry(client *http.Client, originalRequest *http.Request) (*http.Response, error) {
+	var response *http.Response
+	err := retry.Do(
+		func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), httpDefaultTimeout)
+			defer cancel()
+			requestWithTimeout := originalRequest.Clone(ctx)
+
+			r, err := client.Do(requestWithTimeout)
+			if err != nil {
+				return err
+			}
+			response = r
+			return nil
+		},
+		retry.Attempts(httpDefaultAttempts),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 // maxBytesReader is inspired by
