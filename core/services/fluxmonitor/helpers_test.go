@@ -1,7 +1,6 @@
 package fluxmonitor
 
 import (
-	"chainlink/core/eth"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -20,12 +19,12 @@ func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
 	impl.checkerFactory = fac
 }
 
-func (p *PollingDeviationChecker) ExportedFetchAggregatorData(client eth.Client) error {
-	return p.fetchAggregatorData(client)
+func (p *PollingDeviationChecker) ExportedFetchAggregatorData() error {
+	return p.fetchAggregatorData()
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToNewRound(log eth.Log) error {
-	return p.respondToNewRound(log)
+func (p *PollingDeviationChecker) ExportedRespondToLog(log interface{}) (bool, bool, error) {
+	return p.respondToLog(log)
 }
 
 func (p *PollingDeviationChecker) ExportedPoll() (bool, error) {
