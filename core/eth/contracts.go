@@ -14,7 +14,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type Contract interface {
+type ContractCodec interface {
 	ABI() abi.ABI
 	GetMethodID(method string) ([]byte, error)
 	EncodeMessageCall(method string, args ...interface{}) ([]byte, error)
@@ -22,11 +22,11 @@ type Contract interface {
 }
 
 // Contract holds the solidity contract's parsed ABI
-type contract struct {
+type contractCodec struct {
 	abi abi.ABI
 }
 
-func getContract(name string, box packr.Box) (Contract, error) {
+func getContractCodec(name string, box packr.Box) (ContractCodec, error) {
 	jsonFile, err := box.Find(name + ".json")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read contract JSON")
@@ -38,7 +38,7 @@ func getContract(name string, box packr.Box) (Contract, error) {
 		return nil, err
 	}
 
-	return &contract{abiParsed}, nil
+	return &contractCodec{abiParsed}, nil
 }
 
 // GetContract loads the contract JSON file from ../../evm-contracts/abi/v0.4
@@ -47,9 +47,9 @@ func getContract(name string, box packr.Box) (Contract, error) {
 // NB: These contracts can be built by running
 //    yarn setup:contracts
 // in the base project directory.
-func GetContract(name string) (Contract, error) {
+func GetContractCodec(name string) (ContractCodec, error) {
 	box := packr.NewBox("../../evm-contracts/abi/v0.4")
-	return getContract(name, box)
+	return getContractCodec(name, box)
 }
 
 // GetV6Contract loads the contract JSON file from ../../evm-contracts/abi/v0.6
@@ -58,19 +58,19 @@ func GetContract(name string) (Contract, error) {
 // NB: These contracts can be built by running
 //    yarn setup:contracts
 // in the base project directory.
-func GetV6Contract(name string) (Contract, error) {
+func GetV6ContractCodec(name string) (ContractCodec, error) {
 	box := packr.NewBox("../../evm-contracts/abi/v0.6")
-	return getContract(name, box)
+	return getContractCodec(name, box)
 }
 
-func (contract *contract) ABI() abi.ABI {
+func (contract *contractCodec) ABI() abi.ABI {
 	return contract.abi
 }
 
 // EncodeMessageCall encodes method name and arguments into a byte array
 // to conform with the contract's ABI
-func (contract *contract) EncodeMessageCall(method string, args ...interface{}) ([]byte, error) {
-	return contract.abi.Pack(method, args...)
+func (cc *contractCodec) EncodeMessageCall(method string, args ...interface{}) ([]byte, error) {
+	return cc.abi.Pack(method, args...)
 }
 
 // GetMethodID returns the first 4 bytes of the keccak256 hash of the method
@@ -83,8 +83,8 @@ func (contract *contract) EncodeMessageCall(method string, args ...interface{}) 
 // * foo(uint,uint)
 // The method name of the first one will be resolved as foo while the second one
 // will be resolved as foo0.
-func (contract *contract) GetMethodID(method string) ([]byte, error) {
-	mabi, found := contract.abi.Methods[method]
+func (cc *contractCodec) GetMethodID(method string) ([]byte, error) {
+	mabi, found := cc.abi.Methods[method]
 	if !found {
 		return []byte{}, errors.New("unable to find contract method " + method)
 	}
@@ -94,35 +94,35 @@ func (contract *contract) GetMethodID(method string) ([]byte, error) {
 // MustGetV6ContractEventID finds the event for the given contract by searching
 // embedded contract assets from evm/, or panics if not found.
 func MustGetV6ContractEventID(name, eventName string) common.Hash {
-	contract, err := GetV6Contract(name)
+	cc, err := GetV6ContractCodec(name)
 	if err != nil {
 		logger.Panic(fmt.Errorf("unable to find contract %s", name))
 	}
 
-	event, found := contract.ABI().Events[eventName]
+	event, found := cc.ABI().Events[eventName]
 	if !found {
 		logger.Panic(fmt.Errorf("unable to find event %s for contract %s", eventName, name))
 	}
 	return event.ID()
 }
 
-func (contract *contract) UnpackLog(out interface{}, event string, log Log) error {
-	return gethUnpackLog(contract, out, event, log)
+func (cc *contractCodec) UnpackLog(out interface{}, event string, log Log) error {
+	return gethUnpackLog(cc, out, event, log)
 }
 
 type ConnectedContract interface {
-	Contract
+	ContractCodec
 	Call(result interface{}, methodName string, args ...interface{}) error
 }
 
 type connectedContract struct {
-	Contract
+	ContractCodec
 	ethClient Client
 	address   common.Address
 }
 
-func NewConnectedContract(contract Contract, ethClient Client, address common.Address) ConnectedContract {
-	return &connectedContract{contract, ethClient, address}
+func NewConnectedContract(cc ContractCodec, ethClient Client, address common.Address) ConnectedContract {
+	return &connectedContract{cc, ethClient, address}
 }
 
 func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) error {

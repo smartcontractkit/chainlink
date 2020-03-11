@@ -462,7 +462,7 @@ func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*assets.
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
 func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	oracle, err := eth.GetContract("Oracle")
+	oracle, err := eth.GetContractCodec("Oracle")
 	if err != nil {
 		return common.Hash{}, err
 	}

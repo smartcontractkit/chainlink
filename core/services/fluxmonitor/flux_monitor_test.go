@@ -457,7 +457,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
 		{"equal", uint64(currentRound)},
 	}
 
-	faABI, err := eth.GetV6Contract(eth.FluxAggregatorName)
+	faABI, err := eth.GetV6ContractCodec(eth.FluxAggregatorName)
 	require.NoError(t, err)
 
 	for _, test := range tests {
@@ -516,7 +516,7 @@ func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
 		return runRequest.RequestParams == data
 	})).Return(nil, nil) // only round 6 triggers run.
 
-	faABI, err := eth.GetV6Contract(eth.FluxAggregatorName)
+	faABI, err := eth.GetV6ContractCodec(eth.FluxAggregatorName)
 	require.NoError(t, err)
 
 	log := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
