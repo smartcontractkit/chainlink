@@ -41,4 +41,4 @@ services:
     entrypoint: ''
     command: chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
     environment:
-      ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688,http://integration:3000,http://integration:6688,http://node:3000,http://node:6688
+      ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688,http://ts-integration:3000,http://ts-integration:6688,http://node:3000,http://node:6688
