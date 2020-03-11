@@ -21,8 +21,10 @@ fi
 base="docker-compose $base_files" # base config, used standalone for acceptance
 dev="$base -f docker-compose.dev.yaml" # config for cldev
 test="$base -f docker-compose.integration.yaml" # config to run integration tests
+ts_test="$base -f docker-compose.ts-integration.yaml" # config to run integration tests in typescript
 deps="$test -f docker-compose.deps.yaml" # config to bring up integration test dependencies
 dev_integration="$test -f docker-compose.dev-integration.yaml" # config to run integration tests in dev mode
+dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config to run integration tests in dev mode
 
 usage="compose -- A helper script for running common docker-compose commands\
 
@@ -38,6 +40,8 @@ Commands:
 
     test                  Run integration test suite
     test:dev              Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
+    test:ts               Run integration test suite in typescript (WIP)
+    test:ts:dev           Run integration test suite with /tools/ci-ts bind-mounted (WIP)
 
     integration | i       Run docker-compose with config for integration tests
     dev:integration | di  Run docker-compose with dev config for integration tests
@@ -58,6 +62,7 @@ case "$1" in
     $test down -v
     $deps down -v
     $dev_integration down -v
+    $ts_test down -v
     ;;
   logs)
     $base logs -f ${@:2}
@@ -92,7 +97,21 @@ case "$1" in
     $dev_integration up --exit-code-from integration
     $dev_integration down -v
     ;;
-
+  test:ts)
+    $ts_test build $DOCKER_COMPOSE_BUILD_OPTS
+    $deps up --exit-code-from wait-db wait-db
+    $ts_test run integration-ts /bin/sh -c \
+      "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
+      && yarn workspace @chainlink/ci-ts test ${@:2}"
+    $ts_test down -v
+    ;;
+  test:ts:dev)
+    $deps up --exit-code-from wait-db wait-db
+    $dev_ts_integration run integration-ts /bin/sh -c \
+      "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
+      && yarn workspace @chainlink/ci-ts test ${@:2}"
+    $dev_ts_integration down -v
+    ;;
   integration | i)
     $test ${@:2}
     ;;
