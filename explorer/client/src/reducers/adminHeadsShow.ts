@@ -35,10 +35,15 @@ export const adminHeadsShow: Reducer<State, Actions> = (
 ) => {
   switch (action.type) {
     case 'FETCH_ADMIN_HEAD_SUCCEEDED': {
-      return action.data.head
+      console.log('!!!!!!!!! FETCH_ADMIN_HEAD_SUCCEEDED: %o', action)
+      return action.data.heads
+    }
+    case 'FETCH_ADMIN_HEAD_ERROR': {
+      console.log('!!!!!!!! FETCH ADMIN HEAD ERROR: %o', action)
+      return state
     }
     default: {
-      console.log('FETCH_ADMIN_HEAD (default): %o', action)
+      console.log('adminHeadsShow reducer (default): %o', action)
       return state
     }
   }
