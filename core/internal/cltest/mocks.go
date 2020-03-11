@@ -69,7 +69,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 // EthMock is a mock ethereum client
 type EthMock struct {
 	Responses      []MockResponse
-	Subscriptions  []MockSubscription
+	Subscriptions  []*MockSubscription
 	newHeadsCalled bool
 	logsCalled     bool
 	mutex          sync.RWMutex
@@ -231,7 +231,7 @@ func assignResult(result, response interface{}) error {
 }
 
 // RegisterSubscription register a mock subscription to the given name and channels
-func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) MockSubscription {
+func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) *MockSubscription {
 	var channel interface{}
 	if len(channels) > 0 {
 		channel = channels[0]
@@ -239,7 +239,7 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 		channel = channelFromSubscriptionName(name)
 	}
 
-	sub := MockSubscription{
+	sub := &MockSubscription{
 		name:    name,
 		channel: channel,
 		Errors:  make(chan error, 1),
@@ -288,7 +288,7 @@ func (mock *EthMock) Subscribe(
 		return EmptyMockSubscription(), nil
 	} else if args[0] == "logs" && !mock.logsCalled {
 		mock.logsCalled = true
-		return MockSubscription{
+		return &MockSubscription{
 			channel: make(chan eth.Log),
 			Errors:  make(chan error),
 		}, nil
@@ -334,21 +334,30 @@ func fwdHeaders(actual, mock interface{}) {
 
 // MockSubscription a mock subscription
 type MockSubscription struct {
-	name    string
-	channel interface{}
-	Errors  chan error
+	mut          sync.Mutex
+	name         string
+	channel      interface{}
+	unsubscribed bool
+	Errors       chan error
 }
 
 // EmptyMockSubscription return empty MockSubscription
-func EmptyMockSubscription() MockSubscription {
-	return MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
+func EmptyMockSubscription() *MockSubscription {
+	return &MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
 }
 
 // Err returns error channel from mes
-func (mes MockSubscription) Err() <-chan error { return mes.Errors }
+func (mes *MockSubscription) Err() <-chan error { return mes.Errors }
 
 // Unsubscribe closes the subscription
-func (mes MockSubscription) Unsubscribe() {
+func (mes *MockSubscription) Unsubscribe() {
+	mes.mut.Lock()
+	defer mes.mut.Unlock()
+
+	if mes.unsubscribed {
+		return
+	}
+	mes.unsubscribed = true
 	switch mes.channel.(type) {
 	case chan struct{}:
 		close(mes.channel.(chan struct{}))
