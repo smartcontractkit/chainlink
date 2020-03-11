@@ -43,7 +43,7 @@ func TestWithdrawalsController_CreateSuccess(t *testing.T) {
 
 	subscription := cltest.EmptyMockSubscription()
 	txManager := new(mocks.TxManager)
-	txManager.On("SubscribeToNewHeads", mock.Anything).Maybe().Return(subscription, nil)
+	txManager.On("SubscribeToNewHeads", mock.Anything, mock.Anything).Maybe().Return(subscription, nil)
 	txManager.On("GetChainID").Maybe().Return(big.NewInt(3), nil)
 	txManager.On("Register", mock.Anything).Return(big.NewInt(3), nil)
 	txManager.On("ContractLINKBalance", wr).Return(*wr.Amount, nil)

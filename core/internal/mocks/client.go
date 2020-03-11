@@ -8,6 +8,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	context "context"
+
 	decimal "github.com/shopspring/decimal"
 
 	eth "chainlink/core/eth"
@@ -322,13 +324,13 @@ func (_m *Client) SendRawTx(hex string) (common.Hash, error) {
 	return r0, r1
 }
 
-// SubscribeToLogs provides a mock function with given fields: channel, q
-func (_m *Client) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
-	ret := _m.Called(channel, q)
+// SubscribeToLogs provides a mock function with given fields: ctx, channel, q
+func (_m *Client) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
+	ret := _m.Called(ctx, channel, q)
 
 	var r0 eth.Subscription
-	if rf, ok := ret.Get(0).(func(chan<- eth.Log, ethereum.FilterQuery) eth.Subscription); ok {
-		r0 = rf(channel, q)
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- eth.Log, ethereum.FilterQuery) eth.Subscription); ok {
+		r0 = rf(ctx, channel, q)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(eth.Subscription)
@@ -336,8 +338,8 @@ func (_m *Client) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(chan<- eth.Log, ethereum.FilterQuery) error); ok {
-		r1 = rf(channel, q)
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- eth.Log, ethereum.FilterQuery) error); ok {
+		r1 = rf(ctx, channel, q)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -345,13 +347,13 @@ func (_m *Client) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery
 	return r0, r1
 }
 
-// SubscribeToNewHeads provides a mock function with given fields: channel
-func (_m *Client) SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.Subscription, error) {
-	ret := _m.Called(channel)
+// SubscribeToNewHeads provides a mock function with given fields: ctx, channel
+func (_m *Client) SubscribeToNewHeads(ctx context.Context, channel chan<- eth.BlockHeader) (eth.Subscription, error) {
+	ret := _m.Called(ctx, channel)
 
 	var r0 eth.Subscription
-	if rf, ok := ret.Get(0).(func(chan<- eth.BlockHeader) eth.Subscription); ok {
-		r0 = rf(channel)
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- eth.BlockHeader) eth.Subscription); ok {
+		r0 = rf(ctx, channel)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(eth.Subscription)
@@ -359,8 +361,8 @@ func (_m *Client) SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.Subsc
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(chan<- eth.BlockHeader) error); ok {
-		r1 = rf(channel)
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- eth.BlockHeader) error); ok {
+		r1 = rf(ctx, channel)
 	} else {
 		r1 = ret.Error(1)
 	}

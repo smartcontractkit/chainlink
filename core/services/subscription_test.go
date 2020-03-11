@@ -356,7 +356,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
-			txManager.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
+			txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
 			txManager.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
@@ -421,7 +421,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			log := receipt.Logs[3]
 			log.Topics[1] = models.IDToTopic(job.ID)
 
-			txmMock.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
+			txmMock.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
 			txmMock.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
