@@ -98,10 +98,9 @@ func checkFilePermissions(directory string) error {
 			if err != nil {
 				return err
 			}
-			fileMode := info.Mode()
-			// bitwise &^ used to check if file has any invalid permissions
+			fileMode := info.Mode().Perm()
 			if fileMode&^ownerPermsMask != 0 && !fileMode.IsDir() {
-				return fmt.Errorf("%s has overly permissive file permissions, %s", path, fileMode.String())
+				return fmt.Errorf("%s has overly permissive file permissions, should be atleast %s", path, ownerPermsMask)
 			}
 			return nil
 		})
