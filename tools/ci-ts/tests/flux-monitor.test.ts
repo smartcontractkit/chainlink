@@ -6,7 +6,6 @@ import {
   wait,
   createProvider,
   fundAddress,
-  waitForService,
 } from '../test-helpers/common'
 import * as clClient from '../test-helpers/chainlink-cli'
 import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
@@ -15,10 +14,7 @@ import { JobSpec } from '../../../operator_ui/@types/operator_ui'
 import 'isomorphic-unfetch'
 import { ethers } from 'ethers'
 
-const { EXTERNAL_ADAPTER_URL, CHAINLINK_URL } = getArgs([
-  'EXTERNAL_ADAPTER_URL',
-  'CHAINLINK_URL',
-])
+const { EXTERNAL_ADAPTER_URL } = getArgs(['EXTERNAL_ADAPTER_URL'])
 
 const provider = createProvider()
 const carol = ethers.Wallet.createRandom().connect(provider)
@@ -61,7 +57,6 @@ describe('flux monitor eth client integration', () => {
   let node1Address: string
 
   beforeAll(async () => {
-    await waitForService(CHAINLINK_URL)
     clClient.login()
     node1Address = clClient.getAdminInfo()[0].address
     await fundAddress(carol.address)

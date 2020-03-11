@@ -107,13 +107,18 @@ export async function wait(ms: number) {
   })
 }
 
+/**
+ * Makes a simple get request to an endpoint and ensures the service responds.
+ * Status code doesn't matter - just ensures the service is running.
+ * @param endpoint the url of the service
+ * @param timeout the time to wait before erroring
+ */
 export async function waitForService(endpoint: string, timeout = 20000) {
   await assertAsync(
-    async () => {
-      return fetch(endpoint)
+    async () =>
+      fetch(endpoint)
         .then(() => true)
-        .catch(() => false)
-    },
+        .catch(() => false),
     `${endpoint} is unreachable after ${timeout}ms`,
     timeout,
   )
