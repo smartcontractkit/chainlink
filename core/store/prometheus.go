@@ -5,6 +5,7 @@ import (
 	"chainlink/core/eth"
 	"chainlink/core/logger"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -23,7 +24,12 @@ var promETHBalance = promauto.NewGaugeVec(
 
 func updatePrometheusEthBalance(balance *assets.Eth, from common.Address) {
 	balanceFloat, err := approximateFloat64(balance)
-	logger.ErrorIf(err)
+
+	if err != nil {
+		logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
+		return
+	}
+
 	promETHBalance.WithLabelValues(from.Hex()).Set(balanceFloat)
 }
 
