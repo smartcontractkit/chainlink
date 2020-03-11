@@ -16,7 +16,7 @@ cd tools/docker
 
 ```sh
 # from the git repo root
-cd tools/cypressJobServer
+cd tools/cypress-job-server
 docker build -t cjs -f Dockerfile ../..
 # The flags passed make it so our services from the acceptance environment
 # are able to reach this server via the cypress-job-server name.
