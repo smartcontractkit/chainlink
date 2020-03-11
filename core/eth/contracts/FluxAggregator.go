@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"context"
 	"math/big"
 
 	"chainlink/core/eth"
@@ -17,7 +18,7 @@ import (
 
 type FluxAggregator interface {
 	eth.ConnectedContract
-	SubscribeToLogs(fromBlock *big.Int) (LogSubscription, error)
+	SubscribeToLogs(ctx context.Context, fromBlock *big.Int) (LogSubscription, error)
 	LatestAnswer(precision int32) (decimal.Decimal, error)
 	LatestRound() (*big.Int, error)
 	ReportingRound() (*big.Int, error)
@@ -55,15 +56,15 @@ type LogAnswerUpdated struct {
 }
 
 func NewFluxAggregator(ethClient eth.Client, address common.Address) (FluxAggregator, error) {
-	contract, err := eth.GetV6Contract(eth.FluxAggregatorName)
+	codec, err := eth.GetV6ContractCodec(eth.FluxAggregatorName)
 	if err != nil {
 		return nil, err
 	}
-	connectedContract := eth.NewConnectedContract(contract, ethClient, address)
+	connectedContract := eth.NewConnectedContract(codec, ethClient, address)
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
-func (fa *fluxAggregator) SubscribeToLogs(fromBlock *big.Int) (LogSubscription, error) {
+func (fa *fluxAggregator) SubscribeToLogs(ctx context.Context, fromBlock *big.Int) (LogSubscription, error) {
 	var (
 		filterQuery = ethereum.FilterQuery{
 			FromBlock: fromBlock,
@@ -74,7 +75,7 @@ func (fa *fluxAggregator) SubscribeToLogs(fromBlock *big.Int) (LogSubscription, 
 		chRawLogs = make(chan eth.Log)
 	)
 
-	subscription, err := fa.ethClient.SubscribeToLogs(chRawLogs, filterQuery)
+	subscription, err := fa.ethClient.SubscribeToLogs(ctx, chRawLogs, filterQuery)
 	if err != nil {
 		return nil, err
 	}

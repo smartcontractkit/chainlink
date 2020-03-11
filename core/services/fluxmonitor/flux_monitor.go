@@ -400,7 +400,9 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) error {
 		return err
 	}
 
-	roundSubscription, err := p.fluxAggregator.SubscribeToLogs(nil)
+	ctx, p.cancel = context.WithCancel(ctx)
+
+	roundSubscription, err := p.fluxAggregator.SubscribeToLogs(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -410,7 +412,6 @@ func (p *PollingDeviationChecker) Start(ctx context.Context) error {
 		return err
 	}
 
-	ctx, p.cancel = context.WithCancel(ctx)
 	go p.consume(ctx, roundSubscription)
 	return nil
 }
@@ -484,7 +485,7 @@ func (p *PollingDeviationChecker) respondToLog(log interface{}) (roundStarted bo
 	case contracts.LogAnswerUpdated:
 		return false, true, p.respondToAnswerUpdatedLog(log)
 	default:
-		panic("got unknown log")
+		return false, false, nil
 	}
 }
 

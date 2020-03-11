@@ -9,6 +9,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	context "context"
+
 	contracts "chainlink/core/eth/contracts"
 
 	decimal "github.com/shopspring/decimal"
@@ -202,13 +204,13 @@ func (_m *FluxAggregator) ReportingRound() (*big.Int, error) {
 	return r0, r1
 }
 
-// SubscribeToLogs provides a mock function with given fields: fromBlock
-func (_m *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (contracts.LogSubscription, error) {
-	ret := _m.Called(fromBlock)
+// SubscribeToLogs provides a mock function with given fields: ctx, fromBlock
+func (_m *FluxAggregator) SubscribeToLogs(ctx context.Context, fromBlock *big.Int) (contracts.LogSubscription, error) {
+	ret := _m.Called(ctx, fromBlock)
 
 	var r0 contracts.LogSubscription
-	if rf, ok := ret.Get(0).(func(*big.Int) contracts.LogSubscription); ok {
-		r0 = rf(fromBlock)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) contracts.LogSubscription); ok {
+		r0 = rf(ctx, fromBlock)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(contracts.LogSubscription)
@@ -216,8 +218,8 @@ func (_m *FluxAggregator) SubscribeToLogs(fromBlock *big.Int) (contracts.LogSubs
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
-		r1 = rf(fromBlock)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, fromBlock)
 	} else {
 		r1 = ret.Error(1)
 	}
