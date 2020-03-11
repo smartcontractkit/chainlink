@@ -538,7 +538,8 @@ func (p *PollingDeviationChecker) subscribeToNewRounds(client eth.Client) (eth.S
 		return nil, err
 	}
 
-	subscription, err := client.SubscribeToLogs(p.newRounds, filterQuery)
+	ctx := context.Background()
+	subscription, err := client.SubscribeToLogs(ctx, p.newRounds, filterQuery)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -246,8 +247,9 @@ func (ht *HeadTracker) subscribeToHead() error {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
+	ctx := context.Background()
 	ht.headers = make(chan eth.BlockHeader)
-	sub, err := ht.store.TxManager.SubscribeToNewHeads(ht.headers)
+	sub, err := ht.store.TxManager.SubscribeToNewHeads(ctx, ht.headers)
 	if err != nil {
 		return errors.Wrap(err, "TxManager#SubscribeToNewHeads")
 	}

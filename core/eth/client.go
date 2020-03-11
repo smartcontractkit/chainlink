@@ -39,13 +39,13 @@ type Client interface {
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
 	GetChainID() (*big.Int, error)
-	SubscribeToNewHeads(channel chan<- BlockHeader) (Subscription, error)
+	SubscribeToNewHeads(ctx context.Context, channel chan<- BlockHeader) (Subscription, error)
 }
 
 // LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
 type LogSubscriber interface {
 	GetLogs(q ethereum.FilterQuery) ([]Log, error)
-	SubscribeToLogs(channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
+	SubscribeToLogs(ctx context.Context, channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
 }
 
 //go:generate mockery -name Subscription -output ../internal/mocks/ -case=underscore
@@ -61,6 +61,8 @@ type Subscription interface {
 type CallerSubscriberClient struct {
 	CallerSubscriber
 }
+
+var _ Client = (*CallerSubscriberClient)(nil)
 
 //go:generate mockery -name CallerSubscriber -output ../internal/mocks/ -case=underscore
 
@@ -328,20 +330,20 @@ func (client *CallerSubscriberClient) GetChainID() (*big.Int, error) {
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
 func (client *CallerSubscriberClient) SubscribeToLogs(
+	ctx context.Context,
 	channel chan<- Log,
 	q ethereum.FilterQuery,
 ) (Subscription, error) {
 	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
-	ctx := context.Background()
 	sub, err := client.Subscribe(ctx, channel, "logs", utils.ToFilterArg(q))
 	return sub, err
 }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (client *CallerSubscriberClient) SubscribeToNewHeads(
+	ctx context.Context,
 	channel chan<- BlockHeader,
 ) (Subscription, error) {
-	ctx := context.Background()
 	sub, err := client.Subscribe(ctx, channel, "newHeads")
 	return sub, err
 }
