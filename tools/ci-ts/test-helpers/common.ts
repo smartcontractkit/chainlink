@@ -103,8 +103,25 @@ export async function deployContract<T extends DeployFactory>(
 
 export async function wait(ms: number) {
   return new Promise(res => {
-    setTimeout(() => res(), ms)
+    setTimeout(res, ms)
   })
+}
+
+/**
+ * Makes a simple get request to an endpoint and ensures the service responds.
+ * Status code doesn't matter - just ensures the service is running.
+ * @param endpoint the url of the service
+ * @param timeout the time in milliseconds to wait before erroring
+ */
+export async function waitForService(endpoint: string, timeout = 20000) {
+  await assertAsync(
+    async () =>
+      fetch(endpoint)
+        .then(() => true)
+        .catch(() => false),
+    `${endpoint} is unreachable after ${timeout}ms`,
+    timeout,
+  )
 }
 
 /**

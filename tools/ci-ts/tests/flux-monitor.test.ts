@@ -14,11 +14,12 @@ import {
   wait,
 } from '../test-helpers/common'
 
+const { EXTERNAL_ADAPTER_URL } = getArgs(['EXTERNAL_ADAPTER_URL'])
+
 const provider = createProvider()
 const carol = ethers.Wallet.createRandom().connect(provider)
 const linkTokenFactory = new contract.LinkTokenFactory(carol)
 const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
-const { EXTERNAL_ADAPTER_URL } = getArgs(['EXTERNAL_ADAPTER_URL'])
 const adapterURL = new URL('result', EXTERNAL_ADAPTER_URL).href
 const deposit = h.toWei('1000')
 
