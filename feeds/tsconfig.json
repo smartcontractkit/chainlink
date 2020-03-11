@@ -4,20 +4,12 @@
     "baseUrl": "src",
     "noEmit": true,
     "allowJs": true,
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": [
-    "src",
-    "src/**/*.json",
-    "@types"
-  ],
+  "include": ["src", "src/**/*.json", "@types"],
   "references": [
     { "path": "../tools/redux" },
     { "path": "../tools/ts-helpers" }

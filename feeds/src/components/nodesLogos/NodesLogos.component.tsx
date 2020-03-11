@@ -30,8 +30,14 @@ import validationcapital from 'assets/nodes/validationcapital.png'
 import watez from 'assets/nodes/watez.png'
 import ztake from 'assets/nodes/ztake.png'
 
+interface Node {
+  name: string
+  url: string
+  src: string
+}
+
 const grid = { xs: 12, sm: 8, md: 6, lg: 4 }
-const list = [
+const list: Node[] = [
   {
     name: 'LinkPool',
     url: 'https://linkpool.io',
@@ -82,7 +88,6 @@ const list = [
     url: 'https://everstake.one',
     src: everstake,
   },
-
   {
     name: 'Fiews',
     url: 'https://fiews.io',
@@ -123,25 +128,21 @@ const list = [
     url: 'https://p2p.org',
     src: p2p,
   },
-
   {
     name: 'AlphaVantage',
     url: 'https://www.alphavantage.co',
     src: alphavantage,
   },
-
   {
     name: 'SNZPool',
     url: 'https://snzholding.com',
     src: snz,
   },
-
   {
     name: 'SDL',
     url: 'https://www.securedatalinks.com',
     src: sdl,
   },
-
   {
     name: 'HoneyComb',
     url: 'https://honeycomb.market',
@@ -184,7 +185,11 @@ const list = [
   },
 ]
 
-const Logo = ({ item }) => (
+interface LogoProps {
+  item: Node
+}
+
+const Logo: React.FC<LogoProps> = ({ item }) => (
   <a
     className="logo-item grayscale"
     href={item.url}
@@ -205,7 +210,7 @@ const NodesLogos = () => (
     <h3>Decentralized and Operated By</h3>
     <div className="logos">
       <Row gutter={18} type="flex" justify="space-around">
-        {list.map((node, i) => (
+        {list.map((node: Node, i: number) => (
           <Col key={i} {...grid}>
             <Logo item={node} />
           </Col>

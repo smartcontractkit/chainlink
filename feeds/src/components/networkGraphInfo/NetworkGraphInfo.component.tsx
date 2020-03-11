@@ -5,8 +5,25 @@ import Percent from './Percent.component'
 import Legend from './Legend.component'
 import TooltipQuestion from '../shared/TooltipQuestion'
 import { humanizeUnixTimestamp, networkName, Networks } from 'utils'
+import { FeedConfig } from 'feeds'
 
-function NetworkGraphInfo({
+interface OwnProps {
+  options: FeedConfig
+}
+
+interface StateProps {
+  currentAnswer: any
+  requestTime: any
+  minimumResponses: any
+  oracleResponse: any
+  oracles: any
+  updateHeight: any
+  pendingAnswerId: any
+}
+
+export interface Props extends OwnProps, StateProps {}
+
+const NetworkGraphInfo: React.FC<Props> = ({
   currentAnswer,
   requestTime,
   minimumResponses,
@@ -15,7 +32,7 @@ function NetworkGraphInfo({
   updateHeight,
   options,
   pendingAnswerId,
-}) {
+}) => {
   const updateTime = updateHeight
     ? humanizeUnixTimestamp(updateHeight, 'h:mm A')
     : '...'
@@ -29,7 +46,7 @@ function NetworkGraphInfo({
       return '...'
     }
 
-    const responended = oracleResponse.filter(r => {
+    const responended = oracleResponse.filter((r: any) => {
       return r.answerId >= pendingAnswerId
     })
 
