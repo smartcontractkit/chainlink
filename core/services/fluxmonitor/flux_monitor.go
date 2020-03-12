@@ -494,7 +494,7 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log contracts.LogAns
 }
 
 func (p *PollingDeviationChecker) respondToRoundDetailsUpdatedLog(log contracts.LogRoundDetailsUpdated) error {
-	p.roundTimeout = time.Duration(log.Timeout.Int64()) * time.Second
+	p.roundTimeout = time.Duration(log.Timeout) * time.Second
 	return nil
 }
 

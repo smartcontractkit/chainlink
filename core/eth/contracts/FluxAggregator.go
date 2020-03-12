@@ -41,16 +41,16 @@ type LogNewRound struct {
 
 type LogRoundDetailsUpdated struct {
 	PaymentAmount  *big.Int
-	MinAnswerCount *big.Int
-	MaxAnswerCount *big.Int
-	RestartDelay   *big.Int
-	Timeout        *big.Int
+	MinAnswerCount uint32
+	MaxAnswerCount uint32
+	RestartDelay   uint32
+	Timeout        uint32
 	Address        common.Address
 }
 
 type LogAnswerUpdated struct {
 	Current   *big.Int
-	RoundID   *big.Int
+	RoundId   *big.Int
 	Timestamp *big.Int
 	Address   common.Address
 }

@@ -249,3 +249,63 @@ func TestFluxAggregatorClient_LatestSubmission(t *testing.T) {
 		})
 	}
 }
+
+func TestFluxAggregatorClient_DecodesLogs(t *testing.T) {
+	fa, err := contracts.NewFluxAggregator(nil, common.Address{})
+	require.NoError(t, err)
+
+	newRoundLogRaw := cltest.LogFromFixture(t, "../../services/testdata/new_round_log.json")
+	var newRoundLog contracts.LogNewRound
+	err = fa.UnpackLog(&newRoundLog, "NewRound", newRoundLogRaw)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), newRoundLog.RoundId.Int64())
+	require.Equal(t, common.HexToAddress("f17f52151ebef6c7334fad080c5704d77216b732"), newRoundLog.StartedBy)
+	require.Equal(t, int64(15), newRoundLog.StartedAt.Int64())
+
+	type BadLogNewRound struct {
+		RoundID   *big.Int
+		StartedBy common.Address
+		StartedAt *big.Int
+	}
+	var badNewRoundLog BadLogNewRound
+	err = fa.UnpackLog(&badNewRoundLog, "NewRound", newRoundLogRaw)
+	require.Error(t, err)
+
+	answerUpdatedLogRaw := cltest.LogFromFixture(t, "../../services/testdata/answer_updated_log.json")
+	var answerUpdatedLog contracts.LogAnswerUpdated
+	err = fa.UnpackLog(&answerUpdatedLog, "AnswerUpdated", answerUpdatedLogRaw)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), answerUpdatedLog.Current.Int64())
+	require.Equal(t, int64(2), answerUpdatedLog.RoundId.Int64())
+	require.Equal(t, int64(3), answerUpdatedLog.Timestamp.Int64())
+
+	type BadLogAnswerUpdated struct {
+		Current   *big.Int
+		RoundID   *big.Int
+		Timestamp *big.Int
+	}
+	var badAnswerUpdatedLog BadLogAnswerUpdated
+	err = fa.UnpackLog(&badAnswerUpdatedLog, "AnswerUpdated", answerUpdatedLogRaw)
+	require.Error(t, err)
+
+	roundDetailsUpdatedLogRaw := cltest.LogFromFixture(t, "../../services/testdata/round_details_updated_log.json")
+	var roundDetailsUpdatedLog contracts.LogRoundDetailsUpdated
+	err = fa.UnpackLog(&roundDetailsUpdatedLog, "RoundDetailsUpdated", roundDetailsUpdatedLogRaw)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), roundDetailsUpdatedLog.PaymentAmount.Int64())
+	require.Equal(t, uint32(2), roundDetailsUpdatedLog.MinAnswerCount)
+	require.Equal(t, uint32(3), roundDetailsUpdatedLog.MaxAnswerCount)
+	require.Equal(t, uint32(4), roundDetailsUpdatedLog.RestartDelay)
+	require.Equal(t, uint32(5), roundDetailsUpdatedLog.Timeout)
+
+	type BadLogRoundDetailsUpdated struct {
+		Paymentamount  *big.Int
+		MinAnswerCount uint32
+		MaxAnswerCount uint32
+		RestartDelay   uint32
+		Timeout        uint32
+	}
+	var badRoundDetailsUpdatedLog BadLogRoundDetailsUpdated
+	err = fa.UnpackLog(&badRoundDetailsUpdatedLog, "RoundDetailsUpdated", roundDetailsUpdatedLogRaw)
+	require.Error(t, err)
+}
