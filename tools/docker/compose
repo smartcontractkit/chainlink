@@ -125,6 +125,7 @@ case "$1" in
     ;;
   test:ts:dev)
     $deps up --exit-code-from wait-db wait-db
+    $deps up --exit-code-from wait-db-2 wait-db-2
     $dev_ts_integration run integration-ts /bin/sh -c \
       "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
       && yarn workspace @chainlink/ci-ts test ${@:2}"

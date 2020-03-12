@@ -113,7 +113,7 @@ export async function wait(ms: number) {
  * @param endpoint the url of the service
  * @param timeout the time in milliseconds to wait before erroring
  */
-export async function waitForService(endpoint: string, timeout = 20000) {
+export async function waitForService(endpoint: string, timeout = 30000) {
   await assertAsync(
     async () =>
       fetch(endpoint)
@@ -126,7 +126,7 @@ export async function waitForService(endpoint: string, timeout = 20000) {
 
 /**
  * assertAsync asserts that a condition is evantually met, with a
- * default timeout of 20 seconds
+ * default timeout of 30 seconds
  * @param f function to run every second and check for truthy return value
  * @param errorMessage error message to print if unseccessful
  * @param timeout timeout
@@ -134,7 +134,7 @@ export async function waitForService(endpoint: string, timeout = 20000) {
 export async function assertAsync(
   f: () => boolean | Promise<boolean>,
   errorMessage: string,
-  timeout = 20000,
+  timeout = 30000,
 ) {
   return new Promise((res, rej) => {
     // eslint-disable-next-line
@@ -177,5 +177,9 @@ export async function fundAddress(to: string, ether = 1000) {
     to,
     value: ethers.utils.parseEther(ether.toString()),
   })
+  await tx.wait()
+}
+
+export async function txWait(tx: ethers.ContractTransaction): Promise<void> {
   await tx.wait()
 }
