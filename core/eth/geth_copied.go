@@ -47,6 +47,12 @@ func parseTopics(out interface{}, fields abi.Arguments, topics []common.Hash) er
 		if !arg.Indexed {
 			return errors.New("non-indexed field in topic reconstruction")
 		}
+
+		_, exists := reflect.TypeOf(out).Elem().FieldByName(capitalise(arg.Name))
+		if !exists {
+			return errors.Errorf(`can't find matching struct field for log "%T", field "%v" (expected "%v")`, out, arg.Name, capitalise(arg.Name))
+		}
+
 		field := reflect.ValueOf(out).Elem().FieldByName(capitalise(arg.Name))
 
 		// Try to parse the topic back into the fields based on primitive types
