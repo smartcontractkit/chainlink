@@ -568,6 +568,7 @@ func (txm *EthTxManager) processAttempt(
 	attemptIndex int,
 	blockHeight uint64,
 ) (*eth.TxReceipt, AttemptState, error) {
+	jobRunID := tx.SurrogateID.ValueOrZero()
 	txAttempt := tx.Attempts[attemptIndex]
 
 	receipt, state, err := txm.CheckAttempt(txAttempt, blockHeight)
@@ -585,6 +586,7 @@ func (txm *EthTxManager) processAttempt(
 			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
 			"currentBlockNumber", blockHeight,
 			"receiptHash", receipt.Hash.Hex(),
+			"jobRunId", jobRunID,
 		)
 
 		return receipt, state, nil
@@ -597,6 +599,7 @@ func (txm *EthTxManager) processAttempt(
 				"txAttemptLimit", attemptLimit,
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
+				"jobRunId", jobRunID,
 			)
 			return receipt, state, nil
 		}
@@ -607,6 +610,7 @@ func (txm *EthTxManager) processAttempt(
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
 				"currentBlockNumber", blockHeight,
+				"jobRunId", jobRunID,
 			)
 			err = txm.bumpGas(tx, attemptIndex, blockHeight)
 		} else {
@@ -614,6 +618,7 @@ func (txm *EthTxManager) processAttempt(
 				fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
+				"jobRunId", jobRunID,
 			)
 		}
 
@@ -624,6 +629,7 @@ func (txm *EthTxManager) processAttempt(
 			fmt.Sprintf("Tx #%d is %s, error fetching receipt", attemptIndex, state),
 			"txHash", txAttempt.Hash.String(),
 			"txID", txAttempt.TxID,
+			"jobRunId", jobRunID,
 			"error", err,
 		)
 		return nil, Unknown, errors.Wrap(err, "processAttempt CheckAttempt failed")
