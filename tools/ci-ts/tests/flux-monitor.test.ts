@@ -4,8 +4,8 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import 'isomorphic-unfetch'
 import { JobSpec } from '../../../operator_ui/@types/operator_ui'
+import ChainlinkClient from '../test-helpers/chainlink-cli'
 import fluxMonitorJob from '../fixtures/flux-monitor-job'
-import * as clClient from '../test-helpers/chainlink-cli'
 import {
   assertAsync,
   createProvider,
@@ -22,6 +22,11 @@ const linkTokenFactory = new contract.LinkTokenFactory(carol)
 const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
 const adapterURL = new URL('result', EXTERNAL_ADAPTER_URL).href
 const deposit = h.toWei('1000')
+
+const [node1URL, node2URL] = ['http://node:6688', 'http://node-2:6688']
+const clClient = new ChainlinkClient()
+
+console.log(node2URL)
 
 async function changePriceFeed(value: number) {
   const response = await fetch(adapterURL, {
@@ -40,15 +45,21 @@ async function assertJobRun(
   errorMessage: string,
 ) {
   await assertAsync(() => {
-    const jobRuns = clClient.getJobRuns()
+    const jobRuns = clClient.connect(node1URL).getJobRuns()
     const jobRun = jobRuns[jobRuns.length - 1]
     return (
-      clClient.getJobRuns().length === count &&
+      clClient.connect(node1URL).getJobRuns().length === count &&
       jobRun.status === 'completed' &&
       jobRun.jobId === jobId
     )
   }, errorMessage)
 }
+
+describe('test', () => {
+  it('works', () => {
+    assert(true)
+  })
+})
 
 describe('flux monitor eth client integration', () => {
   let linkToken: contract.Instance<contract.LinkTokenFactory>
@@ -57,16 +68,16 @@ describe('flux monitor eth client integration', () => {
   let node1Address: string
 
   beforeAll(async () => {
-    clClient.login()
-    node1Address = clClient.getAdminInfo()[0].address
-    await fundAddress(carol.address, 5)
-    await fundAddress(node1Address, 5)
+    clClient.connect(node1URL).login()
+    node1Address = clClient.connect(node1URL).getAdminInfo()[0].address
+    await fundAddress(carol.address)
+    await fundAddress(node1Address)
     linkToken = await linkTokenFactory.deploy()
     await linkToken.deployed()
   })
 
   afterEach(async () => {
-    clClient.archiveJob(job.id)
+    clClient.connect(node1URL).archiveJob(job.id)
     await changePriceFeed(100) // original price
   })
 
@@ -100,13 +111,16 @@ describe('flux monitor eth client integration', () => {
       'Unable to fund FluxAggregator',
     )
 
-    const initialJobCount = clClient.getJobs().length
-    const initialRunCount = clClient.getJobRuns().length
+    const initialJobCount = clClient.connect(node1URL).getJobs().length
+    const initialRunCount = clClient.connect(node1URL).getJobRuns().length
 
     // create FM job
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
-    job = clClient.createJob(JSON.stringify(fluxMonitorJob))
-    assert.equal(clClient.getJobs().length, initialJobCount + 1)
+    job = clClient.connect(node1URL).createJob(JSON.stringify(fluxMonitorJob))
+    assert.equal(
+      clClient.connect(node1URL).getJobs().length,
+      initialJobCount + 1,
+    )
 
     // Job should trigger initial FM run
     await assertJobRun(job.id, initialRunCount + 1, 'initial job never run')
@@ -116,7 +130,7 @@ describe('flux monitor eth client integration', () => {
     await changePriceFeed(101)
     await wait(10000)
     assert.equal(
-      clClient.getJobRuns().length,
+      clClient.connect(node1URL).getJobRuns().length,
       initialRunCount + 1,
       'Flux Monitor should not run job after nominal price deviation',
     )
