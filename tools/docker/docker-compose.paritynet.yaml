@@ -4,6 +4,9 @@ services:
   node:
     depends_on:
       - devnet
+  node-2:
+    depends_on:
+      - devnet
   devnet:
     container_name: parity
     image: smartcontract/devnet@sha256:19d5ae504e012c8dc12278ecb43ddd02b95fba7729af7211adba1bbe333d42f6

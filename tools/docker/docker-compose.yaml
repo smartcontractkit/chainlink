@@ -20,30 +20,57 @@ services:
       - DEFAULT_HTTP_TIMEOUT
       - RUST_BACKTRACE
       - CHAINLINK_DEV
-      - EXPLORER_URL
-      - EXPLORER_ACCESS_KEY
-      - EXPLORER_SECRET
+      # - EXPLORER_URL
+      # - EXPLORER_ACCESS_KEY
+      # - EXPLORER_SECRET
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
     env_file:
       - chainlink-variables.env
     ports:
       - 6688:6688
-    depends_on:
-      - explorer
+    # depends_on:
+    #   - explorer
     secrets:
       - node_password
       - apicredentials
       - keystore
 
-  explorer-db:
-    container_name: chainlink-explorer-db
-    image: postgres:11.6
-    volumes:
-      - explorer-db-data:/var/lib/postgresql/data
+  node-2:
+    container_name: chainlink-node-2
+    image: smartcontract/chainlink
+    build:
+      context: ../../
+      dockerfile: core/chainlink.Dockerfile
+    command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    restart: always
     environment:
-      POSTGRES_DB: $EXPLORER_DB_NAME
-      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
+      - ETH_CHAIN_ID
+      - LOG_LEVEL
+      - ROOT
+      - ETH_URL
+      - MIN_OUTGOING_CONFIRMATIONS
+      - MIN_INCOMING_CONFIRMATIONS
+      - MINIMUM_CONTRACT_PAYMENT
+      - RUST_BACKTRACE
+      - CHAINLINK_DEV
+      # - EXPLORER_URL
+      # - EXPLORER_ACCESS_KEY
+      # - EXPLORER_SECRET
+      # - CHAINLINK_PORT=6699
+      # - CHAINLINK_URL=CHAINLINK_URL=http://node-2:6699
+      - SECURE_COOKIES
+      - CHAINLINK_TLS_PORT
+    env_file:
+      - chainlink-variables.env
+    ports:
+      - 6699:6688
+    # depends_on:
+    #   - explorer
+    secrets:
+      - node_password
+      - apicredentials
+      - keystore
 
   explorer:
     container_name: chainlink-explorer
@@ -65,6 +92,15 @@ services:
       - TYPEORM_HOST
       - PGPASSWORD=$EXPLORER_PGPASSWORD
 
+  explorer-db:
+    container_name: chainlink-explorer-db
+    image: postgres:11.6
+    volumes:
+      - explorer-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: $EXPLORER_DB_NAME
+      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
+
   ingester:
     container_name: chainlink-ingester
     image: chainlink/ingester
@@ -82,6 +118,9 @@ services:
       - DB_PORT=$EXPLORER_DB_PORT
       - DB_USERNAME=$TYPEORM_USERNAME
       - DB_PASSWORD=$EXPLORER_PGPASSWORD
+# TODO
+# - replace clroot with secrets
+# - extract explorer and tools into separate docker-compose files
 
 secrets:
   node_password:
