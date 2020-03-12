@@ -58,7 +58,6 @@ services:
       # - EXPLORER_ACCESS_KEY
       # - EXPLORER_SECRET
       # - CHAINLINK_PORT=6699
-      # - CHAINLINK_URL=CHAINLINK_URL=http://node-2:6699
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
     env_file:
