@@ -22,6 +22,11 @@ var (
 	ErrValueNotSpecified    = errors.New("Value not specified")
 )
 
+// TaskType returns the type of Adapter.
+func (c *Compare) TaskType() models.TaskType {
+	return TaskTypeCompare
+}
+
 // Perform uses the Operator to check the run's result against the
 // specified Value.
 func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutput {

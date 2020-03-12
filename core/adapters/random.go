@@ -49,6 +49,11 @@ type Random struct {
 	PublicKey string `json:"publicKey"`
 }
 
+// TaskType returns the type of Adapter.
+func (ra *Random) TaskType() models.TaskType {
+	return TaskTypeRandom
+}
+
 // Perform returns the the proof for the VRF output given seed, or an error.
 func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunOutput {
 	key, err := getKey(ra, input)
