@@ -14,6 +14,7 @@ import {
   wait,
 } from '../test-helpers/common'
 
+const [node1URL, node2URL] = ['http://node:6688', 'http://node-2:6688']
 const { EXTERNAL_ADAPTER_URL } = getArgs(['EXTERNAL_ADAPTER_URL'])
 
 const provider = createProvider()
@@ -22,11 +23,14 @@ const linkTokenFactory = new contract.LinkTokenFactory(carol)
 const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
 const adapterURL = new URL('result', EXTERNAL_ADAPTER_URL).href
 const deposit = h.toWei('1000')
-
-const [node1URL, node2URL] = ['http://node:6688', 'http://node-2:6688']
-const clClient = new ChainlinkClient()
+const clClient1 = new ChainlinkClient(node1URL)
+const clClient2 = new ChainlinkClient(node2URL)
 
 console.log(node2URL)
+
+let linkToken: contract.Instance<contract.LinkTokenFactory>
+let node1Address: string
+let node2Address: string
 
 async function changePriceFeed(value: number) {
   const response = await fetch(adapterURL, {
@@ -40,48 +44,54 @@ async function changePriceFeed(value: number) {
 }
 
 async function assertJobRun(
+  clClient: ChainlinkClient,
   jobId: string,
   count: number,
   errorMessage: string,
 ) {
   await assertAsync(() => {
-    const jobRuns = clClient.connect(node1URL).getJobRuns()
+    const jobRuns = clClient.getJobRuns()
     const jobRun = jobRuns[jobRuns.length - 1]
     return (
-      clClient.connect(node1URL).getJobRuns().length === count &&
+      clClient.getJobRuns().length === count &&
       jobRun.status === 'completed' &&
       jobRun.jobId === jobId
     )
   }, errorMessage)
 }
 
-describe('test', () => {
-  it('works', () => {
-    assert(true)
-  })
+beforeAll(async () => {
+  clClient1.login()
+  clClient2.login()
+  node1Address = clClient1.getAdminInfo()[0].address
+  node2Address = clClient2.getAdminInfo()[0].address
+  console.log('node1Address', node1Address)
+  console.log('node2Address', node2Address)
+  await fundAddress(carol.address)
+  await fundAddress(node1Address)
+  await fundAddress(node2Address)
+  linkToken = await linkTokenFactory.deploy()
+  await linkToken.deployed()
 })
 
-describe('flux monitor eth client integration', () => {
-  let linkToken: contract.Instance<contract.LinkTokenFactory>
+// describe('test', () => {
+//   it('works', () => {
+//     assert(true)
+//   })
+// })
+
+describe('FluxMonitor / FluxAggregator integration with one node', () => {
   let fluxAggregator: contract.Instance<FluxAggregatorFactory>
   let job: JobSpec
-  let node1Address: string
-
-  beforeAll(async () => {
-    clClient.connect(node1URL).login()
-    node1Address = clClient.connect(node1URL).getAdminInfo()[0].address
-    await fundAddress(carol.address)
-    await fundAddress(node1Address)
-    linkToken = await linkTokenFactory.deploy()
-    await linkToken.deployed()
-  })
 
   afterEach(async () => {
-    clClient.connect(node1URL).archiveJob(job.id)
+    clClient1.archiveJob(job.id)
     await changePriceFeed(100) // original price
   })
 
   it('updates the price with a single node', async () => {
+    const clClient = new ChainlinkClient(node1URL)
+
     fluxAggregator = await fluxAggregatorFactory.deploy(
       linkToken.address,
       1,
@@ -111,34 +121,46 @@ describe('flux monitor eth client integration', () => {
       'Unable to fund FluxAggregator',
     )
 
-    const initialJobCount = clClient.connect(node1URL).getJobs().length
-    const initialRunCount = clClient.connect(node1URL).getJobRuns().length
+    const initialJobCount = clClient1.getJobs().length
+    const initialRunCount = clClient1.getJobRuns().length
 
     // create FM job
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
-    job = clClient.connect(node1URL).createJob(JSON.stringify(fluxMonitorJob))
-    assert.equal(
-      clClient.connect(node1URL).getJobs().length,
-      initialJobCount + 1,
-    )
+    job = clClient1.createJob(JSON.stringify(fluxMonitorJob))
+    assert.equal(clClient1.getJobs().length, initialJobCount + 1)
 
     // Job should trigger initial FM run
-    await assertJobRun(job.id, initialRunCount + 1, 'initial job never run')
+    await assertJobRun(
+      clClient,
+      job.id,
+      initialRunCount + 1,
+      'initial job never run',
+    )
     matchers.bigNum(10000, await fluxAggregator.latestAnswer())
 
     // Nominally change price feed
     await changePriceFeed(101)
     await wait(10000)
     assert.equal(
-      clClient.connect(node1URL).getJobRuns().length,
+      clClient1.getJobRuns().length,
       initialRunCount + 1,
       'Flux Monitor should not run job after nominal price deviation',
     )
 
     // Significantly change price feed
     await changePriceFeed(110)
-    await assertJobRun(job.id, initialRunCount + 2, 'second job never run')
-    await wait(10000)
+    await assertJobRun(
+      clClient,
+      job.id,
+      initialRunCount + 2,
+      'second job never run',
+    )
     matchers.bigNum(11000, await fluxAggregator.latestAnswer())
+  })
+})
+
+describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
+  it.skip('works', () => {
+    assert(true)
   })
 })
