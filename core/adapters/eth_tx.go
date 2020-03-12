@@ -93,7 +93,7 @@ func createTxRunResult(
 		gasLimit,
 	)
 	if IsClientRetriable(err) {
-		return models.NewRunOutputPendingConnection()
+		return pendingConfirmationsOrConnection(input)
 	} else if err != nil {
 		return models.NewRunOutputError(err)
 	}
