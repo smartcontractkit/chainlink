@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -29,7 +30,12 @@ import (
 // if updating DefaultGasLimit, be sure it matches with the
 // DefaultGasLimit specified in evm/test/Oracle_test.js
 const DefaultGasLimit uint64 = 500000
-const nonceReloadLimit int = 1
+
+// Linear backoff is used so worst-case transaction time increases quadratically with this number
+const nonceReloadLimit int = 3
+
+// The base time for the backoff
+const nonceReloadBackoffBaseTime = 3 * time.Second
 
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
@@ -230,7 +236,7 @@ func (txm *EthTxManager) createTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
-	for nrc := 0; nrc <= nonceReloadLimit; nrc++ {
+	for nrc := 0; nrc < nonceReloadLimit+1; nrc++ {
 		tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
 		if err == nil {
 			return tx, nil
@@ -241,8 +247,16 @@ func (txm *EthTxManager) createTx(
 		}
 
 		logger.Warnw(
-			"Tx #0: nonce too low, retrying with network nonce",
-			"nonce", tx.Nonce, "error", err.Error(),
+			"Tx #0: another tx with this nonce already exists, will retry with network nonce",
+			"nonce", tx.Nonce, "gasPriceWei", gasPriceWei, "gasLimit", gasLimit, "error", err.Error(),
+		)
+
+		// Linear backoff
+		time.Sleep(time.Duration(nrc+1) * nonceReloadBackoffBaseTime)
+
+		logger.Warnw(
+			"Tx #0: another tx with this nonce already exists, retrying with network nonce",
+			"nonce", tx.Nonce, "gasPriceWei", gasPriceWei, "gasLimit", gasLimit, "error", err.Error(),
 		)
 
 		err = ma.ReloadNonce(txm)
@@ -313,9 +327,10 @@ func (txm *EthTxManager) sendInitialTx(
 }
 
 var (
-	nonceTooLowRegex = regexp.MustCompile("(nonce .*too low|same hash was already imported)")
+	nonceTooLowRegex = regexp.MustCompile("(nonce .*too low|same hash was already imported|replacement transaction underpriced)")
 )
 
+// FIXME: There are probably other types of errors here that are symptomatic of a nonce that is too low
 func isNonceTooLowError(err error) bool {
 	return err != nil && nonceTooLowRegex.MatchString(err.Error())
 }

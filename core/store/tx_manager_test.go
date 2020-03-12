@@ -270,6 +270,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 		ethClientErrorMsg string
 	}{
 		{"geth", "nonce too low"},
+		{"geth", "replacement transaction underpriced"},
 		{"parity", "Transaction nonce is too low. Try incrementing the nonce"},
 		{"parity", "Transaction with the same hash was already imported"},
 	}
@@ -338,12 +339,12 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	err = manager.Connect(cltest.Head(nonce))
 	require.NoError(t, err)
 
-	ethClient.On("SendRawTx", mock.Anything).Twice().Return(nil, errors.New("nonce is too low"))
+	ethClient.On("SendRawTx", mock.Anything).Times(4).Return(nil, errors.New("nonce is too low"))
 
 	to := cltest.NewAddress()
 	data := hexutil.MustDecode("0x0000abcdef")
 	_, err = manager.CreateTx(to, data)
-	assert.EqualError(t, err, "Transaction reattempt limit reached for 'nonce is too low' error. Limit: 1")
+	assert.EqualError(t, err, "Transaction reattempt limit reached for 'nonce is too low' error. Limit: 3")
 
 	ethClient.AssertExpectations(t)
 }
