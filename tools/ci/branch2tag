@@ -2,6 +2,16 @@
 
 set -e
 
+# Extracts a docker tag from a passed in git branch name
+# branch2tag <branch>
+# ie:
+# branch2tag develop -> develop
+# branch2tag master -> master
+# branch2tag release/explorer -> candidate-explorer
+# branch2tag release/explorer-v0.1.0 -> candidate-explorer
+# branch2tag release/chainlink -> candidate-chainlink
+# branch2tag hello -> unknown
+
 branch=`echo $1 | awk '{print tolower($0)}'`
 if [ "${branch}" = "develop" ]; then
   echo develop
