@@ -16,6 +16,7 @@ services:
       - node
       - node-2
       - external-adapter
+      - external-adapter-2
     environment:
       - SRCROOT
       - GETH_MODE
@@ -35,6 +36,17 @@ services:
       dockerfile: tools/external-adapter/Dockerfile
     ports:
       - '6644:6644'
+    environment:
+      - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
+
+  external-adapter-2:
+    container_name: external-adapter-2
+    image: smartcontract/external-adapter
+    build:
+      context: ../../
+      dockerfile: tools/external-adapter/Dockerfile
+    ports:
+      - '6645:6644'
     environment:
       - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
 
