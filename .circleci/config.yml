@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   go-postgres:
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -34,7 +34,7 @@ jobs:
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: ./tools/ci/rust_test
@@ -72,7 +72,7 @@ jobs:
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -91,7 +91,7 @@ jobs:
           path: ./integration/logs
   styleguide:
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -107,7 +107,7 @@ jobs:
       - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -124,7 +124,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -182,7 +182,7 @@ jobs:
           path: ./integration/logs
   feeds:
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -295,7 +295,7 @@ jobs:
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -312,7 +312,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -329,7 +329,7 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.30
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
