@@ -15,6 +15,7 @@ import (
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
+	"chainlink/core/utils"
 
 	"github.com/gobuffalo/packr"
 	"go.uber.org/multierr"
@@ -62,7 +63,8 @@ type ChainlinkApplication struct {
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *store.Store
-	SessionReaper            services.SleeperTask
+	SessionReaper            services.StoreReaper
+	sessionReaperTask        utils.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 }
@@ -95,6 +97,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		SessionReaper:            services.NewStoreReaper(store),
+		sessionReaperTask:        utils.NewSleeperTask(),
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
 	}
@@ -165,7 +168,7 @@ func (app *ChainlinkApplication) Stop() error {
 		app.FluxMonitor.Stop()
 		app.RunQueue.Stop()
 		app.StatsPusher.Close()
-		merr = multierr.Append(merr, app.SessionReaper.Stop())
+		merr = multierr.Append(merr, app.sessionReaperTask.Stop())
 		merr = multierr.Append(merr, app.Store.Close())
 	})
 	return merr
@@ -182,7 +185,7 @@ func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 
 // WakeSessionReaper wakes up the reaper to do its reaping.
 func (app *ChainlinkApplication) WakeSessionReaper() {
-	app.SessionReaper.WakeUp()
+	app.sessionReaperTask.WakeUp(app.SessionReaper.Work)
 }
 
 // AddJob adds a job to the store and the scheduler. If there was

@@ -183,6 +183,7 @@ func newStoreWithDialerAndKeyStore(
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
 	s.TxManager.Register(s.KeyStore.Accounts())
+	s.TxManager.Start()
 	return s.SyncDiskKeyStoreToDB()
 }
 
@@ -190,6 +191,7 @@ func (s *Store) Start() error {
 func (s *Store) Close() error {
 	var err error
 	s.closeOnce.Do(func() {
+		s.TxManager.Stop()
 		err = s.ORM.Close()
 	})
 	return err

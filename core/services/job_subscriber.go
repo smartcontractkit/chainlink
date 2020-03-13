@@ -8,6 +8,7 @@ import (
 	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
+	"chainlink/core/utils"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -39,7 +40,7 @@ type jobSubscriber struct {
 	jobSubscriptions          map[string]JobSubscription
 	jobsMutex                 *sync.RWMutex
 	runManager                RunManager
-	jobResumer                SleeperTask
+	jobResumer                utils.SleeperTask
 	resumeRunsOnNewHeadWorker *resumeRunsOnNewHeadWorker
 }
 
@@ -63,7 +64,7 @@ func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 		runManager:                runManager,
 		jobSubscriptions:          map[string]JobSubscription{},
 		jobsMutex:                 &sync.RWMutex{},
-		jobResumer:                NewSleeperTask(rw),
+		jobResumer:                utils.NewSleeperTask(),
 		resumeRunsOnNewHeadWorker: rw,
 	}
 	return js
@@ -148,5 +149,5 @@ func (js *jobSubscriber) Disconnect() {
 // OnNewHead resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewHead(head *models.Head) {
 	js.resumeRunsOnNewHeadWorker.head = *head.ToInt()
-	js.jobResumer.WakeUp()
+	js.jobResumer.WakeUp(js.resumeRunsOnNewHeadWorker.Work)
 }

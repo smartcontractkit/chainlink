@@ -1,0 +1,10 @@
+[parity]
+chain = "apocalypse-parity.json"
+db_path = "./data/gateway"
+[network]
+port = 30303
+[rpc]
+port = 8545
+apis = ["web3", "eth", "net", "personal", "parity", "parity_set", "traces", "rpc", "parity_accounts"]
+[misc]
+logging = "own_tx=trace,sync=trace,txqueue=trace"

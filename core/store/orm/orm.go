@@ -679,6 +679,18 @@ func (orm *ORM) MarkTxSafe(tx *models.Tx, txAttempt *models.TxAttempt) error {
 	return orm.db.Save(tx).Error
 }
 
+func (orm *ORM) MarkTxFailed(tx *models.Tx, txAttempt *models.TxAttempt) error {
+	orm.MustEnsureAdvisoryLock()
+	txAttempt.Confirmed = false
+	tx.Hash = txAttempt.Hash
+	tx.GasPrice = txAttempt.GasPrice
+	tx.Confirmed = txAttempt.Confirmed
+	tx.SentAt = txAttempt.SentAt
+	tx.SignedRawTx = txAttempt.SignedRawTx
+	tx.Failed = true
+	return orm.db.Save(tx).Error
+}
+
 func preloadAttempts(dbtx *gorm.DB) *gorm.DB {
 	return dbtx.
 		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
@@ -930,6 +942,54 @@ func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
 	var attempts []models.TxAttempt
 	err = orm.getRecords(&attempts, "sent_at desc", offset, limit)
 	return attempts, count, err
+}
+
+func (orm *ORM) UnsentTxs() ([]models.Tx, error) {
+	orm.MustEnsureAdvisoryLock()
+
+	var txs []models.Tx
+	err := orm.db.Raw(`
+			SELECT * FROM txes
+			WHERE txes.id IN (
+				SELECT tx.id FROM txes tx
+				LEFT JOIN tx_attempts ta ON tx.id = ta.tx_id
+				WHERE tx.confirmed = ? AND tx.failed = ?
+				GROUP BY tx.id, tx.confirmed
+				HAVING COUNT(DISTINCT ta.id) = ?
+			)
+		`, false, false, 0).
+		Scan(&txs).
+		Error
+
+	return txs, err
+}
+
+func (orm *ORM) UnconfirmedTxsSortAttemptsByGasPrice() ([]models.Tx, error) {
+	orm.MustEnsureAdvisoryLock()
+
+	var txs []models.Tx
+	//err := orm.db.Raw(`
+	//        SELECT * FROM txes
+	//        LEFT JOIN tx_attempts ON txes.id = tx_attempts.id
+	//        WHERE txes.id IN (
+	//            SELECT tx.id FROM txes tx
+	//            LEFT JOIN tx_attempts ta ON tx.id = ta.tx_id
+	//            WHERE tx.confirmed = ? AND tx.failed = ?
+	//            GROUP BY tx.id, tx.confirmed
+	//            HAVING COUNT(DISTINCT ta.id) < ?
+	//        )
+	//    `, false, false).
+	//    Scan(&txs).
+	//    Error
+
+	err := orm.db.
+		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("gas_price desc")
+		}).
+		Where("confirmed = ? AND failed = ?", false, false).
+		Find(&txs).Error
+
+	return txs, err
 }
 
 // UnconfirmedTxAttempts returns all TxAttempts for which the associated Tx is still unconfirmed.
