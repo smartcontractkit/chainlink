@@ -26,11 +26,13 @@ function hashString(value: string): string {
 }
 
 export default class ChainlinkClient {
+  name: string
   chainlinkURL: string
   container: Docker.Container
   root: string
 
-  constructor(chainlinkURL: string, containerName: string) {
+  constructor(name: string, chainlinkURL: string, containerName: string) {
+    this.name = name
     this.chainlinkURL = chainlinkURL
     this.container = docker.getContainer(containerName)
     // make the root directory unique to the the URL and deterministic
