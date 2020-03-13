@@ -460,6 +460,27 @@ func (_m *TxManager) SendRawTx(hex string) (common.Hash, error) {
 	return r0, r1
 }
 
+// SignedRawTxWithBumpedGas provides a mock function with given fields: originalTx, gasLimit, gasPrice
+func (_m *TxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+	ret := _m.Called(originalTx, gasLimit, gasPrice)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(models.Tx, uint64, big.Int) string); ok {
+		r0 = rf(originalTx, gasLimit, gasPrice)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(models.Tx, uint64, big.Int) error); ok {
+		r1 = rf(originalTx, gasLimit, gasPrice)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Subscribe provides a mock function with given fields: _a0, _a1, _a2
 func (_m *TxManager) Subscribe(_a0 context.Context, _a1 interface{}, _a2 ...interface{}) (eth.Subscription, error) {
 	var _ca []interface{}
