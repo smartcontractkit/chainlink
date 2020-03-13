@@ -15,6 +15,7 @@
     "sponsored": ["Synthetix", "Loopring", "OpenLaw"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
     "listing": true
   },
   {
@@ -33,6 +34,7 @@
     "sponsored": ["Synthetix"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin",
     "listing": true
   },
   {
@@ -176,6 +178,7 @@
     "sponsored": ["Set protocol"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
     "listing": true
   },
   {
@@ -193,6 +196,7 @@
     "sponsored": ["Loopring"],
     "threshold": 5,
     "compare_offchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=loopring",
     "listing": true
   },
   {
@@ -243,6 +247,7 @@
     "sponsored": ["Aave"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=maker",
     "listing": true
   },
   {
@@ -277,6 +282,7 @@
     "sponsored": ["Aave", "bZx"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=kyber-network",
     "listing": true
   },
   {
@@ -294,6 +300,7 @@
     "sponsored": ["Aave", "bZx"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=chainlink",
     "listing": true
   },
   {
@@ -327,6 +334,7 @@
     "sponsored": ["Aave"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=augur",
     "listing": true
   },
   {
@@ -344,6 +352,7 @@
     "sponsored": ["Aave", "bZx"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=0x",
     "listing": true
   },
   {
@@ -361,6 +370,7 @@
     "sponsored": ["Aave"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=basic-attention-token",
     "listing": true
   },
   {
@@ -378,6 +388,7 @@
     "sponsored": ["Aave", "Nexus Mutual", "bZx"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/DAIETH/?exchange=BITFINEX",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=dai",
     "listing": true
   },
   {
@@ -463,6 +474,7 @@
     "sponsored": ["Haven Protocol"],
     "threshold": 2,
     "compare_offchain": "https://www.coingecko.com/en/coins/haven/usd",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=haven",
     "listing": true
   },
   {
@@ -476,7 +488,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/BNBUSD/?exchange=BINANCE"
+    "compare_offchain": "https://www.tradingview.com/symbols/BNBUSD/?exchange=BINANCE",
+    "listing": false
   },
   {
     "contractAddress": "0x1c44616CdB7FAe1ba69004ce6010248147CE019e",
@@ -489,7 +502,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 0.5,
-    "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE"
+    "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
+    "listing": false
   },
   {
     "contractAddress": "0x46aD082e62D86089b7365320081685115F50d8B3",
@@ -502,7 +516,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.coingecko.com/en/coins/synthetix-network-token/usd"
+    "compare_offchain": "https://www.coingecko.com/en/coins/synthetix-network-token/usd",
+    "listing": false
   },
   {
     "contractAddress": "0x60289a8aa8ae8e2e2d03d5c1ad851a991cf29100",
@@ -516,7 +531,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XTZUSD/?exchange=COINBASE"
+    "compare_offchain": "https://www.tradingview.com/symbols/XTZUSD/?exchange=COINBASE",
+    "listing": false
   },
   {
     "contractAddress": "0x0Be00A19538Fac4BE07AC360C69378B870c412BF",
@@ -528,7 +544,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 0.5,
-    "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE"
+    "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -542,7 +559,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/MKRUSD/?exchange=BITFINEX"
+    "compare_offchain": "https://www.tradingview.com/symbols/MKRUSD/?exchange=BITFINEX",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -556,7 +574,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/TRXUSD/?exchange=BITFINEX"
+    "compare_offchain": "https://www.tradingview.com/symbols/TRXUSD/?exchange=BITFINEX",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -570,7 +589,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC"
+    "compare_offchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -584,7 +604,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC"
+    "compare_offchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -598,7 +619,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC"
+    "compare_offchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -612,7 +634,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC"
+    "compare_offchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -626,7 +649,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC"
+    "compare_offchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -640,7 +664,8 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC"
+    "compare_offchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
+    "listing": false
   },
   {
     "contractVersion": 2,
@@ -654,6 +679,7 @@
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC"
+    "compare_offchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
+    "listing": false
   }
 ]

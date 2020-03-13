@@ -4,9 +4,9 @@ import {
   aggregationSelectors,
   aggregationOperations,
 } from 'state/ducks/aggregation'
-import { Ducks } from 'state/ducks'
+import { AppState } from 'state'
 
-const mapStateToProps = (state: Ducks) => ({
+const mapStateToProps = (state: AppState) => ({
   networkGraphNodes: aggregationSelectors.networkGraphNodes(state),
   networkGraphState: aggregationSelectors.networkGraphState(state),
   ethGasPrice: state.aggregation.ethGasPrice,
