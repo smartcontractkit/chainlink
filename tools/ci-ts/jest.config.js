@@ -4,5 +4,5 @@ module.exports = {
   testEnvironment: 'node',
   testPathIgnorePatterns: ['/node_modules/', 'dist/'],
   testRunner: 'jest-circus/runner',
-  testTimeout: 90000,
+  testTimeout: 120000,
 }

@@ -3,8 +3,10 @@ import execa from 'execa'
 import { JobSpec, JobRun } from '../../../operator_ui/@types/operator_ui'
 import crypto from 'crypto'
 import path from 'path'
+import Docker from 'dockerode'
 
 const API_CREDENTIALS_PATH = '/run/secrets/apicredentials'
+const docker = new Docker()
 
 /**
  * interface for the data describing the CL node's keys
@@ -15,28 +17,32 @@ interface KeyInfo {
   linkBalance: ethers.utils.BigNumber
 }
 
-function hashString(x: string): string {
+function hashString(value: string): string {
   return crypto
     .createHash('sha256')
-    .update(x, 'utf8')
+    .update(value, 'utf8')
     .digest('hex')
     .slice(0, 16)
 }
 
 export default class ChainlinkClient {
-  chainlinkURL: string | undefined
-  root: string | undefined
+  chainlinkURL: string
+  container: Docker.Container
+  root: string
 
-  constructor(chainlinkURL?: string) {
-    if (chainlinkURL) {
-      this.chainlinkURL = chainlinkURL
-      // make the root directory unique to the the URL and deterministic
-      this.root = path.join('~', hashString(chainlinkURL))
-    }
+  constructor(chainlinkURL: string, containerName: string) {
+    this.chainlinkURL = chainlinkURL
+    this.container = docker.getContainer(containerName)
+    // make the root directory unique to the the URL and deterministic
+    this.root = path.join('~', hashString(chainlinkURL))
   }
 
-  connect(chainlinkURL: string) {
-    return new ChainlinkClient(chainlinkURL)
+  async pause() {
+    await this.container.pause()
+  }
+
+  async unpause() {
+    await this.container.unpause()
   }
 
   execute(command: string): object {
