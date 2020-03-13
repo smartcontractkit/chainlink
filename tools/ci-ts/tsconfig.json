@@ -6,7 +6,6 @@
   "include": ["tests", "test-helpers", "fixtures"],
   "references": [
     { "path": "../../evm-test-helpers" },
-    { "path": "../../evm-contracts" },
     { "path": "../../operator_ui" }
   ]
 }
