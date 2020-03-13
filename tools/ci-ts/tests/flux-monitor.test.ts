@@ -16,6 +16,8 @@ import {
 
 const NODE_1_URL = 'http://node:6688'
 const NODE_2_URL = 'http://node-2:6688'
+const NODE_1_CONTAINER = 'chainlink-node'
+const NODE_2_CONTAINER = 'chainlink-node-2'
 const EA_1_URL = 'http://external-adapter:6644'
 const EA_2_URL = 'http://external-adapter-2:6644'
 
@@ -24,8 +26,8 @@ const carol = ethers.Wallet.createRandom().connect(provider)
 const linkTokenFactory = new contract.LinkTokenFactory(carol)
 const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
 const deposit = h.toWei('1000')
-const clClient1 = new ChainlinkClient(NODE_1_URL)
-const clClient2 = new ChainlinkClient(NODE_2_URL)
+const clClient1 = new ChainlinkClient(NODE_1_URL, NODE_1_CONTAINER)
+const clClient2 = new ChainlinkClient(NODE_2_URL, NODE_2_CONTAINER)
 
 let linkToken: contract.Instance<contract.LinkTokenFactory>
 let fluxAggregator: contract.Instance<FluxAggregatorFactory>
@@ -66,8 +68,6 @@ beforeAll(async () => {
   clClient2.login()
   node1Address = clClient1.getAdminInfo()[0].address
   node2Address = clClient2.getAdminInfo()[0].address
-  console.log('node1Address', node1Address)
-  console.log('node2Address', node2Address)
   await fundAddress(carol.address)
   await fundAddress(node1Address)
   await fundAddress(node2Address)
@@ -84,8 +84,8 @@ beforeEach(async () => {
     ethers.utils.formatBytes32String('ETH/USD'),
   )
   await fluxAggregator.deployed()
-  await changePriceFeed(EA_1_URL, 100) // original price
-  await changePriceFeed(EA_2_URL, 100) // original price
+  await changePriceFeed(EA_1_URL, 100)
+  await changePriceFeed(EA_2_URL, 120)
 })
 
 describe('FluxMonitor / FluxAggregator integration with one node', () => {
@@ -190,33 +190,72 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
       clClient1,
       job1.id,
       node1InitialRunCount + 1,
-      'initial job never run',
+      'initial update never run by node 1',
     )
     await assertJobRun(
       clClient2,
       job2.id,
       node2InitialRunCount + 1,
-      'initial job never run',
+      'initial update never run by node 2',
     )
 
-    matchers.bigNum(10000, await fluxAggregator.latestAnswer())
+    matchers.bigNum(11000, await fluxAggregator.latestAnswer())
+    matchers.bigNum(1, await fluxAggregator.latestRound())
+    matchers.bigNum(1, await fluxAggregator.reportingRound())
+    matchers.bigNum(1, (await fluxAggregator.latestSubmission(node1Address))[1])
+    matchers.bigNum(1, (await fluxAggregator.latestSubmission(node2Address))[1])
+    matchers.bigNum(1, await fluxAggregator.withdrawable(node1Address))
+    matchers.bigNum(1, await fluxAggregator.withdrawable(node2Address))
 
+    clClient2.pause()
     await changePriceFeed(EA_1_URL, 110)
+    await changePriceFeed(EA_1_URL, 120)
+
     await assertJobRun(
       clClient1,
       job1.id,
       node1InitialRunCount + 2,
-      'initial job never run',
+      "node 1's second update not run",
     )
-    matchers.bigNum(10000, await fluxAggregator.latestAnswer())
+    // await wait(5000) // allow for node 2 to potentially respond
+    matchers.bigNum(11000, await fluxAggregator.latestAnswer())
+    matchers.bigNum(1, await fluxAggregator.latestRound())
+    matchers.bigNum(2, await fluxAggregator.reportingRound())
+    matchers.bigNum(2, (await fluxAggregator.latestSubmission(node1Address))[1])
+    matchers.bigNum(1, (await fluxAggregator.latestSubmission(node2Address))[1])
+    matchers.bigNum(
+      2,
+      await fluxAggregator.withdrawable(node1Address),
+      "node 1 wasn't paid",
+    )
+    matchers.bigNum(
+      1,
+      await fluxAggregator.withdrawable(node2Address),
+      "node 2 was paid and shouldn't have been",
+    )
 
-    await changePriceFeed(EA_2_URL, 120)
+    clClient2.unpause()
+
     await assertJobRun(
-      clClient1,
-      job1.id,
+      clClient2,
+      job2.id,
       node2InitialRunCount + 2,
-      'initial job never run',
+      "node 2's second update not run",
     )
     matchers.bigNum(11500, await fluxAggregator.latestAnswer())
+    matchers.bigNum(2, await fluxAggregator.latestRound())
+    matchers.bigNum(2, await fluxAggregator.reportingRound())
+    matchers.bigNum(2, (await fluxAggregator.latestSubmission(node1Address))[1])
+    matchers.bigNum(2, (await fluxAggregator.latestSubmission(node2Address))[1])
+    matchers.bigNum(
+      2,
+      await fluxAggregator.withdrawable(node1Address),
+      "node 1 wasn't paid",
+    )
+    matchers.bigNum(
+      2,
+      await fluxAggregator.withdrawable(node2Address),
+      "node 2 wasn't paid",
+    )
   })
 })
