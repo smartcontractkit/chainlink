@@ -125,7 +125,6 @@ func (sp *statsPusher) Close() error {
 
 // PushNow wakes up the stats pusher, asking it to push all queued events immediately.
 func (sp *statsPusher) PushNow() {
-	logger.Debug("PushNow")
 	select {
 	case sp.waker <- struct{}{}:
 	default:
