@@ -247,7 +247,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	adapter := adapters.EthTx{}
 	input := cltest.NewRunInputWithResult("0x9786856756")
 	output := adapter.Perform(input, store)
-	assert.EqualError(t, output.Error(), "Cannot connect to node")
+	assert.NoError(t, output.Error())
 
 	txManager.AssertExpectations(t)
 }
@@ -269,8 +269,8 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 	)
 	output := adapter.Perform(input, store)
 
-	assert.Equal(t, models.RunStatusErrored, output.Status())
-	assert.NotNil(t, output.Error())
+	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.NoError(t, output.Error())
 
 	txManager.AssertExpectations(t)
 }
@@ -360,7 +360,7 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 	data := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, data.Error())
-	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
+	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status())
 
 	txManager.AssertExpectations(t)
 }
@@ -389,7 +389,7 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	data := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, data.Error())
-	assert.Equal(t, models.RunStatusPendingConnection, data.Status())
+	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status())
 
 	txManager.AssertExpectations(t)
 }
@@ -458,7 +458,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	adapter := adapters.EthTx{}
 	input := cltest.NewRunInputWithResult("0x9786856756")
 	result := adapter.Perform(input, store)
-	require.Error(t, result.Error())
+	require.NoError(t, result.Error())
 
 	txAttempt := &models.TxAttempt{}
 	tx := &models.Tx{Attempts: []*models.TxAttempt{txAttempt}}
@@ -476,28 +476,4 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	require.NoError(t, result.Error())
 
 	txManager.AssertExpectations(t)
-}
-
-func TestEthTxAdapter_IsClientRetriable(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		error     error
-		retriable bool
-	}{
-		{"nil error", nil, false},
-		{"http invalid method", errors.New("net/http: invalid method SGET"), false},
-		{"syscall.ECONNRESET", syscall.ECONNRESET, false},
-		{"syscall.ECONNABORTED", syscall.ECONNABORTED, false},
-		{"syscall.EWOULDBLOCK", syscall.EWOULDBLOCK, true},
-		{"syscall.ETIMEDOUT", syscall.ETIMEDOUT, true},
-	}
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.retriable, adapters.IsClientRetriable(test.error))
-		})
-	}
 }
