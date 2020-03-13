@@ -519,6 +519,27 @@ func (_m *TxManager) SendRawTx(hex string) (common.Hash, error) {
 	return r0, r1
 }
 
+// SignedRawTxWithBumpedGas provides a mock function with given fields: originalTx, gasLimit, gasPrice
+func (_m *TxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+	ret := _m.Called(originalTx, gasLimit, gasPrice)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(models.Tx, uint64, big.Int) string); ok {
+		r0 = rf(originalTx, gasLimit, gasPrice)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(models.Tx, uint64, big.Int) error); ok {
+		r1 = rf(originalTx, gasLimit, gasPrice)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SubscribeToLogs provides a mock function with given fields: channel, q
 func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
 	ret := _m.Called(channel, q)
