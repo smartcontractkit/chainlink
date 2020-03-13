@@ -701,6 +701,16 @@ func (orm *ORM) MarkTxSafe(tx *models.Tx, txAttempt *models.TxAttempt) error {
 	return orm.db.Save(tx).Error
 }
 
+// MarkTxUnconfirmable updates the database for the given transaction to show
+// that the it has been retried too many times and no further retries should be
+// attempted.
+func (orm *ORM) MarkTxUnconfirmable(tx *models.Tx) error {
+	orm.MustEnsureAdvisoryLock()
+	tx.Confirmed = false
+	tx.Unconfirmable = true
+	return orm.db.Save(tx).Error
+}
+
 func preloadAttempts(dbtx *gorm.DB) *gorm.DB {
 	return dbtx.
 		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
@@ -944,6 +954,23 @@ func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
 	var attempts []models.TxAttempt
 	err = orm.getRecords(&attempts, "sent_at desc", offset, limit)
 	return attempts, count, err
+}
+
+func (orm *ORM) UnconfirmedTxsWithAttemptsByGasPrice() ([]models.Tx, error) {
+	panic("@@TODO: write this query")
+
+	orm.MustEnsureAdvisoryLock()
+	var items []models.Tx
+
+	err := orm.db.
+		Preload("Tx").
+		Joins("inner join txes on txes.id = tx_attempts.tx_id").
+		Where("txes.confirmed = ?", false).
+		Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, err
 }
 
 // UnconfirmedTxAttempts returns all TxAttempts for which the associated Tx is still unconfirmed.

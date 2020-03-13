@@ -116,7 +116,7 @@ func HighestPricedTxAttemptPerTx(items []TxAttempt) []TxAttempt {
 	highestPricedSet := map[uint64]TxAttempt{}
 	for _, item := range items {
 		if currentHighest, ok := highestPricedSet[item.TxID]; ok {
-			if currentHighest.GasPrice.ToInt().Cmp(item.GasPrice.ToInt()) == -1 {
+			if currentHighest.GasPrice.ToInt().Cmp(item.GasPrice.ToInt()) < 0 {
 				highestPricedSet[item.TxID] = item
 			}
 		} else {
