@@ -2,10 +2,10 @@ import * as actions from './actions'
 import _ from 'lodash'
 import moment from 'moment'
 import { ethers } from 'ethers'
-import AggregationAbi from 'contracts/AggregationAbi.json'
-import AggregationAbiV2 from 'contracts/AggregationAbi.v2.json'
-import AggregationContract from 'contracts/AggregationContract'
-import AggregationContractV2 from 'contracts/AggregationContractV2'
+import AggregationAbi from '../../../contracts/AggregationAbi.json'
+import AggregationAbiV2 from '../../../contracts/AggregationAbi.v2.json'
+import AggregationContract from '../../../contracts/AggregationContract'
+import AggregationContractV2 from '../../../contracts/AggregationContractV2'
 
 let contractInstance: any
 
