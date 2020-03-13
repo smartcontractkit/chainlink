@@ -13,12 +13,16 @@ type storeReaper struct {
 	config orm.ConfigReader
 }
 
+type StoreReaper interface {
+	Work()
+}
+
 // NewStoreReaper creates a reaper that cleans stale objects from the store.
-func NewStoreReaper(store *store.Store) SleeperTask {
-	return NewSleeperTask(&storeReaper{
+func NewStoreReaper(store *store.Store) StoreReaper {
+	return &storeReaper{
 		store:  store,
 		config: store.Config,
-	})
+	}
 }
 
 func (sr *storeReaper) Work() {

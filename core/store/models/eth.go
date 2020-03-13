@@ -24,6 +24,7 @@ type Tx struct {
 	SurrogateID null.String `gorm:"index;unique"`
 
 	Attempts []*TxAttempt `json:"-"`
+	Failed   bool         `gorm:"not null"`
 
 	From     common.Address `gorm:"index;not null"`
 	To       common.Address `gorm:"not null"`
@@ -112,7 +113,7 @@ func HighestPricedTxAttemptPerTx(items []TxAttempt) []TxAttempt {
 	highestPricedSet := map[uint64]TxAttempt{}
 	for _, item := range items {
 		if currentHighest, ok := highestPricedSet[item.TxID]; ok {
-			if currentHighest.GasPrice.ToInt().Cmp(item.GasPrice.ToInt()) == -1 {
+			if currentHighest.GasPrice.ToInt().Cmp(item.GasPrice.ToInt()) < 0 {
 				highestPricedSet[item.TxID] = item
 			}
 		} else {

@@ -1,0 +1,28 @@
+[parity]
+chain = "ropsten"
+base_path = "./testnet"
+db_path = "./testnet/chains"
+keys_path = "./testnet/keys"
+
+[dapps]
+path = "./dapps"
+
+[rpc]
+disable = false
+port = 8545
+apis = ["all"]
+cors = ["*"]
+hosts = ["all"]
+interface = "all"
+
+[websockets]
+disable = false
+port = 8546
+interface = "all"
+origins = ["all"]
+apis = ["all"]
+hosts = ["all"]
+
+[ipc]
+disable = false
+apis = ["all"]

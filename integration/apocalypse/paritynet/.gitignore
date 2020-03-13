@@ -1,0 +1,5 @@
+data/
+network/
+.python-version
+!k8s/chainlink/secrets/*.example
+k8s/chainlink/secrets

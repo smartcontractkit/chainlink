@@ -1,0 +1,59 @@
+version: '3.5'
+
+services:
+    gethnet:
+        #container_name: geth
+        image: smartcontract/gethnet:apocalypse
+        expose: [8545, 8546, 30303]
+        ports:
+            - 8545:8545
+            - 8546:8546
+        #volumes:
+        #    - ./geth-db-data:/gethnet/datadir/geth
+        networks:
+            - apocalypse
+        environment:
+            - NODE_KEY=70606409c7602a7f7acfa7923c45e4a805eac5d0f440c02e62e95b937e6b2b47
+        #links:
+        #    - paritynet
+        #    - chainlink
+
+    paritynet:
+        #container_name: parity
+        image: smartcontract/paritynet:apocalypse
+        user: root
+        entrypoint: ["/bin/sh", "-c"]
+        command: /paritynet/start.sh
+        expose: [8545, 8546, 30303]
+        ports:
+            - 18545:8545
+            - 18546:8546
+        #volumes:
+        #    - ./parity-db-data:/paritynet/database
+        networks:
+            - apocalypse
+        depends_on:
+            - gethnet
+        #links:
+        #    - gethnet
+        #    - chainlink
+
+#volumes:
+#    geth-db-data:
+#    parity-db-data:
+
+networks:
+    apocalypse:
+
+
+
+
+
+
+
+
+
+
+
+
+

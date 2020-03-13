@@ -1,0 +1,81 @@
+
+containers:
+    chainlink:
+        image: smartcontract/chainlink:txmanagerv2
+        ports:
+            6688: 6688
+        environment:
+            - ETH_CHAIN_ID=1337
+            - ETH_URL=wss://gethnet:8546
+            - LINK_CONTRACT_ADDRESS=
+            - ORACLE_CONTRACT_ADDR=
+        depends_on:
+            - paritynet
+            - gethnet
+            - postgres
+        links:
+            - paritynet
+            - gethnet
+            - postgres
+        volumes:
+            postgres_data: /var/lib/postgresql
+
+    postgres:
+        image: postgres
+        expose: [5432]
+        environment:
+            - POSTGRES_HOST_AUTH_METHOD=trust
+        volumes:
+            postgres_data: /var/lib/postgresql
+
+
+    gethnet:
+        #container_name: geth
+        image: smartcontract/gethnet:apocalypse
+        expose: [8545, 8546, 30303]
+        ports:
+            8545: 8545
+            8546: 8546
+        volumes:
+            geth-db-data: /gethnet/datadir/geth
+        depends_on:
+            - paritynet
+        environment:
+            - NODE_KEY=70606409c7602a7f7acfa7923c45e4a805eac5d0f440c02e62e95b937e6b2b47
+        #links:
+        #    - paritynet
+        #    - chainlink
+
+    paritynet:
+        #container_name: parity
+        image: smartcontract/paritynet:apocalypse
+        user: root
+        command: --config /paritynet/miner.toml --db-path /paritynet/database
+        expose: [8545, 8546, 30303]
+        ports:
+            18545: 8545
+            18546: 8546
+        volumes:
+            parity-db-data: /paritynet/database
+        #links:
+        #    - gethnet
+        #    - chainlink
+
+
+network:
+    flaky: 30%
+    slow: 75ms 100ms distribution normal
+
+
+
+
+
+
+
+
+
+
+
+
+
+
