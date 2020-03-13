@@ -9,6 +9,7 @@ const mapStateToProps = state => ({
 
 const mapDispatchToProps = {
   fetchAnswers: listingOperations.fetchAnswers,
+  fetchHealthStatus: listingOperations.fetchHealthStatus,
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(Listing)

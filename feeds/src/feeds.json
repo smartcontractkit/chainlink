@@ -13,7 +13,8 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix", "Loopring", "OpenLaw"],
     "threshold": 0.5,
-    "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE"
+    "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum"
   },
   {
     "contractAddress": "0xF5fff180082d6017036B771bA883025c654BC935",
@@ -29,7 +30,8 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 0.5,
-    "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE"
+    "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin"
   },
   {
     "contractAddress": "0x05cf62c4ba0ccea3da680f9a8744ac51116d6231",
@@ -156,7 +158,8 @@
     "multiply": "100000000",
     "sponsored": ["Set protocol"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE"
+    "compare_offchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
+    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=link"
   },
   {
     "contractAddress": "0x8770Afe90c52Fd117f29192866DE705F63e59407",

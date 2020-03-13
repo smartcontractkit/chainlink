@@ -55,8 +55,29 @@ const fetchAnswers = () => {
   return async dispatch => {
     const provider = createInfuraProvider()
     const answerList = await allAnswers(provider)
+
     dispatch(actions.setAnswers(answerList))
   }
 }
 
-export { fetchAnswers }
+const fetchHealthPrice = async config => {
+  if (config.health_price) {
+    const json = await fetch(config.health_price).then(r => r.json())
+    return [config, json[0].current_price]
+  }
+}
+
+const fetchHealthStatus = groups => {
+  return async dispatch => {
+    const configs = groups.flatMap(g => g.list.map(l => l.config))
+    const priceResponses = await Promise.all(configs.map(fetchHealthPrice))
+
+    priceResponses
+      .filter(pr => pr)
+      .forEach(pr => {
+        dispatch(actions.setHealthPrice(pr))
+      })
+  }
+}
+
+export { fetchAnswers, fetchHealthStatus }

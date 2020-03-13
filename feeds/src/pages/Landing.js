@@ -10,6 +10,11 @@ function useOffchainQuery() {
   return query.get('compare_offchain') === 'true'
 }
 
+function useHealthQuery() {
+  const query = new URLSearchParams(useLocation().search)
+  return query.get('health') === 'true'
+}
+
 const LangingPage = () => {
   return (
     <div className="page-wrapper landing-page">
@@ -45,7 +50,10 @@ const LangingPage = () => {
           </p>
         </section>
         <section>
-          <Listing compareOffchain={useOffchainQuery()} />
+          <Listing
+            compareOffchain={useOffchainQuery()}
+            health={useHealthQuery()}
+          />
         </section>
       </div>
 
