@@ -21,7 +21,7 @@ func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, c
 		)
 
 		taskRun.Status = models.RunStatusPendingConfirmations
-		run.Status = models.RunStatusPendingConfirmations
+		run.SetStatus(models.RunStatusPendingConfirmations)
 
 	} else if err := validateOnMainChain(run, taskRun, txManager); err != nil {
 		logger.Warnw("Failure while trying to validate chain",
@@ -32,7 +32,7 @@ func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, c
 		run.SetError(err)
 
 	} else {
-		run.Status = models.RunStatusInProgress
+		run.SetStatus(models.RunStatusInProgress)
 	}
 }
 

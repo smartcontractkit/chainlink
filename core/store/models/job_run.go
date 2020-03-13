@@ -9,7 +9,18 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	null "gopkg.in/guregu/null.v3"
+)
+
+var (
+	promTotalRunUpdates = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "run_status_update_total",
+		Help: "The total number of status updates for Job Runs",
+	},
+		[]string{"job_spec_id", "from_status", "status"},
+	)
 )
 
 // JobRun tracks the status of a job by holding its TaskRuns and the
@@ -42,6 +53,18 @@ func (jr JobRun) GetID() string {
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
 func (jr JobRun) GetName() string {
 	return "runs"
+}
+
+// SetStatus updates run status.
+func (jr *JobRun) SetStatus(status RunStatus) {
+	oldStatus := jr.Status
+	jr.Status = status
+	if jr.Status.Completed() && jr.TasksRemain() {
+		jr.Status = RunStatusInProgress
+	} else if jr.Status.Finished() {
+		jr.FinishedAt = null.TimeFrom(time.Now())
+	}
+	promTotalRunUpdates.WithLabelValues(jr.JobSpecID.String(), string(oldStatus), string(status))
 }
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
@@ -125,7 +148,7 @@ func (jr *JobRun) TasksRemain() bool {
 // SetError sets this job run to failed and saves the error message
 func (jr *JobRun) SetError(err error) {
 	jr.Result.ErrorMessage = null.StringFrom(err.Error())
-	jr.setStatus(RunStatusErrored)
+	jr.SetStatus(RunStatusErrored)
 }
 
 // Cancel sets this run as cancelled, it should no longer be processed.
@@ -134,7 +157,7 @@ func (jr *JobRun) Cancel() {
 	if currentTaskRun != nil {
 		currentTaskRun.Status = RunStatusCancelled
 	}
-	jr.setStatus(RunStatusCancelled)
+	jr.SetStatus(RunStatusCancelled)
 }
 
 // ApplyOutput updates the JobRun's Result and Status
@@ -144,7 +167,7 @@ func (jr *JobRun) ApplyOutput(result RunOutput) {
 		return
 	}
 	jr.Result.Data = result.Data()
-	jr.setStatus(result.Status())
+	jr.SetStatus(result.Status())
 }
 
 // ApplyBridgeRunResult saves the input from a BridgeAdapter
@@ -153,16 +176,7 @@ func (jr *JobRun) ApplyBridgeRunResult(result BridgeRunResult) {
 		jr.SetError(result.GetError())
 	}
 	jr.Result.Data = result.Data
-	jr.setStatus(result.Status)
-}
-
-func (jr *JobRun) setStatus(status RunStatus) {
-	jr.Status = status
-	if jr.Status.Completed() && jr.TasksRemain() {
-		jr.Status = RunStatusInProgress
-	} else if jr.Status.Finished() {
-		jr.FinishedAt = null.TimeFrom(time.Now())
-	}
+	jr.SetStatus(result.Status)
 }
 
 // ErrorString returns the error as a string if present, otherwise "".
