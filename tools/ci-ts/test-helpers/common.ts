@@ -134,7 +134,7 @@ export async function waitForService(endpoint: string, timeout = 30000) {
 export async function assertAsync(
   f: () => boolean | Promise<boolean>,
   errorMessage: string,
-  timeout = 30000,
+  timeout = 20000,
 ) {
   return new Promise((res, rej) => {
     // eslint-disable-next-line
