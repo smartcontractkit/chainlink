@@ -78,3 +78,13 @@ https://feeds.chain.link?compare_offchain=true
 ```
 
 ![display-offchain-comparison](./docs/feed-landing-compare-offchain.png)
+
+### Display Reference Contract Health
+
+On the landing page you can enable live health checks with:
+
+```
+https://feeds.chain.link?health=true
+```
+
+![reference-contract-health](./docs/reference-contract-health.png)
