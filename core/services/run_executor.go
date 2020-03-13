@@ -80,7 +80,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 				run.ForLogger("required_height", taskRun.MinimumConfirmations)...,
 			)
 			taskRun.Status = models.RunStatusPendingConfirmations
-			run.Status = models.RunStatusPendingConfirmations
+			run.SetStatus(models.RunStatusPendingConfirmations)
 
 		}
 

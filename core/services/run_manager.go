@@ -16,23 +16,6 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-var (
-	numberRunsExecuted = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "run_manager_runs_started",
-		Help: "The total number of runs that have run",
-	})
-	numberRunsResumed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "run_manager_runs_resumed",
-		Help: "The total number of run resumptions",
-	})
-	numberRunsCancelled = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "run_manager_runs_cancelled",
-		Help: "The total number of run cancellations",
-	})
 )
 
 // RecurringScheduleJobError contains the field for the error message.
@@ -211,6 +194,7 @@ func (rm *runManager) CreateErrored(
 		UpdatedAt:   now,
 		InitiatorID: initiator.ID,
 	}
+
 	run.SetError(runErr)
 	defer rm.statsPusher.PushNow()
 	return &run, rm.orm.CreateJobRun(&run)
@@ -272,7 +256,6 @@ func (rm *runManager) Create(
 			run.ForLogger()...,
 		)
 		rm.runQueue.Run(run)
-		numberRunsExecuted.Inc()
 	}
 	return run, nil
 }
@@ -312,7 +295,7 @@ func (rm *runManager) ResumeAllConnecting() error {
 		}
 
 		currentTaskRun.Status = models.RunStatusInProgress
-		run.Status = models.RunStatusInProgress
+		run.SetStatus(models.RunStatusInProgress)
 		err := rm.updateAndTrigger(run)
 		if err != nil {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
@@ -379,7 +362,6 @@ func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 	}
 
 	run.Cancel()
-	numberRunsCancelled.Inc()
 	defer rm.statsPusher.PushNow()
 	return &run, rm.orm.SaveJobRun(&run)
 }
@@ -403,7 +385,6 @@ func (rm *runManager) updateAndTrigger(run *models.JobRun) error {
 	}
 	rm.statsPusher.PushNow()
 	if run.Status == models.RunStatusInProgress {
-		numberRunsResumed.Inc()
 		rm.runQueue.Run(run)
 	}
 	return nil
