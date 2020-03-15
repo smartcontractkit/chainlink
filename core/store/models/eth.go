@@ -24,7 +24,7 @@ type Tx struct {
 	SurrogateID null.String `gorm:"index;unique"`
 
 	Attempts []*TxAttempt `json:"-"`
-	Failed   bool         `gorm:"not null"`
+	Failed   bool         `gorm:"not null,default:false"`
 
 	From     common.Address `gorm:"index;not null"`
 	To       common.Address `gorm:"not null"`
