@@ -26,16 +26,18 @@ import (
 	"gopkg.in/guregu/null.v3"
 )
 
-// DefaultGasLimit sets the default gas limit for outgoing transactions.
-// if updating DefaultGasLimit, be sure it matches with the
-// DefaultGasLimit specified in evm/test/Oracle_test.js
-const DefaultGasLimit uint64 = 500000
+const (
+	// DefaultGasLimit sets the default gas limit for outgoing transactions.
+	// if updating DefaultGasLimit, be sure it matches with the
+	// DefaultGasLimit specified in evm/test/Oracle_test.js
+	DefaultGasLimit uint64 = 500000
 
-// Linear backoff is used so worst-case transaction time increases quadratically with this number
-const nonceReloadLimit int = 3
+	// Linear backoff is used so worst-case transaction time increases quadratically with this number
+	nonceReloadLimit int = 3
 
-// The base time for the backoff
-const nonceReloadBackoffBaseTime = 3 * time.Second
+	// The base time for the backoff
+	nonceReloadBackoffBaseTime = 3 * time.Second
+)
 
 // ErrPendingConnection is the error returned if TxManager is not connected.
 var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
@@ -329,12 +331,17 @@ func (txm *EthTxManager) sendInitialTx(
 }
 
 var (
-	nonceTooLowRegex = regexp.MustCompile("(nonce .*too low|same hash was already imported|replacement transaction underpriced)")
+	nonceTooLowRegex                       = regexp.MustCompile("(nonce .*too low|same hash was already imported|replacement transaction underpriced)")
+	replacementTransactionUnderpricedRegex = regexp.MustCompile("replacement transaction underpriced")
 )
 
 // FIXME: There are probably other types of errors here that are symptomatic of a nonce that is too low
 func isNonceTooLowError(err error) bool {
 	return err != nil && nonceTooLowRegex.MatchString(err.Error())
+}
+
+func isUnderPricedReplacementError(err error) bool {
+	return err != nil && replacementTransactionUnderpricedRegex.MatchString(err.Error())
 }
 
 // SignedRawTxWithBumpedGas takes a transaction and generates a new signed TX from it with the provided params
@@ -561,7 +568,7 @@ const (
 	Unknown AttemptState = iota
 	// Unconfirmed means that a transaction has had no confirmations at all
 	Unconfirmed
-	// Confirmed means that a transaftion has had at least one transaction, but
+	// Confirmed means that a transaction has had at least one confirmation, but
 	// not enough to satisfy the minimum number of confirmations configuration
 	// option
 	Confirmed
@@ -714,23 +721,62 @@ func (txm *EthTxManager) handleSafe(
 	return nil
 }
 
-// bumpGas creates a new transaction attempt with an increased gas cost
+// BumpGasByIncrement returns a new gas price increased by the larger of either
+// a percentage bump or a fixed size bump
+func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int {
+	// Similar logic is used in geth
+	// See: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_list.go#L255
+	// And: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_pool.go#L171
+	percentageMultiplier := big.NewInt(100 + int64(txm.config.EthGasBumpPercent()))
+	minimumGasBumpByPercentage := new(big.Int).Div(
+		new(big.Int).Mul(
+			originalGasPrice,
+			percentageMultiplier,
+		),
+		big.NewInt(100),
+	)
+	minimumGasBumpByIncrement := new(big.Int).Add(originalGasPrice, txm.config.EthGasBumpWei())
+	if minimumGasBumpByIncrement.Cmp(minimumGasBumpByPercentage) < 0 {
+		return minimumGasBumpByPercentage
+	}
+	return minimumGasBumpByIncrement
+}
+
 func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight uint64) error {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	originalGasPrice := txAttempt.GasPrice.ToInt()
-	bumpedGasPrice := new(big.Int).Add(originalGasPrice, txm.config.EthGasBumpWei())
 
-	bumpedTxAttempt, err := txm.createAttempt(tx, bumpedGasPrice, blockHeight)
-	if err != nil {
-		return errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+	bumpedGasPrice := txm.BumpGasByIncrement(originalGasPrice)
+
+	for {
+		if bumpedGasPrice.Cmp(txm.config.EthMaxGasPriceWei()) > 0 {
+			// NOTE: In the current design, a new tx attempt will be created even if this one returns error.
+			// If we do hit this scenario, we will keep creating new attempts that are guaranteed to fail
+			// until CHAINLINK_TX_ATTEMPT_LIMIT is reached
+			return fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
+		}
+		bumpedTxAttempt, err := txm.createAttempt(tx, bumpedGasPrice, blockHeight)
+		if isUnderPricedReplacementError(err) {
+			// This is not expected if we have bumped at least geth's required
+			// amount.
+			logger.Warnw(fmt.Sprintf("Gas bump was rejected by ethereum node as underpriced, bumping again. Your value of ETH_GAS_BUMP_PERCENT (%v) may be set too low", txm.config.EthGasBumpPercent()),
+				"originalGasPrice", originalGasPrice, "bumpedGasPrice", bumpedGasPrice,
+			)
+			bumpedGasPrice = txm.BumpGasByIncrement(bumpedGasPrice)
+			continue
+		}
+		if err != nil {
+			return errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+		}
+
+		logger.Infow(
+			fmt.Sprintf("Tx #%d created with bumped gas %v", attemptIndex+1, bumpedGasPrice),
+			"originalTxHash", txAttempt.Hash,
+			"newTxHash", bumpedTxAttempt.Hash)
+
+		return nil
 	}
-
-	logger.Infow(
-		fmt.Sprintf("Tx #%d created with bumped gas %v", attemptIndex+1, bumpedGasPrice),
-		"originalTxHash", txAttempt.Hash,
-		"newTxHash", bumpedTxAttempt.Hash)
-	return nil
 }
 
 // createAttempt adds a new transaction attempt to a transaction record
