@@ -1,9 +1,9 @@
 import React from 'react'
 
 interface Props {
-  width: number
-  height: number
-  fill: string
+  width?: number
+  height?: number
+  fill?: string
 }
 
 const ChainlinkLogo: React.FC<Props> = ({
