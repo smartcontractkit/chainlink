@@ -1,11 +1,22 @@
 import { getArgs, waitForService } from './test-helpers/common'
 
-const { CHAINLINK_URL, EXTERNAL_ADAPTER_URL } = getArgs([
-  'CHAINLINK_URL',
+const {
+  CLIENT_NODE_URL,
+  CLIENT_NODE_2_URL,
+  EXTERNAL_ADAPTER_URL,
+  EXTERNAL_ADAPTER_2_URL,
+} = getArgs([
+  'CLIENT_NODE_URL',
+  'CLIENT_NODE_2_URL',
   'EXTERNAL_ADAPTER_URL',
+  'EXTERNAL_ADAPTER_2_URL',
 ])
 
 beforeAll(async () => {
-  await waitForService(CHAINLINK_URL)
-  await waitForService(EXTERNAL_ADAPTER_URL)
+  await Promise.all([
+    waitForService(CLIENT_NODE_URL),
+    waitForService(CLIENT_NODE_2_URL),
+    waitForService(EXTERNAL_ADAPTER_URL),
+    waitForService(EXTERNAL_ADAPTER_2_URL),
+  ])
 })
