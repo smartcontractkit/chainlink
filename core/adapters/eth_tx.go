@@ -93,7 +93,7 @@ func createTxRunResult(
 		gasLimit,
 	)
 	if IsClientRetriable(err) {
-		return models.NewRunOutputPendingConnection()
+		return pendingConfirmationsOrConnection(input)
 	} else if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -189,6 +189,11 @@ func addReceiptToResult(
 		if err := json.Unmarshal([]byte(ethereumReceipts), &receipts); err != nil {
 			logger.Errorw("Error unmarshaling ethereum Receipts", "error", err)
 		}
+	}
+
+	if receipt == nil {
+		err := errors.New("missing receipt for transaction")
+		return models.NewRunOutputError(err)
 	}
 
 	receipts = append(receipts, *receipt)
