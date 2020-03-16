@@ -43,7 +43,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
       authenticate(db, accessKey, secret).then((session: Session | null) => {
         if (session === null) {
-          logger.info('client "${accessKey}" rejected, failed authentication')
+          logger.info(`client "${accessKey}" rejected, failed authentication`)
           callback(false, 401)
           return
         }
