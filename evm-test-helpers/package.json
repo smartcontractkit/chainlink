@@ -30,7 +30,7 @@
     "@types/debug": "^4.1.5",
     "@types/ganache-core": "^2.7.0",
     "@types/jest": "^24.0.25",
-    "@types/node": "^12.7.5",
+    "@types/node": "^13.9.1",
     "jest": "^24.9.0",
     "jest-circus": "^25.1.0",
     "rimraf": "^3.0.1",
