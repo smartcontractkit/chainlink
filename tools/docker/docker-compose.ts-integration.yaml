@@ -25,6 +25,10 @@ services:
       - ETH_HTTP_URL
       - EXTERNAL_ADAPTER_URL
       - CLIENT_NODE_URL # used to send remote commands
+      - NODE_1_CONTAINER
+      - NODE_2_CONTAINER
+      - CLIENT_NODE_2_URL
+      - EXTERNAL_ADAPTER_2_URL
     secrets:
       - apicredentials
 
