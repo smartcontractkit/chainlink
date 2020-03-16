@@ -392,6 +392,7 @@ workflows:
                 - develop
                 - /^release\/.*/
                 - master
+                - /^hotfix\/.*/
       - go-sqlite:
           filters: # all branches, and /^v../ tags for build-publish...
             tags:

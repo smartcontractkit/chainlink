@@ -90,7 +90,7 @@ func createTxRunResult(
 		gasLimit,
 	)
 	if err != nil {
-		return models.NewRunOutputPendingConfirmations()
+		return models.NewRunOutputPendingConfirmationsWithData(models.JSON{})
 	}
 
 	output, err := models.JSON{}.Add("result", tx.Hash.String())
