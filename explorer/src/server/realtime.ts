@@ -37,13 +37,19 @@ export const bootstrapRealtime = async (server: http.Server) => {
       const secret = info.req.headers[SECRET_HEADER]
 
       if (typeof accessKey !== 'string' || typeof secret !== 'string') {
-        logger.info('client rejected, invalid authentication request')
+        logger.info({
+          msg: 'client rejected, invalid authentication request',
+          origin: info.origin,
+        })
         return
       }
 
       authenticate(db, accessKey, secret).then((session: Session | null) => {
         if (session === null) {
-          logger.info(`client "${accessKey}" rejected, failed authentication`)
+          logger.info({
+            msg: `client "${accessKey}" rejected, failed authentication`,
+            origin: info.origin,
+          })
           callback(false, 401)
           return
         }
