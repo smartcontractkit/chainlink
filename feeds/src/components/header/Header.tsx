@@ -1,11 +1,13 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from 'antd'
-import { withRouter } from 'react-router'
+import { withRouter, RouteComponentProps } from 'react-router'
 import ReactGA from 'react-ga'
 import ChainlinkLogo from '../shared/ChainlinkLogo'
 
-const Header = ({ location }) => {
+interface Props extends RouteComponentProps {}
+
+const Header: React.FC<Props> = ({ location }) => {
   return (
     <header className="header">
       <div className="header__main-nav">
