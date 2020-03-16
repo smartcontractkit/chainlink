@@ -5,7 +5,7 @@ import { Logger } from 'typeorm'
 
 const options: Parameters<typeof pino>[0] = {
   name: 'Explorer',
-  level: 'warn',
+  level: 'info',
   redact: {
     paths: ['req.headers', 'res.headers'],
   },
