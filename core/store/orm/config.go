@@ -167,14 +167,14 @@ func (c Config) MinimumServiceDuration() time.Duration {
 	return c.viper.GetDuration(EnvVarName("MinimumServiceDuration"))
 }
 
-// EthGasBumpThreshold represents the maximum amount a transaction's ETH amount
-// should be increased in order to facilitate a transaction.
+// EthGasBumpThreshold represents the intervals in which ETH should be increased when
+// doing gas bumping.
 func (c Config) EthGasBumpThreshold() uint64 {
 	return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
 }
 
-// EthGasBumpWei represents the intervals in which ETH should be increased when
-// doing gas bumping.
+// EthGasBumpWei represents the maximum amount a transaction's ETH amount
+// should be increased in order to facilitate a transaction.
 func (c Config) EthGasBumpWei() *big.Int {
 	return c.getWithFallback("EthGasBumpWei", parseBigInt).(*big.Int)
 }
