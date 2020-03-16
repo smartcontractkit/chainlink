@@ -60,6 +60,8 @@ type TxManager interface {
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
+	SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error)
+
 	eth.Client
 }
 
@@ -333,6 +335,27 @@ var (
 // FIXME: There are probably other types of errors here that are symptomatic of a nonce that is too low
 func isNonceTooLowError(err error) bool {
 	return err != nil && nonceTooLowRegex.MatchString(err.Error())
+}
+
+// SignedRawTxWithBumpedGas takes a transaction and generates a new signed TX from it with the provided params
+func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+	ma := txm.getAccount(originalTx.From)
+	if ma == nil {
+		return "", fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
+	}
+
+	transaction := types.NewTransaction(originalTx.Nonce, originalTx.To, originalTx.Value.ToInt(), gasLimit, &gasPrice, originalTx.Data)
+
+	transaction, err := txm.keyStore.SignTx(ma.Account, transaction, txm.config.ChainID())
+	if err != nil {
+		return "", err
+	}
+
+	rlp := new(bytes.Buffer)
+	if err := transaction.EncodeRLP(rlp); err != nil {
+		return "", err
+	}
+	return hexutil.Encode(rlp.Bytes()), nil
 }
 
 // newTx returns a newly signed Ethereum Transaction

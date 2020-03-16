@@ -251,6 +251,33 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Run the chainlink node",
 					Action: client.RunNode,
 				},
+				{
+					Name:   "rebroadcast-transactions",
+					Usage:  "manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue",
+					Action: client.RebroadcastTransactions,
+					Flags: []cli.Flag{
+						cli.Uint64Flag{
+							Name:  "beginningNonce",
+							Usage: "beginning of nonce range to rebroadcast",
+						},
+						cli.Uint64Flag{
+							Name:  "endingNonce",
+							Usage: "end of nonce range to rebroadcast (inclusive)",
+						},
+						cli.Uint64Flag{
+							Name:  "gasPriceWei",
+							Usage: "gas price (in Wei) to rebroadcast transactions at",
+						},
+						cli.StringFlag{
+							Name:  "password, p",
+							Usage: "text file holding the password for the node's account",
+						},
+						cli.Uint64Flag{
+							Name:  "gasLimit",
+							Usage: "OPTIONAL: gas limit to use for each transaction ",
+						},
+					},
+				},
 			},
 		},
 
