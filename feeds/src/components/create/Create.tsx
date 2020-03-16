@@ -1,7 +1,8 @@
 import React from 'react'
 import { ethers } from 'ethers'
 import { Form, Select, Input, Button, InputNumber } from 'antd'
-import { withRouter } from 'react-router'
+import { FormComponentProps } from 'antd/lib/form/Form'
+import { withRouter, RouteComponentProps } from 'react-router'
 import { Networks, stringifyQuery } from 'utils'
 
 const { Option } = Select
@@ -14,7 +15,7 @@ const formTailLayout = {
   wrapperCol: { span: 8, offset: 9 },
 }
 
-export const isAddress = () => (rule, value, callback) => {
+const isAddress = () => (_rule: any, value: string, callback: any) => {
   try {
     ethers.utils.getAddress(value)
     callback()
@@ -23,7 +24,9 @@ export const isAddress = () => (rule, value, callback) => {
   }
 }
 
-const Create = ({ form, history }) => {
+interface CreateProps extends RouteComponentProps, FormComponentProps {}
+
+const Create: React.FC<CreateProps> = ({ form, history }) => {
   const handleSubmit = () => {
     form.validateFields((err, values) => {
       if (!err) {
@@ -50,7 +53,7 @@ const Create = ({ form, history }) => {
             validateTrigger: 'onBlur',
             rules: [
               { required: true, message: 'Contract address is required!' },
-              { validator: isAddress(form) },
+              { validator: isAddress() },
             ],
           })(
             <Input placeholder="0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9" />,
