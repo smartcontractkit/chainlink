@@ -196,6 +196,9 @@ jobs:
           paths:
             - /usr/local/share/.cache/yarn
       - run:
+          name: Run dependency setup
+          command: yarn workspace @chainlink/feeds run setup
+      - run:
           name: Run Tests
           command: yarn workspace @chainlink/feeds run test
   forks:

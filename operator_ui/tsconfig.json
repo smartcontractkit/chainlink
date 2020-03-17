@@ -15,6 +15,6 @@
     { "path": "../tools/json-api-client" },
     { "path": "../tools/local-storage" },
     { "path": "../tools/redux" },
-    { "path": "../tools/ts-test-helpers" }
+    { "path": "../tools/ts-helpers" }
   ]
 }
