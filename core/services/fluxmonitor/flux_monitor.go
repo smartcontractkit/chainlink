@@ -612,6 +612,14 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 	return p.fluxAggregator.RoundState(acct.Address)
 }
 
+// jobRunRequest is the request used to trigger a Job Run by the Flux Monitor.
+type jobRunRequest struct {
+	Result           decimal.Decimal `json:"result"`
+	Address          string          `json:"address"`
+	FunctionSelector string          `json:"functionSelector"`
+	DataPrefix       string          `json:"dataPrefix"`
+}
+
 func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nextRound *big.Int) error {
 	methodID, err := p.fluxAggregator.GetMethodID("updateAnswer")
 	if err != nil {
@@ -622,18 +630,17 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 	if err != nil {
 		return err
 	}
-	payload := fmt.Sprintf(`{
-			"result": "%s",
-			"address": "%s",
-			"functionSelector": "%s",
-			"dataPrefix": "%s"
-	}`,
-		polledAnswer,
-		p.initr.InitiatorParams.Address.Hex(),
-		hexutil.Encode(methodID),
-		hexutil.Encode(nextRoundData))
 
-	runData, err := models.ParseJSON([]byte(payload))
+	payload, err := json.Marshal(jobRunRequest{
+		Result:           polledAnswer,
+		Address:          p.initr.InitiatorParams.Address.Hex(),
+		FunctionSelector: hexutil.Encode(methodID),
+		DataPrefix:       hexutil.Encode(nextRoundData),
+	})
+	if err != nil {
+		return errors.Wrapf(err, "unable to encode Job Run request in JSON")
+	}
+	runData, err := models.ParseJSON(payload)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to start chainlink run with payload %s", payload))
 	}
