@@ -24,5 +24,6 @@ func TestMeasureFulfillmenttGasCost(t *testing.T) {
 		To: &coordinator.rootContractAddress, Data: rawData}
 	estimate, err := coordinator.backend.EstimateGas(context.TODO(), callMsg)
 	require.NoError(t, err)
+	assert.Greater(t, estimate, uint64(148000))
 	assert.Less(t, estimate, uint64(200000))
 }
