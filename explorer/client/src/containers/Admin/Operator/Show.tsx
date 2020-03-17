@@ -9,12 +9,12 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
+import { DispatchBinding } from '@chainlink/ts-helpers'
 import Title from '../../../components/Title'
 import Operator from '../../../components/Admin/Operators/Operator'
 import { fetchAdminOperator } from '../../../actions/adminOperators'
 import { AppState } from '../../../reducers'
 import { OperatorShowData } from '../../../reducers/adminOperatorsShow'
-import { DispatchBinding } from '../../../utils/types'
 
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
