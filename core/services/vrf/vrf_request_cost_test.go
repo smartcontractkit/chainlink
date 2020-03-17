@@ -19,5 +19,6 @@ func TestMeasureRandomnessRequestGasCost(t *testing.T) {
 	callMsg := ethereum.CallMsg{To: &coordinator.consumerContractAddress, Data: rawData}
 	estimate, err := coordinator.backend.EstimateGas(context.TODO(), callMsg)
 	require.NoError(t, err)
-	assert.Less(t, estimate, uint64(180000))
+	assert.Greater(t, estimate, uint64(175000))
+	assert.Less(t, estimate, uint64(176000))
 }
