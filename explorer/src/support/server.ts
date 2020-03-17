@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import http from 'http'
 import { closeDbConnection, getDb } from '../database'
 import server from '../server'
@@ -11,7 +12,7 @@ export const DEFAULT_TEST_PORT =
 export async function start() {
   Object.assign(process.env, {
     EXPLORER_SERVER_PORT: `${DEFAULT_TEST_PORT}`,
-    EXPLORER_COOKIE_SECRET: 'key1',
+    EXPLORER_COOKIE_SECRET: randomBytes(32).toString('hex'),
   })
 
   await getDb()

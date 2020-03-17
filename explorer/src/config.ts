@@ -16,12 +16,11 @@ export interface ExplorerConfig {
   clientOrigin: string
   /**
    * The value of the secret used to sign cookies.
+   * Must be at least 32 characters.
    *
-   * For production usage, make sure this value is kept secret,
-   * and is sufficiently secure.
+   * For production usage, make sure this value is kept secret
+   * and has sufficient entropy
    *
-   * When used for development/testing purposes, it can be set
-   * to some simple value like 'key1'.
    */
   cookieSecret: string
   /**
@@ -44,11 +43,7 @@ export function getConfig(): ExplorerConfig {
     cookieExpirationMs: 86_400_000, // 1 day in ms
   }
 
-  if (!conf.cookieSecret) {
-    console.warn(
-      'WARNING: Cookie secret is not set! Set via EXPLORER_COOKIE_SECRET',
-    )
-  }
+  validateCookieSecret(conf.cookieSecret)
 
   for (const [k, v] of Object.entries(conf)) {
     if (v == undefined) {
@@ -59,4 +54,21 @@ export function getConfig(): ExplorerConfig {
   }
 
   return conf
+}
+
+/**
+ * Assert that a cookie secret is at least 32 characters in length.
+ *
+ * @param secret The secret value to validate.
+ */
+function validateCookieSecret(secret?: string): asserts secret is string {
+  if (!secret) {
+    throw Error(
+      'Cookie secret is not set! Set via environment variable EXPLORER_COOKIE_SECRET',
+    )
+  }
+
+  if (secret.length < 32) {
+    throw Error('Cookie secret must be at least 32 characters')
+  }
 }
