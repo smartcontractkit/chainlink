@@ -31,7 +31,15 @@ export const bootstrapRealtime = async (server: http.Server) => {
         headers?: http.OutgoingHttpHeaders,
       ) => void,
     ) => {
-      logger.debug('websocket connection attempt')
+      const remote =
+        info.req.socket.remoteAddress ??
+        '$UNKNOWN_HOST' + ':' + info.req.socket.remotePort ??
+        '$UNKNOWN_PORT'
+
+      logger.debug({
+        msg: 'websocket connection attempt',
+        remote,
+      })
 
       const accessKey = info.req.headers[ACCESS_KEY_HEADER]
       const secret = info.req.headers[SECRET_HEADER]
@@ -40,6 +48,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         logger.info({
           msg: 'client rejected, invalid authentication request',
           origin: info.origin,
+          remote,
         })
         return
       }
@@ -49,6 +58,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
           logger.info({
             msg: `client "${accessKey}" rejected, failed authentication`,
             origin: info.origin,
+            remote,
           })
           callback(false, 401)
           return
