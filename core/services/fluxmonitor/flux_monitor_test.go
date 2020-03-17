@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net/url"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -175,12 +176,12 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 
 			if test.expectedToSubmit {
 				run := cltest.NewJobRun(job)
-				data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
-					"result": "%d",
-					"address": "%s",
-					"functionSelector": "0x%x",
-					"dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
-				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), updateAnswerSelector, reportableRoundID)))
+				data, err := models.NewJSON(map[string]interface{}{
+					"result":           strconv.Itoa(int(test.polledAnswer)),
+					"address":          initr.InitiatorParams.Address.Hex(),
+					"functionSelector": fmt.Sprintf("0x%x", updateAnswerSelector),
+					"dataPrefix":       fmt.Sprintf("0x%064x", reportableRoundID),
+				})
 				require.NoError(t, err)
 
 				rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
@@ -548,12 +549,12 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			if expectedToSubmit {
 				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
 
-				data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
-					"result": "%d",
-					"address": "%s",
+				data, err := models.NewJSON(map[string]interface{}{
+					"result":           strconv.Itoa(int(test.polledAnswer)),
+					"address":          initr.InitiatorParams.Address.Hex(),
 					"functionSelector": "0xe6330cf7",
-					"dataPrefix": "0x%0x"
-				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), utils.EVMWordUint64(uint64(test.fetchedReportableRoundID)))))
+					"dataPrefix":       fmt.Sprintf("0x%0x", utils.EVMWordUint64(uint64(test.fetchedReportableRoundID))),
+				})
 				require.NoError(t, err)
 
 				rm.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {

@@ -121,6 +121,38 @@ func TestJSON_UnmarshalJSON(t *testing.T) {
 	}
 }
 
+func TestJSON_NewJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          interface{}
+		want        models.JSON
+		wantErrored bool
+	}{
+		{
+			"basic",
+			map[string]interface{}{
+				"num": 100,
+			},
+			cltest.JSONFromString(t, `{"num":100}`),
+			false,
+		},
+		{
+			"invalid argument",
+			make(chan struct{}),
+			models.JSON{},
+			true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			json, err := models.NewJSON(test.in)
+			assert.Equal(t, test.want, json)
+			assert.Equal(t, test.wantErrored, (err != nil))
+		})
+	}
+}
+
 func TestJSON_ParseJSON(t *testing.T) {
 	t.Parallel()
 

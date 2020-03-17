@@ -715,7 +715,7 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 		return err
 	}
 
-	payload, err := json.Marshal(jobRunRequest{
+	runData, err := models.NewJSON(jobRunRequest{
 		Result:           polledAnswer,
 		Address:          p.initr.InitiatorParams.Address.Hex(),
 		FunctionSelector: hexutil.Encode(methodID),
@@ -723,10 +723,6 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 	})
 	if err != nil {
 		return errors.Wrapf(err, "unable to encode Job Run request in JSON")
-	}
-	runData, err := models.ParseJSON(payload)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("unable to start chainlink run with payload %s", payload))
 	}
 	runRequest := models.NewRunRequest(runData)
 

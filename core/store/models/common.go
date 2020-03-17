@@ -159,6 +159,16 @@ func ParseJSON(b []byte) (JSON, error) {
 	return j, json.Unmarshal([]byte(str), &j)
 }
 
+// NewJSON returns the JSON encoded object for the given argument.
+func NewJSON(obj interface{}) (JSON, error) {
+	buf, err := json.Marshal(obj)
+	if err != nil {
+		return JSON{}, err
+	}
+	ret := gjson.ParseBytes(buf)
+	return JSON{ret}, nil
+}
+
 // UnmarshalJSON parses the JSON bytes and stores in the *JSON pointer.
 func (j *JSON) UnmarshalJSON(b []byte) error {
 	str := string(b)
