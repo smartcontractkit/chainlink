@@ -670,12 +670,10 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log *contracts.Lo
 	}
 }
 
-var dec0 = decimal.NewFromInt(0)
-
 // OutsideDeviation checks whether the next price is outside the threshold.
 func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) bool {
-	if curAnswer.Equal(dec0) {
-		logger.Infow("Current price is 0, deviation automatically met", "answer", dec0)
+	if curAnswer.IsZero() {
+		logger.Infow("Current price is 0, deviation automatically met", "answer", decimal.Zero)
 		return true
 	}
 
