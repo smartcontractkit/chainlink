@@ -31,7 +31,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         headers?: http.OutgoingHttpHeaders,
       ) => void,
     ) => {
-      const remote = remoteURL(info.req)
+      const remote = remoteDetails(info.req)
       logger.debug({ msg: 'websocket connection attempt', remote })
 
       const accessKey = info.req.headers[ACCESS_KEY_HEADER]
@@ -41,7 +41,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         logger.info({
           msg: 'client rejected, invalid authentication request',
           origin: info.origin,
-          remote,
+          ...remote,
         })
         return
       }
@@ -52,7 +52,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
             msg: 'client rejected, failed authentication',
             accessKey,
             origin: info.origin,
-            remote,
+            ...remote,
           })
           callback(false, 401)
           return
@@ -62,7 +62,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
           msg: `websocket client successfully authenticated`,
           nodeID: session.chainlinkNodeId,
           origin: info.origin,
-          remote,
+          ...remote,
         })
         sessions.set(accessKey, session)
         const existingConnection = connections.get(accessKey)
@@ -75,14 +75,18 @@ export const bootstrapRealtime = async (server: http.Server) => {
   })
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
-    const remote = remoteURL(request)
+    const remote = remoteDetails(request)
 
     // accessKey type already validated in verifyClient()
     const accessKey = request.headers[ACCESS_KEY_HEADER].toString()
     connections.set(accessKey, ws)
     clnodeCount = clnodeCount + 1
 
-    logger.info({ msg: 'websocket connected', nodeCount: clnodeCount, remote })
+    logger.info({
+      msg: 'websocket connected',
+      nodeCount: clnodeCount,
+      ...remote,
+    })
 
     ws.on('message', async (message: WebSocket.Data) => {
       const session = sessions.get(accessKey)
@@ -113,19 +117,17 @@ export const bootstrapRealtime = async (server: http.Server) => {
       logger.info({
         msg: 'websocket disconnected',
         nodeCount: clnodeCount,
-        remote,
+        ...remote,
       })
     })
   })
 }
 
-function remoteURL(req: http.IncomingMessage): string {
-  return (
-    (req.socket.remoteFamily ?? 'tcp') +
-    '://' +
-    (req.socket.remoteAddress ?? '$UNKNOWN_HOST') +
-    ':' +
-    (req.socket.remotePort ?? '0') +
-    '/'
-  )
+function remoteDetails(
+  req: http.IncomingMessage,
+): Record<string, string | number | null> {
+  return {
+    remotePort: req.socket.remotePort,
+    remoteAddress: req.socket.remoteAddress,
+  }
 }
