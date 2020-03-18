@@ -694,6 +694,14 @@ func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	return tx, err
 }
 
+// FindAllTxsInNonceRange returns an array of transactions matching the inclusive range between beginningNonce and endingNonce
+func (orm *ORM) FindAllTxsInNonceRange(beginningNonce uint, endingNonce uint) ([]models.Tx, error) {
+	orm.MustEnsureAdvisoryLock()
+	var txs []models.Tx
+	err := orm.db.Order("nonce ASC, sent_at ASC").Where(`nonce BETWEEN ? AND ?`, beginningNonce, endingNonce).Find(&txs).Error
+	return txs, err
+}
+
 // FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, *models.TxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()
