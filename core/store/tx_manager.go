@@ -21,6 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v3"
@@ -39,8 +41,30 @@ const (
 	nonceReloadBackoffBaseTime = 3 * time.Second
 )
 
-// ErrPendingConnection is the error returned if TxManager is not connected.
-var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
+var (
+	// ErrPendingConnection is the error returned if TxManager is not connected.
+	ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
+
+	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_num_gas_bumps",
+		Help: "Number of gas bumps",
+	})
+
+	promGasBumpExceedsLimit = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_gas_bump_exceeds_limit",
+		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
+	})
+
+	promGasBumpUnderpricedReplacement = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_gas_bump_underpriced_replacement",
+		Help: "Number of underpriced replacement errors received while trying to bump gas. Counts of this type most likely indicate some kind of misconfiguration or problem.",
+	})
+
+	promTxAttemptFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_tx_attempt_failed",
+		Help: "Number of tx attempts that failed. Tx attempts should not fail in normal operation.",
+	})
+)
 
 //go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
 
@@ -723,8 +747,9 @@ func (txm *EthTxManager) handleSafe(
 	return nil
 }
 
-// BumpGasByIncrement returns a new gas price increased by the larger of either
-// a percentage bump or a fixed size bump
+// BumpGasByIncrement returns a new gas price increased by the larger of:
+// - A configured percentage bump (ETH_GAS_BUMP_PERCENT)
+// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI)
 func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int {
 	// Similar logic is used in geth
 	// See: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_list.go#L255
@@ -753,16 +778,19 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 	bumpedGasPrice := txm.BumpGasByIncrement(originalGasPrice)
 
 	for {
+		promNumGasBumps.Inc()
 		if bumpedGasPrice.Cmp(txm.config.EthMaxGasPriceWei()) > 0 {
 			// NOTE: In the current design, a new tx attempt will be created even if this one returns error.
 			// If we do hit this scenario, we will keep creating new attempts that are guaranteed to fail
 			// until CHAINLINK_TX_ATTEMPT_LIMIT is reached
+			promGasBumpExceedsLimit.Inc()
 			return fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
 		}
 		bumpedTxAttempt, err := txm.createAttempt(tx, bumpedGasPrice, blockHeight)
 		if isUnderPricedReplacementError(err) {
 			// This is not expected if we have bumped at least geth's required
 			// amount.
+			promGasBumpUnderpricedReplacement.Inc()
 			logger.Warnw(fmt.Sprintf("Gas bump was rejected by ethereum node as underpriced, bumping again. Your value of ETH_GAS_BUMP_PERCENT (%v) may be set too low", txm.config.EthGasBumpPercent()),
 				"originalGasPrice", originalGasPrice, "bumpedGasPrice", bumpedGasPrice,
 			)
@@ -770,6 +798,7 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 			continue
 		}
 		if err != nil {
+			promTxAttemptFailed.Inc()
 			return errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
 		}
 
