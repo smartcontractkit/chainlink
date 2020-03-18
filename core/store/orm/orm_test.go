@@ -1,6 +1,7 @@
 package orm_test
 
 import (
+	"fmt"
 	"io"
 	"math/big"
 	"os"
@@ -1344,6 +1345,26 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, attempts, 7)
+}
+
+func TestORM_FindAllTxsInNonceRange(t *testing.T) {
+	var createdTxs []models.Tx
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	for _, nonce := range []uint64{1, 2, 3} {
+		tx := cltest.NewTransaction(nonce)
+		tx.SurrogateID = null.StringFrom(fmt.Sprintf("nonce-%v", nonce))
+		tx, err := store.CreateTx(tx)
+		require.NoError(t, err)
+		createdTxs = append(createdTxs, *tx)
+	}
+
+	txs, err := store.FindAllTxsInNonceRange(2, 3)
+	require.NoError(t, err)
+	assert.Len(t, txs, 2)
+	assert.Equal(t, "nonce-2", txs[0].SurrogateID.ValueOrZero())
+	assert.Equal(t, "nonce-3", txs[1].SurrogateID.ValueOrZero())
 }
 
 func TestJobs_All(t *testing.T) {
