@@ -22,7 +22,7 @@ var promETHBalance = promauto.NewGaugeVec(
 	[]string{"account"},
 )
 
-func updatePrometheusEthBalance(balance *assets.Eth, from common.Address) {
+func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
 	balanceFloat, err := approximateFloat64(balance)
 
 	if err != nil {
@@ -35,7 +35,8 @@ func updatePrometheusEthBalance(balance *assets.Eth, from common.Address) {
 
 func approximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())
-	bf := new(big.Float).Quo(ef, eth.WeiPerEth)
+	weif := new(big.Float).SetInt(eth.WeiPerEth)
+	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
 		return math.Inf(1), errors.New("assets.Eth.Float64: Could not approximate Eth value into float")

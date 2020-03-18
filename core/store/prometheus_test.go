@@ -8,7 +8,6 @@ import (
 )
 
 func Test_approximateFloat64(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name      string
 		input     string
