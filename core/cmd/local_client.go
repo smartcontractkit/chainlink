@@ -28,11 +28,16 @@ const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
+	err := cli.Config.Validate()
+	if err != nil {
+		return err
+	}
+
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
-	err := InitEnclave()
+	err = InitEnclave()
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
