@@ -1,12 +1,13 @@
 declare module 'feeds' {
   interface FeedConfig {
     contractAddress: string
+    contractVersion?: number
+    contractType: string
     name: string
     valuePrefix: string
     pair: string[]
     counter?: number
     path: string
-    contractVersion?: number
     networkId: number
     history: boolean
     decimalPlaces?: number
@@ -14,5 +15,6 @@ declare module 'feeds' {
     sponsored?: string[]
     threshold: number
     compareOffchain?: string
+    listing?: boolean
   }
 }
