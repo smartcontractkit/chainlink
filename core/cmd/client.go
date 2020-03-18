@@ -298,7 +298,7 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0660)
+	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
 }
 
 // Retrieve returns any Saved cookies.

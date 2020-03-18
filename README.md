@@ -27,7 +27,7 @@ Examples of how to utilize and integrate Chainlinks can be found in the [example
 
 ## Install
 
-1. [Install Go 1.12+](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.13+](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
 3. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 4. Build and install Chainlink: `make install`
@@ -102,13 +102,13 @@ For the latest information on setting up a development environment, see the [gui
 ### Build your current version
 
 ```bash
-$ go build -o chainlink ./core/
+go build -o chainlink ./core/
 ```
 
 - Run the binary:
 
 ```bash
-$ ./chainlink
+./chainlink
 ```
 
 ### Test
@@ -118,14 +118,14 @@ $ ./chainlink
 2. Build contracts:
 
 ```bash
-$ yarn
-$ yarn setup:contracts
+yarn
+yarn setup:contracts
 ```
 
 3. Ready for testing:
 
 ```bash
-$ go test -parallel=1 ./...
+go test -parallel=1 ./...
 ```
 
 ### Solidity Development
@@ -134,14 +134,14 @@ $ go test -parallel=1 ./...
 2. Install the dependencies:
 
 ```bash
-$ cd evm
-$ yarn install
+cd evm
+yarn install
 ```
 
 3. Run tests:
 
 ```bash
-$ yarn run test-sol
+yarn run test-sol
 ```
 
 ### Use of Go Generate

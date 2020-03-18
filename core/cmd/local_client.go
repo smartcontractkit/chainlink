@@ -1,12 +1,14 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"chainlink/core/logger"
 	"chainlink/core/services/chainlink"
@@ -19,6 +21,9 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )
+
+// ownerPermsMask are the file permission bits reserved for owner.
+const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -37,6 +42,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
+	if err := checkFilePermissions(cli.Config.RootDir()); err != nil {
+		return cli.errorOut(err)
+	}
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
@@ -44,6 +52,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
+	}
+	if len(c.String("vrfpassword")) != 0 {
+		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
+		if err != nil {
+			return cli.errorOut(errors.Wrapf(err,
+				"error reading VRF password from vrfpassword file \"%s\"",
+				c.String("vrfpassword")))
+		}
+		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
+			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
+		}
 	}
 
 	var user models.User
@@ -71,6 +90,24 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 func loggedStop(app chainlink.Application) {
 	logger.WarnIf(app.Stop())
+}
+
+func checkFilePermissions(directory string) error {
+	err := filepath.Walk(directory,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			fileMode := info.Mode().Perm()
+			if fileMode&^ownerPermsMask != 0 && !fileMode.IsDir() {
+				return fmt.Errorf("%s has overly permissive file permissions, should be atleast %s", path, ownerPermsMask)
+			}
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func passwordFromFile(pwdFile string) (string, error) {

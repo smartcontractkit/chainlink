@@ -1,17 +1,18 @@
 import * as jsonapi from '@chainlink/json-api-client'
-import * as api from './api'
-import { RunStatus } from './core/store/models'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
+import * as api from './api'
+import { Sessions } from './api/sessions'
+import { RunStatus } from './core/store/models'
 import { AppState } from './reducers'
 import {
-  RouterActionType,
-  NotifyActionType,
   AuthActionType,
-  ResourceActionType,
+  NotifyActionType,
   RedirectAction,
+  ResourceActionType,
+  RouterActionType,
 } from './reducers/actions'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
@@ -79,22 +80,20 @@ type UnboxApi<T extends AnyFunc> = T extends (...args: any[]) => infer U
  */
 type Parameter<T extends AnyFunc> = Parameters<T>[0]
 
-const signInSuccessAction = (doc: UnboxApi<typeof api.createSession>) => {
-  const signDoc = doc
-
+const signInSuccessAction = (doc: UnboxApi<Sessions['createSession']>) => {
   return {
     type: AuthActionType.RECEIVE_SIGNIN_SUCCESS,
-    authenticated: signDoc.data.attributes.authenticated,
+    authenticated: doc.data.attributes.authenticated,
   }
 }
 
 const signInFailAction = () => ({ type: AuthActionType.RECEIVE_SIGNIN_FAIL })
 
-function sendSignIn(data: Parameter<typeof api.createSession>) {
+function sendSignIn(data: Parameter<Sessions['createSession']>) {
   return (dispatch: Dispatch) => {
     dispatch({ type: AuthActionType.REQUEST_SIGNIN })
 
-    return api
+    return api.sessions
       .createSession(data)
       .then(doc => dispatch(signInSuccessAction(doc)))
       .catch((error: Errors) => {
@@ -117,7 +116,7 @@ export const receiveSignoutSuccess = () => ({
 function sendSignOut() {
   return (dispatch: Dispatch) => {
     dispatch({ type: AuthActionType.REQUEST_SIGNOUT })
-    return api
+    return api.sessions
       .destroySession()
       .then(() => dispatch(receiveSignoutSuccess()))
       .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
@@ -138,7 +137,7 @@ const receiveUpdateSuccess = (response: Response) => ({
   response,
 })
 
-export const submitSignIn = (data: Parameter<typeof api.createSession>) =>
+export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 

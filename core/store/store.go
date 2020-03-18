@@ -28,11 +28,12 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config    *orm.Config
-	Clock     utils.AfterNower
-	KeyStore  *KeyStore
-	TxManager TxManager
-	closeOnce sync.Once
+	Config      *orm.Config
+	Clock       utils.AfterNower
+	KeyStore    *KeyStore
+	VRFKeyStore *VRFKeyStore
+	TxManager   TxManager
+	closeOnce   sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -124,9 +125,7 @@ func (ed *EthDialer) Dial(urlString string) (eth.CallerSubscriber, error) {
 	return newLazyRPCWrapper(urlString, ed.limiter)
 }
 
-// NewStore will create a new database file at the config's RootDir if
-// it is not already present, otherwise it will use the existing db.sqlite3
-// file.
+// NewStore will create a new store using the Eth dialer
 func NewStore(config *orm.Config) *Store {
 	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()))
 }
@@ -177,6 +176,7 @@ func newStoreWithDialerAndKeyStore(
 		ORM:       orm,
 		TxManager: txManager,
 	}
+	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
 }
 
@@ -234,7 +234,7 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 }
 
 func initializeORM(config *orm.Config) (*orm.ORM, error) {
-	orm, err := orm.NewORM(orm.NormalizedDatabaseURL(config), config.DatabaseTimeout())
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}

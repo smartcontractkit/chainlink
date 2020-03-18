@@ -8,11 +8,13 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+// this permission grants read / write accccess to file owners only
+const readWritePerms = os.FileMode(0600)
 
 var logger *Logger
 
@@ -68,11 +70,11 @@ func SetLogger(zl *zap.Logger) {
 func CreateProductionLogger(
 	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *zap.Logger {
 	config := zap.NewProductionConfig()
+	destination := logFileURI(dir)
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
 	if toDisk {
-		destination := logFileURI(dir)
 		config.OutputPaths = append(config.OutputPaths, destination)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
@@ -82,20 +84,13 @@ func CreateProductionLogger(
 	if err != nil {
 		log.Fatal(err)
 	}
-	return zl
-}
 
-// CreateTestLogger creates a logger that directs output to PrettyConsole
-// configured for test output.
-func CreateTestLogger(lvl zapcore.Level) *zap.Logger {
-	color.NoColor = false
-	config := zap.NewProductionConfig()
-	config.Level.SetLevel(lvl)
-	config.OutputPaths = []string{"pretty://console"}
-	zl, err := config.Build(zap.AddCallerSkip(1))
-	if err != nil {
-		log.Fatal(err)
+	if toDisk {
+		if err := os.Chmod(destination, readWritePerms); err != nil {
+			log.Fatal(err)
+		}
 	}
+
 	return zl
 }
 

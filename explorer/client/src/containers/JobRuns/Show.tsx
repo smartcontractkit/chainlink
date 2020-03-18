@@ -11,6 +11,7 @@ import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import { RouteComponentProps } from '@reach/router'
+import { DispatchBinding } from '@chainlink/ts-helpers'
 import { JobRun } from 'explorer/models'
 import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
@@ -21,7 +22,6 @@ import Details from '../../components/JobRuns/Details'
 import RegionalNav from '../../components/JobRuns/RegionalNav'
 import RunStatus from '../../components/JobRuns/RunStatus'
 import { AppState } from '../../reducers'
-import { DispatchBinding } from '../../utils/types'
 
 const Loading = () => (
   <Table>

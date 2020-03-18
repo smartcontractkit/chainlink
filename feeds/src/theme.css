@@ -21878,15 +21878,20 @@ hr {
 }
 .listing-grid__item {
   background-color: #f4f5f6;
-  display: block;
   text-align: center;
   min-height: 125px;
   margin-bottom: 18px;
-  padding: 15px 0;
   line-height: 1.8;
 }
 .listing-grid__item:hover {
   background-color: #e0e6e8;
+}
+.listing-grid__item--link {
+  display: block;
+  padding: 15px 0;
+}
+.listing-grid__item--offchain-comparison {
+  padding-top: 15px;
 }
 .listing-grid__item--sponsored {
   text-align: center;

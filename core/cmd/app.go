@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"chainlink/core/store"
 
@@ -242,6 +243,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "password, p",
 							Usage: "text file holding the password for the node's account",
 						},
+						cli.StringFlag{
+							Name:  "vrfpassword, vp",
+							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
+						},
 						cli.Int64Flag{
 							Name:  "replay-from-block, r",
 							Usage: "historical block height from which to replay log-initiated jobs",
@@ -250,6 +255,60 @@ func NewApp(client *Client) *cli.App {
 					},
 					Usage:  "Run the chainlink node",
 					Action: client.RunNode,
+				},
+				cli.Command{
+					Name: "vrf",
+					Usage: format(`Local commands for administering the database of VRF proof
+           keys. These commands will not affect the extant in-memory keys of
+           any live node.`),
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create a VRF key, encrypted with password from the
+               password file, and store it in the database.`),
+							Flags:  flags("password, p"),
+							Action: client.CreateVRFKey,
+						},
+						{
+							Name:   "import",
+							Usage:  "Import key from keyfile.",
+							Flags:  append(flags("password, p"), flags("file, f")...),
+							Action: client.ImportVRFKey,
+						},
+						{
+							Name:   "export",
+							Usage:  "Export key to keyfile.",
+							Flags:  append(flags("file, f"), flags("publicKey, pk")...),
+							Action: client.ExportVRFKey,
+						},
+						{
+							Name:   "delete",
+							Usage:  "Remove key from database, if present",
+							Flags:  flags("publicKey, pk"),
+							Action: client.DeleteVRFKey,
+						},
+						{
+							Name: "list", Usage: "List the public keys in the db",
+							Action: client.ListKeys,
+						},
+						{
+							Name: "",
+						},
+						{
+							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
+							Usage: format(`
+               For testing purposes ONLY! DO NOT USE FOR ANY OTHER PURPOSE!
+
+               Creates a key with weak key-devrivation-function parameters, so that it can be
+               decrypted quickly during tests. As a result, it would be cheap to brute-force
+               the encryption password for the key, if the ciphertext fell into the wrong
+               hands!`),
+							Flags:  append(flags("password, p"), flags("file, f")...),
+							Action: client.CreateAndExportWeakVRFKey,
+							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
+						},
+					},
 				},
 			},
 		},
@@ -346,6 +405,15 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 	}...)
-
 	return app
 }
+
+var whitespace = regexp.MustCompile(`\s+`)
+
+// format returns result of replacing all whitespace in s with a single space
+func format(s string) string {
+	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
+}
+
+// flags is an abbreviated way to express a CLI flag
+func flags(s string) []cli.Flag { return []cli.Flag{cli.StringFlag{Name: s}} }

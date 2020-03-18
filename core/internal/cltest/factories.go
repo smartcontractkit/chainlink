@@ -18,6 +18,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
+	"chainlink/core/services/vrf"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -377,6 +378,22 @@ func NewRunLog(
 	}
 }
 
+// NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
+// the randomness request log represented by r.
+func NewRandomnessRequestLog(t *testing.T, r vrf.RandomnessRequestLog,
+	emitter common.Address, blk int) eth.Log {
+	rawData, err := r.RawData()
+	require.NoError(t, err)
+	return eth.Log{
+		Address:     emitter,
+		BlockNumber: uint64(blk),
+		Data:        rawData,
+		TxHash:      NewHash(),
+		BlockHash:   NewHash(),
+		Topics:      []common.Hash{models.RandomnessRequestLogTopic, r.JobID},
+	}
+}
+
 // NewServiceAgreementExecutionLog creates a log event for the given jobid,
 // address, block, and json, to simulate a request for execution on a service
 // agreement.
@@ -520,6 +537,18 @@ func Int(val interface{}) *utils.Big {
 		logger.Panicf("Could not convert %v of type %T to utils.Big", val, val)
 		return &utils.Big{}
 	}
+}
+
+func MustEVMUintHexFromBase10String(t *testing.T, strings ...string) string {
+	var allBytes []byte
+	for _, s := range strings {
+		i, ok := big.NewInt(0).SetString(s, 10)
+		require.True(t, ok)
+		bs, err := utils.EVMWordBigInt(i)
+		require.NoError(t, err)
+		allBytes = append(allBytes, bs...)
+	}
+	return fmt.Sprintf("0x%0x", allBytes)
 }
 
 type MockSigner struct{}

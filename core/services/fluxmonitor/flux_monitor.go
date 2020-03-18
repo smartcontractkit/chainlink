@@ -1,12 +1,6 @@
 package fluxmonitor
 
 import (
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,14 +9,23 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"chainlink/core/eth"
+	"chainlink/core/eth/contracts"
+	"chainlink/core/logger"
+	"chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/utils"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 )
 
-//go:generate mockery -name FluxMonitor -output ../../internal/mocks/ -case=underscore
+//go:generate mockery -name Service -output ../../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
+//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
 // defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
 const defaultHTTPTimeout = 5 * time.Second
@@ -196,7 +199,8 @@ func connectCheckers(ctx context.Context, jobMap map[string][]DeviationChecker, 
 			// XXX: Add mechanism to asynchronously communicate when a job spec has
 			// an ethereum interaction error.
 			// https://www.pivotaltracker.com/story/show/170349568
-			logger.ErrorIf(connectSingleChecker(ctx, checker, client))
+			err := checker.Start(ctx)
+			logger.ErrorIf(err, "could not start checker")
 		}
 	}
 }
@@ -218,7 +222,7 @@ func (fm *concreteFluxMonitor) addAction(
 
 	if connected {
 		for _, checker := range checkers {
-			err := connectSingleChecker(ctx, checker, fm.store.TxManager)
+			err := checker.Start(ctx)
 			if err != nil {
 				return errors.Wrap(err, "unable to connect checker")
 			}
@@ -231,17 +235,11 @@ func (fm *concreteFluxMonitor) addAction(
 	return nil
 }
 
-func connectSingleChecker(ctx context.Context, checker DeviationChecker, client eth.Client) error {
-	return checker.Start(ctx, client)
-}
-
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
 // to the passed job ID.
 func (fm *concreteFluxMonitor) RemoveJob(ID *models.ID) {
 	fm.removes <- ID
 }
-
-//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
@@ -274,8 +272,14 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 		return nil, err
 	}
 
+	fluxAggregator, err := contracts.NewFluxAggregator(f.store.TxManager, initr.InitiatorParams.Address)
+	if err != nil {
+		return nil, err
+	}
+
 	return NewPollingDeviationChecker(
 		f.store,
+		fluxAggregator,
 		initr,
 		runManager,
 		fetcher,
@@ -327,31 +331,31 @@ func GetBridgeURLFromName(name string, orm *orm.ORM) (*url.URL, error) {
 	return &bridgeURL, nil
 }
 
-//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
-
 // DeviationChecker encapsulate methods needed to initialize and check prices
 // for price deviations.
 type DeviationChecker interface {
-	Start(context.Context, eth.Client) error
+	Start(context.Context) error
 	Stop()
 }
 
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
-	store         *store.Store
-	initr         models.Initiator
-	address       common.Address
-	requestData   models.JSON
-	idleThreshold time.Duration
-	threshold     float64
-	precision     int32
-	runManager    RunManager
-	currentPrice  decimal.Decimal
-	currentRound  *big.Int
-	fetcher       Fetcher
-	delay         time.Duration
-	cancel        context.CancelFunc
-	newRounds     chan eth.Log
+	store                 *store.Store
+	fluxAggregator        contracts.FluxAggregator
+	initr                 models.Initiator
+	requestData           models.JSON
+	idleThreshold         time.Duration
+	roundTimeout          time.Duration
+	currentRoundStartedAt time.Time
+	threshold             float64
+	precision             int32
+	runManager            RunManager
+	currentPrice          decimal.Decimal
+	currentRound          *big.Int
+	fetcher               Fetcher
+	delay                 time.Duration
+	cancel                context.CancelFunc
+	chLogs                chan contracts.MaybeDecodedLog
 
 	waitOnStop chan struct{}
 }
@@ -359,25 +363,26 @@ type PollingDeviationChecker struct {
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
 func NewPollingDeviationChecker(
 	store *store.Store,
+	fluxAggregator contracts.FluxAggregator,
 	initr models.Initiator,
 	runManager RunManager,
 	fetcher Fetcher,
 	delay time.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
-		store:         store,
-		initr:         initr,
-		address:       initr.InitiatorParams.Address,
-		requestData:   initr.InitiatorParams.RequestData,
-		idleThreshold: initr.InitiatorParams.IdleThreshold.Duration(),
-		threshold:     float64(initr.InitiatorParams.Threshold),
-		precision:     initr.InitiatorParams.Precision,
-		runManager:    runManager,
-		currentPrice:  decimal.NewFromInt(0),
-		currentRound:  big.NewInt(0),
-		fetcher:       fetcher,
-		delay:         delay,
-		newRounds:     make(chan eth.Log),
+		store:          store,
+		fluxAggregator: fluxAggregator,
+		initr:          initr,
+		requestData:    initr.InitiatorParams.RequestData,
+		idleThreshold:  initr.InitiatorParams.IdleThreshold.Duration(),
+		threshold:      float64(initr.InitiatorParams.Threshold),
+		precision:      initr.InitiatorParams.Precision,
+		runManager:     runManager,
+		currentPrice:   decimal.NewFromInt(0),
+		currentRound:   big.NewInt(0),
+		fetcher:        fetcher,
+		delay:          delay,
+		chLogs:         make(chan contracts.MaybeDecodedLog),
 
 		waitOnStop: make(chan struct{}),
 	}, nil
@@ -385,16 +390,19 @@ func NewPollingDeviationChecker(
 
 // Start begins the CSP consumer in a single goroutine to
 // poll the price adapters and listen to NewRound events.
-func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) error {
+func (p *PollingDeviationChecker) Start(ctx context.Context) error {
 	logger.Debugw("Starting checker for job",
 		"job", p.initr.JobSpecID.String(),
 		"initr", p.initr.ID)
-	err := p.fetchAggregatorData(client)
+
+	err := p.fetchAggregatorData()
 	if err != nil {
 		return err
 	}
 
-	roundSubscription, err := p.subscribeToNewRounds(client)
+	ctx, p.cancel = context.WithCancel(ctx)
+
+	roundSubscription, err := p.fluxAggregator.SubscribeToLogs(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -404,9 +412,16 @@ func (p *PollingDeviationChecker) Start(ctx context.Context, client eth.Client) 
 		return err
 	}
 
-	ctx, p.cancel = context.WithCancel(ctx)
-	go p.consume(ctx, roundSubscription, client)
+	go p.consume(ctx, roundSubscription)
 	return nil
+}
+
+// Stop stops this instance from polling, cleaning up resources.
+func (p *PollingDeviationChecker) Stop() {
+	if p.cancel != nil {
+		p.cancel()
+		<-p.waitOnStop
+	}
 }
 
 // stopTimer stops and clears the timer as suggested by the documentation.
@@ -420,7 +435,7 @@ func stopTimer(arg *time.Timer) {
 	}
 }
 
-func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription eth.Subscription, client eth.Client) {
+func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription contracts.LogSubscription) {
 	defer roundSubscription.Unsubscribe()
 
 	idleThreshold := p.idleThreshold
@@ -431,6 +446,7 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 	idleThresholdTimer := time.NewTimer(idleThreshold)
 	defer stopTimer(idleThresholdTimer)
 
+Loop:
 	for {
 		jobRunTriggered := false
 
@@ -438,17 +454,18 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 		case <-ctx.Done():
 			close(p.waitOnStop)
 			return
-		case err := <-roundSubscription.Err():
-			logger.Error(errors.Wrap(err, "checker lost subscription to NewRound log events"))
-		case log := <-p.newRounds:
-			err := p.respondToNewRound(log)
+		case maybeLog := <-roundSubscription.Logs():
+			if maybeLog.Error != nil {
+				logger.Error(errors.WithStack(maybeLog.Error))
+				continue Loop
+			}
+			_, _, err := p.respondToLog(maybeLog.Log)
 			logger.ErrorIf(err, "checker unable to respond to new round")
+
 		case <-time.After(p.delay):
-			jobRunTriggered = p.pollIfRoundOpen(client)
+			jobRunTriggered = p.pollIfEligible(p.threshold)
 		case <-idleThresholdTimer.C:
-			ok, err := p.poll(0)
-			logger.ErrorIf(err, "checker unable to poll")
-			jobRunTriggered = ok
+			jobRunTriggered = p.pollIfEligible(0)
 		}
 
 		if jobRunTriggered {
@@ -459,87 +476,39 @@ func (p *PollingDeviationChecker) consume(ctx context.Context, roundSubscription
 	}
 }
 
-func (p *PollingDeviationChecker) pollIfRoundOpen(client eth.Client) bool {
-	open, err := p.isRoundOpen(client)
-	logger.ErrorIf(err, "Unable to determine if round is open:")
-	if !open {
-		logger.Info("Round is currently not open to new submissions - polling paused")
-		return false
-	}
-	ok, err := p.poll(p.threshold)
-	logger.ErrorIf(err, "checker unable to poll")
-	return ok
-}
-
-func (p *PollingDeviationChecker) isRoundOpen(client eth.Client) (bool, error) {
-	latestRound, err := client.GetAggregatorRound(p.address)
-	if err != nil {
-		return false, err
-	}
-	nodeAddress := p.store.KeyStore.Accounts()[0].Address
-	_, lastRoundAnswered, err := client.GetLatestSubmission(p.address, nodeAddress)
-	if err != nil {
-		return false, err
-	}
-	return lastRoundAnswered.Cmp(latestRound) <= 0, nil
-}
-
-// Stop stops this instance from polling, cleaning up resources.
-func (p *PollingDeviationChecker) Stop() {
-	if p.cancel != nil {
-		p.cancel()
-		<-p.waitOnStop
+func (p *PollingDeviationChecker) respondToLog(log interface{}) (roundStarted bool, roundEnded bool, _ error) {
+	switch log := log.(type) {
+	case contracts.LogNewRound:
+		return true, false, p.respondToNewRoundLog(log)
+	case contracts.LogRoundDetailsUpdated:
+		return false, false, p.respondToRoundDetailsUpdatedLog(log)
+	case contracts.LogAnswerUpdated:
+		return false, true, p.respondToAnswerUpdatedLog(log)
+	default:
+		return false, false, nil
 	}
 }
 
-// fetchAggregatorData retrieves the price that's on-chain, with which we check
-// the deviation against.
-func (p *PollingDeviationChecker) fetchAggregatorData(client eth.Client) error {
-	price, err := client.GetAggregatorPrice(p.address, p.precision)
-	if err != nil {
-		return err
-	}
-	p.currentPrice = price
-
-	round, err := client.GetAggregatorRound(p.address)
-	if err != nil {
-		return err
-	}
-	p.currentRound = round
+func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log contracts.LogAnswerUpdated) error {
 	return nil
 }
 
-func (p *PollingDeviationChecker) subscribeToNewRounds(client eth.Client) (eth.Subscription, error) {
-	filterQuery, err := models.FilterQueryFactory(p.initr, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	subscription, err := client.SubscribeToLogs(p.newRounds, filterQuery)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Infow(
-		"Flux Monitor Initiator subscribing to new rounds",
-		"address", p.initr.Address.Hex())
-	return subscription, nil
+func (p *PollingDeviationChecker) respondToRoundDetailsUpdatedLog(log contracts.LogRoundDetailsUpdated) error {
+	p.roundTimeout = time.Duration(log.Timeout) * time.Second
+	return nil
 }
 
-// respondToNewRound takes the round broadcasted in the log event, and responds
+// respondToNewRoundLog takes the round broadcasted in the log event, and responds
 // on-chain with an updated price.
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
-	requestedRound, err := models.ParseNewRoundLog(log)
-	if err != nil {
-		return err
-	}
+func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound) error {
+	requestedRound := log.RoundId
 
 	jobSpecID := p.initr.JobSpecID.String()
 	promSetBigInt(promFMSeenRound.WithLabelValues(jobSpecID), requestedRound)
 
 	// skip if requested is not greater than current.
-	if requestedRound.Cmp(p.currentRound) < 1 {
+	if requestedRound.Cmp(p.currentRound) <= 0 {
 		logger.Infow(
 			fmt.Sprintf("Ignoring new round request: requested %s <= current %s", requestedRound, p.currentRound),
 			"requestedRound", requestedRound,
@@ -558,6 +527,7 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 		"jobID", p.initr.JobSpecID,
 	)
 	p.currentRound = requestedRound
+	p.currentRoundStartedAt = time.Unix(log.StartedAt.Int64(), 0)
 
 	nextPrice, err := p.fetchPrices()
 	if err != nil {
@@ -570,6 +540,75 @@ func (p *PollingDeviationChecker) respondToNewRound(log eth.Log) error {
 	}
 
 	p.currentPrice = nextPrice
+	return nil
+}
+
+func (p *PollingDeviationChecker) pollIfEligible(threshold float64) bool {
+	open, err := p.isEligibleToPoll()
+	logger.ErrorIf(err, "Unable to determine if round is open:")
+	if !open {
+		logger.Info("Round is currently not open to new submissions - polling paused")
+		return false
+	}
+	ok, err := p.poll(threshold)
+	logger.ErrorIf(err, "checker unable to poll")
+	return ok
+}
+
+func (p *PollingDeviationChecker) isEligibleToPoll() (bool, error) {
+	roundIsOpen, err := p.isRoundOpen()
+	if err != nil {
+		return false, err
+	} else if roundIsOpen {
+		return true, nil
+	}
+	reportingRoundExpired, err := p.isRoundTimedOut()
+	if err != nil {
+		return false, err
+	}
+	return reportingRoundExpired, nil
+}
+
+func (p *PollingDeviationChecker) isRoundOpen() (bool, error) {
+	latestRound, err := p.fluxAggregator.LatestRound()
+	if err != nil {
+		return false, err
+	}
+	nodeAddress := p.store.KeyStore.Accounts()[0].Address
+	_, lastRoundAnswered, err := p.fluxAggregator.LatestSubmission(nodeAddress)
+	if err != nil {
+		return false, err
+	}
+	roundIsOpen := lastRoundAnswered.Cmp(latestRound) <= 0
+	return roundIsOpen, nil
+}
+
+func (p *PollingDeviationChecker) isRoundTimedOut() (bool, error) {
+	reportingRound, err := p.fluxAggregator.ReportingRound()
+	if err != nil {
+		return false, err
+	}
+	reportingRoundExpired, err := p.fluxAggregator.TimedOutStatus(reportingRound)
+	if err != nil {
+		return false, err
+	}
+	return reportingRoundExpired, nil
+}
+
+// fetchAggregatorData retrieves the price that's on-chain, with which we check
+// the deviation against.
+func (p *PollingDeviationChecker) fetchAggregatorData() error {
+	price, err := p.fluxAggregator.LatestAnswer(p.precision)
+	if err != nil {
+		return err
+	}
+	p.currentPrice = price
+
+	round, err := p.fluxAggregator.LatestRound()
+	if err != nil {
+		return err
+	}
+	p.currentRound = round
 	return nil
 }
 
@@ -617,11 +656,7 @@ func (p *PollingDeviationChecker) fetchPrices() (decimal.Decimal, error) {
 }
 
 func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRound *big.Int) error {
-	aggregatorContract, err := eth.GetV6Contract(eth.FluxAggregatorName)
-	if err != nil {
-		return err
-	}
-	methodID, err := aggregatorContract.GetMethodID("updateAnswer")
+	methodID, err := p.fluxAggregator.GetMethodID("updateAnswer")
 	if err != nil {
 		return err
 	}
@@ -637,7 +672,7 @@ func (p *PollingDeviationChecker) createJobRun(nextPrice decimal.Decimal, nextRo
 			"dataPrefix": "%s"
 	}`,
 		nextPrice,
-		p.address.Hex(),
+		p.initr.InitiatorParams.Address.Hex(),
 		hexutil.Encode(methodID),
 		hexutil.Encode(nextRoundData))
 
