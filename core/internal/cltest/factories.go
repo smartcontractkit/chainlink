@@ -222,21 +222,22 @@ func CreateTx(
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
-	return CreateTxWithNonce(t, store, from, sentAt, 0)
+	return CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 1)
 }
 
-// CreateTxWithNonce creates a Tx from a specified address, sentAt, and nonce
-func CreateTxWithNonce(
+// CreateTxWithNonceAndGasPrice creates a Tx from a specified address, sentAt, nonce and gas price
+func CreateTxWithNonceAndGasPrice(
 	t testing.TB,
 	store *strpkg.Store,
 	from common.Address,
 	sentAt uint64,
 	nonce uint64,
+	gasPrice int64,
 ) *models.Tx {
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
 
-	transaction := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	transaction := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(gasPrice), data)
 	tx := &models.Tx{
 		From:        from,
 		SentAt:      sentAt,

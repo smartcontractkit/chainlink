@@ -165,19 +165,29 @@ func (c Config) MinimumServiceDuration() time.Duration {
 	return c.viper.GetDuration(EnvVarName("MinimumServiceDuration"))
 }
 
-// EthGasBumpThreshold represents the maximum amount a transaction's ETH amount
-// should be increased in order to facilitate a transaction.
+// EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
 func (c Config) EthGasBumpThreshold() uint64 {
 	return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
 }
 
-// EthGasBumpWei represents the intervals in which ETH should be increased when
-// doing gas bumping.
+// EthGasBumpPercent is the minimum percentage by which gas is bumped on each transaction attempt
+// Change with care since values below geth's default will fail with "underpriced replacement transaction"
+func (c Config) EthGasBumpPercent() uint16 {
+	return c.getWithFallback("EthGasBumpPercent", parseUint16).(uint16)
+}
+
+// EthGasBumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt
 func (c Config) EthGasBumpWei() *big.Int {
 	return c.getWithFallback("EthGasBumpWei", parseBigInt).(*big.Int)
 }
 
-// EthGasPriceDefault represents the default gas price for transactions.
+// EthMaxGasPriceWei is the maximum amount in Wei that a transaction will be
+// bumped to before abandoning it and marking it as errored.
+func (c Config) EthMaxGasPriceWei() *big.Int {
+	return c.getWithFallback("EthMaxGasPriceWei", parseBigInt).(*big.Int)
+}
+
+// EthGasPriceDefault is the starting gas price for every transaction
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
@@ -292,7 +302,7 @@ func (c Config) MinimumRequestExpiration() uint64 {
 
 // Port represents the port Chainlink should listen on for client requests.
 func (c Config) Port() uint16 {
-	return c.getWithFallback("Port", parsePort).(uint16)
+	return c.getWithFallback("Port", parseUint16).(uint16)
 }
 
 // ReaperExpiration represents
@@ -340,13 +350,14 @@ func (c Config) TLSKeyPath() string {
 
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
 func (c Config) TLSPort() uint16 {
-	return c.getWithFallback("TLSPort", parsePort).(uint16)
+	return c.getWithFallback("TLSPort", parseUint16).(uint16)
 }
 
-// TxAttemptLimit represents the maximum number of transaction attempts that
-// the TxManager should allow to for a transaction
+// TxAttemptLimit is the maximum number of transaction attempts (gas bumps)
+// that will occur before giving a transaction up as errored
+// NOTE: That initial transactions are retried forever until they succeed
 func (c Config) TxAttemptLimit() uint16 {
-	return c.getWithFallback("TxAttemptLimit", parsePort).(uint16)
+	return c.getWithFallback("TxAttemptLimit", parseUint16).(uint16)
 }
 
 // TLSRedirect forces TLS redirect for unencrypted connections
@@ -487,7 +498,7 @@ func parseLogLevel(str string) (interface{}, error) {
 	return lvl, err
 }
 
-func parsePort(str string) (interface{}, error) {
+func parseUint16(str string) (interface{}, error) {
 	d, err := strconv.ParseUint(str, 10, 16)
 	return uint16(d), err
 }
