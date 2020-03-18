@@ -10,18 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTopicFiltersForRunLog(t *testing.T) {
+func TestJobSpecIDTopics(t *testing.T) {
 	t.Parallel()
 
 	jobID, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
 	require.NoError(t, err)
 
-	topics := models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic0original}, jobID)
+	topics := models.JobSpecIDTopics(jobID)
 	assert.Equal(t, 2, len(topics))
-	assert.Equal(
-		t,
-		[]common.Hash{models.RunLogTopic0original},
-		topics[models.RequestLogTopicSignature])
 
 	assert.Equal(
 		t,
@@ -29,7 +25,7 @@ func TestTopicFiltersForRunLog(t *testing.T) {
 			common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
 			common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
 		},
-		topics[1])
+		topics)
 }
 
 func TestRunLogTopic0original(t *testing.T) {

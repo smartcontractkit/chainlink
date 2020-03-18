@@ -184,6 +184,8 @@ const (
 	// InitiatorFluxMonitor for tasks in a job to be run on price deviation
 	// or request for a new round of prices.
 	InitiatorFluxMonitor = "fluxmonitor"
+	// InitiatorRandomnessLog for tasks from a VRF specific contract
+	InitiatorRandomnessLog = "randomnesslog"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be
@@ -285,8 +287,12 @@ func NewInitiatorFromRequest(
 
 // IsLogInitiated Returns true if triggered by event logs.
 func (i Initiator) IsLogInitiated() bool {
-	return i.Type == InitiatorEthLog || i.Type == InitiatorRunLog ||
-		i.Type == InitiatorServiceAgreementExecutionLog
+	for _, logType := range LogBasedChainlinkJobInitiators {
+		if i.Type == logType {
+			return true
+		}
+	}
+	return false
 }
 
 // Feeds holds the json of the feeds parameter in the job spec. It is an array of

@@ -356,7 +356,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
-			txManager.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
+			txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
 			txManager.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
@@ -412,14 +412,16 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			expectedQuery := ethereum.FilterQuery{
 				FromBlock: test.wantFromBlock,
 				Addresses: []common.Address{initr.InitiatorParams.Address},
-				Topics:    models.TopicFiltersForRunLog([]common.Hash{models.RunLogTopic20190207withoutIndexes, models.RunLogTopic20190123withFullfillmentParams, models.RunLogTopic0original}, initr.JobSpecID),
+				Topics: [][]common.Hash{
+					models.TopicsForInitiatorsWhichRequireJobSpecIDTopic[models.InitiatorRunLog],
+					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)}},
 			}
 
 			receipt := cltest.TxReceiptFromFixture(t, "../eth/testdata/runlogReceipt.json")
 			log := receipt.Logs[3]
 			log.Topics[1] = models.IDToTopic(job.ID)
 
-			txmMock.On("SubscribeToLogs", mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
+			txmMock.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
 			txmMock.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})

@@ -112,6 +112,8 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 		return nil
 	case models.InitiatorEthLog:
 		return nil
+	case models.InitiatorRandomnessLog:
+		return validateRandomnessLogInitiator(i, j)
 	default:
 		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}
@@ -233,6 +235,17 @@ func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) err
 	fe := models.NewJSONAPIErrors()
 	if len(j.Initiators) != 1 {
 		fe.Add("ServiceAgreement should have at most one initiator")
+	}
+	return fe.CoerceEmptyToNil()
+}
+
+func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	if len(j.Initiators) != 1 {
+		fe.Add("randomness log must have exactly one initiator")
+	}
+	if i.Address == utils.ZeroAddress {
+		fe.Add("randomness log must specify address of expected emmitter")
 	}
 	return fe.CoerceEmptyToNil()
 }

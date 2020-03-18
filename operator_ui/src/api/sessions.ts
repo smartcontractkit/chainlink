@@ -1,4 +1,6 @@
 import * as jsonapi from '@chainlink/json-api-client'
+import { Api } from '@chainlink/json-api-client'
+import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 import * as sessionsController from 'core/web/sessions_controller'
 
@@ -7,27 +9,36 @@ import * as sessionsController from 'core/web/sessions_controller'
  * and returns it in a cookie.
  */
 const CREATE_ENDPOINT = '/sessions'
-const create = jsonapi.createResource<
-  models.SessionRequest,
-  sessionsController.Session
->(CREATE_ENDPOINT)
 
 /**
  * Destroy erases the session ID for the sole API user.
  */
 const DESTROY_ENDPOINT = '/sessions'
-const destroy = jsonapi.deleteResource<undefined, sessionsController.Session>(
-  DESTROY_ENDPOINT,
-)
 
-export function createSession(
-  sessionRequest: models.SessionRequest,
-): Promise<jsonapi.ApiResponse<sessionsController.Session>> {
-  return create(sessionRequest)
-}
+export class Sessions {
+  constructor(private api: Api) {}
 
-export function destroySession(): Promise<
-  jsonapi.ApiResponse<sessionsController.Session>
-> {
-  return destroy()
+  @boundMethod
+  public createSession(
+    sessionRequest: models.SessionRequest,
+  ): Promise<jsonapi.ApiResponse<sessionsController.Session>> {
+    return this.create(sessionRequest)
+  }
+
+  @boundMethod
+  public destroySession(): Promise<
+    jsonapi.ApiResponse<sessionsController.Session>
+  > {
+    return this.destroy()
+  }
+
+  private create = this.api.createResource<
+    models.SessionRequest,
+    sessionsController.Session
+  >(CREATE_ENDPOINT)
+
+  private destroy = this.api.deleteResource<
+    undefined,
+    sessionsController.Session
+  >(DESTROY_ENDPOINT)
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { humanizeUnixTimestamp } from 'utils/'
 import { connect } from 'react-redux'
+import { humanizeUnixTimestamp } from 'utils'
 
 const positionTypes = {
   oracle: { x: 10, y: 10 },

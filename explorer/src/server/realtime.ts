@@ -31,26 +31,39 @@ export const bootstrapRealtime = async (server: http.Server) => {
         headers?: http.OutgoingHttpHeaders,
       ) => void,
     ) => {
-      logger.debug('websocket connection attempt')
+      const remote = remoteDetails(info.req)
+      logger.debug({ msg: 'websocket connection attempt', remote })
 
       const accessKey = info.req.headers[ACCESS_KEY_HEADER]
       const secret = info.req.headers[SECRET_HEADER]
 
       if (typeof accessKey !== 'string' || typeof secret !== 'string') {
-        logger.info('client rejected, invalid authentication request')
+        logger.info({
+          msg: 'client rejected, invalid authentication request',
+          origin: info.origin,
+          ...remote,
+        })
         return
       }
 
       authenticate(db, accessKey, secret).then((session: Session | null) => {
         if (session === null) {
-          logger.info('client rejected, failed authentication')
+          logger.info({
+            msg: 'client rejected, failed authentication',
+            accessKey,
+            origin: info.origin,
+            ...remote,
+          })
           callback(false, 401)
           return
         }
 
-        logger.debug(
-          `websocket client successfully authenticated, new session for node ${session.chainlinkNodeId}`,
-        )
+        logger.debug({
+          msg: `websocket client successfully authenticated`,
+          nodeID: session.chainlinkNodeId,
+          origin: info.origin,
+          ...remote,
+        })
         sessions.set(accessKey, session)
         const existingConnection = connections.get(accessKey)
         if (existingConnection) {
@@ -62,14 +75,18 @@ export const bootstrapRealtime = async (server: http.Server) => {
   })
 
   wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
+    const remote = remoteDetails(request)
+
     // accessKey type already validated in verifyClient()
     const accessKey = request.headers[ACCESS_KEY_HEADER].toString()
     connections.set(accessKey, ws)
     clnodeCount = clnodeCount + 1
 
-    logger.info(
-      `websocket connected, total chainlink nodes connected: ${clnodeCount}`,
-    )
+    logger.info({
+      msg: 'websocket connected',
+      nodeCount: clnodeCount,
+      ...remote,
+    })
 
     ws.on('message', async (message: WebSocket.Data) => {
       const session = sessions.get(accessKey)
@@ -97,9 +114,20 @@ export const bootstrapRealtime = async (server: http.Server) => {
         connections.delete(accessKey)
       }
       clnodeCount = clnodeCount - 1
-      logger.info(
-        `websocket disconnected, total chainlink nodes connected: ${clnodeCount}`,
-      )
+      logger.info({
+        msg: 'websocket disconnected',
+        nodeCount: clnodeCount,
+        ...remote,
+      })
     })
   })
+}
+
+function remoteDetails(
+  req: http.IncomingMessage,
+): Record<string, string | number | null> {
+  return {
+    remotePort: req.socket.remotePort,
+    remoteAddress: req.socket.remoteAddress,
+  }
 }

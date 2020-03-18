@@ -37,6 +37,7 @@
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
     "@reach/router": "^1.2.1",
+    "autobind-decorator": "^2.4.0",
     "change-case": "^4.1.1",
     "classnames": "^2.2.6",
     "jsbi": "^3.1.1",
@@ -54,7 +55,7 @@
     "title-case": "^3.0.2"
   },
   "devDependencies": {
-    "@chainlink/ts-test-helpers": "0.0.1",
+    "@chainlink/ts-helpers": "0.0.1",
     "@craco/craco": "^5.5.0",
     "@types/classnames": "^2.2.7",
     "@types/enzyme": "^3.9.1",
@@ -67,7 +68,6 @@
     "@types/react-hot-loader": "^4.1.0",
     "@types/react-redux": "^7.0.5",
     "@types/react-resize-detector": "^3.1.1",
-    "@types/redux-logger": "^3.0.7",
     "@types/redux-thunk": "^2.1.0",
     "brotli-webpack-plugin": "^1.1.0",
     "compression-webpack-plugin": "^3.1.0",
@@ -82,7 +82,6 @@
     "react-hot-loader": "^4.12.19",
     "react-scripts": "^3.1.0",
     "redux-devtools-extension": "^2.13.8",
-    "redux-logger": "^3.0.6",
     "rimraf": "^3.0.1",
     "ts-jest": "^24.1.0",
     "typescript": "^3.7.4",

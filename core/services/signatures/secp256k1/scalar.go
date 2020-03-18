@@ -18,6 +18,7 @@ import (
 	"math/big"
 
 	secp256k1BTCD "github.com/btcsuite/btcd/btcec"
+	"github.com/ethereum/go-ethereum/common"
 
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/util/random"
@@ -215,6 +216,10 @@ func IsSecp256k1Scalar(s kyber.Scalar) bool {
 // May modify i to reduce mod GroupOrder
 func IntToScalar(i *big.Int) kyber.Scalar {
 	return ((*secp256k1Scalar)(i)).modG()
+}
+
+func ScalarToHash(s kyber.Scalar) common.Hash {
+	return common.BigToHash(ToInt(s.(*secp256k1Scalar)))
 }
 
 // RepresentsScalar returns true iff i is in the right range to be a scalar

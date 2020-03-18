@@ -1,9 +1,7 @@
 package models
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"time"
 
@@ -12,8 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
-	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -201,35 +197,4 @@ func (l *Head) NextInt() *big.Int {
 		return nil
 	}
 	return new(big.Int).Add(l.ToInt(), big.NewInt(1))
-}
-
-// Key holds the private key metadata for a given address that is used to unlock
-// said key when given a password.
-type Key struct {
-	Address EIP55Address `gorm:"primary_key;type:varchar(64)"`
-	JSON    JSON         `gorm:"type:text"`
-}
-
-// NewKeyFromFile creates an instance in memory from a key file on disk.
-func NewKeyFromFile(path string) (*Key, error) {
-	dat, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	js := gjson.ParseBytes(dat)
-	address, err := NewEIP55Address(common.HexToAddress(js.Get("address").String()).Hex())
-	if err != nil {
-		return nil, multierr.Append(errors.New("unable to create Key model"), err)
-	}
-
-	return &Key{
-		Address: address,
-		JSON:    JSON{Result: js},
-	}, nil
-}
-
-// WriteToDisk writes this key to disk at the passed path.
-func (k *Key) WriteToDisk(path string) error {
-	return ioutil.WriteFile(path, []byte(k.JSON.String()), 0700)
 }
