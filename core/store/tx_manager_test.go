@@ -436,6 +436,100 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
+func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnderpricedTransaction(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	store := app.Store
+	config := store.Config
+
+	txm := store.TxManager
+	from := cltest.GetAccountAddress(t, store)
+	sentAt := uint64(23456)
+	gasThreshold := sentAt + config.EthGasBumpThreshold()
+	ethMock := app.EthMock
+	ethMock.Register("eth_getTransactionCount", "0x0")
+	ethMock.Register("eth_chainId", config.ChainID())
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold)))
+	require.NoError(t, app.StartAndConnect())
+
+	tx := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 48000000000)
+	require.Greater(t, len(tx.Attempts), 0)
+
+	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
+
+	// Simulate two bumps that receive `replacement transaction underpriced`
+	// and the third and final one successful
+	ethMock.RegisterError("eth_sendRawTransaction", "replacement transaction underpriced")
+	ethMock.RegisterError("eth_sendRawTransaction", "replacement transaction underpriced")
+	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
+
+	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
+	assert.NoError(t, err)
+	assert.Nil(t, receipt)
+	assert.Equal(t, strpkg.Unconfirmed, state)
+
+	tx, err = store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Len(t, tx.Attempts, 2)
+
+	latestAttempt := tx.Attempts[1]
+	gasPrice, err := latestAttempt.GasPrice.Value()
+	require.NoError(t, err)
+
+	// Initial gas price is 48Gwei
+	// Bump to 53Gwei and fail
+	// Bump to 58.3Gwei and fail
+	// Bump to 64.13Gwei and pass
+	assert.Equal(t, "64130000000", gasPrice)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
+func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPriceIsReached(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	defer cleanup()
+
+	store := app.Store
+	config := store.Config
+
+	txm := store.TxManager
+	from := cltest.GetAccountAddress(t, store)
+	sentAt := uint64(23456)
+	gasThreshold := sentAt + config.EthGasBumpThreshold()
+	ethMock := app.EthMock
+	ethMock.Register("eth_getTransactionCount", "0x0")
+	ethMock.Register("eth_chainId", config.ChainID())
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold)))
+	require.NoError(t, app.StartAndConnect())
+
+	tx := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 499000000000)
+	store.SaveTx(tx)
+	require.Greater(t, len(tx.Attempts), 0)
+
+	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
+
+	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
+	assert.EqualError(t, err, "bumped gas price of 548900000000 would exceed maximum configured limit of 500000000000, set by ETH_GAS_PRICE_WEI")
+	assert.Nil(t, receipt)
+	assert.Equal(t, strpkg.Unconfirmed, state)
+
+	tx, err = store.FindTx(tx.ID)
+	require.NoError(t, err)
+	assert.Len(t, tx.Attempts, 1)
+
+	latestAttempt := tx.Attempts[0]
+	gasPrice, err := latestAttempt.GasPrice.Value()
+	require.NoError(t, err)
+	assert.Equal(t, "499000000000", gasPrice)
+
+	ethMock.EventuallyAllCalled(t)
+}
+
 func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
@@ -495,7 +589,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
 
-	tx := cltest.CreateTxWithNonce(t, store, from, sentAt, nonce)
+	tx := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, nonce, 1)
 	require.Greater(t, len(tx.Attempts), 0)
 
 	app.EthMock.Register("eth_getTransactionReceipt", eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
@@ -550,7 +644,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			txm := store.TxManager
 			from := cltest.GetAccountAddress(t, store)
 
-			tx := cltest.CreateTxWithNonce(t, store, from, sentAt, nonce)
+			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, nonce, 1)
 			require.Greater(t, len(tx.Attempts), 0)
 
 			app.EthMock.Register("eth_getTransactionReceipt", eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
@@ -592,9 +686,9 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(12345)
 
-	tx1 := cltest.CreateTxWithNonce(t, store, from, sentAt, 1)
+	tx1 := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 1, 1)
 	require.Len(t, tx1.Attempts, 1)
-	tx2 := cltest.CreateTxWithNonce(t, store, from, sentAt, 2)
+	tx2 := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 2, 1)
 	require.Len(t, tx2.Attempts, 1)
 
 	etm := txm.(*strpkg.EthTxManager)
@@ -1140,4 +1234,34 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	require.NoError(t, err)
 
 	ethClient.AssertExpectations(t)
+}
+
+func TestTxManager_BumpGasByIncrement(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	ethClient := new(mocks.Client)
+
+	config := cltest.NewTestConfig(t)
+	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
+	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	txm := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
+
+	tests := []struct {
+		name                   string
+		originalGasPrice       *big.Int
+		expectedBumpedGasPrice *big.Int
+	}{
+		{"bumping gas from 5Gwei to 10Gwei", big.NewInt(5000000000), big.NewInt(10000000000)},
+		{"bumping gas from 100Gwei to 110Gwei", big.NewInt(100000000000), big.NewInt(110000000000)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := txm.BumpGasByIncrement(test.originalGasPrice)
+			assert.Equal(t, test.expectedBumpedGasPrice.String(), actual.String())
+		})
+	}
 }

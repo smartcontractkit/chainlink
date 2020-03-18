@@ -26,9 +26,11 @@ type ConfigReader interface {
 	FeatureFluxMonitor() bool
 	MaximumServiceDuration() time.Duration
 	MinimumServiceDuration() time.Duration
+	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
 	EthGasPriceDefault() *big.Int
+	EthMaxGasPriceWei() *big.Int
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
 	JSONConsole() bool
