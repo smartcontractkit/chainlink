@@ -34,8 +34,5 @@
   "optionalDependencies": {
     "@truffle/contract": "^4.1.8",
     "ethers": "^4.0.45"
-  },
-  "dependencies": {
-    "@types/inquirer": "^6.5.0"
   }
 }
