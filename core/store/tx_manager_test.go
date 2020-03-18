@@ -593,6 +593,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	require.Greater(t, len(tx.Attempts), 0)
 
 	app.EthMock.Register("eth_getTransactionReceipt", eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
+	app.EthMock.Register("eth_getBalance", "0x0100")
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)

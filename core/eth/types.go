@@ -15,15 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-var WeiPerEth *big.Float
-var ok bool
-
-func init() {
-	WeiPerEth, ok = new(big.Float).SetString("1000000000000000000")
-	if !ok {
-		panic("Could not parse wei to eth ratio as a big float")
-	}
-}
+// WeiPerEth is amount of Wei currency units in one Eth.
+var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
 
