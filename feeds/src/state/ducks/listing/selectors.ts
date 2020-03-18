@@ -8,7 +8,7 @@ const groups = createSelector([answers], (answersList: any) => {
 
   const buildGroups = groupOrder.map(name => {
     const groupName = feeds
-      .filter(config => config.pair[1] === name && config.listing === true)
+      .filter(config => config.pair[1] === name && config.listing)
       .map(config => {
         if (answersList) {
           const addAnswer = answersList.find(
