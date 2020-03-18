@@ -1,5 +1,4 @@
 import { createSelector } from 'reselect'
-import { Networks } from '../../../utils'
 import feeds from '../../../feeds.json'
 
 const answers = (state: any) => state.listing.answers
@@ -9,15 +8,13 @@ const groups = createSelector([answers], (answersList: any) => {
 
   const buildGroups = groupOrder.map(name => {
     const groupName = feeds
-      .filter(
-        config =>
-          config.pair[1] === name && config.networkId === Networks.MAINNET,
-      )
+      .filter(config => config.pair[1] === name && config.listing === true)
       .map(config => {
         if (answersList) {
-          return answersList.filter(
+          const addAnswer = answersList.find(
             (answers: any) => answers.config.name === config.name,
-          )[0]
+          )
+          return addAnswer || { config }
         }
 
         return { config }
