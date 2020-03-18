@@ -167,8 +167,8 @@ func (c Config) MinimumServiceDuration() time.Duration {
 	return c.viper.GetDuration(EnvVarName("MinimumServiceDuration"))
 }
 
-// EthGasBumpThreshold represents the intervals in which ETH should be increased when
-// doing gas bumping.
+// EthGasBumpThreshold represents the interval (measured in # of blocks) in which
+// ETH should be increased when doing gas bumping.
 func (c Config) EthGasBumpThreshold() uint64 {
 	return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
 }
