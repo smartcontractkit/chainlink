@@ -18,6 +18,13 @@ var (
 		},
 		[]string{"job_spec_id"},
 	)
+	promFMIndividualReportedValue = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "flux_monitor_individual_reported_value",
+			Help: "Flux monitor's last reported price for each individual endpoint",
+		},
+		[]string{"url"},
+	)
 	promFMSeenValue = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "flux_monitor_seen_value",
