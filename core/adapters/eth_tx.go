@@ -91,7 +91,10 @@ func createTxRunResult(
 		gasPrice.ToInt(),
 		gasLimit,
 	)
+
 	if err != nil {
+		// TODO: Log error somehow? Prometheus metric?
+		// We need to know if this is happening a lot
 		return models.NewRunOutputPendingConfirmationsWithData(input.Data())
 	}
 
@@ -144,8 +147,8 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 		return models.NewRunOutputError(errors.New("transaction never succeeded"))
 
 	} else if !tx.Confirmed {
-		// If the tx is still unconfirmed, just copy over the original tx hash.
-		// this seems pointless
+		// FIXME: If the tx is still unconfirmed, just copy over the original
+		// tx hash. This seems pointless
 		output, err = output.Add("latestOutgoingTxHash", tx.Hash.String())
 		if err != nil {
 			return models.NewRunOutputError(err)

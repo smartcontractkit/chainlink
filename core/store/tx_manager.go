@@ -218,6 +218,7 @@ func (txm *EthTxManager) CreateTxWithGas(surrogateID null.String, to common.Addr
 		return nil, err
 	}
 
+	// TODO: Pull out common logic
 	select {
 	case txm.chUnsentTxs <- tx:
 	case <-txm.chStop:
@@ -237,12 +238,16 @@ func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.
 		return nil, err
 	}
 
+	// TODO: Pull out common logic
 	select {
 	case txm.chUnsentTxs <- tx:
 	case <-txm.chStop:
 	}
 	return tx, nil
 }
+
+// TODO: Write this?
+func (txm *EthTxManager) createTx()
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 	if !txm.Connected() {
@@ -330,6 +335,8 @@ TxLoop:
 			}
 
 			logger.Warnf("processPendingTxs unconfirmed tx (%v) %v %v", txAttempt.TxID, txAttempt.Hash.Hex(), state)
+
+			// TODO: Can we lose the "Confirmed" state entirely? Seems pointless.
 			if state == Safe || state == Failed || state == Confirmed {
 				continue TxLoop
 			}
@@ -393,6 +400,7 @@ func (txm *EthTxManager) processUnsentTx(tx *models.Tx, blockHeight uint64) {
 			continue
 
 		} else if err != nil {
+			// TODO: Does this get auto-retried on every new head?
 			logger.Errorw(
 				"Tx #0: error sending new transaction",
 				"nonce", tx.Nonce, "gasPriceWei", tx.GasPrice, "gasLimit", tx.GasLimit, "error", err.Error(),
@@ -413,7 +421,7 @@ func (txm *EthTxManager) processUnsentTx(tx *models.Tx, blockHeight uint64) {
 var (
 	nonceTooLowRegex            = regexp.MustCompile("nonce .*too low")
 	nonceTooHighRegex           = regexp.MustCompile("nonce .*too high")
-	underpricedReplacementRegex = regexp.MustCompile("(same hash was already imported|replacement transaction underpriced)")
+	underpricedReplacementRegex = regexp.MustCompile("replacement transaction underpriced")
 )
 
 // FIXME: There are probably other types of errors here that are symptomatic of a nonce that is too low
@@ -640,6 +648,7 @@ func (a AttemptState) String() string {
 // processAttempt checks the state of a transaction attempt on the blockchain
 // and decides if it is safe, needs bumping or more confirmations are needed to
 // decide
+// FIXME: The logic is a big confused. Can we pass in the attempt alone instead?
 func (txm *EthTxManager) processAttempt(
 	tx *models.Tx,
 	attemptIndex int,
@@ -648,6 +657,14 @@ func (txm *EthTxManager) processAttempt(
 	txAttempt := tx.Attempts[attemptIndex]
 
 	if len(tx.Attempts) >= int(txm.config.TxAttemptLimit()) {
+		// TODO: Add metrics on this
+		logger.Warnw(
+			fmt.Sprintf("Tx #%d is %s, has met TxAttemptLimit", attemptIndex, state),
+			"txAttemptLimit", attemptLimit,
+			"txHash", txAttempt.Hash.String(),
+			"txID", txAttempt.TxID,
+			"jobRunId", jobRunID,
+		)
 		return nil, Failed, txm.handleFailed(tx, txAttempt)
 	}
 
@@ -660,6 +677,7 @@ func (txm *EthTxManager) processAttempt(
 		txm.updateLastSafeNonce(tx)
 		return receipt, state, txm.handleSafe(tx, txAttempt)
 
+	// FIXME: What is "Confirmed" state really for?
 	case Confirmed:
 		logger.Debugw(
 			fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
@@ -674,18 +692,7 @@ func (txm *EthTxManager) processAttempt(
 		return receipt, state, nil
 
 	case Unconfirmed:
-		attemptLimit := txm.config.TxAttemptLimit()
-		if len(tx.Attempts) >= int(attemptLimit) {
-			logger.Warnw(
-				fmt.Sprintf("Tx #%d is %s, has met TxAttemptLimit", attemptIndex, state),
-				"txAttemptLimit", attemptLimit,
-				"txHash", txAttempt.Hash.String(),
-				"txID", txAttempt.TxID,
-				"jobRunId", jobRunID,
-			)
-			return receipt, Failed, txm.handleFailed(tx, txAttempt)
-		}
-
+		// TODO: Rename this since it means the exact opposite
 		if !txm.hasTxAttemptMetGasBumpThreshold(txAttempt, blockHeight) {
 			logger.Debugw(
 				fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
@@ -702,7 +709,7 @@ func (txm *EthTxManager) processAttempt(
 			"currentBlockNumber", blockHeight,
 			"jobRunId", jobRunID,
 		)
-		err = txm.bumpGas(tx, attemptIndex, blockHeight)
+		err = txm.createNewAttemptWithBumpedGas(tx, attemptIndex, blockHeight)
 		if isNonceTooLowError(err) {
 			// A tx with this nonce has already been included into a block.
 			// This means either that:
@@ -718,23 +725,26 @@ func (txm *EthTxManager) processAttempt(
 			// we mark the tx as Failed.
 			txm.nonceTooLowErrors[tx.ID]++
 			if txm.nonceTooLowErrors[tx.ID] > maxNonceTooLowErrors {
-				err := txm.handleFailed(tx, txAttempt)
-				if err != nil {
-					return receipt, Failed, err
-				}
 				delete(txm.nonceTooLowErrors, tx.ID)
-				return nil, Failed, nil
+				if e := txm.handleFailed(tx, txAttempt); e != nil {
+					return receipt, Failed, errors.Wrap(errTooManyNonceTooLowErrors, e.Error())
+				}
+				return nil, Failed, errTooManyNonceTooLowErrors
 			}
 			return receipt, Unconfirmed, nil
 
 		} else if errors.Is(err, errBumpGasFatal) {
 			// TODO: Add alerting here
-			// Bumping gas failed in such a way that any further attempts to bump gas will also fail.
+			// Bumping gas failed in such a way that any further attempts to bump gas are guaranteed to also fail.
 			// We must mark the transaction as failed here and move on.
 			// This is not expected, if this ever happens it indicates that something is seriously wrong.
-			return nil, Failed, nil
+			if e := txm.handleFailed(tx, txAttempt); e != nil {
+				return receipt, Failed, errors.Wrap(err, e.Error())
+			}
+			return nil, Failed, err
 
 		} else if err != nil {
+			// TODO: Add logging/metrics here
 			return nil, Unconfirmed, err
 		}
 
@@ -842,7 +852,8 @@ func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int 
 	return minimumGasBumpByIncrement
 }
 
-func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight uint64) error {
+// TODO: Pass in attempt instead of index
+func (txm *EthTxManager) createNewAttemptWithBumpedGas(tx *models.Tx, attemptIndex int, blockHeight uint64) error {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	originalGasPrice := txAttempt.GasPrice.ToInt()
@@ -865,7 +876,7 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 			continue
 		}
 		if err != nil {
-			return errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+			return errors.Wrapf(err, "createNewAttemptWithBumpedGas from Tx #%s", txAttempt.Hash.Hex())
 		}
 
 		logger.Infow(
