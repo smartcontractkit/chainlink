@@ -959,20 +959,17 @@ func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
 	return attempts, count, err
 }
 
+// TODO: Needs tests
 func (orm *ORM) UnsentTxs() ([]models.Tx, error) {
 	orm.MustEnsureAdvisoryLock()
 
 	var txs []models.Tx
 	err := orm.db.Raw(`
 			SELECT * FROM txes
-			WHERE txes.id IN (
-				SELECT tx.id FROM txes tx
-				LEFT JOIN tx_attempts ta ON tx.id = ta.tx_id
-				WHERE tx.confirmed = ? AND tx.failed = ?
-				GROUP BY tx.id, tx.confirmed
-				HAVING COUNT(DISTINCT ta.id) = ?
-			)
-		`, false, false, 0).
+			LEFT JOIN tx_attempts ta ON tx.id = ta.tx_id
+			WHERE ta.id IS NULL AND tx.confirmed = ? AND tx.failed = ?
+			GROUP BY tx.id, tx.confirmed
+		`, false, false).
 		Scan(&txs).
 		Error
 
