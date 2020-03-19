@@ -20,17 +20,17 @@ services:
       - DEFAULT_HTTP_TIMEOUT
       - RUST_BACKTRACE
       - CHAINLINK_DEV
-      # - EXPLORER_URL
-      # - EXPLORER_ACCESS_KEY
-      # - EXPLORER_SECRET
+      - EXPLORER_URL
+      - EXPLORER_ACCESS_KEY
+      - EXPLORER_SECRET
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
     env_file:
       - chainlink-variables.env
     ports:
       - 6688:6688
-    # depends_on:
-    #   - explorer
+    depends_on:
+      - explorer
     secrets:
       - node_password
       - apicredentials
@@ -54,18 +54,12 @@ services:
       - MINIMUM_CONTRACT_PAYMENT
       - RUST_BACKTRACE
       - CHAINLINK_DEV
-      # - EXPLORER_URL
-      # - EXPLORER_ACCESS_KEY
-      # - EXPLORER_SECRET
-      # - CHAINLINK_PORT=6699
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
     env_file:
       - chainlink-variables.env
     ports:
       - 6699:6688
-    # depends_on:
-    #   - explorer
     secrets:
       - node_password
       - apicredentials

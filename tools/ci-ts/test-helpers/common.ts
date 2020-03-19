@@ -1,6 +1,11 @@
-import chalk from 'chalk'
+import 'isomorphic-unfetch'
 import { ethers } from 'ethers'
-import 'source-map-support/register'
+import { ContractReceipt } from 'ethers/contract'
+import { assert } from 'chai'
+import ChainlinkClient from './chainlinkClient'
+import { EventDescription } from 'ethers/utils/interface'
+
+const DEFAULT_TIMEOUT_MS = 30_000 // 30s
 
 /**
  * Devnet miner address
@@ -21,10 +26,15 @@ export const credentials = {
 
 export const GETH_DEV_ADDRESS = '0x7db75251a74f40b15631109ba44d33283ed48528'
 
+export function printHeading(message: string) {
+  const dashCount = Math.floor((80 - message.length) / 2)
+  const dashes = '-'.repeat(dashCount)
+  console.log(`${dashes} ${message.toUpperCase()} ${dashes}`)
+}
+
 export function createProvider(): ethers.providers.JsonRpcProvider {
   const port = process.env.ETH_HTTP_PORT || `18545`
   const providerURL = process.env.ETH_HTTP_URL || `http://localhost:${port}`
-
   return new ethers.providers.JsonRpcProvider(providerURL)
 }
 
@@ -50,13 +60,13 @@ class MissingEnvVarError extends Error {
  * Get environment variables in a friendly object format
  *
  * @example
- * const args = getArgs(['ENV_1', 'ENV_2'])
+ * const args = getEnvVars(['ENV_1', 'ENV_2'])
  * // args is now available as { ENV_1: string, ENV_2: string }
  * foo(args.ENV_1, args.ENV_2)
  *
  * @param keys The keys of the environment variables to fetch
  */
-export function getArgs<T extends string>(keys: T[]): { [K in T]: string } {
+export function getEnvVars<T extends string>(keys: T[]): { [K in T]: string } {
   return keys.reduce<{ [K in T]: string }>((prev, next) => {
     const envVar = process.env[next]
     if (!envVar) {
@@ -67,40 +77,6 @@ export function getArgs<T extends string>(keys: T[]): { [K in T]: string } {
   }, {} as { [K in T]: string })
 }
 
-/**
- * Registers a global promise handler that will exit the currently
- * running process if an unhandled promise rejection is caught
- */
-export function registerPromiseHandler() {
-  process.on('unhandledRejection', e => {
-    console.error(e)
-    console.error(chalk.red('Exiting due to promise rejection'))
-    process.exit(1)
-  })
-}
-
-interface DeployFactory {
-  new (signer?: ethers.Signer): ethers.ContractFactory
-}
-
-interface DeployContractArgs<T extends DeployFactory> {
-  Factory: T
-  name: string
-  signer: ethers.Signer
-}
-
-export async function deployContract<T extends DeployFactory>(
-  { Factory, name, signer }: DeployContractArgs<T>,
-  ...deployArgs: Parameters<InstanceType<T>['deploy']>
-): Promise<ReturnType<InstanceType<T>['deploy']>> {
-  const contractFactory = new Factory(signer)
-  const contract = await contractFactory.deploy(...deployArgs)
-  await contract.deployed()
-  console.log(`Deployed ${name} at: ${contract.address}`)
-
-  return contract as any
-}
-
 export async function wait(ms: number) {
   return new Promise(res => {
     setTimeout(res, ms)
@@ -108,12 +84,35 @@ export async function wait(ms: number) {
 }
 
 /**
+ * changePriceFeed makes a patch request to the external adapter in tools/external-adapter
+ * and changes the value reported
+ *
+ * @param adapter the URL of the external adapter
+ * @param value the value to set on the adapter
+ */
+export async function changePriceFeed(adapter: string, value: number) {
+  const url = new URL('result', adapter).href
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ result: value }),
+  })
+  assert(response.ok)
+}
+
+/**
  * Makes a simple get request to an endpoint and ensures the service responds.
  * Status code doesn't matter - just ensures the service is running.
+ *
  * @param endpoint the url of the service
  * @param timeout the time in milliseconds to wait before erroring
  */
-export async function waitForService(endpoint: string, timeout = 30000) {
+export async function waitForService(
+  endpoint: string,
+  timeout = DEFAULT_TIMEOUT_MS,
+) {
   await assertAsync(
     async () =>
       fetch(endpoint)
@@ -127,6 +126,7 @@ export async function waitForService(endpoint: string, timeout = 30000) {
 /**
  * assertAsync asserts that a condition is evantually met, with a
  * default timeout of 30 seconds
+ *
  * @param f function to run every second and check for truthy return value
  * @param errorMessage error message to print if unseccessful
  * @param timeout timeout
@@ -134,7 +134,7 @@ export async function waitForService(endpoint: string, timeout = 30000) {
 export async function assertAsync(
   f: () => boolean | Promise<boolean>,
   errorMessage: string,
-  timeout = 20000,
+  timeout = DEFAULT_TIMEOUT_MS,
 ) {
   return new Promise((res, rej) => {
     // eslint-disable-next-line
@@ -164,6 +164,31 @@ export async function assertAsync(
   })
 }
 
+/**
+ * assertJobRun continuously checks the CL node for the completion of a job
+ * before resolving
+ *
+ * @param clClient the chainlink client instance
+ * @param count the expected number of job runs
+ * @param errorMessage error message to throw
+ */
+export async function assertJobRun(
+  clClient: ChainlinkClient,
+  count: number,
+  errorMessage: string,
+) {
+  await assertAsync(() => {
+    const jobRuns = clClient.getJobRuns()
+    const jobRun = jobRuns[jobRuns.length - 1]
+    return jobRuns.length === count && jobRun.status === 'completed'
+  }, `${errorMessage} : job not run on ${clClient.name}`)
+}
+
+/**
+ * fundAddress sends 1000 eth to the address provided from the default account
+ *
+ * @param to address to fund
+ */
 export async function fundAddress(to: string, ether = 1000) {
   const gethMode = !!process.env.GETH_MODE || false
   const provider = createProvider()
@@ -180,6 +205,62 @@ export async function fundAddress(to: string, ether = 1000) {
   await tx.wait()
 }
 
-export async function txWait(tx: ethers.ContractTransaction): Promise<void> {
-  await tx.wait()
+/**
+ * helper function to more seamlessly wait for transactions to confirm
+ * before continuing with test execution
+ *
+ * @param tx transaction to wait for
+ */
+export async function txWait(
+  tx: ethers.ContractTransaction,
+): Promise<ContractReceipt> {
+  return await tx.wait()
+}
+
+/**
+ * adds a listener to the provided contract to watch for the provided
+ * events; automatically parses the log data, logs the event emissions,
+ * and logs the values of the event data
+ *
+ * @param contract contract to watch for events on
+ * @param listenTo event or list of events to listen to
+ */
+export async function logEvents(
+  contract: ethers.Contract,
+  contractName: string,
+  listenTo: string | string[] = [],
+) {
+  const listenToArr = Array.isArray(listenTo) ? listenTo : [listenTo]
+  assert.containsAllKeys(
+    contract.interface.events,
+    listenToArr,
+    'contract does not have requested event type',
+  )
+
+  // holds the contract's events, keys are the sha256 of the event signature
+  const eventsByTopic: {
+    [key: string]: EventDescription
+  } = Object.entries(contract.interface.events).reduce(
+    (prev, [_, event]) => ({ [event.topic]: event, ...prev }),
+    {},
+  )
+
+  // listen to all events, then filter by topic
+  contract.on('*', (...args) => {
+    const eventEmission: ethers.Event = args[args.length - 1]
+    const topic = eventEmission.topics[0] as keyof typeof eventsByTopic
+    const eventDesc = eventsByTopic[topic]
+    // ignore events we aren't listening for
+    if (listenToArr.length != 0 && !listenToArr.includes(eventDesc.name)) return
+    // decode event log and generate list of args for test log
+    const eventArgs = eventDesc.decode(eventEmission.data, eventEmission.topics)
+    const eventArgNames = eventDesc.inputs.map(i => i.name) as string[]
+    const eventArgList = eventArgNames
+      .map((argName: string) => `\t* ${argName}: ${eventArgs[argName]}`)
+      .join('\n')
+    console.log(
+      `${eventDesc.name} event emitted by ${contractName} ` +
+        `in block #${eventEmission.blockNumber}\n${eventArgList}`,
+    )
+  })
 }

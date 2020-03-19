@@ -29,8 +29,10 @@ dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config
 function save_test_logs {
   mkdir -p logs
   $ts_test logs --no-color node > ./logs/node.log
+  $ts_test logs --no-color node-2 > ./logs/node-2.log
   $ts_test logs --no-color devnet > ./logs/devnet.log
   $ts_test logs --no-color node-db > ./logs/node-db.log
+  $ts_test logs --no-color node-db-2 > ./logs/node-db-2.log
   $ts_test logs --no-color explorer > ./logs/explorer.log
   $ts_test logs --no-color explorer-db > ./logs/explorer-db.log
   $ts_test logs --no-color external-adapter > ./logs/external-adapter.log
@@ -127,9 +129,12 @@ case "$1" in
   test:ts:dev)
     $deps up --exit-code-from wait-db wait-db
     $deps up --exit-code-from wait-db-2 wait-db-2
+    set +e
     $dev_ts_integration run integration-ts /bin/sh -c \
       "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && yarn workspace @chainlink/ci-ts test ${@:2}"
+      && yarn workspace @chainlink/ci-ts test --verbose ${@:2}"
+    set -e
+    save_test_logs
     $dev_ts_integration down -v
     ;;
   integration | i)
