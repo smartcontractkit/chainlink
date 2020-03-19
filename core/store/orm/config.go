@@ -245,6 +245,36 @@ func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
 }
 
+// GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.
+// E.g. if this is set to 3, and we receive block 10, gas updater will
+// fetch block 7.
+// CAUTION: You might be tempted to set this to 0 to use the latest possible
+// block, but it is possible to receive a head BEFORE that block is actually
+// available from the connected node via RPC. In this case you will get false
+// "zero" blocks that are missing transactions.
+func (c Config) GasUpdaterBlockDelay() uint16 {
+	return c.getWithFallback("GasUpdaterBlockDelay", parseUint16).(uint16)
+}
+
+// GasUpdaterBlockHistorySize is the number of past blocks to keep in memory to
+// use as a basis for calculating a percentile gas price
+func (c Config) GasUpdaterBlockHistorySize() uint16 {
+	return c.getWithFallback("GasUpdaterBlockHistorySize", parseUint16).(uint16)
+}
+
+// GasUpdaterTransactionPercentile is the percentile gas price to choose. E.g.
+// if the past transaction history contains four transactions with gas prices:
+// [100, 200, 300, 400], picking 25 for this number will give a value of 200
+func (c Config) GasUpdaterTransactionPercentile() uint16 {
+	return c.getWithFallback("GasUpdaterTransactionPercentile", parseUint16).(uint16)
+}
+
+// GasUpdaterEnabled turns on the automatic gas updater if set to true
+// It is disabled by default
+func (c Config) GasUpdaterEnabled() bool {
+	return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
+}
+
 // JSONConsole enables the JSON console.
 func (c Config) JSONConsole() bool {
 	return c.viper.GetBool(EnvVarName("JSONConsole"))

@@ -36,6 +36,9 @@ type ConfigReader interface {
 	EthMaxGasPriceWei() *big.Int
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
+	GasUpdaterBlockDelay() uint16
+	GasUpdaterBlockHistorySize() uint16
+	GasUpdaterTransactionPercentile() uint16
 	JSONConsole() bool
 	LinkContractAddress() string
 	ExplorerURL() *url.URL

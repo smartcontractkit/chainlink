@@ -20,6 +20,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/cmd"
+	"chainlink/core/eth"
 	"chainlink/core/gracefulpanic"
 	"chainlink/core/logger"
 	"chainlink/core/services/chainlink"
@@ -31,6 +32,7 @@ import (
 	"chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
@@ -282,22 +284,6 @@ func (ta *TestApplication) waitForConnection() error {
 		return nil
 	}
 }
-
-// TODO: DELETE THIS
-// func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-//     ethMock := ta.MockCallerSubscriberClient()
-//     ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
-//         ethMock.Register("eth_chainId", ta.Config.ChainID())
-//         ethMock.Register("eth_getTransactionCount", `0x0`)
-//     })
-
-//     err := ta.Start()
-//     if err != nil {
-//         return ethMock, err
-//     }
-
-//     return ethMock, ta.WaitForConnection()
-// }
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
@@ -957,6 +943,23 @@ func Head(val interface{}) *models.Head {
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 		return nil
+	}
+}
+
+// EmptyBlock returns a new empty ethereum block
+func EmptyBlock() eth.Block {
+	return eth.Block{}
+}
+
+// BlockWithTransactions returns a new ethereum block with transactions
+// matching the given gas prices
+func BlockWithTransactions(gasPrices ...uint64) eth.Block {
+	txs := make([]eth.Transaction, len(gasPrices))
+	for i, gasPrice := range gasPrices {
+		txs[i].GasPrice = hexutil.Uint64(gasPrice)
+	}
+	return eth.Block{
+		Transactions: txs,
 	}
 }
 

@@ -779,7 +779,7 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 			// If we do hit this scenario, we will keep creating new attempts that are guaranteed to fail
 			// until CHAINLINK_TX_ATTEMPT_LIMIT is reached
 			promGasBumpExceedsLimit.Inc()
-			err := fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
+			err := fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_MAX_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
 			logger.Error(err)
 			return err
 		}
