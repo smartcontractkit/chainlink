@@ -1,5 +1,9 @@
 # Explorer
 
+## Environment variables
+
+See [./src/config.ts](./src/config.ts) for the available list of environment variables.
+
 ## Deployment
 
 ### Build Docker image
