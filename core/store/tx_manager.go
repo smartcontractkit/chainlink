@@ -623,7 +623,7 @@ func (txm *EthTxManager) processAttempt(
 
 	case Unconfirmed:
 		attemptLimit := txm.config.TxAttemptLimit()
-		if attemptIndex >= int(attemptLimit) {
+		if attemptLimit != 0 && attemptIndex >= int(attemptLimit) {
 			logger.Warnw(
 				fmt.Sprintf("Tx #%d is %s, has met TxAttemptLimit", attemptIndex, state),
 				"txAttemptLimit", attemptLimit,
