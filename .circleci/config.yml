@@ -69,6 +69,15 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+  parity-postgres-ts:
+    resource_class: 2xlarge
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: ~/chainlink
+    steps:
+      - checkout
+      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
   solidity:
     resource_class: xlarge
     docker:
@@ -381,6 +390,10 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - parity-postgres-ts:
+          filters:
+            tags:
+              only: /^v.*/
       - styleguide:
           filters:
             tags:
@@ -450,6 +463,7 @@ workflows:
             - geth-postgres
             - geth-postgres-ts
             - parity-postgres
+            - parity-postgres-ts
             - styleguide
             - json-api-client
             - operator-ui
