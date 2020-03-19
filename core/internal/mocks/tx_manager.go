@@ -232,14 +232,14 @@ func (_m *TxManager) Disconnect() {
 }
 
 // GetBlockByNumber provides a mock function with given fields: hex
-func (_m *TxManager) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
+func (_m *TxManager) GetBlockByNumber(hex string) (eth.Block, error) {
 	ret := _m.Called(hex)
 
-	var r0 eth.BlockHeader
-	if rf, ok := ret.Get(0).(func(string) eth.BlockHeader); ok {
+	var r0 eth.Block
+	if rf, ok := ret.Get(0).(func(string) eth.Block); ok {
 		r0 = rf(hex)
 	} else {
-		r0 = ret.Get(0).(eth.BlockHeader)
+		r0 = ret.Get(0).(eth.Block)
 	}
 
 	var r1 error
