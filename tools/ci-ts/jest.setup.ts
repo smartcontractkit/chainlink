@@ -1,11 +1,11 @@
-import { getArgs, waitForService } from './test-helpers/common'
+import { getEnvVars, waitForService } from './test-helpers/common'
 
 const {
   CLIENT_NODE_URL,
   CLIENT_NODE_2_URL,
   EXTERNAL_ADAPTER_URL,
   EXTERNAL_ADAPTER_2_URL,
-} = getArgs([
+} = getEnvVars([
   'CLIENT_NODE_URL',
   'CLIENT_NODE_2_URL',
   'EXTERNAL_ADAPTER_URL',
