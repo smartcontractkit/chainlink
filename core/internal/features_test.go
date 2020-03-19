@@ -1006,7 +1006,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 }
 
 func TestIntegration_RandomnessRequest(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.NoRegisterGetBlockNumber)
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient()
 	logs := make(chan ethpkg.Log, 1)
