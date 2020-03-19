@@ -676,7 +676,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     view
     returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer)
   {
-    uint32 roundId = rounds[reportingRoundId].details.answers.length == rounds[reportingRoundId].details.answers.maxAnswers || timedOut(reportingRoundId)
+    uint32 roundId = rounds[reportingRoundId].details.answers.length == rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId)
       ? reportingRoundId.add(1)
       : reportingRoundId;
     return (roundId, eligibleToSubmit(_oracle), rounds[latestRoundId].answer);
