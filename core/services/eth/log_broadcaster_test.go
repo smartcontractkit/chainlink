@@ -23,7 +23,10 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	const numContracts = 3
+	const (
+		numContracts        = 3
+		blockHeight  uint64 = 123
+	)
 
 	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
@@ -32,7 +35,13 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	var unsubscribeCalls int
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
-		Run(func(mock.Arguments) { subscribeCalls++ })
+		Run(func(args mock.Arguments) {
+			subscribeCalls++
+			q := args.Get(2).(ethereum.FilterQuery)
+			require.Equal(t, int64(blockHeight), q.FromBlock.Int64())
+		})
+	ethClient.On("GetBlockHeight").
+		Return(blockHeight, nil)
 	sub.On("Unsubscribe").
 		Return().
 		Run(func(mock.Arguments) { unsubscribeCalls++ })
@@ -85,21 +94,27 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	const blockHeight uint64 = 0
+
 	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
 
 	chchRawLogs := make(chan chan<- eth.Log, 1)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- eth.Log) }).
+		Run(func(args mock.Arguments) {
+			q := args.Get(2).(ethereum.FilterQuery)
+			require.Equal(t, int64(blockHeight), q.FromBlock.Int64())
+
+			chchRawLogs <- args.Get(1).(chan<- eth.Log)
+		}).
 		Return(sub, nil).
 		Once()
+	ethClient.On("GetBlockHeight").Return(blockHeight, nil)
 	sub.On("Err").Return(nil)
-
 	sub.On("Unsubscribe").Return()
 
 	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM)
 	lb.Start()
-	defer lb.Stop()
 
 	addr1 := cltest.NewAddress()
 	addr2 := cltest.NewAddress()
@@ -145,6 +160,8 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	require.Eventually(t, func() bool { return len(addr2Logs1) == len(addr2SentLogs) }, time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool { return len(addr2Logs2) == len(addr2SentLogs) }, time.Second, 10*time.Millisecond)
 
+	lb.Stop()
+
 	for i := range addr1SentLogs {
 		require.Equal(t, addr1SentLogs[i], addr1Logs1[i])
 		require.Equal(t, addr1SentLogs[i], addr1Logs2[i])
@@ -155,6 +172,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	}
 
 	ethClient.AssertExpectations(t)
+	sub.AssertExpectations(t)
 }
 
 func TestLogBroadcaster_SkipsOldLogs(t *testing.T) {
@@ -164,6 +182,8 @@ func TestLogBroadcaster_SkipsOldLogs(t *testing.T) {
 	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
 
+	ethClient.On("GetBlockHeight").
+		Return(uint64(0), nil)
 	chchRawLogs := make(chan chan<- eth.Log, 1)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- eth.Log) }).
@@ -214,7 +234,7 @@ func TestLogBroadcaster_SkipsOldLogs(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestLogBroadcaster_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
+func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -226,6 +246,7 @@ func TestLogBroadcaster_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
 	addr1 := cltest.NewAddress()
 	addr2 := cltest.NewAddress()
 
+	ethClient.On("GetBlockHeight").Return(uint64(0), nil)
 	chchRawLogs := make(chan chan<- eth.Log, 1)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -268,6 +289,7 @@ func TestLogBroadcaster_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
 	ethClient.AssertExpectations(t)
 	listener1.AssertExpectations(t)
 	listener2.AssertExpectations(t)
+	sub.AssertExpectations(t)
 }
 
 func TestDecodingLogListener(t *testing.T) {

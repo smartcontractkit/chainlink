@@ -70,6 +70,7 @@ func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
 const logBroadcasterCursorName = "logBroadcaster"
 
 func (b *logBroadcaster) Start() {
+	// Grab the current on-chain block height
 	var currentHeight uint64
 	for {
 		var err error
@@ -78,23 +79,23 @@ func (b *logBroadcaster) Start() {
 			break
 		}
 
-		logger.Error("failed to fetch current block height:", err)
-
+		logger.Errorf("error fetching current block height: %v", err)
 		select {
-		case <-time.After(10 * time.Second):
-			continue
 		case <-b.chStop:
 			return
+		case <-time.After(10 * time.Second):
 		}
+		continue
 	}
 
+	// Grab the cursor from the DB
 	cursor, err := b.orm.FindLogCursor(logBroadcasterCursorName)
 	if err != nil && !gorm.IsRecordNotFoundError(err) {
 		logger.Errorf("error fetching log cursor: %v", err)
 	}
 	b.cursor = cursor
 
-	// If the latest block on chain is newer than the one in the cursor (or if we have
+	// If the latest block is newer than the one in the cursor (or if we have
 	// no cursor), start from that block height.
 	if currentHeight > cursor.BlockIndex {
 		b.updateLogCursor(currentHeight, 0)
@@ -141,10 +142,9 @@ ResubscribeLoop:
 			select {
 			case <-b.chStop:
 				return
-			default:
+			case <-time.After(10 * time.Second):
 				// Don't hammer the Ethereum node with subscription requests in case of an error.
 				// A configurable timeout might be useful here.
-				time.Sleep(10 * time.Second)
 				continue ResubscribeLoop
 			}
 		}
@@ -264,18 +264,13 @@ func (b *logBroadcaster) createSubscription() (eth.Subscription, chan eth.Log, e
 		return noopSubscription{}, nil, nil
 	}
 
-	var fromBlock *big.Int
-	if b.cursor.BlockIndex > 0 {
-		fromBlock = big.NewInt(int64(b.cursor.BlockIndex))
-	}
-
 	var addresses []common.Address
 	for address := range b.listeners {
 		addresses = append(addresses, address)
 	}
 
 	filterQuery := ethereum.FilterQuery{
-		FromBlock: fromBlock,
+		FromBlock: big.NewInt(int64(b.cursor.BlockIndex)),
 		Addresses: addresses,
 	}
 	chRawLogs := make(chan eth.Log)
