@@ -46,6 +46,10 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	txm := new(mocks.TxManager)
+	store.TxManager = txm
+	txm.On("GetBlockHeight").Return(uint64(123), nil)
+
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		runManager := new(mocks.RunManager)
