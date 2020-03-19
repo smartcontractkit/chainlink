@@ -13,7 +13,7 @@
     "decimalPlaces": 3,
     "multiply": "100000000",
     "sponsored": ["Synthetix", "Loopring", "OpenLaw"],
-    "threshold": 1,
+    "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "listing": true
   },
@@ -31,7 +31,7 @@
     "decimalPlaces": 3,
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
-    "threshold": 1,
+    "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
     "listing": true
   },
