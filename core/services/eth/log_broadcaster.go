@@ -70,19 +70,34 @@ func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
 const logBroadcasterCursorName = "logBroadcaster"
 
 func (b *logBroadcaster) Start() {
+	var currentHeight uint64
+	for {
+		var err error
+		currentHeight, err = b.ethClient.GetBlockHeight()
+		if err == nil {
+			break
+		}
+
+		logger.Error("failed to fetch current block height:", err)
+
+		select {
+		case <-time.After(10 * time.Second):
+			continue
+		case <-b.chStop:
+			return
+		}
+	}
+
 	cursor, err := b.orm.FindLogCursor(logBroadcasterCursorName)
 	if err != nil && !gorm.IsRecordNotFoundError(err) {
 		logger.Errorf("error fetching log cursor: %v", err)
 	}
 	b.cursor = cursor
 
-	// If we've seen a later block than the one in the cursor (or if we have
+	// If the latest block on chain is newer than the one in the cursor (or if we have
 	// no cursor), start from that block height.
-	head, err := b.orm.LastHead()
-	if err != nil {
-		logger.Errorf("error fetching latest head: %v", err)
-	} else if head != nil && head.Number >= 0 && uint64(head.Number) > cursor.BlockIndex {
-		b.updateLogCursor(uint64(head.Number), 0)
+	if currentHeight > cursor.BlockIndex {
+		b.updateLogCursor(currentHeight, 0)
 	}
 
 	go b.startResubscribeLoop()

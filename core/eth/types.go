@@ -58,6 +58,11 @@ func (log Log) GetTopic(idx uint) (common.Hash, error) {
 	return log.Topics[idx], nil
 }
 
+// Copy creates a deep copy of a log.  The LogBroadcaster creates a single websocket
+// subscription for all log events that we're interested in and distributes them to
+// the relevant subscribers elsewhere in the codebase.  If a given log needs to be
+// distributed to multiple subscribers while avoiding data races, it's necessary
+// to make copies.
 func (log Log) Copy() Log {
 	var cpy Log
 	cpy.Address = log.Address

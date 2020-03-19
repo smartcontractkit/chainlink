@@ -156,10 +156,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(oracleCount() < 42);
     require(_admin != address(0));
-    require(
-      oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin,
-      ""
-    );
+    require(oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin);
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleAddresses.push(_oracle);
@@ -362,13 +359,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**	
    * @notice get the start time of the current reporting round	
-   */	
-  function reportingRoundStartedAt()	
-    external	
-    view	
-    returns (uint256)	
-  {	
-    return rounds[reportingRoundId].startedAt;	
+   */
+  function reportingRoundStartedAt()
+    external
+    view
+    returns (uint256)
+  {
+    return rounds[reportingRoundId].startedAt;
   }
 
   /**
@@ -677,7 +674,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function roundState(address _oracle)
     external
     view
-    returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestAnswer)
+    returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer)
   {
     uint32 roundId = finished(reportingRoundId) || timedOut(reportingRoundId)
       ? reportingRoundId.add(1)

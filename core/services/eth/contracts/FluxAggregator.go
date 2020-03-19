@@ -75,7 +75,7 @@ func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connecte
 type FluxAggregatorRoundState struct {
 	ReportableRoundID uint32   `abi:"_reportableRoundId"`
 	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
-	LatestAnswer      *big.Int `abi:"_latestAnswer"`
+	LatestAnswer      *big.Int `abi:"_latestRoundAnswer"`
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {

@@ -105,7 +105,6 @@ describe('flux monitor eth client integration', () => {
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     job = clClient.createJob(JSON.stringify(fluxMonitorJob))
     assert.equal(clClient.getJobs().length, initialJobCount + 1)
-    await wait(10000)
 
     // Job should trigger initial FM run
     await assertJobRun(job.id, initialRunCount + 1, 'initial job never run')
