@@ -3,17 +3,16 @@ import express from 'express'
 import helmet from 'helmet'
 import http from 'http'
 import mime from 'mime-types'
+import { getConfig } from './config'
 import * as controllers from './controllers'
 import { addRequestLogging, logger } from './logging'
 import adminAuth from './middleware/adminAuth'
 import seed from './seed'
 import { bootstrapRealtime } from './server/realtime'
 
-export const DEFAULT_PORT = parseInt(process.env.SERVER_PORT, 10) || 8080
-export const COOKIE_EXPIRATION_MS = 86400000 // 1 day in ms
-
-const server = (port: number = DEFAULT_PORT): http.Server => {
-  if (process.env.NODE_ENV === 'development') {
+export default function server(): http.Server {
+  const conf = getConfig()
+  if (conf.dev) {
     seed()
   }
 
@@ -21,13 +20,13 @@ const server = (port: number = DEFAULT_PORT): http.Server => {
   addRequestLogging(app)
 
   app.use(helmet())
-  if (process.env.EXPLORER_DEV) {
+  if (conf.dev) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const cors: typeof import('cors') = require('cors')
 
     app.use(
       cors({
-        origin: [process.env.EXPLORER_CLIENT_ORIGIN],
+        origin: [conf.clientOrigin],
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
         preflightContinue: false,
         optionsSuccessStatus: 204,
@@ -39,8 +38,8 @@ const server = (port: number = DEFAULT_PORT): http.Server => {
   app.use(
     cookieSession({
       name: 'explorer',
-      maxAge: COOKIE_EXPIRATION_MS,
-      keys: ['key1', 'key2'],
+      maxAge: conf.cookieExpirationMs,
+      secret: conf.cookieSecret,
     }),
   )
   app.use(express.json())
@@ -72,9 +71,7 @@ const server = (port: number = DEFAULT_PORT): http.Server => {
   const httpServer = new http.Server(app)
   bootstrapRealtime(httpServer)
 
-  return httpServer.listen(port, () => {
-    logger.info(`Server started, listening on port ${port}`)
+  return httpServer.listen(conf.port, () => {
+    logger.info(`Server started, listening on port ${conf.port}`)
   })
 }
-
-export default server
