@@ -12,12 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-const (
-	// FluxAggregatorName is the name of Chainlink's Ethereum contract for
-	// aggregating numerical data such as prices.
-	FluxAggregatorName = "FluxAggregator"
-)
-
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
 
 // Client is the interface used to interact with an ethereum node.
@@ -29,6 +23,7 @@ type Client interface {
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
+	GetBlockHeight() (uint64, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
 	GetChainID() (*big.Int, error)
 	SubscribeToNewHeads(ctx context.Context, channel chan<- BlockHeader) (Subscription, error)
@@ -130,6 +125,12 @@ func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*TxReceipt
 	receipt := TxReceipt{}
 	err := client.Call(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
+}
+
+func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
+	var height hexutil.Uint64
+	err := client.Call(&height, "eth_blockNumber")
+	return uint64(height), err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".

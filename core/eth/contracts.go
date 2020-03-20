@@ -8,14 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 )
 
 type ContractCodec interface {
-	ABI() abi.ABI
+	ABI() *abi.ABI
 	GetMethodID(method string) ([]byte, error)
 	EncodeMessageCall(method string, args ...interface{}) ([]byte, error)
 	UnpackLog(out interface{}, event string, log Log) error
@@ -63,8 +62,8 @@ func GetV6ContractCodec(name string) (ContractCodec, error) {
 	return getContractCodec(name, box)
 }
 
-func (contract *contractCodec) ABI() abi.ABI {
-	return contract.abi
+func (contract *contractCodec) ABI() *abi.ABI {
+	return &contract.abi
 }
 
 // EncodeMessageCall encodes method name and arguments into a byte array
@@ -108,36 +107,4 @@ func MustGetV6ContractEventID(name, eventName string) common.Hash {
 
 func (cc *contractCodec) UnpackLog(out interface{}, event string, log Log) error {
 	return gethUnpackLog(cc, out, event, log)
-}
-
-type ConnectedContract interface {
-	ContractCodec
-	Call(result interface{}, methodName string, args ...interface{}) error
-}
-
-type connectedContract struct {
-	ContractCodec
-	ethClient Client
-	address   common.Address
-}
-
-func NewConnectedContract(cc ContractCodec, ethClient Client, address common.Address) ConnectedContract {
-	return &connectedContract{cc, ethClient, address}
-}
-
-func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) error {
-	data, err := contract.EncodeMessageCall(methodName, args...)
-	if err != nil {
-		return errors.Wrap(err, "unable to encode message call")
-	}
-
-	var rawResult hexutil.Bytes
-	callArgs := CallArgs{To: contract.address, Data: data}
-	err = contract.ethClient.Call(&rawResult, "eth_call", callArgs, "latest")
-	if err != nil {
-		return errors.Wrap(err, "unable to call client")
-	}
-
-	err = contract.ABI().Unpack(result, methodName, rawResult)
-	return errors.Wrap(err, "unable to unpack values")
 }
