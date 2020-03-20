@@ -601,9 +601,6 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	p.createJobRun(polledAnswer, p.reportableRoundID)
 }
 
-// poll walks through the steps to check for a deviation, early exiting if deviation
-// is not met, or triggering a new job run if deviation is met.
-// Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
 	if p.connected.Get() == false {
 		logger.Warn("not connected to Ethereum node, skipping poll")
@@ -630,6 +627,20 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	if !roundState.EligibleToSubmit {
 		logger.Infow("not eligible to submit, skipping poll",
 			"jobID", p.initr.JobSpecID,
+		)
+		return false
+	}
+
+	available, err := p.fluxAggregator.GetAvailableFunds()
+	if err != nil {
+		logger.Errorf("unable to determine available funds from FluxAggregator contract : %v", err)
+		return false
+	}
+
+	if available.Cmp(p.store.Config.MinimumContractPayment()) < 0 {
+		logger.Infow("available funds are required to cover Flux Monitor service payments",
+			"jobID", p.initr.JobSpecID,
+			"availableFunds", available.String(),
 		)
 		return false
 	}

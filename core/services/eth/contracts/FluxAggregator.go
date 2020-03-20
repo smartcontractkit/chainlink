@@ -3,6 +3,7 @@ package contracts
 import (
 	"math/big"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	ethsvc "chainlink/core/services/eth"
 
@@ -14,6 +15,7 @@ import (
 
 type FluxAggregator interface {
 	ethsvc.ConnectedContract
+	GetAvailableFunds() (*assets.Link, error)
 	RoundState(oracle common.Address) (FluxAggregatorRoundState, error)
 }
 
@@ -70,6 +72,16 @@ func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connecte
 	return fa.ConnectedContract.SubscribeToLogs(
 		ethsvc.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
 	)
+}
+
+// GetAvailableFunds returns the availableFunds contract value.
+func (fa *fluxAggregator) GetAvailableFunds() (*assets.Link, error) {
+	var result big.Int
+	err := fa.Call(&result, "availableFunds")
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to encode message call")
+	}
+	return (*assets.Link)(&result), nil
 }
 
 type FluxAggregatorRoundState struct {

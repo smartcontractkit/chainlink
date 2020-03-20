@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
@@ -17,6 +18,81 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func mustEVMBigInt(t *testing.T, val *big.Int) []byte {
+	ret, err := utils.EVMWordBigInt(val)
+	require.NoError(t, err, "evm BigInt serialization")
+	return ret
+}
+
+func testFluxAggregatorClient_AvailableFunds(t *testing.T) {
+	aggregatorAddress := cltest.NewAddress()
+
+	// is this correct?
+	const aggregatorRoundState = "c410579e"
+	aggregatorRoundStateSelector := eth.HexToFunctionSelector(aggregatorRoundState)
+
+	selector := make([]byte, 16)
+	copy(selector, aggregatorRoundStateSelector.Bytes())
+	expectedCallArgs := eth.CallArgs{
+		To:   aggregatorAddress,
+		Data: selector,
+	}
+
+	tests := []struct {
+		name         string
+		response     []byte
+		expectedLINK assets.Link
+	}{
+		{
+			"zero",
+			mustEVMBigInt(t, big.NewInt(0)),
+			*cltest.NewLink(t, "0"),
+		},
+		{
+			"non-zero",
+			mustEVMBigInt(t, big.NewInt(100)),
+			*cltest.NewLink(t, "100"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ethClient := new(mocks.Client)
+
+			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
+				Run(func(args mock.Arguments) {
+					res := args.Get(0)
+					err := res.(encoding.TextUnmarshaler).UnmarshalText(test.response)
+					require.NoError(t, err)
+				})
+
+			fa, err := contracts.NewFluxAggregator(
+				aggregatorAddress,
+				ethClient,
+				nil,
+			)
+			require.NoError(t, err)
+
+			res, err := fa.GetAvailableFunds()
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedLINK, res)
+			ethClient.AssertExpectations(t)
+		})
+	}
+}
+
+func makeReturnData(roundID uint64, eligible bool, answer uint64) string {
+	var data []byte
+	data = append(data, utils.EVMWordUint64(roundID)...)
+	if eligible {
+		data = append(data, utils.EVMWordUint64(1)...)
+	} else {
+		data = append(data, utils.EVMWordUint64(0)...)
+	}
+	data = append(data, utils.EVMWordUint64(answer)...)
+	return "0x" + hex.EncodeToString(data)
+}
 
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
