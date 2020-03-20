@@ -55,10 +55,10 @@ type concreteFluxMonitor struct {
 	runManager     RunManager
 	logBroadcaster eth.LogBroadcaster
 	checkerFactory DeviationCheckerFactory
-	adds           chan addEntry
-	removes        chan models.ID
-	connect        chan *models.Head
-	disconnect     chan struct{}
+	chAdd          chan addEntry
+	chRemove       chan models.ID
+	chConnect      chan *models.Head
+	chDisconnect   chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
 }
@@ -83,12 +83,12 @@ func New(
 			store:          store,
 			logBroadcaster: logBroadcaster,
 		},
-		adds:       make(chan addEntry),
-		removes:    make(chan models.ID),
-		connect:    make(chan *models.Head),
-		disconnect: make(chan struct{}),
-		chStop:     make(chan struct{}),
-		chDone:     make(chan struct{}),
+		chAdd:        make(chan addEntry),
+		chRemove:     make(chan models.ID),
+		chConnect:    make(chan *models.Head),
+		chDisconnect: make(chan struct{}),
+		chStop:       make(chan struct{}),
+		chDone:       make(chan struct{}),
 	}
 }
 
@@ -138,7 +138,7 @@ func (fm *concreteFluxMonitor) processAddRemoveJobRequests() {
 
 	for {
 		select {
-		case entry := <-fm.adds:
+		case entry := <-fm.chAdd:
 			if _, ok := jobMap[entry.jobID]; ok {
 				logger.Errorf("job %s has already been added to flux monitor", entry.jobID)
 				return
@@ -148,7 +148,7 @@ func (fm *concreteFluxMonitor) processAddRemoveJobRequests() {
 			}
 			jobMap[entry.jobID] = entry.checkers
 
-		case jobID := <-fm.removes:
+		case jobID := <-fm.chRemove:
 			for _, checker := range jobMap[jobID] {
 				checker.Stop()
 			}
@@ -190,7 +190,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 		return nil
 	}
 
-	fm.adds <- addEntry{*job.ID, validCheckers}
+	fm.chAdd <- addEntry{*job.ID, validCheckers}
 	return nil
 }
 
@@ -201,7 +201,7 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 		logger.Warn("nil job ID passed to FluxMonitor#RemoveJob")
 		return
 	}
-	fm.removes <- *id
+	fm.chRemove <- *id
 }
 
 // DeviationCheckerFactory holds the New method needed to create a new instance
