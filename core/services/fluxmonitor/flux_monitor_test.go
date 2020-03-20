@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/cmd"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
@@ -164,6 +165,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
 			}
 			fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
+			fluxAggregator.On("GetAvailableFunds").Return(assets.NewLink(100), nil).Maybe()
 
 			if test.expectedToPoll {
 				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil)
@@ -234,6 +236,9 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
 			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+
+			availableFunds := assets.NewLink(100)
+			fluxAggregator.On("GetAvailableFunds").Return(availableFunds, nil).Maybe()
 
 			roundState1 := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false, LatestAnswer: answerBigInt} // Initial poll
 			roundState2 := contracts.FluxAggregatorRoundState{ReportableRoundID: 2, EligibleToSubmit: false, LatestAnswer: answerBigInt} // idleThreshold 1
