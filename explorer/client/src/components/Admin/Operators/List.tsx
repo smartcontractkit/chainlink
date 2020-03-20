@@ -6,9 +6,10 @@ import Table, { ChangePageEvent } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { ChainlinkNode } from 'explorer/models'
 
-const HEADERS = ['Name', 'URL', 'Created At']
+const HEADERS: string[] = ['Name', 'URL', 'Created At']
 const LOADING_MSG = 'Loading operators...'
 const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
+const ERROR_MSG = 'Error loading operators.'
 
 function buildNameCol(operator: ChainlinkNode): UrlColumn {
   return {
@@ -50,12 +51,14 @@ function rows(
 interface Props {
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
+  loaded: boolean
   operators?: ChainlinkNode[]
   count?: number
   className?: string
 }
 
 const List: React.FC<Props> = ({
+  loaded,
   operators,
   count,
   currentPage,
@@ -71,8 +74,10 @@ const List: React.FC<Props> = ({
           rows={rows(operators)}
           count={count}
           onChangePage={onChangePage}
+          loaded={loaded}
           loadingMsg={LOADING_MSG}
           emptyMsg={EMPTY_MSG}
+          errorMsg={ERROR_MSG}
         />
       </Hidden>
     </Paper>

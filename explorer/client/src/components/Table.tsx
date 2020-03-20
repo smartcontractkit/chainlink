@@ -18,12 +18,12 @@ import PaginationActions from './Table/PaginationActions'
 export const DEFAULT_ROWS_PER_PAGE = 10
 export const DEFAULT_CURRENT_PAGE = 0
 
-interface LoadingProps {
+interface MsgProps {
   colCount: number
   msg?: string
 }
 
-const Loading = ({ colCount, msg }: LoadingProps) => {
+const Loading: React.FC<MsgProps> = ({ colCount, msg }) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
@@ -33,16 +33,21 @@ const Loading = ({ colCount, msg }: LoadingProps) => {
   )
 }
 
-interface EmptyProps {
-  colCount: number
-  msg?: string
-}
-
-const Empty = ({ colCount, msg }: EmptyProps) => {
+const Empty: React.FC<MsgProps> = ({ colCount, msg }) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
         {msg || 'No results'}
+      </MuiTableCell>
+    </TableRow>
+  )
+}
+
+const Error: React.FC<MsgProps> = ({ colCount, msg }) => {
+  return (
+    <TableRow>
+      <MuiTableCell component="th" scope="row" colSpan={colCount}>
+        {msg || 'Error loading resources...'}
       </MuiTableCell>
     </TableRow>
   )
@@ -70,14 +75,25 @@ interface Props extends WithStyles<typeof styles> {
   rowsPerPage: number
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
+  loaded?: boolean
   rows?: Column[][]
   count?: number
   loadingMsg?: string
   emptyMsg?: string
+  errorMsg?: string
 }
 
-const renderRows = ({ headers, rows, loadingMsg, emptyMsg }: Props) => {
-  if (!rows) {
+const renderRows = ({
+  loaded,
+  headers,
+  rows,
+  loadingMsg,
+  emptyMsg,
+  errorMsg,
+}: Props) => {
+  if (loaded && !rows) {
+    return <Error colCount={headers.length} msg={errorMsg} />
+  } else if (!rows) {
     return <Loading colCount={headers.length} msg={loadingMsg} />
   } else if (rows.length === 0) {
     return <Empty colCount={headers.length} msg={emptyMsg} />
