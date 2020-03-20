@@ -9,7 +9,7 @@ import {
 } from '../test-helpers/common'
 import * as clClient from '../test-helpers/chainlink-cli'
 import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
-import { FluxAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/FluxAggregatorFactory'
+import { FluxAggregatorFactory } from '../../../evm-contracts/ethers/v0.6/FluxAggregatorFactory'
 import { JobSpec } from '../../../operator_ui/@types/operator_ui'
 import 'isomorphic-unfetch'
 import { ethers } from 'ethers'
@@ -58,8 +58,8 @@ describe('flux monitor eth client integration', () => {
   beforeAll(async () => {
     clClient.login()
     node1Address = clClient.getAdminInfo()[0].address
-    await fundAddress(carol.address)
-    await fundAddress(node1Address)
+    await fundAddress(carol.address, 5)
+    await fundAddress(node1Address, 5)
     linkToken = await linkTokenFactory.deploy()
     await linkToken.deployed()
   })
@@ -73,7 +73,7 @@ describe('flux monitor eth client integration', () => {
     fluxAggregator = await fluxAggregatorFactory.deploy(
       linkToken.address,
       1,
-      3,
+      600,
       1,
       ethers.utils.formatBytes32String('ETH/USD'),
     )

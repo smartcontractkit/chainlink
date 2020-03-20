@@ -58,6 +58,31 @@ func (log Log) GetTopic(idx uint) (common.Hash, error) {
 	return log.Topics[idx], nil
 }
 
+// Copy creates a deep copy of a log.  The LogBroadcaster creates a single websocket
+// subscription for all log events that we're interested in and distributes them to
+// the relevant subscribers elsewhere in the codebase.  If a given log needs to be
+// distributed to multiple subscribers while avoiding data races, it's necessary
+// to make copies.
+func (log Log) Copy() Log {
+	var cpy Log
+	cpy.Address = log.Address
+	if log.Topics != nil {
+		cpy.Topics = make([]common.Hash, len(log.Topics))
+		copy(cpy.Topics, log.Topics)
+	}
+	if log.Data != nil {
+		cpy.Data = make([]byte, len(log.Data))
+		copy(cpy.Data, log.Data)
+	}
+	cpy.BlockNumber = log.BlockNumber
+	cpy.TxHash = log.TxHash
+	cpy.TxIndex = log.TxIndex
+	cpy.BlockHash = log.BlockHash
+	cpy.Index = log.Index
+	cpy.Removed = log.Removed
+	return cpy
+}
+
 // logMarshaling represents an ethereum event log.
 //
 // NOTE: If this is changed, gen_log_json.go must be changed accordingly. It was
