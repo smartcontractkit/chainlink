@@ -28,7 +28,7 @@ func (l Log) MarshalJSON() ([]byte, error) {
 	var enc Log
 	enc.Address = l.Address
 	enc.Topics = l.Topics
-	enc.Data = l.Data
+	enc.Data = hexutil.Bytes(l.Data)
 	enc.BlockNumber = hexutil.Uint64(l.BlockNumber)
 	enc.TxHash = l.TxHash
 	enc.TxIndex = hexutil.Uint(l.TxIndex)
@@ -66,7 +66,7 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 	if dec.Data == nil {
 		return errors.New("missing required field 'data' for Log")
 	}
-	l.Data = *dec.Data
+	l.Data = UntrustedBytes(*dec.Data)
 	if dec.BlockNumber != nil {
 		l.BlockNumber = uint64(*dec.BlockNumber)
 	}
