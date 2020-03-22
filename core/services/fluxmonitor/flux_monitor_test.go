@@ -289,6 +289,82 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 	}
 }
 
+func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	nodeAddr := ensureAccount(t, store)
+
+	tests := []struct {
+		name              string
+		timesOutAt        int64
+		expectedToTrigger bool
+	}{
+		{"timesOutAt == 0", 0, false},
+		{"timesOutAt != 0", time.Now().Add(1 * time.Second).Unix(), true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fetcher := new(mocks.Fetcher)
+			runManager := new(mocks.RunManager)
+			fluxAggregator := new(mocks.FluxAggregator)
+
+			job := cltest.NewJobWithFluxMonitorInitiator()
+			initr := job.Initiators[0]
+			initr.ID = 1
+			initr.PollingInterval = models.Duration(math.MaxInt64)
+			initr.IdleThreshold = models.Duration(0)
+
+			const fetchedAnswer = 100
+			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
+
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+
+			if test.expectedToTrigger {
+				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+					ReportableRoundID: 1,
+					EligibleToSubmit:  false,
+					LatestAnswer:      answerBigInt,
+					TimesOutAt:        uint64(test.timesOutAt),
+				}, nil).Once()
+				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+					ReportableRoundID: 1,
+					EligibleToSubmit:  false,
+					LatestAnswer:      answerBigInt,
+					TimesOutAt:        0,
+				}, nil).Once()
+			} else {
+				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+					ReportableRoundID: 1,
+					EligibleToSubmit:  false,
+					LatestAnswer:      answerBigInt,
+					TimesOutAt:        uint64(test.timesOutAt),
+				}, nil).Once()
+			}
+
+			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				initr,
+				runManager,
+				fetcher,
+				time.Duration(math.MaxInt64),
+			)
+			require.NoError(t, err)
+
+			deviationChecker.Start()
+			deviationChecker.OnConnect()
+			time.Sleep(5 * time.Second)
+			deviationChecker.Stop()
+
+			fetcher.AssertExpectations(t)
+			runManager.AssertExpectations(t)
+			fluxAggregator.AssertExpectations(t)
+		})
+	}
+}
+
 func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 
 	type roundIDCase struct {
