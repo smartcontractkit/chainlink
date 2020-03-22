@@ -523,13 +523,10 @@ func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
 
 // SafeByteSlice returns an error on out of bounds access to a byte array, where a
 // normal slice would panic instead
-func SafeByteSlice(ary []byte, start int, end int) (slice []byte, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			var empty []byte
-			slice = empty
-			err = errors.New("out of bounds slice access")
-		}
-	}()
+func SafeByteSlice(ary []byte, start int, end int) ([]byte, error) {
+	if end > len(ary) || start > end || start < 0 || end < 0 {
+		var empty []byte
+		return empty, errors.New("out of bounds slice access")
+	}
 	return ary[start:end], nil
 }
