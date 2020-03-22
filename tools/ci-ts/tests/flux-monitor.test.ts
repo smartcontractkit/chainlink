@@ -78,6 +78,7 @@ describe('flux monitor eth client integration', () => {
       ethers.utils.formatBytes32String('ETH/USD'),
     )
     await fluxAggregator.deployed()
+
     const tx1 = await fluxAggregator.addOracle(
       node1Address,
       node1Address,

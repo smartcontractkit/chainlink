@@ -215,7 +215,7 @@ ProcessLoop:
 
 			for listener := range b.listeners[rawLog.Address] {
 				// Make a copy of the log for each listener to avoid data races
-				go listener.HandleLog(rawLog.Copy(), nil)
+				listener.HandleLog(rawLog.Copy(), nil)
 			}
 
 			b.updateLogCursor(rawLog.BlockNumber, uint64(rawLog.Index))
@@ -229,7 +229,6 @@ ProcessLoop:
 				panic("registration already exists")
 			}
 			b.listeners[r.address][r.listener] = struct{}{}
-			r.listener.OnConnect()
 
 			if !knownAddress {
 				// Recreate the subscription with the new contract address
