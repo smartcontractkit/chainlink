@@ -877,6 +877,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
 		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
 		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
@@ -954,6 +955,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
 		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
 		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
@@ -998,6 +1000,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		data = append(data, utils.EVMWordUint64(3)...)     // RoundID
 		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
 		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 	newRounds <- log
