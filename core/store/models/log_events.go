@@ -306,7 +306,7 @@ func contractPayment(log eth.Log) (*assets.Link, error) {
 		encodedAmount = log.Topics[RequestLogTopicPayment]
 	} else {
 		paymentStart := requesterSize + idSize
-		paymentData, err := utils.SafeByteSlice(log.Data, paymentStart, paymentStart+paymentSize)
+		paymentData, err := log.Data.SafeByteSlice(paymentStart, paymentStart+paymentSize)
 		if err != nil {
 			return nil, err
 		}
@@ -354,7 +354,7 @@ func (le RunLogEvent) Requester() (common.Address, error) {
 	if oldRequestVersion(version) {
 		return common.BytesToAddress(le.Log.Topics[RequestLogTopicRequester].Bytes()), nil
 	}
-	requesterData, err := utils.SafeByteSlice(le.Log.Data, 0, requesterSize)
+	requesterData, err := le.Log.Data.SafeByteSlice(0, requesterSize)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -437,7 +437,7 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 		return JSON{}, errors.New("malformed data")
 	}
 
-	cborData, err := utils.SafeByteSlice(data, start, len(data))
+	cborData, err := data.SafeByteSlice(start, len(data))
 	if err != nil {
 		return JSON{}, err
 	}
@@ -445,7 +445,7 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 	if err != nil {
 		return js, err
 	}
-	idData, err := utils.SafeByteSlice(data, 0, idSize)
+	idData, err := data.SafeByteSlice(0, idSize)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -457,7 +457,7 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 }
 
 func (parseRunLog0original) parseRequestID(log eth.Log) (string, error) {
-	idData, err := utils.SafeByteSlice(log.Data, 0, idSize)
+	idData, err := log.Data.SafeByteSlice(0, idSize)
 	if err != nil {
 		return "", err
 	}
@@ -477,7 +477,7 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	if len(data) < cborStart {
 		return JSON{}, errors.New("malformed data")
 	}
-	cborData, err := utils.SafeByteSlice(data, cborStart, len(data))
+	cborData, err := data.SafeByteSlice(cborStart, len(data))
 	if err != nil {
 		return JSON{}, err
 	}
@@ -488,11 +488,11 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	callbackAndExpStart := idSize + versionSize
 	callbackAndExpEnd := callbackAndExpStart + callbackAddrSize + callbackFuncSize + expirationSize
 
-	idData, err := utils.SafeByteSlice(data, 0, idSize)
+	idData, err := data.SafeByteSlice(0, idSize)
 	if err != nil {
 		return JSON{}, err
 	}
-	callbackData, err := utils.SafeByteSlice(data, callbackAndExpStart, callbackAndExpEnd)
+	callbackData, err := data.SafeByteSlice(callbackAndExpStart, callbackAndExpEnd)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -507,7 +507,7 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 }
 
 func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) (string, error) {
-	idData, err := utils.SafeByteSlice(log.Data, 0, idSize)
+	idData, err := log.Data.SafeByteSlice(0, idSize)
 	if err != nil {
 		return "", err
 	}
@@ -533,7 +533,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 		return JSON{}, errors.New("malformed data")
 	}
 
-	dataLengthBytes, err := utils.SafeByteSlice(data, dataLengthStart, dataLengthStart+32)
+	dataLengthBytes, err := data.SafeByteSlice(dataLengthStart, dataLengthStart+32)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -543,7 +543,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 		return JSON{}, errors.New("cbor too short")
 	}
 
-	cborData, err := utils.SafeByteSlice(data, cborStart, cborStart+int(dataLength))
+	cborData, err := data.SafeByteSlice(cborStart, cborStart+int(dataLength))
 	if err != nil {
 		return JSON{}, err
 	}
@@ -553,7 +553,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}
 
-	dataPrefixBytes, err := utils.SafeByteSlice(data, idStart, expirationEnd)
+	dataPrefixBytes, err := data.SafeByteSlice(idStart, expirationEnd)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -567,7 +567,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 
 func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) (string, error) {
 	start := requesterSize
-	requestIDBytes, err := utils.SafeByteSlice(log.Data, start, start+idSize)
+	requestIDBytes, err := log.Data.SafeByteSlice(start, start+idSize)
 	if err != nil {
 		return "", err
 	}

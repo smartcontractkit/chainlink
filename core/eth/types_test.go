@@ -119,3 +119,47 @@ func TestModels_Header_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeByteSlice_Success(t *testing.T) {
+	tests := []struct {
+		ary      eth.UntrustedBytes
+		start    int
+		end      int
+		expected []byte
+	}{
+		{[]byte{1, 2, 3}, 0, 0, []byte{}},
+		{[]byte{1, 2, 3}, 0, 1, []byte{1}},
+		{[]byte{1, 2, 3}, 1, 3, []byte{2, 3}},
+	}
+
+	for i, test := range tests {
+		t.Run(string(i), func(t *testing.T) {
+			actual, err := test.ary.SafeByteSlice(test.start, test.end)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func TestSafeByteSlice_Error(t *testing.T) {
+	tests := []struct {
+		ary   eth.UntrustedBytes
+		start int
+		end   int
+	}{
+		{[]byte{1, 2, 3}, 2, -1},
+		{[]byte{1, 2, 3}, 0, 4},
+		{[]byte{1, 2, 3}, 3, 4},
+		{[]byte{1, 2, 3}, 3, 2},
+		{[]byte{1, 2, 3}, -1, 2},
+	}
+
+	for i, test := range tests {
+		t.Run(string(i), func(t *testing.T) {
+			actual, err := test.ary.SafeByteSlice(test.start, test.end)
+			assert.EqualError(t, err, "out of bounds slice access")
+			var expected []byte
+			assert.Equal(t, expected, actual)
+		})
+	}
+}
