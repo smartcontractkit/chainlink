@@ -32,7 +32,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		Data: append(selector, nodeAddr[:]...),
 	}
 
-	makeReturnData := func(roundID uint64, eligible bool, answer uint64) string {
+	makeReturnData := func(roundID uint64, eligible bool, answer, timesOutAt uint64) string {
 		var data []byte
 		data = append(data, utils.EVMWordUint64(roundID)...)
 		if eligible {
@@ -41,23 +41,25 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			data = append(data, utils.EVMWordUint64(0)...)
 		}
 		data = append(data, utils.EVMWordUint64(answer)...)
+		data = append(data, utils.EVMWordUint64(timesOutAt)...)
 		return "0x" + hex.EncodeToString(data)
 	}
 
-	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f`
+	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e`
 
 	tests := []struct {
-		name             string
-		response         string
-		expectedRoundID  uint32
-		expectedEligible bool
-		expectedAnswer   *big.Int
+		name               string
+		response           string
+		expectedRoundID    uint32
+		expectedEligible   bool
+		expectedAnswer     *big.Int
+		expectedTimesOutAt uint64
 	}{
-		{"zero, false", makeReturnData(0, false, 0), 0, false, big.NewInt(0)},
-		{"non-zero, false", makeReturnData(1, false, 23), 1, false, big.NewInt(23)},
-		{"zero, true", makeReturnData(0, true, 0), 0, true, big.NewInt(0)},
-		{"non-zero true", makeReturnData(12, true, 91), 12, true, big.NewInt(91)},
-		{"real call data", rawReturnData, 3, true, big.NewInt(15)},
+		{"zero, false", makeReturnData(0, false, 0, 0), 0, false, big.NewInt(0), 0},
+		{"non-zero, false", makeReturnData(1, false, 23, 1234), 1, false, big.NewInt(23), 1234},
+		{"zero, true", makeReturnData(0, true, 0, 0), 0, true, big.NewInt(0), 0},
+		{"non-zero true", makeReturnData(12, true, 91, 9876), 12, true, big.NewInt(91), 9876},
+		{"real call data", rawReturnData, 3, true, big.NewInt(15), 14},
 	}
 
 	for _, test := range tests {
@@ -79,6 +81,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			assert.Equal(t, test.expectedRoundID, roundState.ReportableRoundID)
 			assert.Equal(t, test.expectedEligible, roundState.EligibleToSubmit)
 			assert.True(t, test.expectedAnswer.Cmp(roundState.LatestAnswer) == 0)
+			assert.Equal(t, test.expectedTimesOutAt, roundState.TimesOutAt)
 			ethClient.AssertExpectations(t)
 		})
 	}
