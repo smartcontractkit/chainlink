@@ -54,6 +54,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 					PollingInterval: models.FluxMonitorDefaultInitiatorParams.PollingInterval,
 					Precision:       2,
 					Threshold:       5,
+					RequestTimeout:  models.FluxMonitorDefaultInitiatorParams.RequestTimeout,
 				},
 			},
 		},

@@ -222,12 +222,14 @@ type InitiatorParams struct {
 	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
 	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
 	PollingInterval Duration `json:"pollingInterval,omitempty"`
+	RequestTimeout  Duration `json:"requestTimeout,omitempty"`
 }
 
 // FluxMonitorDefaultInitiatorParams are the default parameters for Flux
 // Monitor Job Specs.
 var FluxMonitorDefaultInitiatorParams = InitiatorParams{
 	PollingInterval: Duration(time.Minute),
+	RequestTimeout:  Duration(time.Second * 5),
 }
 
 // SetDefaultValues returns a InitiatorParams with empty fields set to their

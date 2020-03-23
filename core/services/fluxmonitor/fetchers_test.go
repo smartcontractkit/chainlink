@@ -1,6 +1,7 @@
 package fluxmonitor
 
 import (
+	"chainlink/core/store/models"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,8 @@ import (
 // external adapters.
 // https://github.com/smartcontractkit/price-adapters
 const ethUSDPairing = `{"data":{"coin":"ETH","market":"USD"}}`
+
+var defaultHTTPTimeout = models.FluxMonitorDefaultInitiatorParams.RequestTimeout.Duration()
 
 func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 	tests := []struct {

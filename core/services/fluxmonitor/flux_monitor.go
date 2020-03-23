@@ -26,12 +26,9 @@ import (
 //go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
-// defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
-const defaultHTTPTimeout = 5 * time.Second
-
 // MinimumPollingInterval is the smallest possible polling interval the Flux
 // Monitor supports.
-const MinimumPollingInterval = models.Duration(defaultHTTPTimeout)
+var MinimumPollingInterval = models.FluxMonitorDefaultInitiatorParams.RequestTimeout
 
 type RunManager interface {
 	Create(
@@ -223,8 +220,8 @@ type pollingDeviationCheckerFactory struct {
 }
 
 func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager, orm *orm.ORM) (DeviationChecker, error) {
-	if initr.InitiatorParams.PollingInterval < MinimumPollingInterval {
-		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", MinimumPollingInterval)
+	if initr.InitiatorParams.PollingInterval < initr.RequestTimeout {
+		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", initr.RequestTimeout)
 	}
 
 	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
@@ -233,7 +230,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 	}
 
 	fetcher, err := newMedianFetcherFromURLs(
-		defaultHTTPTimeout,
+		initr.RequestTimeout.Duration(),
 		initr.InitiatorParams.RequestData.String(),
 		urls)
 	if err != nil {
