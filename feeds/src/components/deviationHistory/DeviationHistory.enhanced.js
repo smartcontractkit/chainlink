@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import DeviationHistory from './DeviationHistory.component'
 
 const mapStateToProps = state => ({
-  answerHistory: state.aggregation.answerHistory,
+  answerHistory: state.aggregator.answerHistory,
 })
 
 export default compose(connect(mapStateToProps))(DeviationHistory)

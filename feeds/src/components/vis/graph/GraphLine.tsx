@@ -1,6 +1,13 @@
 import React from 'react'
 
-const Line = ({ data, position }) => {
+interface OwnProps {
+  data: any
+  position: any
+}
+
+interface Props extends OwnProps {}
+
+const Line: React.FC<Props> = ({ data, position }) => {
   if (!data) return null
 
   return (
