@@ -2,6 +2,11 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const DynamicCdnWebpackPlugin = require('dynamic-cdn-webpack-plugin')
 const CompressionPlugin = require('compression-webpack-plugin')
 const BrotliPlugin = require('brotli-webpack-plugin')
+const webpack = require('webpack')
+const clientPkg = require('./package.json')
+const serverPkg = require('../package.json')
+const GitRevisionPlugin = require('git-revision-webpack-plugin')
+const gitRevisionPlugin = new GitRevisionPlugin({ branch: true })
 
 module.exports = {
   webpack: {
@@ -21,6 +26,12 @@ module.exports = {
         threshold: 0,
         minRatio: 0.8,
       }),
+      new webpack.DefinePlugin({
+        __EXPLORER_CLIENT_VERSION__: JSON.stringify(clientPkg.version),
+        __EXPLORER_SERVER_VERSION__: JSON.stringify(serverPkg.version),
+        __GIT_SHA__: JSON.stringify(gitRevisionPlugin.commithash()),
+        __GIT_BRANCH__: JSON.stringify(gitRevisionPlugin.branch())
+      })
     ],
   },
   eslint: {
