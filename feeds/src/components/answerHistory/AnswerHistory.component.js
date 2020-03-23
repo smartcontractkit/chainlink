@@ -2,14 +2,14 @@ import React, { useEffect, useState, useRef } from 'react'
 import { Icon, Switch, Tooltip } from 'antd'
 import HistoryGraphD3 from './HistoryGraph.d3'
 
-function AnswerHistory({ answerHistory, options }) {
+function AnswerHistory({ answerHistory, config }) {
   const graph = useRef()
-  const [bollinger, setBollinger] = useState(options.bollinger)
+  const [bollinger, setBollinger] = useState(config.bollinger)
 
   useEffect(() => {
-    graph.current = new HistoryGraphD3(options)
+    graph.current = new HistoryGraphD3(config)
     graph.current.build()
-  }, [options])
+  }, [config])
 
   useEffect(() => {
     graph.current.update(answerHistory)
@@ -25,7 +25,7 @@ function AnswerHistory({ answerHistory, options }) {
       <div className="answer-history">
         <div className="answer-history-header">
           <h2>24h Price history {!answerHistory && <Icon type="loading" />}</h2>
-          {options.bollinger && (
+          {config.bollinger && (
             <div className="answer-history-options">
               <Tooltip
                 title={

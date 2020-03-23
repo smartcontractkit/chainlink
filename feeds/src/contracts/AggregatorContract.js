@@ -8,8 +8,8 @@ import {
 } from './utils'
 import _ from 'lodash'
 
-export default class AggregationContract {
-  oracleResponseEvent = {
+export default class AggregatorContract {
+  oracleAnswerEvent = {
     filter: {},
     listener: {},
   }
@@ -17,13 +17,13 @@ export default class AggregationContract {
   provider
   contract
 
-  constructor(options, abi) {
-    this.provider = createInfuraProvider(options.networkId)
-    this.contract = createContract(options.contractAddress, this.provider, abi)
-    this.address = options.contractAddress
+  constructor(config, abi) {
+    this.provider = createInfuraProvider(config.networkId)
+    this.contract = createContract(config.contractAddress, this.provider, abi)
+    this.address = config.contractAddress
     this.alive = true
     this.abi = abi
-    this.options = options
+    this.config = config
   }
 
   kill() {
@@ -31,13 +31,13 @@ export default class AggregationContract {
       if (!this.alive) return false
       clearInterval(this.answerIdInterval)
       this.removeListener(
-        this.oracleResponseEvent.filter,
-        this.oracleResponseEvent.listener,
+        this.oracleAnswerEvent.filter,
+        this.oracleAnswerEvent.listener,
       )
       this.contract = null
       this.address = null
       this.alive = false
-      this.options = null
+      this.config = null
     } catch (error) {
       //
     }
@@ -72,16 +72,16 @@ export default class AggregationContract {
     }
   }
 
-  async currentAnswer() {
-    const currentAnswer = await this.contract.currentAnswer()
+  async latestAnswer() {
+    const latestAnswer = await this.contract.currentAnswer()
     return formatAnswer(
-      currentAnswer,
-      this.options.multiply,
-      this.options.decimalPlaces,
+      latestAnswer,
+      this.config.multiply,
+      this.config.decimalPlaces,
     )
   }
 
-  async updateHeight() {
+  async latestAnswerTimestamp() {
     const updatedHeight = await this.contract.updatedHeight()
     const block = await this.provider.getBlock(Number(updatedHeight))
     return block.timestamp
@@ -95,13 +95,13 @@ export default class AggregationContract {
   }
 
   async latestCompletedAnswer() {
-    const currentAnswer = await this.contract.latestCompletedAnswer()
-    return Number(currentAnswer)
+    const completedAnswer = await this.contract.latestCompletedAnswer()
+    return Number(completedAnswer)
   }
 
-  async minimumResponses() {
-    const minimumResponses = await this.contract.minimumResponses()
-    return Number(minimumResponses)
+  async minimumAnswers() {
+    const minimumAnswers = await this.contract.minimumResponses()
+    return Number(minimumAnswers)
   }
 
   async addBlockTimestampToLogs(logs) {
@@ -133,10 +133,10 @@ export default class AggregationContract {
     return Promise.all(logsWithGasPriceOps)
   }
 
-  async oracleResponseLogs({ answerId, fromBlock }) {
+  async oracleAnswerLogs({ answerId, fromBlock }) {
     const answerIdHex = ethers.utils.hexlify(answerId)
 
-    const oracleResponseByIdFilter = {
+    const oracleAnswerByIdFilter = {
       ...this.contract.filters.ResponseReceived(null, answerIdHex, null),
       fromBlock,
       toBlock: 'latest',
@@ -145,16 +145,16 @@ export default class AggregationContract {
     const logs = await getLogs(
       {
         provider: this.provider,
-        filter: oracleResponseByIdFilter,
+        filter: oracleAnswerByIdFilter,
         eventInterface: this.contract.interface.events.ResponseReceived,
       },
       decodedLog => ({
-        responseFormatted: formatAnswer(
+        answerFormatted: formatAnswer(
           decodedLog.response,
-          this.options.multiply,
-          this.options.decimalPlaces,
+          this.config.multiply,
+          this.config.decimalPlaces,
         ),
-        response: Number(decodedLog.response),
+        answer: Number(decodedLog.response),
         answerId: Number(decodedLog.answerId),
         sender: decodedLog.sender,
       }),
@@ -195,33 +195,33 @@ export default class AggregationContract {
     }, 4000)
   }
 
-  async listenOracleResponseEvent(callback) {
+  async listenOracleAnswerEvent(callback) {
     if (!this.alive) return
 
     this.removeListener(
-      this.oracleResponseEvent.filter,
-      this.oracleResponseEvent.listener,
+      this.oracleAnswerEvent.filter,
+      this.oracleAnswerEvent.listener,
     )
 
-    this.oracleResponseEvent.filter = {
+    this.oracleAnswerEvent.filter = {
       ...this.contract.filters.ResponseReceived(null, null, null),
     }
 
     return this.provider.on(
-      this.oracleResponseEvent.filter,
-      (this.oracleResponseEvent.listener = async log => {
+      this.oracleAnswerEvent.filter,
+      (this.oracleAnswerEvent.listener = async log => {
         const logged = decodeLog(
           {
             log,
             eventInterface: this.contract.interface.events.ResponseReceived,
           },
           decodedLog => ({
-            responseFormatted: formatAnswer(
+            answerFormatted: formatAnswer(
               decodedLog.response,
-              this.options.multiply,
-              this.options.decimalPlaces,
+              this.config.multiply,
+              this.config.decimalPlaces,
             ),
-            response: Number(decodedLog.response),
+            answer: Number(decodedLog.response),
             answerId: Number(decodedLog.answerId),
             sender: decodedLog.sender,
           }),
@@ -250,12 +250,12 @@ export default class AggregationContract {
         eventInterface: this.contract.interface.events.AnswerUpdated,
       },
       decodedLog => ({
-        responseFormatted: formatAnswer(
+        answerFormatted: formatAnswer(
           decodedLog.current,
-          this.options.multiply,
-          this.options.decimalPlaces,
+          this.config.multiply,
+          this.config.decimalPlaces,
         ),
-        response: Number(decodedLog.current),
+        answer: Number(decodedLog.current),
         answerId: Number(decodedLog.answerId),
       }),
     )

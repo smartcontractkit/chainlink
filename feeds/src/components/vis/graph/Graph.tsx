@@ -1,50 +1,47 @@
 import React, { useEffect, useState } from 'react'
-import { connect } from 'react-redux'
-import Tooltip from './Tooltip'
-import Oracle from './Oracle'
-import Contract from './Contract'
-import Line from './Line'
-import SideDrawer from './SideDrawer'
-import {
-  aggregationSelectors,
-  aggregationOperations,
-} from 'state/ducks/aggregation'
+import Tooltip from './GraphTooltip'
+import Oracle from './GraphOracle'
+import Contract from './GraphContract'
+import Line from './GraphLine'
+import SideDrawer from './GraphSideDrawer'
 
 interface Props {
-  oraclesData: any[]
-  currentAnswer: any
-  updateHeight: any
-  options: any
+  latestOraclesState: any[]
+  latestAnswer: any
+  latestAnswerTimestamp: any
+  config: any
   fetchJobId: any
 }
 
-interface Position {
+export interface Position {
   x: number
   y: number
 }
 
-function NetworkGraph({
-  oraclesData,
-  currentAnswer,
-  updateHeight,
-  options,
+const Graph = ({
+  latestOraclesState,
+  latestAnswer,
+  latestAnswerTimestamp,
+  config,
   fetchJobId,
-}: Props) {
+}: Props) => {
   const [oracles, setOracles] = useState<any[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [svgSize] = useState({ width: 1200, height: 600 })
 
   useEffect(() => {
-    setPositions(getPositions(svgSize.width, svgSize.height, oraclesData))
-  }, [oraclesData, svgSize.width, svgSize.height, setPositions])
+    setPositions(
+      getPositions(svgSize.width, svgSize.height, latestOraclesState),
+    )
+  }, [latestOraclesState, svgSize.width, svgSize.height])
 
   useEffect(() => {
-    setOracles(oraclesData)
-  }, [oraclesData])
+    setOracles(latestOraclesState)
+  }, [latestOraclesState])
 
   return (
     <div className="vis__wrapper">
-      <Tooltip options={options} />
+      <Tooltip config={config} />
       <svg
         viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
         width={svgSize.width}
@@ -54,7 +51,7 @@ function NetworkGraph({
         {oracles.map((o: any, i: number) => (
           <Line
             key={o.id}
-            data={oraclesData[i]}
+            data={latestOraclesState[i]}
             position={{
               x1: svgSize.width / 2,
               y1: svgSize.height / 2,
@@ -68,20 +65,20 @@ function NetworkGraph({
           <Oracle
             key={o.id}
             position={positions[i]}
-            data={oraclesData[i]}
-            options={options}
+            data={latestOraclesState[i]}
+            config={config}
           />
         ))}
 
         <Contract
-          currentAnswer={currentAnswer}
-          updateHeight={updateHeight}
+          latestAnswer={latestAnswer}
+          latestAnswerTimestamp={latestAnswerTimestamp}
           position={{ x: svgSize.width / 2, y: svgSize.height / 2 }}
-          options={options}
+          config={config}
         />
       </svg>
 
-      <SideDrawer options={options} fetchJobId={fetchJobId} />
+      <SideDrawer config={config} fetchJobId={fetchJobId} />
     </div>
   )
 }
@@ -99,14 +96,4 @@ function getPositions(
   })
 }
 
-const mapStateToProps = (state: any) => ({
-  updateHeight: state.aggregation.updateHeight,
-  oraclesData: aggregationSelectors.oraclesData(state),
-  currentAnswer: state.aggregation.currentAnswer,
-})
-
-const mapDispatchToProps = {
-  fetchJobId: aggregationOperations.fetchJobId,
-}
-
-export default connect(mapStateToProps, mapDispatchToProps)(NetworkGraph)
+export default Graph

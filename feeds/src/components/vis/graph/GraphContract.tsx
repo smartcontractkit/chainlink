@@ -1,12 +1,28 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
+import { FeedConfig } from 'feeds'
+import { Position } from './Graph'
 
-const Contract = ({
-  currentAnswer,
-  updateHeight,
+interface OwnProps {
+  config: FeedConfig
+  latestAnswer: any
+  latestAnswerTimestamp: any
+  position: Position
+}
+
+interface DispatchProps {
+  setTooltip: any
+  setDrawer: any
+}
+
+interface Props extends OwnProps, DispatchProps {}
+
+const Contract: React.FC<Props> = ({
+  latestAnswer,
+  latestAnswerTimestamp,
   position,
-  options,
+  config,
   setTooltip,
   setDrawer,
 }) => {
@@ -19,21 +35,21 @@ const Contract = ({
         onClick={() =>
           setDrawer({
             type: 'contract',
-            updateHeight,
-            currentAnswer,
+            latestAnswerTimestamp,
+            latestAnswer,
           })
         }
         onMouseEnter={() =>
           setTooltip({
             type: 'contract',
-            updateHeight,
-            currentAnswer,
+            latestAnswerTimestamp,
+            latestAnswer,
             ...position,
           })
         }
         onMouseLeave={() => setTooltip(null)}
         className={`vis__contract ${
-          currentAnswer ? 'vis__contract--fulfilled' : 'vis__contract--pending'
+          latestAnswer ? 'vis__contract--fulfilled' : 'vis__contract--pending'
         }`}
         r="60"
       />
@@ -49,8 +65,8 @@ const Contract = ({
           y="15"
           textAnchor="middle"
         >
-          {currentAnswer
-            ? `${options.valuePrefix} ${currentAnswer}`
+          {latestAnswer
+            ? `${config.valuePrefix} ${latestAnswer}`
             : 'Loading...'}
         </text>
       </g>

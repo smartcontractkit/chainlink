@@ -1,19 +1,18 @@
 import { connect } from 'react-redux'
 import OracleTable from './OracleTable.component'
 import {
-  aggregationSelectors,
-  aggregationOperations,
-} from 'state/ducks/aggregation'
+  aggregatorSelectors,
+  aggregatorOperations,
+} from 'state/ducks/aggregator'
 import { AppState } from 'state'
 
 const mapStateToProps = (state: AppState) => ({
-  networkGraphNodes: aggregationSelectors.networkGraphNodes(state),
-  networkGraphState: aggregationSelectors.networkGraphState(state),
-  ethGasPrice: state.aggregation.ethGasPrice,
+  ethGasPrice: state.aggregator.ethGasPrice,
+  latestOraclesState: aggregatorSelectors.latestOraclesState(state),
 })
 
 const mapDispatchToProps = {
-  fetchEthGasPrice: aggregationOperations.fetchEthGasPrice,
+  fetchEthGasPrice: aggregatorOperations.fetchEthGasPrice,
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(OracleTable)

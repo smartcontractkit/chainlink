@@ -2,13 +2,13 @@ import React, { useEffect, useRef } from 'react'
 import { Icon } from 'antd'
 import DeviationHistoryD3 from './DeviationGraph.d3'
 
-function DeviationHistory({ answerHistory, options }) {
+function DeviationHistory({ answerHistory, config }) {
   const graph = useRef()
 
   useEffect(() => {
-    graph.current = new DeviationHistoryD3(options)
+    graph.current = new DeviationHistoryD3(config)
     graph.current.build()
-  }, [options])
+  }, [config])
 
   useEffect(() => {
     graph.current.update(answerHistory)

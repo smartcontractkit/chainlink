@@ -1,73 +1,73 @@
 import React from 'react'
 import { Icon } from 'antd'
-import CountDown from './CountDown.component'
-import Percent from './Percent.component'
-import Legend from './Legend.component'
-import TooltipQuestion from '../shared/TooltipQuestion'
+import Heartbeat from './Heartbeat'
+import Percent from './Percent'
+import Legend from './Legend'
+import TooltipQuestion from '../../shared/TooltipQuestion'
 import { humanizeUnixTimestamp, networkName, Networks } from 'utils'
 import { FeedConfig } from 'feeds'
 
 interface OwnProps {
-  options: FeedConfig
+  config: FeedConfig
 }
 
 interface StateProps {
-  currentAnswer: any
-  requestTime: any
-  minimumResponses: any
-  oracleResponse: any
-  oracles: any
-  updateHeight: any
-  pendingAnswerId: any
+  latestAnswer: string
+  latestRequestTimestamp: number
+  minimumAnswers: number
+  oracleAnswers: any
+  oracleList: Array<string>
+  latestAnswerTimestamp: any
+  pendingRoundId: any
 }
 
 export interface Props extends OwnProps, StateProps {}
 
-const NetworkGraphInfo: React.FC<Props> = ({
-  currentAnswer,
-  requestTime,
-  minimumResponses,
-  oracleResponse,
-  oracles,
-  updateHeight,
-  options,
-  pendingAnswerId,
+const Info: React.FC<Props> = ({
+  latestAnswer,
+  latestAnswerTimestamp,
+  latestRequestTimestamp,
+  minimumAnswers,
+  oracleAnswers,
+  oracleList,
+  config,
+  pendingRoundId,
 }) => {
-  const updateTime = updateHeight
-    ? humanizeUnixTimestamp(updateHeight, 'h:mm A')
+  const updateTime = latestAnswerTimestamp
+    ? humanizeUnixTimestamp(latestAnswerTimestamp, 'h:mm A')
     : '...'
 
-  const updateDate = updateHeight
-    ? humanizeUnixTimestamp(updateHeight, 'MMM Do YYYY')
+  const updateDate = latestAnswerTimestamp
+    ? humanizeUnixTimestamp(latestAnswerTimestamp, 'MMM Do YYYY')
     : '...'
 
   const getCurrentResponses = () => {
-    if (!oracleResponse) {
+    if (!oracleAnswers) {
       return '...'
     }
 
-    const responended = oracleResponse.filter((r: any) => {
-      return r.answerId >= pendingAnswerId
+    const responended = oracleAnswers.filter((r: any) => {
+      return r.answerId >= pendingRoundId
     })
 
-    return `${responended.length} / ${oracles && oracles.length}`
+    return `${responended.length} / ${oracleList && oracleList.length}`
   }
 
   return (
     <div className="network-graph-info__wrapper">
       <div className="network-graph-info__title">
         <h4 className="network-graph-info__title--address">
-          {options.networkId !== Networks.MAINNET && (
+          {config.networkId !== Networks.MAINNET && (
             <div style={{ color: '#ff6300' }}>
               <Icon type="warning" />{' '}
-              {networkName(options.networkId).toUpperCase()} NETWORK
+              {networkName(config.networkId).toUpperCase()} NETWORK
             </div>
           )}
-          {options.contractAddress}{' '}
+          {config.contractAddress}{' '}
           <TooltipQuestion title={'Ethereum contract address'} />
         </h4>
         <h1 className="network-graph-info__title--name">
-          {options.name} aggregation
+          {config.name} aggregation
         </h1>
       </div>
 
@@ -75,11 +75,11 @@ const NetworkGraphInfo: React.FC<Props> = ({
         <div className="network-graph-info__item--label">
           Latest and trusted answer{' '}
           <TooltipQuestion
-            title={`Answers are calculated in smart contract by Quickselect algorithm based on minimum ${minimumResponses} oracle answers`}
+            title={`Answers are calculated in smart contract by Quickselect algorithm based on minimum ${minimumAnswers} oracle answers`}
           />
         </div>
         <h2 className="network-graph-info__item--value">
-          {options.valuePrefix || ''} {currentAnswer || '...'}
+          {config.valuePrefix || ''} {latestAnswer || '...'}
         </h2>
       </div>
 
@@ -91,30 +91,33 @@ const NetworkGraphInfo: React.FC<Props> = ({
           />
         </div>
         <h2 className="network-graph-info__item--value">
-          <Percent value={options.threshold} />
+          <Percent value={config.threshold} />
         </h2>
       </div>
 
-      {options.counter && (
+      {config.heartbeat && (
         <div className="network-graph-info__item">
           <div className="network-graph-info__item--label">
             Next aggregation starts in{' '}
             <TooltipQuestion
-              title={`Every ${options.counter} seconds, aggregator smart contract calls oracles to get the new trusted answer`}
+              title={`Every ${config.heartbeat} seconds, aggregator smart contract calls oracles to get the new trusted answer`}
             />
           </div>
           <h2 className="network-graph-info__item--value">
-            <CountDown requestTime={requestTime} counter={options.counter} />
+            <Heartbeat
+              latestRequestTimestamp={latestRequestTimestamp}
+              heartbeat={config.heartbeat}
+            />
           </h2>
         </div>
       )}
 
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
-          Oracle responses (minimum {minimumResponses || '...'}){' '}
+          Oracle responses (minimum {minimumAnswers || '...'}){' '}
           <TooltipQuestion
-            title={`Smart contract is connected to ${oracles &&
-              oracles.length} oracles. Each aggregation requires at least ${minimumResponses} oracle responses to be able to calculate trusted answer`}
+            title={`Smart contract is connected to ${oracleList &&
+              oracleList.length} oracles. Each aggregation requires at least ${minimumAnswers} oracle responses to be able to calculate trusted answer`}
           />
         </div>
         <h2 className="network-graph-info__item--value">
@@ -136,4 +139,4 @@ const NetworkGraphInfo: React.FC<Props> = ({
   )
 }
 
-export default NetworkGraphInfo
+export default Info

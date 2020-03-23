@@ -16,10 +16,10 @@ export default class HistoryGraph {
   overlay
   tooltipPrice
   tooltipTimestamp
-  options = {}
+  config = {}
 
-  constructor(options) {
-    this.options = options
+  constructor(config) {
+    this.config = config
   }
 
   bisectDate = d3.bisector(d => d.timestamp).left
@@ -41,7 +41,7 @@ export default class HistoryGraph {
         'transform',
         'translate(' + this.margin.left + ',' + this.margin.top + ')',
       )
-      .style('opacity', this.options.bollinger ? 1 : 0)
+      .style('opacity', this.config.bollinger ? 1 : 0)
       .attr('class', 'bollinger')
 
     this.bollingerArea = this.bollinger
@@ -112,7 +112,7 @@ export default class HistoryGraph {
 
     this.y = d3
       .scaleLinear()
-      .domain(d3.extent(data, d => d.response))
+      .domain(d3.extent(data, d => d.answer))
       .range([this.height, 0])
 
     const yAxis = d3
@@ -122,8 +122,8 @@ export default class HistoryGraph {
       .tickFormat(f =>
         formatAnswer(
           ethers.utils.bigNumberify(f),
-          this.options.multiply,
-          this.options.decimalPlaces,
+          this.config.multiply,
+          this.config.decimalPlaces,
         ),
       )
 
@@ -154,7 +154,7 @@ export default class HistoryGraph {
     this.line = d3
       .line()
       .x(d => this.x(d.timestamp))
-      .y(d => this.y(Number(d.response)))
+      .y(d => this.y(Number(d.answer)))
       .curve(d3.curveMonotoneX)
 
     this.path.datum(data).attr('d', this.line)
@@ -189,12 +189,12 @@ export default class HistoryGraph {
         'translate(' +
           (this.x(d.timestamp) + this.margin.left) +
           ',' +
-          (this.y(d.response) + this.margin.top) +
+          (this.y(d.answer) + this.margin.top) +
           ')',
       )
     this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
     this.tooltipPrice.text(
-      () => `${this.options.valuePrefix} ${d.responseFormatted}`,
+      () => `${this.config.valuePrefix} ${d.answerFormatted}`,
     )
   }
 
@@ -202,9 +202,9 @@ export default class HistoryGraph {
     const bands = []
     for (let i = n - 1, len = data.length; i < len; i++) {
       const slice = data.slice(i + 1 - n, i)
-      const mean = d3.mean(slice, d => d.response)
+      const mean = d3.mean(slice, d => d.answer)
       const stdDev = Math.sqrt(
-        d3.mean(slice.map(d => Math.pow(d.response - mean, 2))),
+        d3.mean(slice.map(d => Math.pow(d.answer - mean, 2))),
       )
       bands.push({
         timestamp: data[i].timestamp,
@@ -226,7 +226,7 @@ export default class HistoryGraph {
     const y = d3.scaleLinear().range([this.height, 0])
 
     x.domain(d3.extent(data, d => d.timestamp))
-    y.domain(d3.extent(data, d => d.response))
+    y.domain(d3.extent(data, d => d.answer))
 
     const ma = d3
       .line()
