@@ -351,7 +351,7 @@ func NewPollingDeviationChecker(
 		fetcher:        fetcher,
 		pollTicker:     NewPauseableTicker(pollDelay),
 		idleTicker:     nil,
-		chMaybeLogs:    make(chan maybeLog),
+		chMaybeLogs:    make(chan maybeLog, 100),
 		chStop:         make(chan struct{}),
 		waitOnStop:     make(chan struct{}),
 	}, nil
