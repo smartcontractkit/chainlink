@@ -69,7 +69,7 @@
     "@types/supertest": "^2.0.7",
     "@types/uuid": "^3.4.7",
     "@types/ws": "^7.2.0",
-    "@types/yargs": "^15.0.3",
+    "@types/yargs": "^15.0.4",
     "concurrently": "^5.0.2",
     "cross-env": "^6.0.3",
     "depcheck": "^0.9.1",
