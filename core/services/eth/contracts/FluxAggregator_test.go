@@ -44,6 +44,8 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		return "0x" + hex.EncodeToString(data)
 	}
 
+	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f`
+
 	tests := []struct {
 		name             string
 		response         string
@@ -55,6 +57,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		{"non-zero, false", makeReturnData(1, false, 23), 1, false, big.NewInt(23)},
 		{"zero, true", makeReturnData(0, true, 0), 0, true, big.NewInt(0)},
 		{"non-zero true", makeReturnData(12, true, 91), 12, true, big.NewInt(91)},
+		{"real call data", rawReturnData, 3, true, big.NewInt(15)},
 	}
 
 	for _, test := range tests {
