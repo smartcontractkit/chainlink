@@ -12,7 +12,7 @@
     "history": true,
     "decimalPlaces": 3,
     "multiply": "100000000",
-    "sponsored": ["Synthetix", "Loopring", "OpenLaw"],
+    "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "listing": true
@@ -190,7 +190,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Loopring"],
+    "sponsored": ["Loopring", "1inch"],
     "threshold": 5,
     "compare_offchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
     "listing": true
@@ -207,7 +207,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/LENDETH/?exchange=BINANCE",
     "listing": true
@@ -224,7 +224,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx"],
+    "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 2,
     "listing": true
   },
@@ -240,7 +240,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
     "listing": true
@@ -257,7 +257,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/MANAETH/?exchange=BINANCE",
     "listing": true
@@ -274,7 +274,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx"],
+    "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
     "listing": true
@@ -291,7 +291,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx"],
+    "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
     "listing": true
@@ -308,7 +308,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 1,
     "listing": true
   },
@@ -324,7 +324,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
     "listing": true
@@ -341,7 +341,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx"],
+    "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
     "listing": true
@@ -358,7 +358,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 2,
     "compare_offchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
     "listing": true
@@ -375,7 +375,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "Nexus Mutual", "bZx"],
+    "sponsored": ["Aave", "Nexus Mutual", "bZx", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://www.tradingview.com/symbols/DAIETH/?exchange=BITFINEX",
     "listing": true
@@ -392,7 +392,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://www.coingecko.com/en/coins/true-usd/eth",
     "listing": true
@@ -409,7 +409,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://www.coingecko.com/en/coins/tether/eth",
     "listing": true
@@ -426,7 +426,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx"],
+    "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://www.coingecko.com/en/coins/susd/eth",
     "listing": true
@@ -443,7 +443,7 @@
     "history": false,
     "multiply": "1000000000000000000",
     "decimalPlaces": 9,
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 2,
     "compare_offchain": "https://www.coingecko.com/en/coins/synthetix-network-token/eth",
     "listing": true
