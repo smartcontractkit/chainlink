@@ -156,12 +156,14 @@ func (client *CallerSubscriberClient) GetChainID() (*big.Int, error) {
 
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
+//
+// Inspired by the eth client's SubscribeToLogs:
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 func (client *CallerSubscriberClient) SubscribeToLogs(
 	ctx context.Context,
 	channel chan<- Log,
 	q ethereum.FilterQuery,
 ) (Subscription, error) {
-	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 	sub, err := client.Subscribe(ctx, channel, "logs", utils.ToFilterArg(q))
 	return sub, err
 }

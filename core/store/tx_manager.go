@@ -619,6 +619,14 @@ func (txm *EthTxManager) processAttempt(
 			"jobRunId", jobRunID,
 		)
 
+		// Update prometheus metric here as waiting on the transaction
+		// to be marked 'Safe' may be too delayed due to possible
+		// backlog of transaction confirmations.
+		ethBalance, err := txm.GetEthBalance(tx.From)
+		if err != nil {
+			return receipt, state, errors.Wrap(err, "confirming confirmation attempt")
+		}
+		promUpdateEthBalance(ethBalance, tx.From)
 		return receipt, state, nil
 
 	case Unconfirmed:
@@ -742,6 +750,7 @@ func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int 
 	return minimumGasBumpByIncrement
 }
 
+// bumpGas attempts a new transaction with an increased gas cost
 func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight uint64) error {
 	txAttempt := tx.Attempts[attemptIndex]
 
