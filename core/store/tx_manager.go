@@ -493,16 +493,6 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	return *linkBalance, nil
 }
 
-// GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
-// the latest ETH and LINK balances for the active account on the txm, or an
-// error on failure.
-func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*assets.Eth, *assets.Link, error) {
-	linkBalance, linkErr := txm.GetLINKBalance(address)
-	ethBalance, ethErr := txm.GetEthBalance(address)
-	merr := multierr.Append(linkErr, ethErr)
-	return ethBalance, linkBalance, merr
-}
-
 // WithdrawLINK withdraws the given amount of LINK from the contract to the
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
@@ -713,8 +703,12 @@ func (txm *EthTxManager) handleSafe(
 		return errors.Wrap(err, "handleSafe MarkTxSafe failed")
 	}
 
+	var balanceErr error
 	minimumConfirmations := txm.config.MinOutgoingConfirmations()
-	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
+	ethBalance, err := txm.GetEthBalance(tx.From)
+	balanceErr = multierr.Append(balanceErr, err)
+	linkBalance, err := txm.GetLINKBalance(tx.From)
+	balanceErr = multierr.Append(balanceErr, err)
 
 	logger.Infow(
 		fmt.Sprintf("Tx #%d is safe", attemptIndex),
