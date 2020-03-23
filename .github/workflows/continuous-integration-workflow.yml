@@ -3,6 +3,34 @@ name: Continuous Integration Workflow
 on: [push]
 
 jobs:
+  go-sqlite:
+    name: Go SQLite
+    runs-on: ubuntu-latest
+    container: smartcontract/builder:1.0.29
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Save CACHE_VERSION for future hashing
+        env:
+          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
+        run: echo $CACHE_VERSION > cache.version
+      - name: Cache Go vendor packages
+        uses: actions/cache@v1
+        with:
+          path: /go/pkg/mod
+          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Init GCloud
+        run: ./tools/ci/init_gcloud
+      - name: Go Test
+        run: ./tools/ci/go_test | tee go_test.txt
+      - name: Upload go_test artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: go_test.txt
+          path: go_test.txt
+
   check_if_rebase_needed:
     name: Check if rebase needed
     runs-on: ubuntu-latest
@@ -12,6 +40,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Check if rebase is needed
         run: tools/bin/check_if_rebase_needed
+
   styleguide:
     name: Run styleguide tests
     runs-on: ubuntu-latest
