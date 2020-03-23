@@ -238,7 +238,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 
 			logChan <- ethpkg.Log{
 				Address: test.logAddr,
-				Data:    test.data,
+				Data:    ethpkg.UntrustedBytes(test.data),
 				Topics: []common.Hash{
 					test.topic0,
 					models.IDToTopic(job.ID),
@@ -301,7 +301,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 
 			logChan <- ethpkg.Log{
 				Address: sharedAddr,
-				Data:    test.data,
+				Data:    ethpkg.UntrustedBytes(test.data),
 				Topics: []common.Hash{
 					common.Hash{},
 					models.IDToTopic(job.ID),

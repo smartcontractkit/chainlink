@@ -443,7 +443,8 @@ func TestRunLogEvent_Requester(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			rle := models.RunLogEvent{models.InitiatorLogEvent{Log: test.log}}
 
-			received := rle.Requester()
+			received, err := rle.Requester()
+			require.NoError(t, err)
 
 			assert.Equal(t, test.want, received)
 		})
