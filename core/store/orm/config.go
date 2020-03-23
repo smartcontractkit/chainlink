@@ -18,6 +18,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethCore "github.com/ethereum/go-ethereum/core"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
@@ -77,6 +78,20 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	}
 
 	return config
+}
+
+// Validate performs basic sanity checks on config and returns error if any
+// misconfiguration would be fatal to the application
+func (c *Config) Validate() error {
+	ethGasBumpPercent := c.EthGasBumpPercent()
+	if uint64(ethGasBumpPercent) < ethCore.DefaultTxPoolConfig.PriceBump {
+		logger.Warnf(
+			"ETH_GAS_BUMP_PERCENT of %v is less than Geth's default of %v, transactions may fail with underpriced replacement errors",
+			c.EthGasBumpPercent(),
+			ethCore.DefaultTxPoolConfig.PriceBump,
+		)
+	}
+	return nil
 }
 
 // SetRuntimeStore tells the configuration system to use a store for retrieving
