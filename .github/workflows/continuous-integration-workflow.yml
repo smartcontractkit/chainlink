@@ -1,0 +1,30 @@
+name: Continuous Integration Workflow
+
+on: [push]
+
+jobs:
+  check_if_rebase_needed:
+    name: Check if rebase needed
+    runs-on: ubuntu-latest
+    container: alpine/git
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Check if rebase is needed
+        run: tools/bin/check_if_rebase_needed
+  styleguide:
+    name: Run styleguide tests
+    runs-on: ubuntu-latest
+    container: smartcontract/builder:1.0.29
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Restore Yarn dependencies cache
+        run: echo 'TODO'
+      - name: Install Yarn dependencies
+        run: make yarndep
+      - name: Save Yarn dependencies cache
+        run: echo 'TODO'
+      - name: Run styleguide tests
+        run: yarn workspace @chainlink/styleguide run test
+
