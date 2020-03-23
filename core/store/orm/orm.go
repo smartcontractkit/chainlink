@@ -702,6 +702,19 @@ func (orm *ORM) FindAllTxsInNonceRange(beginningNonce uint, endingNonce uint) ([
 	return txs, err
 }
 
+// FindTxsBySenderAndRecipient returns an array of transactions sent by `sender` to `recipient`
+func (orm *ORM) FindTxsBySenderAndRecipient(sender, recipient common.Address, offset, limit uint) ([]models.Tx, error) {
+	orm.MustEnsureAdvisoryLock()
+	var txs []models.Tx
+	err := orm.db.
+		Where(`"from" = ? AND "to" = ?`, sender, recipient).
+		Order("nonce DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&txs).Error
+	return txs, err
+}
+
 // FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, *models.TxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()

@@ -17,6 +17,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 )
@@ -312,11 +313,12 @@ type PollingDeviationChecker struct {
 	precision     int32
 	idleThreshold time.Duration
 
-	connected         utils.AtomicBool
-	chMaybeLogs       chan maybeLog
-	reportableRoundID *big.Int
-	pollTicker        *PauseableTicker
-	idleTicker        <-chan time.Time
+	connected                  utils.AtomicBool
+	chMaybeLogs                chan maybeLog
+	reportableRoundID          *big.Int
+	mostRecentSubmittedRoundID uint64
+	pollTicker                 *ResettableTicker
+	idleTicker                 <-chan time.Time
 
 	chStop     chan struct{}
 	waitOnStop chan struct{}
@@ -349,7 +351,7 @@ func NewPollingDeviationChecker(
 		precision:      initr.InitiatorParams.Precision,
 		runManager:     runManager,
 		fetcher:        fetcher,
-		pollTicker:     NewPauseableTicker(pollDelay),
+		pollTicker:     NewResettableTicker(pollDelay),
 		idleTicker:     nil,
 		chMaybeLogs:    make(chan maybeLog, 100),
 		chStop:         make(chan struct{}),
@@ -387,30 +389,30 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 	p.connected.Set(false)
 }
 
-type PauseableTicker struct {
+type ResettableTicker struct {
 	*time.Ticker
 	d time.Duration
 }
 
-func NewPauseableTicker(d time.Duration) *PauseableTicker {
-	return &PauseableTicker{nil, d}
+func NewResettableTicker(d time.Duration) *ResettableTicker {
+	return &ResettableTicker{nil, d}
 }
 
-func (t *PauseableTicker) Tick() <-chan time.Time {
+func (t *ResettableTicker) Tick() <-chan time.Time {
 	if t.Ticker == nil {
 		return nil
 	}
 	return t.Ticker.C
 }
 
-func (t *PauseableTicker) Stop() {
+func (t *ResettableTicker) Stop() {
 	if t.Ticker != nil {
 		t.Ticker.Stop()
 		t.Ticker = nil
 	}
 }
 
-func (t *PauseableTicker) Resume() {
+func (t *ResettableTicker) Reset() {
 	t.Stop()
 	t.Ticker = time.NewTicker(t.d)
 }
@@ -425,16 +427,16 @@ func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
 func (p *PollingDeviationChecker) consume() {
 	defer close(p.waitOnStop)
 
+	p.determineMostRecentSubmittedRoundID()
+
 	connected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
 	defer unsubscribeLogs()
 
 	p.connected.Set(connected)
 
 	// Try to do an initial poll
-	createdJobRun := p.pollIfEligible(p.threshold)
-	if !createdJobRun {
-		p.pollTicker.Resume()
-	}
+	p.pollIfEligible(p.threshold)
+	p.pollTicker.Reset()
 	defer p.pollTicker.Stop()
 
 	if p.idleThreshold > 0 {
@@ -463,6 +465,44 @@ Loop:
 	}
 }
 
+func (p *PollingDeviationChecker) determineMostRecentSubmittedRoundID() {
+	myAccount, err := p.store.KeyStore.GetFirstAccount()
+	if err != nil {
+		logger.Error("error determining most recent submitted round ID: ", err)
+		return
+	}
+
+	// Just to be particularly defensive against issues with the DB or TxManager, we
+	// fetch the most recent 5 transactions we've submitted to this aggregator from our
+	// Chainlink node address.  Take the highest round ID among them and store it so
+	// that we avoid re-polling for a given round when our tx takes a while to confirm.
+	txs, err := p.store.ORM.FindTxsBySenderAndRecipient(myAccount.Address, p.initr.InitiatorParams.Address, 0, 5)
+	if err != nil && !gorm.IsRecordNotFoundError(err) {
+		logger.Error("error determining most recent submitted round ID: ", err)
+		return
+	}
+
+	// Parse the round IDs from the transaction data
+	for _, tx := range txs {
+		if len(tx.Data) != 68 {
+			logger.Warnw("found Flux Monitor tx with bad data payload",
+				"txID", tx.ID,
+			)
+			continue
+		}
+
+		roundIDBytes := tx.Data[4:36]
+		roundID := big.NewInt(0).SetBytes(roundIDBytes).Uint64()
+		if roundID > p.mostRecentSubmittedRoundID {
+			p.mostRecentSubmittedRoundID = roundID
+		}
+	}
+	logger.Infow(fmt.Sprintf("roundID of most recent submission is %v", p.mostRecentSubmittedRoundID),
+		"jobID", p.initr.JobSpecID,
+		"aggregator", p.initr.InitiatorParams.Address.Hex(),
+	)
+}
+
 func (p *PollingDeviationChecker) respondToLog(log interface{}) {
 	switch log := log.(type) {
 	case *contracts.LogNewRound:
@@ -478,7 +518,7 @@ func (p *PollingDeviationChecker) respondToLog(log interface{}) {
 }
 
 // The AnswerUpdated log tells us that round has successfully close with a new
-// answer.  This tells us that we need to resume polling for deviations.
+// answer.  This tells us that we need to reset our poll ticker.
 //
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAnswerUpdated) {
@@ -487,7 +527,7 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAn
 		logger.Debugw("Ignoring stale AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
 		return
 	}
-	p.pollTicker.Resume()
+	p.pollTicker.Reset()
 }
 
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
@@ -561,6 +601,14 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 
 	// It's pointless to listen to logs from before the current reporting round
 	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
+
+	// If we've already submitted an answer for this round, but the tx is still pending, don't resubmit
+	if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
+		logger.Infow(fmt.Sprintf("already submitted for round %v, tx is still pending", roundState.ReportableRoundID),
+			"jobID", p.initr.JobSpecID,
+		)
+		return false
+	}
 
 	if !roundState.EligibleToSubmit {
 		logger.Infow("not eligible to submit, skipping poll",
@@ -651,8 +699,8 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 		return err
 	}
 
-	// Pause polling when we successfully create a job run
-	p.pollTicker.Stop()
+	p.mostRecentSubmittedRoundID = nextRound.Uint64()
+
 	return nil
 }
 

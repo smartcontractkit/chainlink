@@ -123,6 +123,7 @@ describe('flux monitor eth client integration', () => {
     // Significantly change price feed
     await changePriceFeed(110)
     await assertJobRun(job.id, initialRunCount + 2, 'second job never run')
+    await wait(10000)
     matchers.bigNum(11000, await fluxAggregator.latestAnswer())
   })
 })
