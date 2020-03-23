@@ -70,7 +70,7 @@
     "@chainlink/ts-helpers": "0.0.1",
     "@types/classnames": "^2.2.8",
     "@types/cookie": "^0.3.3",
-    "@types/enzyme": "^3.10.3",
+    "@types/enzyme": "^3.10.5",
     "@types/fetch-mock": "^7.3.2",
     "@types/jest": "^24.0.25",
     "@types/lodash": "^4.14.138",

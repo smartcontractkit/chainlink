@@ -58,7 +58,7 @@
     "@chainlink/ts-helpers": "0.0.1",
     "@craco/craco": "^5.5.0",
     "@types/classnames": "^2.2.7",
-    "@types/enzyme": "^3.9.1",
+    "@types/enzyme": "^3.10.5",
     "@types/enzyme-adapter-react-16": "^1.0.5",
     "@types/jest": "^24.0.25",
     "@types/material-ui": "^0.21.6",
