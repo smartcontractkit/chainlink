@@ -2,8 +2,10 @@ package vrf
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,9 +33,12 @@ type coordinator struct {
 	linkContract            *link_token_interface.LinkToken
 	consumerContract        *solidity_vrf_consumer_interface.VRFConsumer
 	requestIDBase           *solidity_request_id.VRFRequestIDBaseTestHelper
+	rootContractAddress     common.Address
 	consumerContractAddress common.Address
 	// Abstraction representation of the ethereum blockchain
-	backend *backends.SimulatedBackend
+	backend        *backends.SimulatedBackend
+	coordinatorABI *abi.ABI
+	consumerABI    *abi.ABI
 	// Cast of participants
 	sergey *bind.TransactOpts // Owns all the LINK initially
 	neil   *bind.TransactOpts // Node operator running VRF service
@@ -63,6 +68,12 @@ func deployCoordinator(t *testing.T) coordinator {
 		carol.From:  {Balance: oneEth},
 	}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
+	consumerABI, err := abi.JSON(strings.NewReader(
+		solidity_vrf_consumer_interface.VRFConsumerABI))
+	require.NoError(t, err)
+	coordinatorABI, err := abi.JSON(strings.NewReader(
+		solidity_vrf_coordinator_interface.VRFCoordinatorABI))
+	require.NoError(t, err)
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend)
@@ -83,11 +94,14 @@ func deployCoordinator(t *testing.T) coordinator {
 	backend.Commit()
 	return coordinator{
 		rootContract:            coordinatorContract,
+		rootContractAddress:     coordinatorAddress,
 		linkContract:            linkContract,
 		consumerContract:        consumerContract,
 		requestIDBase:           requestIDBase,
 		consumerContractAddress: consumerContractAddress,
 		backend:                 backend,
+		coordinatorABI:          &coordinatorABI,
+		consumerABI:             &consumerABI,
 		sergey:                  sergey,
 		neil:                    neil,
 		carol:                   carol,

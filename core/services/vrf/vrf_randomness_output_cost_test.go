@@ -1,11 +1,10 @@
 package vrf
 
 import (
-	"context"
 	mrand "math/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"chainlink/core/services/signatures/secp256k1"
@@ -21,11 +20,11 @@ func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
 	require.NoError(t, err, "failed to generate VRF proof")
 	mproof, err := proof.MarshalForSolidityVerifier()
 	require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")
-	contract, owner := deployVRFContract(t)
-	rawData, err := contract.abi.Pack("randomValueFromVRFProof_", mproof[:])
-	require.NoError(t, err, "failed to construct VRF verfication call")
-	callMsg := ethereum.CallMsg{From: owner, To: &contract.address, Data: rawData}
-	estimate, err := contract.backend.EstimateGas(context.TODO(), callMsg)
+	contract, _ := deployVRFContract(t)
+
+	estimate := estimateGas(t, contract.backend, common.Address{},
+		contract.address, contract.abi, "randomValueFromVRFProof_", mproof[:])
+
 	require.NoError(t, err, "failed to estimate gas cost for VRF verification")
 	require.Less(t, estimate, uint64(100000))
 }
