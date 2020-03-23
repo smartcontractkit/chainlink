@@ -784,7 +784,9 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 			// If we do hit this scenario, we will keep creating new attempts that are guaranteed to fail
 			// until CHAINLINK_TX_ATTEMPT_LIMIT is reached
 			promGasBumpExceedsLimit.Inc()
-			return fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
+			err := fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
+			logger.Error(err)
+			return err
 		}
 		bumpedTxAttempt, err := txm.createAttempt(tx, bumpedGasPrice, blockHeight)
 		if isUnderPricedReplacementError(err) {
@@ -799,7 +801,9 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 		}
 		if err != nil {
 			promTxAttemptFailed.Inc()
-			return errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+			err := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+			logger.Error(err)
+			return err
 		}
 
 		logger.Infow(
