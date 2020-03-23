@@ -220,6 +220,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	// received sufficient confirmations, so we wait again...
 	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
+		eth.Register("eth_getBalance", "0x0000")
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)

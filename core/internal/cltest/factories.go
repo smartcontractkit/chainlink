@@ -426,6 +426,13 @@ func NewLink(t *testing.T, amount string) *assets.Link {
 	return link
 }
 
+func NewEth(t *testing.T, amount string) *assets.Eth {
+	eth := assets.NewEth(0)
+	eth, ok := eth.SetString(amount, 10)
+	assert.True(t, ok)
+	return eth
+}
+
 func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
 	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
 	buf.Write(utils.EVMWordUint64(1))

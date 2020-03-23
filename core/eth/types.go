@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"regexp"
 
 	"chainlink/core/utils"
@@ -13,6 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 )
+
+// WeiPerEth is amount of Wei currency units in one Eth.
+var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go
 
