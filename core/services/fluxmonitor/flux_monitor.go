@@ -441,7 +441,6 @@ func (p *PollingDeviationChecker) consume() {
 		p.idleTicker = time.After(p.idleThreshold)
 	}
 
-Loop:
 	for {
 		select {
 		case <-p.chStop:
@@ -450,7 +449,7 @@ Loop:
 		case maybeLog := <-p.chMaybeLogs:
 			if maybeLog.Err != nil {
 				logger.Errorf("error received from log broadcaster: %v", maybeLog.Err)
-				continue Loop
+				continue
 			}
 			p.respondToLog(maybeLog.Log)
 
