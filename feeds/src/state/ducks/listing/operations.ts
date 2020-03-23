@@ -1,3 +1,4 @@
+import { Dispatch } from 'redux'
 import { FunctionFragment } from 'ethers/utils'
 import { JsonRpcProvider } from 'ethers/providers'
 import { FeedConfig } from 'feeds'
@@ -9,6 +10,44 @@ import {
 } from '../../../contracts/utils'
 import { Networks } from '../../../utils'
 import feeds from '../../../feeds.json'
+
+interface HealthPrice {
+  config: any
+  price: number
+}
+
+export function fetchHealthStatus(groups: any) {
+  return async (dispatch: Dispatch) => {
+    const configs = groups.flatMap((g: any) => g.list.map((l: any) => l.config))
+    const priceResponses = await Promise.all(configs.map(fetchHealthPrice))
+
+    priceResponses
+      .filter(pr => pr)
+      .forEach(pr => {
+        dispatch(actions.setHealthPrice(pr))
+      })
+  }
+}
+
+async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
+  if (!config.health_price) return
+
+  const json = await fetch(config.health_price).then(r => r.json())
+  return { config, price: json[0].current_price }
+}
+
+export interface ListingAnswer {
+  answer: string
+  config: FeedConfig
+}
+
+export function fetchAnswers() {
+  return async (dispatch: Dispatch) => {
+    const provider = createInfuraProvider()
+    const answerList = await allAnswers(provider)
+    dispatch(actions.setAnswers(answerList))
+  }
+}
 
 const ANSWER_ABI: FunctionFragment[] = [
   {
@@ -63,18 +102,3 @@ async function allAnswers(provider: JsonRpcProvider) {
 
   return Promise.all(answers)
 }
-
-export interface ListingAnswer {
-  answer: string
-  config: FeedConfig
-}
-
-function fetchAnswers() {
-  return async (dispatch: any) => {
-    const provider = createInfuraProvider()
-    const answerList = await allAnswers(provider)
-    dispatch(actions.setAnswers(answerList))
-  }
-}
-
-export { fetchAnswers }

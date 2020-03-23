@@ -2,10 +2,18 @@ import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import '@testing-library/jest-dom/extend-expect'
 import { render } from '@testing-library/react'
+import { Provider as ReduxProvider } from 'react-redux'
+import createStore from '../../state/createStore'
 import { Listing } from './Listing'
 
 const AllTheProviders: React.FC = ({ children }) => {
-  return <MemoryRouter>{children}</MemoryRouter>
+  const { store } = createStore()
+
+  return (
+    <ReduxProvider store={store}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </ReduxProvider>
+  )
 }
 
 const groupMock = [
@@ -58,10 +66,15 @@ const groupMock = [
 ]
 
 describe('components/listing/Listing.component', () => {
-  it('should renders the name from a list of groups', () => {
+  it('renders the name from a list of groups', () => {
     const { container } = render(
       <AllTheProviders>
-        <Listing groups={groupMock} fetchAnswers={() => {}} />
+        <Listing
+          groups={groupMock}
+          fetchAnswers={() => {}}
+          fetchHealthStatus={() => {}}
+          enableHealth={false}
+        />
       </AllTheProviders>,
     )
 
@@ -72,9 +85,15 @@ describe('components/listing/Listing.component', () => {
   it('should renders pair name value', () => {
     const { container } = render(
       <AllTheProviders>
-        <Listing groups={groupMock} fetchAnswers={() => {}} />
+        <Listing
+          groups={groupMock}
+          fetchAnswers={() => {}}
+          fetchHealthStatus={() => {}}
+          enableHealth={false}
+        />
       </AllTheProviders>,
     )
+
     expect(container).toHaveTextContent('pair name 1')
     expect(container).toHaveTextContent('pair name 2')
     expect(container).toHaveTextContent('pair name 3')
@@ -84,9 +103,15 @@ describe('components/listing/Listing.component', () => {
   it('should renders answer value with prefix', () => {
     const { container } = render(
       <AllTheProviders>
-        <Listing groups={groupMock} fetchAnswers={() => {}} />
+        <Listing
+          groups={groupMock}
+          fetchAnswers={() => {}}
+          fetchHealthStatus={() => {}}
+          enableHealth={false}
+        />
       </AllTheProviders>,
     )
+
     expect(container).toHaveTextContent('prefix')
     expect(container).toHaveTextContent('answer')
     expect(container).toHaveTextContent('prefix answer')
@@ -96,9 +121,15 @@ describe('components/listing/Listing.component', () => {
   it('should renders sponsored names', () => {
     const { container } = render(
       <AllTheProviders>
-        <Listing groups={groupMock} fetchAnswers={() => {}} />
+        <Listing
+          groups={groupMock}
+          fetchAnswers={() => {}}
+          fetchHealthStatus={() => {}}
+          enableHealth={false}
+        />
       </AllTheProviders>,
     )
+
     expect(container).toHaveTextContent('sponsor 1')
     expect(container).toHaveTextContent('sponsor 2')
   })

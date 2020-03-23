@@ -1,6 +1,7 @@
 declare module 'feeds' {
   interface FeedConfig {
     contractAddress: string
+    listing: boolean
     contractVersion?: number
     contractType: string
     name: string
@@ -15,6 +16,5 @@ declare module 'feeds' {
     sponsored?: string[]
     threshold: number
     compareOffchain?: string
-    listing?: boolean
   }
 }

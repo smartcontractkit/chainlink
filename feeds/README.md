@@ -78,3 +78,24 @@ https://feeds.chain.link?compare_offchain=true
 ```
 
 ![display-offchain-comparison](./docs/feed-landing-compare-offchain.png)
+
+### Display Reference Contract Health
+
+On the landing page you can enable live health checks with:
+
+```
+https://feeds.chain.link?health=true
+```
+
+![reference-contract-health](./docs/reference-contract-health.png)
+
+#### Checks
+
+* Within price threshold
+* Answer is 0
+
+Color Codes
+
+* Red: A check has failed (hover for tooltip that includes failed checks) 
+* Yellow: Unknown status (when the price health check is not configured)
+* Green: Ok
