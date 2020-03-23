@@ -10,6 +10,7 @@ import synthetix from 'assets/sponsors/synthetix.png'
 import dmm from 'assets/sponsors/dmm.png'
 import bzx from 'assets/sponsors/bzx.png'
 import haven from 'assets/sponsors/haven.png'
+import OneInch from 'assets/sponsors/1inch.png'
 
 import ReactGA from 'react-ga'
 
@@ -70,6 +71,11 @@ const list: Sponsor[] = [
     name: 'Haven Protocol',
     url: 'https://havenprotocol.org',
     src: haven,
+  },
+  {
+    name: '1inch',
+    url: 'https://1inch.exchange',
+    src: OneInch,
   },
 ]
 
