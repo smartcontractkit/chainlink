@@ -19,12 +19,16 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Restore Yarn dependencies cache
-        run: echo 'TODO'
+      - name: Save CACHE_VERSION for future hashing
+        env:
+          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
+        run: echo $CACHE_VERSION > cache.version
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v1
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
       - name: Install Yarn dependencies
         run: make yarndep
-      - name: Save Yarn dependencies cache
-        run: echo 'TODO'
       - name: Run styleguide tests
         run: yarn workspace @chainlink/styleguide run test
-
