@@ -95,7 +95,7 @@ func New(
 func (fm *concreteFluxMonitor) Start() error {
 	fm.logBroadcaster.Start()
 
-	go fm.processAddRemoveJobRequests()
+	go fm.serveInternalRequests()
 
 	var wg sync.WaitGroup
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
@@ -129,9 +129,10 @@ func (fm *concreteFluxMonitor) Stop() {
 	<-fm.chDone
 }
 
-// actionConsumer is the CSP consumer. It's run on a single goroutine to
-// coordinate the collection of DeviationCheckers in a thread-safe fashion.
-func (fm *concreteFluxMonitor) processAddRemoveJobRequests() {
+// serveInternalRequests handles internal requests for state change via
+// channels.  Inspired by the ideas of Communicating Sequential Processes, or
+// CSP.
+func (fm *concreteFluxMonitor) serveInternalRequests() {
 	defer close(fm.chDone)
 
 	jobMap := map[models.ID][]DeviationChecker{}
