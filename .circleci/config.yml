@@ -49,6 +49,8 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+      - store_artifacts:
+          path: ./tools/docker/logs
   geth-postgres-ts:
     resource_class: 2xlarge
     environment:
@@ -60,6 +62,8 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
+      - store_artifacts:
+          path: ./tools/docker/logs
   parity-postgres:
     resource_class: 2xlarge
     machine:
@@ -69,6 +73,8 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+      - store_artifacts:
+          path: ./tools/docker/logs
   parity-postgres-ts:
     resource_class: 2xlarge
     machine:
@@ -78,6 +84,8 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
+      - store_artifacts:
+          path: ./tools/docker/logs
   solidity:
     resource_class: xlarge
     docker:
