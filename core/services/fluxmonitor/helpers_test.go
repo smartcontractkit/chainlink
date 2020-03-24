@@ -19,8 +19,8 @@ func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
 	impl.checkerFactory = fac
 }
 
-func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold float64) {
-	p.pollIfEligible(threshold)
+func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold float64) bool {
+	return p.pollIfEligible(threshold)
 }
 
 func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *big.Int) {
