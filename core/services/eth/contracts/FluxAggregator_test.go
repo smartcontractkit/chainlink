@@ -94,7 +94,7 @@ func makeReturnData(roundID uint64, eligible bool, answer uint64) string {
 	return "0x" + hex.EncodeToString(data)
 }
 
-func TestFluxAggregatorClient_RoundState(t *testing.T) {
+func testFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
 
 	const aggregatorRoundState = "c410579e"
