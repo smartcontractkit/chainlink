@@ -639,7 +639,7 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
 
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestAnswer, -p.precision)
-	if !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
+	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
 		logger.Debugw("deviation < threshold, not submitting",
 			"latestAnswer", latestAnswer,
 			"polledAnswer", polledAnswer,
@@ -648,7 +648,13 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		return false
 	}
 
-	logger.Infow("deviation > threshold, starting new round",
+	var logMessage string
+	if roundState.ReportableRoundID > 1 {
+		logMessage = "deviation > threshold, starting new round"
+	} else {
+		logMessage = "starting first round"
+	}
+	logger.Infow(logMessage,
 		"reportableRound", roundState.ReportableRoundID,
 		"address", p.initr.Address.Hex(),
 		"jobID", p.initr.JobSpecID,
