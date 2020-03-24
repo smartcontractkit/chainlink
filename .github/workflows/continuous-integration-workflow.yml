@@ -174,6 +174,33 @@ jobs:
       - name: Run JSON API client tests
         run: yarn workspace @chainlink/json-api-client run test
 
+  operator-ui:
+    name: Operator UI
+    runs-on: ubuntu-latest
+    container: smartcontract/builder:1.0.29
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Save CACHE_VERSION for future hashing
+        env:
+          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
+        run: echo $CACHE_VERSION > cache.version
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v1
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+      - name: Install Yarn dependencies
+        run: make yarndep
+      - name: Init GCloud
+        run: ./tools/ci/init_gcloud
+      - name: Run Operator UI tests
+        run: ./tools/ci/operator_ui_test
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./integration/logs
 
   check_if_rebase_needed:
     name: Check if rebase needed
