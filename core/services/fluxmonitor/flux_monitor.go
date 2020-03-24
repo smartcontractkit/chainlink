@@ -540,24 +540,9 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAn
 //
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRound) {
-	// Ignore old rounds
-	if p.reportableRoundID != nil && log.RoundId.Cmp(p.reportableRoundID) < 0 {
-		logger.Infow("Ignoring new round request: new < current", p.loggerFieldsForNewRound(log)...)
-		return
-	}
-
 	// The idleThreshold resets when a new round starts
 	if p.idleThreshold > 0 {
 		p.idleTicker = time.After(p.idleThreshold)
-	}
-
-	// Ignore rounds we started
-	acct, err := p.store.KeyStore.GetFirstAccount()
-	if err != nil {
-		logger.Errorw(fmt.Sprintf("error fetching account from keystore: %v", err), p.loggerFieldsForNewRound(log)...)
-		return
-	} else if log.StartedBy == acct.Address {
-		return
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
@@ -575,6 +560,28 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 
 	if !roundState.EligibleToSubmit {
 		logger.Infow("Ignoring new round request: not eligible to submit", p.loggerFieldsForNewRound(log)...)
+		return
+	}
+
+	// Ignore old rounds
+	if log.RoundId.Cmp(p.reportableRoundID) < 0 {
+		logger.Infow("Ignoring new round request: new < current", p.loggerFieldsForNewRound(log)...)
+		return
+	} else if log.RoundId.Uint64() <= p.mostRecentSubmittedRoundID {
+		logger.Infow("Ignoring new round request: already submitted for this round", p.loggerFieldsForNewRound(log)...)
+		return
+	} else if p.reportableRoundID.Uint64() <= p.mostRecentSubmittedRoundID {
+		logger.Infow("Ignoring new round request: possible chain reorg", p.loggerFieldsForNewRound(log)...)
+		return
+	}
+
+	// Ignore rounds we started (TODO: this case should be taken care of by the previous check, against mostRecentSubmittedRoundID, right?)
+	acct, err := p.store.KeyStore.GetFirstAccount()
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("error fetching account from keystore: %v", err), p.loggerFieldsForNewRound(log)...)
+		return
+	} else if log.StartedBy == acct.Address {
+		logger.Infow("Ignoring new round request: we started this round", p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
