@@ -676,7 +676,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     view
     returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt)
   {
-    bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length == rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
+    bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
     uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
       reportableRoundId,
