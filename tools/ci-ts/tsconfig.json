@@ -6,6 +6,7 @@
   "include": ["tests", "test-helpers", "fixtures"],
   "references": [
     { "path": "../../evm-test-helpers" },
-    { "path": "../../operator_ui" }
+    { "path": "../../operator_ui" },
+    { "path": "../../evm-contracts/tsconfig.ethers.json" }
   ]
 }
