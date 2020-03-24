@@ -300,6 +300,18 @@ jobs:
           name: logs
           path: ./integration/forks/logs
 
+  reportcoverage:
+    name: Report test coverage
+    runs-on: ubuntu-latest
+    container: smartcontract/builder:1.0.29
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Init GCloud
+        run: ./tools/ci/init_gcloud
+      - name: Run coverage report
+        run: ./tools/ci/report_coverage
+
   check_if_rebase_needed:
     name: Check if rebase needed
     runs-on: ubuntu-latest
