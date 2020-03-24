@@ -680,23 +680,21 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
       reportableRoundId,
-      eligibleToSubmit(_oracle),
+      eligibleToSubmit(_oracle, reportableRoundId, finishedOrTimedOut),
       rounds[latestRoundId].answer,
       finishedOrTimedOut ? 0 : rounds[reportableRoundId].startedAt + rounds[reportableRoundId].details.timeout
     );
   }
 
-  function eligibleToSubmit(address _oracle)
+  function eligibleToSubmit(address _oracle, uint32 reportableRoundId, bool finishedOrTimedOut)
     private
     view
     returns (bool)
   {
-    bool finishedOrTimedOut = finished(reportingRoundId) || timedOut(reportingRoundId);
     uint32 startingRound = oracles[_oracle].startingRound;
     if (startingRound == 0) {
       return false;
     }
-    uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     if (startingRound > reportableRoundId) {
       return false;
     } else if (oracles[_oracle].endingRound < reportableRoundId) {
