@@ -98,29 +98,39 @@ func (fm *concreteFluxMonitor) Start() error {
 
 	go fm.serveInternalRequests()
 
-	var wg sync.WaitGroup
-	err := fm.store.Jobs(func(j *models.JobSpec) bool {
-		if j == nil {
-			err := errors.New("received nil job")
-			logger.Error(err)
-			return true
-		}
-		job := *j
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := fm.AddJob(job)
-			if err != nil {
-				logger.Errorf("error adding FluxMonitor job: %v", err)
-			}
-		}()
-		return true
-	}, models.InitiatorFluxMonitor)
-
-	wg.Wait()
+	bjl := backgroundJobLoader{fm: fm}
+	err := fm.store.Jobs(bjl.AddJob, models.InitiatorFluxMonitor)
+	bjl.Wait()
 
 	return err
+}
+
+// backgroundJobLoader attempts to improve processing time by loading Job Specs
+// concurrently using backgrounded go routines.
+type backgroundJobLoader struct {
+	sync.WaitGroup
+	fm interface {
+		AddJob(models.JobSpec) error
+	}
+}
+
+func (bjl *backgroundJobLoader) AddJob(j *models.JobSpec) bool {
+	if j == nil {
+		err := errors.New("received nil while loading Job Spec")
+		logger.Error(err)
+		return true
+	}
+	job := *j
+
+	bjl.Add(1)
+	go func() {
+		defer bjl.Done()
+		err := bjl.fm.AddJob(job)
+		if err != nil {
+			logger.Errorf("error adding FluxMonitor job: %v", err)
+		}
+	}()
+	return true
 }
 
 // Disconnect cleans up running deviation checkers.
