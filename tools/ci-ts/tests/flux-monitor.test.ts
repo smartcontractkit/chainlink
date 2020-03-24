@@ -1,18 +1,18 @@
+import { FluxAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/FluxAggregatorFactory'
+import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
+import 'isomorphic-unfetch'
+import { JobSpec } from '../../../operator_ui/@types/operator_ui'
 import fluxMonitorJob from '../fixtures/flux-monitor-job'
+import * as clClient from '../test-helpers/chainlink-cli'
 import {
   assertAsync,
-  getArgs,
-  wait,
   createProvider,
   fundAddress,
+  getArgs,
+  wait,
 } from '../test-helpers/common'
-import * as clClient from '../test-helpers/chainlink-cli'
-import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
-import { FluxAggregatorFactory } from '../../../evm-contracts/ethers/v0.6/FluxAggregatorFactory'
-import { JobSpec } from '../../../operator_ui/@types/operator_ui'
-import 'isomorphic-unfetch'
-import { ethers } from 'ethers'
 
 const provider = createProvider()
 const carol = ethers.Wallet.createRandom().connect(provider)
