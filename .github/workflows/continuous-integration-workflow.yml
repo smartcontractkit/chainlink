@@ -343,3 +343,24 @@ jobs:
       - name: Run Yarn lint
         run: yarn lint
 
+  prepublish_npm:
+    name: Prepublish NPM
+    runs-on: ubuntu-latest
+    container: smartcontract/builder:1.0.29
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Save CACHE_VERSION for future hashing
+        env:
+          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
+        run: echo $CACHE_VERSION > cache.version
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v1
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+      - name: Install Yarn dependencies
+        run: make yarndep
+      - name: Run prepublish NPM test
+        run: ./tools/ci/prepublish_npm_test
+
