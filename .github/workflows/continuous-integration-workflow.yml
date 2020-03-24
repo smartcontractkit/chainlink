@@ -84,6 +84,17 @@ jobs:
       - name: Run Rust test
         run: tools/ci/rust_test
 
+  geth-postgres:
+    name: Geth Postgres
+    runs-on: ubuntu-latest
+    env:
+      GETH_MODE: true
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+
   check_if_rebase_needed:
     name: Check if rebase needed
     runs-on: ubuntu-latest
