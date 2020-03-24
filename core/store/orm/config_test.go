@@ -18,7 +18,6 @@ import (
 )
 
 func TestStore_ConfigDefaults(t *testing.T) {
-	t.Parallel()
 	config := NewConfig()
 	assert.Equal(t, big.NewInt(0), config.ChainID())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
