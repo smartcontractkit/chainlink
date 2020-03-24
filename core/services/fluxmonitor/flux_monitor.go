@@ -96,7 +96,7 @@ func New(
 func (fm *concreteFluxMonitor) Start() error {
 	fm.logBroadcaster.Start()
 
-	go fm.processAddRemoveJobRequests()
+	go fm.serveInternalRequests()
 
 	var wg sync.WaitGroup
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
@@ -130,9 +130,10 @@ func (fm *concreteFluxMonitor) Stop() {
 	<-fm.chDone
 }
 
-// actionConsumer is the CSP consumer. It's run on a single goroutine to
-// coordinate the collection of DeviationCheckers in a thread-safe fashion.
-func (fm *concreteFluxMonitor) processAddRemoveJobRequests() {
+// serveInternalRequests handles internal requests for state change via
+// channels.  Inspired by the ideas of Communicating Sequential Processes, or
+// CSP.
+func (fm *concreteFluxMonitor) serveInternalRequests() {
 	defer close(fm.chDone)
 
 	jobMap := map[models.ID][]DeviationChecker{}
@@ -141,7 +142,7 @@ func (fm *concreteFluxMonitor) processAddRemoveJobRequests() {
 		select {
 		case entry := <-fm.chAdd:
 			if _, ok := jobMap[entry.jobID]; ok {
-				logger.Errorf("job %s has already been added to flux monitor", entry.jobID)
+				logger.Errorf("job '%s' has already been added to flux monitor", entry.jobID)
 				return
 			}
 			for _, checker := range entry.checkers {
@@ -150,7 +151,12 @@ func (fm *concreteFluxMonitor) processAddRemoveJobRequests() {
 			jobMap[entry.jobID] = entry.checkers
 
 		case jobID := <-fm.chRemove:
-			for _, checker := range jobMap[jobID] {
+			checkers, ok := jobMap[jobID]
+			if !ok {
+				logger.Errorf("job '%s' is missing from the flux monitor", jobID)
+				return
+			}
+			for _, checker := range checkers {
 				checker.Stop()
 			}
 			delete(jobMap, jobID)
@@ -443,7 +449,6 @@ func (p *PollingDeviationChecker) consume() {
 		p.idleTicker = time.After(p.idleThreshold)
 	}
 
-Loop:
 	for {
 		select {
 		case <-p.chStop:
@@ -452,7 +457,7 @@ Loop:
 		case maybeLog := <-p.chMaybeLogs:
 			if maybeLog.Err != nil {
 				logger.Errorf("error received from log broadcaster: %v", maybeLog.Err)
-				continue Loop
+				continue
 			}
 			p.respondToLog(maybeLog.Log)
 
