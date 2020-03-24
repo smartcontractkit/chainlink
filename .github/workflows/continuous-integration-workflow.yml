@@ -95,6 +95,15 @@ jobs:
       - name: Run tests
         run: cd ./tools/docker && timeout --foreground 1200s ./compose test
 
+  parity-postgres:
+    name: Parity Postgres
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+
   check_if_rebase_needed:
     name: Check if rebase needed
     runs-on: ubuntu-latest
