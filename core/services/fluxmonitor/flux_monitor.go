@@ -320,7 +320,7 @@ type PollingDeviationChecker struct {
 	idleThreshold time.Duration
 
 	connected                  utils.AtomicBool
-	chMaybeLogs                chan maybeLog
+	chLogs                     chan logOrError
 	reportableRoundID          *big.Int
 	mostRecentSubmittedRoundID uint64
 	pollTicker                 *ResettableTicker
@@ -331,12 +331,18 @@ type PollingDeviationChecker struct {
 	waitOnStop chan struct{}
 }
 
-// maybeLog is just a tuple that allows us to send either an error or a log over the
-// logs channel.  This is preferable to using two separate channels, as it ensures
-// that we don't drop valid (but unprocessed) logs if we receive an error.
-type maybeLog struct {
-	Log interface{}
-	Err error
+// logOrError is a tuple of log/error values used to preserve the order they
+// occur by allowing use to send these values over a single channel.
+//
+// It ensures valid (but unprocessed) logs are not dropped on receiving an
+// error.
+type logOrError struct {
+	log interface{}
+	err error
+}
+
+func (l logOrError) GetValue() (interface{}, error) {
+	return l.log, l.err
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -361,7 +367,7 @@ func NewPollingDeviationChecker(
 		pollTicker:         NewResettableTicker(pollDelay),
 		idleTicker:         nil,
 		roundTimeoutTicker: nil,
-		chMaybeLogs:        make(chan maybeLog, 100),
+		chLogs:             make(chan logOrError, 100),
 		chStop:             make(chan struct{}),
 		waitOnStop:         make(chan struct{}),
 	}, nil
@@ -427,7 +433,7 @@ func (t *ResettableTicker) Reset() {
 
 func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
 	select {
-	case p.chMaybeLogs <- maybeLog{log, err}:
+	case p.chLogs <- logOrError{log, err}:
 	case <-p.chStop:
 	}
 }
@@ -456,12 +462,13 @@ func (p *PollingDeviationChecker) consume() {
 		case <-p.chStop:
 			return
 
-		case maybeLog := <-p.chMaybeLogs:
-			if maybeLog.Err != nil {
-				logger.Errorf("error received from log broadcaster: %v", maybeLog.Err)
+		case maybeLog := <-p.chLogs:
+			log, err := maybeLog.GetValue()
+			if err != nil {
+				logger.Errorf("error received from log broadcaster: %v", maybeLog.err)
 				continue
 			}
-			p.respondToLog(maybeLog.Log)
+			p.respondToLog(log)
 
 		case <-p.pollTicker.Tick():
 			p.pollIfEligible(p.threshold)
@@ -715,18 +722,14 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 		return err
 	}
 
-	payload, err := json.Marshal(jobRunRequest{
+	runData, err := models.NewJSON(jobRunRequest{
 		Result:           polledAnswer,
 		Address:          p.initr.InitiatorParams.Address.Hex(),
 		FunctionSelector: hexutil.Encode(methodID),
 		DataPrefix:       hexutil.Encode(nextRoundData),
 	})
 	if err != nil {
-		return errors.Wrapf(err, "unable to encode Job Run request in JSON")
-	}
-	runData, err := models.ParseJSON(payload)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("unable to start chainlink run with payload %s", payload))
+		return errors.Wrap(err, fmt.Sprintf("unable to encode Job Run request in JSON"))
 	}
 	runRequest := models.NewRunRequest(runData)
 
