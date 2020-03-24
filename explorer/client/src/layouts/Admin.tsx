@@ -32,9 +32,7 @@ export const Admin: React.FC<Props> = ({ children, classes }) => {
   const onHeaderResize = (_width: number, height: number) => setHeight(height)
 
   return (
-    <>
-      <AdminPrivate />
-
+    <AdminPrivate>
       <Header onHeaderResize={onHeaderResize} />
 
       <Grid container spacing={24} className={classes.container}>
@@ -46,7 +44,7 @@ export const Admin: React.FC<Props> = ({ children, classes }) => {
           </Grid>
         </Grid>
       </Grid>
-    </>
+    </AdminPrivate>
   )
 }
 
