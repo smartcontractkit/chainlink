@@ -326,7 +326,6 @@ type PollingDeviationChecker struct {
 	pollTicker                 *ResettableTicker
 	idleTicker                 <-chan time.Time
 	roundTimeoutTicker         <-chan time.Time
-	roundTimeout               uint32
 
 	chStop     chan struct{}
 	waitOnStop chan struct{}
@@ -362,7 +361,6 @@ func NewPollingDeviationChecker(
 		pollTicker:         NewResettableTicker(pollDelay),
 		idleTicker:         nil,
 		roundTimeoutTicker: nil,
-		roundTimeout:       0,
 		chMaybeLogs:        make(chan maybeLog, 100),
 		chStop:             make(chan struct{}),
 		waitOnStop:         make(chan struct{}),
