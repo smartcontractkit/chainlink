@@ -17,8 +17,12 @@ interface Props
     DispatchProps,
     OwnProps {}
 
-const Private: React.FC<Props> = ({ authenticated }) => {
-  return authenticated ? <></> : <Redirect to="/admin/signin" noThrow />
+const Private: React.FC<Props> = ({ authenticated, children }) => {
+  return authenticated ? (
+    <>{children}</>
+  ) : (
+    <Redirect to="/admin/signin" noThrow />
+  )
 }
 
 const mapStateToProps: MapStateToProps<
