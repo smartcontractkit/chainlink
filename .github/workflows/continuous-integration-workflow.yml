@@ -49,12 +49,17 @@ jobs:
   rust:
     name: Rust
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.29
+    container:
+      image: smartcontract/builder:1.0.31
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - name: Sanity check $PATH
+        run: echo $PATH
+      - name: Check Rust toolchain
+        run: rustup toolchain list
       - name: Run Rust test
-        run: tools/ci/rust_test
+        run: ./tools/ci/rust_test
 
   geth-postgres:
     name: Geth Postgres
