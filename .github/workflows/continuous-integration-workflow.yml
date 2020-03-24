@@ -3,34 +3,6 @@ name: Continuous Integration Workflow
 on: [push]
 
 jobs:
-  go-sqlite:
-    name: Go SQLite
-    runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.29
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
-      - name: Cache Go vendor packages
-        uses: actions/cache@v1
-        with:
-          path: /go/pkg/mod
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
-      - name: Download Go vendor packages
-        run: go mod download
-      - name: Init GCloud
-        run: ./tools/ci/init_gcloud
-      - name: Go Test
-        run: ./tools/ci/go_test | tee go_test.txt
-      - name: Upload go_test artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: go_test.txt
-          path: go_test.txt
-
   go-postgres:
     name: Go Postgres
     runs-on: ubuntu-latest
@@ -274,31 +246,6 @@ jobs:
         run: yarn workspace @chainlink/feeds run test
         env:
           CI: true
-
-  forks:
-    name: Run Forks tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v1
-        with:
-          path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
-      - name: Install Yarn dependencies
-        run: make yarndep
-      - name: Run Forks tests
-        run: ./tools/ci/forks_test
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/forks/logs
 
   reportcoverage:
     name: Report test coverage
