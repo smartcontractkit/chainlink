@@ -548,6 +548,16 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	jobSpecID := p.initr.JobSpecID.String()
 	promSetBigInt(promFMSeenRound.WithLabelValues(jobSpecID), log.RoundId)
 
+	// Ignore rounds we started
+	acct, err := p.store.KeyStore.GetFirstAccount()
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("error fetching account from keystore: %v", err), p.loggerFieldsForNewRound(log)...)
+		return
+	} else if log.StartedBy == acct.Address {
+		logger.Infow("Ignoring new round request: we started this round", p.loggerFieldsForNewRound(log)...)
+		return
+	}
+
 	// It's possible for RoundState() to return a higher round ID than the one in the NewRound log
 	// (for example, if a large set of logs are delayed and arrive all at once).  We trust the value
 	// from RoundState() over the one in the log, and record it as the current ReportableRoundID.
@@ -572,16 +582,6 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 		return
 	} else if p.reportableRoundID.Uint64() <= p.mostRecentSubmittedRoundID {
 		logger.Infow("Ignoring new round request: possible chain reorg", p.loggerFieldsForNewRound(log)...)
-		return
-	}
-
-	// Ignore rounds we started (TODO: this case should be taken care of by the previous check, against mostRecentSubmittedRoundID, right?)
-	acct, err := p.store.KeyStore.GetFirstAccount()
-	if err != nil {
-		logger.Errorw(fmt.Sprintf("error fetching account from keystore: %v", err), p.loggerFieldsForNewRound(log)...)
-		return
-	} else if log.StartedBy == acct.Address {
-		logger.Infow("Ignoring new round request: we started this round", p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
