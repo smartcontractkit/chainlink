@@ -37,7 +37,7 @@ const Empty: React.FC<MsgProps> = ({ colCount, msg }) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
-        {msg ?? 'No results'}
+        {msg ?? 'There are no results added to the Explorer yet.'}
       </MuiTableCell>
     </TableRow>
   )
@@ -47,7 +47,7 @@ const Error: React.FC<MsgProps> = ({ colCount, msg }) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
-        {msg ?? 'Error loading resources...'}
+        {msg ?? 'Error loading resources.'}
       </MuiTableCell>
     </TableRow>
   )

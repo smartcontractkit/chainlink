@@ -19,9 +19,9 @@ export const adminOperatorsIndex: Reducer<State, Actions> = (
     case 'FETCH_ADMIN_OPERATORS_SUCCEEDED':
       return {
         ...state,
-          items: action.data.meta.currentPageOperators.data.map(o => o.id),
-          count: action.data.meta.currentPageOperators.meta.count,
-          loaded: true,
+        items: action.data.meta.currentPageOperators.data.map(o => o.id),
+        count: action.data.meta.currentPageOperators.meta.count,
+        loaded: true,
       }
 
     case 'FETCH_ADMIN_OPERATORS_ERROR':
