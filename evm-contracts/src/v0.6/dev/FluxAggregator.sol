@@ -674,25 +674,27 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function roundState(address _oracle)
     external
     view
-    returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer)
+    returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt)
   {
-    uint32 roundId = rounds[reportingRoundId].details.answers.length == rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId)
-      ? reportingRoundId.add(1)
-      : reportingRoundId;
-    return (roundId, eligibleToSubmit(_oracle), rounds[latestRoundId].answer);
+    bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
+    uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
+    return (
+      reportableRoundId,
+      eligibleToSubmit(_oracle, reportableRoundId, finishedOrTimedOut),
+      rounds[latestRoundId].answer,
+      finishedOrTimedOut ? 0 : rounds[reportableRoundId].startedAt + rounds[reportableRoundId].details.timeout
+    );
   }
 
-  function eligibleToSubmit(address _oracle)
+  function eligibleToSubmit(address _oracle, uint32 reportableRoundId, bool finishedOrTimedOut)
     private
     view
     returns (bool)
   {
-    bool finishedOrTimedOut = finished(reportingRoundId) || timedOut(reportingRoundId);
     uint32 startingRound = oracles[_oracle].startingRound;
     if (startingRound == 0) {
       return false;
     }
-    uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     if (startingRound > reportableRoundId) {
       return false;
     } else if (oracles[_oracle].endingRound < reportableRoundId) {
