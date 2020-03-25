@@ -21,11 +21,6 @@ import (
 	"github.com/avast/retry-go"
 )
 
-const (
-	httpDefaultTimeout  = 15 * time.Second
-	httpDefaultAttempts = uint(5)
-)
-
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
 	URL          models.WebURL   `json:"url"`
@@ -35,6 +30,13 @@ type HTTPGet struct {
 	ExtendedPath ExtendedPath    `json:"extPath"`
 }
 
+// HTTPRequestConfig holds the configurable settings for an http request
+type HTTPRequestConfig struct {
+	timeout     time.Duration
+	maxAttempts uint
+	sizeLimit   int64
+}
+
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
 func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.RunOutput {
@@ -42,7 +44,8 @@ func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.Ru
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	httpConfig := defaultHTTPConfig(store)
+	return sendRequest(input, request, httpConfig)
 }
 
 // GetURL retrieves the GET field if set otherwise returns the URL field
@@ -82,7 +85,8 @@ func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.R
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	httpConfig := defaultHTTPConfig(store)
+	return sendRequest(input, request, httpConfig)
 }
 
 // GetURL retrieves the POST field if set otherwise returns the URL field
@@ -141,13 +145,13 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunInput, request *http.Request, limit int64) models.RunOutput {
+func sendRequest(input models.RunInput, request *http.Request, config HTTPRequestConfig) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
 	client := &http.Client{Transport: tr}
 
-	response, err := withRetry(client, request)
+	response, err := withRetry(client, request, config)
 
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -155,7 +159,7 @@ func sendRequest(input models.RunInput, request *http.Request, limit int64) mode
 
 	defer response.Body.Close()
 
-	source := newMaxBytesReader(response.Body, limit)
+	source := newMaxBytesReader(response.Body, config.sizeLimit)
 	bytes, err := ioutil.ReadAll(source)
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -169,11 +173,15 @@ func sendRequest(input models.RunInput, request *http.Request, limit int64) mode
 	return models.NewRunOutputCompleteWithResult(responseBody)
 }
 
-func withRetry(client *http.Client, originalRequest *http.Request) (*http.Response, error) {
+func withRetry(
+	client *http.Client,
+	originalRequest *http.Request,
+	config HTTPRequestConfig,
+) (*http.Response, error) {
 	var response *http.Response
 	err := retry.Do(
 		func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), httpDefaultTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
 			defer cancel()
 			requestWithTimeout := originalRequest.Clone(ctx)
 
@@ -184,7 +192,7 @@ func withRetry(client *http.Client, originalRequest *http.Request) (*http.Respon
 			response = r
 			return nil
 		},
-		retry.Attempts(httpDefaultAttempts),
+		retry.Attempts(config.maxAttempts),
 	)
 
 	if err != nil {
@@ -320,4 +328,12 @@ func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
 	}
 	*ep = ExtendedPath(values)
 	return err
+}
+
+func defaultHTTPConfig(store *store.Store) HTTPRequestConfig {
+	return HTTPRequestConfig{
+		store.Config.DefaultHTTPTimeout(),
+		store.Config.DefaultMaxHTTPAttempts(),
+		store.Config.DefaultHTTPLimit(),
+	}
 }

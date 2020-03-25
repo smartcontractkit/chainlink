@@ -145,9 +145,19 @@ func (c Config) DatabaseURL() string {
 	return c.viper.GetString(EnvVarName("DatabaseURL"))
 }
 
+// DefaultMaxHTTPAttempts defines the limit for HTTP requests.
+func (c Config) DefaultMaxHTTPAttempts() uint {
+	return c.viper.GetUint(EnvVarName("DefaultMaxHTTPAttempts"))
+}
+
 // DefaultHTTPLimit defines the limit for HTTP requests.
 func (c Config) DefaultHTTPLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("DefaultHTTPLimit"))
+}
+
+// DefaultHTTPTimeout defines the default timeout for http requests
+func (c Config) DefaultHTTPTimeout() time.Duration {
+	return c.viper.GetDuration(EnvVarName("DefaultHTTPTimeout"))
 }
 
 // Dev configures "development" mode for chainlink.

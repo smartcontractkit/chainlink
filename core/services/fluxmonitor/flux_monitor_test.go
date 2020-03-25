@@ -61,7 +61,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		})
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
+		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
 		fm := fluxmonitor.New(store, runManager)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())

@@ -9,7 +9,6 @@ import (
 
 	"chainlink/core/adapters"
 	"chainlink/core/assets"
-	"chainlink/core/services/fluxmonitor"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -121,6 +120,7 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
+	minimumPollingInterval := models.Duration(store.Config.DefaultHTTPTimeout())
 
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
@@ -136,8 +136,8 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	}
 	if i.PollingInterval == 0 {
 		fe.Add("no pollingInterval")
-	} else if i.PollingInterval < fluxmonitor.MinimumPollingInterval {
-		fe.Add("pollingInterval must be equal or greater than " + fluxmonitor.MinimumPollingInterval.String())
+	} else if i.PollingInterval < minimumPollingInterval {
+		fe.Add("pollingInterval must be equal or greater than " + minimumPollingInterval.String())
 	}
 	if err := validateFeeds(i.Feeds, store); err != nil {
 		fe.Add(err.Error())
