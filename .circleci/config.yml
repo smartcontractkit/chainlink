@@ -1,6 +1,7 @@
 version: 2.1
 jobs:
   go-postgres:
+    resource_class: large
     docker:
       - image: smartcontract/builder:1.0.31
       - image: circleci/postgres:11-alpine
