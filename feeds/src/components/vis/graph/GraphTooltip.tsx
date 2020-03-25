@@ -29,7 +29,7 @@ const positionTypes: PositionTypes = {
 }
 
 const Tooltip: React.FC<Props> = ({ config, tooltip }) => {
-  const [position, setPosition] = useState<PositionStyles | {}>({})
+  const [position, setPosition] = useState<Partial<PositionStyles>>({})
 
   useEffect(() => {
     if (tooltip && tooltip.x) {
