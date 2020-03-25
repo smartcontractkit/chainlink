@@ -59,6 +59,7 @@ export default function server(): http.Server {
     controllers.adminLogin,
     controllers.adminLogout,
     controllers.adminNodes,
+    controllers.adminHeads,
   ]
   ADMIN_CONTROLLERS.forEach(c => app.use('/api/v1/admin', c))
 

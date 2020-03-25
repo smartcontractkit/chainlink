@@ -5,33 +5,37 @@ export class AddIngestionTables1582233446000 implements MigrationInterface {
     await queryRunner.query(`
 CREATE TABLE ethereum_head (
   "id" BIGSERIAL PRIMARY KEY,
-  "parent_hash" bytea NOT NULL,
-  "uncle_hash" bytea NOT NULL,
+  "createdAt" timestamp without time zone DEFAULT now() NOT NULL,
+  "blockHash" bytea NOT NULL,
+  "parentHash" bytea NOT NULL,
+  "uncleHash" bytea NOT NULL,
   "coinbase" bytea NOT NULL,
   "root" bytea NOT NULL,
-  "tx_hash" bytea NOT NULL,
-  "receipt_hash" bytea NOT NULL,
+  "txHash" bytea NOT NULL,
+  "receiptHash" bytea NOT NULL,
   "bloom" bytea NOT NULL,
   "difficulty" numeric NOT NULL,
   "number" numeric NOT NULL,
-  "gas_limit" bigint NOT NULL,
-  "gas_used" bigint NOT NULL,
+  "gasLimit" bigint NOT NULL,
+  "gasUsed" bigint NOT NULL,
   "time" bigint NOT NULL,
   "extra" bytea NOT NULL,
-  "mix_digest" bytea NOT NULL,
+  "mixDigest" bytea NOT NULL,
   "nonce" bytea NOT NULL
 );
     `)
 
     await queryRunner.query(`
 CREATE TABLE ethereum_log (
-  "address" bytea PRIMARY KEY,
-  "topics" text NOT NULL,
+  "id" BIGSERIAL PRIMARY KEY,
+  "address" bytea NOT NULL,
+  "createdAt" timestamp without time zone DEFAULT now() NOT NULL,
+  "topics" bytea NOT NULL,
   "data" bytea NOT NULL,
-  "block_number" bigint NOT NULL,
-  "tx_hash" bytea NOT NULL,
-  "tx_index" bytea NOT NULL,
-  "block_hash" bytea NOT NULL,
+  "blockNumber" bigint NOT NULL,
+  "txHash" bytea NOT NULL,
+  "txIndex" bytea NOT NULL,
+  "blockHash" bytea NOT NULL,
   "index" bigint NOT NULL,
   "removed" bool NOT NULL DEFAULT FALSE
 );
