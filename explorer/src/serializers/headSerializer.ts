@@ -13,7 +13,7 @@ export const BASE_ATTRIBUTES: Array<string> = [
   'number',
 ]
 
-export const transform = (record: any) => {
+export const transform = (record: Head) => {
   return {
     id: record.id,
     coinbase: record.coinbase.toString('hex'),

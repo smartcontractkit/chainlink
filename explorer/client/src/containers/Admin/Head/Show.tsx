@@ -8,12 +8,13 @@ import {
   Theme,
   WithStyles,
 } from '@material-ui/core/styles'
+import { DispatchBinding } from '@chainlink/ts-helpers'
+import { Head } from 'explorer/models'
 import Grid from '@material-ui/core/Grid'
 import Title from '../../../components/Title'
-import Head from '../../../components/Admin/Heads/Head'
+import HeadDetails from '../../../components/Admin/Heads/Details'
 import { fetchAdminHead } from '../../../actions/adminHeads'
 import { AppState } from '../../../reducers'
-import { DispatchBinding } from '@chainlink/ts-helpers'
 
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
@@ -29,7 +30,7 @@ const styles = ({ breakpoints, spacing }: Theme) =>
 interface OwnProps extends RouteComponentProps<{ headId: number }> {}
 
 interface StateProps {
-  head: any
+  head: Head
 }
 
 interface DispatchProps {
@@ -58,7 +59,7 @@ const Show: React.FC<Props> = ({ classes, head, headId, fetchAdminHead }) => {
     >
       <Grid item xs={12}>
         <Title>Head Details</Title>
-        <Head head={head} />
+        <HeadDetails head={head} />
       </Grid>
     </Grid>
   )
@@ -67,7 +68,7 @@ const Show: React.FC<Props> = ({ classes, head, headId, fetchAdminHead }) => {
 const adminHeadSelector = (
   headId: number | undefined,
   state: AppState,
-): any => {
+): Head => {
   return build(state.adminHeads, 'items', headId)
 }
 
