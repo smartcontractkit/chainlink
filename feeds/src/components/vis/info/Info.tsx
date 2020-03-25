@@ -46,11 +46,13 @@ const Info: React.FC<Props> = ({
       return '...'
     }
 
-    const responended = oracleAnswers.filter((r: any) => {
+    const responded = oracleAnswers.filter((r: any) => {
       return r.answerId >= pendingRoundId
     })
 
-    return `${responended.length} / ${oracleList && oracleList.length}`
+    return oracleList && oracleList.length
+      ? `${responded.length} / ${oracleList.length}`
+      : '...'
   }
 
   return (
