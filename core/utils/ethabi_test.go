@@ -11,6 +11,10 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func pow2(arg int64) *big.Int {
+	return new(big.Int).Exp(big.NewInt(2), big.NewInt(arg), nil)
+}
+
 func TestEVMWordUint64(t *testing.T) {
 	assert.Equal(t,
 		hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
@@ -21,6 +25,57 @@ func TestEVMWordUint64(t *testing.T) {
 	assert.Equal(t,
 		hexutil.MustDecode("0x000000000000000000000000000000000000000000000000ffffffffffffffff"),
 		EVMWordUint64(math.MaxUint64))
+}
+
+func TestEVMWordUint128(t *testing.T) {
+	tests := []struct {
+		name string
+		val  *big.Int
+		exp  string
+	}{
+		{
+			name: "1",
+			val:  big.NewInt(1),
+			exp:  "0x0000000000000000000000000000000000000000000000000000000000000001",
+		},
+		{
+			name: "256",
+			val:  big.NewInt(256),
+			exp:  "0x0000000000000000000000000000000000000000000000000000000000000100",
+		},
+		{
+			name: "Max Uint 128",
+			val:  new(big.Int).Sub(pow2(128), big.NewInt(1)),
+			exp:  "0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff",
+		},
+	}
+	for _, test := range tests {
+		t.Log(test.name)
+		ret, err := EVMWordUint128(test.val)
+		assert.Equal(t, hexutil.MustDecode(test.exp), ret)
+		require.NoError(t, err)
+	}
+}
+
+func TestEVMWordUint128_Error(t *testing.T) {
+	tests := []struct {
+		name string
+		val  *big.Int
+	}{
+		{
+			name: "Negative number",
+			val:  big.NewInt(-1),
+		},
+		{
+			name: "Number too large: 128",
+			val:  pow2(128),
+		},
+	}
+	for _, test := range tests {
+		t.Log(test.name)
+		_, err := EVMWordUint128(test.val)
+		assert.Error(t, err)
+	}
 }
 
 func TestEVMWordSignedBigInt(t *testing.T) {
