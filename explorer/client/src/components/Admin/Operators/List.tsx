@@ -6,7 +6,7 @@ import Table, { ChangePageEvent } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { ChainlinkNode } from 'explorer/models'
 
-const HEADERS: string[] = ['Name', 'URL', 'Created At']
+const HEADERS = ['Name', 'URL', 'Created At'] as const
 const LOADING_MSG = 'Loading operators...'
 const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
 const ERROR_MSG = 'Error loading operators.'

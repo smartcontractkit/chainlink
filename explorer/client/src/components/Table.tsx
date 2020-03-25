@@ -71,7 +71,7 @@ const styles = (theme: Theme) =>
 export type ChangePageEvent = React.MouseEvent<HTMLButtonElement> | null
 
 interface Props extends WithStyles<typeof styles> {
-  headers: string[]
+  headers: readonly string[]
   rowsPerPage: number
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
