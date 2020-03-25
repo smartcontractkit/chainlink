@@ -3,7 +3,7 @@ import Paper from '@material-ui/core/Paper'
 import Hidden from '@material-ui/core/Hidden'
 import { join } from 'path'
 import Table, { ChangePageEvent } from '../../Table'
-import { LinkColumn, TextColumn } from '../../Table/TableCell'
+import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { Head } from 'explorer/models'
 
 const HEADERS = ['Block Height', 'Hash', 'Created At']
@@ -20,23 +20,23 @@ function buildBlockHeightCol(head: Head): TextColumn {
 function buildNameCol(head: Head): UrlColumn {
   return {
     type: 'link',
-    text: head.txHash.toString(),
+    text: head.txHash,
     to: join('/', 'admin', 'heads', head.id.toString()),
   }
 }
 
 type UrlColumn = LinkColumn | TextColumn
 
-function buildCreatedAtCol(head: Head): TextColumn {
+function buildCreatedAtCol(head: Head): TimeAgoColumn {
   return {
-    type: 'text',
-    text: head.createdAt.toString(),
+    type: 'time_ago',
+    text: head.createdAt,
   }
 }
 
 function rows(
   heads?: Head[],
-): [TextColumn, UrlColumn, TextColumn][] | undefined {
+): [TextColumn, UrlColumn, TimeAgoColumn][] | undefined {
   return heads?.map(o => {
     return [buildBlockHeightCol(o), buildNameCol(o), buildCreatedAtCol(o)]
   })
