@@ -51,13 +51,12 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: smartcontract/builder:1.0.31
+      env:
+        CARGO_HOME: /root/.cargo
+        RUSTUP_HOME: /root/.rustup
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Sanity check $PATH
-        run: echo $PATH
-      - name: Check Rust toolchain
-        run: rustup toolchain list
       - name: Run Rust test
         run: ./tools/ci/rust_test
 
@@ -66,6 +65,7 @@ jobs:
     runs-on: self-hosted
     env:
       GETH_MODE: true
+      CI: true
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -75,6 +75,8 @@ jobs:
   parity-postgres:
     name: Parity Postgres
     runs-on: self-hosted
+    env:
+      CI: true
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
