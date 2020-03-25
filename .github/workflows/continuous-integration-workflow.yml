@@ -58,7 +58,7 @@ jobs:
 
   geth-postgres:
     name: Geth Postgres
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       GETH_MODE: true
     steps:
@@ -69,7 +69,7 @@ jobs:
 
   parity-postgres:
     name: Parity Postgres
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
