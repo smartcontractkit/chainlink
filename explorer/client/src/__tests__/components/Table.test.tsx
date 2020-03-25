@@ -60,7 +60,9 @@ describe('components/Table', () => {
       <Table headers={HEADERS} rows={[]} onChangePage={() => {}} />,
     )
 
-    expect(wrapper.text()).toContain('No results')
+    expect(wrapper.text()).toContain(
+      'There are no results added to the Explorer yet',
+    )
   })
 
   it('can override the default empty message', () => {
@@ -73,7 +75,9 @@ describe('components/Table', () => {
       />,
     )
 
-    expect(wrapper.text()).not.toContain('No results')
+    expect(wrapper.text()).not.toContain(
+      'There are no results added to the Explorer yet',
+    )
     expect(wrapper.text()).toContain('EMPTY')
   })
 })
