@@ -110,7 +110,7 @@ jobs:
           path: ./integration/logs
 
   styleguide:
-    name: Run styleguide tests
+    name: Styleguide
     runs-on: ubuntu-latest
     container: smartcontract/builder:1.0.29
     steps:
@@ -276,7 +276,7 @@ jobs:
         run: tools/bin/check_if_rebase_needed
 
   lint:
-    name: Run Yarn lint
+    name: Yarn lint
     runs-on: ubuntu-latest
     container: smartcontract/builder:1.0.29
     steps:
