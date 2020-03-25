@@ -27,7 +27,7 @@ const Loading: React.FC<MsgProps> = ({ colCount, msg }) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
-        {msg || 'Loading...'}
+        {msg ?? 'Loading...'}
       </MuiTableCell>
     </TableRow>
   )
@@ -37,7 +37,7 @@ const Empty: React.FC<MsgProps> = ({ colCount, msg }) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
-        {msg || 'No results'}
+        {msg ?? 'No results'}
       </MuiTableCell>
     </TableRow>
   )
@@ -47,7 +47,7 @@ const Error: React.FC<MsgProps> = ({ colCount, msg }) => {
   return (
     <TableRow>
       <MuiTableCell component="th" scope="row" colSpan={colCount}>
-        {msg || 'Error loading resources...'}
+        {msg ?? 'Error loading resources...'}
       </MuiTableCell>
     </TableRow>
   )
@@ -123,7 +123,7 @@ const Table = (props: Props) => {
       </MuiTable>
       <TablePagination
         component="div"
-        count={props.count || 0}
+        count={props.count ?? 0}
         rowsPerPageOptions={[]}
         rowsPerPage={props.rowsPerPage}
         page={props.currentPage}
