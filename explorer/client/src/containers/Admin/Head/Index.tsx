@@ -32,6 +32,7 @@ interface OwnProps {
 }
 
 interface StateProps {
+  loaded: boolean
   adminHeads?: Head[]
   count: AppState['adminHeadsIndex']['count']
 }
@@ -50,6 +51,7 @@ interface Props
 export const Index: React.FC<Props> = ({
   classes,
   adminHeads,
+  loaded,
   fetchAdminHeads,
   count,
   rowsPerPage = 10,
@@ -71,6 +73,7 @@ export const Index: React.FC<Props> = ({
         <Title>Heads</Title>
 
         <List
+          loaded={loaded}
           currentPage={currentPage}
           heads={adminHeads}
           count={count}
@@ -101,6 +104,7 @@ const mapStateToProps: MapStateToProps<
   AppState
 > = state => {
   return {
+    loaded: state.adminHeadsIndex.loaded,
     adminHeads: adminHeadsSelector(state),
     count: state.adminHeadsIndex.count,
   }
