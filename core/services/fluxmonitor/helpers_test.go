@@ -27,6 +27,10 @@ func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *bi
 	p.reportableRoundID = roundID
 }
 
+func (p *PollingDeviationChecker) ExportedRespondToLog(log interface{}) {
+	p.respondToLog(log)
+}
+
 func mustReadFile(t testing.TB, file string) string {
 	t.Helper()
 
