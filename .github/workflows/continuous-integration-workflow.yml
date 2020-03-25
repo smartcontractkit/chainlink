@@ -256,6 +256,7 @@ jobs:
     name: Report test coverage
     runs-on: ubuntu-latest
     container: smartcontract/builder:1.0.29
+    needs: [go-postgres, solidity, operator-ui, rust, explorer]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
