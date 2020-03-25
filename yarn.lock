@@ -12509,6 +12509,11 @@ git-promise@^0.3.1:
     q "~1.4.1"
     shelljs "~0.5.3"
 
+git-revision-webpack-plugin@^3.0.4:
+  version "3.0.4"
+  resolved "https://registry.npmjs.org/git-revision-webpack-plugin/-/git-revision-webpack-plugin-3.0.4.tgz#ed1eaad094d6956d3299381050a5a50f662550bd"
+  integrity sha512-ym4Zkl32HtTRZVVgl1KoE+sWtgeFyDjN3vaBQfn8cCv1btAX7rdDY9tgpv4Zi+yxq150pp+pUkGH9L1lRpZOUg==
+
 github-from-package@0.0.0:
   version "0.0.0"
   resolved "https://registry.npmjs.org/github-from-package/-/github-from-package-0.0.0.tgz#97fb5d96bfde8973313f20e8288ef9a167fa64ce"
