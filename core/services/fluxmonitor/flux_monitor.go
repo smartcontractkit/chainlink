@@ -325,6 +325,7 @@ type PollingDeviationChecker struct {
 	mostRecentSubmittedRoundID uint64
 	pollTicker                 *ResettableTicker
 	idleTicker                 <-chan time.Time
+	roundTimeoutTicker         <-chan time.Time
 
 	chStop     chan struct{}
 	waitOnStop chan struct{}
@@ -348,20 +349,21 @@ func NewPollingDeviationChecker(
 	pollDelay time.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
-		store:          store,
-		fluxAggregator: fluxAggregator,
-		initr:          initr,
-		requestData:    initr.InitiatorParams.RequestData,
-		idleThreshold:  initr.InitiatorParams.IdleThreshold.Duration(),
-		threshold:      float64(initr.InitiatorParams.Threshold),
-		precision:      initr.InitiatorParams.Precision,
-		runManager:     runManager,
-		fetcher:        fetcher,
-		pollTicker:     NewResettableTicker(pollDelay),
-		idleTicker:     nil,
-		chMaybeLogs:    make(chan maybeLog, 100),
-		chStop:         make(chan struct{}),
-		waitOnStop:     make(chan struct{}),
+		store:              store,
+		fluxAggregator:     fluxAggregator,
+		initr:              initr,
+		requestData:        initr.InitiatorParams.RequestData,
+		idleThreshold:      initr.InitiatorParams.IdleThreshold.Duration(),
+		threshold:          float64(initr.InitiatorParams.Threshold),
+		precision:          initr.InitiatorParams.Precision,
+		runManager:         runManager,
+		fetcher:            fetcher,
+		pollTicker:         NewResettableTicker(pollDelay),
+		idleTicker:         nil,
+		roundTimeoutTicker: nil,
+		chMaybeLogs:        make(chan maybeLog, 100),
+		chStop:             make(chan struct{}),
+		waitOnStop:         make(chan struct{}),
 	}, nil
 }
 
@@ -466,6 +468,9 @@ func (p *PollingDeviationChecker) consume() {
 
 		case <-p.idleTicker:
 			p.pollIfEligible(0)
+
+		case <-p.roundTimeoutTicker:
+			p.pollIfEligible(p.threshold)
 		}
 	}
 }
@@ -675,7 +680,20 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 	if err != nil {
 		return contracts.FluxAggregatorRoundState{}, err
 	}
-	return p.fluxAggregator.RoundState(acct.Address)
+	roundState, err := p.fluxAggregator.RoundState(acct.Address)
+	if err != nil {
+		return contracts.FluxAggregatorRoundState{}, err
+	}
+
+	// Update the roundTimeTicker using the .TimesOutAt field describing the current round
+	if roundState.TimesOutAt == 0 {
+		p.roundTimeoutTicker = nil
+	} else {
+		timeUntilTimeout := time.Unix(int64(roundState.TimesOutAt), 0).Sub(time.Now())
+		p.roundTimeoutTicker = time.After(timeUntilTimeout)
+	}
+
+	return roundState, nil
 }
 
 // jobRunRequest is the request used to trigger a Job Run by the Flux Monitor.
