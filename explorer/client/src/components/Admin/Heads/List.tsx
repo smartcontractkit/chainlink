@@ -43,6 +43,7 @@ function rows(
 }
 
 interface Props {
+  loaded: boolean
   currentPage: number
   onChangePage: (event: ChangePageEvent, page: number) => void
   heads?: Head[]
@@ -51,6 +52,7 @@ interface Props {
 }
 
 const List: React.FC<Props> = ({
+  loaded,
   heads,
   count,
   currentPage,
@@ -61,6 +63,7 @@ const List: React.FC<Props> = ({
     <Paper className={className}>
       <Hidden xsDown>
         <Table
+          loaded={loaded}
           headers={HEADERS}
           currentPage={currentPage}
           rows={rows(heads)}
