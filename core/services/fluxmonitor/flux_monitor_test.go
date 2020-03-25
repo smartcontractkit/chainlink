@@ -512,11 +512,22 @@ func TestOutsideDeviation(t *testing.T) {
 		threshold           float64 // in percentage
 		expectation         bool
 	}{
-		{"0 current price", decimal.NewFromInt(0), decimal.NewFromInt(100), 2, true},
+		{"0 current price, outside deviation", decimal.NewFromInt(0), decimal.NewFromInt(100), 2, true},
+		{"0 current price, inside deviation", decimal.NewFromInt(0), decimal.NewFromInt(1), 2, true},
+		{"0 current and next price", decimal.NewFromInt(0), decimal.NewFromInt(0), 2, false},
+
 		{"inside deviation", decimal.NewFromInt(100), decimal.NewFromInt(101), 2, false},
 		{"equal to deviation", decimal.NewFromInt(100), decimal.NewFromInt(102), 2, true},
 		{"outside deviation", decimal.NewFromInt(100), decimal.NewFromInt(103), 2, true},
 		{"outside deviation zero", decimal.NewFromInt(100), decimal.NewFromInt(0), 2, true},
+
+		{"inside deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 201, false},
+		{"equal to deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 200, true},
+		{"outside deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 199, true},
+
+		{"inside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 201, false},
+		{"equal to deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 200, true},
+		{"outside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 199, true},
 	}
 
 	for _, test := range tests {
