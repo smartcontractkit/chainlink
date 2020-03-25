@@ -6,10 +6,70 @@ const transformer = {
   to: (value: BigNumber): string => value.toString(),
 }
 
+export interface HeadAttrs {
+  blockHash: Buffer
+  parentHash: Buffer
+  uncleHash: Buffer
+  coinbase: Buffer
+  root: Buffer
+  txHash: Buffer
+  receiptHash: Buffer
+  bloom: Buffer
+  difficulty: BigNumber
+  number: BigNumber
+  gasLimit: BigNumber
+  gasUsed: BigNumber
+  time: BigNumber
+  extra: Buffer
+  mixDigest: Buffer
+  nonce: Buffer
+}
+
 @Entity({ name: 'ethereum_head' })
 export class Head {
+  public static build({
+    blockHash,
+    parentHash,
+    uncleHash,
+    coinbase,
+    root,
+    txHash,
+    receiptHash,
+    bloom,
+    difficulty,
+    number,
+    gasLimit,
+    gasUsed,
+    time,
+    extra,
+    mixDigest,
+    nonce,
+  }: HeadAttrs): Head {
+    const h = new Head()
+    h.blockHash = blockHash
+    h.parentHash = parentHash
+    h.uncleHash = uncleHash
+    h.coinbase = coinbase
+    h.root = root
+    h.txHash = txHash
+    h.receiptHash = receiptHash
+    h.bloom = bloom
+    h.difficulty = difficulty
+    h.number = number
+    h.gasLimit = gasLimit
+    h.gasUsed = gasUsed
+    h.time = time
+    h.extra = extra
+    h.mixDigest = mixDigest
+    h.nonce = nonce
+    return h
+  }
+
   @PrimaryGeneratedColumn()
   id: number
+
+  @Column('bytea')
+  public blockHash: Buffer
 
   @Column('bytea')
   public parentHash: Buffer
@@ -55,6 +115,9 @@ export class Head {
 
   @Column('bytea')
   public nonce: Buffer
+
+  @Column()
+  createdAt: Date
 }
 
 @Entity({ name: 'ethereum_log' })
@@ -85,4 +148,7 @@ export class Log {
 
   @Column()
   public removed: boolean
+
+  @Column()
+  createdAt: Date
 }

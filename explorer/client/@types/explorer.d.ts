@@ -35,4 +35,24 @@ declare module 'explorer/models' {
     minimumConfirmations?: string
     error?: string
   }
+
+  interface Head {
+    id: number
+    createdAt: string
+    parentHash: string
+    uncleHash: string
+    coinbase: string
+    root: string
+    txHash: string
+    receiptHash: string
+    bloom: string
+    difficulty: string
+    number: string
+    gasLimit: string
+    gasUsed: string
+    time: string
+    extra: string
+    mixDigest: string
+    nonce: string
+  }
 }
