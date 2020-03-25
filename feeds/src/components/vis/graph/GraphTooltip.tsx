@@ -18,13 +18,18 @@ interface PositionTypes {
   [key: string]: PositionTypesItem
 }
 
+interface PositionStyles {
+  left: number
+  top: number
+}
+
 const positionTypes: PositionTypes = {
   oracle: { x: 10, y: 10 },
   contract: { x: 20, y: 20 },
 }
 
 const Tooltip: React.FC<Props> = ({ config, tooltip }) => {
-  const [position, setPosition] = useState<any>({})
+  const [position, setPosition] = useState<PositionStyles | {}>({})
 
   useEffect(() => {
     if (tooltip && tooltip.x) {
@@ -33,7 +38,7 @@ const Tooltip: React.FC<Props> = ({ config, tooltip }) => {
         top: tooltip.y + positionTypes[tooltip.type].y,
       })
     } else {
-      setPosition(null)
+      setPosition({})
     }
   }, [tooltip])
 

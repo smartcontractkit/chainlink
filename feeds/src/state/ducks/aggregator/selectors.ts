@@ -33,7 +33,11 @@ const latestOraclesState = createSelector(
     if (!list) return []
 
     const data = list.map((o: any, id: any) => {
-      const state = answers && answers.find((r: any) => r.sender === o.address)
+      const state =
+        answers &&
+        answers.find(
+          (r: any) => r.sender.toUpperCase() === o.address.toUpperCase(),
+        )
 
       const isFulfilled = state && state.answerId >= pendingAnswerId
       return { ...o, ...state, id, isFulfilled }

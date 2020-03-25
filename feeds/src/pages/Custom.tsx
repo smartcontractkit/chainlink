@@ -54,10 +54,10 @@ const mapDispatchToProps = {
 function formatConfig(config: any) {
   return {
     ...config,
-    networkId: uIntFrom(config.networkId || 0),
+    networkId: uIntFrom(config.networkId ?? 0),
     contractVersion: 2,
-    decimalPlaces: uIntFrom(config.decimalPlaces || 0),
-    heartbeat: uIntFrom(config.heartbeat || 0) || false,
+    decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),
+    heartbeat: uIntFrom(config.heartbeat ?? 0) ?? false,
   }
 }
 
