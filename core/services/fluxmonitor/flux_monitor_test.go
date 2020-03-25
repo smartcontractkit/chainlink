@@ -110,35 +110,34 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	tests := []struct {
-		name                      string
-		eligible                  bool
-		connected                 bool
-		threshold                 float64
-		latestAnswer              int64
-		polledAnswer              int64
-		expectedToFetchRoundState bool
-		expectedToPoll            bool
-		expectedToSubmit          bool
+		name             string
+		eligible         bool
+		connected        bool
+		threshold        float64
+		latestAnswer     int64
+		polledAnswer     int64
+		expectedToPoll   bool
+		expectedToSubmit bool
 	}{
-		{"eligible, connected, threshold > 0, answers deviate", true, true, 0.1, 1, 100, true, true, true},
-		{"eligible, connected, threshold > 0, answers do not deviate", true, true, 0.1, 100, 100, true, true, false},
-		{"eligible, connected, threshold == 0, answers deviate", true, true, 0, 1, 100, true, true, true},
-		{"eligible, connected, threshold == 0, answers do not deviate", true, true, 0, 1, 100, true, true, true},
+		{"eligible, connected, threshold > 0, answers deviate", true, true, 0.1, 1, 100, true, true},
+		{"eligible, connected, threshold > 0, answers do not deviate", true, true, 0.1, 100, 100, true, false},
+		{"eligible, connected, threshold == 0, answers deviate", true, true, 0, 1, 100, true, true},
+		{"eligible, connected, threshold == 0, answers do not deviate", true, true, 0, 1, 100, true, true},
 
-		{"eligible, disconnected, threshold > 0, answers deviate", true, false, 0.1, 1, 100, false, false, false},
-		{"eligible, disconnected, threshold > 0, answers do not deviate", true, false, 0.1, 100, 100, false, false, false},
-		{"eligible, disconnected, threshold == 0, answers deviate", true, false, 0, 1, 100, false, false, false},
-		{"eligible, disconnected, threshold == 0, answers do not deviate", true, false, 0, 1, 100, false, false, false},
+		{"eligible, disconnected, threshold > 0, answers deviate", true, false, 0.1, 1, 100, false, false},
+		{"eligible, disconnected, threshold > 0, answers do not deviate", true, false, 0.1, 100, 100, false, false},
+		{"eligible, disconnected, threshold == 0, answers deviate", true, false, 0, 1, 100, false, false},
+		{"eligible, disconnected, threshold == 0, answers do not deviate", true, false, 0, 1, 100, false, false},
 
-		{"ineligible, connected, threshold > 0, answers deviate", false, true, 0.1, 1, 100, true, false, false},
-		{"ineligible, connected, threshold > 0, answers do not deviate", false, true, 0.1, 100, 100, true, false, false},
-		{"ineligible, connected, threshold == 0, answers deviate", false, true, 0, 1, 100, true, false, false},
-		{"ineligible, connected, threshold == 0, answers do not deviate", false, true, 0, 1, 100, true, false, false},
+		{"ineligible, connected, threshold > 0, answers deviate", false, true, 0.1, 1, 100, false, false},
+		{"ineligible, connected, threshold > 0, answers do not deviate", false, true, 0.1, 100, 100, false, false},
+		{"ineligible, connected, threshold == 0, answers deviate", false, true, 0, 1, 100, false, false},
+		{"ineligible, connected, threshold == 0, answers do not deviate", false, true, 0, 1, 100, false, false},
 
-		{"ineligible, disconnected, threshold > 0, answers deviate", false, false, 0.1, 1, 100, false, false, false},
-		{"ineligible, disconnected, threshold > 0, answers do not deviate", false, false, 0.1, 100, 100, false, false, false},
-		{"ineligible, disconnected, threshold == 0, answers deviate", false, false, 0, 1, 100, false, false, false},
-		{"ineligible, disconnected, threshold == 0, answers do not deviate", false, false, 0, 1, 100, false, false, false},
+		{"ineligible, disconnected, threshold > 0, answers deviate", false, false, 0.1, 1, 100, false, false},
+		{"ineligible, disconnected, threshold > 0, answers do not deviate", false, false, 0.1, 100, 100, false, false},
+		{"ineligible, disconnected, threshold == 0, answers deviate", false, false, 0, 1, 100, false, false},
+		{"ineligible, disconnected, threshold == 0, answers do not deviate", false, false, 0, 1, 100, false, false},
 	}
 
 	store, cleanup := cltest.NewStore(t)
@@ -159,15 +158,12 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			const reportableRoundID = 2
 			latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
 
-			if test.expectedToFetchRoundState {
-				roundState := contracts.FluxAggregatorRoundState{
-					ReportableRoundID: reportableRoundID,
-					EligibleToSubmit:  test.eligible,
-					LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
-				}
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).
-					Once()
+			roundState := contracts.FluxAggregatorRoundState{
+				ReportableRoundID: reportableRoundID,
+				EligibleToSubmit:  test.eligible,
+				LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
 			}
+			fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
 
 			if test.expectedToPoll {
 				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil)
