@@ -290,10 +290,6 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 }
 
 func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	nodeAddr := ensureAccount(t, store)
 
 	type roundIDCase struct {
 		name                     string
@@ -302,9 +298,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		logRoundID               int64
 	}
 	var (
-		noStored_fetched_eq_log  = roundIDCase{"(stored = nil) fetched = log", nil, 5, 5}
-		noStored_fetched_gt_log  = roundIDCase{"(stored = nil) fetched > log", nil, 5, 10}
-		noStored_fetched_lt_log  = roundIDCase{"(stored = nil) fetched < log", nil, 5, 1}
 		stored_lt_fetched_lt_log = roundIDCase{"stored < fetched < log", big.NewInt(5), 10, 15}
 		stored_lt_log_lt_fetched = roundIDCase{"stored < log < fetched", big.NewInt(5), 15, 10}
 		fetched_lt_stored_lt_log = roundIDCase{"fetched < stored < log", big.NewInt(10), 5, 15}
@@ -335,9 +328,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		roundIDCase
 		answerCase
 	}{
-		{true, true, noStored_fetched_eq_log, deviationThresholdExceeded},
-		{true, true, noStored_fetched_gt_log, deviationThresholdExceeded},
-		{true, true, noStored_fetched_lt_log, deviationThresholdExceeded},
 		{true, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
 		{true, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
 		{true, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
@@ -350,9 +340,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		{true, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
 		{true, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
 		{true, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, true, noStored_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, true, noStored_fetched_gt_log, deviationThresholdNotExceeded},
-		{true, true, noStored_fetched_lt_log, deviationThresholdNotExceeded},
 		{true, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
 		{true, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
 		{true, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
@@ -365,9 +352,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		{true, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
 		{true, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
 		{true, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{true, false, noStored_fetched_eq_log, deviationThresholdExceeded},
-		{true, false, noStored_fetched_gt_log, deviationThresholdExceeded},
-		{true, false, noStored_fetched_lt_log, deviationThresholdExceeded},
 		{true, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
 		{true, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
 		{true, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
@@ -380,9 +364,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		{true, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
 		{true, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
 		{true, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, false, noStored_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, false, noStored_fetched_gt_log, deviationThresholdNotExceeded},
-		{true, false, noStored_fetched_lt_log, deviationThresholdNotExceeded},
 		{true, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
 		{true, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
 		{true, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
@@ -395,9 +376,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		{true, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
 		{true, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
 		{true, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, true, noStored_fetched_eq_log, deviationThresholdExceeded},
-		{false, true, noStored_fetched_gt_log, deviationThresholdExceeded},
-		{false, true, noStored_fetched_lt_log, deviationThresholdExceeded},
 		{false, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
 		{false, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
 		{false, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
@@ -410,9 +388,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		{false, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
 		{false, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
 		{false, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, true, noStored_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, true, noStored_fetched_gt_log, deviationThresholdNotExceeded},
-		{false, true, noStored_fetched_lt_log, deviationThresholdNotExceeded},
 		{false, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
 		{false, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
 		{false, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
@@ -425,9 +400,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		{false, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
 		{false, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
 		{false, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, false, noStored_fetched_eq_log, deviationThresholdExceeded},
-		{false, false, noStored_fetched_gt_log, deviationThresholdExceeded},
-		{false, false, noStored_fetched_lt_log, deviationThresholdExceeded},
 		{false, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
 		{false, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
 		{false, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
@@ -440,9 +412,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		{false, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
 		{false, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
 		{false, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, false, noStored_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, false, noStored_fetched_gt_log, deviationThresholdNotExceeded},
-		{false, false, noStored_fetched_lt_log, deviationThresholdNotExceeded},
 		{false, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
 		{false, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
 		{false, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
@@ -464,10 +433,19 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		} else {
 			name += ", ineligible"
 		}
+		if test.startedBySelf {
+			name += ", started by self"
+		} else {
+			name += ", started by other"
+		}
 		t.Run(name, func(t *testing.T) {
-			expectedToFetchRoundState := !test.startedBySelf &&
-				(test.storedReportableRoundID == nil || test.logRoundID >= test.storedReportableRoundID.Int64())
-			expectedToPoll := test.eligible && expectedToFetchRoundState
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			nodeAddr := ensureAccount(t, store)
+
+			expectedToFetchRoundState := !test.startedBySelf
+			expectedToPoll := test.eligible && test.logRoundID >= int64(test.fetchedReportableRoundID) && expectedToFetchRoundState
 			expectedToSubmit := expectedToPoll
 
 			job := cltest.NewJobWithFluxMonitorInitiator()
@@ -479,21 +457,16 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
 
-			didSubscribe := make(chan struct{})
-			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(false, eth.UnsubscribeFunc(func() {}), nil).Run(func(mock.Arguments) {
-				close(didSubscribe)
-			})
-
 			if expectedToFetchRoundState {
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: test.fetchedReportableRoundID,
 					LatestAnswer:      big.NewInt(test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
 					EligibleToSubmit:  test.eligible,
-				}, nil)
+				}, nil).Once()
 			}
 
 			if expectedToPoll {
-				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil)
+				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
 			}
 
 			if expectedToSubmit {
@@ -517,16 +490,13 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 
 			checker.ExportedSetStoredReportableRoundID(test.storedReportableRoundID)
 
-			checker.Start()
-			<-didSubscribe
 			checker.OnConnect()
 
 			var startedBy common.Address
 			if test.startedBySelf {
 				startedBy = nodeAddr
 			}
-			checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy}, nil)
-			checker.Stop()
+			checker.ExportedRespondToLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
