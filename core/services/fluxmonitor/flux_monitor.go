@@ -639,7 +639,7 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
 
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestAnswer, -p.precision)
-	if !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
+	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
 		logger.Debugw("deviation < threshold, not submitting",
 			"latestAnswer", latestAnswer,
 			"polledAnswer", polledAnswer,
@@ -648,7 +648,13 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		return false
 	}
 
-	logger.Infow("deviation > threshold, starting new round",
+	var logMessage string
+	if roundState.ReportableRoundID > 1 {
+		logMessage = "deviation > threshold, starting new round"
+	} else {
+		logMessage = "starting first round"
+	}
+	logger.Infow(logMessage,
 		"reportableRound", roundState.ReportableRoundID,
 		"address", p.initr.Address.Hex(),
 		"jobID", p.initr.JobSpecID,
@@ -739,28 +745,31 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log *contracts.Lo
 
 // OutsideDeviation checks whether the next price is outside the threshold.
 func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) bool {
+	loggerFields := []interface{}{
+		"threshold", threshold,
+		"currentAnswer", curAnswer,
+		"nextAnswer", nextAnswer,
+	}
+
 	if curAnswer.IsZero() {
-		logger.Infow("Current price is 0, deviation automatically met", "answer", decimal.Zero)
+		if nextAnswer.IsZero() {
+			logger.Debugw("Deviation threshold not met", loggerFields...)
+			return false
+		}
+
+		logger.Infow("Deviation threshold met", loggerFields...)
 		return true
 	}
 
 	diff := curAnswer.Sub(nextAnswer).Abs()
-	percentage := diff.Div(curAnswer).Mul(decimal.NewFromInt(100))
+	percentage := diff.Div(curAnswer.Abs()).Mul(decimal.NewFromInt(100))
+
+	loggerFields = append(loggerFields, "percentage", percentage)
+
 	if percentage.LessThan(decimal.NewFromFloat(threshold)) {
-		logger.Debugw(
-			"Deviation threshold not met",
-			"difference", percentage,
-			"threshold", threshold,
-			"currentAnswer", curAnswer,
-			"nextAnswer", nextAnswer)
+		logger.Debugw("Deviation threshold not met", loggerFields...)
 		return false
 	}
-	logger.Infow(
-		"Deviation threshold met",
-		"difference", percentage,
-		"threshold", threshold,
-		"currentAnswer", curAnswer,
-		"nextAnswer", nextAnswer,
-	)
+	logger.Infow("Deviation threshold met", loggerFields...)
 	return true
 }
