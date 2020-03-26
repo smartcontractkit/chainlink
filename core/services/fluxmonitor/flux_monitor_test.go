@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
 	"chainlink/core/cmd"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
@@ -180,14 +179,14 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			const reportableRoundID = 2
 			latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
 
-			var availableFunds *assets.Link
-			var paymentAmount *assets.Link
-			minPayment := store.Config.MinimumContractPayment()
+			var availableFunds *big.Int
+			var paymentAmount *big.Int
+			minPayment := store.Config.MinimumContractPayment().ToInt()
 			if test.funded {
 				availableFunds = minPayment
 				paymentAmount = minPayment
 			} else {
-				availableFunds = assets.NewLink(1)
+				availableFunds = big.NewInt(1)
 				paymentAmount = minPayment
 			}
 
@@ -667,14 +666,14 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
 
-			var availableFunds *assets.Link
-			var paymentAmount *assets.Link
-			minPayment := store.Config.MinimumContractPayment()
+			var availableFunds *big.Int
+			var paymentAmount *big.Int
+			minPayment := store.Config.MinimumContractPayment().ToInt()
 			if test.funded {
 				availableFunds = minPayment
 				paymentAmount = minPayment
 			} else {
-				availableFunds = assets.NewLink(1)
+				availableFunds = big.NewInt(1)
 				paymentAmount = minPayment
 			}
 
