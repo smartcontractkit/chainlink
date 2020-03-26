@@ -15,7 +15,6 @@ import (
 
 type FluxAggregator interface {
 	ethsvc.ConnectedContract
-	GetAvailableFunds() (*assets.Link, error)
 	RoundState(oracle common.Address) (FluxAggregatorRoundState, error)
 }
 
@@ -74,21 +73,13 @@ func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connecte
 	)
 }
 
-// GetAvailableFunds returns the availableFunds contract value.
-func (fa *fluxAggregator) GetAvailableFunds() (*assets.Link, error) {
-	var result big.Int
-	err := fa.Call(&result, "availableFunds")
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to encode message call")
-	}
-	return (*assets.Link)(&result), nil
-}
-
 type FluxAggregatorRoundState struct {
-	ReportableRoundID uint32   `abi:"_reportableRoundId"`
-	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
-	LatestAnswer      *big.Int `abi:"_latestRoundAnswer"`
-	TimesOutAt        uint64   `abi:"_timesOutAt"`
+	ReportableRoundID uint32       `abi:"_reportableRoundId"`
+	EligibleToSubmit  bool         `abi:"_eligibleToSubmit"`
+	LatestAnswer      *big.Int     `abi:"_latestRoundAnswer"`
+	TimesOutAt        uint64       `abi:"_timesOutAt"`
+	AvailableFunds    *assets.Link `abi:"_availableFunds"`
+	PaymentAmount     *assets.Link `abi:"_paymentAmount"`
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
