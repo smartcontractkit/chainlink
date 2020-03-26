@@ -40,10 +40,10 @@ func (parseRandomnessRequest) parseJSON(log eth.Log) (js JSON, err error) {
 	})
 }
 
-func (parseRandomnessRequest) parseRequestID(log eth.Log) string {
+func (parseRandomnessRequest) parseRequestID(log eth.Log) (string, error) {
 	parsedLog, err := vrf.ParseRandomnessRequestLog(log)
 	if err != nil {
-		panic(errors.Wrapf(err, "while extracting randomness requestID from %#+v", log))
+		return "", errors.Wrapf(err, "while extracting randomness requestID from %#+v", log)
 	}
-	return parsedLog.RequestID().Hex()
+	return parsedLog.RequestID().Hex(), nil
 }

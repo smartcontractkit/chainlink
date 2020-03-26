@@ -15,7 +15,7 @@ export interface OperatorShowData {
   }
 }
 
-interface State {
+export interface State {
   id?: {
     attributes: OperatorShowData
   }

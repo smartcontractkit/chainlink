@@ -70,6 +70,9 @@ func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
 	if result == nil {
 		return decimal.Decimal{}, errors.Wrap(errors.New("no result returned"), fmt.Sprintf("unable to fetch price from %s", p.url.String()))
 	}
+
+	resultFloat, _ := result.Float64()
+	promFMIndividualReportedValue.WithLabelValues(p.url.String()).Set(resultFloat)
 	logger.Debugw(
 		fmt.Sprintf("fetched price %v from %s", *result, p.url.String()),
 		"price", result,

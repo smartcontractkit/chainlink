@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -20,19 +21,50 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v3"
 )
 
-// DefaultGasLimit sets the default gas limit for outgoing transactions.
-// if updating DefaultGasLimit, be sure it matches with the
-// DefaultGasLimit specified in evm/test/Oracle_test.js
-const DefaultGasLimit uint64 = 500000
-const nonceReloadLimit int = 1
+const (
+	// DefaultGasLimit sets the default gas limit for outgoing transactions.
+	// if updating DefaultGasLimit, be sure it matches with the
+	// DefaultGasLimit specified in evm/test/Oracle_test.js
+	DefaultGasLimit uint64 = 500000
 
-// ErrPendingConnection is the error returned if TxManager is not connected.
-var ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
+	// Linear backoff is used so worst-case transaction time increases quadratically with this number
+	nonceReloadLimit int = 3
+
+	// The base time for the backoff
+	nonceReloadBackoffBaseTime = 3 * time.Second
+)
+
+var (
+	// ErrPendingConnection is the error returned if TxManager is not connected.
+	ErrPendingConnection = errors.New("Cannot talk to chain, pending connection")
+
+	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_num_gas_bumps",
+		Help: "Number of gas bumps",
+	})
+
+	promGasBumpExceedsLimit = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_gas_bump_exceeds_limit",
+		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
+	})
+
+	promGasBumpUnderpricedReplacement = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_gas_bump_underpriced_replacement",
+		Help: "Number of underpriced replacement errors received while trying to bump gas. Counts of this type most likely indicate some kind of misconfiguration or problem.",
+	})
+
+	promTxAttemptFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_tx_attempt_failed",
+		Help: "Number of tx attempts that failed. Tx attempts should not fail in normal operation.",
+	})
+)
 
 //go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
 
@@ -53,6 +85,8 @@ type TxManager interface {
 	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
+
+	SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error)
 
 	eth.Client
 }
@@ -230,7 +264,7 @@ func (txm *EthTxManager) createTx(
 	gasLimit uint64,
 	value *assets.Eth) (*models.Tx, error) {
 
-	for nrc := 0; nrc <= nonceReloadLimit; nrc++ {
+	for nrc := 0; nrc < nonceReloadLimit+1; nrc++ {
 		tx, err := txm.sendInitialTx(surrogateID, ma, to, data, gasPriceWei, gasLimit, value)
 		if err == nil {
 			return tx, nil
@@ -241,8 +275,16 @@ func (txm *EthTxManager) createTx(
 		}
 
 		logger.Warnw(
-			"Tx #0: nonce too low, retrying with network nonce",
-			"nonce", tx.Nonce, "error", err.Error(),
+			"Tx #0: another tx with this nonce already exists, will retry with network nonce",
+			"nonce", tx.Nonce, "gasPriceWei", gasPriceWei, "gasLimit", gasLimit, "error", err.Error(),
+		)
+
+		// Linear backoff
+		time.Sleep(time.Duration(nrc+1) * nonceReloadBackoffBaseTime)
+
+		logger.Warnw(
+			"Tx #0: another tx with this nonce already exists, retrying with network nonce",
+			"nonce", tx.Nonce, "gasPriceWei", gasPriceWei, "gasLimit", gasLimit, "error", err.Error(),
 		)
 
 		err = ma.ReloadNonce(txm)
@@ -313,11 +355,38 @@ func (txm *EthTxManager) sendInitialTx(
 }
 
 var (
-	nonceTooLowRegex = regexp.MustCompile("(nonce .*too low|same hash was already imported)")
+	nonceTooLowRegex                       = regexp.MustCompile("(nonce .*too low|same hash was already imported|replacement transaction underpriced)")
+	replacementTransactionUnderpricedRegex = regexp.MustCompile("replacement transaction underpriced")
 )
 
+// FIXME: There are probably other types of errors here that are symptomatic of a nonce that is too low
 func isNonceTooLowError(err error) bool {
 	return err != nil && nonceTooLowRegex.MatchString(err.Error())
+}
+
+func isUnderPricedReplacementError(err error) bool {
+	return err != nil && replacementTransactionUnderpricedRegex.MatchString(err.Error())
+}
+
+// SignedRawTxWithBumpedGas takes a transaction and generates a new signed TX from it with the provided params
+func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+	ma := txm.getAccount(originalTx.From)
+	if ma == nil {
+		return "", fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
+	}
+
+	transaction := types.NewTransaction(originalTx.Nonce, originalTx.To, originalTx.Value.ToInt(), gasLimit, &gasPrice, originalTx.Data)
+
+	transaction, err := txm.keyStore.SignTx(ma.Account, transaction, txm.config.ChainID())
+	if err != nil {
+		return "", err
+	}
+
+	rlp := new(bytes.Buffer)
+	if err := transaction.EncodeRLP(rlp); err != nil {
+		return "", err
+	}
+	return hexutil.Encode(rlp.Bytes()), nil
 }
 
 // newTx returns a newly signed Ethereum Transaction
@@ -448,16 +517,6 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	return *linkBalance, nil
 }
 
-// GetETHAndLINKBalances attempts to retrieve the ethereum node's perception of
-// the latest ETH and LINK balances for the active account on the txm, or an
-// error on failure.
-func (txm *EthTxManager) GetETHAndLINKBalances(address common.Address) (*assets.Eth, *assets.Link, error) {
-	linkBalance, linkErr := txm.GetLINKBalance(address)
-	ethBalance, ethErr := txm.GetEthBalance(address)
-	merr := multierr.Append(linkErr, ethErr)
-	return ethBalance, linkBalance, merr
-}
-
 // WithdrawLINK withdraws the given amount of LINK from the contract to the
 // configured withdrawal address. If wr.ContractAddress is empty (zero address),
 // funds are withdrawn from configured OracleContractAddress.
@@ -523,7 +582,7 @@ const (
 	Unknown AttemptState = iota
 	// Unconfirmed means that a transaction has had no confirmations at all
 	Unconfirmed
-	// Confirmed means that a transaftion has had at least one transaction, but
+	// Confirmed means that a transaction has had at least one confirmation, but
 	// not enough to satisfy the minimum number of confirmations configuration
 	// option
 	Confirmed
@@ -553,6 +612,7 @@ func (txm *EthTxManager) processAttempt(
 	attemptIndex int,
 	blockHeight uint64,
 ) (*eth.TxReceipt, AttemptState, error) {
+	jobRunID := tx.SurrogateID.ValueOrZero()
 	txAttempt := tx.Attempts[attemptIndex]
 
 	receipt, state, err := txm.CheckAttempt(txAttempt, blockHeight)
@@ -570,8 +630,17 @@ func (txm *EthTxManager) processAttempt(
 			"receiptBlockNumber", receipt.BlockNumber.ToInt(),
 			"currentBlockNumber", blockHeight,
 			"receiptHash", receipt.Hash.Hex(),
+			"jobRunId", jobRunID,
 		)
 
+		// Update prometheus metric here as waiting on the transaction
+		// to be marked 'Safe' may be too delayed due to possible
+		// backlog of transaction confirmations.
+		ethBalance, err := txm.GetEthBalance(tx.From)
+		if err != nil {
+			return receipt, state, errors.Wrap(err, "confirming confirmation attempt")
+		}
+		promUpdateEthBalance(ethBalance, tx.From)
 		return receipt, state, nil
 
 	case Unconfirmed:
@@ -582,6 +651,7 @@ func (txm *EthTxManager) processAttempt(
 				"txAttemptLimit", attemptLimit,
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
+				"jobRunId", jobRunID,
 			)
 			return receipt, state, nil
 		}
@@ -592,6 +662,7 @@ func (txm *EthTxManager) processAttempt(
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
 				"currentBlockNumber", blockHeight,
+				"jobRunId", jobRunID,
 			)
 			err = txm.bumpGas(tx, attemptIndex, blockHeight)
 		} else {
@@ -599,6 +670,7 @@ func (txm *EthTxManager) processAttempt(
 				fmt.Sprintf("Tx #%d is %s", attemptIndex, state),
 				"txHash", txAttempt.Hash.String(),
 				"txID", txAttempt.TxID,
+				"jobRunId", jobRunID,
 			)
 		}
 
@@ -609,6 +681,7 @@ func (txm *EthTxManager) processAttempt(
 			fmt.Sprintf("Tx #%d is %s, error fetching receipt", attemptIndex, state),
 			"txHash", txAttempt.Hash.String(),
 			"txID", txAttempt.TxID,
+			"jobRunId", jobRunID,
 			"error", err,
 		)
 		return nil, Unknown, errors.Wrap(err, "processAttempt CheckAttempt failed")
@@ -654,8 +727,12 @@ func (txm *EthTxManager) handleSafe(
 		return errors.Wrap(err, "handleSafe MarkTxSafe failed")
 	}
 
+	var balanceErr error
 	minimumConfirmations := txm.config.MinOutgoingConfirmations()
-	ethBalance, linkBalance, balanceErr := txm.GetETHAndLINKBalances(tx.From)
+	ethBalance, err := txm.GetEthBalance(tx.From)
+	balanceErr = multierr.Append(balanceErr, err)
+	linkBalance, err := txm.GetLINKBalance(tx.From)
+	balanceErr = multierr.Append(balanceErr, err)
 
 	logger.Infow(
 		fmt.Sprintf("Tx #%d is safe", attemptIndex),
@@ -670,23 +747,72 @@ func (txm *EthTxManager) handleSafe(
 	return nil
 }
 
-// bumpGas creates a new transaction attempt with an increased gas cost
+// BumpGasByIncrement returns a new gas price increased by the larger of:
+// - A configured percentage bump (ETH_GAS_BUMP_PERCENT)
+// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI)
+func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int {
+	// Similar logic is used in geth
+	// See: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_list.go#L255
+	// And: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_pool.go#L171
+	percentageMultiplier := big.NewInt(100 + int64(txm.config.EthGasBumpPercent()))
+	minimumGasBumpByPercentage := new(big.Int).Div(
+		new(big.Int).Mul(
+			originalGasPrice,
+			percentageMultiplier,
+		),
+		big.NewInt(100),
+	)
+	minimumGasBumpByIncrement := new(big.Int).Add(originalGasPrice, txm.config.EthGasBumpWei())
+	if minimumGasBumpByIncrement.Cmp(minimumGasBumpByPercentage) < 0 {
+		return minimumGasBumpByPercentage
+	}
+	return minimumGasBumpByIncrement
+}
+
+// bumpGas attempts a new transaction with an increased gas cost
 func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight uint64) error {
 	txAttempt := tx.Attempts[attemptIndex]
 
 	originalGasPrice := txAttempt.GasPrice.ToInt()
-	bumpedGasPrice := new(big.Int).Add(originalGasPrice, txm.config.EthGasBumpWei())
 
-	bumpedTxAttempt, err := txm.createAttempt(tx, bumpedGasPrice, blockHeight)
-	if err != nil {
-		return errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+	bumpedGasPrice := txm.BumpGasByIncrement(originalGasPrice)
+
+	for {
+		promNumGasBumps.Inc()
+		if bumpedGasPrice.Cmp(txm.config.EthMaxGasPriceWei()) > 0 {
+			// NOTE: In the current design, a new tx attempt will be created even if this one returns error.
+			// If we do hit this scenario, we will keep creating new attempts that are guaranteed to fail
+			// until CHAINLINK_TX_ATTEMPT_LIMIT is reached
+			promGasBumpExceedsLimit.Inc()
+			err := fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
+			logger.Error(err)
+			return err
+		}
+		bumpedTxAttempt, err := txm.createAttempt(tx, bumpedGasPrice, blockHeight)
+		if isUnderPricedReplacementError(err) {
+			// This is not expected if we have bumped at least geth's required
+			// amount.
+			promGasBumpUnderpricedReplacement.Inc()
+			logger.Warnw(fmt.Sprintf("Gas bump was rejected by ethereum node as underpriced, bumping again. Your value of ETH_GAS_BUMP_PERCENT (%v) may be set too low", txm.config.EthGasBumpPercent()),
+				"originalGasPrice", originalGasPrice, "bumpedGasPrice", bumpedGasPrice,
+			)
+			bumpedGasPrice = txm.BumpGasByIncrement(bumpedGasPrice)
+			continue
+		}
+		if err != nil {
+			promTxAttemptFailed.Inc()
+			err := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+			logger.Error(err)
+			return err
+		}
+
+		logger.Infow(
+			fmt.Sprintf("Tx #%d created with bumped gas %v", attemptIndex+1, bumpedGasPrice),
+			"originalTxHash", txAttempt.Hash,
+			"newTxHash", bumpedTxAttempt.Hash)
+
+		return nil
 	}
-
-	logger.Infow(
-		fmt.Sprintf("Tx #%d created with bumped gas %v", attemptIndex+1, bumpedGasPrice),
-		"originalTxHash", txAttempt.Hash,
-		"newTxHash", bumpedTxAttempt.Hash)
-	return nil
 }
 
 // createAttempt adds a new transaction attempt to a transaction record

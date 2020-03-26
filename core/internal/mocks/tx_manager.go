@@ -252,6 +252,27 @@ func (_m *TxManager) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
 	return r0, r1
 }
 
+// GetBlockHeight provides a mock function with given fields:
+func (_m *TxManager) GetBlockHeight() (uint64, error) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetChainID provides a mock function with given fields:
 func (_m *TxManager) GetChainID() (*big.Int, error) {
 	ret := _m.Called()
@@ -453,6 +474,27 @@ func (_m *TxManager) SendRawTx(hex string) (common.Hash, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(hex)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SignedRawTxWithBumpedGas provides a mock function with given fields: originalTx, gasLimit, gasPrice
+func (_m *TxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+	ret := _m.Called(originalTx, gasLimit, gasPrice)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(models.Tx, uint64, big.Int) string); ok {
+		r0 = rf(originalTx, gasLimit, gasPrice)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(models.Tx, uint64, big.Int) error); ok {
+		r1 = rf(originalTx, gasLimit, gasPrice)
 	} else {
 		r1 = ret.Error(1)
 	}

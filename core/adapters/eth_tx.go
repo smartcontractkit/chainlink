@@ -3,12 +3,9 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
-	"net"
-	"regexp"
 
 	"chainlink/core/eth"
 	"chainlink/core/logger"
-	"chainlink/core/store"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
@@ -92,10 +89,8 @@ func createTxRunResult(
 		gasPrice.ToInt(),
 		gasLimit,
 	)
-	if IsClientRetriable(err) {
-		return models.NewRunOutputPendingConnection()
-	} else if err != nil {
-		return models.NewRunOutputError(err)
+	if err != nil {
+		return models.NewRunOutputPendingConfirmationsWithData(input.Data())
 	}
 
 	output, err := models.JSON{}.Add("result", tx.Hash.String())
@@ -105,12 +100,8 @@ func createTxRunResult(
 
 	txAttempt := tx.Attempts[0]
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
-	if IsClientRetriable(err) {
-		return models.NewRunOutputPendingConnectionWithData(output)
-	} else if IsClientEmptyError(err) {
+	if err != nil {
 		return models.NewRunOutputPendingConfirmationsWithData(output)
-	} else if err != nil {
-		return models.NewRunOutputError(err)
 	}
 
 	logger.Debugw(
@@ -123,7 +114,12 @@ func createTxRunResult(
 	)
 
 	if state == strpkg.Safe {
-		return addReceiptToResult(receipt, input, output)
+		// I don't see how the receipt could possibly be nil here, but handle it just in case
+		if receipt == nil {
+			err := errors.New("missing receipt for transaction")
+			return models.NewRunOutputError(err)
+		}
+		return addReceiptToResult(*receipt, input, output)
 	}
 
 	return models.NewRunOutputPendingConfirmationsWithData(output)
@@ -138,12 +134,6 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 	hash := common.HexToHash(val)
 	receipt, state, err := str.TxManager.BumpGasUntilSafe(hash)
 	if err != nil {
-		if IsClientEmptyError(err) {
-			return models.NewRunOutputPendingConfirmations()
-		} else if state == strpkg.Unknown {
-			return models.NewRunOutputError(err)
-		}
-
 		// We failed to get one of the TxAttempt receipts, so we won't mark this
 		// run as errored in order to try again
 		logger.Warn("EthTx Adapter Perform Resuming: ", err)
@@ -171,14 +161,22 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 	}
 
 	if state == strpkg.Safe {
-		return addReceiptToResult(receipt, input, output)
+		// FIXME: Receipt can definitely be nil here, although I don't really know how
+		// it can be "Safe" without a receipt... maybe we should just keep
+		// waiting for confirmations instead?
+		if receipt == nil {
+			err := errors.New("missing receipt for transaction")
+			return models.NewRunOutputError(err)
+		}
+
+		return addReceiptToResult(*receipt, input, output)
 	}
 
 	return models.NewRunOutputPendingConfirmationsWithData(output)
 }
 
 func addReceiptToResult(
-	receipt *eth.TxReceipt,
+	receipt eth.TxReceipt,
 	input models.RunInput,
 	data models.JSON,
 ) models.RunOutput {
@@ -191,7 +189,7 @@ func addReceiptToResult(
 		}
 	}
 
-	receipts = append(receipts, *receipt)
+	receipts = append(receipts, receipt)
 	var err error
 	data, err = data.Add("ethereumReceipts", receipts)
 	if err != nil {
@@ -202,33 +200,6 @@ func addReceiptToResult(
 		return models.NewRunOutputError(err)
 	}
 	return models.NewRunOutputComplete(data)
-}
-
-// IsClientRetriable does its best effort to see if an error indicates one that
-// might have a different outcome if we retried the operation
-func IsClientRetriable(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if err, ok := err.(net.Error); ok {
-		return err.Timeout() || err.Temporary()
-	} else if errors.Cause(err) == store.ErrPendingConnection {
-		return true
-	}
-
-	return false
-}
-
-var (
-	parityEmptyResponseRegex = regexp.MustCompile("Error cause was EmptyResponse")
-)
-
-// Parity light clients can return an EmptyResponse error when they don't have
-// access to the transaction in the mempool. If we wait long enough it should
-// eventually return a transaction receipt.
-func IsClientEmptyError(err error) bool {
-	return err != nil && parityEmptyResponseRegex.MatchString(err.Error())
 }
 
 func pendingConfirmationsOrConnection(input models.RunInput) models.RunOutput {

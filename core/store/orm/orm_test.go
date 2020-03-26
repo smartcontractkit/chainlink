@@ -1,6 +1,7 @@
 package orm_test
 
 import (
+	"fmt"
 	"io"
 	"math/big"
 	"os"
@@ -1044,6 +1045,33 @@ func TestBulkDeleteRuns(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestORM_FindTxsBySenderAndRecipient(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	defer cleanup()
+
+	from := cltest.GetAccountAddress(t, store)
+	to := cltest.NewAddress()
+	tx1 := cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, to, 0, 0, 1)
+	tx2 := cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, to, 0, 1, 1)
+	cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, cltest.NewAddress(), 0, 2, 1)
+	cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, cltest.NewAddress(), to, 0, 3, 1)
+
+	txs, err := store.FindTxsBySenderAndRecipient(from, to, 0, 4)
+	require.NoError(t, err)
+
+	require.Len(t, txs, 2)
+	expectedTxs := []*models.Tx{tx2, tx1}
+	for i, expected := range expectedTxs {
+		require.Equal(t, expected.To, txs[i].To)
+		require.Equal(t, expected.From, txs[i].From)
+		require.Equal(t, expected.Nonce, txs[i].Nonce)
+	}
+}
+
 func TestORM_FindTxAttempt_CurrentAttempt(t *testing.T) {
 	t.Parallel()
 
@@ -1344,6 +1372,26 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, attempts, 7)
+}
+
+func TestORM_FindAllTxsInNonceRange(t *testing.T) {
+	var createdTxs []models.Tx
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	for _, nonce := range []uint64{1, 2, 3} {
+		tx := cltest.NewTransaction(nonce)
+		tx.SurrogateID = null.StringFrom(fmt.Sprintf("nonce-%v", nonce))
+		tx, err := store.CreateTx(tx)
+		require.NoError(t, err)
+		createdTxs = append(createdTxs, *tx)
+	}
+
+	txs, err := store.FindAllTxsInNonceRange(2, 3)
+	require.NoError(t, err)
+	assert.Len(t, txs, 2)
+	assert.Equal(t, "nonce-2", txs[0].SurrogateID.ValueOrZero())
+	assert.Equal(t, "nonce-3", txs[1].SurrogateID.ValueOrZero())
 }
 
 func TestJobs_All(t *testing.T) {

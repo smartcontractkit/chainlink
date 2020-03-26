@@ -1,4 +1,4 @@
-import { partialAsFull } from '@chainlink/ts-test-helpers'
+import { partialAsFull } from '@chainlink/ts-helpers'
 import { ChainlinkNode } from 'explorer/models'
 import reducer, {
   INITIAL_STATE as initialRootState,

@@ -13,8 +13,8 @@ Docker specific scripts can be found in [bin](./bin).
 Inside the `chainlink/tools/docker` directory, there is a helper script that is included which should cover all cases of integration / acceptance / development needs acroos multiple services. To see a list of available commands, perform the following:
 
 ```sh
-$ cd tools/docker
-$ ./compose help
+cd tools/docker
+./compose help
 ```
 
 ## Examples
@@ -42,10 +42,10 @@ The `cld` command will bring up the services that a chainlink node needs to conn
 This enables a user to make quick changes on either the container or the host, run `cldev` within the attached container, check the new behaviour of the re-built node, and repeat this process until the desired results are achieved.
 
 ```sh
-$ ./compose cld
+./compose cld
 #
-# $$ denotes that we're now in the chainlink container
-$$ cldev # cldev without the "core" postfix simply calls the core node cli
+# Now you are inside the container
+cldev # cldev without the "core" postfix simply calls the core node cli
 #
 # NAME:
 #    main - CLI for Chainlink
@@ -74,7 +74,7 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #    --json, -j     json output as opposed to table
 #    --help, -h     show help
 #    --version, -v  print the version
-$$ cldev core # import our testing key and api credentials, then start the node
+cldev core # import our testing key and api credentials, then start the node
 #
 # ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
 # 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #
@@ -92,10 +92,10 @@ $$ cldev core # import our testing key and api credentials, then start the node
 In the first terminal:
 
 ```sh
-$ ./compose cldo
+./compose cldo
 #
-# $$ denotes that we're now in the chainlink container
-$$ cldev # cldev without the "core" postfix simply calls the core node cli
+# Now you are inside the container
+cldev # cldev without the "core" postfix simply calls the core node cli
 #
 # NAME:
 #    main - CLI for Chainlink
@@ -124,7 +124,7 @@ $$ cldev # cldev without the "core" postfix simply calls the core node cli
 #    --json, -j     json output as opposed to table
 #    --help, -h     show help
 #    --version, -v  print the version
-$$ cldev core # import our testing key and api credentials, then start the node
+cldev core # import our testing key and api credentials, then start the node
 #
 # ** Importing default key 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f
 # 2019-12-11T20:31:18Z [INFO]  Locking postgres for exclusive access with 500ms timeout orm/orm.go:74        #
@@ -150,27 +150,27 @@ You'll now have two terminals, one with the core node, one with operator-ui, wit
 The integration test suite will run against a parity node by default. You can run the integration test suite with the following command:
 
 ```sh
-$ ./compose test
+./compose test
 ```
 
 If you want to run the test suite against a geth node, you can set the `GETH_MODE` environment variable.
 
 ```sh
-$ GETH_MODE=true ./compose test
+GETH_MODE=true ./compose test
 ```
 
 If we want to quickly test new changes we make to `integration/` or `tools/ci/ethereum_test` without re-building our images, we can use the `test:dev` command which will reflect those changes from the host file system without rebuilding those containers.
 
 ```sh
-$ ./compose test:dev
+./compose test:dev
 ```
 
 Still a work in progress, you can run the tests in typescript (instead of bash) by using
 
 ```sh
-$ ./compose test:ts
+./compose test:ts
 # or
-$ ./compose test:ts:dev
+./compose test:ts:dev
 ```
 
 Eventually, these tests should replace the bash tests entirely
@@ -192,27 +192,27 @@ To remove any containers, volumes, and networks related to our docker-compose se
 The following commands allow you do just about anything:
 
 ```sh
-$ ./compose <subcommand>
-$ ./compose integration <subcommand> # or ./compose i
-$ ./compose dev:integration <subcommand> # or ./compose di
-$ ./compose dev <subcommand>
+./compose <subcommand>
+./compose integration <subcommand> # or ./compose i
+./compose dev:integration <subcommand> # or ./compose di
+./compose dev <subcommand>
 ```
 
 For example, to see what our compose configuration looks like:
 
 ```sh
-$ ./compose config # base config
-$ ./compose dev:integration # development integration test config
+./compose config # base config
+./compose dev:integration # development integration test config
 ```
 
 Or, to run just an ethereum node:
 
 ```sh
-$ ./compose up devnet # start a parity devnet node
+./compose up devnet # start a parity devnet node
 ```
 
 ```sh
-$ GETH_MODE=true ./compose up devnet # start a geth devnet node
+GETH_MODE=true ./compose up devnet # start a geth devnet node
 ```
 
 # Environment Variables

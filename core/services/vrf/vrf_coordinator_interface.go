@@ -31,10 +31,24 @@ type RandomnessRequestLog struct {
 var dummyCoordinator, _ = solidity_vrf_coordinator_interface.NewVRFCoordinator(
 	common.Address{}, nil)
 
+func toGethLog(log eth.Log) types.Log {
+	return types.Log{
+		Address:     log.Address,
+		Topics:      log.Topics,
+		Data:        []byte(log.Data),
+		BlockNumber: log.BlockNumber,
+		TxHash:      log.TxHash,
+		TxIndex:     log.TxIndex,
+		BlockHash:   log.BlockHash,
+		Index:       log.Index,
+		Removed:     log.Removed,
+	}
+}
+
 // ParseRandomnessRequestLog returns the RandomnessRequestLog corresponding to
 // the raw logData
 func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
-	rawLog, err := dummyCoordinator.ParseRandomnessRequest(types.Log(log))
+	rawLog, err := dummyCoordinator.ParseRandomnessRequest(toGethLog(log))
 	if err != nil {
 		return nil, errors.Wrapf(err,
 			"while parsing %x as RandomnessRequestLog", log.Data)

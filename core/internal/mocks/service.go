@@ -27,30 +27,6 @@ func (_m *Service) AddJob(_a0 models.JobSpec) error {
 	return r0
 }
 
-// Connect provides a mock function with given fields: _a0
-func (_m *Service) Connect(_a0 *models.Head) error {
-	ret := _m.Called(_a0)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
-		r0 = rf(_a0)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// Disconnect provides a mock function with given fields:
-func (_m *Service) Disconnect() {
-	_m.Called()
-}
-
-// OnNewHead provides a mock function with given fields: _a0
-func (_m *Service) OnNewHead(_a0 *models.Head) {
-	_m.Called(_a0)
-}
-
 // RemoveJob provides a mock function with given fields: _a0
 func (_m *Service) RemoveJob(_a0 *models.ID) {
 	_m.Called(_a0)
