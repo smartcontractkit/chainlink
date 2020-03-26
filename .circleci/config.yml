@@ -252,19 +252,6 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
-  build-explorer:
-    machine:
-      image: circleci/classic:201808-01
-      docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
   build-publish-chainlink:
     resource_class: large
     machine:
@@ -284,21 +271,6 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
-  build-chainlink:
-    resource_class: xlarge
-    machine:
-      image: circleci/classic:201808-01
-      docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: |
-            DOCKER_TAG=circleci make docker
   build-chainlink-sgx:
     resource_class: xlarge
     machine:
@@ -435,32 +407,11 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - build-explorer:
-          filters:
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
       - build-publish-explorer:
           requires:
             - styleguide
             - json-api-client
             - explorer
-          filters:
-            branches:
-              only:
-                - develop
-                - /^release\/explorer-v.*/
-            tags:
-              only: /^explorer-v.*/ # handles final versioned releases
-      - build-chainlink:
-          filters:
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
       - build-chainlink-sgx:
           filters:
             tags:
@@ -477,13 +428,6 @@ workflows:
             - json-api-client
             - operator-ui
             - rust
-          filters:
-            branches:
-              only:
-                - develop
-                - /^release\/v.*/
-            tags:
-              only: /^v.*/ # handles final versioned releases
       - reportcoverage:
           requires:
             - go-postgres
