@@ -20,6 +20,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/auth"
 	"chainlink/core/cmd"
+	"chainlink/core/gracefulpanic"
 	"chainlink/core/logger"
 	"chainlink/core/services/chainlink"
 	strpkg "chainlink/core/store"
@@ -420,7 +421,7 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
 	cleanupDB := PrepareTestDB(config)
-	s := strpkg.NewInsecureStore(config.Config)
+	s := strpkg.NewInsecureStore(config.Config, gracefulpanic.NewSignal())
 	return s, func() {
 		cleanUpStore(config.t, s)
 		cleanupDB()

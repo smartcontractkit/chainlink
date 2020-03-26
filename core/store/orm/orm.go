@@ -54,6 +54,7 @@ type ORM struct {
 	advisoryLockTimeout time.Duration
 	dialectName         DialectName
 	closeOnce           sync.Once
+	shutdownSignal      gracefulpanic.Signal
 }
 
 var (
@@ -71,7 +72,7 @@ func mapError(err error) error {
 }
 
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration) (*ORM, error) {
+func NewORM(uri string, timeout time.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -88,6 +89,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
 		dialectName:         dialect,
+		shutdownSignal:      shutdownSignal,
 	}
 	orm.MustEnsureAdvisoryLock()
 
@@ -108,7 +110,7 @@ func (orm *ORM) MustEnsureAdvisoryLock() {
 	err := orm.lockingStrategy.Lock(orm.advisoryLockTimeout)
 	if err != nil {
 		logger.Errorf("unable to lock ORM: %v", err)
-		gracefulpanic.Panic()
+		orm.shutdownSignal.Panic()
 	}
 }
 
