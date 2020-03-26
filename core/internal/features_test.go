@@ -874,10 +874,12 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
 		var data []byte
-		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
-		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
-		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
+		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
@@ -952,10 +954,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
 		var data []byte
-		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
-		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
-		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
+		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
@@ -997,10 +1001,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	})
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
 		var data []byte
-		data = append(data, utils.EVMWordUint64(3)...)     // RoundID
-		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
-		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
+		data = append(data, utils.EVMWordUint64(3)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 	newRounds <- log

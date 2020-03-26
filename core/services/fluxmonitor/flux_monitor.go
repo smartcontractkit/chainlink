@@ -579,7 +579,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
 		logger.Infow("Ignoring new round request: aggregator is underfunded", p.loggerFieldsForNewRound(log)...)
 		return
-	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment()) < 0 {
+	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
 		logger.Infow("Ignoring new round request: round payment amount < minimum contract payment", p.loggerFieldsForNewRound(log)...)
 		return
 	}
@@ -641,7 +641,7 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
 		logger.Infow("Ignoring new round request: aggregator is underfunded", loggerFields...)
 		return false
-	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment()) < 0 {
+	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
 		logger.Infow("Ignoring new round request: round payment amount < minimum contract payment", loggerFields...)
 		return false
 	}
