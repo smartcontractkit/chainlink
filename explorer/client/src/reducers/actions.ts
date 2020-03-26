@@ -59,6 +59,15 @@ export type FetchAdminOperatorsSucceededAction = {
 }
 
 /**
+ * FETCH_ADMIN_OPERATORS_ERROR
+ */
+
+export type FetchAdminOperatorsErrorAction = {
+  type: 'FETCH_ADMIN_OPERATORS_ERROR'
+  error: Error
+}
+
+/**
  * FETCH_ADMIN_OPERATOR_SUCCEEDED
  */
 export interface AdminOperatorNormalizedMeta {
@@ -132,6 +141,7 @@ export type Actions =
   | FetchAdminSigninErrorAction
   | FetchAdminSignoutSucceededAction
   | FetchAdminOperatorsSucceededAction
+  | FetchAdminOperatorsErrorAction
   | FetchAdminOperatorSucceededAction
   | FetchJobRunsSucceededAction
   | FetchJobRunSucceededAction
