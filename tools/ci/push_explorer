@@ -17,8 +17,8 @@ set -ex
 
 if [ -z "$DOCKERHUB_PASS" ]
 then
-  echo "Skipping dockerhub uploads because the necessary credentials are not present"
-  exit 0
+  echo "Cannot push to dockerhub, credentials are missing."
+  exit 1
 fi
 
 
