@@ -636,13 +636,13 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	}
 
 	if !roundState.EligibleToSubmit {
-		logger.Infow("not eligible to submit, skipping poll", loggerFields...)
+		logger.Infow("skipping poll: not eligible to submit", loggerFields...)
 		return false
 	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
-		logger.Infow("Ignoring new round request: aggregator is underfunded", loggerFields...)
+		logger.Infow("skipping poll: aggregator is underfunded", loggerFields...)
 		return false
 	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
-		logger.Infow("Ignoring new round request: round payment amount < minimum contract payment", loggerFields...)
+		logger.Infow("skipping poll: round payment amount < minimum contract payment", loggerFields...)
 		return false
 	}
 
