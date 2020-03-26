@@ -2,7 +2,6 @@ package contracts_test
 
 import (
 	"encoding"
-	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -36,7 +36,7 @@ func makeRoundStateReturnData(roundID uint64, eligible bool, answer, timesOutAt,
 	data = append(data, utils.EVMWordUint64(timesOutAt)...)
 	data = append(data, utils.EVMWordUint64(availableFunds)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
-	return "0x" + hex.EncodeToString(data)
+	return hexutil.Encode(data)
 }
 
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
