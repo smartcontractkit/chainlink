@@ -16,7 +16,7 @@ import Paper from '@material-ui/core/Paper'
 import PaginationActions from './Table/PaginationActions'
 
 export const DEFAULT_ROWS_PER_PAGE = 10
-export const DEFAULT_CURRENT_PAGE = 0
+export const DEFAULT_CURRENT_PAGE = 1
 
 interface MsgProps {
   colCount: number
@@ -126,7 +126,7 @@ const Table = (props: Props) => {
         count={props.count ?? 0}
         rowsPerPageOptions={[]}
         rowsPerPage={props.rowsPerPage}
-        page={props.currentPage}
+        page={props.currentPage - 1}
         SelectProps={{
           native: true,
         }}
