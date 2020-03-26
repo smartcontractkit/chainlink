@@ -723,6 +723,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	err := json.Unmarshal([]byte(message), &run)
 	require.NoError(t, err)
 	assert.Equal(t, j.ID, run.JobSpecID)
+	cltest.WaitForJobRunToComplete(t, app.Store, run)
 }
 
 func TestIntegration_SleepAdapter(t *testing.T) {
@@ -802,6 +803,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
 func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
@@ -834,6 +836,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
 func TestIntegration_AuthToken(t *testing.T) {
