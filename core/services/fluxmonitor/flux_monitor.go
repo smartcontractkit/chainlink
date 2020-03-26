@@ -573,14 +573,9 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	}
 	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
 
-	if !roundState.EligibleToSubmit {
-		logger.Infow("Ignoring new round request: not eligible to submit", p.loggerFieldsForNewRound(log)...)
-		return
-	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
-		logger.Infow("Ignoring new round request: aggregator is underfunded", p.loggerFieldsForNewRound(log)...)
-		return
-	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
-		logger.Infow("Ignoring new round request: round payment amount < minimum contract payment", p.loggerFieldsForNewRound(log)...)
+	err = p.checkEligibilityAndAggregatorFunding(roundState)
+	if err != nil {
+		logger.Infow(fmt.Sprintf("Ignoring new round request: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
@@ -605,6 +600,17 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	}
 
 	p.createJobRun(polledAnswer, p.reportableRoundID)
+}
+
+func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
+	if !roundState.EligibleToSubmit {
+		return errors.New("not eligible to submit")
+	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
+		return errors.New("aggregator is underfunded")
+	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
+		return errors.New("round payment amount < minimum contract payment")
+	}
+	return nil
 }
 
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
@@ -635,14 +641,9 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		return false
 	}
 
-	if !roundState.EligibleToSubmit {
-		logger.Infow("skipping poll: not eligible to submit", loggerFields...)
-		return false
-	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
-		logger.Infow("skipping poll: aggregator is underfunded", loggerFields...)
-		return false
-	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
-		logger.Infow("skipping poll: round payment amount < minimum contract payment", loggerFields...)
+	err = p.checkEligibilityAndAggregatorFunding(roundState)
+	if err != nil {
+		logger.Infow(fmt.Sprintf("skipping poll: %v", err), loggerFields...)
 		return false
 	}
 
