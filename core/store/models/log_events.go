@@ -27,14 +27,6 @@ const (
 	RequestLogTopicPayment
 )
 
-// Descriptive indices of the FluxAggregator's NewRound Topic Array:
-// event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
-const (
-	NewRoundTopicSignature = iota
-	NewRoundTopicRoundID
-	NewRoundTopicStartedBy
-)
-
 const (
 	evmWordSize      = common.HashLength
 	requesterSize    = evmWordSize
@@ -72,20 +64,11 @@ var (
 	// OracleFulfillmentFunctionID20190128withoutCast is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
-	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
-	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "NewRound")
-	// AggregatorRoundDetailsUpdatedLogTopic20191220 is the RoundDetailsUpdated filter topic for
-	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorRoundDetailsUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "RoundDetailsUpdated")
-	// AggregatorAnswerUpdatedLogTopic20191220 is the AnswerUpdated filter topic for
-	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorAnswerUpdatedLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "AnswerUpdated")
 )
 
 type logRequestParser interface {
 	parseJSON(eth.Log) (JSON, error)
-	parseRequestID(eth.Log) string
+	parseRequestID(eth.Log) (string, error)
 }
 
 // topicFactoryMap maps the log topic to a factory method that returns an
@@ -323,7 +306,11 @@ func contractPayment(log eth.Log) (*assets.Link, error) {
 		encodedAmount = log.Topics[RequestLogTopicPayment]
 	} else {
 		paymentStart := requesterSize + idSize
-		encodedAmount = common.BytesToHash(log.Data[paymentStart : paymentStart+paymentSize])
+		paymentData, err := log.Data.SafeByteSlice(paymentStart, paymentStart+paymentSize)
+		if err != nil {
+			return nil, err
+		}
+		encodedAmount = common.BytesToHash(paymentData)
 	}
 
 	payment, ok := new(assets.Link).SetString(encodedAmount.Hex(), 0)
@@ -345,25 +332,33 @@ func (le RunLogEvent) ValidateRequester() error {
 	if len(le.Initiator.Requesters) == 0 {
 		return nil
 	}
+	requester, err := le.Requester()
+	if err != nil {
+		return err
+	}
 	for _, r := range le.Initiator.Requesters {
-		if le.Requester() == r {
+		if requester == r {
 			return nil
 		}
 	}
-	return fmt.Errorf("run Log didn't have have a valid requester: %v", le.Requester().Hex())
+	return fmt.Errorf("run Log didn't have have a valid requester: %v", requester.Hex())
 }
 
 // Requester pulls the requesting address out of the LogEvent's topics.
-func (le RunLogEvent) Requester() common.Address {
+func (le RunLogEvent) Requester() (common.Address, error) {
 	version, err := le.Log.GetTopic(0)
 	if err != nil {
-		return common.Address{}
+		return common.Address{}, nil
 	}
 
 	if oldRequestVersion(version) {
-		return common.BytesToAddress(le.Log.Topics[RequestLogTopicRequester].Bytes())
+		return common.BytesToAddress(le.Log.Topics[RequestLogTopicRequester].Bytes()), nil
 	}
-	return common.BytesToAddress(le.Log.Data[:requesterSize])
+	requesterData, err := le.Log.Data.SafeByteSlice(0, requesterSize)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.BytesToAddress(requesterData), nil
 }
 
 // RunRequest returns an RunRequest instance with all parameters
@@ -385,8 +380,14 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		return RunRequest{}, err
 	}
 
-	requestID := parser.parseRequestID(le.Log)
-	requester := le.Requester()
+	requestID, err := parser.parseRequestID(le.Log)
+	if err != nil {
+		return RunRequest{}, err
+	}
+	requester, err := le.Requester()
+	if err != nil {
+		return RunRequest{}, err
+	}
 
 	return RunRequest{
 		RequestID:     &requestID,
@@ -436,19 +437,31 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 		return JSON{}, errors.New("malformed data")
 	}
 
-	js, err := ParseCBOR(data[start:])
+	cborData, err := data.SafeByteSlice(start, len(data))
+	if err != nil {
+		return JSON{}, err
+	}
+	js, err := ParseCBOR(cborData)
 	if err != nil {
 		return js, err
 	}
+	idData, err := data.SafeByteSlice(0, idSize)
+	if err != nil {
+		return JSON{}, err
+	}
 	return js.MultiAdd(KV{
 		"address":          log.Address.String(),
-		"dataPrefix":       bytesToHex(data[:idSize]),
+		"dataPrefix":       bytesToHex(idData),
 		"functionSelector": OracleFullfillmentFunctionID0original,
 	})
 }
 
-func (parseRunLog0original) parseRequestID(log eth.Log) string {
-	return hexutil.Encode(log.Data[:idSize])
+func (parseRunLog0original) parseRequestID(log eth.Log) (string, error) {
+	idData, err := log.Data.SafeByteSlice(0, idSize)
+	if err != nil {
+		return "", err
+	}
+	return hexutil.Encode(idData), nil
 }
 
 // parseRunLog20190123withFulfillmentParams parses the OracleRequest log format
@@ -464,15 +477,28 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	if len(data) < cborStart {
 		return JSON{}, errors.New("malformed data")
 	}
-	js, err := ParseCBOR(data[cborStart:])
+	cborData, err := data.SafeByteSlice(cborStart, len(data))
+	if err != nil {
+		return JSON{}, err
+	}
+	js, err := ParseCBOR(cborData)
 	if err != nil {
 		return js, err
 	}
 	callbackAndExpStart := idSize + versionSize
 	callbackAndExpEnd := callbackAndExpStart + callbackAddrSize + callbackFuncSize + expirationSize
-	dataPrefix := bytesToHex(append(append(data[:idSize],
+
+	idData, err := data.SafeByteSlice(0, idSize)
+	if err != nil {
+		return JSON{}, err
+	}
+	callbackData, err := data.SafeByteSlice(callbackAndExpStart, callbackAndExpEnd)
+	if err != nil {
+		return JSON{}, err
+	}
+	dataPrefix := bytesToHex(append(append(idData,
 		log.Topics[RequestLogTopicPayment].Bytes()...),
-		data[callbackAndExpStart:callbackAndExpEnd]...))
+		callbackData...))
 	return js.MultiAdd(KV{
 		"address":          log.Address.String(),
 		"dataPrefix":       dataPrefix,
@@ -480,8 +506,12 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	})
 }
 
-func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) string {
-	return common.BytesToHash(log.Data[:idSize]).Hex()
+func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) (string, error) {
+	idData, err := log.Data.SafeByteSlice(0, idSize)
+	if err != nil {
+		return "", err
+	}
+	return common.BytesToHash(idData).Hex(), nil
 }
 
 // parseRunLog20190207withoutIndexes parses the OracleRequest log format after
@@ -503,36 +533,45 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 		return JSON{}, errors.New("malformed data")
 	}
 
-	dataLength := whisperv6.BytesToUintBigEndian(data[dataLengthStart : dataLengthStart+32])
+	dataLengthBytes, err := data.SafeByteSlice(dataLengthStart, dataLengthStart+32)
+	if err != nil {
+		return JSON{}, err
+	}
+	dataLength := whisperv6.BytesToUintBigEndian(dataLengthBytes)
 
 	if len(log.Data) < cborStart+int(dataLength) {
 		return JSON{}, errors.New("cbor too short")
 	}
 
-	js, err := ParseCBOR(data[cborStart : cborStart+int(dataLength)])
+	cborData, err := data.SafeByteSlice(cborStart, cborStart+int(dataLength))
+	if err != nil {
+		return JSON{}, err
+	}
+
+	js, err := ParseCBOR(cborData)
 	if err != nil {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}
+
+	dataPrefixBytes, err := data.SafeByteSlice(idStart, expirationEnd)
+	if err != nil {
+		return JSON{}, err
+	}
+
 	return js.MultiAdd(KV{
 		"address":          log.Address.String(),
-		"dataPrefix":       bytesToHex(data[idStart:expirationEnd]),
+		"dataPrefix":       bytesToHex(dataPrefixBytes),
 		"functionSelector": OracleFulfillmentFunctionID20190128withoutCast,
 	})
 }
 
-func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) string {
+func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) (string, error) {
 	start := requesterSize
-	return common.BytesToHash(log.Data[start : start+idSize]).Hex()
-}
-
-// ParseNewRoundLog pulls the round from the aggregator log event.
-func ParseNewRoundLog(log eth.Log) (*big.Int, error) {
-	encodedRound := log.Topics[NewRoundTopicRoundID]
-	round, ok := new(big.Int).SetString(encodedRound.Hex(), 0)
-	if !ok {
-		return nil, fmt.Errorf("unable to parse new round log from %s", encodedRound.Hex())
+	requestIDBytes, err := log.Data.SafeByteSlice(start, start+idSize)
+	if err != nil {
+		return "", err
 	}
-	return round, nil
+	return common.BytesToHash(requestIDBytes).Hex(), nil
 }
 
 func bytesToHex(data []byte) string {
@@ -548,4 +587,11 @@ func IDToTopic(id *ID) common.Hash {
 // IDToHexTopic encodes the string representation of the ID
 func IDToHexTopic(id *ID) common.Hash {
 	return common.BytesToHash([]byte(id.String()))
+}
+
+type LogCursor struct {
+	Name        string `gorm:"primary_key"`
+	Initialized bool   `gorm:"not null;default true"`
+	BlockIndex  uint64 `gorm:"not null;default 0"`
+	LogIndex    uint64 `gorm:"not null;default 0"`
 }

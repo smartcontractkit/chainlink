@@ -14,7 +14,7 @@
     "clean": "tsc -b --clean"
   },
   "devDependencies": {
-    "@types/node": "^12.12.20",
+    "@types/node": "^13.9.1",
     "typescript": "^3.7.4"
   }
 }

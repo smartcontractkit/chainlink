@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Drawer, Button } from 'antd'
-import { etherscanAddress, humanizeUnixTimestamp, MAINNET_ID } from 'utils/'
 import { connect } from 'react-redux'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
+import { etherscanAddress, humanizeUnixTimestamp, Networks } from 'utils'
 
 const NodeDetailsModal = ({ options, fetchJobId, sideDrawer, setDrawer }) => {
   const [jobId, setJobId] = useState()
@@ -63,7 +63,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
 
       <div>
         <h4>Find out more in:</h4>
-        {options.networkId === MAINNET_ID && (
+        {options.networkId === Networks.MAINNET && (
           <>
             <Button
               style={{ marginRight: 10 }}
@@ -142,7 +142,7 @@ const ContractDetailsContent = ({ data = {}, options }) => {
 
       <div>
         <h4>Find out more in:</h4>
-        {options.networkId === MAINNET_ID && (
+        {options.networkId === Networks.MAINNET && (
           <Button style={{ marginRight: 10 }} ghost type="primary">
             <a
               target="_BLANK"

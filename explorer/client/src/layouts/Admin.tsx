@@ -1,15 +1,16 @@
-import React, { useState } from 'react'
-import { RouteComponentProps } from '@reach/router'
+import Grid from '@material-ui/core/Grid'
 import {
   createStyles,
   Theme,
   withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
-import Grid from '@material-ui/core/Grid'
-import AdminPrivate from '../containers/Admin/Private'
-import Header from '../containers/Admin/Header'
+import { RouteComponentProps } from '@reach/router'
+import React, { useState } from 'react'
+import Footer from '../components/Admin/Operators/Footer'
 import { DEFAULT_HEADER_HEIGHT } from '../constants'
+import Header from '../containers/Admin/Header'
+import AdminPrivate from '../containers/Admin/Private'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -32,9 +33,7 @@ export const Admin: React.FC<Props> = ({ children, classes }) => {
   const onHeaderResize = (_width: number, height: number) => setHeight(height)
 
   return (
-    <>
-      <AdminPrivate />
-
+    <AdminPrivate>
       <Header onHeaderResize={onHeaderResize} />
 
       <Grid container spacing={24} className={classes.container}>
@@ -46,7 +45,8 @@ export const Admin: React.FC<Props> = ({ children, classes }) => {
           </Grid>
         </Grid>
       </Grid>
-    </>
+      <Footer />
+    </AdminPrivate>
   )
 }
 

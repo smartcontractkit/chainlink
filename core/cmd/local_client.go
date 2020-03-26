@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,11 +28,16 @@ const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
+	err := cli.Config.Validate()
+	if err != nil {
+		return err
+	}
+
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
-	err := InitEnclave()
+	err = InitEnclave()
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
@@ -172,6 +178,101 @@ func logConfigVariables(store *strpkg.Store) error {
 	}
 
 	logger.Debug("Environment variables\n", wlc)
+	return nil
+}
+
+// RebroadcastTransactions run locally to force manual rebroadcasting of
+// transactions in a given nonce range. This MUST NOT be run concurrently with
+// the node. Currently the advisory lock in FindAllTxsInNonceRange prevents
+// this.
+func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
+	beginningNonce := c.Uint("beginningNonce")
+	endingNonce := c.Uint("endingNonce")
+	gasPriceWei := c.Uint64("gasPriceWei")
+	overrideGasLimit := c.Uint64("gasLimit")
+
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	app := cli.AppFactory.NewApplication(cli.Config)
+	defer app.Stop()
+
+	store := app.GetStore()
+
+	pwd, err := passwordFromFile(c.String("password"))
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
+	}
+	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
+	if err != nil {
+		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
+	}
+
+	err = store.Start()
+	if err != nil {
+		return err
+	}
+
+	lastHead, err := store.LastHead()
+	if err != nil {
+		return err
+	}
+	err = store.TxManager.Connect(lastHead)
+	if err != nil {
+		return err
+	}
+
+	transactions, err := store.FindAllTxsInNonceRange(beginningNonce, endingNonce)
+	if err != nil {
+		return err
+	}
+	n := len(transactions)
+	for i, tx := range transactions {
+		var gasLimit uint64
+		if overrideGasLimit == 0 {
+			gasLimit = tx.GasLimit
+		} else {
+			gasLimit = overrideGasLimit
+		}
+		logger.Infow("Rebroadcasting transaction", "idx", i, "of", n, "nonce", tx.Nonce, "id", tx.ID)
+
+		gasPrice := big.NewInt(int64(gasPriceWei))
+		rawTx, err := store.TxManager.SignedRawTxWithBumpedGas(tx, gasLimit, *gasPrice)
+		if err != nil {
+			logger.Error(err)
+			continue
+		}
+
+		hash, err := store.TxManager.SendRawTx(rawTx)
+		if err != nil {
+			logger.Error(err)
+			continue
+		}
+
+		logger.Infow("Sent transaction", "idx", i, "of", n, "nonce", tx.Nonce, "id", tx.ID, "hash", hash)
+
+		jobRunID, err := models.NewIDFromString(tx.SurrogateID.ValueOrZero())
+		if err != nil {
+			logger.Errorw("could not get UUID from surrogate ID", "SurrogateID", tx.SurrogateID.ValueOrZero())
+			continue
+		}
+		jobRun, err := store.FindJobRun(jobRunID)
+		if err != nil {
+			logger.Errorw("could not find job run", "id", jobRunID)
+			continue
+		}
+		for taskIndex := range jobRun.TaskRuns {
+			taskRun := &jobRun.TaskRuns[taskIndex]
+			if taskRun.Status == models.RunStatusPendingConfirmations {
+				taskRun.Status = models.RunStatusErrored
+			}
+		}
+		jobRun.Status = models.RunStatusErrored
+
+		err = store.ORM.SaveJobRun(&jobRun)
+		if err != nil {
+			logger.Errorw("error saving job run", "id", jobRunID)
+			continue
+		}
+	}
 	return nil
 }
 

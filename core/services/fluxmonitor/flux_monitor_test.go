@@ -1,24 +1,25 @@
 package fluxmonitor_test
 
 import (
-	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
 	"chainlink/core/cmd"
-	"chainlink/core/eth"
-	"chainlink/core/eth/contracts"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/internal/mocks"
+	"chainlink/core/services/eth"
+	"chainlink/core/services/eth/contracts"
 	"chainlink/core/services/fluxmonitor"
+	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -30,509 +31,550 @@ var (
 	updateAnswerSelector = updateAnswerHash[:4]
 )
 
-type successFetcher decimal.Decimal
-
-func (f *successFetcher) Fetch() (decimal.Decimal, error) {
-	return decimal.Decimal(*f), nil
-}
-
-func fakeSubscription() *mocks.LogSubscription {
-	sub := new(mocks.LogSubscription)
-	sub.On("Unsubscribe").Return()
-	sub.On("Logs").Return(make(<-chan contracts.MaybeDecodedLog))
-	return sub
-}
-
-func TestConcreteFluxMonitor_AddJobRemoveJobHappy(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	runManager := new(mocks.RunManager)
-	started := make(chan struct{}, 1)
-
-	dc := new(mocks.DeviationChecker)
-	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
-		started <- struct{}{}
-	})
-
-	checkerFactory := new(mocks.DeviationCheckerFactory)
-	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
-	fm := fluxmonitor.New(store, runManager)
-	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
-	require.NoError(t, fm.Start())
-	defer fm.Stop()
-	require.NoError(t, fm.Connect(nil))
-	defer fm.Disconnect()
-
-	// Add Job
-	require.NoError(t, fm.AddJob(job))
-
-	cltest.CallbackOrTimeout(t, "deviation checker started", func() {
-		<-started
-	})
-	checkerFactory.AssertExpectations(t)
-	dc.AssertExpectations(t)
-
-	// Remove Job
-	removed := make(chan struct{})
-	dc.On("Stop").Return().Run(func(mock.Arguments) {
-		removed <- struct{}{}
-	})
-	fm.RemoveJob(job.ID)
-	cltest.CallbackOrTimeout(t, "deviation checker stopped", func() {
-		<-removed
-	})
-	dc.AssertExpectations(t)
-}
-
-func TestConcreteFluxMonitor_AddJobError(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	runManager := new(mocks.RunManager)
-	dc := new(mocks.DeviationChecker)
-	dc.On("Start", mock.Anything, mock.Anything).Return(errors.New("deliberate test error"))
-	checkerFactory := new(mocks.DeviationCheckerFactory)
-	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
-	fm := fluxmonitor.New(store, runManager)
-	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
-	require.NoError(t, fm.Start())
-	defer fm.Stop()
-	require.NoError(t, fm.Connect(nil))
-	defer fm.Disconnect()
-
-	require.Error(t, fm.AddJob(job))
-	checkerFactory.AssertExpectations(t)
-	dc.AssertExpectations(t)
-}
-
-func TestConcreteFluxMonitor_AddJobDisconnected(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	runManager := new(mocks.RunManager)
-	checkerFactory := new(mocks.DeviationCheckerFactory)
-	dc := new(mocks.DeviationChecker)
-	checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
-	fm := fluxmonitor.New(store, runManager)
-	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
-	require.NoError(t, fm.Start())
-	defer fm.Stop()
-
-	require.NoError(t, fm.AddJob(job))
-}
-
-func TestConcreteFluxMonitor_AddJobNonFluxMonitor(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job := cltest.NewJobWithRunLogInitiator()
-	runManager := new(mocks.RunManager)
-	checkerFactory := new(mocks.DeviationCheckerFactory)
-	fm := fluxmonitor.New(store, runManager)
-	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
-	require.NoError(t, fm.Start())
-	defer fm.Stop()
-
-	require.NoError(t, fm.AddJob(job))
-}
-
-func TestConcreteFluxMonitor_ConnectStartsExistingJobs(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	runManager := new(mocks.RunManager)
-	started := make(chan struct{})
-
-	dc := new(mocks.DeviationChecker)
-	dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
-		started <- struct{}{}
-	})
-
-	checkerFactory := new(mocks.DeviationCheckerFactory)
-
-	for i := 0; i < 3; i++ {
-		job := cltest.NewJobWithFluxMonitorInitiator()
-		require.NoError(t, store.CreateJob(&job))
-		job, err := store.FindJob(job.ID)
-		require.NoError(t, err)
-		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
-	}
-
-	fm := fluxmonitor.New(store, runManager)
-	fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
-	err := fm.Start()
-	require.NoError(t, err)
-	defer fm.Stop()
-
-	require.NoError(t, fm.Connect(nil))
-	cltest.CallbackOrTimeout(t, "deviation checker started", func() {
-		<-started
-	})
-	checkerFactory.AssertExpectations(t)
-	dc.AssertExpectations(t)
-}
-
-func TestConcreteFluxMonitor_StopWithoutStart(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	runManager := new(mocks.RunManager)
-
-	fm := fluxmonitor.New(store, runManager)
-	fm.Stop()
-}
-
-func TestPollingDeviationChecker_PollHappy(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	fetcher := new(mocks.Fetcher)
-	fetcher.On("Fetch").Return(decimal.NewFromInt(102), nil)
-
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-
-	run := cltest.NewJobRun(job)
-	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
-			"result": "102",
-			"address": "%s",
-			"functionSelector": "0x%x",
-			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000002"
-	}`, initr.InitiatorParams.Address.Hex(), updateAnswerSelector)))
-	require.NoError(t, err)
-
-	rm := new(mocks.RunManager)
-	rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
-		return runRequest.RequestParams == data
-	})).Return(&run, nil)
-
-	fluxAggregator := new(mocks.FluxAggregator)
-	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
-	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
-	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
-
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Second)
-	require.NoError(t, err)
-
-	err = checker.ExportedFetchAggregatorData()
-	require.NoError(t, err) // setup
-	assert.Equal(t, decimal.NewFromInt(100), checker.ExportedCurrentPrice())
-	assert.Equal(t, big.NewInt(1), checker.ExportedCurrentRound())
-
-	_, err = checker.ExportedPoll()
-	require.NoError(t, err) // main entry point
-
-	fluxAggregator.AssertExpectations(t)
-
-	fetcher.AssertExpectations(t)
-	rm.AssertExpectations(t)
-	assert.Equal(t, decimal.NewFromInt(102), checker.ExportedCurrentPrice())
-	assert.Equal(t, big.NewInt(2), checker.ExportedCurrentRound())
-}
-
-func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
+func ensureAccount(t *testing.T, store *store.Store) common.Address {
+	t.Helper()
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
 	_, err := auth.Authenticate(store, "somepassword")
 	assert.NoError(t, err)
 	assert.True(t, store.KeyStore.HasAccounts())
+	acct, err := store.KeyStore.GetFirstAccount()
+	assert.NoError(t, err)
+	return acct.Address
+}
 
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-	initr.PollingInterval = models.Duration(5 * time.Millisecond)
-	initr.IdleThreshold = models.Duration(10 * time.Millisecond)
+func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
 
-	jobRun := cltest.NewJobRun(job)
+	txm := new(mocks.TxManager)
+	store.TxManager = txm
+	txm.On("GetBlockHeight").Return(uint64(123), nil)
 
-	runManager := new(mocks.RunManager)
+	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
+		job := cltest.NewJobWithFluxMonitorInitiator()
+		runManager := new(mocks.RunManager)
+		started := make(chan struct{}, 1)
 
-	randomLargeNumber := 100
-	jobRunCreated := make(chan struct{}, randomLargeNumber)
-	runManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(&jobRun, nil).
-		Run(func(args mock.Arguments) {
-			jobRunCreated <- struct{}{}
+		dc := new(mocks.DeviationChecker)
+		dc.On("Start", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) {
+			started <- struct{}{}
 		})
 
-	fetcher := successFetcher(decimal.NewFromInt(100))
+		checkerFactory := new(mocks.DeviationCheckerFactory)
+		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM).Return(dc, nil)
+		fm := fluxmonitor.New(store, runManager)
+		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
+		require.NoError(t, fm.Start())
 
-	fluxAggregator := new(mocks.FluxAggregator)
-	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
-	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
-	fluxAggregator.On("ReportingRound").Return(big.NewInt(2), nil)
-	fluxAggregator.On("TimedOutStatus", mock.Anything).Return(false, nil)
-	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
-	fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(1), nil)
-	fluxAggregator.On("SubscribeToLogs", mock.Anything, mock.Anything).Return(fakeSubscription(), nil)
-	fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(0), nil)
+		// Add Job
+		require.NoError(t, fm.AddJob(job))
 
-	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
-		store,
-		fluxAggregator,
-		initr,
-		runManager,
-		&fetcher,
-		time.Second,
-	)
-	require.NoError(t, err)
+		cltest.CallbackOrTimeout(t, "deviation checker started", func() {
+			<-started
+		})
+		checkerFactory.AssertExpectations(t)
+		dc.AssertExpectations(t)
 
-	err = deviationChecker.Start(context.Background())
-	require.NoError(t, err)
-	require.Len(t, jobRunCreated, 0, "no Job Runs created")
+		// Remove Job
+		removed := make(chan struct{})
+		dc.On("Stop").Return().Run(func(mock.Arguments) {
+			removed <- struct{}{}
+		})
+		fm.RemoveJob(job.ID)
+		cltest.CallbackOrTimeout(t, "deviation checker stopped", func() {
+			<-removed
+		})
 
-	require.Eventually(t, func() bool { return len(jobRunCreated) >= 1 }, time.Second, time.Millisecond, "idleThreshold triggers Job Run")
-	require.Eventually(t, func() bool { return len(jobRunCreated) >= 5 }, time.Second, time.Millisecond, "idleThreshold triggers succeeding Job Runs")
+		fm.Stop()
 
-	deviationChecker.Stop()
-
-	assert.Equal(t, decimal.NewFromInt(100).String(), deviationChecker.ExportedCurrentPrice().String())
-}
-
-func TestPollingDeviationChecker_StartError(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	rm := new(mocks.RunManager)
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-
-	fluxAggregator := new(mocks.FluxAggregator)
-	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).
-		Return(decimal.NewFromInt(0), errors.New("deliberate test error"))
-
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, nil, time.Second)
-	require.NoError(t, err)
-	require.Error(t, checker.Start(context.Background()))
-}
-
-func TestPollingDeviationChecker_StartStop(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	// Prepare initialization to 100, which matches external adapter, so no deviation
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-
-	fluxAggregator := new(mocks.FluxAggregator)
-	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
-	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
-	fluxAggregator.On("SubscribeToLogs", mock.Anything, mock.Anything).Return(fakeSubscription(), nil)
-
-	rm := new(mocks.RunManager)
-	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Millisecond)
-	require.NoError(t, err)
-
-	// Set up fetcher to mark when polled
-	started := make(chan struct{})
-	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe().Run(func(mock.Arguments) {
-		started <- struct{}{}
+		dc.AssertExpectations(t)
 	})
 
-	// Start() with no delay to speed up test and polling.
-	done := make(chan struct{})
-	go func() {
-		checker.Start(context.Background()) // Start() polling
-		done <- struct{}{}
-	}()
+	t.Run("does not error or attempt to start a DeviationChecker when receiving a non-Flux Monitor job", func(t *testing.T) {
+		job := cltest.NewJobWithRunLogInitiator()
+		runManager := new(mocks.RunManager)
+		checkerFactory := new(mocks.DeviationCheckerFactory)
+		fm := fluxmonitor.New(store, runManager)
+		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 
-	cltest.CallbackOrTimeout(t, "Start() starts", func() {
-		<-started
-	})
-	fetcher.AssertExpectations(t)
+		err := fm.Start()
+		require.NoError(t, err)
+		defer fm.Stop()
 
-	checker.Stop()
-	cltest.CallbackOrTimeout(t, "Stop() unblocks Start()", func() {
-		<-done
+		err = fm.AddJob(job)
+		require.NoError(t, err)
+
+		checkerFactory.AssertNotCalled(t, "New", mock.Anything, mock.Anything, mock.Anything)
 	})
 }
 
-func TestPollingDeviationChecker_NoDeviation_CanBeCanceled(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
-	_, err := auth.Authenticate(store, "somepassword")
-	assert.NoError(t, err)
-	assert.True(t, store.KeyStore.HasAccounts())
-
-	// Set up fetcher to mark when polled
-	fetcher := new(mocks.Fetcher)
-	polled := make(chan struct{})
-	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Run(func(mock.Arguments) {
-		polled <- struct{}{}
-	})
-
-	// Prepare initialization to 100, which matches external adapter, so no deviation
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-
-	fluxAggregator := new(mocks.FluxAggregator)
-	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
-	fluxAggregator.On("LatestRound").Return(big.NewInt(1), nil)
-	fluxAggregator.On("SubscribeToLogs", mock.Anything, mock.Anything).Return(fakeSubscription(), nil)
-	fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(0), nil)
-
-	// Start() with no delay to speed up test and polling.
-	rm := new(mocks.RunManager) // No mocks assert no runs are created
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Millisecond)
-	require.NoError(t, err)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		checker.Start(ctx) // Start() polling until cancel()
-		done <- struct{}{}
-	}()
-
-	// Check if Polled
-	cltest.CallbackOrTimeout(t, "start repeatedly polls external adapter", func() {
-		<-polled // launched at the beginning of Start
-		<-polled // launched after time.After
-	})
-	fetcher.AssertExpectations(t)
-
-	// Cancel parent context and ensure Start() stops.
-	cancel()
-	cltest.CallbackOrTimeout(t, "Start() unblocks and is done", func() {
-		<-done
-	})
-}
-
-func TestPollingDeviationChecker_StopWithoutStart(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	rm := new(mocks.RunManager)
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, nil, initr, rm, nil, time.Second)
-	require.NoError(t, err)
-	checker.Stop()
-}
-
-func TestPollingDeviationChecker_RespondToNewRound_Ignore(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	currentRound := int64(5)
-
-	// Prepare on-chain initialization to 100
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-
-	// Initialize
-	rm := new(mocks.RunManager)
-	fetcher := new(mocks.Fetcher)
-	fluxAggregator := new(mocks.FluxAggregator)
-
-	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
-	fluxAggregator.On("LatestRound").Return(big.NewInt(currentRound), nil)
-
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Minute)
-	require.NoError(t, err)
-	require.NoError(t, checker.ExportedFetchAggregatorData())
-	fluxAggregator.AssertExpectations(t)
-
-	// Send rounds less than or equal to current, sequentially
+func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	tests := []struct {
-		name  string
-		round uint64
+		name             string
+		eligible         bool
+		connected        bool
+		threshold        float64
+		latestAnswer     int64
+		polledAnswer     int64
+		expectedToPoll   bool
+		expectedToSubmit bool
 	}{
-		{"less than", uint64(currentRound - 1)},
-		{"equal", uint64(currentRound)},
+		{"eligible, connected, threshold > 0, answers deviate", true, true, 0.1, 1, 100, true, true},
+		{"eligible, connected, threshold > 0, answers do not deviate", true, true, 0.1, 100, 100, true, false},
+		{"eligible, connected, threshold == 0, answers deviate", true, true, 0, 1, 100, true, true},
+		{"eligible, connected, threshold == 0, answers do not deviate", true, true, 0, 1, 100, true, true},
+
+		{"eligible, disconnected, threshold > 0, answers deviate", true, false, 0.1, 1, 100, false, false},
+		{"eligible, disconnected, threshold > 0, answers do not deviate", true, false, 0.1, 100, 100, false, false},
+		{"eligible, disconnected, threshold == 0, answers deviate", true, false, 0, 1, 100, false, false},
+		{"eligible, disconnected, threshold == 0, answers do not deviate", true, false, 0, 1, 100, false, false},
+
+		{"ineligible, connected, threshold > 0, answers deviate", false, true, 0.1, 1, 100, false, false},
+		{"ineligible, connected, threshold > 0, answers do not deviate", false, true, 0.1, 100, 100, false, false},
+		{"ineligible, connected, threshold == 0, answers deviate", false, true, 0, 1, 100, false, false},
+		{"ineligible, connected, threshold == 0, answers do not deviate", false, true, 0, 1, 100, false, false},
+
+		{"ineligible, disconnected, threshold > 0, answers deviate", false, false, 0.1, 1, 100, false, false},
+		{"ineligible, disconnected, threshold > 0, answers do not deviate", false, false, 0.1, 100, 100, false, false},
+		{"ineligible, disconnected, threshold == 0, answers deviate", false, false, 0, 1, 100, false, false},
+		{"ineligible, disconnected, threshold == 0, answers do not deviate", false, false, 0, 1, 100, false, false},
 	}
 
-	faABI, err := eth.GetV6ContractCodec(eth.FluxAggregatorName)
-	require.NoError(t, err)
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	nodeAddr := ensureAccount(t, store)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
-			log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(test.round))
+			rm := new(mocks.RunManager)
+			fetcher := new(mocks.Fetcher)
+			fluxAggregator := new(mocks.FluxAggregator)
 
-			var decodedLog contracts.LogNewRound
-			err := faABI.UnpackLog(&decodedLog, "NewRound", log)
+			job := cltest.NewJobWithFluxMonitorInitiator()
+			initr := job.Initiators[0]
+			initr.ID = 1
+
+			const reportableRoundID = 2
+			latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
+
+			roundState := contracts.FluxAggregatorRoundState{
+				ReportableRoundID: reportableRoundID,
+				EligibleToSubmit:  test.eligible,
+				LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
+			}
+			fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
+
+			if test.expectedToPoll {
+				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil)
+			}
+
+			if test.expectedToSubmit {
+				run := cltest.NewJobRun(job)
+				data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+					"result": "%d",
+					"address": "%s",
+					"functionSelector": "0x%x",
+					"dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
+				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), updateAnswerSelector, reportableRoundID)))
+				require.NoError(t, err)
+
+				rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+					return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
+				})).Return(&run, nil)
+
+				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+			}
+
+			checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Second)
 			require.NoError(t, err)
 
-			_, _, err = checker.ExportedRespondToLog(decodedLog)
-			require.NoError(t, err)
-			rm.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+			if test.connected {
+				checker.OnConnect()
+			}
+
+			checker.ExportedPollIfEligible(test.threshold)
+
+			fluxAggregator.AssertExpectations(t)
+			fetcher.AssertExpectations(t)
+			rm.AssertExpectations(t)
 		})
 	}
 }
 
-func TestPollingDeviationChecker_RespondToNewRound_Respond(t *testing.T) {
+func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
+
+	tests := []struct {
+		name             string
+		idleThreshold    time.Duration
+		expectedToSubmit bool
+	}{
+		{"no idleThreshold", 0, false},
+		{"idleThreshold > 0", 10 * time.Millisecond, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			nodeAddr := ensureAccount(t, store)
+
+			fetcher := new(mocks.Fetcher)
+			runManager := new(mocks.RunManager)
+			fluxAggregator := new(mocks.FluxAggregator)
+
+			job := cltest.NewJobWithFluxMonitorInitiator()
+			initr := job.Initiators[0]
+			initr.ID = 1
+			initr.PollingInterval = models.Duration(math.MaxInt64)
+			initr.IdleThreshold = models.Duration(test.idleThreshold)
+
+			const fetchedAnswer = 100
+			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
+
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+
+			roundState1 := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false, LatestAnswer: answerBigInt} // Initial poll
+			roundState2 := contracts.FluxAggregatorRoundState{ReportableRoundID: 2, EligibleToSubmit: false, LatestAnswer: answerBigInt} // idleThreshold 1
+			roundState3 := contracts.FluxAggregatorRoundState{ReportableRoundID: 3, EligibleToSubmit: false, LatestAnswer: answerBigInt} // NewRound
+			roundState4 := contracts.FluxAggregatorRoundState{ReportableRoundID: 4, EligibleToSubmit: false, LatestAnswer: answerBigInt} // idleThreshold 2
+
+			idleThresholdOccured := make(chan struct{}, 3)
+
+			fluxAggregator.On("RoundState", nodeAddr).Return(roundState1, nil).Once() // Initial poll
+			if test.expectedToSubmit {
+				// idleThreshold 1
+				fluxAggregator.On("RoundState", nodeAddr).Return(roundState2, nil).Once().Run(func(args mock.Arguments) { idleThresholdOccured <- struct{}{} })
+				// NewRound
+				fluxAggregator.On("RoundState", nodeAddr).Return(roundState3, nil).Once()
+				// idleThreshold 2
+				fluxAggregator.On("RoundState", nodeAddr).Return(roundState4, nil).Once().Run(func(args mock.Arguments) { idleThresholdOccured <- struct{}{} })
+			}
+
+			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				initr,
+				runManager,
+				fetcher,
+				time.Duration(math.MaxInt64),
+			)
+			require.NoError(t, err)
+
+			deviationChecker.OnConnect()
+			deviationChecker.Start()
+			require.Len(t, idleThresholdOccured, 0, "no Job Runs created")
+
+			if test.expectedToSubmit {
+				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
+				deviationChecker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(int64(roundState1.ReportableRoundID))}, nil)
+				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
+			}
+
+			deviationChecker.Stop()
+
+			if !test.expectedToSubmit {
+				require.Len(t, idleThresholdOccured, 0)
+			}
+
+			fetcher.AssertExpectations(t)
+			runManager.AssertExpectations(t)
+			fluxAggregator.AssertExpectations(t)
+		})
+	}
+}
+
+func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	currentRound := int64(5)
+	nodeAddr := ensureAccount(t, store)
 
-	// Prepare on-chain initialization to 100, which matches external adapter,
-	// so no deviation
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
+	tests := []struct {
+		name              string
+		timesOutAt        int64
+		expectedToTrigger bool
+	}{
+		{"timesOutAt == 0", 0, false},
+		{"timesOutAt != 0", time.Now().Add(1 * time.Second).Unix(), true},
+	}
 
-	fluxAggregator := new(mocks.FluxAggregator)
-	fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
-	fluxAggregator.On("LatestRound").Return(big.NewInt(currentRound), nil)
-	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fetcher := new(mocks.Fetcher)
+			runManager := new(mocks.RunManager)
+			fluxAggregator := new(mocks.FluxAggregator)
 
-	// Initialize
-	rm := new(mocks.RunManager)
-	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Minute)
-	require.NoError(t, err)
-	require.NoError(t, checker.ExportedFetchAggregatorData())
+			job := cltest.NewJobWithFluxMonitorInitiator()
+			initr := job.Initiators[0]
+			initr.ID = 1
+			initr.PollingInterval = models.Duration(math.MaxInt64)
+			initr.IdleThreshold = models.Duration(0)
 
-	// Send log greater than current
-	data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
-			"result": "100",
-			"address": "%s",
-			"functionSelector": "0xe6330cf7",
-			"dataPrefix": "0x0000000000000000000000000000000000000000000000000000000000000006"
-	}`, initr.InitiatorParams.Address.Hex()))) // dataPrefix has currentRound + 1
-	require.NoError(t, err)
+			const fetchedAnswer = 100
+			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
-	// Set up fetcher for 100; even if within deviation, forces the creation of run.
-	fetcher.On("Fetch").Return(decimal.NewFromFloat(100.0), nil).Maybe()
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
 
-	rm.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
-		return runRequest.RequestParams == data
-	})).Return(nil, nil) // only round 6 triggers run.
+			if test.expectedToTrigger {
+				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+					ReportableRoundID: 1,
+					EligibleToSubmit:  false,
+					LatestAnswer:      answerBigInt,
+					TimesOutAt:        uint64(test.timesOutAt),
+				}, nil).Once()
+				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+					ReportableRoundID: 1,
+					EligibleToSubmit:  false,
+					LatestAnswer:      answerBigInt,
+					TimesOutAt:        0,
+				}, nil).Once()
+			} else {
+				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+					ReportableRoundID: 1,
+					EligibleToSubmit:  false,
+					LatestAnswer:      answerBigInt,
+					TimesOutAt:        uint64(test.timesOutAt),
+				}, nil).Once()
+			}
 
-	faABI, err := eth.GetV6ContractCodec(eth.FluxAggregatorName)
-	require.NoError(t, err)
+			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				initr,
+				runManager,
+				fetcher,
+				time.Duration(math.MaxInt64),
+			)
+			require.NoError(t, err)
 
-	log := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
-	log.Topics[models.NewRoundTopicRoundID] = common.BytesToHash(utils.EVMWordUint64(6))
-	log.Data = utils.EVMWordUint64(uint64(time.Now().UTC().Unix()))
+			deviationChecker.Start()
+			deviationChecker.OnConnect()
+			time.Sleep(5 * time.Second)
+			deviationChecker.Stop()
 
-	var decodedLog contracts.LogNewRound
-	err = faABI.UnpackLog(&decodedLog, "NewRound", log)
-	require.NoError(t, err)
+			fetcher.AssertExpectations(t)
+			runManager.AssertExpectations(t)
+			fluxAggregator.AssertExpectations(t)
+		})
+	}
+}
 
-	_, _, err = checker.ExportedRespondToLog(decodedLog)
-	require.NoError(t, err)
+func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 
-	fluxAggregator.AssertExpectations(t)
-	fetcher.AssertExpectations(t)
-	rm.AssertExpectations(t)
+	type roundIDCase struct {
+		name                     string
+		storedReportableRoundID  *big.Int
+		fetchedReportableRoundID uint32
+		logRoundID               int64
+	}
+	var (
+		stored_lt_fetched_lt_log = roundIDCase{"stored < fetched < log", big.NewInt(5), 10, 15}
+		stored_lt_log_lt_fetched = roundIDCase{"stored < log < fetched", big.NewInt(5), 15, 10}
+		fetched_lt_stored_lt_log = roundIDCase{"fetched < stored < log", big.NewInt(10), 5, 15}
+		fetched_lt_log_lt_stored = roundIDCase{"fetched < log < stored", big.NewInt(15), 5, 10}
+		log_lt_fetched_lt_stored = roundIDCase{"log < fetched < stored", big.NewInt(15), 10, 5}
+		log_lt_stored_lt_fetched = roundIDCase{"log < stored < fetched", big.NewInt(10), 15, 5}
+		stored_lt_fetched_eq_log = roundIDCase{"stored < fetched = log", big.NewInt(5), 10, 10}
+		stored_eq_fetched_lt_log = roundIDCase{"stored = fetched < log", big.NewInt(5), 5, 10}
+		stored_eq_log_lt_fetched = roundIDCase{"stored = log < fetched", big.NewInt(5), 10, 5}
+		fetched_lt_stored_eq_log = roundIDCase{"fetched < stored = log", big.NewInt(10), 5, 10}
+		fetched_eq_log_lt_stored = roundIDCase{"fetched = log < stored", big.NewInt(10), 5, 5}
+		log_lt_fetched_eq_stored = roundIDCase{"log < fetched = stored", big.NewInt(10), 10, 5}
+	)
+
+	type answerCase struct {
+		name         string
+		latestAnswer int64
+		polledAnswer int64
+	}
+	var (
+		deviationThresholdExceeded    = answerCase{"deviation", 10, 100}
+		deviationThresholdNotExceeded = answerCase{"no deviation", 10, 10}
+	)
+
+	tests := []struct {
+		eligible      bool
+		startedBySelf bool
+		roundIDCase
+		answerCase
+	}{
+		{true, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{true, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{true, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{true, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{true, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{true, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{true, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{true, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{true, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{true, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{true, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{true, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{true, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{true, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{true, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{true, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{true, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{true, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{true, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{true, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{true, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{true, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{true, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{true, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{true, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{true, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{true, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{true, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{true, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{true, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{true, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{true, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{true, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{true, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{true, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{true, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{true, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{true, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{false, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{false, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{false, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{false, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{false, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{false, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{false, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{false, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{false, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{false, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{false, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{false, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{false, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{false, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{false, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{false, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{false, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{false, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{false, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{false, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{false, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{false, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{false, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{false, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{false, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{false, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{false, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{false, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{false, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{false, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{false, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{false, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{false, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{false, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{false, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{false, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{false, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{false, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+	}
+
+	for _, test := range tests {
+		name := test.answerCase.name + ", " + test.roundIDCase.name
+		if test.eligible {
+			name += ", eligible"
+		} else {
+			name += ", ineligible"
+		}
+		if test.startedBySelf {
+			name += ", started by self"
+		} else {
+			name += ", started by other"
+		}
+		t.Run(name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			nodeAddr := ensureAccount(t, store)
+
+			expectedToFetchRoundState := !test.startedBySelf
+			expectedToPoll := test.eligible && test.logRoundID >= int64(test.fetchedReportableRoundID) && expectedToFetchRoundState
+			expectedToSubmit := expectedToPoll
+
+			job := cltest.NewJobWithFluxMonitorInitiator()
+			initr := job.Initiators[0]
+			initr.ID = 1
+			initr.InitiatorParams.PollingInterval = models.Duration(1 * time.Hour)
+
+			rm := new(mocks.RunManager)
+			fetcher := new(mocks.Fetcher)
+			fluxAggregator := new(mocks.FluxAggregator)
+
+			if expectedToFetchRoundState {
+				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+					ReportableRoundID: test.fetchedReportableRoundID,
+					LatestAnswer:      big.NewInt(test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
+					EligibleToSubmit:  test.eligible,
+				}, nil).Once()
+			}
+
+			if expectedToPoll {
+				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
+			}
+
+			if expectedToSubmit {
+				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+
+				data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+					"result": "%d",
+					"address": "%s",
+					"functionSelector": "0xe6330cf7",
+					"dataPrefix": "0x%0x"
+				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), utils.EVMWordUint64(uint64(test.fetchedReportableRoundID)))))
+				require.NoError(t, err)
+
+				rm.On("Create", mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+					return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
+				})).Return(nil, nil)
+			}
+
+			checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Hour)
+			require.NoError(t, err)
+
+			checker.ExportedSetStoredReportableRoundID(test.storedReportableRoundID)
+
+			checker.OnConnect()
+
+			var startedBy common.Address
+			if test.startedBySelf {
+				startedBy = nodeAddr
+			}
+			checker.ExportedRespondToLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+
+			fluxAggregator.AssertExpectations(t)
+			fetcher.AssertExpectations(t)
+			rm.AssertExpectations(t)
+		})
+	}
 }
 
 func TestOutsideDeviation(t *testing.T) {
@@ -542,11 +584,22 @@ func TestOutsideDeviation(t *testing.T) {
 		threshold           float64 // in percentage
 		expectation         bool
 	}{
-		{"0 current price", decimal.NewFromInt(0), decimal.NewFromInt(100), 2, true},
+		{"0 current price, outside deviation", decimal.NewFromInt(0), decimal.NewFromInt(100), 2, true},
+		{"0 current price, inside deviation", decimal.NewFromInt(0), decimal.NewFromInt(1), 2, true},
+		{"0 current and next price", decimal.NewFromInt(0), decimal.NewFromInt(0), 2, false},
+
 		{"inside deviation", decimal.NewFromInt(100), decimal.NewFromInt(101), 2, false},
 		{"equal to deviation", decimal.NewFromInt(100), decimal.NewFromInt(102), 2, true},
 		{"outside deviation", decimal.NewFromInt(100), decimal.NewFromInt(103), 2, true},
 		{"outside deviation zero", decimal.NewFromInt(100), decimal.NewFromInt(0), 2, true},
+
+		{"inside deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 201, false},
+		{"equal to deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 200, true},
+		{"outside deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 199, true},
+
+		{"inside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 201, false},
+		{"equal to deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 200, true},
+		{"outside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 199, true},
 	}
 
 	for _, test := range tests {
@@ -611,88 +664,6 @@ func TestExtractFeedURLs(t *testing.T) {
 			val, err := fluxmonitor.ExtractFeedURLs(initiatorParams.Feeds, store.ORM)
 			require.NoError(t, err)
 			assert.Equal(t, val, expectation)
-		})
-	}
-}
-
-func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
-	_, err := auth.Authenticate(store, "somepassword")
-	assert.NoError(t, err)
-	assert.True(t, store.KeyStore.HasAccounts())
-
-	job := cltest.NewJobWithFluxMonitorInitiator()
-	initr := job.Initiators[0]
-	initr.ID = 1
-	initr.PollingInterval = models.Duration(5 * time.Millisecond)
-	initr.IdleThreshold = models.Duration(time.Hour) // long enough to prevent running during test
-
-	jobRun := cltest.NewJobRun(job)
-
-	tests := []struct {
-		name                     string
-		aggregatorRound          int64
-		latestRoundAnswered      int64
-		aggregatorTimedOutStatus bool
-		shouldUpdate             bool
-	}{
-		// {"much less than", 1, 10, false, false},
-		{"aggregator round less than latest round", 1, 2, false, false},
-		{"aggregator round equals latest round", 1, 1, false, true},
-		{"aggregator round greater than latest round", 2, 1, false, true},
-		// {"much greater than", 10, 1, false, true},
-		{"timed out", 1, 2, true, true},
-		{"not timed out", 1, 2, false, false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-
-			runManager := new(mocks.RunManager)
-
-			jobRunCreated := make(chan struct{}, 100)
-			runManager.On("Create", job.ID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-				Return(&jobRun, nil).
-				Run(func(args mock.Arguments) {
-					jobRunCreated <- struct{}{}
-				})
-
-			fetcher := successFetcher(decimal.NewFromInt(200))
-
-			fluxAggregator := new(mocks.FluxAggregator)
-			fluxAggregator.On("LatestAnswer", initr.InitiatorParams.Precision).Return(decimal.NewFromInt(100), nil)
-			fluxAggregator.On("LatestRound").Return(big.NewInt(test.aggregatorRound), nil)
-			fluxAggregator.On("ReportingRound").Return(big.NewInt(test.aggregatorRound+1), nil)
-			fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
-			fluxAggregator.On("TimedOutStatus", mock.Anything).Return(test.aggregatorTimedOutStatus, nil)
-			fluxAggregator.On("LatestSubmission", mock.Anything).Return(big.NewInt(0), big.NewInt(test.latestRoundAnswered), nil)
-			fluxAggregator.On("SubscribeToLogs", mock.Anything, mock.Anything).Return(fakeSubscription(), nil)
-
-			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
-				store,
-				fluxAggregator,
-				initr,
-				runManager,
-				&fetcher,
-				time.Second,
-			)
-			require.NoError(t, err)
-			defer deviationChecker.Stop()
-
-			err = deviationChecker.Start(context.Background())
-			require.NoError(t, err)
-			require.Len(t, jobRunCreated, 1, "initial job run")
-			fetcher = successFetcher(decimal.NewFromInt(300))
-
-			if test.shouldUpdate {
-				require.Eventually(t, func() bool { return len(jobRunCreated) == 2 }, 2*time.Second, 100*time.Millisecond, "pollIfEligible triggers Job Run")
-			} else {
-				time.Sleep(2 * time.Second)
-				require.Len(t, jobRunCreated, 1, "no Job Runs created")
-			}
 		})
 	}
 }

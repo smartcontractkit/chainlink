@@ -12,12 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-const (
-	// FluxAggregatorName is the name of Chainlink's Ethereum contract for
-	// aggregating numerical data such as prices.
-	FluxAggregatorName = "FluxAggregator"
-)
-
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
 
 // Client is the interface used to interact with an ethereum node.
@@ -29,6 +23,7 @@ type Client interface {
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(hex string) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
+	GetBlockHeight() (uint64, error)
 	GetBlockByNumber(hex string) (BlockHeader, error)
 	GetChainID() (*big.Int, error)
 	SubscribeToNewHeads(ctx context.Context, channel chan<- BlockHeader) (Subscription, error)
@@ -132,6 +127,12 @@ func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*TxReceipt
 	return &receipt, err
 }
 
+func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
+	var height hexutil.Uint64
+	err := client.Call(&height, "eth_blockNumber")
+	return uint64(height), err
+}
+
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
 func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (BlockHeader, error) {
 	var header BlockHeader
@@ -155,12 +156,14 @@ func (client *CallerSubscriberClient) GetChainID() (*big.Int, error) {
 
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
+//
+// Inspired by the eth client's SubscribeToLogs:
+// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 func (client *CallerSubscriberClient) SubscribeToLogs(
 	ctx context.Context,
 	channel chan<- Log,
 	q ethereum.FilterQuery,
 ) (Subscription, error) {
-	// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 	sub, err := client.Subscribe(ctx, channel, "logs", utils.ToFilterArg(q))
 	return sub, err
 }

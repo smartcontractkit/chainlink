@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { Redirect, RouteComponentProps } from '@reach/router'
+import { DispatchBinding } from '@chainlink/ts-helpers'
 import { signOut } from '../../actions/adminAuth'
 import { AppState } from '../../reducers'
-import { DispatchBinding } from '../../utils/types'
 
 interface OwnProps {}
 

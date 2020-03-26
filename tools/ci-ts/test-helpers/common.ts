@@ -147,7 +147,7 @@ export async function assertAsync(
   })
 }
 
-export async function fundAddress(to: string) {
+export async function fundAddress(to: string, ether = 1000) {
   const gethMode = !!process.env.GETH_MODE || false
   const provider = createProvider()
   let signer: ethers.Signer
@@ -158,7 +158,7 @@ export async function fundAddress(to: string) {
   }
   const tx = await signer.sendTransaction({
     to,
-    value: ethers.utils.parseEther('1000'),
+    value: ethers.utils.parseEther(ether.toString()),
   })
   await tx.wait()
 }

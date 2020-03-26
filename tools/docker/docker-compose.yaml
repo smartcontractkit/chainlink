@@ -48,7 +48,8 @@ services:
     depends_on:
       - explorer-db
     environment:
-      - SERVER_PORT=$EXPLORER_SERVER_PORT
+      - EXPLORER_COOKIE_SECRET
+      - EXPLORER_SERVER_PORT
       - TYPEORM_DATABASE
       - TYPEORM_USERNAME
       - TYPEORM_HOST

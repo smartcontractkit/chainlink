@@ -26,6 +26,18 @@ deps="$test -f docker-compose.deps.yaml" # config to bring up integration test d
 dev_integration="$test -f docker-compose.dev-integration.yaml" # config to run integration tests in dev mode
 dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config to run integration tests in dev mode
 
+function save_test_logs {
+  mkdir -p logs
+  $ts_test logs --no-color node > ./logs/node.log
+  $ts_test logs --no-color devnet > ./logs/devnet.log
+  $ts_test logs --no-color node-db > ./logs/node-db.log
+  $ts_test logs --no-color explorer > ./logs/explorer.log
+  $ts_test logs --no-color explorer-db > ./logs/explorer-db.log
+  $ts_test logs --no-color external-adapter > ./logs/external-adapter.log
+  $test logs --no-color cypress-job-server > ./logs/cypress-job-server.log
+  $test logs --no-color echo-server > ./logs/echo-server.log
+}
+
 usage="compose -- A helper script for running common docker-compose commands\
 
 Commands:
@@ -89,7 +101,10 @@ case "$1" in
   test)
     $test build $DOCKER_COMPOSE_BUILD_OPTS
     $deps up --exit-code-from wait-db wait-db
+    set +e
     $test up --exit-code-from integration
+    set -e
+    save_test_logs
     $test down -v
     ;;
   test:dev)
@@ -100,9 +115,12 @@ case "$1" in
   test:ts)
     $ts_test build $DOCKER_COMPOSE_BUILD_OPTS
     $deps up --exit-code-from wait-db wait-db
+    set +e
     $ts_test run integration-ts /bin/sh -c \
       "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
       && yarn workspace @chainlink/ci-ts test ${@:2}"
+    set -e
+    save_test_logs
     $ts_test down -v
     ;;
   test:ts:dev)

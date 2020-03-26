@@ -103,7 +103,6 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		store.TxManager,
 		jobSubscriber,
 		pendingConnectionResumer,
-		fluxMonitor,
 	}
 	for _, onConnectCallback := range onConnectCallbacks {
 		headTrackable := &headTrackableCallback{func() {

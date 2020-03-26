@@ -694,6 +694,27 @@ func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
 	return tx, err
 }
 
+// FindAllTxsInNonceRange returns an array of transactions matching the inclusive range between beginningNonce and endingNonce
+func (orm *ORM) FindAllTxsInNonceRange(beginningNonce uint, endingNonce uint) ([]models.Tx, error) {
+	orm.MustEnsureAdvisoryLock()
+	var txs []models.Tx
+	err := orm.db.Order("nonce ASC, sent_at ASC").Where(`nonce BETWEEN ? AND ?`, beginningNonce, endingNonce).Find(&txs).Error
+	return txs, err
+}
+
+// FindTxsBySenderAndRecipient returns an array of transactions sent by `sender` to `recipient`
+func (orm *ORM) FindTxsBySenderAndRecipient(sender, recipient common.Address, offset, limit uint) ([]models.Tx, error) {
+	orm.MustEnsureAdvisoryLock()
+	var txs []models.Tx
+	err := orm.db.
+		Where(`"from" = ? AND "to" = ?`, sender, recipient).
+		Order("nonce DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&txs).Error
+	return txs, err
+}
+
 // FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, *models.TxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()
@@ -1164,6 +1185,22 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey
 		anonWhere = append(anonWhere, &constraint)
 	}
 	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
+}
+
+// SaveLogCursor saves the log cursor.
+func (orm *ORM) SaveLogCursor(logCursor *models.LogCursor) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Save(logCursor).Error
+}
+
+// FindLogCursor will find the given log cursor.
+func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
+	orm.MustEnsureAdvisoryLock()
+	lc := models.LogCursor{}
+	err := orm.db.
+		Where("name = ?", name).
+		First(&lc).Error
+	return lc, err
 }
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to

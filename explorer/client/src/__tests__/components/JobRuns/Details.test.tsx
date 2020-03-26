@@ -1,6 +1,6 @@
 import { mount } from 'enzyme'
 import React from 'react'
-import { partialAsFull } from '@chainlink/ts-test-helpers'
+import { partialAsFull } from '@chainlink/ts-helpers'
 import { JobRun, ChainlinkNode } from 'explorer/models'
 import Details from '../../../components/JobRuns/Details'
 

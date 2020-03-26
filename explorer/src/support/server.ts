@@ -1,16 +1,22 @@
-import { getDb, closeDbConnection } from '../database'
-import server from '../server'
+import { randomBytes } from 'crypto'
 import http from 'http'
+import { closeDbConnection, getDb } from '../database'
+import server from '../server'
 
 export const DEFAULT_TEST_PORT =
-  parseInt(process.env.TEST_SERVER_PORT, 10) || 8081
+  parseInt(process.env.EXPLORER_TEST_SERVER_PORT, 10) || 8081
 
 /**
  * Start database then initialize the server on the specified port
  */
-export async function start(port: number = DEFAULT_TEST_PORT) {
+export async function start() {
+  Object.assign(process.env, {
+    EXPLORER_SERVER_PORT: `${DEFAULT_TEST_PORT}`,
+    EXPLORER_COOKIE_SECRET: randomBytes(32).toString('hex'),
+  })
+
   await getDb()
-  return server(port)
+  return server()
 }
 
 /**

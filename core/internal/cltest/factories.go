@@ -223,21 +223,35 @@ func CreateTx(
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
-	return CreateTxWithNonce(t, store, from, sentAt, 0)
+	return CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 1)
 }
 
-// CreateTxWithNonce creates a Tx from a specified address, sentAt, and nonce
-func CreateTxWithNonce(
+// CreateTxWithNonceAndGasPrice creates a Tx from a specified address, sentAt, nonce and gas price
+func CreateTxWithNonceAndGasPrice(
 	t testing.TB,
 	store *strpkg.Store,
 	from common.Address,
 	sentAt uint64,
 	nonce uint64,
+	gasPrice int64,
+) *models.Tx {
+	return CreateTxWithNonceGasPriceAndRecipient(t, store, from, common.Address{}, sentAt, nonce, gasPrice)
+}
+
+// CreateTxWithNonceGasPriceAndRecipient creates a Tx from a specified sender, recipient, sentAt, nonce and gas price
+func CreateTxWithNonceGasPriceAndRecipient(
+	t testing.TB,
+	store *strpkg.Store,
+	from common.Address,
+	to common.Address,
+	sentAt uint64,
+	nonce uint64,
+	gasPrice int64,
 ) *models.Tx {
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
 
-	transaction := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), data)
+	transaction := types.NewTransaction(nonce, to, big.NewInt(0), 250000, big.NewInt(gasPrice), data)
 	tx := &models.Tx{
 		From:        from,
 		SentAt:      sentAt,
@@ -423,6 +437,13 @@ func NewLink(t *testing.T, amount string) *assets.Link {
 	link, ok := link.SetString(amount, 10)
 	assert.True(t, ok)
 	return link
+}
+
+func NewEth(t *testing.T, amount string) *assets.Eth {
+	eth := assets.NewEth(0)
+	eth, ok := eth.SetString(amount, 10)
+	assert.True(t, ok)
+	return eth
 }
 
 func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
