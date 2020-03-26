@@ -439,7 +439,7 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave"],
     "threshold": 1,
-    "compare_offchain": "https://www.coingecko.com/en/coins/busd/eth",
+    "compare_offchain": "https://nomics.com/markets/busd-binance-usd/eth-ethereum",
     "listing": true
   },
   {
