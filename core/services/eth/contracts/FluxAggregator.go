@@ -3,7 +3,6 @@ package contracts
 import (
 	"math/big"
 
-	"chainlink/core/assets"
 	"chainlink/core/eth"
 	ethsvc "chainlink/core/services/eth"
 
@@ -74,12 +73,12 @@ func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connecte
 }
 
 type FluxAggregatorRoundState struct {
-	ReportableRoundID uint32       `abi:"_reportableRoundId"`
-	EligibleToSubmit  bool         `abi:"_eligibleToSubmit"`
-	LatestAnswer      *big.Int     `abi:"_latestRoundAnswer"`
-	TimesOutAt        uint64       `abi:"_timesOutAt"`
-	AvailableFunds    *assets.Link `abi:"_availableFunds"`
-	PaymentAmount     *assets.Link `abi:"_paymentAmount"`
+	ReportableRoundID uint32   `abi:"_reportableRoundId"`
+	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
+	LatestAnswer      *big.Int `abi:"_latestRoundAnswer"`
+	TimesOutAt        uint64   `abi:"_timesOutAt"`
+	AvailableFunds    *big.Int `abi:"_availableFunds"`
+	PaymentAmount     *big.Int `abi:"_paymentAmount"`
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
