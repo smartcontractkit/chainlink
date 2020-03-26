@@ -55,19 +55,6 @@ services:
       - TYPEORM_HOST
       - PGPASSWORD=$EXPLORER_PGPASSWORD
 
-  ingester:
-    container_name: ingester
-    image: chainlink/ingester
-    build:
-      context: ../../
-      dockerfile: ingester/ingester.Dockerfile
-    restart: always
-    environment:
-      - ETH_CHAIN_ID
-      - ETH_URL
-    depends_on:
-      - explorer
-
   explorer-db:
     container_name: chainlink-explorer-db
     image: postgres:11.6

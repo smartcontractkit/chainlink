@@ -6,16 +6,9 @@ if (process.env.NODE_ENV !== 'test') {
   )
 }
 
-const TRUNCATE_TABLES: string[] = [
-  'admin',
-  'chainlink_node',
-  'ethereum_head',
-  'ethereum_log',
-]
-
 export const clearDb = async () => {
   const db = await getDb()
   if (db) {
-    await db.query(`TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`)
+    await db.query(`TRUNCATE TABLE admin, chainlink_node CASCADE`)
   }
 }

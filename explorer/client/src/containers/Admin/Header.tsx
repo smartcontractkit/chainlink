@@ -12,7 +12,6 @@ import { AdminLogo } from '../../components/Logos/Admin'
 import Header from '../../components/Header'
 import AvatarMenu from '../../components/AvatarMenu'
 import AvatarMenuItem from '../../components/AvatarMenuItem'
-import Link from '../../components/Link'
 import { AppState } from '../../reducers'
 
 const styles = ({ palette, spacing }: Theme) =>
@@ -27,21 +26,6 @@ const styles = ({ palette, spacing }: Theme) =>
     link: {
       color: palette.common.white,
       textDecoration: 'none',
-    },
-    menu: {
-      display: 'inline-block',
-      listStyle: 'none',
-      marginRight: spacing.unit * 2,
-      float: 'right',
-    },
-    menuItem: {
-      display: 'inline',
-      marginRight: spacing.unit * 2,
-      '&::after': {
-        content: "'|'",
-        color: palette.grey[400],
-        marginLeft: spacing.unit * 2,
-      },
     },
   })
 
@@ -68,26 +52,13 @@ export const AdminHeader: React.FC<Props> = ({ classes, onHeaderResize }) => {
           <AdminLogo className={classes.logo} width={200} />
         </Grid>
         <Grid item xs={6}>
-          <Grid container justify="flex-end">
-            <Grid item xs={12}>
-              <AvatarMenu className={classes.avatar}>
-                <AvatarMenuItem>
-                  <a href="/admin/signout" className={classes.link}>
-                    Sign Out
-                  </a>
-                </AvatarMenuItem>
-              </AvatarMenu>
-
-              <ul className={classes.menu}>
-                <li className={classes.menuItem}>
-                  <Link to="/admin/operators">Operators</Link>
-                </li>
-                <li className={classes.menuItem}>
-                  <Link to="/admin/heads">Heads</Link>
-                </li>
-              </ul>
-            </Grid>
-          </Grid>
+          <AvatarMenu className={classes.avatar}>
+            <AvatarMenuItem>
+              <a href="/admin/signout" className={classes.link}>
+                Sign Out
+              </a>
+            </AvatarMenuItem>
+          </AvatarMenu>
         </Grid>
       </Grid>
     </Header>

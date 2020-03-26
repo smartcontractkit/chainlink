@@ -5,5 +5,5 @@
     "resolveJsonModule": true,
     "strictNullChecks": false
   },
-  "include": ["src/**/*.ts", "src/**/*.json", "ormconfig.json"]
+  "include": ["src", "src/**/*.json", "ormconfig.json"]
 }

@@ -70,7 +70,6 @@ export type FetchAdminOperatorsErrorAction = {
 /**
  * FETCH_ADMIN_OPERATOR_SUCCEEDED
  */
-
 export interface AdminOperatorNormalizedMeta {
   node: {
     data: any[]
@@ -85,67 +84,6 @@ export interface AdminOperatorNormalizedData {
 export type FetchAdminOperatorSucceededAction = {
   type: 'FETCH_ADMIN_OPERATOR_SUCCEEDED'
   data: AdminOperatorNormalizedData
-}
-
-/**
- * FETCH_ADMIN_HEADS_SUCCEEDED
- */
-
-export type FetchAdminHeadsSucceededAction = {
-  type: 'FETCH_ADMIN_HEADS_SUCCEEDED'
-  data: AdminHeadsNormalizedData
-}
-
-export interface AdminHeadsNormalizedMeta {
-  currentPageHeads: {
-    data: any[]
-    meta: {
-      count: number
-    }
-  }
-}
-
-export interface AdminHeadsNormalizedData {
-  heads: any
-  meta: AdminHeadsNormalizedMeta
-}
-
-/**
- * FETCH_ADMIN_HEADS_ERROR
- */
-
-export type FetchAdminHeadsErrorAction = {
-  type: 'FETCH_ADMIN_HEADS_ERROR'
-  error: Error
-}
-
-/**
- * FETCH_ADMIN_HEAD_SUCCEEDED
- */
-
-export interface AdminHeadNormalizedMeta {
-  node: {
-    data: any[]
-  }
-}
-
-export interface AdminHeadNormalizedData {
-  heads: any
-  meta: AdminHeadNormalizedMeta
-}
-
-export type FetchAdminHeadSucceededAction = {
-  type: 'FETCH_ADMIN_HEAD_SUCCEEDED'
-  data: AdminHeadNormalizedData
-}
-
-/**
- * FETCH_ADMIN_HEAD_ERROR
- */
-
-export type FetchAdminHeadErrorAction = {
-  type: 'FETCH_ADMIN_HEAD_ERROR'
-  error: Error
 }
 
 /**
@@ -205,10 +143,6 @@ export type Actions =
   | FetchAdminOperatorsSucceededAction
   | FetchAdminOperatorsErrorAction
   | FetchAdminOperatorSucceededAction
-  | FetchAdminHeadsSucceededAction
-  | FetchAdminHeadsErrorAction
-  | FetchAdminHeadSucceededAction
-  | FetchAdminHeadErrorAction
   | FetchJobRunsSucceededAction
   | FetchJobRunSucceededAction
   | UpdateQueryAction

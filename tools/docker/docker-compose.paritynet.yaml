@@ -11,7 +11,6 @@ services:
     command: --config /devnet/miner.toml --db-path /devnet/database
     ports:
       - 8545:8545
-      - 8546:8546
     volumes:
       - parity-db-data:/devnet/database
 volumes:
