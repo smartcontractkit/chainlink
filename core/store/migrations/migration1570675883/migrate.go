@@ -1,8 +1,8 @@
 package migration1570675883
 
 import (
-	"github.com/jinzhu/gorm"
 	"chainlink/core/store/models"
+	"github.com/jinzhu/gorm"
 )
 
 type JobRun struct {

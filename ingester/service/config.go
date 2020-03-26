@@ -15,8 +15,16 @@ type Config struct {
 	NetworkID int `mapstructure:"eth-chain-id"`
 	// EthereumURL is the websocket endpoint the monitor uses to watch the aggregator contracts
 	EthereumURL string `mapstructure:"eth-url"`
-	// DatabaseURL is the url of the postgres server where the ingester saves results
-	DatabaseURL string `mapstructure:"db-url"`
+	// DatabaseHost of the postgres server where the ingester saves results
+	DatabaseHost string `mapstructure:"db-host"`
+	// DatabaseName of the postgres server where the ingester saves results
+	DatabaseName string `mapstructure:"db-name"`
+	// DatabasePort of the postgres server where the ingester saves results
+	DatabasePort int `mapstructure:"db-port"`
+	// DatabaseUsername of the postgres server where the ingester saves results
+	DatabaseUsername string `mapstructure:"db-username"`
+	// DatabasePassword of the postgres server where the ingester saves results
+	DatabasePassword string `mapstructure:"db-password"`
 }
 
 // NewConfig will return an instantiated config based on the passed in defaults
@@ -40,7 +48,11 @@ func DefaultConfig() *Config {
 		"response-timeout": time.Minute * 5,
 		"eth-chain-id":     1,
 		"eth-url":          "ws://localhost:8545",
-		"db-url":           "postgres://localhost:5432/explorer?sslmode=disable",
+		"db-host":          "localhost",
+		"db-name":          "explorer",
+		"db-port":          "5432",
+		"db-username":      "postgres",
+		"db-password":      "postgres",
 	})
 }
 
