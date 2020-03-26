@@ -46,6 +46,8 @@ if [ -n "${version_tag}" ]; then
   # if version tag, also push latest.
   # ie: after pushing smartcontract/explorer:0.6.9, also update smartcontract/explorer:latest
   tag_and_push latest
-else
+elif [ -n "$branch_tag" ]; then
   tag_and_push "$branch_tag"
+else
+  echo "Skipping publishing for this branch/tag."
 fi
