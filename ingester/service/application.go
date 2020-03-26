@@ -33,15 +33,31 @@ func NewApplication(config *Config) (*Application, error) {
 	logger.Infow(
 		"Starting the Chainlink Ingester",
 		"eth-url", config.EthereumURL,
-		"db-url", config.DatabaseURL,
-		"eth-chain-id", config.NetworkID)
+		"eth-chain-id", config.NetworkID,
+		"db-host", config.DatabaseHost,
+		"db-name", config.DatabaseName,
+		"db-port", config.DatabasePort,
+		"db-username", config.DatabaseUsername,
+	)
 
 	ec, err := client.NewClient(config.EthereumURL)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to ETH client: %+v", err)
 	}
 
-	pool, err := sql.Open("postgres", config.DatabaseURL)
+	psqlInfo := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		config.DatabaseHost,
+		config.DatabasePort,
+		config.DatabaseUsername,
+		config.DatabasePassword,
+		config.DatabaseName,
+	)
+	db, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Ping()
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +81,7 @@ func NewApplication(config *Config) (*Application, error) {
 			}
 
 			logger.Debugw("Oberved new log", "blockHash", log.BlockHash, "index", log.Index, "removed", log.Removed)
-			_, err := pool.Exec(`INSERT INTO "ethereum_log" ("address", "topics", "data", "blockNumber", "txHash", "txIndex", "blockHash", "index", "removed") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			_, err := db.Exec(`INSERT INTO "ethereum_log" ("address", "topics", "data", "blockNumber", "txHash", "txIndex", "blockHash", "index", "removed") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 				address,
 				topics,
 				log.Data,
@@ -94,7 +110,7 @@ func NewApplication(config *Config) (*Application, error) {
 			copy(nonce, head.Nonce[:])
 
 			logger.Debugw("Observed new head", "blockHeight", head.Number, "blockHash", head.Hash())
-			_, err := pool.Exec(`INSERT INTO "ethereum_head" ("blockHash", "parentHash", "uncleHash", "coinbase", "root", "txHash", "receiptHash", "bloom", "difficulty", "number", "gasLimit", "gasUsed", "time", "extra", "mixDigest", "nonce") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);`,
+			_, err := db.Exec(`INSERT INTO "ethereum_head" ("blockHash", "parentHash", "uncleHash", "coinbase", "root", "txHash", "receiptHash", "bloom", "difficulty", "number", "gasLimit", "gasUsed", "time", "extra", "mixDigest", "nonce") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);`,
 				head.Hash().Bytes(),
 				head.ParentHash,
 				head.UncleHash,
