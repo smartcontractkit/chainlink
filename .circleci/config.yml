@@ -412,6 +412,9 @@ workflows:
             - styleguide
             - json-api-client
             - explorer
+          filters:
+            tags:
+              only: /^v.*/
       - build-chainlink-sgx:
           filters:
             tags:
@@ -428,6 +431,9 @@ workflows:
             - json-api-client
             - operator-ui
             - rust
+          filters:
+            tags:
+              only: /^v.*/
       - reportcoverage:
           requires:
             - go-postgres
