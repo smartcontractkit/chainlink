@@ -426,6 +426,23 @@
     "listing": true
   },
   {
+    "contractAddress": "0x5d4BB541EED49D0290730b4aB332aA46bd27d888",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "name": "BUSD / ETH",
+    "valuePrefix": "Ξ",
+    "pair": ["BUSD", "ETH"],
+    "path": "busd-eth",
+    "networkId": 1,
+    "history": false,
+    "decimalPlaces": 9,
+    "multiply": "1000000000000000000",
+    "sponsored": ["Aave"],
+    "threshold": 1,
+    "compare_offchain": "https://www.coingecko.com/en/coins/busd/eth",
+    "listing": true
+  },
+  {
     "contractAddress": "0x6d626Ff97f0E89F6f983dE425dc5B24A18DE26Ea",
     "contractType": "aggregator",
     "contractVersion": 2,
