@@ -674,15 +674,24 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function roundState(address _oracle)
     external
     view
-    returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt)
+    returns (
+      uint32 _reportableRoundId,
+      bool _eligibleToSubmit,
+      int256 _latestRoundAnswer,
+      uint64 _timesOutAt,
+      uint128 _availableFunds,
+      uint128 _paymentAmount
+    )
   {
     bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
-    uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
+    _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
-      reportableRoundId,
-      eligibleToSubmit(_oracle, reportableRoundId, finishedOrTimedOut),
+      _reportableRoundId,
+      eligibleToSubmit(_oracle, _reportableRoundId, finishedOrTimedOut),
       rounds[latestRoundId].answer,
-      finishedOrTimedOut ? 0 : rounds[reportableRoundId].startedAt + rounds[reportableRoundId].details.timeout
+      finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
+      availableFunds,
+      rounds[_reportableRoundId].details.paymentAmount
     );
   }
 
