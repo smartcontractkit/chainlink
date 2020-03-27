@@ -77,6 +77,8 @@ type FluxAggregatorRoundState struct {
 	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
 	LatestAnswer      *big.Int `abi:"_latestRoundAnswer"`
 	TimesOutAt        uint64   `abi:"_timesOutAt"`
+	AvailableFunds    *big.Int `abi:"_availableFunds"`
+	PaymentAmount     *big.Int `abi:"_paymentAmount"`
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
