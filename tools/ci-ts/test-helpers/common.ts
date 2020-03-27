@@ -225,17 +225,19 @@ export async function txWait(
  * @param contract contract to watch for events on
  * @param listenTo event or list of events to listen to
  */
-export async function logEvents(
+export function logEvents(
   contract: ethers.Contract,
   contractName: string,
   listenTo: string | string[] = [],
 ) {
   const listenToArr = Array.isArray(listenTo) ? listenTo : [listenTo]
-  assert.containsAllKeys(
-    contract.interface.events,
-    listenToArr,
-    'contract does not have requested event type',
-  )
+  if (listenTo.length > 0) {
+    assert.containsAllKeys(
+      contract.interface.events,
+      listenToArr,
+      'contract does not have requested event type',
+    )
+  }
 
   // holds the contract's events, keys are the sha256 of the event signature
   const eventsByTopic: {

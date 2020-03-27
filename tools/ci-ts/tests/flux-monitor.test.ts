@@ -6,6 +6,8 @@ import ChainlinkClient from '../test-helpers/chainlinkClient'
 import fluxMonitorJobTemplate from '../fixtures/flux-monitor-job'
 import * as t from '../test-helpers/common'
 
+jest.unmock('execa').unmock('dockerode')
+
 const {
   NODE_1_CONTAINER,
   NODE_2_CONTAINER,
@@ -74,6 +76,7 @@ async function assertAggregatorValues(
     fluxAggregator.latestSubmission(node1Address).then(res => res[1]),
     fluxAggregator.latestSubmission(node2Address).then(res => res[1]),
   ])
+
   matchers.bigNum(latestAnswer, la, `${msg} : latest answer`)
   matchers.bigNum(latestRound, lr, `${msg} : latest round`)
   matchers.bigNum(reportingRound, rr, `${msg} : reporting round`)
@@ -89,16 +92,19 @@ async function assertLatestAnswerEq(n: number) {
 }
 
 beforeAll(async () => {
-  t.printHeading('Setup')
+  t.printHeading('Flux Monitor Test')
+
   clClient1.login()
   clClient2.login()
   node1Address = clClient1.getAdminInfo()[0].address
   node2Address = clClient2.getAdminInfo()[0].address
+
   await t.fundAddress(carol.address)
   await t.fundAddress(node1Address)
   await t.fundAddress(node2Address)
   linkToken = await linkTokenFactory.deploy()
   await linkToken.deployed()
+
   console.log(`Chainlink Node 1 address: ${node1Address}`)
   console.log(`Chainlink Node 2 address: ${node2Address}`)
   console.log(`Contract creator's address: ${carol.address}`)
@@ -116,7 +122,6 @@ beforeEach(async () => {
     ethers.utils.formatBytes32String('ETH/USD'),
   )
   await fluxAggregator.deployed()
-  t.logEvents(fluxAggregator, 'FluxAggregator', faEventsToListenTo)
   t.logEvents(fluxAggregator, 'FluxAggregator', faEventsToListenTo)
   console.log(`Deployed FluxAggregator contract: ${fluxAggregator.address}`)
 })

@@ -19,15 +19,15 @@ interface KeyInfo {
 
 export default class ChainlinkClient {
   name: string
-  chainlinkURL: string
+  clientURL: string
   container: Dockerode.Container
   rootDir: string
 
   private API_CREDENTIALS_PATH = '/run/secrets/apicredentials'
 
-  constructor(name: string, chainlinkURL: string, containerName: string) {
+  constructor(name: string, clientURL: string, containerName: string) {
     this.name = name
-    this.chainlinkURL = chainlinkURL
+    this.clientURL = clientURL
     this.container = docker.getContainer(containerName)
     this.rootDir = path.join('~', name)
   }
@@ -75,7 +75,7 @@ export default class ChainlinkClient {
   /**
    * returns the state of the docker container running this CL node
    */
-  async state(): Promise<Dockerode.ContainerInspectInfo['State']> {
+  private async state(): Promise<Dockerode.ContainerInspectInfo['State']> {
     return await this.container.inspect().then(res => res.State)
   }
 
@@ -96,7 +96,7 @@ export default class ChainlinkClient {
   private execOptions(): execa.SyncOptions {
     return {
       env: {
-        CLIENT_NODE_URL: this.chainlinkURL,
+        CLIENT_NODE_URL: this.clientURL,
         ROOT: this.rootDir,
       },
     }
