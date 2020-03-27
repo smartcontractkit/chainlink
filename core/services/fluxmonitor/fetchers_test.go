@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/guregu/null"
 	"github.com/shopspring/decimal"
@@ -17,6 +18,7 @@ import (
 // external adapters.
 // https://github.com/smartcontractkit/price-adapters
 const ethUSDPairing = `{"data":{"coin":"ETH","market":"USD"}}`
+const defaultHTTPTimeout = 15 * time.Second
 
 func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 	tests := []struct {

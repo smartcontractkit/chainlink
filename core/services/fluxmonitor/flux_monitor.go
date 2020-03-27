@@ -26,13 +26,6 @@ import (
 //go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
-// defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
-const defaultHTTPTimeout = 5 * time.Second
-
-// MinimumPollingInterval is the smallest possible polling interval the Flux
-// Monitor supports.
-const MinimumPollingInterval = models.Duration(defaultHTTPTimeout)
-
 type RunManager interface {
 	Create(
 		jobSpecID *models.ID,
@@ -187,7 +180,8 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"job", job.ID.String(),
 			"initr", initr.ID,
 		)
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM)
+		timeout := fm.store.Config.DefaultHTTPTimeout()
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -214,7 +208,7 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM) (DeviationChecker, error)
+	New(models.Initiator, RunManager, *orm.ORM, time.Duration) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -222,9 +216,16 @@ type pollingDeviationCheckerFactory struct {
 	logBroadcaster eth.LogBroadcaster
 }
 
-func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager, orm *orm.ORM) (DeviationChecker, error) {
-	if initr.InitiatorParams.PollingInterval < MinimumPollingInterval {
-		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", MinimumPollingInterval)
+func (f pollingDeviationCheckerFactory) New(
+	initr models.Initiator,
+	runManager RunManager,
+	orm *orm.ORM,
+	timeout time.Duration,
+) (DeviationChecker, error) {
+	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
+
+	if initr.InitiatorParams.PollingInterval < minimumPollingInterval {
+		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", minimumPollingInterval)
 	}
 
 	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
@@ -233,7 +234,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 	}
 
 	fetcher, err := newMedianFetcherFromURLs(
-		defaultHTTPTimeout,
+		timeout,
 		initr.InitiatorParams.RequestData.String(),
 		urls)
 	if err != nil {
