@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"chainlink/core/assets"
+	"chainlink/core/gracefulpanic"
 	"chainlink/core/internal/cltest"
 	"chainlink/core/store/migrations"
 	"chainlink/core/store/migrations/migration0"
@@ -30,7 +31,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	cleanupDB := cltest.PrepareTestDB(tc)
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout())
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal())
 	require.NoError(t, err)
 	orm.SetLogging(true)
 
