@@ -21,6 +21,7 @@ type ConfigSchema struct {
 	DatabaseTimeout           time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
 	DatabaseURL               string         `env:"DATABASE_URL"`
 	DefaultHTTPLimit          int64          `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
+	DefaultHTTPTimeout        time.Duration  `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	Dev                       bool           `env:"CHAINLINK_DEV" default:"false"`
 	FeatureExternalInitiators bool           `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor        bool           `env:"FEATURE_FLUX_MONITOR" default:"false"`
@@ -41,6 +42,7 @@ type ConfigSchema struct {
 	LogToDisk                 bool           `env:"LOG_TO_DISK" default:"true"`
 	LogSQLStatements          bool           `env:"LOG_SQL" default:"false"`
 	LogSQLMigrations          bool           `env:"LOG_SQL_MIGRATIONS" default:"true"`
+	DefaultMaxHTTPAttempts    uint           `env:"MAX_HTTP_ATTEMPTS" default:"5"`
 	MinIncomingConfirmations  uint32         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
 	MinOutgoingConfirmations  uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment    assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`

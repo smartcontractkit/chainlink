@@ -20,7 +20,9 @@ type ConfigReader interface {
 	ClientNodeURL() string
 	DatabaseTimeout() time.Duration
 	DatabaseURL() string
+	DefaultMaxHTTPAttempts() uint
 	DefaultHTTPLimit() int64
+	DefaultHTTPTimeout() time.Duration
 	Dev() bool
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool
