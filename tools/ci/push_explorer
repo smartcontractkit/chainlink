@@ -17,8 +17,8 @@ set -ex
 
 if [ -z "$DOCKERHUB_PASS" ]
 then
-  echo "Skipping dockerhub uploads because the necessary credentials are not present"
-  exit 0
+  echo "Cannot push to dockerhub, credentials are missing."
+  exit 1
 fi
 
 
@@ -46,6 +46,8 @@ if [ -n "${version_tag}" ]; then
   # if version tag, also push latest.
   # ie: after pushing smartcontract/explorer:0.6.9, also update smartcontract/explorer:latest
   tag_and_push latest
-else
+elif [ -n "$branch_tag" ]; then
   tag_and_push "$branch_tag"
+else
+  echo "Skipping publishing for this branch/tag."
 fi
