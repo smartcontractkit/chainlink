@@ -20,6 +20,11 @@ type JSONParse struct {
 	Path JSONPath `json:"path"`
 }
 
+// TaskType returns the type of Adapter.
+func (jpa *JSONParse) TaskType() models.TaskType {
+	return TaskTypeJSONParse
+}
+
 // Perform returns the value associated to the desired field for a
 // given JSON object.
 //

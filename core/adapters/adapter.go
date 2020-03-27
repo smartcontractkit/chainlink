@@ -52,6 +52,7 @@ var (
 // BaseAdapter is the minimum interface required to create an adapter. Only core
 // adapters have this minimum requirement.
 type BaseAdapter interface {
+	TaskType() models.TaskType
 	Perform(models.RunInput, *store.Store) models.RunOutput
 }
 

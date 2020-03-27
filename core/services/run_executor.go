@@ -12,6 +12,17 @@ import (
 	"chainlink/core/store/orm"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	promAdapterCallsVec = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "adapter_perform_complete_total",
+		Help: "The total number of adapters which have completed",
+	},
+		[]string{"job_spec_id", "task_type", "status"},
+	)
 )
 
 //go:generate mockery -name RunExecutor -output ../internal/mocks/ -case=underscore
@@ -121,5 +132,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 
 	input := *models.NewRunInput(run.ID, data, taskRun.Status)
 	result := adapter.Perform(input, re.store)
+	promAdapterCallsVec.WithLabelValues(run.JobSpecID.String(), string(adapter.TaskType()), string(result.Status())).Inc()
+
 	return result
 }
