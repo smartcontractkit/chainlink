@@ -1,9 +1,20 @@
 import React, { useEffect, useRef } from 'react'
 import { Icon } from 'antd'
 import DeviationHistoryD3 from './DeviationGraph.d3'
+import { FeedConfig } from 'feeds'
 
-function DeviationHistory({ answerHistory, config }) {
-  const graph = useRef()
+interface StateProps {
+  answerHistory: any
+}
+
+interface OwnProps {
+  config: FeedConfig
+}
+
+export interface Props extends StateProps, OwnProps {}
+
+const DeviationHistory: React.FC<Props> = ({ answerHistory, config }) => {
+  const graph = useRef<any>()
 
   useEffect(() => {
     graph.current = new DeviationHistoryD3(config)

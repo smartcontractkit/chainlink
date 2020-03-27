@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Table, Icon } from 'antd'
+import { ColumnProps } from 'antd/lib/table'
 import { humanizeUnixTimestamp } from 'utils'
+import { connect } from 'react-redux'
+import {
+  aggregatorSelectors,
+  aggregatorOperations,
+} from 'state/ducks/aggregator'
+import { AppState } from 'state'
 
 interface StateProps {
   fetchEthGasPrice: any
@@ -36,7 +43,7 @@ const OracleTable: React.FC<Props> = ({
     setData(latestOraclesState)
   }, [latestOraclesState])
 
-  const columns = [
+  const columns: ColumnProps<any>[] = [
     {
       title: 'Oracle',
       dataIndex: 'name',
@@ -97,4 +104,13 @@ const OracleTable: React.FC<Props> = ({
   )
 }
 
-export default OracleTable
+const mapStateToProps = (state: AppState) => ({
+  ethGasPrice: state.aggregator.ethGasPrice,
+  latestOraclesState: aggregatorSelectors.latestOraclesState(state),
+})
+
+const mapDispatchToProps = {
+  fetchEthGasPrice: aggregatorOperations.fetchEthGasPrice,
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(OracleTable)

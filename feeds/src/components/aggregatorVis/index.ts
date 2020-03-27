@@ -1,1 +1,1 @@
-export { default as AggregatorVis } from './AggregatorVis.enhanced'
+export { default as AggregatorVis } from './AggregatorVis'
