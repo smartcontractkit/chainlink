@@ -3,7 +3,10 @@
 package mocks
 
 import (
+	assets "chainlink/core/assets"
+
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
+
 	common "github.com/ethereum/go-ethereum/common"
 
 	contracts "chainlink/core/services/eth/contracts"
@@ -72,6 +75,29 @@ func (_m *FluxAggregator) EncodeMessageCall(method string, args ...interface{}) 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string, ...interface{}) error); ok {
 		r1 = rf(method, args...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetAvailableFunds provides a mock function with given fields:
+func (_m *FluxAggregator) GetAvailableFunds() (*assets.Link, error) {
+	ret := _m.Called()
+
+	var r0 *assets.Link
+	if rf, ok := ret.Get(0).(func() *assets.Link); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*assets.Link)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}

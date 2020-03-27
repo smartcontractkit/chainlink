@@ -573,8 +573,9 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	}
 	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
 
-	if !roundState.EligibleToSubmit {
-		logger.Infow("Ignoring new round request: not eligible to submit", p.loggerFieldsForNewRound(log)...)
+	err = p.checkEligibilityAndAggregatorFunding(roundState)
+	if err != nil {
+		logger.Infow(fmt.Sprintf("Ignoring new round request: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
@@ -601,42 +602,54 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	p.createJobRun(polledAnswer, p.reportableRoundID)
 }
 
-// poll walks through the steps to check for a deviation, early exiting if deviation
-// is not met, or triggering a new job run if deviation is met.
-// Only invoked by the CSP consumer on the single goroutine for thread safety.
+func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
+	if !roundState.EligibleToSubmit {
+		return errors.New("not eligible to submit")
+	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
+		return errors.New("aggregator is underfunded")
+	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
+		return errors.New("round payment amount < minimum contract payment")
+	}
+	return nil
+}
+
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
+	loggerFields := []interface{}{
+		"jobID", p.initr.JobSpecID,
+		"address", p.initr.InitiatorParams.Address,
+		"threshold", threshold,
+	}
+
 	if p.connected.Get() == false {
-		logger.Warn("not connected to Ethereum node, skipping poll")
+		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
 		return false
 	}
 
 	roundState, err := p.roundState()
 	if err != nil {
-		logger.Errorf("unable to determine eligibility to submit from FluxAggregator contract: %v", err)
+		logger.Errorw(fmt.Sprintf("unable to determine eligibility to submit from FluxAggregator contract: %v", err), loggerFields...)
 		return false
 	}
+	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
 
 	// It's pointless to listen to logs from before the current reporting round
 	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
 
 	// If we've already submitted an answer for this round, but the tx is still pending, don't resubmit
 	if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
-		logger.Infow(fmt.Sprintf("already submitted for round %v, tx is still pending", roundState.ReportableRoundID),
-			"jobID", p.initr.JobSpecID,
-		)
+		logger.Infow(fmt.Sprintf("already submitted for round %v, tx is still pending", roundState.ReportableRoundID), loggerFields...)
 		return false
 	}
 
-	if !roundState.EligibleToSubmit {
-		logger.Infow("not eligible to submit, skipping poll",
-			"jobID", p.initr.JobSpecID,
-		)
+	err = p.checkEligibilityAndAggregatorFunding(roundState)
+	if err != nil {
+		logger.Infow(fmt.Sprintf("skipping poll: %v", err), loggerFields...)
 		return false
 	}
 
 	polledAnswer, err := p.fetcher.Fetch()
 	if err != nil {
-		logger.Errorf("can't fetch answer: %v", err)
+		logger.Errorw(fmt.Sprintf("can't fetch answer: %v", err), loggerFields...)
 		return false
 	}
 
@@ -644,29 +657,25 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
 
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestAnswer, -p.precision)
+
+	loggerFields = append(loggerFields,
+		"latestAnswer", latestAnswer,
+		"polledAnswer", polledAnswer,
+	)
 	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
-		logger.Debugw("deviation < threshold, not submitting",
-			"latestAnswer", latestAnswer,
-			"polledAnswer", polledAnswer,
-			"threshold", threshold,
-		)
+		logger.Debugw("deviation < threshold, not submitting", loggerFields...)
 		return false
 	}
 
-	var logMessage string
 	if roundState.ReportableRoundID > 1 {
-		logMessage = "deviation > threshold, starting new round"
+		logger.Infow("deviation > threshold, starting new round", loggerFields...)
 	} else {
-		logMessage = "starting first round"
+		logger.Infow("starting first round", loggerFields...)
 	}
-	logger.Infow(logMessage,
-		"reportableRound", roundState.ReportableRoundID,
-		"address", p.initr.Address.Hex(),
-		"jobID", p.initr.JobSpecID,
-	)
+
 	err = p.createJobRun(polledAnswer, p.reportableRoundID)
 	if err != nil {
-		logger.Errorf("can't create job run: %v", err)
+		logger.Errorw(fmt.Sprintf("can't create job run: %v", err), loggerFields...)
 		return false
 	}
 

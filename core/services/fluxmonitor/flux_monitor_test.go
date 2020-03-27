@@ -113,31 +113,52 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 		name             string
 		eligible         bool
 		connected        bool
+		funded           bool
 		threshold        float64
 		latestAnswer     int64
 		polledAnswer     int64
 		expectedToPoll   bool
 		expectedToSubmit bool
 	}{
-		{"eligible, connected, threshold > 0, answers deviate", true, true, 0.1, 1, 100, true, true},
-		{"eligible, connected, threshold > 0, answers do not deviate", true, true, 0.1, 100, 100, true, false},
-		{"eligible, connected, threshold == 0, answers deviate", true, true, 0, 1, 100, true, true},
-		{"eligible, connected, threshold == 0, answers do not deviate", true, true, 0, 1, 100, true, true},
+		{"eligible, connected, funded, threshold > 0, answers deviate", true, true, true, 0.1, 1, 100, true, true},
+		{"eligible, connected, funded, threshold > 0, answers do not deviate", true, true, true, 0.1, 100, 100, true, false},
+		{"eligible, connected, funded, threshold == 0, answers deviate", true, true, true, 0, 1, 100, true, true},
+		{"eligible, connected, funded, threshold == 0, answers do not deviate", true, true, true, 0, 1, 100, true, true},
 
-		{"eligible, disconnected, threshold > 0, answers deviate", true, false, 0.1, 1, 100, false, false},
-		{"eligible, disconnected, threshold > 0, answers do not deviate", true, false, 0.1, 100, 100, false, false},
-		{"eligible, disconnected, threshold == 0, answers deviate", true, false, 0, 1, 100, false, false},
-		{"eligible, disconnected, threshold == 0, answers do not deviate", true, false, 0, 1, 100, false, false},
+		{"eligible, disconnected, funded, threshold > 0, answers deviate", true, false, true, 0.1, 1, 100, false, false},
+		{"eligible, disconnected, funded, threshold > 0, answers do not deviate", true, false, true, 0.1, 100, 100, false, false},
+		{"eligible, disconnected, funded, threshold == 0, answers deviate", true, false, true, 0, 1, 100, false, false},
+		{"eligible, disconnected, funded, threshold == 0, answers do not deviate", true, false, true, 0, 1, 100, false, false},
 
-		{"ineligible, connected, threshold > 0, answers deviate", false, true, 0.1, 1, 100, false, false},
-		{"ineligible, connected, threshold > 0, answers do not deviate", false, true, 0.1, 100, 100, false, false},
-		{"ineligible, connected, threshold == 0, answers deviate", false, true, 0, 1, 100, false, false},
-		{"ineligible, connected, threshold == 0, answers do not deviate", false, true, 0, 1, 100, false, false},
+		{"ineligible, connected, funded, threshold > 0, answers deviate", false, true, true, 0.1, 1, 100, false, false},
+		{"ineligible, connected, funded, threshold > 0, answers do not deviate", false, true, true, 0.1, 100, 100, false, false},
+		{"ineligible, connected, funded, threshold == 0, answers deviate", false, true, true, 0, 1, 100, false, false},
+		{"ineligible, connected, funded, threshold == 0, answers do not deviate", false, true, true, 0, 1, 100, false, false},
 
-		{"ineligible, disconnected, threshold > 0, answers deviate", false, false, 0.1, 1, 100, false, false},
-		{"ineligible, disconnected, threshold > 0, answers do not deviate", false, false, 0.1, 100, 100, false, false},
-		{"ineligible, disconnected, threshold == 0, answers deviate", false, false, 0, 1, 100, false, false},
-		{"ineligible, disconnected, threshold == 0, answers do not deviate", false, false, 0, 1, 100, false, false},
+		{"ineligible, disconnected, funded, threshold > 0, answers deviate", false, false, true, 0.1, 1, 100, false, false},
+		{"ineligible, disconnected, funded, threshold > 0, answers do not deviate", false, false, true, 0.1, 100, 100, false, false},
+		{"ineligible, disconnected, funded, threshold == 0, answers deviate", false, false, true, 0, 1, 100, false, false},
+		{"ineligible, disconnected, funded, threshold == 0, answers do not deviate", false, false, true, 0, 1, 100, false, false},
+
+		{"eligible, connected, underfunded, threshold > 0, answers deviate", true, true, false, 0.1, 1, 100, false, false},
+		{"eligible, connected, underfunded, threshold > 0, answers do not deviate", true, true, false, 0.1, 100, 100, false, false},
+		{"eligible, connected, underfunded, threshold == 0, answers deviate", true, true, false, 0, 1, 100, false, false},
+		{"eligible, connected, underfunded, threshold == 0, answers do not deviate", true, true, false, 0, 1, 100, false, false},
+
+		{"eligible, disconnected, underfunded, threshold > 0, answers deviate", true, false, false, 0.1, 1, 100, false, false},
+		{"eligible, disconnected, underfunded, threshold > 0, answers do not deviate", true, false, false, 0.1, 100, 100, false, false},
+		{"eligible, disconnected, underfunded, threshold == 0, answers deviate", true, false, false, 0, 1, 100, false, false},
+		{"eligible, disconnected, underfunded, threshold == 0, answers do not deviate", true, false, false, 0, 1, 100, false, false},
+
+		{"ineligible, connected, underfunded, threshold > 0, answers deviate", false, true, false, 0.1, 1, 100, false, false},
+		{"ineligible, connected, underfunded, threshold > 0, answers do not deviate", false, true, false, 0.1, 100, 100, false, false},
+		{"ineligible, connected, underfunded, threshold == 0, answers deviate", false, true, false, 0, 1, 100, false, false},
+		{"ineligible, connected, underfunded, threshold == 0, answers do not deviate", false, true, false, 0, 1, 100, false, false},
+
+		{"ineligible, disconnected, underfunded, threshold > 0, answers deviate", false, false, false, 0.1, 1, 100, false, false},
+		{"ineligible, disconnected, underfunded, threshold > 0, answers do not deviate", false, false, false, 0.1, 100, 100, false, false},
+		{"ineligible, disconnected, underfunded, threshold == 0, answers deviate", false, false, false, 0, 1, 100, false, false},
+		{"ineligible, disconnected, underfunded, threshold == 0, answers do not deviate", false, false, false, 0, 1, 100, false, false},
 	}
 
 	store, cleanup := cltest.NewStore(t)
@@ -158,10 +179,23 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			const reportableRoundID = 2
 			latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
 
+			var availableFunds *big.Int
+			var paymentAmount *big.Int
+			minPayment := store.Config.MinimumContractPayment().ToInt()
+			if test.funded {
+				availableFunds = minPayment
+				paymentAmount = minPayment
+			} else {
+				availableFunds = big.NewInt(1)
+				paymentAmount = minPayment
+			}
+
 			roundState := contracts.FluxAggregatorRoundState{
 				ReportableRoundID: reportableRoundID,
 				EligibleToSubmit:  test.eligible,
 				LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
 			}
 			fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
 
@@ -395,107 +429,204 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 	)
 
 	tests := []struct {
+		funded        bool
 		eligible      bool
 		startedBySelf bool
 		roundIDCase
 		answerCase
 	}{
-		{true, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{true, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{true, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{true, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{true, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{true, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{true, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{true, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{true, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{true, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{true, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{true, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{true, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{true, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{true, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{true, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{true, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{true, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{true, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{true, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{true, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{true, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{true, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{true, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{true, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{true, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{true, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{true, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{true, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{true, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{true, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{true, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{true, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{true, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{false, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{false, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{false, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{false, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{false, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{false, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{false, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{false, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{false, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{false, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{false, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{false, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{false, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{false, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{false, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{false, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{false, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{false, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{false, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{false, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{false, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{false, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{false, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{false, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{false, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{false, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{false, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{false, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{false, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{false, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{false, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{false, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{true, true, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{true, true, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{true, true, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{true, true, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{true, true, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{true, true, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{true, true, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{true, true, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{true, true, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{true, true, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{true, true, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{true, true, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{true, true, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{true, true, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{true, true, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{true, true, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{true, true, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{true, true, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{true, true, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{true, true, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{true, true, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{true, true, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{true, true, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{true, true, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{true, true, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{true, true, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{true, true, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{true, true, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{true, true, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{true, true, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{true, true, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{true, true, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{true, true, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{true, true, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{true, true, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{true, true, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, true, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{true, true, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{true, true, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{true, false, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{true, false, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{true, false, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{true, false, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{true, false, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{true, false, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{true, false, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{true, false, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{true, false, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{true, false, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{true, false, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{true, false, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{true, false, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{true, false, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{true, false, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{true, false, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{true, false, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{true, false, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{true, false, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{true, false, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{true, false, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{true, false, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{true, false, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{true, false, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{true, false, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{true, false, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{true, false, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{true, false, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{true, false, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{true, false, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{true, false, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{true, false, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{true, false, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{true, false, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{true, false, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{true, false, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{true, false, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{true, false, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{true, false, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{false, true, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{false, true, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{false, true, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{false, true, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{false, true, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{false, true, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{false, true, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{false, true, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{false, true, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{false, true, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{false, true, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{false, true, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{false, true, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{false, true, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{false, true, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{false, true, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{false, true, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{false, true, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{false, true, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{false, true, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{false, true, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{false, true, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{false, true, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{false, true, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{false, true, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{false, true, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{false, true, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{false, true, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{false, true, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{false, true, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{false, true, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{false, true, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{false, true, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{false, true, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{false, true, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{false, true, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, true, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{false, true, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{false, true, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{false, false, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{false, false, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{false, false, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{false, false, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{false, false, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{false, false, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{false, false, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{false, false, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{false, false, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{false, false, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{false, false, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{false, false, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{false, false, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{false, false, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{false, false, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{false, false, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{false, false, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{false, false, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{false, false, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{false, false, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
+		{false, false, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
+		{false, false, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
+		{false, false, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
+		{false, false, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
+		{false, false, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
+		{false, false, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
+		{false, false, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
+		{false, false, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
+		{false, false, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
+		{false, false, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
+		{false, false, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
+		{false, false, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
+		{false, false, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
+		{false, false, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
+		{false, false, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
+		{false, false, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
+		{false, false, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
+		{false, false, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
+		{false, false, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
 	}
 
 	for _, test := range tests {
@@ -510,6 +641,12 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		} else {
 			name += ", started by other"
 		}
+		if test.funded {
+			name += ", funded"
+		} else {
+			name += ", underfunded"
+		}
+
 		t.Run(name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
@@ -517,7 +654,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			nodeAddr := ensureAccount(t, store)
 
 			expectedToFetchRoundState := !test.startedBySelf
-			expectedToPoll := test.eligible && test.logRoundID >= int64(test.fetchedReportableRoundID) && expectedToFetchRoundState
+			expectedToPoll := expectedToFetchRoundState && test.eligible && test.funded && test.logRoundID >= int64(test.fetchedReportableRoundID)
 			expectedToSubmit := expectedToPoll
 
 			job := cltest.NewJobWithFluxMonitorInitiator()
@@ -529,11 +666,24 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
 
+			var availableFunds *big.Int
+			var paymentAmount *big.Int
+			minPayment := store.Config.MinimumContractPayment().ToInt()
+			if test.funded {
+				availableFunds = minPayment
+				paymentAmount = minPayment
+			} else {
+				availableFunds = big.NewInt(1)
+				paymentAmount = minPayment
+			}
+
 			if expectedToFetchRoundState {
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: test.fetchedReportableRoundID,
 					LatestAnswer:      big.NewInt(test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
 					EligibleToSubmit:  test.eligible,
+					AvailableFunds:    availableFunds,
+					PaymentAmount:     paymentAmount,
 				}, nil).Once()
 			}
 
