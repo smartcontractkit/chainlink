@@ -80,16 +80,14 @@ func TestCopy_Perform(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			input := cltest.NewRunInputWithString(t, test.input)
-			adapter := adapters.Copy{CopyPath: test.copyPath}
+		t.Run(tt.name, func(t *testing.T) {
+			input := cltest.NewRunInputWithString(t, tt.input)
+			adapter := adapters.Copy{CopyPath: tt.copyPath}
 			result := adapter.Perform(input, nil)
-			assert.Equal(t, test.wantData, result.Data().String())
-			assert.Equal(t, test.wantStatus, result.Status())
+			assert.Equal(t, tt.wantData, result.Data().String())
+			assert.Equal(t, tt.wantStatus, result.Status())
 
-			assert.Equal(t, test.wantResultError, result.Error())
+			assert.Equal(t, tt.wantResultError, result.Error())
 		})
 	}
 }
