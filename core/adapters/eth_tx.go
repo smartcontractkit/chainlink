@@ -33,6 +33,11 @@ type EthTx struct {
 	GasLimit         uint64               `json:"gasLimit"`
 }
 
+// TaskType returns the type of Adapter.
+func (e *EthTx) TaskType() models.TaskType {
+	return TaskTypeEthTx
+}
+
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.

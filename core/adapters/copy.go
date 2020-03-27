@@ -11,6 +11,11 @@ type Copy struct {
 	CopyPath JSONPath `json:"copyPath"`
 }
 
+// TaskType returns the type of Adapter.
+func (c *Copy) TaskType() models.TaskType {
+	return TaskTypeCopy
+}
+
 // Perform returns the copied values from the desired mapping within the `data` JSON object
 func (c *Copy) Perform(input models.RunInput, store *store.Store) models.RunOutput {
 	data, err := models.JSON{}.Add("result", input.Data().String())
