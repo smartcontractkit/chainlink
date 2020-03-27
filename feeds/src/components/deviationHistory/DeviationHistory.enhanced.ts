@@ -1,9 +1,9 @@
-import { compose } from 'recompose'
 import { connect } from 'react-redux'
 import DeviationHistory from './DeviationHistory.component'
+import { AppState } from 'state'
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state: AppState) => ({
   answerHistory: state.aggregator.answerHistory,
 })
 
-export default compose(connect(mapStateToProps))(DeviationHistory)
+export default connect(mapStateToProps)(DeviationHistory)
