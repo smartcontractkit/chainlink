@@ -121,7 +121,7 @@ case "$1" in
     set +e
     $ts_test run integration-ts /bin/sh -c \
       "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && yarn workspace @chainlink/ci-ts test ${@:2}"
+      && yarn workspace @chainlink/ci-ts test --runInBand ${@:2}"
     set -e
     save_test_logs
     $ts_test down -v
@@ -132,7 +132,7 @@ case "$1" in
     set +e
     $dev_ts_integration run integration-ts /bin/sh -c \
       "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && yarn workspace @chainlink/ci-ts test --verbose ${@:2}"
+      && yarn workspace @chainlink/ci-ts test --verbose --runInBand ${@:2}"
     set -e
     save_test_logs
     $dev_ts_integration down -v
