@@ -1849,4 +1849,108 @@ describe('FluxAggregator', () => {
       })
     })
   })
+
+  describe('#roundState', () => {
+    let minMax
+
+    beforeEach(async () => {
+      const oracles = [personas.Neil, personas.Nelly]
+      for (let i = 0; i < oracles.length; i++) {
+        minMax = i + 1
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(
+            oracles[i].address,
+            oracles[i].address,
+            minMax,
+            minMax,
+            rrDelay,
+          )
+      }
+    })
+
+    it('returns all of the important round information', async () => {
+      const state = await aggregator
+        .connect(personas.Nelly)
+        .roundState(personas.Nelly.address)
+      matchers.bigNum(1, state._reportableRoundId)
+      assert.equal(true, state._eligibleToSubmit)
+      matchers.bigNum(0, state._latestRoundAnswer)
+      matchers.bigNum(0, state._timesOutAt)
+      matchers.bigNum(deposit, state._availableFunds)
+      matchers.bigNum(0, state._paymentAmount) // weird that this is 0
+    })
+
+    describe('after other oracles have reported', () => {
+      beforeEach(async () => {
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      })
+
+      it('keeps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator
+          .connect(personas.Nelly)
+          .roundState(personas.Nelly.address)
+        matchers.bigNum(1, state._reportableRoundId)
+        assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(0, state._latestRoundAnswer)
+        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+        matchers.bigNum(paymentAmount, state._paymentAmount)
+      })
+    })
+
+    describe('after the oracle has reported but the others have not', () => {
+      beforeEach(async () => {
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+      })
+
+      it('keeps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator
+          .connect(personas.Nelly)
+          .roundState(personas.Nelly.address)
+        matchers.bigNum(1, state._reportableRoundId)
+        assert.equal(false, state._eligibleToSubmit)
+        // should this be $answer not 0?
+        matchers.bigNum(0, state._latestRoundAnswer)
+        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+      })
+
+      describe('and the round has timed out', () => {
+        beforeEach(async () => {
+          await h.increaseTimeBy(timeout + 1, provider)
+          await h.mineBlock(provider)
+        })
+
+        it('bumps the round ID and allows the oracle to submit', async () => {
+          const state = await aggregator
+            .connect(personas.Nelly)
+            .roundState(personas.Nelly.address)
+
+          matchers.bigNum(2, state._reportableRoundId)
+          assert.equal(true, state._eligibleToSubmit)
+          matchers.bigNum(0, state._latestRoundAnswer)
+          matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+        })
+      })
+    })
+
+    describe('when all oracles have reported', () => {
+      beforeEach(async () => {
+        const oracles = [personas.Neil, personas.Nelly]
+        for (let i = 0; i < oracles.length; i++) {
+          await aggregator.connect(oracles[i]).updateAnswer(nextRound, answer)
+        }
+      })
+
+      it('bumps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator
+          .connect(personas.Nelly)
+          .roundState(personas.Nelly.address)
+        matchers.bigNum(2, state._reportableRoundId)
+        assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(answer, state._latestRoundAnswer)
+        const expected = deposit.sub(paymentAmount).sub(paymentAmount)
+        matchers.bigNum(expected, state._availableFunds)
+      })
+    })
+  })
 })
