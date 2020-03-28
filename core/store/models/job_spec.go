@@ -195,9 +195,10 @@ const (
 type Initiator struct {
 	ID        uint `json:"id" gorm:"primary_key;auto_increment"`
 	JobSpecID *ID  `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
-	CreatedAt       time.Time `gorm:"index"`
+	CreatedAt       time.Time `json:"createdAt" gorm:"index"`
 	InitiatorParams `json:"params,omitempty"`
 	DeletedAt       null.Time `json:"-" gorm:"index"`
 }

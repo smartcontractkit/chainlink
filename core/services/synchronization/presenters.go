@@ -40,7 +40,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		ID:         p.ID.String(),
 		RunID:      p.ID.String(),
 		JobID:      p.JobSpecID.String(),
-		Status:     string(p.Status),
+		Status:     string(p.GetStatus()),
 		Error:      p.Result.ErrorMessage,
 		CreatedAt:  utils.ISO8601UTC(p.CreatedAt),
 		Payment:    p.Payment,

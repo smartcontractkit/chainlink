@@ -48,7 +48,7 @@ func TestRunExecutor_Execute(t *testing.T) {
 
 	run, err = store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusCompleted, run.Status)
+	assert.Equal(t, models.RunStatusCompleted, run.GetStatus())
 	require.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, models.RunStatusCompleted, run.TaskRuns[0].Status)
 
@@ -85,7 +85,7 @@ func TestRunExecutor_Execute_Pending(t *testing.T) {
 
 	run, err = store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.GetStatus())
 	require.Len(t, run.TaskRuns, 2)
 	assert.Equal(t, models.RunStatusCompleted, run.TaskRuns[0].Status)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[1].Status)
@@ -152,7 +152,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 
 	run, err := store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusCancelled, run.Status)
+	assert.Equal(t, models.RunStatusCancelled, run.GetStatus())
 
 	require.Len(t, run.TaskRuns, 2)
 	assert.Equal(t, models.RunStatusCancelled, run.TaskRuns[0].Status)
@@ -189,7 +189,7 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 
 	run, err := store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.GetStatus())
 	require.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[0].Status)
 }

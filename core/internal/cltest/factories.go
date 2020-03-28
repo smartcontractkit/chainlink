@@ -595,30 +595,14 @@ func EmptyCLIContext() *cli.Context {
 func NewJobRun(job models.JobSpec) models.JobRun {
 	initiator := job.Initiators[0]
 	now := time.Now()
-	run := models.JobRun{
-		ID:          models.NewID(),
-		JobSpecID:   job.ID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Initiator:   initiator,
-		InitiatorID: initiator.ID,
-		Status:      models.RunStatusInProgress,
-		TaskRuns:    make([]models.TaskRun, len(job.Tasks)),
-	}
-	for i, task := range job.Tasks {
-		run.TaskRuns[i] = models.TaskRun{
-			ID:       models.NewID(),
-			JobRunID: run.ID,
-			TaskSpec: task,
-		}
-	}
+	run := models.MakeJobRun(&job, now, &initiator, nil, &models.RunRequest{})
 	return run
 }
 
 // NewJobRunPendingBridge returns a new job run in the pending bridge state
 func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
 	run := NewJobRun(job)
-	run.Status = models.RunStatusPendingBridge
+	run.SetStatus(models.RunStatusPendingBridge)
 	run.TaskRuns[0].Status = models.RunStatusPendingBridge
 	return run
 }
@@ -626,7 +610,7 @@ func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
 // CreateJobRunWithStatus returns a new job run with the specified status that has been persisted
 func CreateJobRunWithStatus(t testing.TB, store *store.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
 	run := NewJobRun(job)
-	run.Status = status
+	run.SetStatus(status)
 	require.NoError(t, store.CreateJobRun(&run))
 	return run
 }
