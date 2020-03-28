@@ -23,6 +23,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
+	"github.com/fatih/color"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -53,7 +55,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	require.NotEmpty(t, versions.gethVersion,
 		`version DB should have a "GETH_VERSION:" line`)
 	require.Equal(t, versions.gethVersion, gethParams.Version,
-		"please re-run `go generate` in core/services/vrf")
+		color.HiRedString(boxOutput("please re-run `go generate ./core/services/vrf` and commit the changes")))
 	for _, contractVersionInfo := range versions.contractVersions {
 		compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			t, contractVersionInfo)
@@ -99,10 +101,11 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	hashMsg := string(abiBytes+binBytes) + "\n" // newline from <<< in record_versions.sh
 	_, err = io.WriteString(hasher, hashMsg)
 	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
-	recompileCommand := fmt.Sprintf("`%s && go generate`", compileCommand(t))
-	assert.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
-		"compiler artifact %s has changed; please rerun %s for the vrf package",
-		apath, recompileCommand)
+	recompileCommand := color.HiRedString(fmt.Sprintf("`%s && go generate`", compileCommand(t)))
+	// These outputs are huge, so silence them by assert.True on explicit equality
+	assert.True(t, versionInfo.hash == fmt.Sprintf("%x", hasher.Sum(nil)),
+		boxOutput("compiler artifact %s has changed; please rerun \n%s\nand commit the changes",
+			apath, recompileCommand))
 
 	var artifact struct {
 		Sources map[string]string `json:"sourceCodes"`
@@ -118,9 +121,10 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			sourcePath = filepath.Join(contractPath, sourcePath)
 			actualSource, err := ioutil.ReadFile(sourcePath)
 			require.NoError(t, err, "could not read "+sourcePath)
-			assert.Equal(t, string(actualSource), sourceCode,
-				"%s has changed; please rerun %s for the vrf package",
-				sourcePath, recompileCommand)
+			// These outputs are huge, so silence them by assert.True on explicit equality
+			assert.True(t, string(actualSource) == sourceCode,
+				boxOutput("Change detected in %s,\nwhich is a dependency of %s.\n\nFor the vrf package, please rerun \n%s\n and commit the changes",
+					sourcePath, versionInfo.compilerArtifactPath, recompileCommand))
 		}
 	}
 }
@@ -216,5 +220,30 @@ func compileCommand(t *testing.T) string {
 		}
 		panic(err)
 	}
-	return string(cmd)
+	return strings.Trim(string(cmd), "\n")
+}
+
+func boxOutput(s string, args ...interface{}) string {
+	s = fmt.Sprintf(s, args...)
+	lines := strings.Split(s, "\n")
+	maxlen := 0
+	for _, line := range lines {
+		if len(line) > maxlen {
+			maxlen = len(line)
+		}
+	}
+	internalLength := maxlen + 4
+	rv := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
+	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	readme := strings.Repeat("README ", maxlen/7)
+	rv += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	for _, line := range lines {
+		rv += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
+	}
+	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	rv += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	return "\n" + rv + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
+		"\n\n"
 }
