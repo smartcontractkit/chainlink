@@ -326,17 +326,21 @@ func (t AnyTime) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON parses the raw time stored in JSON-encoded
 // data and stores it to the Time field.
 func (t *AnyTime) UnmarshalJSON(b []byte) error {
+	var str string
+
 	var n json.Number
-	if err := json.Unmarshal(b, &n); err != nil {
+	if err := json.Unmarshal(b, &n); err == nil {
+		str = n.String()
+	} else if err := json.Unmarshal(b, &str); err != nil {
 		return err
 	}
 
-	if len(n) == 0 {
+	if len(str) == 0 {
 		t.Valid = false
 		return nil
 	}
 
-	newTime, err := dateparse.ParseAny(n.String())
+	newTime, err := dateparse.ParseAny(str)
 	t.Time = newTime.UTC()
 	t.Valid = true
 	return err
