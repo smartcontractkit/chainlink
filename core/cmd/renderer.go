@@ -263,7 +263,7 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 	for _, jr := range runs {
 		table.Append([]string{
 			jr.ID.String(),
-			string(jr.Status),
+			string(jr.GetStatus()),
 			utils.ISO8601UTC(jr.CreatedAt),
 			utils.NullISO8601UTC(jr.FinishedAt),
 			jr.Result.Data.String(),

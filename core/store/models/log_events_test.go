@@ -239,7 +239,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 				runs, err := app.Store.JobRunsFor(js.ID)
 				require.NoError(t, err)
-				return runs[0].Status
+				return runs[0].GetStatus()
 			}).Should(gomega.Equal(test.wantStatus))
 		})
 	}

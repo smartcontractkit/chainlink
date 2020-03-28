@@ -790,7 +790,7 @@ func WaitForJobRunStatus(
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
-		return jr.Status
+		return jr.GetStatus()
 	}).Should(gomega.Equal(status))
 	return jr
 }
@@ -814,7 +814,7 @@ func JobRunStays(
 	gomega.NewGomegaWithT(t).Consistently(func() models.RunStatus {
 		jr, err = store.FindJobRun(jr.ID)
 		assert.NoError(t, err)
-		return jr.Status
+		return jr.GetStatus()
 	}, duration).Should(gomega.Equal(status))
 	return jr
 }

@@ -54,7 +54,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 
 	for taskIndex := range run.TaskRuns {
 		taskRun := &run.TaskRuns[taskIndex]
-		if !run.Status.Runnable() {
+		if !run.GetStatus().Runnable() {
 			logger.Debugw("Run execution blocked", run.ForLogger("task", taskRun.ID.String())...)
 			break
 		}
@@ -94,8 +94,8 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 		re.statsPusher.PushNow()
 	}
 
-	if run.Status.Finished() {
-		if run.Status.Errored() {
+	if run.GetStatus().Finished() {
+		if run.GetStatus().Errored() {
 			logger.Warnw("Task failed", run.ForLogger()...)
 		} else {
 			logger.Debugw("All tasks complete for run", run.ForLogger()...)

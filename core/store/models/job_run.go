@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math/big"
 	"time"
 
 	"chainlink/core/assets"
@@ -45,6 +46,34 @@ type JobRun struct {
 	Payment        *assets.Link `json:"payment,omitempty"`
 }
 
+// MakeJobRun returns a new JobRun copy
+func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight *big.Int, runRequest *RunRequest) JobRun {
+	run := JobRun{
+		ID:          NewID(),
+		JobSpecID:   job.ID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Initiator:   *initiator,
+		InitiatorID: initiator.ID,
+		TaskRuns:    make([]TaskRun, len(job.Tasks)),
+		RunRequest:  *runRequest,
+		Payment:     runRequest.Payment,
+	}
+	if currentHeight != nil {
+		run.CreationHeight = utils.NewBig(currentHeight)
+		run.ObservedHeight = utils.NewBig(currentHeight)
+	}
+	for i, task := range job.Tasks {
+		run.TaskRuns[i] = TaskRun{
+			ID:       NewID(),
+			JobRunID: run.ID,
+			TaskSpec: task,
+		}
+	}
+	run.SetStatus(RunStatusInProgress)
+	return run
+}
+
 // GetID returns the ID of this structure for jsonapi serialization.
 func (jr JobRun) GetID() string {
 	return jr.ID.String()
@@ -65,6 +94,11 @@ func (jr *JobRun) SetStatus(status RunStatus) {
 		jr.FinishedAt = null.TimeFrom(time.Now())
 	}
 	promTotalRunUpdates.WithLabelValues(jr.JobSpecID.String(), string(oldStatus), string(status))
+}
+
+// GetStatus returns the JobRun's RunStatus
+func (jr *JobRun) GetStatus() RunStatus {
+	return jr.Status
 }
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.

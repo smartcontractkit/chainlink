@@ -359,7 +359,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be unauthorized")
 	jr, err := app.Store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
+	assert.Equal(t, models.RunStatusPendingBridge, jr.GetStatus())
 }
 
 func TestJobRunsController_Update_NotPending(t *testing.T) {
@@ -434,7 +434,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "Response should be successful")
 	jr, err := app.Store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
+	assert.Equal(t, models.RunStatusPendingBridge, jr.GetStatus())
 }
 
 func TestJobRunsController_Update_NotFound(t *testing.T) {
@@ -458,7 +458,7 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")
 	jr, err := app.Store.FindJobRun(jr.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, models.RunStatusPendingBridge, jr.Status)
+	assert.Equal(t, models.RunStatusPendingBridge, jr.GetStatus())
 }
 
 func TestJobRunsController_Show_Found(t *testing.T) {
@@ -552,6 +552,6 @@ func TestJobRunsController_Cancel(t *testing.T) {
 
 		run, err := app.Store.FindJobRun(run.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, models.RunStatusCancelled, run.Status)
+		assert.Equal(t, models.RunStatusCancelled, run.GetStatus())
 	})
 }

@@ -175,7 +175,7 @@ func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 
 	require.NoError(t, store.ArchiveJob(job.ID))
 
-	jr.Status = models.RunStatusInProgress
+	jr.SetStatus(models.RunStatusInProgress)
 	require.NoError(t, store.SaveJobRun(&jr))
 
 	require.Error(t, utils.JustError(store.FindJobRun(jr.ID)))
@@ -194,18 +194,18 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	jr := cltest.NewJobRun(job)
 	require.NoError(t, store.CreateJobRun(&jr))
 
-	jr.Status = models.RunStatusInProgress
+	jr.SetStatus(models.RunStatusInProgress)
 	require.NoError(t, store.SaveJobRun(&jr))
 
 	// Save the updated at before saving with cancelled
 	updatedAt := jr.UpdatedAt
 
-	jr.Status = models.RunStatusCancelled
+	jr.SetStatus(models.RunStatusCancelled)
 	require.NoError(t, store.SaveJobRun(&jr))
 
 	// Restore the previous updated at to simulate a conflict
 	jr.UpdatedAt = updatedAt
-	jr.Status = models.RunStatusInProgress
+	jr.SetStatus(models.RunStatusInProgress)
 	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
 }
 
@@ -253,28 +253,34 @@ func TestORM_LinkEarnedFor(t *testing.T) {
 	require.NoError(t, store.CreateJob(&job))
 
 	jr1 := cltest.NewJobRun(job)
-	jr1.Status = models.RunStatusCompleted
+	jr1.TaskRuns[0].Status = models.RunStatusCompleted
+	jr1.SetStatus(models.RunStatusCompleted)
 	jr1.Payment = assets.NewLink(2)
-	jr1.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr1))
+
 	jr2 := cltest.NewJobRun(job)
-	jr2.Status = models.RunStatusCompleted
+	jr2.TaskRuns[0].Status = models.RunStatusCompleted
+	jr2.SetStatus(models.RunStatusCompleted)
 	jr2.Payment = assets.NewLink(3)
-	jr2.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr2))
+
 	jr3 := cltest.NewJobRun(job)
-	jr3.Status = models.RunStatusCompleted
+	jr3.TaskRuns[0].Status = models.RunStatusCompleted
+	jr3.SetStatus(models.RunStatusCompleted)
 	jr3.Payment = assets.NewLink(5)
 	jr3.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr3))
+
 	jr4 := cltest.NewJobRun(job)
-	jr4.Status = models.RunStatusCompleted
+	jr4.TaskRuns[0].Status = models.RunStatusCompleted
+	jr4.SetStatus(models.RunStatusCompleted)
 	jr4.Payment = assets.NewLink(5)
+	jr4.FinishedAt = null.Time{}
 	require.NoError(t, store.CreateJobRun(&jr4))
+
 	jr5 := cltest.NewJobRun(job)
-	jr5.Status = models.RunStatusCancelled
+	jr5.SetStatus(models.RunStatusCancelled)
 	jr5.Payment = assets.NewLink(5)
-	jr5.FinishedAt = null.TimeFrom(time.Now())
 	require.NoError(t, store.CreateJobRun(&jr5))
 
 	totalEarned, err := store.LinkEarnedFor(&job)
@@ -330,7 +336,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	var seedIds []*models.ID
 	for _, status := range statuses {
 		run := cltest.NewJobRun(j)
-		run.Status = status
+		run.SetStatus(status)
 		require.NoError(t, store.CreateJobRun(&run))
 		seedIds = append(seedIds, run.ID)
 	}
@@ -385,7 +391,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	var seedIds []*models.ID
 	for _, status := range statuses {
 		run := cltest.NewJobRun(j)
-		run.Status = status
+		run.SetStatus(status)
 		require.NoError(t, store.CreateJobRun(&run))
 		seedIds = append(seedIds, run.ID)
 	}
@@ -432,12 +438,12 @@ func TestORM_UnscopedJobRunsWithStatus_OrdersByCreatedAt(t *testing.T) {
 	assert.NoError(t, store.CreateJob(&j))
 
 	newPending := cltest.NewJobRun(j)
-	newPending.Status = models.RunStatusPendingSleep
+	newPending.SetStatus(models.RunStatusPendingSleep)
 	newPending.CreatedAt = time.Now().Add(10 * time.Second)
 	require.NoError(t, store.CreateJobRun(&newPending))
 
 	oldPending := cltest.NewJobRun(j)
-	oldPending.Status = models.RunStatusPendingSleep
+	oldPending.SetStatus(models.RunStatusPendingSleep)
 	oldPending.CreatedAt = time.Now()
 	require.NoError(t, store.CreateJobRun(&oldPending))
 
@@ -952,12 +958,12 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	require.NoError(t, store.ORM.CreateJob(&job))
 
 	oldIncompleteRun := cltest.NewJobRun(job)
-	oldIncompleteRun.Status = models.RunStatusInProgress
+	oldIncompleteRun.SetStatus(models.RunStatusInProgress)
 	err := orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 
 	newCompletedRun := cltest.NewJobRun(job)
-	newCompletedRun.Status = models.RunStatusCompleted
+	newCompletedRun.SetStatus(models.RunStatusCompleted)
 	err = orm.CreateJobRun(&newCompletedRun)
 	require.NoError(t, err)
 
@@ -976,18 +982,19 @@ func TestBulkDeleteRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	var resultCount int
+	var taskCount int
+	var runCount int
 	orm := store.ORM
 
 	err := orm.RawDB(func(db *gorm.DB) error {
 		job := cltest.NewJobWithWebInitiator()
-		job.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
 		require.NoError(t, store.ORM.CreateJob(&job))
 
 		// bulk delete should not delete these because they match the updated before
 		// but none of the statuses
 		oldIncompleteRun := cltest.NewJobRun(job)
 		oldIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 17}`)}
-		oldIncompleteRun.Status = models.RunStatusInProgress
 		err := orm.CreateJobRun(&oldIncompleteRun)
 		require.NoError(t, err)
 		db.Model(&oldIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
@@ -995,8 +1002,9 @@ func TestBulkDeleteRuns(t *testing.T) {
 		// bulk delete *SHOULD* delete these because they match one of the statuses
 		// and the updated before
 		oldCompletedRun := cltest.NewJobRun(job)
+		oldCompletedRun.TaskRuns[0].Status = models.RunStatusCompleted
 		oldCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 19}`)}
-		oldCompletedRun.Status = models.RunStatusCompleted
+		oldCompletedRun.SetStatus(models.RunStatusCompleted)
 		err = orm.CreateJobRun(&oldCompletedRun)
 		require.NoError(t, err)
 		db.Model(&oldCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-01T00:00:00Z"))
@@ -1005,7 +1013,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		// statuses but not the updated before
 		newCompletedRun := cltest.NewJobRun(job)
 		newCompletedRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 23}`)}
-		newCompletedRun.Status = models.RunStatusCompleted
+		newCompletedRun.SetStatus(models.RunStatusCompleted)
 		err = orm.CreateJobRun(&newCompletedRun)
 		require.NoError(t, err)
 		db.Model(&newCompletedRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
@@ -1013,7 +1021,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 		// bulk delete should not delete these because none of their attributes match
 		newIncompleteRun := cltest.NewJobRun(job)
 		newIncompleteRun.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result": 71}`)}
-		newIncompleteRun.Status = models.RunStatusCompleted
+		newIncompleteRun.SetStatus(models.RunStatusCompleted)
 		err = orm.CreateJobRun(&newIncompleteRun)
 		require.NoError(t, err)
 		db.Model(&newIncompleteRun).UpdateColumn("updated_at", cltest.ParseISO8601(t, "2018-01-30T00:00:00Z"))
@@ -1022,20 +1030,16 @@ func TestBulkDeleteRuns(t *testing.T) {
 			Status:        []models.RunStatus{models.RunStatusCompleted},
 			UpdatedBefore: cltest.ParseISO8601(t, "2018-01-15T00:00:00Z"),
 		})
-
 		require.NoError(t, err)
 
-		var runCount int
 		err = db.Model(&models.JobRun{}).Count(&runCount).Error
 		assert.NoError(t, err)
 		assert.Equal(t, 3, runCount)
 
-		var taskCount int
 		err = db.Model(&models.TaskRun{}).Count(&taskCount).Error
 		assert.NoError(t, err)
 		assert.Equal(t, 3, taskCount)
 
-		var resultCount int
 		err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 		assert.NoError(t, err)
 		assert.Equal(t, 3, resultCount)

@@ -92,46 +92,24 @@ func NewRun(
 	orm *orm.ORM,
 	now time.Time) (*models.JobRun, []*adapters.PipelineAdapter) {
 
-	run := models.JobRun{
-		ID:             models.NewID(),
-		JobSpecID:      job.ID,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		Initiator:      *initiator,
-		InitiatorID:    initiator.ID,
-		TaskRuns:       make([]models.TaskRun, len(job.Tasks)),
-		Status:         models.RunStatusInProgress,
-		CreationHeight: utils.NewBig(currentHeight),
-		ObservedHeight: utils.NewBig(currentHeight),
-		RunRequest:     *runRequest,
-		Payment:        runRequest.Payment,
-	}
-
+	run := models.MakeJobRun(job, now, initiator, currentHeight, runRequest)
 	runAdapters := []*adapters.PipelineAdapter{}
-	for i, task := range job.Tasks {
-		adapter, err := adapters.For(task, config, orm)
-		if err != nil {
-			run.SetError(err)
-			break
-		}
 
-		runAdapters = append(runAdapters, adapter)
+	if currentHeight != nil {
+		for i, task := range job.Tasks {
+			adapter, err := adapters.For(task, config, orm)
+			if err != nil {
+				run.SetError(err)
+				break
+			}
 
-		minimumConfirmations := clnull.Uint32{}
-		if currentHeight != nil {
-			minimumConfirmations = clnull.Uint32From(
+			runAdapters = append(runAdapters, adapter)
+			run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
 				utils.MaxUint32(
 					config.MinIncomingConfirmations(),
 					task.Confirmations.Uint32,
 					adapter.MinConfs()),
 			)
-		}
-
-		run.TaskRuns[i] = models.TaskRun{
-			ID:                   models.NewID(),
-			JobRunID:             run.ID,
-			TaskSpec:             task,
-			MinimumConfirmations: minimumConfirmations,
 		}
 	}
 
@@ -250,7 +228,7 @@ func (rm *runManager) Create(
 	}
 	rm.statsPusher.PushNow()
 
-	if run.Status.Runnable() {
+	if run.GetStatus().Runnable() {
 		logger.Debugw(
 			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
@@ -315,7 +293,7 @@ func (rm *runManager) ResumePending(
 
 	logger.Debugw("External adapter resuming run", run.ForLogger("input_data", input.Data)...)
 
-	if !run.Status.PendingBridge() {
+	if !run.GetStatus().PendingBridge() {
 		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
 	}
 
@@ -357,7 +335,7 @@ func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 	}
 
 	logger.Debugw("Cancelling run", run.ForLogger()...)
-	if run.Status.Finished() {
+	if run.GetStatus().Finished() {
 		return nil, fmt.Errorf("Cannot cancel a run that has already finished")
 	}
 
@@ -384,7 +362,7 @@ func (rm *runManager) updateAndTrigger(run *models.JobRun) error {
 		return err
 	}
 	rm.statsPusher.PushNow()
-	if run.Status == models.RunStatusInProgress {
+	if run.GetStatus() == models.RunStatusInProgress {
 		rm.runQueue.Run(run)
 	}
 	return nil
