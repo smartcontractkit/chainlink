@@ -112,12 +112,17 @@ func TestBig_UnmarshalTextErrors(t *testing.T) {
 func TestBig_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
+	plusOneTo64bit, ok := new(big.Int).SetString("9223372036854775808", 10)
+	require.True(t, ok)
+
 	tests := []struct {
 		name  string
 		input *big.Int
 		want  string
 	}{
-		{"number", big.NewInt(1234), `1234`},
+		{"zero", big.NewInt(0), `"0"`},
+		{"number", big.NewInt(1234), `"1234"`},
+		{"big number", plusOneTo64bit, `"9223372036854775808"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -125,6 +130,50 @@ func TestBig_MarshalJSON(t *testing.T) {
 			b, err := json.Marshal(&i)
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, string(b))
+		})
+	}
+}
+
+func TestBig_UnMarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	plusOneTo64bit, ok := new(big.Int).SetString("9223372036854775808", 10)
+	require.True(t, ok)
+
+	tests := []struct {
+		name  string
+		input string
+		want  *Big
+	}{
+		{"zero", `"0"`, (*Big)(big.NewInt(0))},
+		{"number", `"1234"`, (*Big)(big.NewInt(1234))},
+		{"big number", `"9223372036854775808"`, (*Big)(plusOneTo64bit)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			i := new(Big)
+			err := json.Unmarshal([]byte(test.input), &i)
+			assert.NoError(t, err)
+			assert.Equal(t, test.want, i)
+		})
+	}
+}
+
+func TestBig_UnMarshalJSON_errors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"empty", `""`},
+		{"NaN", `"NaN"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			i := new(Big)
+			err := json.Unmarshal([]byte(test.input), &i)
+			assert.Error(t, err)
 		})
 	}
 }
