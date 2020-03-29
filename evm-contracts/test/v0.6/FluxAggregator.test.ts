@@ -1876,7 +1876,7 @@ describe('FluxAggregator', () => {
       matchers.bigNum(0, state._latestRoundAnswer)
       matchers.bigNum(0, state._timesOutAt)
       matchers.bigNum(deposit, state._availableFunds)
-      matchers.bigNum(0, state._paymentAmount) // weird that this is 0
+      matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
     })
 
     describe('after other oracles have reported', () => {
