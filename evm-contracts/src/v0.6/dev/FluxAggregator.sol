@@ -689,7 +689,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return currentRound.add(1);
   }
 
-  function roundState(address _oracle)
+  function roundState()
     external
     view
     returns (
@@ -705,7 +705,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
       _reportableRoundId,
-      eligibleToSubmit(_oracle, _reportableRoundId, finishedOrTimedOut),
+      eligibleToSubmit(msg.sender, _reportableRoundId, finishedOrTimedOut),
       rounds[latestRoundId].answer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
