@@ -21,22 +21,22 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Cache Go vendor packages
         uses: actions/cache@v1
         with:
           path: /go/pkg/mod
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION }}-go-mod-$${ hashFiles('go.sum') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION }}-go-mod
       - name: Download Go vendor packages
         run: go mod download
       - name: Set up Yarn for Contracts
@@ -90,15 +90,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Install python packages
@@ -113,15 +111,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run styleguide tests
@@ -134,15 +130,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run JSON API client tests
@@ -155,15 +149,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Operator UI tests
@@ -192,15 +184,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Yarn migrations
@@ -219,15 +209,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Feeds setup
@@ -267,15 +255,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Yarn lint
@@ -288,15 +274,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Save CACHE_VERSION for future hashing
-        env:
-          CACHE_VERSION: ${{ secrets.CACHE_VERSION }}
-        run: echo $CACHE_VERSION > cache.version
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
+          key: $${{ secrets.CACHE_VERSION}}-yarn-$${ hashFiles('yarn.lock') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run prepublish NPM test
