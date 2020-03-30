@@ -5,7 +5,7 @@ on: [push]
 jobs:
   go-postgres:
     name: Go Postgres
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     container: smartcontract/builder:1.0.29
     services:
       postgres:
