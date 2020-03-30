@@ -281,7 +281,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 		}
 		for taskIndex := range jobRun.TaskRuns {
 			taskRun := &jobRun.TaskRuns[taskIndex]
-			if taskRun.Status == models.RunStatusPendingConfirmations {
+			if taskRun.Status == models.RunStatusPendingOutgoingConfirmations {
 				taskRun.Status = models.RunStatusErrored
 			}
 		}
