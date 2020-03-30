@@ -130,7 +130,7 @@ jobs:
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run styleguide tests
-        run: yarn workspace @chainlink/styleguide run test
+        run: yarn workspace @chainlink/styleguide test
 
   json-api-client:
     name: JSON API client
@@ -151,7 +151,7 @@ jobs:
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run JSON API client tests
-        run: yarn workspace @chainlink/json-api-client run test
+        run: yarn workspace @chainlink/json-api-client test
 
   operator-ui:
     name: Operator UI
@@ -216,13 +216,13 @@ jobs:
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Yarn migrations
-        run: yarn workspace @chainlink/explorer run test:migration:run
+        run: yarn workspace @chainlink/explorer test:migration:run
       - name: Run Server Tests
-        run: yarn workspace @chainlink/explorer run test:ci
+        run: yarn workspace @chainlink/explorer test:ci
       - name: Run Client dependency setup
-        run: yarn workspace @chainlink/explorer-client run setup
+        run: yarn workspace @chainlink/explorer-client setup
       - name: Run Client tests
-        run: yarn workspace @chainlink/explorer-client run test:ci
+        run: yarn workspace @chainlink/explorer-client test:ci
       - name: Upload test artifacts
         uses: actions/upload-artifact@v1
         with:
@@ -250,7 +250,7 @@ jobs:
       - name: Run Feeds setup
         run: yarn workspace @chainlink/feeds setup
       - name: Run Feeds tests
-        run: yarn workspace @chainlink/feeds run test
+        run: yarn workspace @chainlink/feeds test
         env:
           CI: true
 
