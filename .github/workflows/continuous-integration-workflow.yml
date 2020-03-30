@@ -249,6 +249,10 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+        with:
+          # Fetch entire history. Slower than default, but necessary to check
+          # against develop branch
+          fetch-depth: 1
       - name: Check if rebase is needed
         run: tools/bin/check_if_rebase_needed
 
