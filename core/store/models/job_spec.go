@@ -35,9 +35,9 @@ type InitiatorRequest struct {
 
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
 type TaskSpecRequest struct {
-	Type          TaskType      `json:"type"`
-	Confirmations clnull.Uint32 `json:"confirmations"`
-	Params        JSON          `json:"params"`
+	Type                             TaskType      `json:"type"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations"`
+	Params                           JSON          `json:"params"`
 }
 
 // JobSpec is the definition for all the work to be carried out by the node
@@ -89,10 +89,10 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	}
 	for _, task := range jsr.Tasks {
 		jobSpec.Tasks = append(jobSpec.Tasks, TaskSpec{
-			JobSpecID:     jobSpec.ID,
-			Type:          task.Type,
-			Confirmations: task.Confirmations,
-			Params:        task.Params,
+			JobSpecID:                        jobSpec.ID,
+			Type:                             task.Type,
+			MinRequiredIncomingConfirmations: task.MinRequiredIncomingConfirmations,
+			Params:                           task.Params,
 		})
 	}
 
@@ -351,10 +351,10 @@ type Feeds = JSON
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	gorm.Model
-	JobSpecID     *ID           `json:"-"`
-	Type          TaskType      `json:"type" gorm:"index;not null"`
-	Confirmations clnull.Uint32 `json:"confirmations"`
-	Params        JSON          `json:"params" gorm:"type:text"`
+	JobSpecID                        *ID           `json:"-"`
+	Type                             TaskType      `json:"type" gorm:"index;not null"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
+	Params                           JSON          `json:"params" gorm:"type:text"`
 }
 
 // TaskType defines what Adapter a TaskSpec will use.

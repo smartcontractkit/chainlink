@@ -83,8 +83,8 @@ func (_m *RunManager) CreateErrored(jobSpecID *models.ID, initiator models.Initi
 	return r0, r1
 }
 
-// ResumeAllConfirming provides a mock function with given fields: currentBlockHeight
-func (_m *RunManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
+// ResumeAllPendingNextBlock provides a mock function with given fields: currentBlockHeight
+func (_m *RunManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
 	ret := _m.Called(currentBlockHeight)
 
 	var r0 error
@@ -97,8 +97,8 @@ func (_m *RunManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 	return r0
 }
 
-// ResumeAllConnecting provides a mock function with given fields:
-func (_m *RunManager) ResumeAllConnecting() error {
+// ResumeAllPendingConnection provides a mock function with given fields:
+func (_m *RunManager) ResumeAllPendingConnection() error {
 	ret := _m.Called()
 
 	var r0 error
