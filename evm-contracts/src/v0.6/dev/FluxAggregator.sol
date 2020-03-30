@@ -594,7 +594,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
       _reportableRoundId,
-      (eligibleToSubmit(msg.sender, _reportableRoundId, finishedOrTimedOut) == 0),
+      (eligibleToSubmit(_reportableRoundId, finishedOrTimedOut) == 0),
       rounds[latestRoundId].answer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
@@ -602,25 +602,23 @@ contract FluxAggregator is AggregatorInterface, Owned {
     );
   }
 
-  function eligibleToSubmit(address _oracle, uint32 reportableRoundId, bool finishedOrTimedOut)
+  function eligibleToSubmit(uint32 _round, bool finishedOrTimedOut)
     private
     view
     returns (uint256)
   {
-    uint256 eligiblityCode = validateOracleRound(reportableRoundId);
-    if (eligiblityCode != 0) return eligiblityCode;
-
-    // break
+    uint256 statusCode = validateOracleRound(_round);
+    if (statusCode != 0) return statusCode;
 
     if (finishedOrTimedOut) {
-      uint32 lastStartedRound = oracles[_oracle].lastStartedRound;
-      if (reportableRoundId <= lastStartedRound + restartDelay && lastStartedRound > 0) {
-        return 7;
+      statusCode = delayedStatus(_round);
+      if (statusCode != 0) {
+        return statusCode;
       } else if (maxAnswerCount == 0) {
         return 8;
       }
     } else {
-      return validateStartedRound(reportingRoundId);
+      return validateStartedRound(_round);
     }
 
     return 0;
@@ -645,6 +643,18 @@ contract FluxAggregator is AggregatorInterface, Owned {
     if (oracles[msg.sender].lastReportedRound >= _id) return 4;
     if (_id != rrId && _id != rrId.add(1)) return 5;
     if (_id != 1 && !finished(_id.sub(1)) && !timedOut(_id.sub(1))) return 6;
+
+    return 0;
+  }
+
+  function delayedStatus(uint32 _id)
+    private
+    view
+    returns (uint256)
+  {
+    uint256 lastStarted = oracles[msg.sender].lastStartedRound;
+
+    if (_id <= lastStarted + restartDelay && lastStarted != 0) return 8;
 
     return 0;
   }
@@ -781,15 +791,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
   }
 
-  modifier ifNewRound(uint32 _id) {
-    if (_id == reportingRoundId.add(1)) {
+  modifier ifDelayed(uint32 _id) {
+    if (delayedStatus(_id) == 0) {
       _;
     }
   }
 
-  modifier ifDelayed(uint32 _id) {
-    uint256 lastStarted = oracles[msg.sender].lastStartedRound;
-    if (_id > lastStarted + restartDelay || lastStarted == 0) {
+  modifier ifNewRound(uint32 _id) {
+    if (_id == reportingRoundId.add(1)) {
       _;
     }
   }
