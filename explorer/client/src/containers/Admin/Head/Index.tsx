@@ -6,13 +6,13 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import { RouteComponentProps } from '@reach/router'
-import { ChainlinkNode } from 'explorer/models'
+import { Head } from 'explorer/models'
 import React, { useEffect, useState } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import build from 'redux-object'
 import { DispatchBinding } from '@chainlink/ts-helpers'
-import { fetchAdminOperators } from '../../../actions/adminOperators'
-import List from '../../../components/Admin/Operators/List'
+import { fetchAdminHeads } from '../../../actions/adminHeads'
+import List from '../../../components/Admin/Heads/List'
 import Title from '../../../components/Title'
 import { AppState } from '../../../reducers'
 
@@ -33,12 +33,12 @@ interface OwnProps {
 
 interface StateProps {
   loaded: boolean
-  count: AppState['adminOperatorsIndex']['count']
-  adminOperators?: ChainlinkNode[]
+  adminHeads?: Head[]
+  count: AppState['adminHeadsIndex']['count']
 }
 
 interface DispatchProps {
-  fetchAdminOperators: DispatchBinding<typeof fetchAdminOperators>
+  fetchAdminHeads: DispatchBinding<typeof fetchAdminHeads>
 }
 
 interface Props
@@ -50,17 +50,17 @@ interface Props
 
 export const Index: React.FC<Props> = ({
   classes,
+  adminHeads,
   loaded,
-  adminOperators,
-  fetchAdminOperators,
+  fetchAdminHeads,
   count,
   rowsPerPage = 10,
 }) => {
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
-    fetchAdminOperators(currentPage, rowsPerPage)
-  }, [rowsPerPage, currentPage, fetchAdminOperators])
+    fetchAdminHeads(currentPage, rowsPerPage)
+  }, [rowsPerPage, currentPage, fetchAdminHeads])
 
   return (
     <Grid
@@ -70,12 +70,12 @@ export const Index: React.FC<Props> = ({
       className={classes.container}
     >
       <Grid item xs={12}>
-        <Title>Endorsed Operators</Title>
+        <Title>Heads</Title>
 
         <List
           loaded={loaded}
           currentPage={currentPage}
-          operators={adminOperators}
+          heads={adminHeads}
           count={count}
           onChangePage={(_, page) => {
             setCurrentPage(page + 1)
@@ -86,13 +86,13 @@ export const Index: React.FC<Props> = ({
   )
 }
 
-const adminOperatorsSelector = ({
-  adminOperatorsIndex,
-  adminOperators,
-}: AppState): ChainlinkNode[] | undefined => {
-  if (adminOperatorsIndex.items) {
-    return adminOperatorsIndex.items.map(id =>
-      build({ adminOperators: adminOperators.items }, 'adminOperators', id),
+const adminHeadsSelector = ({
+  adminHeadsIndex,
+  adminHeads,
+}: AppState): Head[] | undefined => {
+  if (adminHeadsIndex.items) {
+    return adminHeadsIndex.items.map(id =>
+      build({ adminHeads: adminHeads.items }, 'adminHeads', id),
     )
   }
   return
@@ -104,14 +104,14 @@ const mapStateToProps: MapStateToProps<
   AppState
 > = state => {
   return {
-    adminOperators: adminOperatorsSelector(state),
-    count: state.adminOperatorsIndex.count,
-    loaded: state.adminOperatorsIndex.loaded,
+    loaded: state.adminHeadsIndex.loaded,
+    adminHeads: adminHeadsSelector(state),
+    count: state.adminHeadsIndex.count,
   }
 }
 
 const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
-  fetchAdminOperators,
+  fetchAdminHeads,
 }
 
 export const ConnectedIndex = connect(
