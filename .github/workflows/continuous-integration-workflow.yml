@@ -252,7 +252,7 @@ jobs:
         with:
           # Fetch entire history. Slower than default, but necessary to check
           # against develop branch
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Check if rebase is needed
         run: tools/bin/check_if_rebase_needed
 
