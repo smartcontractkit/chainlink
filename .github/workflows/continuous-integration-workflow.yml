@@ -184,10 +184,7 @@ jobs:
             --health-timeout 5s
             --health-retries 5
     env:
-      TYPEORM_HOST: postgres
-      TYPEORM_USERNAME: postgres
-      TYPEORM_PASSWORD: postgres
-      TYPEORM_DATABASE: postgres
+      TYPEORM_NAME: ci
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
