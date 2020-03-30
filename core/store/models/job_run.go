@@ -238,16 +238,16 @@ func NewRunRequest(requestParams JSON) *RunRequest {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                   *ID           `json:"id" gorm:"primary_key;not null"`
-	JobRunID             *ID           `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
-	Result               RunResult     `json:"result"`
-	ResultID             uint          `json:"-"`
-	Status               RunStatus     `json:"status"`
-	TaskSpec             TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
-	TaskSpecID           uint          `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
-	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
-	Confirmations        clnull.Uint32 `json:"confirmations"`
-	CreatedAt            time.Time     `json:"-" gorm:"index"`
+	ID                               *ID           `json:"id" gorm:"primary_key;not null"`
+	JobRunID                         *ID           `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
+	Result                           RunResult     `json:"result"`
+	ResultID                         uint          `json:"-"`
+	Status                           RunStatus     `json:"status"`
+	TaskSpec                         TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
+	TaskSpecID                       uint          `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
+	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
+	CreatedAt                        time.Time     `json:"-" gorm:"index"`
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".

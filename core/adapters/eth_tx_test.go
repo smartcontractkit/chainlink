@@ -62,7 +62,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			"",
 			strpkg.Confirmed,
 			"0x000000000000000000000000000000000000000000000000000000000000000019999990",
-			models.RunStatusPendingConfirmations,
+			models.RunStatusPendingOutgoingConfirmations,
 		},
 		{
 			"confirmed with bytes format",
@@ -74,7 +74,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 				"0000000000000000000000000000000000000000000000000000000000000020" + // offset
 				"000000000000000000000000000000000000000000000000000000000000000a" + // length in bytes = 10, umlaut = 2 bytes
 				"63c3b66e6669726d656400000000000000000000000000000000000000000000", // encoded string left padded
-			models.RunStatusPendingConfirmations,
+			models.RunStatusPendingOutgoingConfirmations,
 		},
 	}
 
@@ -131,12 +131,12 @@ func TestEthTxAdapter_Perform_BytesFormatWithDataPrefix(t *testing.T) {
 	result := adapter.Perform(input, store)
 
 	assert.NoError(t, result.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, result.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, result.Status())
 
 	txManager.AssertExpectations(t)
 }
 
-func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_StillPending(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -149,18 +149,18 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_StillPending(t *testing.T
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
 	require.NoError(t, output.Error())
-	assert.True(t, output.Status().PendingConfirmations())
+	assert.True(t, output.Status().PendingOutgoingConfirmations())
 	assert.Equal(t, input.Data(), output.Data())
 
 	txManager.AssertExpectations(t)
 }
 
-func TestEthTxAdapter_Perform_FromPendingConfirmations_Safe(t *testing.T) {
+func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -175,7 +175,7 @@ func TestEthTxAdapter_Perform_FromPendingConfirmations_Safe(t *testing.T) {
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -214,7 +214,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 		"result":"0x3f839aaf5915da8714313a57b9c0a362d1a9a3fac1210190ace5cf3b008d780f"
 	}`)
 	input := *models.NewRunInput(
-		models.NewID(), data, models.RunStatusPendingConfirmations,
+		models.NewID(), data, models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -252,7 +252,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	txManager.AssertExpectations(t)
 }
 
-func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *testing.T) {
+func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithFatalErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -265,17 +265,17 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithFatalErrorInTxManager(t *
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, output.Status())
 	assert.NoError(t, output.Error())
 
 	txManager.AssertExpectations(t)
 }
 
-func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManager(t *testing.T) {
+func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithRecoverableErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -288,18 +288,18 @@ func TestEthTxAdapter_Perform_PendingConfirmations_WithRecoverableErrorInTxManag
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations,
+		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
 	require.NoError(t, output.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, output.Status())
 	assert.Equal(t, input.Data(), output.Data())
 
 	txManager.AssertExpectations(t)
 }
 
-func TestEthTxAdapter_Perform_NotConnectedWhenPendingConfirmations(t *testing.T) {
+func TestEthTxAdapter_Perform_NotConnectedWhenPendingOutgoingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -310,11 +310,11 @@ func TestEthTxAdapter_Perform_NotConnectedWhenPendingConfirmations(t *testing.T)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
-	input := *models.NewRunInputWithResult(models.NewID(), cltest.NewHash().String(), models.RunStatusPendingConfirmations)
+	input := *models.NewRunInputWithResult(models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations)
 	output := adapter.Perform(input, store)
 
 	require.NoError(t, output.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, output.Status())
 	assert.Equal(t, input.Data(), output.Data())
 
 	txManager.AssertExpectations(t)
@@ -360,7 +360,7 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 	data := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, data.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, data.Status())
 
 	txManager.AssertExpectations(t)
 }
@@ -389,12 +389,12 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 	data := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, data.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, data.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, data.Status())
 
 	txManager.AssertExpectations(t)
 }
 
-func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfirmations(t *testing.T) {
+func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingOutgoingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -420,7 +420,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	output := adapter.Perform(models.RunInput{}, store)
 
 	require.NoError(t, output.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, output.Status())
 
 	// Have a head come through with the same empty response
 	txManager.On("Connected").Return(true)
@@ -429,7 +429,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingConfi
 	input := *models.NewRunInput(models.NewID(), output.Data(), output.Status())
 	output = adapter.Perform(input, store)
 	require.NoError(t, output.Error())
-	assert.Equal(t, models.RunStatusPendingConfirmations, output.Status())
+	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, output.Status())
 
 	txManager.AssertExpectations(t)
 }

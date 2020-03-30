@@ -36,15 +36,17 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
 	run.TaskRuns = []models.TaskRun{
 		models.TaskRun{
-			ID:                   task0RunID,
-			Status:               models.RunStatusPendingConfirmations,
-			Confirmations:        clnull.Uint32From(1),
-			MinimumConfirmations: clnull.Uint32From(3),
+			ID:                               task0RunID,
+			Status:                           models.RunStatusPendingIncomingConfirmations,
+			ObservedIncomingConfirmations:    clnull.Uint32From(1),
+			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
 		},
 		models.TaskRun{
-			ID:     task1RunID,
-			Status: models.RunStatusErrored,
-			Result: models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
+			ID:                               task1RunID,
+			Status:                           models.RunStatusErrored,
+			Result:                           models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
+			ObservedIncomingConfirmations:    clnull.Uint32From(1),
+			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
 		},
 	}
 	p := SyncJobRunPresenter{JobRun: &run}
@@ -79,7 +81,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, task0["index"], float64(0))
 	assert.Contains(t, task0, "type")
-	assert.Equal(t, task0["status"], "pending_confirmations")
+	assert.Equal(t, "pending_incoming_confirmations", task0["status"])
 	assert.Equal(t, task0["error"], nil)
 	assert.Equal(t, float64(1), task0["confirmations"])
 	assert.Equal(t, float64(3), task0["minimumConfirmations"])
@@ -183,7 +185,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 				models.TaskRun{
 					ID:       models.NewID(),
 					TaskSpec: taskSpec,
-					Status:   models.RunStatusPendingConfirmations,
+					Status:   models.RunStatusPendingIncomingConfirmations,
 					Result:   models.RunResult{Data: dataJSON},
 				},
 			}
@@ -200,7 +202,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			task0 := tasks[0].Map()
 			assert.Equal(t, task0["index"].Float(), float64(0))
 			assert.Contains(t, task0["type"].String(), "ethtx")
-			assert.Equal(t, task0["status"].String(), "pending_confirmations")
+			assert.Equal(t, "pending_incoming_confirmations", task0["status"].String())
 			assert.Equal(t, task0["error"].Type, gjson.Null)
 
 			txresult := task0["result"].Map()

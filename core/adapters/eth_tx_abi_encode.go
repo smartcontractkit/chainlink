@@ -70,9 +70,9 @@ func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 // the blockchain.
 func (etx *EthTxABIEncode) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
-		return pendingConfirmationsOrConnection(input)
+		return pendingOutgoingConfirmationsOrConnection(input)
 	}
-	if !input.Status().PendingConfirmations() {
+	if !input.Status().PendingOutgoingConfirmations() {
 		data, err := etx.abiEncode(&input)
 		if err != nil {
 			err = errors.Wrap(err, "while constructing EthTxABIEncode data")

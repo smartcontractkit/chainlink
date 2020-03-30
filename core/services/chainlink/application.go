@@ -250,7 +250,7 @@ func newPendingConnectionResumer(runManager services.RunManager) *pendingConnect
 }
 
 func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	return p.runManager.ResumeAllConnecting()
+	return p.runManager.ResumeAllPendingConnection()
 }
 
 func (p *pendingConnectionResumer) Disconnect()            {}

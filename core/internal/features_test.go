@@ -93,7 +93,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
-	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -169,7 +169,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
-	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -180,7 +180,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// At the next head, the transaction remains unconfirmed but the gas bump
 	// threshold has been met, so a new transaction is made with a higher amount
@@ -191,7 +191,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
 	// Another head comes in and both transactions are still unconfirmed, more
@@ -202,7 +202,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// Now the second transaction attempt meets the gas bump threshold, so a
 	// final transaction attempt shoud be made
@@ -213,7 +213,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
 
 	// This third attempt has enough gas and gets confirmed, but has not yet
@@ -224,7 +224,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// Finally the third attempt gets to a minimum number of safe confirmations,
 	// the amount remaining in the account is printed (eth_getBalance, eth_call)
@@ -344,16 +344,16 @@ func TestIntegration_RunLog(t *testing.T) {
 			runs, err := app.Store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			jr := runs[0]
-			cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+			cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 			require.Len(t, jr.TaskRuns, 1)
-			assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+			assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
 			blockIncrease := app.Store.Config.MinIncomingConfirmations()
 			minGlobalHeight := creationHeight + blockIncrease
 			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
 			<-time.After(time.Second)
-			jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
-			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].Confirmations.Uint32)
+			jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
+			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
 
 			safeNumber := creationHeight + requiredConfs
 			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
@@ -368,7 +368,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			jr = cltest.WaitForJobRunStatus(t, app.Store, jr, test.wantStatus)
 			assert.True(t, jr.FinishedAt.Valid)
-			assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations.Uint32)
+			assert.Equal(t, requiredConfs, jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
 			assert.True(t, eth.AllCalled(), eth.Remaining())
 		})
 	}
@@ -420,10 +420,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	logs <- runlog
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
 	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        runlog.TxHash,
@@ -1014,7 +1014,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	})
 	newRounds <- log
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
-	_ = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jrs[0])
+	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
 	eth.EventuallyAllCalled(t)
 }
 
@@ -1067,7 +1067,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.Len(t, runs, 1)
 	jr := runs[0]
 	require.Len(t, jr.TaskRuns, 2)
-	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
 	require.True(t, eth.AllCalled(), eth.Remaining())
 	require.Len(t, attempts, 1)

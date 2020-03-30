@@ -330,7 +330,8 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 
 	statuses := []models.RunStatus{
 		models.RunStatusPendingBridge,
-		models.RunStatusPendingConfirmations,
+		models.RunStatusPendingIncomingConfirmations,
+		models.RunStatusPendingOutgoingConfirmations,
 		models.RunStatusCompleted}
 
 	var seedIds []*models.ID
@@ -353,8 +354,8 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		},
 		{
 			"multiple status'",
-			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations},
-			[]*models.ID{seedIds[0], seedIds[1]},
+			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingIncomingConfirmations, models.RunStatusPendingOutgoingConfirmations},
+			[]*models.ID{seedIds[0], seedIds[1], seedIds[2]},
 		},
 	}
 
@@ -384,7 +385,8 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 
 	statuses := []models.RunStatus{
 		models.RunStatusPendingBridge,
-		models.RunStatusPendingConfirmations,
+		models.RunStatusPendingOutgoingConfirmations,
+		models.RunStatusPendingIncomingConfirmations,
 		models.RunStatusPendingConnection,
 		models.RunStatusCompleted}
 
@@ -410,8 +412,12 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		},
 		{
 			"multiple status'",
-			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingConfirmations, models.RunStatusPendingConnection},
-			[]*models.ID{seedIds[0], seedIds[1], seedIds[2]},
+			[]models.RunStatus{
+				models.RunStatusPendingBridge,
+				models.RunStatusPendingOutgoingConfirmations,
+				models.RunStatusPendingIncomingConfirmations,
+				models.RunStatusPendingConnection},
+			[]*models.ID{seedIds[0], seedIds[1], seedIds[2], seedIds[3]},
 		},
 	}
 

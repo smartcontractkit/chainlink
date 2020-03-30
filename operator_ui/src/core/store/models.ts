@@ -3,7 +3,7 @@
  */
 export enum RunStatus {
   IN_PROGRESS = 'in_progress',
-  PENDING_CONFIRMATIONS = 'pending_confirmations',
+  PENDING_INCOMING_CONFIRMATIONS = 'pending_incoming_confirmations',
   PENDING_CONNECTION = 'pending_connection',
   PENDING_BRIDGE = 'pending_bridge',
   PENDING_SLEEP = 'pending_sleep',

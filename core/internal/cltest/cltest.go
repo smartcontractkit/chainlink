@@ -752,15 +752,24 @@ func WaitForJobRunToPendBridge(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
 }
 
-// WaitForJobRunToPendConfirmations waits for a JobRun to reach PendingConfirmations Status
-func WaitForJobRunToPendConfirmations(
+// WaitForJobRunToPendIncomingConfirmations waits for a JobRun to reach PendingConfirmations Status
+func WaitForJobRunToPendIncomingConfirmations(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
 	t.Helper()
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingIncomingConfirmations)
+}
 
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingConfirmations)
+// WaitForJobRunToPendOutgoingConfirmations waits for a JobRun to reach PendingConfirmations Status
+func WaitForJobRunToPendOutgoingConfirmations(
+	t testing.TB,
+	store *strpkg.Store,
+	jr models.JobRun,
+) models.JobRun {
+	t.Helper()
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
 }
 
 // WaitForJobRunStatus waits for a JobRun to reach given status
@@ -805,15 +814,15 @@ func JobRunStays(
 	return jr
 }
 
-// JobRunStaysPendingConfirmations tests if a JobRun will stay at the PendingConfirmations Status
-func JobRunStaysPendingConfirmations(
+// JobRunStaysPendingIncomingConfirmations tests if a JobRun will stay at the PendingIncomingConfirmations Status
+func JobRunStaysPendingIncomingConfirmations(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
 	t.Helper()
 
-	return JobRunStays(t, store, jr, models.RunStatusPendingConfirmations)
+	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
 }
 
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
