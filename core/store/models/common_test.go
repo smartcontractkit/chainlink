@@ -307,6 +307,7 @@ func TestAnyTime_UnmarshalJSON_Error(t *testing.T) {
 		input string
 	}{
 		{"invalid string", `"1000h"`},
+		{"float", `"1000.123"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
