@@ -3,14 +3,14 @@ export default {
     {
       type: 'fluxmonitor',
       params: {
-        address: '0x0000000000000000000000000000000000000000',
+        address: '0x0000000000000000000000000000000000000000', // set before use
         requestData: {
           data: {
             coin: 'ETH',
             market: 'USD',
           },
         },
-        feeds: ['http://external-adapter:6644'],
+        feeds: [''], // set before use
         threshold: 5,
         pollingInterval: '5s',
         precision: 2,
