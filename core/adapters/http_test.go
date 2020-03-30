@@ -83,9 +83,10 @@ func TestHTTPGet_Perform(t *testing.T) {
 			defer cleanup()
 
 			hga := adapters.HTTPGet{
-				URL:         cltest.WebURL(t, mock.URL),
-				Headers:     test.headers,
-				QueryParams: test.queryParams,
+				URL:                            cltest.WebURL(t, mock.URL),
+				Headers:                        test.headers,
+				QueryParams:                    test.queryParams,
+				AllowUnrestrictedNetworkAccess: true,
 			}
 			assert.Equal(t, test.queryParams, hga.QueryParams)
 
@@ -111,8 +112,12 @@ func TestHTTP_TooLarge(t *testing.T) {
 		verb    string
 		factory func(models.WebURL) adapters.BaseAdapter
 	}{
-		{"GET", func(url models.WebURL) adapters.BaseAdapter { return &adapters.HTTPGet{URL: url} }},
-		{"POST", func(url models.WebURL) adapters.BaseAdapter { return &adapters.HTTPPost{URL: url} }},
+		{"GET", func(url models.WebURL) adapters.BaseAdapter {
+			return &adapters.HTTPGet{URL: url, AllowUnrestrictedNetworkAccess: true}
+		}},
+		{"POST", func(url models.WebURL) adapters.BaseAdapter {
+			return &adapters.HTTPPost{URL: url, AllowUnrestrictedNetworkAccess: true}
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.verb, func(t *testing.T) {
@@ -126,6 +131,38 @@ func TestHTTP_TooLarge(t *testing.T) {
 
 			require.Error(t, result.Error())
 			assert.Equal(t, "HTTP request too large, must be less than 1 bytes", result.Error().Error())
+			assert.Equal(t, "", result.Result().String())
+		})
+	}
+}
+
+func TestHTTP_PerformWithRestrictedIP(t *testing.T) {
+	cfg := orm.NewConfig()
+	store := &store.Store{Config: cfg}
+
+	tests := []struct {
+		verb    string
+		factory func(models.WebURL) adapters.BaseAdapter
+	}{
+		{"GET", func(url models.WebURL) adapters.BaseAdapter {
+			return &adapters.HTTPGet{URL: url, AllowUnrestrictedNetworkAccess: false}
+		}},
+		{"POST", func(url models.WebURL) adapters.BaseAdapter {
+			return &adapters.HTTPPost{URL: url, AllowUnrestrictedNetworkAccess: false}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.verb, func(t *testing.T) {
+			input := cltest.NewRunInputWithResult("inputValue")
+			payload := ""
+			mock, _ := cltest.NewHTTPMockServer(t, http.StatusOK, test.verb, payload)
+			defer mock.Close()
+
+			h := test.factory(cltest.WebURL(t, mock.URL))
+			result := h.Perform(input, store)
+
+			require.Error(t, result.Error())
+			assert.Contains(t, result.Error().Error(), "disallowed IP")
 			assert.Equal(t, "", result.Result().String())
 		})
 	}
@@ -263,10 +300,11 @@ func TestHttpPost_Perform(t *testing.T) {
 			defer cleanup()
 
 			hpa := adapters.HTTPPost{
-				URL:         cltest.WebURL(t, mock.URL),
-				Headers:     test.headers,
-				QueryParams: test.queryParams,
-				Body:        test.body,
+				URL:                            cltest.WebURL(t, mock.URL),
+				Headers:                        test.headers,
+				QueryParams:                    test.queryParams,
+				Body:                           test.body,
+				AllowUnrestrictedNetworkAccess: true,
 			}
 			assert.Equal(t, test.queryParams, hpa.QueryParams)
 
@@ -652,4 +690,16 @@ func TestHTTP_BuildingURL(t *testing.T) {
 			assert.Nil(t, err)
 		})
 	}
+}
+
+func TestHTTP_JSONDeserializationDoesNotSetAllowUnrestrictedNetworkAccess(t *testing.T) {
+	hga := adapters.HTTPGet{}
+	err := json.Unmarshal([]byte(`{"allowUnrestrictedNetworkAccess": true}`), &hga)
+	require.NoError(t, err)
+	assert.False(t, hga.AllowUnrestrictedNetworkAccess)
+
+	hpa := adapters.HTTPPost{}
+	err = json.Unmarshal([]byte(`{"allowUnrestrictedNetworkAccess": true}`), &hpa)
+	require.NoError(t, err)
+	assert.False(t, hpa.AllowUnrestrictedNetworkAccess)
 }

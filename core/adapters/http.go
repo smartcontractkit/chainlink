@@ -23,22 +23,24 @@ import (
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL          models.WebURL   `json:"url"`
-	GET          models.WebURL   `json:"get"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL                            models.WebURL   `json:"url"`
+	GET                            models.WebURL   `json:"get"`
+	Headers                        http.Header     `json:"headers"`
+	QueryParams                    QueryParameters `json:"queryParams"`
+	ExtendedPath                   ExtendedPath    `json:"extPath"`
+	AllowUnrestrictedNetworkAccess bool            `json:"-"`
 }
 
 // HTTPRequestConfig holds the configurable settings for an http request
 type HTTPRequestConfig struct {
-	timeout     time.Duration
-	maxAttempts uint
-	sizeLimit   int64
+	timeout                        time.Duration
+	maxAttempts                    uint
+	sizeLimit                      int64
+	allowUnrestrictedNetworkAccess bool
 }
 
 // TaskType returns the type of Adapter.
-func (h *HTTPGet) TaskType() models.TaskType {
+func (hga *HTTPGet) TaskType() models.TaskType {
 	return TaskTypeHTTPGet
 }
 
@@ -50,6 +52,7 @@ func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.Ru
 		return models.NewRunOutputError(err)
 	}
 	httpConfig := defaultHTTPConfig(store)
+	httpConfig.allowUnrestrictedNetworkAccess = hga.AllowUnrestrictedNetworkAccess
 	return sendRequest(input, request, httpConfig)
 }
 
@@ -75,16 +78,17 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL          models.WebURL   `json:"url"`
-	POST         models.WebURL   `json:"post"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	Body         *string         `json:"body,omitempty"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL                            models.WebURL   `json:"url"`
+	POST                           models.WebURL   `json:"post"`
+	Headers                        http.Header     `json:"headers"`
+	QueryParams                    QueryParameters `json:"queryParams"`
+	Body                           *string         `json:"body,omitempty"`
+	ExtendedPath                   ExtendedPath    `json:"extPath"`
+	AllowUnrestrictedNetworkAccess bool            `json:"-"`
 }
 
 // TaskType returns the type of Adapter.
-func (h *HTTPPost) TaskType() models.TaskType {
+func (hpa *HTTPPost) TaskType() models.TaskType {
 	return TaskTypeHTTPPost
 }
 
@@ -96,6 +100,7 @@ func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.R
 		return models.NewRunOutputError(err)
 	}
 	httpConfig := defaultHTTPConfig(store)
+	httpConfig.allowUnrestrictedNetworkAccess = hpa.AllowUnrestrictedNetworkAccess
 	return sendRequest(input, request, httpConfig)
 }
 
@@ -158,6 +163,9 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 func sendRequest(input models.RunInput, request *http.Request, config HTTPRequestConfig) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
+	}
+	if !config.allowUnrestrictedNetworkAccess {
+		tr.DialContext = restrictedDialContext
 	}
 	client := &http.Client{Transport: tr}
 
@@ -345,5 +353,6 @@ func defaultHTTPConfig(store *store.Store) HTTPRequestConfig {
 		store.Config.DefaultHTTPTimeout(),
 		store.Config.DefaultMaxHTTPAttempts(),
 		store.Config.DefaultHTTPLimit(),
+		false,
 	}
 }
