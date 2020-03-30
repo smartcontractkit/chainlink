@@ -437,7 +437,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 1,
     "compare_offchain": "https://nomics.com/markets/busd-binance-usd/eth-ethereum",
     "listing": true
