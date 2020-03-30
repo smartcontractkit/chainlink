@@ -42,7 +42,7 @@ jobs:
       - name: Set up Yarn for Contracts
         run: yarn setup:contracts
       - name: Run tests
-        run: go test -v -p 3 -parallel 2 ./...
+        run: go test -v -p 6 -parallel 4 ./...
         env:
           DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
 
