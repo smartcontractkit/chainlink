@@ -9,5 +9,13 @@ services:
     command: '-h node-db -p 5432 -U postgres -d $CHAINLINK_DB_NAME --timeout=150'
     depends_on:
       - node-db
+  wait-db-2:
+    container_name: wait-for-db-2
+    build:
+      context: .
+      dockerfile: wait-postgres.Dockerfile
+    command: '-h node-db-2 -p 5432 -U postgres -d $CHAINLINK_DB_NAME --timeout=150'
+    depends_on:
+      - node-db-2
 volumes:
   node-db-data:
