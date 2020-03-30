@@ -278,54 +278,42 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 
 func TestAnyTime_UnmarshalJSON_Valid(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    time.Time
-		errored bool
+		name  string
+		input string
+		want  time.Time
 	}{
-		{"unix string", `"1529445491"`, time.Unix(1529445491, 0).UTC(), false},
-		{"unix int", `1529445491`, time.Unix(1529445491, 0).UTC(), false},
-		{"iso8601 time", `"2018-06-19T22:17:19Z"`, time.Unix(1529446639, 0).UTC(), false},
-		{"iso8601 date", `"2018-06-19"`, time.Unix(1529366400, 0).UTC(), false},
-		{"iso8601 year", `"2018"`, time.Unix(1514764800, 0).UTC(), false},
-		{"invalid string", `"1000h"`, time.Now(), true},
+		{"unix string", `"1529445491"`, time.Unix(1529445491, 0).UTC()},
+		{"unix int", `1529445491`, time.Unix(1529445491, 0).UTC()},
+		{"iso8601 time", `"2018-06-19T22:17:19Z"`, time.Unix(1529446639, 0).UTC()},
+		{"iso8601 date", `"2018-06-19"`, time.Unix(1529366400, 0).UTC()},
+		{"iso8601 year", `"2018"`, time.Unix(1514764800, 0).UTC()},
+		{"null", `null`, time.Time{}},
+		{"empty", `""`, time.Time{}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var actual models.AnyTime
 			err := json.Unmarshal([]byte(test.input), &actual)
-			if test.errored {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, actual.Time)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, test.want, actual.Time)
 		})
 	}
 }
 
-func TestAnyTime_UnmarshalJSON_Null(t *testing.T) {
+func TestAnyTime_UnmarshalJSON_Error(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    models.AnyTime
-		errored bool
+		name  string
+		input string
 	}{
-		{"null", `null`, models.AnyTime{}, false},
-		{"empty", `""`, models.AnyTime{}, false},
+		{"invalid string", `"1000h"`},
+		{"float", `"1000.123"`},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var actual models.AnyTime
 			err := json.Unmarshal([]byte(test.input), &actual)
-			if test.errored {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, test.want, actual)
-			}
+			assert.Error(t, err)
 		})
 	}
 }
