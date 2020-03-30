@@ -99,6 +99,13 @@ jobs:
             $${{ secrets.CACHE_VERSION}}-yarn
       - name: Install Yarn dependencies
         run: make yarndep
+      - name: Cache Python dependencies
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/pip
+          key: $${{ secrets.CACHE_VERSION}}-pip-$${ hashFiles('requirements.txt') }}
+          restore-keys: |
+            $${{ secrets.CACHE_VERSION}}-pip
       - name: Install python packages
         run: pip3 install -r requirements.txt
       - name: Run tests
