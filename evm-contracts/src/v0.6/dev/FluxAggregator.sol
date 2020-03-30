@@ -569,7 +569,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function updateAnswer(uint256 _round, int256 _answer)
     external
-    onlyEligibleOracles(uint32(_round))
+    ensureValidOracleRound(uint32(_round))
   {
     initializeNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
@@ -607,7 +607,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     view
     returns (uint256)
   {
-    uint256 eligiblityCode = checkOracleEligibility(reportableRoundId);
+    uint256 eligiblityCode = validateOracleRound(reportableRoundId);
     if (eligiblityCode != 0) return eligiblityCode;
 
     // break
@@ -620,9 +620,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
         return 8;
       }
     } else {
-      if (rounds[reportableRoundId].details.maxAnswers == 0) {
-        return 9;
-      }
+      return validateStartedRound(reportingRoundId);
     }
 
     return 0;
@@ -632,19 +630,31 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * Private
    */
 
-  function checkOracleEligibility(uint32 _id)
+
+  function validateOracleRound(uint32 _id)
     private
     view
     returns (uint256)
   {
     uint32 startingRound = oracles[msg.sender].startingRound;
+    uint32 rrId = reportingRoundId;
 
     if (startingRound == 0) return 1;
     if (startingRound > _id) return 2;
     if (oracles[msg.sender].endingRound < _id) return 3;
     if (oracles[msg.sender].lastReportedRound >= _id) return 4;
-    if (_id != reportingRoundId && _id != reportingRoundId.add(1)) return 5;
+    if (_id != rrId && _id != rrId.add(1)) return 5;
     if (_id != 1 && !finished(_id.sub(1)) && !timedOut(_id.sub(1))) return 6;
+
+    return 0;
+  }
+
+  function validateStartedRound(uint32 _id)
+    private
+    view
+    returns (uint256)
+  {
+    if (rounds[_id].details.maxAnswers == 0) return 9;
 
     return 0;
   }
@@ -709,7 +719,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function recordSubmission(int256 _answer, uint32 _id)
     private
-    onlyWhenAcceptingAnswers(_id)
+    ensureEligibleStartedRound(_id)
   {
     rounds[_id].details.answers.push(_answer);
     oracles[msg.sender].lastReportedRound = _id;
@@ -771,11 +781,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
   }
 
-  modifier onlyWhenAcceptingAnswers(uint32 _id) {
-    require(rounds[_id].details.maxAnswers != 0);
-    _;
-  }
-
   modifier ifNewRound(uint32 _id) {
     if (_id == reportingRoundId.add(1)) {
       _;
@@ -789,8 +794,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
   }
 
-  modifier onlyEligibleOracles(uint32 _id) {
-    require(checkOracleEligibility(_id) == 0);
+  modifier ensureValidOracleRound(uint32 _id) {
+    require(validateOracleRound(_id) == 0);
+    _;
+  }
+
+  modifier ensureEligibleStartedRound(uint32 _id) {
+    require(validateStartedRound(_id) == 0);
     _;
   }
 
