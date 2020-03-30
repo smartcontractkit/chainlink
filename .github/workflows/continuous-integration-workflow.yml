@@ -294,3 +294,17 @@ jobs:
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
 
+  repo-dispatch-build-publish-explorer:
+    name: Kick off build-publish-explorer workflow
+    runs-on: ubuntu-latest
+    needs:
+      - styleguide
+      - json-api-client
+      - explorer
+    steps:
+      - name: Issue repository dispatch
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          event-type: build-publish-explorer
+
