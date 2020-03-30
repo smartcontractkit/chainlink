@@ -105,11 +105,6 @@ jobs:
         run: pip3 install -r requirements.txt
       - name: Run tests
         run: ./tools/ci/solidity_test
-      - name: Upload test artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
 
   styleguide:
     name: Styleguide
@@ -171,15 +166,8 @@ jobs:
           key: v${{ hashFiles('cache.version') }}--yarn--vendor--${{ hashFiles('yarn.lock') }}
       - name: Install Yarn dependencies
         run: make yarndep
-      - name: Init GCloud
-        run: ./tools/ci/init_gcloud
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
 
   explorer:
     name: Explorer
@@ -223,11 +211,6 @@ jobs:
         run: yarn workspace @chainlink/explorer-client setup
       - name: Run Client tests
         run: yarn workspace @chainlink/explorer-client test:ci
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
 
   feeds:
     name: Feeds
