@@ -168,7 +168,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if !jr.Status.PendingBridge() {
+	if !jr.GetStatus().PendingBridge() {
 		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
 		return
 	}
