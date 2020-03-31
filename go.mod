@@ -28,6 +28,7 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.6.0
 	github.com/gobuffalo/packr v1.30.1
+	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/golang/mock v1.4.3
 	github.com/google/uuid v1.1.0 // indirect
@@ -52,6 +53,7 @@ require (
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v0.0.0-20191130220710-360f2bc03045
+	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.2

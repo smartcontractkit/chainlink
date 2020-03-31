@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
 export class AddIngestionTables1582233446000 implements MigrationInterface {
-  public async up(queryRunner: QueryRunner): Promise<any> {
+  public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
 CREATE TABLE ethereum_head (
   "id" BIGSERIAL PRIMARY KEY,
@@ -42,7 +42,7 @@ CREATE TABLE ethereum_log (
     `)
   }
 
-  public async down(queryRunner: QueryRunner): Promise<any> {
+  public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
 DROP TABLE "ethereum_log";
 DROP TABLE "ethereum_head";

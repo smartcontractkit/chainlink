@@ -15,6 +15,8 @@ type Config struct {
 	NetworkID int `mapstructure:"eth-chain-id"`
 	// EthereumURL is the websocket endpoint the monitor uses to watch the aggregator contracts
 	EthereumURL string `mapstructure:"eth-url"`
+	// FeedsUIURL is the base URL for the FeedsTracker UI
+	FeedsUIURL string `mapstructure:"feeds-ui-url"`
 	// DatabaseHost of the postgres server where the ingester saves results
 	DatabaseHost string `mapstructure:"db-host"`
 	// DatabaseName of the postgres server where the ingester saves results
@@ -48,6 +50,7 @@ func DefaultConfig() *Config {
 		"response-timeout": time.Minute * 5,
 		"eth-chain-id":     1,
 		"eth-url":          "ws://localhost:8545",
+		"feeds-ui-url":     "https://feeds.chain.link",
 		"db-host":          "localhost",
 		"db-name":          "explorer",
 		"db-port":          "5432",
