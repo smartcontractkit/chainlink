@@ -1708,6 +1708,27 @@ describe('FluxAggregator', () => {
         })
       })
     })
+
+    describe('when all oracles have been removed and then re-added', () => {
+      it('does not get stuck', async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .removeOracle(personas.Neil.address, 0, 0, 0)
+
+        // advance a few rounds
+        for (let i = 0; i < 7; i++) {
+          await aggregator.startNewRound()
+          nextRound = nextRound + 1
+          await h.increaseTimeBy(timeout + 1, provider)
+          await h.mineBlock(provider)
+        }
+
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(personas.Neil.address, personas.Neil.address, 1, 1, 0)
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      })
+    })
   })
 
   describe('#setAuthorization', () => {
