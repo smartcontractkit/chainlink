@@ -29,11 +29,6 @@ import (
 )
 
 const (
-	// DefaultGasLimit sets the default gas limit for outgoing transactions.
-	// if updating DefaultGasLimit, be sure it matches with the
-	// DefaultGasLimit specified in evm/test/Oracle_test.js
-	DefaultGasLimit uint64 = 500000
-
 	// Linear backoff is used so worst-case transaction time increases quadratically with this number
 	nonceReloadLimit int = 3
 
@@ -200,7 +195,7 @@ func (txm *EthTxManager) OnNewHead(head *models.Head) {
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	return txm.CreateTxWithGas(null.String{}, to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
+	return txm.CreateTxWithGas(null.String{}, to, data, txm.config.EthGasPriceDefault(), txm.config.EthGasLimitDefault())
 }
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
@@ -221,7 +216,7 @@ func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.
 		return nil, errors.New("account does not exist")
 	}
 
-	return txm.createTx(null.String{}, ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
+	return txm.createTx(null.String{}, ma, to, []byte{}, txm.config.EthGasPriceDefault(), txm.config.EthGasLimitDefault(), value)
 }
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
@@ -239,7 +234,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 
 func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.ConfigReader) (*big.Int, uint64) {
 	if !config.Dev() {
-		return config.EthGasPriceDefault(), DefaultGasLimit
+		return config.EthGasPriceDefault(), config.EthGasLimitDefault()
 	}
 
 	if gasPriceWei == nil {
@@ -247,7 +242,7 @@ func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.Config
 	}
 
 	if gasLimit == 0 {
-		gasLimit = DefaultGasLimit
+		gasLimit = config.EthGasLimitDefault()
 	}
 
 	return gasPriceWei, gasLimit

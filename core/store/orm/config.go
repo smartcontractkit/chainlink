@@ -214,6 +214,11 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 	return c.getWithFallback("EthMaxGasPriceWei", parseBigInt).(*big.Int)
 }
 
+// EthGasLimitDefault  sets the default gas limit for outgoing transactions.
+func (c Config) EthGasLimitDefault() uint64 {
+	return c.viper.GetUint64(EnvVarName("EthGasLimitDefault"))
+}
+
 // EthGasPriceDefault is the starting gas price for every transaction
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
