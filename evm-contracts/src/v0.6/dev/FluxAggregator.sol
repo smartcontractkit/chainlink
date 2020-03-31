@@ -118,6 +118,22 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
+   * @notice called by oracles when they have witnessed a need to update
+   * @param _round is the ID of the round this answer pertains to
+   * @param _answer is the updated data that the oracle is submitting
+   */
+  function updateAnswer(uint256 _round, int256 _answer)
+    external
+    ensureValidOracleRound(uint32(_round))
+  {
+    initializeNewRound(uint32(_round));
+    recordSubmission(_answer, uint32(_round));
+    updateRoundAnswer(uint32(_round));
+    payOracle(uint32(_round));
+    deleteRoundDetails(uint32(_round));
+  }
+
+  /**
    * @notice called by the owner to add a new Oracle and update the round
    * related parameters
    * @param _oracle is the address of the new Oracle being added
@@ -510,8 +526,38 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @notice called through LINK's transferAndCall to update available funds
    * in the same transaction as the funds were transfered to the aggregator
    */
-  function onTokenTransfer(address, uint256, bytes memory) public {
+  function onTokenTransfer(address, uint256, bytes memory)
+    public
+  {
     updateAvailableFunds();
+  }
+
+  /**
+   * @notice helper method for oracles to retrieve their necessary info in a
+   * single call.
+   */
+  function roundState()
+    public
+    view
+    returns (
+      uint32 _reportableRoundId,
+      bool _eligibleToSubmit,
+      int256 _latestRoundAnswer,
+      uint64 _timesOutAt,
+      uint128 _availableFunds,
+      uint128 _paymentAmount
+    )
+  {
+    bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
+    _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
+    return (
+      _reportableRoundId,
+      (eligibleToSubmit(_reportableRoundId, finishedOrTimedOut) == 0),
+      rounds[latestRoundId].answer,
+      finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
+      availableFunds,
+      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
+    );
   }
 
   /**
@@ -563,44 +609,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice called by oracles when they have witnessed a need to update
-   * @param _round is the ID of the round this answer pertains to
-   * @param _answer is the updated data that the oracle is submitting
+   * Private
    */
-  function updateAnswer(uint256 _round, int256 _answer)
-    external
-    ensureValidOracleRound(uint32(_round))
-  {
-    initializeNewRound(uint32(_round));
-    recordSubmission(_answer, uint32(_round));
-    updateRoundAnswer(uint32(_round));
-    payOracle(uint32(_round));
-    deleteRoundDetails(uint32(_round));
-  }
-
-  function roundState()
-    public
-    view
-    returns (
-      uint32 _reportableRoundId,
-      bool _eligibleToSubmit,
-      int256 _latestRoundAnswer,
-      uint64 _timesOutAt,
-      uint128 _availableFunds,
-      uint128 _paymentAmount
-    )
-  {
-    bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
-    _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
-    return (
-      _reportableRoundId,
-      (eligibleToSubmit(_reportableRoundId, finishedOrTimedOut) == 0),
-      rounds[latestRoundId].answer,
-      finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
-      availableFunds,
-      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
-    );
-  }
 
   function eligibleToSubmit(uint32 _round, bool finishedOrTimedOut)
     private
@@ -623,11 +633,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
     return 0;
   }
-
-  /**
-   * Private
-   */
-
 
   function validateOracleRound(uint32 _id)
     private
