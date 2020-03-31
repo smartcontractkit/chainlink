@@ -514,7 +514,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPrice
 	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
-	assert.EqualError(t, err, "bumped gas price of 548900000000 would exceed maximum configured limit of 500000000000, set by ETH_GAS_PRICE_WEI")
+	assert.EqualError(t, err, "bumped gas price of 548900000000 would exceed maximum configured limit of 500000000000, set by ETH_MAX_GAS_PRICE_WEI")
 	assert.Nil(t, receipt)
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
