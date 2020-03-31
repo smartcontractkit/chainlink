@@ -95,22 +95,24 @@ func NewRun(
 	run := models.MakeJobRun(job, now, initiator, currentHeight, runRequest)
 	runAdapters := []*adapters.PipelineAdapter{}
 
-	if currentHeight != nil {
-		for i, task := range job.Tasks {
-			adapter, err := adapters.For(task, config, orm)
-			if err != nil {
-				run.SetError(err)
-				break
-			}
-
-			runAdapters = append(runAdapters, adapter)
-			run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
-				utils.MaxUint32(
-					config.MinIncomingConfirmations(),
-					task.Confirmations.Uint32,
-					adapter.MinConfs()),
-			)
+	for i, task := range job.Tasks {
+		adapter, err := adapters.For(task, config, orm)
+		if err != nil {
+			run.SetError(err)
+			break
 		}
+
+		runAdapters = append(runAdapters, adapter)
+		if currentHeight == nil {
+			continue
+		}
+
+		run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
+			utils.MaxUint32(
+				config.MinIncomingConfirmations(),
+				task.Confirmations.Uint32,
+				adapter.MinConfs()),
+		)
 	}
 
 	return &run, runAdapters
