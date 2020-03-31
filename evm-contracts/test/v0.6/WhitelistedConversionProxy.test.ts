@@ -2,23 +2,19 @@ import {
   contract,
   helpers as h,
   matchers,
-  oracle,
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
-import { WhitelistedAggregatorProxyFactory } from '../../ethers/v0.6/WhitelistedAggregatorProxyFactory'
-import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
+import { MockAggregatorFactory } from '../../ethers/v0.6/MockAggregatorFactory'
+import { WhitelistedConversionProxyFactory } from '../../ethers/v0.6/WhitelistedConversionProxyFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
-const aggregatorFactory = new AggregatorFactory()
-const oracleFactory = new OracleFactory()
-const whitelistedAggregatorProxyFactory = new WhitelistedAggregatorProxyFactory()
+const aggregatorFactory = new MockAggregatorFactory()
+const whitelistedConversionProxyFactory = new WhitelistedConversionProxyFactory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -28,26 +24,24 @@ beforeAll(async () => {
 })
 
 describe('WhitelistedAggregatorProxy', () => {
-  const jobId1 =
-    '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
-  const deposit = h.toWei('100')
-  const basePayment = h.toWei('1')
-  const response = h.numToBytes32(54321)
+  const response = h.numToBytes32(13240400000)
+  const fiatAnswer = h.numToBytes32(124330000)
+  const convertedFiat = h.numToBytes32(16461789320)
+  const decimals = 8
 
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<AggregatorFactory>
-  let oc1: contract.Instance<OracleFactory>
-  let proxy: contract.Instance<WhitelistedAggregatorProxyFactory>
+  let aggregator: contract.Instance<MockAggregatorFactory>
+  let aggregator2: contract.Instance<MockAggregatorFactory>
+  let proxy: contract.Instance<WhitelistedConversionProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
-    link = await linkTokenFactory.connect(defaultAccount).deploy()
-    oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
-      .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
-    await link.transfer(aggregator.address, deposit)
-    proxy = await whitelistedAggregatorProxyFactory
+      .deploy(decimals, response)
+    aggregator2 = await aggregatorFactory
       .connect(defaultAccount)
-      .deploy(aggregator.address)
+      .deploy(decimals, fiatAnswer)
+    proxy = await whitelistedConversionProxyFactory
+      .connect(defaultAccount)
+      .deploy(aggregator.address, aggregator2.address)
   })
 
   beforeEach(async () => {
@@ -55,15 +49,16 @@ describe('WhitelistedAggregatorProxy', () => {
   })
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(whitelistedAggregatorProxyFactory, [
-      'aggregator',
+    matchers.publicAbi(whitelistedConversionProxyFactory, [
       'getAnswer',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
       'latestTimestamp',
       'decimals',
-      'setAggregator',
+      'from',
+      'to',
+      'setAddresses',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -111,13 +106,6 @@ describe('WhitelistedAggregatorProxy', () => {
     beforeEach(async () => {
       await proxy.addToWhitelist(defaultAccount.address)
 
-      const requestTx = await aggregator.requestRateUpdate()
-      const receipt = await requestTx.wait()
-      const request = oracle.decodeRunRequest(receipt.logs?.[3])
-      await oc1.fulfillOracleRequest(
-        ...oracle.convertFufillParams(request, response),
-      )
-
       matchers.bigNum(
         ethers.utils.bigNumberify(response),
         await aggregator.latestAnswer(),
@@ -127,9 +115,9 @@ describe('WhitelistedAggregatorProxy', () => {
     })
 
     it('pulls the rate from the aggregator', async () => {
-      matchers.bigNum(response, await proxy.latestAnswer())
+      matchers.bigNum(convertedFiat, await proxy.latestAnswer())
       const latestRound = await proxy.latestRound()
-      matchers.bigNum(response, await proxy.getAnswer(latestRound))
+      matchers.bigNum(convertedFiat, await proxy.getAnswer(latestRound))
     })
 
     it('pulls the timestamp from the aggregator', async () => {

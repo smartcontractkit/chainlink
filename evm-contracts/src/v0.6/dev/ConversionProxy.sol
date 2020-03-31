@@ -38,28 +38,48 @@ contract ConversionProxy is AggregatorInterface, Owned {
     );
   }
 
-  function latestAnswer() external view override returns (int256) {
-    return convertAnswer(from.latestAnswer(), to.latestAnswer());
+  function latestAnswer() external view virtual override returns (int256) {
+    return _latestAnswer();
   }
 
-  function latestTimestamp() external view override returns (uint256) {
-    return from.latestTimestamp();
+  function latestTimestamp() external view virtual override returns (uint256) {
+    return _latestTimestamp();
   }
 
-  function latestRound() external view override returns (uint256) {
-    return from.latestRound();
+  function latestRound() external view virtual override returns (uint256) {
+    return _latestRound();
   }
 
-  function getAnswer(uint256 _roundId) external view override returns (int256) {
-    return convertAnswer(from.getAnswer(_roundId), to.latestAnswer());
+  function getAnswer(uint256 _roundId) external view virtual override returns (int256) {
+    return _getAnswer(_roundId);
   }
 
-  function getTimestamp(uint256 _roundId) external view override returns (uint256) {
-    return from.getTimestamp(_roundId);
+  function getTimestamp(uint256 _roundId) external view virtual override returns (uint256) {
+    return _getTimestamp(_roundId);
   }
 
   function decimals() external view override returns (uint8) {
     return to.decimals();
+  }
+
+  function _latestAnswer() internal view returns (int256) {
+    return convertAnswer(from.latestAnswer(), to.latestAnswer());
+  }
+
+  function _latestTimestamp() internal view returns (uint256) {
+    return from.latestTimestamp();
+  }
+
+  function _latestRound() internal view returns (uint256) {
+    return from.latestRound();
+  }
+
+  function _getAnswer(uint256 _roundId) internal view returns (int256) {
+    return convertAnswer(from.getAnswer(_roundId), to.latestAnswer());
+  }
+
+  function _getTimestamp(uint256 _roundId) internal view returns (uint256) {
+    return from.getTimestamp(_roundId);
   }
 
   function convertAnswer(
