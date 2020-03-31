@@ -265,7 +265,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 				taskRun.Status = models.RunStatusErrored
 			}
 		}
-		jobRun.Status = models.RunStatusErrored
+		jobRun.SetStatus(models.RunStatusErrored)
 
 		err = store.ORM.SaveJobRun(&jobRun)
 		if err != nil {

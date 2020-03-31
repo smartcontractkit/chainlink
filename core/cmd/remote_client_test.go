@@ -953,6 +953,6 @@ func TestClient_CancelJobRun(t *testing.T) {
 
 	runs := cltest.MustAllJobsWithStatus(t, app.Store, models.RunStatusCancelled)
 	require.Len(t, runs, 1)
-	assert.Equal(t, models.RunStatusCancelled, runs[0].Status)
+	assert.Equal(t, models.RunStatusCancelled, runs[0].GetStatus())
 	assert.NotNil(t, runs[0].FinishedAt)
 }

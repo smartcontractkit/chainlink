@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math/big"
 	"time"
 
 	"chainlink/core/assets"
@@ -9,7 +10,18 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	null "gopkg.in/guregu/null.v3"
+)
+
+var (
+	promTotalRunUpdates = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "run_status_update_total",
+		Help: "The total number of status updates for Job Runs",
+	},
+		[]string{"job_spec_id", "from_status", "status"},
+	)
 )
 
 // JobRun tracks the status of a job by holding its TaskRuns and the
@@ -34,6 +46,34 @@ type JobRun struct {
 	Payment        *assets.Link `json:"payment,omitempty"`
 }
 
+// MakeJobRun returns a new JobRun copy
+func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight *big.Int, runRequest *RunRequest) JobRun {
+	run := JobRun{
+		ID:          NewID(),
+		JobSpecID:   job.ID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Initiator:   *initiator,
+		InitiatorID: initiator.ID,
+		TaskRuns:    make([]TaskRun, len(job.Tasks)),
+		RunRequest:  *runRequest,
+		Payment:     runRequest.Payment,
+	}
+	if currentHeight != nil {
+		run.CreationHeight = utils.NewBig(currentHeight)
+		run.ObservedHeight = utils.NewBig(currentHeight)
+	}
+	for i, task := range job.Tasks {
+		run.TaskRuns[i] = TaskRun{
+			ID:       NewID(),
+			JobRunID: run.ID,
+			TaskSpec: task,
+		}
+	}
+	run.SetStatus(RunStatusInProgress)
+	return run
+}
+
 // GetID returns the ID of this structure for jsonapi serialization.
 func (jr JobRun) GetID() string {
 	return jr.ID.String()
@@ -42,6 +82,23 @@ func (jr JobRun) GetID() string {
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
 func (jr JobRun) GetName() string {
 	return "runs"
+}
+
+// SetStatus updates run status.
+func (jr *JobRun) SetStatus(status RunStatus) {
+	oldStatus := jr.Status
+	jr.Status = status
+	if jr.Status.Completed() && jr.TasksRemain() {
+		jr.Status = RunStatusInProgress
+	} else if jr.Status.Finished() {
+		jr.FinishedAt = null.TimeFrom(time.Now())
+	}
+	promTotalRunUpdates.WithLabelValues(jr.JobSpecID.String(), string(oldStatus), string(status))
+}
+
+// GetStatus returns the JobRun's RunStatus
+func (jr *JobRun) GetStatus() RunStatus {
+	return jr.Status
 }
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
@@ -125,7 +182,7 @@ func (jr *JobRun) TasksRemain() bool {
 // SetError sets this job run to failed and saves the error message
 func (jr *JobRun) SetError(err error) {
 	jr.Result.ErrorMessage = null.StringFrom(err.Error())
-	jr.setStatus(RunStatusErrored)
+	jr.SetStatus(RunStatusErrored)
 }
 
 // Cancel sets this run as cancelled, it should no longer be processed.
@@ -134,7 +191,7 @@ func (jr *JobRun) Cancel() {
 	if currentTaskRun != nil {
 		currentTaskRun.Status = RunStatusCancelled
 	}
-	jr.setStatus(RunStatusCancelled)
+	jr.SetStatus(RunStatusCancelled)
 }
 
 // ApplyOutput updates the JobRun's Result and Status
@@ -144,7 +201,7 @@ func (jr *JobRun) ApplyOutput(result RunOutput) {
 		return
 	}
 	jr.Result.Data = result.Data()
-	jr.setStatus(result.Status())
+	jr.SetStatus(result.Status())
 }
 
 // ApplyBridgeRunResult saves the input from a BridgeAdapter
@@ -153,16 +210,7 @@ func (jr *JobRun) ApplyBridgeRunResult(result BridgeRunResult) {
 		jr.SetError(result.GetError())
 	}
 	jr.Result.Data = result.Data
-	jr.setStatus(result.Status)
-}
-
-func (jr *JobRun) setStatus(status RunStatus) {
-	jr.Status = status
-	if jr.Status.Completed() && jr.TasksRemain() {
-		jr.Status = RunStatusInProgress
-	} else if jr.Status.Finished() {
-		jr.FinishedAt = null.TimeFrom(time.Now())
-	}
+	jr.SetStatus(result.Status)
 }
 
 // ErrorString returns the error as a string if present, otherwise "".
