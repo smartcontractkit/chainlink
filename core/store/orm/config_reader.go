@@ -31,6 +31,7 @@ type ConfigReader interface {
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
+	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
 	SetEthGasPriceDefault(value *big.Int) error

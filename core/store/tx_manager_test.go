@@ -1171,9 +1171,9 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 		expectedGasLimit uint64
 	}{
 		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
-		{"dev but not set", true, nil, 0, defaultGasPrice, strpkg.DefaultGasLimit},
-		{"not dev", false, customGasPrice, customGasLimit, defaultGasPrice, strpkg.DefaultGasLimit},
-		{"not dev not set", false, nil, 0, defaultGasPrice, strpkg.DefaultGasLimit},
+		{"dev but not set", true, nil, 0, defaultGasPrice, config.EthGasLimitDefault()},
+		{"not dev", false, customGasPrice, customGasLimit, defaultGasPrice, config.EthGasLimitDefault()},
+		{"not dev not set", false, nil, 0, defaultGasPrice, config.EthGasLimitDefault()},
 	}
 
 	for _, test := range tests {
