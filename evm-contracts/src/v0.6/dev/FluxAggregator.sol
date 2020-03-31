@@ -54,7 +54,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint32 public minAnswerCount;
   uint32 public restartDelay;
   uint32 public timeout;
-  uint8 public decimals;
+  uint8 public override decimals;
   bytes32 public description;
 
   uint32 private reportingRoundId;
