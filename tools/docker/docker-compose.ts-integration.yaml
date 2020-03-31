@@ -18,17 +18,18 @@ services:
       - external-adapter
       - external-adapter-2
     environment:
-      - SRCROOT
-      - GETH_MODE
       - CHAINLINK_DEV=TRUE # need this for service agreements subcommand
       - CHAINLINK_URL
+      - CLIENT_NODE_URL # used to send remote commands
+      - CLIENT_NODE_2_URL
       - ETH_HTTP_URL
       - EXTERNAL_ADAPTER_URL
-      - CLIENT_NODE_URL # used to send remote commands
+      - EXTERNAL_ADAPTER_2_URL
+      - GETH_MODE
+      - MINIMUM_CONTRACT_PAYMENT
       - NODE_1_CONTAINER
       - NODE_2_CONTAINER
-      - CLIENT_NODE_2_URL
-      - EXTERNAL_ADAPTER_2_URL
+      - SRCROOT
     secrets:
       - apicredentials
 
