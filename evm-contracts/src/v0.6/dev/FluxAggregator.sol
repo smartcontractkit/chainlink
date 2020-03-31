@@ -691,7 +691,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
       rounds[latestRoundId].answer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
-      rounds[_reportableRoundId].details.paymentAmount
+      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
     );
   }
 
