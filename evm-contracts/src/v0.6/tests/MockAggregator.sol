@@ -2,6 +2,13 @@ pragma solidity ^0.6.0;
 
 import "../dev/AggregatorInterface.sol";
 
+/**
+ * @title The MockAggregator contract
+ * @notice Use this contract when you need to test
+ * other contract's ability to read data from an
+ * aggregator contract, but how the aggregator got
+ * its answer is unimportant
+ */
 contract MockAggregator is AggregatorInterface {
   uint8 public override decimals;
   int256 public override latestAnswer;
