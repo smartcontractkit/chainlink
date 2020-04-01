@@ -536,12 +536,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @notice helper method for oracles to retrieve their necessary info in a
    * single call.
    */
-  function roundState()
+  function oracleRoundState()
     public
     view
     returns (
-      uint32 _reportableRoundId,
       bool _eligibleToSubmit,
+      uint32 _reportableRoundId,
       int256 _latestRoundAnswer,
       uint64 _timesOutAt,
       uint128 _availableFunds,
@@ -551,8 +551,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
     _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
-      _reportableRoundId,
       (eligibleToSubmit(_reportableRoundId, finishedOrTimedOut) == 0),
+      _reportableRoundId,
       oracles[msg.sender].latestAnswer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
