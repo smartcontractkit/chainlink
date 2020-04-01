@@ -20,9 +20,9 @@ contract ConversionProxy is AggregatorInterface, Ownable {
   AggregatorInterface public to;
 
   event AddressesUpdated(
-    uint8 decimals,
     address from,
-    address to
+    address to,
+    uint8 decimals
   );
 
   /**
@@ -66,9 +66,9 @@ contract ConversionProxy is AggregatorInterface, Ownable {
     from = AggregatorInterface(_from);
     to = AggregatorInterface(_to);
     emit AddressesUpdated(
-      _decimals,
       _from,
-      _to
+      _to,
+      _decimals
     );
   }
 
