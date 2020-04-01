@@ -56,6 +56,7 @@ describe('WhitelistedAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
       'addOracle',
+      'acceptAdmin',
       'addToWhitelist',
       'allocatedFunds',
       'availableFunds',
@@ -86,7 +87,7 @@ describe('WhitelistedAggregator', () => {
       'setAuthorization',
       'startNewRound',
       'timeout',
-      'updateAdmin',
+      'transferAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
