@@ -1404,6 +1404,26 @@ describe('FluxAggregator', () => {
         )
       })
     })
+
+    describe('when configured to have 0 max answers', () => {
+      beforeEach(async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .updateFutureRounds(paymentAmount, 0, 0, 0, 0)
+      })
+
+      it('reverts all oracle answers', async () => {
+        await matchers.evmRevert(
+          aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+        )
+        await matchers.evmRevert(
+          aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+        )
+        await matchers.evmRevert(
+          aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+        )
+      })
+    })
   })
 
   describe('#updateAvailableFunds', () => {
