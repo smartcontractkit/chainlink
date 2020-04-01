@@ -3,8 +3,30 @@ import { Drawer, Button } from 'antd'
 import { connect } from 'react-redux'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
 import { etherscanAddress, humanizeUnixTimestamp, Networks } from 'utils'
+import { FeedConfig } from 'feeds'
+import { AppState } from 'state'
 
-const NodeDetailsModal = ({ options, fetchJobId, sideDrawer, setDrawer }) => {
+interface OwnProps {
+  config: FeedConfig
+  fetchJobId?: any
+}
+
+interface StateProps {
+  sideDrawer: any
+}
+
+interface DispatchProps {
+  setDrawer: any
+}
+
+interface Props extends OwnProps, StateProps, DispatchProps {}
+
+const NodeDetailsModal: React.FC<Props> = ({
+  config,
+  fetchJobId,
+  sideDrawer,
+  setDrawer,
+}) => {
   const [jobId, setJobId] = useState()
 
   useEffect(() => {
@@ -14,7 +36,9 @@ const NodeDetailsModal = ({ options, fetchJobId, sideDrawer, setDrawer }) => {
         setJobId(jobIdResponse)
       }
     }
-    fetchJobIdEffect()
+    if (fetchJobId) {
+      fetchJobIdEffect()
+    }
   }, [sideDrawer, fetchJobId])
 
   return (
@@ -26,15 +50,25 @@ const NodeDetailsModal = ({ options, fetchJobId, sideDrawer, setDrawer }) => {
       visible={!!sideDrawer}
     >
       {sideDrawer && sideDrawer.type === 'oracle' ? (
-        <NodeDetailsContent data={sideDrawer} jobId={jobId} options={options} />
+        <NodeDetailsContent data={sideDrawer} jobId={jobId} config={config} />
       ) : (
-        <ContractDetailsContent data={sideDrawer} options={options} />
+        <ContractDetailsContent data={sideDrawer} config={config} />
       )}
     </Drawer>
   )
 }
 
-const NodeDetailsContent = ({ data = {}, jobId, options }) => {
+interface NodeDetailsContentProps {
+  data: any
+  jobId?: string
+  config: FeedConfig
+}
+
+const NodeDetailsContent: React.FC<NodeDetailsContentProps> = ({
+  data = {},
+  jobId,
+  config,
+}) => {
   if (!data) return null
 
   return (
@@ -46,7 +80,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
           Latest answer
         </div>
         <h3 className="network-graph__node-details__item--value">
-          {options.valuePrefix || ''} {data.responseFormatted || '...'}
+          {config.valuePrefix || ''} {data.answerFormatted || '...'}
         </h3>
       </div>
 
@@ -63,7 +97,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
 
       <div>
         <h4>Find out more in:</h4>
-        {options.networkId === Networks.MAINNET && (
+        {config.networkId === Networks.MAINNET && (
           <>
             <Button
               style={{ marginRight: 10 }}
@@ -94,7 +128,7 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={etherscanAddress(options.networkId, data.address)}
+            href={etherscanAddress(config.networkId, data.address)}
           >
             Etherscan
           </a>
@@ -104,7 +138,15 @@ const NodeDetailsContent = ({ data = {}, jobId, options }) => {
   )
 }
 
-const ContractDetailsContent = ({ data = {}, options }) => {
+interface ContractDetailsContentProps {
+  data: any
+  config: FeedConfig
+}
+
+const ContractDetailsContent: React.FC<ContractDetailsContentProps> = ({
+  data = {},
+  config,
+}) => {
   if (!data) return null
 
   return (
@@ -116,7 +158,7 @@ const ContractDetailsContent = ({ data = {}, options }) => {
       <div className="network-graph__contract-details__item">
         <div className="network-graph__contract-details__item--label">Type</div>
         <h3 className="network-graph__contract-details__item--value">
-          {options.name}
+          {config.name}
         </h3>
       </div>
 
@@ -125,16 +167,18 @@ const ContractDetailsContent = ({ data = {}, options }) => {
           Latest answer
         </div>
         <h3 className="network-graph__contract-details__item--value">
-          {options.valuePrefix || ''} {data.currentAnswer || '...'}
+          {config.valuePrefix || ''} {data.latestAnswer || '...'}
         </h3>
       </div>
 
       <div className="network-graph__contract-details__item">
         <div className="network-graph__contract-details__item--label">
-          Response date
+          Answer date
         </div>
         <h3 className="network-graph__contract-details__item--value">
-          {humanizeUnixTimestamp(data.updateHeight, 'LLL')}
+          {data.latestAnswerTimestamp
+            ? humanizeUnixTimestamp(data.latestAnswerTimestamp, 'LLL')
+            : '...'}
         </h3>
       </div>
 
@@ -142,12 +186,12 @@ const ContractDetailsContent = ({ data = {}, options }) => {
 
       <div>
         <h4>Find out more in:</h4>
-        {options.networkId === Networks.MAINNET && (
+        {config.networkId === Networks.MAINNET && (
           <Button style={{ marginRight: 10 }} ghost type="primary">
             <a
               target="_BLANK"
               rel="noopener noreferrer"
-              href={`https://explorer.chain.link/job-runs?search=${options.contractAddress}`}
+              href={`https://explorer.chain.link/job-runs?search=${config.contractAddress}`}
             >
               Chainlink Explorer
             </a>
@@ -157,7 +201,7 @@ const ContractDetailsContent = ({ data = {}, options }) => {
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={etherscanAddress(options.networkId, options.contractAddress)}
+            href={etherscanAddress(config.networkId, config.contractAddress)}
           >
             Etherscan
           </a>
@@ -167,13 +211,11 @@ const ContractDetailsContent = ({ data = {}, options }) => {
   )
 }
 
-const mapStateToProps = state => ({
-  tooltip: state.networkGraph.tooltip,
+const mapStateToProps = (state: AppState) => ({
   sideDrawer: state.networkGraph.drawer,
 })
 
 const mapDispatchToProps = {
-  setTooltip: networkGraphOperations.setTooltip,
   setDrawer: networkGraphOperations.setDrawer,
 }
 

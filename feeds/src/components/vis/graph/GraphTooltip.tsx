@@ -1,14 +1,35 @@
 import React, { useEffect, useState } from 'react'
 import { connect } from 'react-redux'
 import { humanizeUnixTimestamp } from 'utils'
+import { AppState } from 'state'
+import { FeedConfig } from 'feeds'
 
-const positionTypes = {
+export interface Props {
+  config: FeedConfig
+  tooltip: any
+}
+
+interface PositionTypesItem {
+  x: number
+  y: number
+}
+
+interface PositionTypes {
+  [key: string]: PositionTypesItem
+}
+
+interface PositionStyles {
+  left: number
+  top: number
+}
+
+const positionTypes: PositionTypes = {
   oracle: { x: 10, y: 10 },
   contract: { x: 20, y: 20 },
 }
 
-const Tooltip = ({ options, tooltip }) => {
-  const [position, setPosition] = useState({})
+const Tooltip: React.FC<Props> = ({ config, tooltip }) => {
+  const [position, setPosition] = useState<Partial<PositionStyles>>({})
 
   useEffect(() => {
     if (tooltip && tooltip.x) {
@@ -17,7 +38,7 @@ const Tooltip = ({ options, tooltip }) => {
         top: tooltip.y + positionTypes[tooltip.type].y,
       })
     } else {
-      setPosition(null)
+      setPosition({})
     }
   }, [tooltip])
 
@@ -32,9 +53,9 @@ const Tooltip = ({ options, tooltip }) => {
           <div className="type">Oracle</div>
           <div className="data">
             <div className="name">{tooltip.name}</div>
-            {tooltip.responseFormatted && (
+            {tooltip.answerFormatted && (
               <div className="price">
-                {options.valuePrefix} {tooltip.responseFormatted}
+                {config.valuePrefix} {tooltip.answerFormatted}
               </div>
             )}
           </div>
@@ -45,7 +66,7 @@ const Tooltip = ({ options, tooltip }) => {
           <div className="type">Smart Contract</div>
           <div className="data">
             <div className="price">
-              {options.valuePrefix} {tooltip.currentAnswer || '...'}
+              {config.valuePrefix} {tooltip.latestAnswer || '...'}
             </div>
           </div>
         </>
@@ -63,7 +84,7 @@ const Tooltip = ({ options, tooltip }) => {
   )
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state: AppState) => ({
   tooltip: state.networkGraph.tooltip,
 })
 

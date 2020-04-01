@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react'
-import _ from 'lodash'
 import { Table, Icon } from 'antd'
+import { ColumnProps } from 'antd/lib/table'
 import { humanizeUnixTimestamp } from 'utils'
+import { connect } from 'react-redux'
+import {
+  aggregatorSelectors,
+  aggregatorOperations,
+} from 'state/ducks/aggregator'
+import { AppState } from 'state'
 
 interface StateProps {
-  networkGraphState: any
-  networkGraphNodes: any
   fetchEthGasPrice: any
   ethGasPrice: any
+  latestOraclesState: any
 }
 
 interface DispatchProps {
@@ -17,10 +22,9 @@ interface DispatchProps {
 export interface Props extends StateProps, DispatchProps {}
 
 const OracleTable: React.FC<Props> = ({
-  networkGraphState,
-  networkGraphNodes,
   fetchEthGasPrice,
   ethGasPrice,
+  latestOraclesState,
 }) => {
   const [data, setData] = useState<any | undefined>()
   const [gasPrice, setGasPrice] = useState<any | undefined>()
@@ -36,56 +40,46 @@ const OracleTable: React.FC<Props> = ({
   }, [ethGasPrice])
 
   useEffect(() => {
-    const mergedData = networkGraphNodes
-      .filter((node: any) => node.type === 'oracle')
-      .map((oracle: any) => {
-        const state = _.find(networkGraphState, { sender: oracle.address })
-        return {
-          oracle,
-          state,
-          key: oracle.id,
-        }
-      })
-    setData(mergedData)
-  }, [networkGraphState, networkGraphNodes])
+    setData(latestOraclesState)
+  }, [latestOraclesState])
 
-  const columns = [
+  const columns: ColumnProps<any>[] = [
     {
       title: 'Oracle',
-      dataIndex: 'oracle.name',
+      dataIndex: 'name',
       key: 'name',
-      sorter: (a: any, b: any): number =>
-        a.oracle.name.localeCompare(b && b.oracle && b.oracle.name),
+      sorter: (a: any, b: any): number => a.name.localeCompare(b && b.name),
     },
 
     {
       title: 'Answer',
-      dataIndex: 'state.responseFormatted',
-      key: 'answer',
+      dataIndex: 'answerFormatted',
+      key: 'answerFormatted',
       sorter: (a: any, b: any): number => {
-        if (!a.state || !b.state) return 0
-        return a.state.responseFormatted - b.state.responseFormatted
+        if (!a.answerFormatted || !b.answerFormatted) return 0
+        return a.answerFormatted - b.answerFormatted
       },
     },
     {
       title: 'Gas Price (Gwei)',
-      dataIndex: 'state.meta.gasPrice',
+      dataIndex: 'meta.gasPrice',
       key: 'gas',
       sorter: (a: any, b: any): number => {
-        if (!a.state || !b.state) return 0
-        return a.state.meta.gasPrice - b.state.meta.gasPrice
+        if (!a.meta || !b.meta) return 0
+        return a.meta.gasPrice - b.meta.gasPrice
       },
       defaultSortOrder: 'descend' as 'descend',
     },
     {
       title: 'Date',
-      dataIndex: 'state.meta.timestamp',
+      dataIndex: 'meta.timestamp',
       key: 'timestamp',
       sorter: (a: any, b: any): number => {
-        if (!a.state || !b.state) return 0
-        return a.state.meta.gasPrice - b.state.meta.gasPrice
+        if (!a.meta || !b.meta) return 0
+        return a.meta.timestamp - b.meta.timestamp
       },
-      render: (timestamp: number) => humanizeUnixTimestamp(timestamp),
+      render: (timestamp: number) =>
+        timestamp && humanizeUnixTimestamp(timestamp, 'LLL'),
     },
   ]
 
@@ -104,9 +98,19 @@ const OracleTable: React.FC<Props> = ({
         pagination={false}
         size={'middle'}
         locale={{ emptyText: <Icon type="loading" /> }}
+        rowKey={record => record.id}
       />
     </div>
   )
 }
 
-export default OracleTable
+const mapStateToProps = (state: AppState) => ({
+  ethGasPrice: state.aggregator.ethGasPrice,
+  latestOraclesState: aggregatorSelectors.latestOraclesState(state),
+})
+
+const mapDispatchToProps = {
+  fetchEthGasPrice: aggregatorOperations.fetchEthGasPrice,
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(OracleTable)

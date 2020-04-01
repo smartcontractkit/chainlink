@@ -1,18 +1,18 @@
 import { getLogs, formatAnswer } from './utils'
 
-import AggregationContract from './AggregationContract'
+import AggregatorContract from './AggregatorContract'
 
-export default class AggregationContractV2 extends AggregationContract {
-  async currentAnswer() {
+export default class AggregatorContractV2 extends AggregatorContract {
+  async latestAnswer() {
     const latestAnswer = await this.contract.latestAnswer()
     return formatAnswer(
       latestAnswer,
-      this.options.multiply,
-      this.options.decimalPlaces,
+      this.config.multiply,
+      this.config.decimalPlaces,
     )
   }
 
-  async updateHeight() {
+  async latestAnswerTimestamp() {
     const latestTimestamp = await this.contract.latestTimestamp()
     return Number(latestTimestamp)
   }
@@ -36,12 +36,12 @@ export default class AggregationContractV2 extends AggregationContract {
         eventInterface: this.contract.interface.events.AnswerUpdated,
       },
       decodedLog => ({
-        responseFormatted: formatAnswer(
+        answerFormatted: formatAnswer(
           decodedLog.current,
-          this.options.multiply,
-          this.options.decimalPlaces,
+          this.config.multiply,
+          this.config.decimalPlaces,
         ),
-        response: Number(decodedLog.current),
+        answer: Number(decodedLog.current),
         answerId: Number(decodedLog.roundId),
         timestamp: Number(decodedLog.timestamp),
       }),
