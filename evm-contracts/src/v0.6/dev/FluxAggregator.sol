@@ -501,7 +501,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     uint32 current = reportingRoundId;
 
-    require(rounds[current].updatedAt > 0 || timedOut(current));
+    require(rounds[current].updatedAt > 0 || timedOut(current), "Current round not finished");
 
     initializeNewRound(current.add(1));
   }
@@ -806,25 +806,25 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier ensureEligibleStartedRound(uint32 _id) {
-    require(validateActiveRound(_id).length == 0);
+    require(validateActiveRound(_id).length == 0, "Cannot update an inactive round");
     _;
   }
 
   modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
     uint32 oracleNum = oracleCount(); // Save on storage reads
-    require(oracleNum >= _max);
-    require(_max >= _min);
-    require(oracleNum == 0 || oracleNum > _restartDelay);
+    require(oracleNum >= _max, "Max answers can't exceed oracles");
+    require(_max >= _min, "Min answers can't exceed max");
+    require(oracleNum == 0 || oracleNum > _restartDelay, "Delay must be less than oracles");
     _;
   }
 
   modifier onlyUnenabledAddress(address _oracle) {
-    require(oracles[_oracle].endingRound != ROUND_MAX);
+    require(oracles[_oracle].endingRound != ROUND_MAX, "Oracle already enabled");
     _;
   }
 
   modifier onlyEnabledAddress(address _oracle) {
-    require(oracles[_oracle].endingRound == ROUND_MAX);
+    require(oracles[_oracle].endingRound == ROUND_MAX, "Oracle not enabled");
     _;
   }
 
@@ -835,12 +835,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyWithPreviousAnswer(uint32 _id) {
-    require(rounds[_id.sub(1)].updatedAt != 0);
+    require(rounds[_id.sub(1)].updatedAt != 0, "Previous round must be finished");
     _;
   }
 
   modifier onlyAuthorizedRequesters() {
-    require(authorizedRequesters[msg.sender]);
+    require(authorizedRequesters[msg.sender], "Not an authorized requester");
     _;
   }
 
