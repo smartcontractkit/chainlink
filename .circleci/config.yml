@@ -32,7 +32,7 @@ jobs:
           paths:
             - '/go/pkg/mod'
       - run: yarn setup:contracts
-      - run: go test -v -p 3 -parallel 2 ./...
+      - run: go test -v -p 3 -parallel 2 ./core ./packr
   rust:
     docker:
       - image: smartcontract/builder:1.0.31
@@ -256,6 +256,28 @@ jobs:
       - run: ./tools/ci/forks_test
       - store_artifacts:
           path: ./integration/forks/logs
+  ingester:
+    docker:
+      - image: smartcontract/builder:1.0.31
+      - image: circleci/postgres:11-alpine
+        environment:
+          POSTGRES_USER: circleci_postgres
+          POSTGRES_DB: circleci_test
+    environment:
+      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod download
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: go-mod-{{ checksum "go.sum" }}
+          paths:
+            - '/go/pkg/mod'
+      - run: go test -v -p 3 -parallel 2 ./ingester
   build-publish-explorer:
     machine:
       image: circleci/classic:201808-01

@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"ingester/client"
-	"ingester/logger"
+	"chainlink/ingester/client"
+	"chainlink/ingester/logger"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"

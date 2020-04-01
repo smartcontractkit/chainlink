@@ -5,8 +5,8 @@ import (
 	"os/signal"
 	"time"
 
-	"ingester/logger"
-	"ingester/service"
+	"chainlink/ingester/logger"
+	"chainlink/ingester/service"
 
 	"github.com/spf13/cobra"
 )
