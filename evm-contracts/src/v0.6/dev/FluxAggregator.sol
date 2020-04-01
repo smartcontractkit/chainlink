@@ -687,7 +687,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function updateTimedOutRoundInfo(uint32 _id)
     private
     ifTimedOut(_id)
-    onlyWithPreviousAnswer(_id)
   {
     uint32 prevId = _id.sub(1);
     rounds[_id].answer = rounds[prevId].answer;
@@ -832,11 +831,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     if (timedOut(_id)) {
       _;
     }
-  }
-
-  modifier onlyWithPreviousAnswer(uint32 _id) {
-    require(rounds[_id.sub(1)].updatedAt != 0, "Previous round must be finished");
-    _;
   }
 
   modifier onlyAuthorizedRequesters() {
