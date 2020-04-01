@@ -8,7 +8,9 @@ import "./vendor/Ownable.sol";
  * @title The ConversionProxy contract for Solidity 4
  * @notice This contract allows for the rate of one aggregator
  * contract to be represented in the currency of another aggregator
- * contract.
+ * contract's current rate. Rounds and timestamps are referred to
+ * relative to the _from address. Historic answers are provided at
+ * the latest rate of _to address.
  */
 contract ConversionProxy is AggregatorInterface, Ownable {
   using SignedSafeMath for int256;
