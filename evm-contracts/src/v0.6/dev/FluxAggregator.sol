@@ -497,8 +497,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function startNewRound()
     external
-    onlyAuthorizedRequesters()
   {
+    require(authorizedRequesters[msg.sender], "Not an authorized requester");
     uint32 current = reportingRoundId;
 
     require(rounds[current].updatedAt > 0 || timedOut(current), "Current round not finished");
@@ -621,7 +621,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     if (error.length != 0) return false;
 
     if (supersedable) {
-      return delayedStatus(_round).length == 0;
+      return delayed(_round);
     } else {
       return validateActiveRound(_round).length == 0;
     }
@@ -644,14 +644,21 @@ contract FluxAggregator is AggregatorInterface, Owned {
     if (_id != 1 && !supersedable(_id.sub(1))) return "Previous round not supersedable";
   }
 
-  function delayedStatus(uint32 _id)
+  function delayed(uint32 _id)
     private
     view
-    returns (bytes memory)
+    returns (bool)
   {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
+    return _id > lastStarted + restartDelay || lastStarted == 0;
+  }
 
-    if (_id <= lastStarted + restartDelay && lastStarted != 0) return "Wait for restart delay";
+  function newRound(uint32 _id)
+    private
+    view
+    returns (bool)
+  {
+    return _id == reportingRoundId.add(1);
   }
 
   function validateActiveRound(uint32 _id)
@@ -664,9 +671,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function initializeNewRound(uint32 _id)
     private
-    ifNewRound(_id)
-    ifDelayed(_id)
   {
+    if (!newRound(_id) || !delayed(_id)) return;
+
     updateTimedOutRoundInfo(_id.sub(1));
 
     reportingRoundId = _id;
@@ -683,8 +690,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function updateTimedOutRoundInfo(uint32 _id)
     private
-    ifTimedOut(_id)
   {
+    if (!timedOut(_id)) return;
+
     uint32 prevId = _id.sub(1);
     rounds[_id].answer = rounds[prevId].answer;
     rounds[_id].answeredInRound = rounds[prevId].answeredInRound;
@@ -783,18 +791,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
   }
 
-  modifier ifDelayed(uint32 _id) {
-    if (delayedStatus(_id).length == 0) {
-      _;
-    }
-  }
-
-  modifier ifNewRound(uint32 _id) {
-    if (_id == reportingRoundId.add(1)) {
-      _;
-    }
-  }
-
   modifier ensureValidOracleRound(uint32 _id) {
     bytes memory error = validateOracleRound(_id);
     require(error.length == 0, string(error));
@@ -821,17 +817,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   modifier onlyEnabledAddress(address _oracle) {
     require(oracles[_oracle].endingRound == ROUND_MAX, "Oracle not enabled");
-    _;
-  }
-
-  modifier ifTimedOut(uint32 _id) {
-    if (timedOut(_id)) {
-      _;
-    }
-  }
-
-  modifier onlyAuthorizedRequesters() {
-    require(authorizedRequesters[msg.sender], "Not an authorized requester");
     _;
   }
 
