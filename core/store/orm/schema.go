@@ -23,6 +23,7 @@ type ConfigSchema struct {
 	DefaultHTTPLimit                int64          `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	DefaultHTTPTimeout              time.Duration  `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	Dev                             bool           `env:"CHAINLINK_DEV" default:"false"`
+	EnableExperimentalAdapters      bool           `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
 	FeatureExternalInitiators       bool           `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor              bool           `env:"FEATURE_FLUX_MONITOR" default:"false"`
 	MaximumServiceDuration          time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `

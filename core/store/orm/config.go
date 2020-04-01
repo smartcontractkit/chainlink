@@ -165,6 +165,11 @@ func (c Config) Dev() bool {
 	return c.viper.GetBool(EnvVarName("Dev"))
 }
 
+// EnableExperimentalAdapters enables support for experimental adapters
+func (c Config) EnableExperimentalAdapters() bool {
+	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
+}
+
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
