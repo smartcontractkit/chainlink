@@ -778,13 +778,25 @@ describe('FluxAggregator', () => {
           )
       })
 
-      it('reverts', async () => {
+      it('does not revert if the admin address is the same', async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(
+            personas.Neil.address,
+            personas.Neil.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
+      })
+
+      it('reverts admin address is different', async () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
             .addOracle(
               personas.Neil.address,
-              personas.Neil.address,
+              personas.Ned.address,
               minAns,
               maxAns,
               rrDelay,

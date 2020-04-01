@@ -124,8 +124,10 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function updateAnswer(uint256 _round, int256 _answer)
     external
-    ensureValidOracleRound(uint32(_round))
   {
+    bytes memory error = validateOracleRound(uint32(_round));
+    require(error.length == 0, string(error));
+
     initializeNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
@@ -153,11 +155,11 @@ contract FluxAggregator is AggregatorInterface, Owned {
   )
     external
     onlyOwner()
-    onlyUnenabledAddress(_oracle)
   {
     require(oracleCount() < 42);
     require(_admin != address(0));
     require(oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin);
+
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleAddresses.push(_oracle);
@@ -187,8 +189,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   )
     external
     onlyOwner()
-    onlyEnabledAddress(_oracle)
   {
+    require(enabled(_oracle), "Oracle not enabled");
+
     oracles[_oracle].endingRound = reportingRoundId;
     address tail = oracleAddresses[oracleCount().sub(1)];
     uint16 index = oracles[_oracle].index;
@@ -220,8 +223,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
   )
     public
     onlyOwner()
-    onlyValidRange(_minAnswers, _maxAnswers, _restartDelay)
   {
+    uint32 oracleNum = oracleCount(); // Save on storage reads
+    require(oracleNum >= _maxAnswers, "Max answers can't exceed oracles");
+    require(_maxAnswers >= _minAnswers, "Min answers can't exceed max");
+    require(oracleNum == 0 || oracleNum > _restartDelay, "Delay must be less than oracles");
+
     paymentAmount = _newPaymentAmount;
     minAnswerCount = _minAnswers;
     maxAnswerCount = _maxAnswers;
@@ -698,8 +705,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function updateRoundAnswer(uint32 _id)
     private
-    ifMinAnswersReceived(_id)
   {
+    if (rounds[_id].details.answers.length < rounds[_id].details.minAnswers) return;
+
     int256 newAnswer = Median.calculateInplace(rounds[_id].details.answers);
     rounds[_id].answer = newAnswer;
     rounds[_id].updatedAt = uint64(block.timestamp);
@@ -736,8 +744,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function deleteRoundDetails(uint32 _id)
     private
-    ifMaxAnswersReceived(_id)
   {
+    if (rounds[_id].details.answers.length < rounds[_id].details.maxAnswers) return;
+
     delete rounds[_id].details;
   }
 
@@ -771,44 +780,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return currentRound.add(1);
   }
 
-  /**
-   * Modifiers
-   */
-
-  modifier ifMinAnswersReceived(uint32 _id) {
-    if (rounds[_id].details.answers.length >= rounds[_id].details.minAnswers) {
-      _;
-    }
-  }
-
-  modifier ifMaxAnswersReceived(uint32 _id) {
-    if (rounds[_id].details.answers.length == rounds[_id].details.maxAnswers) {
-      _;
-    }
-  }
-
-  modifier ensureValidOracleRound(uint32 _id) {
-    bytes memory error = validateOracleRound(_id);
-    require(error.length == 0, string(error));
-    _;
-  }
-
-  modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
-    uint32 oracleNum = oracleCount(); // Save on storage reads
-    require(oracleNum >= _max, "Max answers can't exceed oracles");
-    require(_max >= _min, "Min answers can't exceed max");
-    require(oracleNum == 0 || oracleNum > _restartDelay, "Delay must be less than oracles");
-    _;
-  }
-
-  modifier onlyUnenabledAddress(address _oracle) {
-    require(oracles[_oracle].endingRound != ROUND_MAX, "Oracle already enabled");
-    _;
-  }
-
-  modifier onlyEnabledAddress(address _oracle) {
-    require(oracles[_oracle].endingRound == ROUND_MAX, "Oracle not enabled");
-    _;
+  function enabled(address _oracle)
+    private
+    view
+    returns (bool)
+  {
+    return oracles[_oracle].endingRound == ROUND_MAX;
   }
 
 }
