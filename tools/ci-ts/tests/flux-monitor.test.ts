@@ -15,6 +15,7 @@ const {
   CLIENT_NODE_2_URL,
   EXTERNAL_ADAPTER_URL,
   EXTERNAL_ADAPTER_2_URL,
+  MINIMUM_CONTRACT_PAYMENT,
 } = t.getEnvVars([
   'NODE_1_CONTAINER',
   'NODE_2_CONTAINER',
@@ -22,6 +23,7 @@ const {
   'CLIENT_NODE_2_URL',
   'EXTERNAL_ADAPTER_URL',
   'EXTERNAL_ADAPTER_2_URL',
+  'MINIMUM_CONTRACT_PAYMENT',
 ])
 
 const provider = t.createProvider()
@@ -116,7 +118,7 @@ beforeEach(async () => {
   fluxMonitorJob = JSON.parse(JSON.stringify(fluxMonitorJobTemplate)) // perform a deep clone
   fluxAggregator = await fluxAggregatorFactory.deploy(
     linkToken.address,
-    1,
+    MINIMUM_CONTRACT_PAYMENT,
     10,
     1,
     ethers.utils.formatBytes32String('ETH/USD'),
