@@ -1,5 +1,5 @@
 # Build Chainlink
-FROM henrynguyen5/base:1.0.3 as builder
+FROM henrynguyen5/base:1.0.3
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -55,7 +55,7 @@ RUN apt-get update && apt-get install -y ca-certificates
 
 WORKDIR /root
 
-COPY --from=builder /go/bin/chainlink /usr/local/bin/
+COPY --from=0 /go/bin/chainlink /usr/local/bin/
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]

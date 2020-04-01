@@ -1,4 +1,4 @@
-FROM henrynguyen5/base:1.0.3 as builder
+FROM henrynguyen5/base:1.0.3
 
 ENV PATH /chainlink/node_modules/.bin:$PATH
 
@@ -27,21 +27,21 @@ FROM node:10.16.3-alpine
 
 WORKDIR /app
 
-COPY --from=builder /chainlink/package.json package.json
-COPY --from=builder /chainlink/yarn.lock yarn.lock
-COPY --from=builder /chainlink/node_modules node_modules
-COPY --from=builder /chainlink/explorer/VERSION.json explorer/VERSION.json
-COPY --from=builder /chainlink/explorer/node_modules explorer/node_modules
-COPY --from=builder /chainlink/explorer/package.json explorer/package.json
-COPY --from=builder /chainlink/explorer/src explorer/src
-COPY --from=builder /chainlink/explorer/tsconfig.json explorer/tsconfig.json
-COPY --from=builder /chainlink/tsconfig.cjs.json ./
-COPY --from=builder /chainlink/explorer/ormconfig.json explorer/ormconfig.json
-COPY --from=builder /chainlink/explorer/client/public explorer/client/public
-COPY --from=builder /chainlink/explorer/client/build explorer/client/build
-COPY --from=builder /chainlink/styleguide styleguide
-COPY --from=builder /chainlink/tools/json-api-client tools/json-api-client
-COPY --from=builder /chainlink/tools/redux tools/redux
+COPY --from=0 /chainlink/package.json package.json
+COPY --from=0 /chainlink/yarn.lock yarn.lock
+COPY --from=0 /chainlink/node_modules node_modules
+COPY --from=0 /chainlink/explorer/VERSION.json explorer/VERSION.json
+COPY --from=0 /chainlink/explorer/node_modules explorer/node_modules
+COPY --from=0 /chainlink/explorer/package.json explorer/package.json
+COPY --from=0 /chainlink/explorer/src explorer/src
+COPY --from=0 /chainlink/explorer/tsconfig.json explorer/tsconfig.json
+COPY --from=0 /chainlink/tsconfig.cjs.json ./
+COPY --from=0 /chainlink/explorer/ormconfig.json explorer/ormconfig.json
+COPY --from=0 /chainlink/explorer/client/public explorer/client/public
+COPY --from=0 /chainlink/explorer/client/build explorer/client/build
+COPY --from=0 /chainlink/styleguide styleguide
+COPY --from=0 /chainlink/tools/json-api-client tools/json-api-client
+COPY --from=0 /chainlink/tools/redux tools/redux
 RUN yarn workspace @chainlink/explorer read-version
 ENV NODE_ENV production
 ENTRYPOINT [ "yarn", "workspace", "@chainlink/explorer", "run", "prod" ]
