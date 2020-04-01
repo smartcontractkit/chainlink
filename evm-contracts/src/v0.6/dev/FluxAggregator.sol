@@ -48,6 +48,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     int256 latestAnswer;
     uint16 index;
     address admin;
+    address pendingAdmin;
   }
 
   uint256 constant public VERSION = 2;
@@ -83,6 +84,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
   event OracleAdminUpdated(address indexed oracle, address indexed newAdmin);
+  event OracleAdminUpdateRequested(address indexed oracle, address admin, address newAdmin);
   event SubmissionReceived(
     int256 indexed answer,
     uint32 indexed round,
@@ -357,8 +359,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return answeredIn > 0 && answeredIn != roundId;
   }
 
-  /**	
-   * @notice get the start time of the current reporting round	
+  /**
+   * @notice get the start time of the current reporting round
    */
   function reportingRoundStartedAt()
     external
@@ -464,17 +466,31 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice update the admin address for an oracle
-   * @param _oracle is the address of the oracle whose admin is being updated
+   * @notice transfer the admin address for an oracle
+   * @param _oracle is the address of the oracle whose admin is being transfered
    * @param _newAdmin is the new admin address
    */
-  function updateAdmin(address _oracle, address _newAdmin)
+  function transferAdmin(address _oracle, address _newAdmin)
     external
   {
     require(oracles[_oracle].admin == msg.sender);
-    oracles[_oracle].admin = _newAdmin;
+    oracles[_oracle].pendingAdmin = _newAdmin;
 
-    emit OracleAdminUpdated(_oracle, _newAdmin);
+    emit OracleAdminUpdateRequested(_oracle, msg.sender, _newAdmin);
+  }
+
+  /**
+   * @notice accept the admin address transfer for an oracle
+   * @param _oracle is the address of the oracle whose admin is being transfered
+   */
+  function acceptAdmin(address _oracle)
+    external
+  {
+    require(oracles[_oracle].pendingAdmin == msg.sender);
+    oracles[_oracle].pendingAdmin = address(0);
+    oracles[_oracle].admin = msg.sender;
+
+    emit OracleAdminUpdated(_oracle, msg.sender);
   }
 
   /**
