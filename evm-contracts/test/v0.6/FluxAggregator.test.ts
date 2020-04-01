@@ -1708,10 +1708,7 @@ describe('FluxAggregator', () => {
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(
-          aggregator.startNewRound(),
-          'Current round not finished',
-        )
+        await matchers.evmRevert(aggregator.startNewRound())
       })
 
       describe('when that round has timed out', () => {
@@ -1812,7 +1809,6 @@ describe('FluxAggregator', () => {
 
           await matchers.evmRevert(
             aggregator.connect(personas.Neil).startNewRound(),
-            'Not an authorized requester',
           )
         })
 
@@ -1854,7 +1850,6 @@ describe('FluxAggregator', () => {
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).startNewRound(),
-          'Not an authorized requester',
         )
       })
     })
