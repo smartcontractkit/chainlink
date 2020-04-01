@@ -1887,8 +1887,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator.connect(personas.Nelly).roundState()
         matchers.bigNum(1, state._reportableRoundId)
         assert.equal(false, state._eligibleToSubmit)
-        // should this be $answer not 0?
-        matchers.bigNum(0, state._latestRoundAnswer)
+        matchers.bigNum(answer, state._latestRoundAnswer)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
       })
 
@@ -1903,7 +1902,7 @@ describe('FluxAggregator', () => {
 
           matchers.bigNum(2, state._reportableRoundId)
           assert.equal(true, state._eligibleToSubmit)
-          matchers.bigNum(0, state._latestRoundAnswer)
+          matchers.bigNum(answer, state._latestRoundAnswer)
           matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
         })
       })

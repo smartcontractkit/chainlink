@@ -553,7 +553,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return (
       _reportableRoundId,
       (eligibleToSubmit(_reportableRoundId, finishedOrTimedOut) == 0),
-      rounds[latestRoundId].answer,
+      oracles[msg.sender].latestAnswer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
       finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
