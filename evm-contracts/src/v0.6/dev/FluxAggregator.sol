@@ -551,7 +551,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
     _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
-      (eligibleToSubmit(_reportableRoundId, finishedOrTimedOut) == 0),
+      eligibleToSubmit(_reportableRoundId, finishedOrTimedOut),
       _reportableRoundId,
       oracles[msg.sender].latestAnswer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
@@ -615,59 +615,54 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function eligibleToSubmit(uint32 _round, bool finishedOrTimedOut)
     private
     view
-    returns (uint256)
+    returns (bool)
   {
-    uint256 statusCode = validateOracleRound(_round);
-    if (statusCode != 0) return statusCode;
+    bytes memory error = validateOracleRound(_round);
+    if (error.length != 0) return false;
 
     if (finishedOrTimedOut) {
-      statusCode = delayedStatus(_round);
-      if (statusCode != 0) {
-        return statusCode;
+      if (delayedStatus(_round).length != 0) {
+        return false;
       }
     } else {
-      return validateStartedRound(_round);
+      return validateActiveRound(_round).length == 0;
     }
+    return true;
   }
 
   function validateOracleRound(uint32 _id)
     private
     view
-    returns (uint256)
+    returns (bytes memory)
   {
+    // cache storage reads
     uint32 startingRound = oracles[msg.sender].startingRound;
     uint32 rrId = reportingRoundId;
 
-    if (startingRound == 0) return 1;
-    if (startingRound > _id) return 2;
-    if (oracles[msg.sender].endingRound < _id) return 3;
-    if (oracles[msg.sender].lastReportedRound >= _id) return 4;
-    if (_id != rrId && _id != rrId.add(1)) return 5;
-    if (_id != 1 && !finished(_id.sub(1)) && !timedOut(_id.sub(1))) return 6;
-
-    return 0;
+    if (startingRound == 0) return "Not an allowed oracle";
+    if (startingRound > _id) return "Not allowed to submit yet";
+    if (oracles[msg.sender].endingRound < _id) return "No longer allowed to submit";
+    if (oracles[msg.sender].lastReportedRound >= _id) return "Already submitted higher round";
+    if (_id != rrId && _id != rrId.add(1)) return "Must submit for current round";
+    if (_id != 1 && !finished(_id.sub(1)) && !timedOut(_id.sub(1))) return "Previous round in progress";
   }
 
   function delayedStatus(uint32 _id)
     private
     view
-    returns (uint256)
+    returns (bytes memory)
   {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
 
-    if (_id <= lastStarted + restartDelay && lastStarted != 0) return 8;
-
-    return 0;
+    if (_id <= lastStarted + restartDelay && lastStarted != 0) return "Wait for restart delay";
   }
 
-  function validateStartedRound(uint32 _id)
+  function validateActiveRound(uint32 _id)
     private
     view
-    returns (uint256)
+    returns (bytes memory)
   {
-    if (rounds[_id].details.maxAnswers == 0) return 8;
-
-    return 0;
+    if (rounds[_id].details.maxAnswers == 0) return "Round not active";
   }
 
   function initializeNewRound(uint32 _id)
@@ -793,7 +788,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier ifDelayed(uint32 _id) {
-    if (delayedStatus(_id) == 0) {
+    if (delayedStatus(_id).length == 0) {
       _;
     }
   }
@@ -805,12 +800,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier ensureValidOracleRound(uint32 _id) {
-    require(validateOracleRound(_id) == 0);
+    bytes memory error = validateOracleRound(_id);
+    require(error.length == 0, string(error));
     _;
   }
 
   modifier ensureEligibleStartedRound(uint32 _id) {
-    require(validateStartedRound(_id) == 0);
+    require(validateActiveRound(_id).length == 0);
     _;
   }
 
