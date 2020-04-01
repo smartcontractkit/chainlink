@@ -5,8 +5,7 @@ import {
   ADMIN_PASSWORD_HEADER,
 } from '../utils/constants'
 
-const EXPLORER_BASE_URL =
-  process.env.EXPLORER_BASE_URL || 'https://explorer.chain.link'
+const EXPLORER_BASE_URL = process.env.EXPLORER_BASE_URL || 'http://localhost'
 const EXPLORER_ADMIN_USERNAME = process.env.EXPLORER_ADMIN_USERNAME
 const EXPLORER_ADMIN_PASSWORD = process.env.EXPLORER_ADMIN_PASSWORD
 
