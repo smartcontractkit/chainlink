@@ -27,7 +27,7 @@ Acceptance can be accomplished by using the `acceptance` command.
 ./compose acceptance
 ```
 
-- The explorer can be reached at `http://localhost:3001`
+- The explorer can be reached at `http://localhost:8080`
 - The chainlink node can be reached at `http://localhost:6688`
 
 Credentials for logging into the operator-ui can be found [here](../secrets/apicredentals)
