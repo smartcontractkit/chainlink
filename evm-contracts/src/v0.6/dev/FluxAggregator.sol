@@ -548,15 +548,15 @@ contract FluxAggregator is AggregatorInterface, Owned {
       uint128 _paymentAmount
     )
   {
-    bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
-    _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
+    bool supersedable = supersedable(reportingRoundId);
+    _reportableRoundId = supersedable ? reportingRoundId.add(1) : reportingRoundId;
     return (
-      eligibleToSubmit(_reportableRoundId, finishedOrTimedOut),
+      eligibleToSubmit(_reportableRoundId, supersedable),
       _reportableRoundId,
       oracles[msg.sender].latestAnswer,
-      finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
+      supersedable ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
-      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
+      supersedable ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
     );
   }
 
@@ -612,7 +612,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * Private
    */
 
-  function eligibleToSubmit(uint32 _round, bool finishedOrTimedOut)
+  function eligibleToSubmit(uint32 _round, bool supersedable)
     private
     view
     returns (bool)
@@ -620,14 +620,11 @@ contract FluxAggregator is AggregatorInterface, Owned {
     bytes memory error = validateOracleRound(_round);
     if (error.length != 0) return false;
 
-    if (finishedOrTimedOut) {
-      if (delayedStatus(_round).length != 0) {
-        return false;
-      }
+    if (supersedable) {
+      return delayedStatus(_round).length == 0;
     } else {
       return validateActiveRound(_round).length == 0;
     }
-    return true;
   }
 
   function validateOracleRound(uint32 _id)
@@ -644,7 +641,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     if (oracles[msg.sender].endingRound < _id) return "No longer allowed to submit";
     if (oracles[msg.sender].lastReportedRound >= _id) return "Already submitted higher round";
     if (_id != rrId && _id != rrId.add(1)) return "Must submit for current round";
-    if (_id != 1 && !finished(_id.sub(1)) && !timedOut(_id.sub(1))) return "Previous round in progress";
+    if (_id != 1 && !supersedable(_id.sub(1))) return "Previous round not supersedable";
   }
 
   function delayedStatus(uint32 _id)
@@ -740,6 +737,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
     delete rounds[_id].details;
   }
 
+  function supersedable(uint32 _id)
+    private
+    view
+    returns (bool)
+  {
+    return rounds[_id].updatedAt > 0 || timedOut(_id);
+  }
+
   function timedOut(uint32 _id)
     private
     view
@@ -748,14 +753,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint64 startedAt = rounds[_id].startedAt;
     uint32 roundTimeout = rounds[_id].details.timeout;
     return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
-  }
-
-  function finished(uint32 _id)
-    private
-    view
-    returns (bool)
-  {
-    return rounds[_id].updatedAt > 0;
   }
 
   function getStartingRound(address _oracle)
