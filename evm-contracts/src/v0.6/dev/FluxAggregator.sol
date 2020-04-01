@@ -414,11 +414,11 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function withdrawPayment(address _oracle, address _recipient, uint256 _amount)
     external
   {
-    require(oracles[_oracle].admin == msg.sender);
+    require(oracles[_oracle].admin == msg.sender, "Only admin can withdraw");
 
     uint128 amount = uint128(_amount);
     uint128 available = oracles[_oracle].withdrawable;
-    require(available >= amount);
+    require(available >= amount, "Not enough funds");
 
     oracles[_oracle].withdrawable = available.sub(amount);
     allocatedFunds = allocatedFunds.sub(amount);
