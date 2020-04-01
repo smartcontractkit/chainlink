@@ -424,9 +424,7 @@ workflows:
             - go-postgres
             - solidity
             - geth-postgres
-            - geth-postgres-ts
             - parity-postgres
-            - parity-postgres-ts
             - styleguide
             - json-api-client
             - operator-ui
