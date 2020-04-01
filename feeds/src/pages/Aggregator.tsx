@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import { FeedConfig } from 'feeds'
-import { aggregationOperations } from 'state/ducks/aggregation'
-import { NetworkGraph } from 'components/networkGraph'
-import { NetworkGraphInfo } from 'components/networkGraphInfo'
+import { aggregatorOperations } from 'state/ducks/aggregator'
+import { AggregatorVis } from 'components/aggregatorVis'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
 import { OracleTable } from 'components/oracleTable'
@@ -13,14 +12,12 @@ interface OwnProps {
   config: FeedConfig
 }
 
-interface StateProps {}
-
 interface DispatchProps {
   initContract: any
   clearState: any
 }
 
-interface Props extends OwnProps, StateProps, DispatchProps {}
+interface Props extends OwnProps, DispatchProps {}
 
 const Page: React.FC<Props> = ({ initContract, clearState, config }) => {
   useEffect(() => {
@@ -38,10 +35,9 @@ const Page: React.FC<Props> = ({ initContract, clearState, config }) => {
         <Header />
       </div>
       <div className="page-wrapper network-page">
-        <NetworkGraph options={config} />
-        <NetworkGraphInfo options={config} />
-        {config.history && <AnswerHistory options={config} />}
-        {config.history && <DeviationHistory options={config} />}
+        <AggregatorVis config={config} />
+        {config.history && <AnswerHistory config={config} />}
+        {config.history && <DeviationHistory config={config} />}
         <OracleTable />
       </div>
     </>
@@ -49,8 +45,8 @@ const Page: React.FC<Props> = ({ initContract, clearState, config }) => {
 }
 
 const mapDispatchToProps = {
-  initContract: aggregationOperations.initContract,
-  clearState: aggregationOperations.clearState,
+  initContract: aggregatorOperations.initContract,
+  clearState: aggregatorOperations.clearState,
 }
 
 export default connect(null, mapDispatchToProps)(Page)

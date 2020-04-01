@@ -15,21 +15,21 @@ const toHHMMSS = (secs: number) => {
 }
 
 export interface Props {
-  requestTime: number
-  counter: number
+  latestRequestTimestamp: number
+  heartbeat: number
 }
 
-const CountDown: React.FC<Props> = ({ requestTime, counter }) => {
+const Heartbeat: React.FC<Props> = ({ latestRequestTimestamp, heartbeat }) => {
   const [next, setNext] = useState<string>()
 
   useEffect(() => {
-    if (!requestTime) {
+    if (!latestRequestTimestamp) {
       return setNext('00:00')
     }
 
     const finish = moment
-      .unix(requestTime)
-      .add(counter, 'seconds')
+      .unix(latestRequestTimestamp)
+      .add(heartbeat, 'seconds')
       .unix()
 
     clearInterval(timer)
@@ -50,9 +50,9 @@ const CountDown: React.FC<Props> = ({ requestTime, counter }) => {
       clearInterval(timer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestTime])
+  }, [latestRequestTimestamp])
 
   return <span className="countdown">{next || '...'}</span>
 }
 
-export default CountDown
+export default Heartbeat

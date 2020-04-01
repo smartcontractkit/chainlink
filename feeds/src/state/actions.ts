@@ -1,38 +1,38 @@
 import { SetAnswersAction, SetHealthPriceAction } from './ducks/listing/actions'
 import {
-  SetOraclesAction,
-  SetCurrentAnswerAction,
+  SetOracleListAction,
+  SetLatestAnswerAction,
   SetLatestCompletedAnswerIdAction,
   SetPendingAnswerIdAction,
   SetNextAnswerIdAction,
-  SetOracleResponseAction,
-  SetRequestTimeAction,
-  SetMinimumResponsesAction,
-  SetUpdateHeightAction,
+  SetOracleAnswersAction,
+  SetLatestRequestTimestampAction,
+  SetMinimumAnswersAction,
+  SetLatestAnswerTimestampAction,
   SetAnswersHistoryAction,
   SetCurrentAddressAction,
-  SetOptionsAction,
+  SetConfigAction,
   SetClearStateAction,
   SetEthGasPriceAction,
-} from './ducks/aggregation/actions'
+} from './ducks/aggregator/actions'
 import { SetTooltipAction, SetDrawerAction } from './ducks/networkGraph/actions'
 
 export type Actions =
   | { type: 'initial_state' }
   | SetAnswersAction
   | SetHealthPriceAction
-  | SetOraclesAction
-  | SetCurrentAnswerAction
+  | SetOracleListAction
+  | SetLatestAnswerAction
   | SetLatestCompletedAnswerIdAction
   | SetPendingAnswerIdAction
   | SetNextAnswerIdAction
-  | SetOracleResponseAction
-  | SetRequestTimeAction
-  | SetMinimumResponsesAction
-  | SetUpdateHeightAction
+  | SetOracleAnswersAction
+  | SetLatestRequestTimestampAction
+  | SetMinimumAnswersAction
+  | SetLatestAnswerTimestampAction
   | SetAnswersHistoryAction
   | SetCurrentAddressAction
-  | SetOptionsAction
+  | SetConfigAction
   | SetClearStateAction
   | SetEthGasPriceAction
   | SetTooltipAction

@@ -2,23 +2,23 @@ import * as actions from './actions'
 import _ from 'lodash'
 import moment from 'moment'
 import { ethers } from 'ethers'
-import AggregationAbi from '../../../contracts/AggregationAbi.json'
-import AggregationAbiV2 from '../../../contracts/AggregationAbi.v2.json'
-import AggregationContract from '../../../contracts/AggregationContract'
-import AggregationContractV2 from '../../../contracts/AggregationContractV2'
+import AggregatorAbi from '../../../contracts/AggregatorAbi.json'
+import AggregatorAbiV2 from '../../../contracts/AggregatorAbi.v2.json'
+import AggregatorContract from '../../../contracts/AggregatorContract'
+import AggregatorContractV2 from '../../../contracts/AggregatorContractV2'
 
 let contractInstance: any
 
-function fetchOracles() {
+function fetchOracleList() {
   return async (dispatch: any, getState: any) => {
-    if (getState().aggregation.oracles) {
+    if (getState().aggregator.oracleList) {
       return
     }
     try {
       const payload = await contractInstance.oracles()
-      dispatch(actions.setOracles(payload))
+      dispatch(actions.setOracleList(payload))
     } catch {
-      console.error('Could not fetch oracles ')
+      console.error('Could not fetch oracle list ')
     }
   }
 }
@@ -35,35 +35,35 @@ function fetchLatestCompletedAnswerId() {
   }
 }
 
-function fetchCurrentAnswer() {
+function fetchLatestAnswer() {
   return async (dispatch: any) => {
     try {
-      const payload = await contractInstance.currentAnswer()
-      dispatch(actions.setCurrentAnswer(payload))
+      const payload = await contractInstance.latestAnswer()
+      dispatch(actions.setLatestAnswer(payload))
     } catch {
-      console.error('Could not fetch latest completed answer id')
+      console.error('Could not fetch latest answer')
     }
   }
 }
 
-function fetchUpdateHeight() {
+function fetchLatestAnswerTimestamp() {
   return async (dispatch: any) => {
     try {
-      const payload = await contractInstance.updateHeight()
-      dispatch(actions.setUpdateHeight(payload))
+      const payload = await contractInstance.latestAnswerTimestamp()
+      dispatch(actions.setLatestAnswerTimestamp(payload))
       return payload || {}
     } catch {
-      console.error('Could not fetch update height')
+      console.error('Could not fetch latest answer timestamp')
     }
   }
 }
 
-const fetchOracleResponseById = (request: any) => {
+const fetchOracleAnswersById = (request: any) => {
   return async (dispatch: any, getState: any) => {
     try {
-      const currentLogs = getState().aggregation.oracleResponse || []
+      const currentLogs = getState().aggregator.oracleAnswers || []
 
-      const logs = await contractInstance.oracleResponseLogs(request)
+      const logs = await contractInstance.oracleAnswerLogs(request)
       const withTimestamp = await contractInstance.addBlockTimestampToLogs(logs)
       const withGasAndTimeStamp = await contractInstance.addGasPriceToLogs(
         withTimestamp,
@@ -76,18 +76,20 @@ const fetchOracleResponseById = (request: any) => {
         },
       )
 
-      dispatch(actions.setOracleResponse(uniquePayload))
+      dispatch(actions.setOracleAnswers(uniquePayload))
     } catch {
-      console.error('Could not fetch oracle responses')
+      console.error('Could not fetch oracle ansers')
     }
   }
 }
 
-const fetchRequestTime = (options: any) => {
+const fetchLatestRequestTimestamp = (config: any) => {
   return async (dispatch: any) => {
     try {
       // calculate last update time
-      const pastBlocks = options.counter ? Math.floor(options.counter / 13) : 40
+      const pastBlocks = config.heartbeat
+        ? Math.floor(config.heartbeat / 13)
+        : 40
       const logs = await contractInstance.chainlinkRequestedLogs(pastBlocks)
       const latestLog = logs.length && logs[logs.length - 1].meta.blockNumber
 
@@ -95,20 +97,22 @@ const fetchRequestTime = (options: any) => {
         ? await contractInstance.provider.getBlock(latestLog)
         : null
 
-      dispatch(actions.setRequestTime(block ? block.timestamp : null))
+      dispatch(
+        actions.setLatestRequestTimestamp(block ? block.timestamp : null),
+      )
     } catch {
       console.error('Could not fetch request time')
     }
   }
 }
 
-function fetchMinimumResponses() {
+function fetchMinimumAnswers() {
   return async (dispatch: any) => {
     try {
-      const payload = await contractInstance.minimumResponses()
-      dispatch(actions.setMinumumResponses(payload))
+      const payload = await contractInstance.minimumAnswers()
+      dispatch(actions.setMinumumAnswers(payload))
     } catch {
-      console.error('Could not fetch minimum responses')
+      console.error('Could not fetch minimum answers')
     }
   }
 }
@@ -127,7 +131,7 @@ function fetchAnswerHistory() {
 
       let history
 
-      if (contractInstance.options.contractVersion === 2) {
+      if (contractInstance.config.contractVersion === 2) {
         history = uniquePayload
       } else {
         const withTimestamp = await contractInstance.addBlockTimestampToLogs(
@@ -136,8 +140,8 @@ function fetchAnswerHistory() {
 
         history = withTimestamp.map((e: any) => ({
           answerId: e.answerId,
-          response: e.response,
-          responseFormatted: e.responseFormatted,
+          answer: e.answer,
+          answerFormatted: e.answerFormatted,
           timestamp: e.meta.timestamp,
         }))
       }
@@ -159,11 +163,13 @@ function initListeners() {
      */
 
     contractInstance.listenNextAnswerId(async (responseNextAnswerId: any) => {
-      const { nextAnswerId } = getState().aggregation
+      const { nextAnswerId } = getState().aggregator
       if (responseNextAnswerId > nextAnswerId) {
         dispatch(actions.setNextAnswerId(responseNextAnswerId))
         dispatch(actions.setPendingAnswerId(responseNextAnswerId - 1))
-        dispatch(actions.setRequestTime(moment().unix()))
+
+        // reset hearbeat countdown timer
+        dispatch(actions.setLatestRequestTimestamp(moment().unix()))
       }
     })
 
@@ -173,11 +179,11 @@ function initListeners() {
      * - add unique oracles response data
      */
 
-    contractInstance.listenOracleResponseEvent(async (responseLog: any) => {
-      const { nextAnswerId, minimumResponses } = getState().aggregation
+    contractInstance.listenOracleAnswerEvent(async (responseLog: any) => {
+      const { nextAnswerId, minimumAnswers } = getState().aggregator
 
       if (responseLog.answerId === nextAnswerId - 1) {
-        const storeLogs = getState().aggregation.oracleResponse || []
+        const storeLogs = getState().aggregator.oracleAnswers || []
         const uniqueLogs = storeLogs.filter((l: any) => {
           return l.meta.transactionHash !== responseLog.meta.transactionHash
         })
@@ -194,23 +200,23 @@ function initListeners() {
           updateLogs.push(responseLog)
         }
 
-        dispatch(actions.setOracleResponse(updateLogs))
+        dispatch(actions.setOracleAnswers(updateLogs))
 
-        const responseNumber = _.filter(updateLogs, {
+        const latestIdAnswers = _.filter(updateLogs, {
           answerId: responseLog.answerId,
         })
 
-        if (responseNumber.length >= minimumResponses) {
+        if (latestIdAnswers.length >= minimumAnswers) {
           fetchLatestCompletedAnswerId()(dispatch)
-          fetchCurrentAnswer()(dispatch)
-          fetchUpdateHeight()(dispatch)
+          fetchLatestAnswer()(dispatch)
+          fetchLatestAnswerTimestamp()(dispatch)
         }
       }
     })
   }
 }
 
-const initContract = (options: any) => {
+const initContract = (config: any) => {
   return async (dispatch: any, getState: any) => {
     dispatch(actions.clearState())
 
@@ -223,27 +229,27 @@ const initContract = (options: any) => {
     }
 
     try {
-      ethers.utils.getAddress(options.contractAddress)
+      ethers.utils.getAddress(config.contractAddress)
     } catch (error) {
       throw new Error('Wrong contract address')
     }
 
-    dispatch(actions.setOptions(options))
-    dispatch(actions.setContractAddress(options.contractAddress))
+    dispatch(actions.setConfig(config))
+    dispatch(actions.setContractAddress(config.contractAddress))
 
-    if (options.contractVersion === 2) {
-      contractInstance = new AggregationContractV2(options, AggregationAbiV2)
+    if (config.contractVersion === 2) {
+      contractInstance = new AggregatorContractV2(config, AggregatorAbiV2)
     } else {
-      contractInstance = new AggregationContract(options, AggregationAbi)
+      contractInstance = new AggregatorContract(config, AggregatorAbi)
     }
 
     // Oracle addresses
 
-    await fetchOracles()(dispatch, getState)
+    await fetchOracleList()(dispatch, getState)
 
     // Minimum oracle responses
 
-    fetchMinimumResponses()(dispatch)
+    fetchMinimumAnswers()(dispatch)
 
     // Set answer Id
 
@@ -253,28 +259,32 @@ const initContract = (options: any) => {
 
     // Current answers
 
-    const height = await fetchUpdateHeight()(dispatch)
+    await fetchLatestAnswerTimestamp()(dispatch)
 
-    // Fetch previous responses (counter / block time + 10)
+    // Fetch previous answers
 
-    await fetchOracleResponseById({
+    const currentBlockNumber = await contractInstance.provider.getBlockNumber()
+
+    await fetchOracleAnswersById({
       answerId: nextAnswerId - 2,
-      fromBlock:
-        height.block - options.counter
-          ? Math.round(options.counter / 13 + 30)
-          : 100,
+      fromBlock: currentBlockNumber - 6700, // ~6700 blocks per day
     })(dispatch, getState)
 
-    // Takes last block height minus 10 blocks (to make sure we get all the reqests)
+    // Fetch latest answers
 
-    fetchOracleResponseById({
+    fetchOracleAnswersById({
       answerId: nextAnswerId - 1,
-      fromBlock: height.block - 10,
+      fromBlock: currentBlockNumber - 6700,
     })(dispatch, getState)
 
-    // Initial request time
+    /**
+     * Oracle Latest Request Time
+     * Used to calculate hearbeat countdown timer
+     */
 
-    fetchRequestTime(options)(dispatch)
+    if (config.heartbeat) {
+      fetchLatestRequestTimestamp(config)(dispatch)
+    }
 
     // Latest completed answer id
 
@@ -282,13 +292,13 @@ const initContract = (options: any) => {
 
     // Current answer and block height
 
-    fetchCurrentAnswer()(dispatch)
+    fetchLatestAnswer()(dispatch)
 
     // initalise listeners
 
     initListeners()(dispatch, getState)
 
-    if (options.history) {
+    if (config.history) {
       fetchAnswerHistory()(dispatch)
     }
   }
@@ -299,7 +309,7 @@ function clearState() {
     try {
       contractInstance.kill()
     } catch {
-      console.error('Could not clear state')
+      console.error('Could not clear the contract')
     }
 
     dispatch(actions.clearState())
@@ -308,9 +318,9 @@ function clearState() {
 
 const fetchJobId = (address: any) => {
   return async (_dispatch: any, getState: any) => {
-    const { oracles } = getState().aggregation
+    const { oracleList } = getState().aggregator
     try {
-      const index = oracles.indexOf(address)
+      const index = oracleList.indexOf(address)
       return contractInstance.jobId(index)
     } catch {
       console.error('Could not fetch a job id')

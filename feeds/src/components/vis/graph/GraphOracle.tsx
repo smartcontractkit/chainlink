@@ -1,8 +1,29 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
+import { FeedConfig } from 'feeds'
+import { Position } from './Graph'
 
-const Oracle = ({ data, position, options, setTooltip, setDrawer }) => {
+interface OwnProps {
+  config: FeedConfig
+  data: any
+  position: Position
+}
+
+interface DispatchProps {
+  setTooltip: any
+  setDrawer: any
+}
+
+interface Props extends OwnProps, DispatchProps {}
+
+const Oracle: React.FC<Props> = ({
+  data,
+  position,
+  config,
+  setTooltip,
+  setDrawer,
+}) => {
   if (!data) return null
 
   return (
@@ -23,9 +44,9 @@ const Oracle = ({ data, position, options, setTooltip, setDrawer }) => {
         <text className="vis__oracle-label--name" x="20" y="-5">
           {data.name}
         </text>
-        {data.responseFormatted && (
+        {data.answerFormatted && (
           <text className="vis__oracle-label--price" x="20" y="10">
-            {options.valuePrefix} {data.responseFormatted}
+            {config.valuePrefix} {data.answerFormatted}
           </text>
         )}
       </g>
