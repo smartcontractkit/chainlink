@@ -555,10 +555,6 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 		return receipt, Unconfirmed, nil
 	}
 
-	// TODO: Could make this configurable i.e. by setting
-	// minOutgoingConfirmations param on the ethtx adapter and taking a max of
-	// that and the globally configured value as we do with
-	// MinRequiredIncomingConfirmations
 	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
 	confirmedAt := new(big.Int).Add(minimumConfirmations, receipt.BlockNumber.ToInt())
 
