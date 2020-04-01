@@ -28,6 +28,7 @@ type ConfigReader interface {
 	FeatureFluxMonitor() bool
 	MaximumServiceDuration() time.Duration
 	MinimumServiceDuration() time.Duration
+	EnableExperimentalAdapters() bool
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
