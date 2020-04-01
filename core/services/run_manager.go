@@ -110,7 +110,7 @@ func NewRun(
 		run.TaskRuns[i].MinRequiredIncomingConfirmations = clnull.Uint32From(
 			utils.MaxUint32(
 				config.MinIncomingConfirmations(),
-				task.Confirmations.Uint32,
+				task.MinRequiredIncomingConfirmations.Uint32,
 				adapter.MinConfs()),
 		)
 	}
