@@ -250,9 +250,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
         with:
-          # Fetch entire history. Slower than default, but necessary to check
-          # against develop branch
-          fetch-depth: 0
+          # Default fetch depth of 1 prevents us from knowing if HEAD of develop
+          # branch is present in current branch
+          fetch-depth: 1000
       - name: Check if rebase is needed
         run: tools/bin/check_if_rebase_needed
 
