@@ -307,7 +307,7 @@ type TaskSpec struct {
 	gorm.Model
 	JobSpecID                        *ID           `json:"-"`
 	Type                             TaskType      `json:"type" gorm:"index;not null"`
-	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	Params                           JSON          `json:"params" gorm:"type:text"`
 }
 
