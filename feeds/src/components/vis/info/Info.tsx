@@ -87,25 +87,26 @@ const Info: React.FC<Props> = ({
 
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
-          Deviation Threshold{' '}
+          Primary Aggregation Parameter{' '}
           <TooltipQuestion
             title={`A new trusted answer is written when the off-chain price moves more than the deviation threshold`}
           />
         </div>
         <h2 className="network-graph-info__item--value">
-          <Percent value={config.threshold} />
+          Deviation Threshold: <Percent value={config.threshold} />
         </h2>
       </div>
 
       {config.heartbeat && (
         <div className="network-graph-info__item">
           <div className="network-graph-info__item--label">
-            Next aggregation starts in{' '}
+            Secondary Aggregation Parameter{' '}
             <TooltipQuestion
               title={`Every ${config.heartbeat} seconds, aggregator smart contract calls oracles to get the new trusted answer`}
             />
           </div>
           <h2 className="network-graph-info__item--value">
+            Heartbeat:{' '}
             <Heartbeat
               latestRequestTimestamp={latestRequestTimestamp}
               heartbeat={config.heartbeat}
