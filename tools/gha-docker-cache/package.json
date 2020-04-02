@@ -11,7 +11,7 @@
     "setup": "tsc -b",
     "clean": "tsc -b --clean",
     "test": "jest",
-    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
+    "test:ci": "yarn test --coverage"
   },
   "peerDependencies": {},
   "dependencies": {
