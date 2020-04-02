@@ -28,7 +28,8 @@ export function createInfuraProvider(
   networkId: Networks = Networks.MAINNET,
 ): JsonRpcProvider {
   const provider = new ethers.providers.JsonRpcProvider(
-    `https://${networkName(networkId)}.infura.io/v3/${Config.infuraKey()}`,
+    Config.devProvider() ??
+      `https://${networkName(networkId)}.infura.io/v3/${Config.infuraKey()}`,
   )
   provider.pollingInterval = 8000
 
