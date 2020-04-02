@@ -2,7 +2,6 @@ package internal_test
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -878,14 +877,9 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		var data []byte
-		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
-		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
-		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
-		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
-		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
-		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
+		payment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
+		data := cltest.OracleRoundStateData(2, true, 10000, 0, payment, payment)
+		mock.Register("eth_call", data)
 	})
 
 	// Have server respond with 102 for price when FM checks external price
@@ -955,17 +949,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	})
 	require.NoError(t, app.StartAndConnect())
 	eth.EventuallyAllCalled(t)
+	payment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
-		var data []byte
-		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
-		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
-		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
-		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
-		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
-		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
+		data := cltest.OracleRoundStateData(2, true, 10000, 0, payment, payment)
+		mock.Register("eth_call", data)
 	})
 
 	// Have price adapter server respond with 100 for price on initialization,
@@ -1005,14 +994,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 	})
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
-		var data []byte
-		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
-		data = append(data, utils.EVMWordUint64(3)...)                                                          // RoundID
-		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
-		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
-		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
-		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
+		data := cltest.OracleRoundStateData(3, true, 10000, 0, payment, payment)
+		mock.Register("eth_call", data)
 	})
 	newRounds <- log
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
