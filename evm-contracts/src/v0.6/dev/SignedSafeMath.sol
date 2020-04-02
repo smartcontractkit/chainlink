@@ -31,6 +31,9 @@ library SignedSafeMath {
     pure
     returns (int256)
   {
+    if ((_a < 0 && _b > 0) || (_a > 0 && _b < 0)) {
+      return add(_a, _b) / 2;
+    }
     int256 remainder = (_a % 2 + _b % 2) / 2;
     return add(add(_a / 2, _b / 2), remainder);
   }
