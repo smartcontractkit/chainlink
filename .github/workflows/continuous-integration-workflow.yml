@@ -25,18 +25,18 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Cache Go vendor packages
         uses: actions/cache@v1
         with:
           path: /go/pkg/mod
-          key: ${{ secrets.CACHE_VERSION }}-go-mod-${{ hashFiles('go.sum') }}
+          key: go-mod-${{ secrets.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-go-mod
+            go-mod-${{ secrets.CACHE_VERSION }}
       - name: Download Go vendor packages
         run: go mod download
       - name: Set up Yarn for Contracts
@@ -94,18 +94,18 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Cache Python dependencies
         uses: actions/cache@v1
         with:
           path: ~/.cache/pip
-          key: ${{ secrets.CACHE_VERSION }}-pip-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ secrets.CACHE_VERSION }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-pip
+            pip-${{ secrets.CACHE_VERSION }}
       - name: Install python packages
         run: pip3 install -r requirements.txt
       - name: Run tests
@@ -122,9 +122,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run styleguide tests
@@ -141,9 +141,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run JSON API client tests
@@ -160,9 +160,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Operator UI tests
@@ -192,9 +192,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Yarn migrations
@@ -217,9 +217,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Feeds setup
@@ -267,9 +267,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run Yarn lint
@@ -286,9 +286,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /usr/local/share/.cache/yarn
-          key: ${{ secrets.CACHE_VERSION }}-yarn-${{ hashFiles('yarn.lock') }}
+          key: yarn-${{ secrets.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            ${{ secrets.CACHE_VERSION }}-yarn
+            yarn-${{ secrets.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Run prepublish NPM test
