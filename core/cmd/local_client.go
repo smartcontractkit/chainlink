@@ -49,7 +49,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	})
 	store := app.GetStore()
 	if err := checkFilePermissions(cli.Config.RootDir()); err != nil {
-		return cli.errorOut(err)
+		logger.Warn(err)
 	}
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
@@ -98,20 +98,33 @@ func loggedStop(app chainlink.Application) {
 	logger.WarnIf(app.Stop())
 }
 
-func checkFilePermissions(directory string) error {
-	err := filepath.Walk(directory,
+func checkFilePermissions(rootDir string) error {
+	errorMsg := "%s has overly permissive file permissions, should be atleast %s"
+	keysDir := filepath.Join(rootDir, "tempkeys")
+	protectedFiles := []string{"secret", "cookie"}
+	err := filepath.Walk(keysDir,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 			fileMode := info.Mode().Perm()
-			if fileMode&^ownerPermsMask != 0 && !fileMode.IsDir() {
-				return fmt.Errorf("%s has overly permissive file permissions, should be atleast %s", path, ownerPermsMask)
+			if fileMode&^ownerPermsMask != 0 {
+				return fmt.Errorf(errorMsg, path, ownerPermsMask)
 			}
 			return nil
 		})
 	if err != nil {
 		return err
+	}
+	for _, fileName := range protectedFiles {
+		fileInfo, err := os.Lstat(filepath.Join(rootDir, fileName))
+		if err != nil {
+			return err
+		}
+		perm := fileInfo.Mode().Perm()
+		if perm&^ownerPermsMask != 0 {
+			return fmt.Errorf(errorMsg, fileName, ownerPermsMask)
+		}
 	}
 	return nil
 }
