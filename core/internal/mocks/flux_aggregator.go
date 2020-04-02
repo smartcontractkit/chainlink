@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	abi "github.com/ethereum/go-ethereum/accounts/abi"
-	common "github.com/ethereum/go-ethereum/common"
-
 	contracts "chainlink/core/services/eth/contracts"
+
+	abi "github.com/ethereum/go-ethereum/accounts/abi"
 
 	coreeth "chainlink/core/eth"
 
@@ -102,20 +101,20 @@ func (_m *FluxAggregator) GetMethodID(method string) ([]byte, error) {
 	return r0, r1
 }
 
-// RoundState provides a mock function with given fields: oracle
-func (_m *FluxAggregator) RoundState(oracle common.Address) (contracts.FluxAggregatorRoundState, error) {
-	ret := _m.Called(oracle)
+// RoundState provides a mock function with given fields:
+func (_m *FluxAggregator) RoundState() (contracts.FluxAggregatorRoundState, error) {
+	ret := _m.Called()
 
 	var r0 contracts.FluxAggregatorRoundState
-	if rf, ok := ret.Get(0).(func(common.Address) contracts.FluxAggregatorRoundState); ok {
-		r0 = rf(oracle)
+	if rf, ok := ret.Get(0).(func() contracts.FluxAggregatorRoundState); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(contracts.FluxAggregatorRoundState)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
-		r1 = rf(oracle)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -46,6 +46,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	account := ensureAccount(t, store)
 	txm := new(mocks.TxManager)
 	store.TxManager = txm
 	txm.On("GetBlockHeight").Return(uint64(123), nil)
@@ -61,7 +62,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		})
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
+		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM, store.Config.DefaultHTTPTimeout(), account).Return(dc, nil)
 		fm := fluxmonitor.New(store, runManager)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())
@@ -164,8 +165,6 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			rm := new(mocks.RunManager)
@@ -197,7 +196,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				AvailableFunds:    availableFunds,
 				PaymentAmount:     paymentAmount,
 			}
-			fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
+			fluxAggregator.On("RoundState").Return(roundState, nil).Maybe()
 
 			if test.expectedToPoll {
 				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil)
@@ -252,7 +251,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			nodeAddr := ensureAccount(t, store)
+			ensureAccount(t, store)
 
 			fetcher := new(mocks.Fetcher)
 			runManager := new(mocks.RunManager)
@@ -276,14 +275,14 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 			idleThresholdOccured := make(chan struct{}, 3)
 
-			fluxAggregator.On("RoundState", nodeAddr).Return(roundState1, nil).Once() // Initial poll
+			fluxAggregator.On("RoundState").Return(roundState1, nil).Once() // Initial poll
 			if test.expectedToSubmit {
 				// idleThreshold 1
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState2, nil).Once().Run(func(args mock.Arguments) { idleThresholdOccured <- struct{}{} })
+				fluxAggregator.On("RoundState").Return(roundState2, nil).Once().Run(func(args mock.Arguments) { idleThresholdOccured <- struct{}{} })
 				// NewRound
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState3, nil).Once()
+				fluxAggregator.On("RoundState").Return(roundState3, nil).Once()
 				// idleThreshold 2
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState4, nil).Once().Run(func(args mock.Arguments) { idleThresholdOccured <- struct{}{} })
+				fluxAggregator.On("RoundState").Return(roundState4, nil).Once().Run(func(args mock.Arguments) { idleThresholdOccured <- struct{}{} })
 			}
 
 			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
@@ -323,8 +322,6 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
-
 	tests := []struct {
 		name              string
 		timesOutAt        func() int64
@@ -352,20 +349,20 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
 
 			if test.expectedToTrigger {
-				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+				fluxAggregator.On("RoundState").Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
 					TimesOutAt:        uint64(test.timesOutAt()),
 				}, nil).Once()
-				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+				fluxAggregator.On("RoundState").Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
 					TimesOutAt:        0,
 				}, nil).Once()
 			} else {
-				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+				fluxAggregator.On("RoundState").Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
@@ -678,7 +675,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToFetchRoundState {
-				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+				fluxAggregator.On("RoundState").Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: test.fetchedReportableRoundID,
 					LatestAnswer:      big.NewInt(test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
 					EligibleToSubmit:  test.eligible,
