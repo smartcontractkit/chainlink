@@ -35,18 +35,17 @@ Launches the expressjs server that serve the `/build` folder
 
 ## Staging Deploy
 
-This repo is configured to automatically create a draft staging environment 
+This repo is configured to automatically create a draft staging environment
 on Netlify when a PR is opened. You can access the URL by viewing the PR checks
 
 ![](./docs/pr-checks-deploy-url.png)
 
 ## Production Deploy
 
-This repo is configured to automatically deploy to production when there is a 
+This repo is configured to automatically deploy to production when there is a
 new push to the `master-feeds` branch.
 
 https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlify/#step-2-link-to-your-github
-
 
 ## Deploy to Heroku [DEPRECATED]
 
@@ -137,5 +136,6 @@ REACT_APP_INFURA_KEY          - infura key
 REACT_APP_GA_ID               - google analytics key
 REACT_APP_FEEDS_JSON          - URL to load reference contract feeds
 REACT_APP_NODES_JSON          - URL to load oracle nodes
+REACT_APP_DEV_PROVIDER        - development web3 provider
 REACT_APP_HOSTNAME_WHITELIST  - Comma separated hosts that can override the feed & node source via query parameters ([localhost,weiwatchers.com], etc...)
 ```
