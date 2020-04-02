@@ -1,4 +1,4 @@
-FROM henrynguyen5/base:1.0.3
+FROM smartcontract/cache:0.0.1-1585787725
 
 # Install docker and docker compose
 RUN apt-get update \

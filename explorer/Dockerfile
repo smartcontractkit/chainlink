@@ -1,4 +1,4 @@
-FROM henrynguyen5/base:1.0.3
+FROM smartcontract/cache:0.0.1-1585787725
 
 ENV PATH /chainlink/node_modules/.bin:$PATH
 
