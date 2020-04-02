@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -182,7 +183,17 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"initr", initr.ID,
 		)
 		timeout := fm.store.Config.DefaultHTTPTimeout()
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout)
+		acct, err := fm.store.KeyStore.GetFirstAccount()
+		if err != nil {
+			return err
+		}
+		checker, err := fm.checkerFactory.New(
+			initr,
+			fm.runManager,
+			fm.store.ORM,
+			timeout,
+			acct.Address,
+		)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -209,7 +220,13 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM, time.Duration) (DeviationChecker, error)
+	New(
+		models.Initiator,
+		RunManager,
+		*orm.ORM,
+		time.Duration,
+		common.Address,
+	) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -222,6 +239,7 @@ func (f pollingDeviationCheckerFactory) New(
 	runManager RunManager,
 	orm *orm.ORM,
 	timeout time.Duration,
+	caller common.Address,
 ) (DeviationChecker, error) {
 	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
 
@@ -242,7 +260,7 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, f.store.TxManager, f.logBroadcaster)
+	fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, f.store.TxManager, f.logBroadcaster, caller)
 	if err != nil {
 		return nil, err
 	}
@@ -714,11 +732,7 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 }
 
 func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundState, error) {
-	acct, err := p.store.KeyStore.GetFirstAccount()
-	if err != nil {
-		return contracts.FluxAggregatorRoundState{}, err
-	}
-	roundState, err := p.fluxAggregator.RoundState(acct.Address)
+	roundState, err := p.fluxAggregator.RoundState()
 	if err != nil {
 		return contracts.FluxAggregatorRoundState{}, err
 	}

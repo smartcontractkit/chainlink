@@ -93,6 +93,7 @@ func (client *CallerSubscriberClient) GetEthBalance(address common.Address) (*as
 type CallArgs struct {
 	To   common.Address `json:"to"`
 	Data hexutil.Bytes  `json:"data"`
+	From common.Address `json:"from"`
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
