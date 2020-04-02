@@ -1,0 +1,13 @@
+name: 'Docker Cache'
+description: 'Keep a dockerfile that is used as a cache up to date'
+inputs:
+  who-to-greet: # id of input
+    description: 'Who to greet'
+    required: true
+    default: 'World'
+outputs:
+  time: # id of output
+    description: 'The time we greeted you'
+runs:
+  using: 'node12'
+  main: 'index.js'

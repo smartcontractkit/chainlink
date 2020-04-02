@@ -1,0 +1,30 @@
+{
+  "name": "@chainlink/gha-docker-cache",
+  "private": true,
+  "version": "0.0.1",
+  "main": "./dist/src",
+  "types": "./dist/src",
+  "engines": {
+    "node": "~10.16"
+  },
+  "scripts": {
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean",
+    "test": "jest",
+    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
+  },
+  "peerDependencies": {},
+  "dependencies": {
+    "@actions/core": "^1.2.3",
+    "@actions/github": "^2.1.1",
+    "docker-registry-client": "^3.3.0",
+    "semver": "^7.1.3",
+    "typescript": "^3.7.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^24.0.25",
+    "@types/semver": "^7.1.0",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.0.0"
+  }
+}
