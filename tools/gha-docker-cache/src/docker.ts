@@ -2,24 +2,27 @@ import drc from 'docker-registry-client'
 import { join } from 'path'
 import semver from 'semver'
 import { cat, exec, sed } from 'shelljs'
-updateDockerfiles('henrynguyen5/base')
-
 /**
  * Update the repo's dockerfiles with the current cache file
  */
-async function updateDockerfiles(cacheRepo = 'smartcontract/cache') {
+export async function updateDockerfiles(cacheRepo = 'smartcontract/cache') {
   const cache = await getLatestName(cacheRepo)
   const files = getDockerFiles(cacheRepo)
+
+  console.log({ cache, files })
   files.forEach(({ path, text }) => {
-    sed(text, `FROM ${cache}`, [join(getGitRoot(), path)])
+    sed('-i', text, `FROM ${cache}`, [join(getGitRoot(), path)])
   })
 }
+
 /**
  * Get a list of dockerfiles that are used as cache images
  * within this repository.
  */
 export function getDockerFiles(cacheFileName: string) {
-  const res = exec(`git grep ${cacheFileName}`, { cwd: getGitRoot() })
+  const res = exec(`git grep "${cacheFileName}" -- "*Dockerfile*"`, {
+    cwd: getGitRoot(),
+  })
 
   return res
     .split('\n')
@@ -45,7 +48,7 @@ function splitOnColon(s: string) {
  * @param baseRepo The docker repo of the base file
  */
 export async function updateCacheFile(
-  name = 'base.Dockerfile',
+  name = 'cache.Dockerfile',
   baseRepo = 'smartcontract/builder',
 ) {
   const current = getCacheFile(name)
