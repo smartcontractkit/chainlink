@@ -1,33 +1,33 @@
 import { createSelector } from 'reselect'
-import feeds from '../../../feeds.json'
+import { FeedConfig } from 'feeds'
+import { AppState } from 'state'
+import { ListingAnswer } from 'state/ducks/listing/operations'
 
 export interface ListingGroup {
-  list: any[]
   name: string
+  feeds: FeedConfig[]
 }
 
 const GROUP_ORDER: string[] = ['USD', 'ETH']
 
-const answers = (state: any) => state.listing.answers
+const orderedFeeds = (state: AppState) =>
+  state.feeds.order.map(f => state.feeds.items[f])
 
-export const groups = createSelector([answers], (answersList: any[]) => {
-  return GROUP_ORDER.map(name => {
-    const list = feeds
-      .filter(config => config.pair[1] === name && config.listing)
-      .map(config => {
-        if (answersList) {
-          const addAnswer = answersList.find(
-            (a: any) => a.config.name === config.name,
-          )
-          return addAnswer || { config }
-        }
+export const groups = createSelector([orderedFeeds], (feeds: FeedConfig[]) => {
+  return GROUP_ORDER.map(groupName => {
+    const groupFeeds = feeds.filter(
+      f => f.listing && f.pair[1] === groupName && f.listing,
+    )
+    const group: ListingGroup = { feeds: groupFeeds, name: groupName }
 
-        return { config }
-      })
-
-    return {
-      list,
-      name,
-    }
+    return group
   })
 })
+
+export const answer = (
+  state: AppState,
+  contractAddress: FeedConfig['contractAddress'],
+) => {
+  const listingAnswers: ListingAnswer[] = state.listing.answers || []
+  return listingAnswers.find(a => a.config.contractAddress === contractAddress)
+}
