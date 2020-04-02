@@ -20,6 +20,7 @@
     "tools/local-storage",
     "tools/redux",
     "tools/ts-helpers",
+    "tools/gha-docker-cache",
     "belt"
   ],
   "engines": {
