@@ -1185,3 +1185,18 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
 	return result.String()
 }
+
+func OracleRoundStateData(roundID uint64, eligible bool, answer, timesOutAt, availableFunds, paymentAmount uint64) string {
+	var data []byte
+	if eligible {
+		data = append(data, utils.EVMWordUint64(1)...)
+	} else {
+		data = append(data, utils.EVMWordUint64(0)...)
+	}
+	data = append(data, utils.EVMWordUint64(roundID)...)
+	data = append(data, utils.EVMWordUint64(answer)...)
+	data = append(data, utils.EVMWordUint64(timesOutAt)...)
+	data = append(data, utils.EVMWordUint64(availableFunds)...)
+	data = append(data, utils.EVMWordUint64(paymentAmount)...)
+	return hexutil.Encode(data)
+}
