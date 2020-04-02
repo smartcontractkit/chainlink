@@ -29,7 +29,7 @@ const (
 	RunStatusUnstarted = RunStatus("")
 	// RunStatusInProgress is used for when a run is actively being executed.
 	RunStatusInProgress = RunStatus("in_progress")
-	// RunStatusPendingConfirmations is used for when a run is awaiting for incoming block confirmations
+	// RunStatusPendingIncomingConfirmations is used for when a run is awaiting for incoming block confirmations
 	// e.g. waiting for the log event to be N blocks deep
 	RunStatusPendingIncomingConfirmations = RunStatus("pending_incoming_confirmations")
 	// RunStatusPendingConnection states that the run is waiting on a connection to the block chain.
@@ -60,7 +60,7 @@ func (s RunStatus) PendingBridge() bool {
 	return s == RunStatusPendingBridge
 }
 
-// PendingConfirmations returns true if the status is pending_incoming_confirmations.
+// PendingIncomingConfirmations returns true if the status is pending_incoming_confirmations.
 func (s RunStatus) PendingIncomingConfirmations() bool {
 	return s == RunStatusPendingIncomingConfirmations
 }
@@ -75,7 +75,7 @@ func (s RunStatus) PendingSleep() bool {
 	return s == RunStatusPendingSleep
 }
 
-// PendingConfirmations returns true if the status is pending_incoming_confirmations.
+// PendingOutgoingConfirmations returns true if the status is pending_incoming_confirmations.
 func (s RunStatus) PendingOutgoingConfirmations() bool {
 	return s == RunStatusPendingOutgoingConfirmations
 }

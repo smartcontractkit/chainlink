@@ -752,7 +752,7 @@ func WaitForJobRunToPendBridge(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
 }
 
-// WaitForJobRunToPendIncomingConfirmations waits for a JobRun to reach PendingConfirmations Status
+// WaitForJobRunToPendIncomingConfirmations waits for a JobRun to reach PendingIncomingConfirmations Status
 func WaitForJobRunToPendIncomingConfirmations(
 	t testing.TB,
 	store *strpkg.Store,
@@ -762,7 +762,7 @@ func WaitForJobRunToPendIncomingConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingIncomingConfirmations)
 }
 
-// WaitForJobRunToPendOutgoingConfirmations waits for a JobRun to reach PendingConfirmations Status
+// WaitForJobRunToPendOutgoingConfirmations waits for a JobRun to reach PendingOutgoingConfirmations Status
 func WaitForJobRunToPendOutgoingConfirmations(
 	t testing.TB,
 	store *strpkg.Store,
