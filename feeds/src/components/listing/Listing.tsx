@@ -4,9 +4,10 @@ import { Row } from 'antd'
 import { AppState } from 'state'
 import { listingOperations, listingSelectors } from '../../state/ducks/listing'
 import GridItem from './GridItem'
+import { ListingGroup } from 'state/ducks/listing/selectors'
 
 interface Props {
-  groups: any[]
+  groups: ListingGroup[]
   fetchAnswers: any
   fetchHealthStatus: any
   enableHealth: boolean
@@ -31,17 +32,17 @@ export const Listing: React.FC<Props> = ({
 
   return (
     <div className="listing">
-      {groups.map((group: any) => (
+      {groups.map(group => (
         <div className="listing-grid__group" key={group.name}>
           <h3 className="listing-grid__header">
             Decentralized Price Reference Data for {group.name} Pairs
           </h3>
 
           <Row gutter={18} className="listing-grid">
-            {group.list.map((item: any) => (
+            {group.feeds.map(f => (
               <GridItem
-                key={item.config.name}
-                item={item}
+                key={f.name}
+                feed={f}
                 compareOffchain={compareOffchain}
                 enableHealth={enableHealth}
               />
