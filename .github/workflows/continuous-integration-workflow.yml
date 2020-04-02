@@ -184,7 +184,7 @@ jobs:
             --health-timeout 5s
             --health-retries 5
     env:
-      TYPEORM_NAME: ci
+      TYPEORM_NAME: ci-gh
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
