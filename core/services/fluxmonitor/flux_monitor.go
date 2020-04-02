@@ -20,6 +20,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/tevino/abool"
 )
 
 //go:generate mockery -name Service -output ../../internal/mocks/ -case=underscore
@@ -320,7 +321,7 @@ type PollingDeviationChecker struct {
 	precision     int32
 	idleThreshold time.Duration
 
-	connected                  utils.AtomicBool
+	connected                  *abool.AtomicBool
 	chMaybeLogs                chan maybeLog
 	reportableRoundID          *big.Int
 	mostRecentSubmittedRoundID uint64
@@ -362,6 +363,7 @@ func NewPollingDeviationChecker(
 		pollTicker:         NewResettableTicker(pollDelay),
 		idleTicker:         nil,
 		roundTimeoutTicker: nil,
+		connected:          abool.New(),
 		chMaybeLogs:        make(chan maybeLog, 100),
 		chStop:             make(chan struct{}),
 		waitOnStop:         make(chan struct{}),
@@ -388,14 +390,14 @@ func (p *PollingDeviationChecker) OnConnect() {
 	logger.Debugw("PollingDeviationChecker connected to Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
 	)
-	p.connected.Set(true)
+	p.connected.Set()
 }
 
 func (p *PollingDeviationChecker) OnDisconnect() {
 	logger.Debugw("PollingDeviationChecker disconnected from Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
 	)
-	p.connected.Set(false)
+	p.connected.UnSet()
 }
 
 type ResettableTicker struct {
@@ -441,7 +443,11 @@ func (p *PollingDeviationChecker) consume() {
 	connected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
 	defer unsubscribeLogs()
 
-	p.connected.Set(connected)
+	if connected {
+		p.connected.Set()
+	} else {
+		p.connected.UnSet()
+	}
 
 	// Try to do an initial poll
 	p.pollIfEligible(p.threshold)
@@ -621,7 +627,7 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		"threshold", threshold,
 	}
 
-	if p.connected.Get() == false {
+	if p.connected.IsSet() == false {
 		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
 		return false
 	}
