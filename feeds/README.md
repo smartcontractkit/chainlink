@@ -135,6 +135,7 @@ Color Codes
 ```
 REACT_APP_INFURA_KEY    - infura key
 REACT_APP_GA_ID         - google analytics key
+REACT_APP_DEV_PROVIDER  - development web3 provider
 REACT_APP_FEEDS_JSON    - URL to load reference contract feeds
 REACT_APP_NODES_JSON    - URL to load oracle nodes
 ```

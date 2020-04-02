@@ -21,7 +21,7 @@ interface StateInfoProps {
 }
 
 interface DispatchProps {
-  fetchJobId: any
+  fetchJobId?: any
 }
 
 export interface Props

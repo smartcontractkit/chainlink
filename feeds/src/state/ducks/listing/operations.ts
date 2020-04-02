@@ -42,14 +42,16 @@ export function fetchAnswer(config: FeedConfig) {
   }
 }
 
-const LATEST_ANSWER_CONTRACT_VERSION = 2
+const LATEST_ANSWER_CONTRACT_VERSIONS = [2, 3]
 
 async function latestAnswer(
   contractConfig: FeedConfig,
   provider: JsonRpcProvider,
 ) {
   const contract = answerContract(contractConfig.contractAddress, provider)
-  return contractConfig.contractVersion === LATEST_ANSWER_CONTRACT_VERSION
+  return LATEST_ANSWER_CONTRACT_VERSIONS.includes(
+    contractConfig.contractVersion,
+  )
     ? await contract.latestAnswer()
     : await contract.currentAnswer()
 }

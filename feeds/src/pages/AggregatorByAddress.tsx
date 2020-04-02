@@ -3,7 +3,7 @@ import React, { useEffect } from 'react'
 import { Redirect, RouteComponentProps } from 'react-router-dom'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { FeedConfig } from 'config'
-import { Aggregator } from 'components/aggregator'
+import { Aggregator, FluxAggregator } from 'components/aggregator'
 import { Header } from 'components/header'
 import { AppState } from 'state'
 import { aggregatorOperations } from '../state/ducks/aggregator'
@@ -44,12 +44,14 @@ const Page: React.FC<Props> = ({
   }, [fetchOracleNodes])
 
   let content
-  if (config) {
-    content = <Aggregator config={config} />
-  } else if (loadingFeed) {
+  if (loadingFeed) {
     content = <>Loading Feed...</>
   } else if (errorFeed && errorFeed === 'Not Found') {
     content = <Redirect to="/" />
+  } else if (config && config.contractVersion === 3) {
+    content = <FluxAggregator config={config} />
+  } else if (config) {
+    content = <Aggregator config={config} />
   } else {
     content = <>There was an error loading the page. Refresh to try again.</>
   }

@@ -56,6 +56,10 @@ export class Config {
     return env.REACT_APP_GA_ID
   }
 
+  static devProvider(env = process.env): string | undefined {
+    return env.REACT_APP_DEV_PROVIDER
+  }
+
   static feedsJson(env = process.env, location = window.location): string {
     const urlFeedsJson = UrlConfig.feedsJson(location)
     if (urlFeedsJson) {
