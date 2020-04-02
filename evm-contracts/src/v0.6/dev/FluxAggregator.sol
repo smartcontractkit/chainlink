@@ -130,7 +130,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @notice Deploy with the address of the LINK token and initial payment amount
    * @dev Sets the LinkToken address and amount of LINK paid
    * @param _link The address of the LINK token
-   * @param _paymentAmount The amount paid of LINK paid to each oracle per submission
+   * @param _paymentAmount The amount paid of LINK paid to each oracle per submission, in wei (units of 10⁻¹⁸ LINK)
    * @param _timeout is the number of seconds after the previous round that are
    * allowed to lapse before allowing an oracle to skip an unfinished round
    */
