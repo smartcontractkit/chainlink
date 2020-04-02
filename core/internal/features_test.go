@@ -731,6 +731,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 
 	sleepSeconds := 4
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
 	defer cleanup()
 	require.NoError(t, app.Start())
 
