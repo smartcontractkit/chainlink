@@ -599,10 +599,12 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 		logger.Errorw(fmt.Sprintf("Ignoring new round request: error fetching eligibility from contract: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
-	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
 
 	err = p.checkEligibilityAndAggregatorFunding(roundState)
-	if err != nil {
+	if errors.Cause(err) == ErrAlreadySubmitted {
+		logger.Infow(fmt.Sprintf("Ignoring new round request: %v, possible chain reorg", err), p.loggerFieldsForNewRound(log)...)
+		return
+	} else if err != nil {
 		logger.Infow(fmt.Sprintf("Ignoring new round request: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
@@ -613,9 +615,6 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 		return
 	} else if log.RoundId.Uint64() <= p.mostRecentSubmittedRoundID {
 		logger.Infow("Ignoring new round request: already submitted for this round", p.loggerFieldsForNewRound(log)...)
-		return
-	} else if p.reportableRoundID.Uint64() <= p.mostRecentSubmittedRoundID {
-		logger.Infow("Ignoring new round request: possible chain reorg", p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
@@ -630,13 +629,22 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	p.createJobRun(polledAnswer, p.reportableRoundID)
 }
 
+var (
+	ErrNotEligible      = errors.New("not eligible to submit")
+	ErrUnderfunded      = errors.New("aggregator is underfunded")
+	ErrPaymentTooLow    = errors.New("round payment amount < minimum contract payment")
+	ErrAlreadySubmitted = errors.Errorf("already submitted for round")
+)
+
 func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
 	if !roundState.EligibleToSubmit {
-		return errors.New("not eligible to submit")
+		return ErrNotEligible
 	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
-		return errors.New("aggregator is underfunded")
+		return ErrUnderfunded
 	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
-		return errors.New("round payment amount < minimum contract payment")
+		return ErrPaymentTooLow
+	} else if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
+		return ErrAlreadySubmitted
 	}
 	return nil
 }
@@ -660,17 +668,11 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	}
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
 
-	// It's pointless to listen to logs from before the current reporting round
-	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
-
-	// If we've already submitted an answer for this round, but the tx is still pending, don't resubmit
-	if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
-		logger.Infow(fmt.Sprintf("already submitted for round %v, tx is still pending", roundState.ReportableRoundID), loggerFields...)
-		return false
-	}
-
 	err = p.checkEligibilityAndAggregatorFunding(roundState)
-	if err != nil {
+	if errors.Cause(err) == ErrAlreadySubmitted {
+		logger.Infow(fmt.Sprintf("skipping poll: %v, tx is pending", err), loggerFields...)
+		return false
+	} else if err != nil {
 		logger.Infow(fmt.Sprintf("skipping poll: %v", err), loggerFields...)
 		return false
 	}
@@ -682,10 +684,9 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
-	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
-
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestAnswer, -p.precision)
 
+	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
 	loggerFields = append(loggerFields,
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
@@ -722,7 +723,10 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 		return contracts.FluxAggregatorRoundState{}, err
 	}
 
-	// Update the roundTimeTicker using the .TimesOutAt field describing the current round
+	// It's pointless to listen to logs from before the current reporting round
+	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
+
+	// Update the roundTimeoutTicker using the .TimesOutAt field describing the current round
 	if roundState.TimesOutAt == 0 {
 		logger.Debugw("updating roundState.TimesOutAt",
 			"value", roundState.TimesOutAt,
