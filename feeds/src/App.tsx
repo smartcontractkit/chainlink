@@ -20,7 +20,13 @@ const injectFeedConfig = (networkId?: Networks) => (
   <WithFeedConfig
     networkId={networkId}
     {...props}
-    render={(config: FeedConfig) => <pages.Aggregator config={config} />}
+    render={(config: FeedConfig) => {
+      if (config.contractVersion === 3) {
+        return <pages.FluxAggregator config={config} />
+      } else {
+        return <pages.Aggregator config={config} />
+      }
+    }}
   />
 )
 

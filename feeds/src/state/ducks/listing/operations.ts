@@ -8,7 +8,6 @@ import {
   createContract,
   createInfuraProvider,
 } from '../../../contracts/utils'
-import { Networks } from '../../../utils'
 import feeds from '../../../feeds.json'
 import { ListingGroup } from './selectors'
 
@@ -82,23 +81,28 @@ async function latestAnswer(
   provider: JsonRpcProvider,
 ) {
   const contract = answerContract(contractConfig.contractAddress, provider)
-  return contractConfig.contractVersion === LATEST_ANSWER_CONTRACT_VERSION
+  return contractConfig.contractVersion === LATEST_ANSWER_CONTRACT_VERSION ||
+    contractConfig.contractVersion === 3
     ? await contract.latestAnswer()
     : await contract.currentAnswer()
 }
 
 async function allAnswers(provider: JsonRpcProvider) {
   const answers = feeds
-    .filter(config => config.networkId === Networks.MAINNET)
+    .filter(config => config.listing)
     .map(async config => {
-      const payload = await latestAnswer(config, provider)
-      const answer = formatAnswer(
-        payload,
-        config.multiply,
-        config.decimalPlaces,
-      )
-
-      return { answer, config }
+      try {
+        const payload = await latestAnswer(config, provider)
+        const answer = formatAnswer(
+          payload,
+          config.multiply,
+          config.decimalPlaces,
+        )
+        return { answer, config }
+      } catch {
+        console.log('Could not fetch the answer')
+      }
+      return { config }
     })
 
   return Promise.all(answers)

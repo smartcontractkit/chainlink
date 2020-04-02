@@ -19,6 +19,7 @@ export function createContract(
 }
 
 const REACT_APP_INFURA_KEY = process.env.REACT_APP_INFURA_KEY
+const REACT_APP_DEV_PROVIDER = process.env.REACT_APP_DEV_PROVIDER
 
 /**
  * Initialize the infura provider for the given network
@@ -29,7 +30,8 @@ export function createInfuraProvider(
   networkId: Networks = Networks.MAINNET,
 ): JsonRpcProvider {
   const provider = new ethers.providers.JsonRpcProvider(
-    `https://${networkName(networkId)}.infura.io/v3/${REACT_APP_INFURA_KEY}`,
+    REACT_APP_DEV_PROVIDER ??
+      `https://${networkName(networkId)}.infura.io/v3/${REACT_APP_INFURA_KEY}`,
   )
   provider.pollingInterval = 8000
 
