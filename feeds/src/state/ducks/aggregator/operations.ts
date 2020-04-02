@@ -78,7 +78,7 @@ const fetchOracleAnswersById = (request: any) => {
 
       dispatch(actions.setOracleAnswers(uniquePayload))
     } catch {
-      console.error('Could not fetch oracle ansers')
+      console.error('Could not fetch oracle answers')
     }
   }
 }

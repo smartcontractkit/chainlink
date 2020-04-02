@@ -98,3 +98,11 @@ Color Codes
 - Red: A check has failed (hover for tooltip that includes failed checks)
 - Yellow: Unknown status (when the price health check is not configured)
 - Green: Ok
+
+## Available env vars
+
+```
+REACT_APP_INFURA_KEY - infura key
+REACT_APP_GA_ID - google analytics key
+REACT_APP_DEV_PROVIDER - development web3 provider
+```
