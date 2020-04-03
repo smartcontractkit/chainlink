@@ -250,7 +250,7 @@ func TestFulfillRandomness(t *testing.T) {
 	assert.Equal(t, randomnessRequestLog.RequestID(), common.Hash(requestID), "VRFConsumer has different request ID than logged from randomness request!")
 	neilBalance, err := coordinator.rootContract.WithdrawableTokens(
 		nil, coordinator.neil.From)
-	require.NoError(t, err, "failed to get neil's token balance, after he successfully fullfilled a randomness request")
+	require.NoError(t, err, "failed to get neil's token balance, after he successfully fulfilled a randomness request")
 	assert.True(t, equal(neilBalance, fee), "neil's balance on VRFCoordinator was not paid his fee, despite succesfull fulfillment of randomness request!")
 }
 
