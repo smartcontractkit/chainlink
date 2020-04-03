@@ -41,6 +41,7 @@ export const answer = (
   state: AppState,
   contractAddress: FeedConfig['contractAddress'],
 ) => {
-  const listingAnswers: ListingAnswer[] = state.listing.answers || []
-  return listingAnswers.find(a => a.config.contractAddress === contractAddress)
+  return state.listing.answers.find(
+    (a: ListingAnswer) => a.config.contractAddress === contractAddress,
+  )
 }
