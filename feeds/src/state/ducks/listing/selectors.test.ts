@@ -20,23 +20,29 @@ const feed3 = partialAsFull<FeedConfig>({
   listing: false,
   pair: ['XBT', 'USD'],
 })
-const feeds = [feed1, feed2, feed3]
+const feed4 = partialAsFull<FeedConfig>({
+  contractAddress: 'D',
+  listing: true,
+  pair: ['FTSE', 'GBP'],
+})
+const feeds = [feed1, feed2, feed3, feed4]
 
 describe('state/ducks/listing/selectors', () => {
   describe('groups', () => {
-    it('returns a USD & ETH listing group', () => {
+    it('returns a Fiat & ETH listing group', () => {
       const selected = groups.resultFunc([])
       expect(selected).toHaveLength(2)
-      expect(selected[0].name).toMatch('USD')
+      expect(selected[0].name).toMatch('Fiat')
       expect(selected[1].name).toMatch('ETH')
     })
 
-    it('returns listed feed configs grouped by quote asset', () => {
+    it('returns a list of feed configs grouped by quote asset', () => {
       const selected = groups.resultFunc(feeds)
 
       const group1 = selected[0]
-      expect(group1.feeds.length).toEqual(1)
+      expect(group1.feeds.length).toEqual(2)
       expect(group1.feeds[0].contractAddress).toEqual(feed1.contractAddress)
+      expect(group1.feeds[1].contractAddress).toEqual(feed4.contractAddress)
 
       const group2 = selected[1]
       expect(group2.feeds.length).toEqual(1)
