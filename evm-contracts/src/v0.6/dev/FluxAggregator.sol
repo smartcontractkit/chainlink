@@ -397,7 +397,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice query the available amount of LINK for an oracle to withdraw
    */
-  function withdrawable(address _oracle)
+  function withdrawablePayment(address _oracle)
     external
     view
     returns (uint256)
@@ -412,7 +412,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @param _recipient is the address to send the LINK to
    * @param _amount is the amount of LINK to send
    */
-  function withdraw(address _oracle, address _recipient, uint256 _amount)
+  function withdrawPayment(address _oracle, address _recipient, uint256 _amount)
     external
   {
     require(oracles[_oracle].admin == msg.sender);

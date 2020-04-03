@@ -84,10 +84,11 @@ describe('FluxAggregator', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(fluxAggregatorFactory, [
-      'addOracle',
       'acceptAdmin',
+      'addOracle',
       'allocatedFunds',
       'availableFunds',
+      'decimals',
       'description',
       'getAdmin',
       'getAnswer',
@@ -105,22 +106,21 @@ describe('FluxAggregator', () => {
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'decimals',
       'removeOracle',
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
       'roundState',
+      'setAuthorization',
       'startNewRound',
       'timeout',
       'transferAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'setAuthorization',
-      'withdraw',
       'withdrawFunds',
-      'withdrawable',
+      'withdrawPayment',
+      'withdrawablePayment',
       'VERSION',
       // Owned methods:
       'acceptOwnership',
@@ -230,7 +230,7 @@ describe('FluxAggregator', () => {
           0,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -239,19 +239,19 @@ describe('FluxAggregator', () => {
           paymentAmount,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Ned)
-            .withdrawable(personas.Ned.address),
+            .withdrawablePayment(personas.Ned.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
       })
 
@@ -440,13 +440,13 @@ describe('FluxAggregator', () => {
           0,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -459,13 +459,13 @@ describe('FluxAggregator', () => {
           paymentAmount,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           paymentAmount,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
       })
     })
@@ -1501,7 +1501,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#withdraw', () => {
+  describe('#withdrawPayment', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1521,7 +1521,11 @@ describe('FluxAggregator', () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
+        .withdrawPayment(
+          personas.Neil.address,
+          personas.Neil.address,
+          paymentAmount,
+        )
 
       matchers.bigNum(
         originalBalance.sub(paymentAmount),
@@ -1538,7 +1542,11 @@ describe('FluxAggregator', () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
+        .withdrawPayment(
+          personas.Neil.address,
+          personas.Neil.address,
+          paymentAmount,
+        )
 
       matchers.bigNum(
         originalAllocation.sub(paymentAmount),
@@ -1551,7 +1559,7 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .withdraw(
+            .withdrawPayment(
               personas.Neil.address,
               personas.Neil.address,
               paymentAmount.add(ethers.utils.bigNumberify(1)),
@@ -1565,7 +1573,7 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Nelly)
-            .withdraw(
+            .withdrawPayment(
               personas.Neil.address,
               personas.Nelly.address,
               ethers.utils.bigNumberify(1),
