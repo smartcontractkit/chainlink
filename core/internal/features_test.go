@@ -285,7 +285,8 @@ func TestIntegration_EthLog(t *testing.T) {
 	assert.Equal(t, address, initr.Address)
 
 	logs <- cltest.LogFromFixture(t, "testdata/requestLog0original.json")
-	cltest.WaitForRuns(t, j, app.Store, 1)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
 
 func TestIntegration_RunLog(t *testing.T) {
