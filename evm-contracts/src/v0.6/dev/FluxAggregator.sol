@@ -516,6 +516,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
+    if (authorizedRequesters[_requester] == _allowed) return;
+
     authorizedRequesters[_requester] = _allowed;
 
     emit RequesterAuthorizationSet(_requester, _allowed);
