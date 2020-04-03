@@ -7,7 +7,7 @@ import { SponsorsLogos } from 'components/sponsorsLogos'
 
 function useOffchainQuery(): boolean {
   const query = new URLSearchParams(useLocation().search)
-  return query.get('compare_offchain') === 'true'
+  return query.get('compare-offchain') === 'true'
 }
 
 function useHealthQuery(): boolean {
