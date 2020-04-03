@@ -38,6 +38,7 @@ describe('components/listing/GridItem', () => {
           feed={feed}
           listingAnswer={listingAnswer}
           enableHealth={false}
+          compareOffchain={false}
         />
       </AllTheProviders>,
     )
