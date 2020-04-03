@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"chainlink/core/assets"
-	"chainlink/core/store/migrations/migration1564007745"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,9 +18,8 @@ import (
 )
 
 func TestStore_ConfigDefaults(t *testing.T) {
-	t.Parallel()
 	config := NewConfig()
-	assert.Equal(t, big.NewInt(0), config.ChainID())
+	assert.Equal(t, big.NewInt(1), config.ChainID())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
 	assert.Equal(t, big.NewInt(20000000000), config.EthGasPriceDefault())
 	assert.Equal(t, "0x514910771AF9Ca656af840dff83E8264EcF986CA", common.HexToAddress(config.LinkContractAddress()).String())
@@ -159,76 +156,4 @@ func TestStore_urlParser(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestConfig_NormalizedDatabaseURL(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name, uri, expect string
-	}{
-		{"default", "", "/root/db.sqlite3"},
-		{"root", "/root/db.sqlite3", "/root/db.sqlite3"},
-		{"windows root", `C:\root\db.sqlite3`, `C:\root\db.sqlite3`},
-		{"garbage", "89324*$*#@(=", "89324*$*#@(="},
-		{"relative path", "store/db/here", "store/db/here"},
-		{"file uri", "file://host/path", "file://host/path"},
-		{"postgres uri", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full"},
-		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config := NewConfig()
-			config.Set("ROOT", "/root")
-			config.Set("DATABASE_URL", test.uri)
-			assert.Equal(t, test.expect, NormalizedDatabaseURL(config))
-		})
-	}
-}
-
-func TestConfig_EthGasPriceDefault(t *testing.T) {
-	t.Parallel()
-
-	config := NewConfig()
-
-	// Get default value
-	def := config.EthGasPriceDefault()
-
-	// No orm installed
-	err := config.SetEthGasPriceDefault(big.NewInt(0))
-	require.Error(t, err)
-
-	// ORM installed
-	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
-	defer os.RemoveAll(config.RootDir())
-	orm, err := NewORM(NormalizedDatabaseURL(config), config.DatabaseTimeout())
-	require.NoError(t, err)
-	require.NotNil(t, orm)
-	orm.SetLogging(true)
-	err = orm.RawDB(func(db *gorm.DB) error {
-		return migration1564007745.Migrate(db)
-	})
-	require.NoError(t, err)
-
-	config.SetRuntimeStore(orm)
-
-	// Value still stays as the default
-	require.Equal(t, def, config.EthGasPriceDefault())
-
-	// Override
-	newValue := new(big.Int).Add(def, big.NewInt(1))
-	err = config.SetEthGasPriceDefault(newValue)
-	require.NoError(t, err)
-
-	// Value changes
-	require.Equal(t, newValue, config.EthGasPriceDefault())
-
-	// Set again
-	newerValue := new(big.Int).Add(def, big.NewInt(2))
-	err = config.SetEthGasPriceDefault(newerValue)
-	require.NoError(t, err)
-
-	// Value changes
-	require.Equal(t, newerValue, config.EthGasPriceDefault())
 }

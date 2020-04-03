@@ -22,6 +22,11 @@ type Bridge struct {
 	Params models.JSON
 }
 
+// TaskType returns the bridges defined type.
+func (ba *Bridge) TaskType() models.TaskType {
+	return ba.Name
+}
+
 // Perform sends a POST request containing the JSON of the input to the
 // external adapter specified in the BridgeType.
 //

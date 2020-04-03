@@ -11,7 +11,7 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	decimal "github.com/shopspring/decimal"
+	context "context"
 
 	eth "chainlink/core/eth"
 
@@ -59,6 +59,23 @@ func (_m *TxManager) BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, store.A
 	}
 
 	return r0, r1, r2
+}
+
+// Call provides a mock function with given fields: result, method, args
+func (_m *TxManager) Call(result interface{}, method string, args ...interface{}) error {
+	var _ca []interface{}
+	_ca = append(_ca, result, method)
+	_ca = append(_ca, args...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(interface{}, string, ...interface{}) error); ok {
+		r0 = rf(result, method, args...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // CheckAttempt provides a mock function with given fields: txAttempt, blockHeight
@@ -214,50 +231,6 @@ func (_m *TxManager) Disconnect() {
 	_m.Called()
 }
 
-// GetAggregatorPrice provides a mock function with given fields: address, precision
-func (_m *TxManager) GetAggregatorPrice(address common.Address, precision int32) (decimal.Decimal, error) {
-	ret := _m.Called(address, precision)
-
-	var r0 decimal.Decimal
-	if rf, ok := ret.Get(0).(func(common.Address, int32) decimal.Decimal); ok {
-		r0 = rf(address, precision)
-	} else {
-		r0 = ret.Get(0).(decimal.Decimal)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address, int32) error); ok {
-		r1 = rf(address, precision)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetAggregatorRound provides a mock function with given fields: address
-func (_m *TxManager) GetAggregatorRound(address common.Address) (*big.Int, error) {
-	ret := _m.Called(address)
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
-		r0 = rf(address)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
-		r1 = rf(address)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetBlockByNumber provides a mock function with given fields: hex
 func (_m *TxManager) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
 	ret := _m.Called(hex)
@@ -272,6 +245,27 @@ func (_m *TxManager) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(hex)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetBlockHeight provides a mock function with given fields:
+func (_m *TxManager) GetBlockHeight() (uint64, error) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -369,38 +363,6 @@ func (_m *TxManager) GetLINKBalance(address common.Address) (*assets.Link, error
 	}
 
 	return r0, r1
-}
-
-// GetLatestSubmission provides a mock function with given fields: aggregatorAddress, oracleAddress
-func (_m *TxManager) GetLatestSubmission(aggregatorAddress common.Address, oracleAddress common.Address) (*big.Int, *big.Int, error) {
-	ret := _m.Called(aggregatorAddress, oracleAddress)
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address, common.Address) *big.Int); ok {
-		r0 = rf(aggregatorAddress, oracleAddress)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	var r1 *big.Int
-	if rf, ok := ret.Get(1).(func(common.Address, common.Address) *big.Int); ok {
-		r1 = rf(aggregatorAddress, oracleAddress)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(*big.Int)
-		}
-	}
-
-	var r2 error
-	if rf, ok := ret.Get(2).(func(common.Address, common.Address) error); ok {
-		r2 = rf(aggregatorAddress, oracleAddress)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
 }
 
 // GetLogs provides a mock function with given fields: q
@@ -540,13 +502,16 @@ func (_m *TxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uin
 	return r0, r1
 }
 
-// SubscribeToLogs provides a mock function with given fields: channel, q
-func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
-	ret := _m.Called(channel, q)
+// Subscribe provides a mock function with given fields: _a0, _a1, _a2
+func (_m *TxManager) Subscribe(_a0 context.Context, _a1 interface{}, _a2 ...interface{}) (eth.Subscription, error) {
+	var _ca []interface{}
+	_ca = append(_ca, _a0, _a1)
+	_ca = append(_ca, _a2...)
+	ret := _m.Called(_ca...)
 
 	var r0 eth.Subscription
-	if rf, ok := ret.Get(0).(func(chan<- eth.Log, ethereum.FilterQuery) eth.Subscription); ok {
-		r0 = rf(channel, q)
+	if rf, ok := ret.Get(0).(func(context.Context, interface{}, ...interface{}) eth.Subscription); ok {
+		r0 = rf(_a0, _a1, _a2...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(eth.Subscription)
@@ -554,8 +519,8 @@ func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQu
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(chan<- eth.Log, ethereum.FilterQuery) error); ok {
-		r1 = rf(channel, q)
+	if rf, ok := ret.Get(1).(func(context.Context, interface{}, ...interface{}) error); ok {
+		r1 = rf(_a0, _a1, _a2...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -563,13 +528,13 @@ func (_m *TxManager) SubscribeToLogs(channel chan<- eth.Log, q ethereum.FilterQu
 	return r0, r1
 }
 
-// SubscribeToNewHeads provides a mock function with given fields: channel
-func (_m *TxManager) SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.Subscription, error) {
-	ret := _m.Called(channel)
+// SubscribeToLogs provides a mock function with given fields: ctx, channel, q
+func (_m *TxManager) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
+	ret := _m.Called(ctx, channel, q)
 
 	var r0 eth.Subscription
-	if rf, ok := ret.Get(0).(func(chan<- eth.BlockHeader) eth.Subscription); ok {
-		r0 = rf(channel)
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- eth.Log, ethereum.FilterQuery) eth.Subscription); ok {
+		r0 = rf(ctx, channel, q)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(eth.Subscription)
@@ -577,8 +542,31 @@ func (_m *TxManager) SubscribeToNewHeads(channel chan<- eth.BlockHeader) (eth.Su
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(chan<- eth.BlockHeader) error); ok {
-		r1 = rf(channel)
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- eth.Log, ethereum.FilterQuery) error); ok {
+		r1 = rf(ctx, channel, q)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SubscribeToNewHeads provides a mock function with given fields: ctx, channel
+func (_m *TxManager) SubscribeToNewHeads(ctx context.Context, channel chan<- eth.BlockHeader) (eth.Subscription, error) {
+	ret := _m.Called(ctx, channel)
+
+	var r0 eth.Subscription
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- eth.BlockHeader) eth.Subscription); ok {
+		r0 = rf(ctx, channel)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(eth.Subscription)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- eth.BlockHeader) error); ok {
+		r1 = rf(ctx, channel)
 	} else {
 		r1 = ret.Error(1)
 	}

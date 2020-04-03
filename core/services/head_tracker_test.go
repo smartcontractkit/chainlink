@@ -106,7 +106,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+	eth := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID, cltest.NoRegisterGetBlockNumber)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	defer ht.Stop()
 
@@ -157,9 +157,9 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	txManager := new(mocks.TxManager)
 	subscription := cltest.EmptyMockSubscription()
 	txManager.On("GetChainID").Maybe().Return(store.Config.ChainID(), nil)
-	txManager.On("SubscribeToNewHeads", mock.Anything).Return(subscription, nil)
-	txManager.On("SubscribeToNewHeads", mock.Anything).Return(nil, errors.New("cannot reconnect"))
-	txManager.On("SubscribeToNewHeads", mock.Anything).Return(subscription, nil)
+	txManager.On("SubscribeToNewHeads", mock.Anything, mock.Anything, mock.Anything).Return(subscription, nil)
+	txManager.On("SubscribeToNewHeads", mock.Anything, mock.Anything).Return(nil, errors.New("cannot reconnect"))
+	txManager.On("SubscribeToNewHeads", mock.Anything, mock.Anything).Return(subscription, nil)
 	store.TxManager = txManager
 
 	checker := &cltest.MockHeadTrackable{}

@@ -9,10 +9,12 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
+	"chainlink/core/services/vrf"
 	"chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/pkg/errors"
 )
@@ -23,13 +25,6 @@ const (
 	RequestLogTopicJobID
 	RequestLogTopicRequester
 	RequestLogTopicPayment
-)
-
-// Descriptive indices of the FluxAggregator's NewRound Topic Array:
-// event NewRound(uint256 indexed roundId, address indexed startedBy);
-const (
-	NewRoundTopicSignature = iota
-	NewRoundTopicRoundID
 )
 
 const (
@@ -56,8 +51,11 @@ var (
 	RunLogTopic20190207withoutIndexes = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
 	// ServiceAgreementExecutionLogTopic is the signature for the
 	// Coordinator.RunRequest(...) events which Chainlink nodes watch for. See
-	// https://chainlink/blob/master/evm/contracts/Coordinator.sol#RunRequest
+	// ../../../evm-contracts/src/v0.5/dev/Coordinator.sol#RunRequest
 	ServiceAgreementExecutionLogTopic = utils.MustHash("ServiceAgreementExecution(bytes32,address,uint256,uint256,uint256,bytes)")
+	// RandomnessRequestLogTopic is the signature for the event log
+	// VRFCoordinator.RandomnessRequest.
+	RandomnessRequestLogTopic = vrf.RandomnessRequestLogTopic()
 	// OracleFullfillmentFunctionID0original is the original function selector for fulfilling Ethereum requests.
 	OracleFullfillmentFunctionID0original = utils.MustHash("fulfillData(uint256,bytes32)").Hex()[:10]
 	// OracleFulfillmentFunctionID20190123withFulfillmentParams is the function selector for fulfilling Ethereum requests,
@@ -66,14 +64,11 @@ var (
 	// OracleFulfillmentFunctionID20190128withoutCast is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
-	// AggregatorNewRoundLogTopic20191220 is the NewRound filter topic for
-	// the FluxAggregator as of Dec. 20th 2019. Eagerly fails if not found.
-	AggregatorNewRoundLogTopic20191220 = eth.MustGetV6ContractEventID("FluxAggregator", "NewRound")
 )
 
 type logRequestParser interface {
 	parseJSON(eth.Log) (JSON, error)
-	parseRequestID(eth.Log) string
+	parseRequestID(eth.Log) (string, error)
 }
 
 // topicFactoryMap maps the log topic to a factory method that returns an
@@ -84,57 +79,76 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 	RunLogTopic0original:                      parseRunLog0original{},
 	RunLogTopic20190123withFullfillmentParams: parseRunLog20190123withFulfillmentParams{},
 	RunLogTopic20190207withoutIndexes:         parseRunLog20190207withoutIndexes{},
+	RandomnessRequestLogTopic:                 parseRandomnessRequest{},
 }
 
-// TopicFiltersForRunLog generates the two variations of RunLog IDs that could
-// possibly be entered on a RunLog or a ServiceAgreementExecutionLog. There is the ID,
-// hex encoded and the ID zero padded.
-func TopicFiltersForRunLog(logTopics []common.Hash, jobID *ID) [][]common.Hash {
-	return [][]common.Hash{logTopics, {IDToTopic(jobID), IDToHexTopic(jobID)}}
+// LogBasedChainlinkJobInitiators are initiators which kick off a user-specified
+// chainlink job when an appropriate ethereum log is received.
+// (InitiatorFluxMonitor kicks off work, but not a user-specified job.)
+var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
+	InitiatorServiceAgreementExecutionLog, InitiatorRandomnessLog}
+
+// topicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
+// a user job with the given type of initiator. If chainlink has any jobs with
+// these initiators, it subscribes on startup to logs which match both these
+// topics and some representation of the job spec ID.
+var TopicsForInitiatorsWhichRequireJobSpecIDTopic = map[string][]common.Hash{
+	InitiatorRunLog: {RunLogTopic20190207withoutIndexes,
+		RunLogTopic20190123withFullfillmentParams, RunLogTopic0original},
+	InitiatorServiceAgreementExecutionLog: {ServiceAgreementExecutionLogTopic},
+	InitiatorRandomnessLog:                {RandomnessRequestLogTopic},
+}
+
+// initiationRequiresJobSpecId is true if jobs initiated by the given
+// initiatiatorType require that their initiating logs match their JobSpecIDs.
+func initiationRequiresJobSpecID(initiatorType string) bool {
+	_, ok := TopicsForInitiatorsWhichRequireJobSpecIDTopic[initiatorType]
+	return ok
+}
+
+// jobSpecIDTopics lists the ways jsID could be represented as a log topic. This
+// allows log subscriptions to respond to all possible representations.
+func JobSpecIDTopics(jsID *ID) []common.Hash {
+	return []common.Hash{
+		// The job to be initiated can be encoded in a log topic in two ways:
+		IDToTopic(jsID),    // 16 full-range bytes, left padded to 32 bytes,
+		IDToHexTopic(jsID), // 32 ASCII hex chars representing the 16 bytes
+	}
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
-func FilterQueryFactory(i Initiator, from *big.Int) (ethereum.FilterQuery, error) {
-	q := ethereum.FilterQuery{
-		FromBlock: from,
-		Addresses: utils.WithoutZeroAddresses([]common.Address{i.Address}),
-	}
+func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err error) {
+	q.FromBlock = from
+	q.Addresses = utils.WithoutZeroAddresses([]common.Address{i.Address})
 
-	switch i.Type {
-	case InitiatorEthLog:
+	switch {
+	case i.Type == InitiatorEthLog:
 		if from == nil {
 			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
-		} else if from != nil && i.InitiatorParams.FromBlock != nil {
+		} else if i.InitiatorParams.FromBlock != nil {
 			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
 		}
 		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
 
 		if q.FromBlock != nil && q.ToBlock != nil && q.FromBlock.Cmp(q.ToBlock) >= 0 {
-			return q, fmt.Errorf("cannot generate a FilterQuery with fromBlock >= toBlock")
+			return ethereum.FilterQuery{}, fmt.Errorf(
+				"cannot generate a FilterQuery with fromBlock >= toBlock")
 		}
 
+		// Copying the topics across (instead of coercing i.Topics to a
+		// [][]common.Hash) clarifies their type for reflect.DeepEqual
 		q.Topics = make([][]common.Hash, len(i.Topics))
-		copy(q.Topics, i.Topics) // Simply coercing i.Topics to the underlying type confuses reflect.DeepEqual
-
-		return q, nil
-
-	case InitiatorRunLog:
-		topics := []common.Hash{RunLogTopic20190207withoutIndexes, RunLogTopic20190123withFullfillmentParams, RunLogTopic0original}
-		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
-		return q, nil
-
-	case InitiatorServiceAgreementExecutionLog:
-		topics := []common.Hash{ServiceAgreementExecutionLogTopic}
-		q.Topics = TopicFiltersForRunLog(topics, i.JobSpecID)
-		return q, nil
-
-	case InitiatorFluxMonitor:
-		q.Topics = [][]common.Hash{{AggregatorNewRoundLogTopic20191220}}
-		return q, nil
-
+		copy(q.Topics, i.Topics)
+	case initiationRequiresJobSpecID(i.Type):
+		q.Topics = [][]common.Hash{
+			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
+			JobSpecIDTopics(i.JobSpecID),
+		}
 	default:
-		return ethereum.FilterQuery{}, fmt.Errorf("Cannot generate a FilterQuery for initiator of type %T", i)
+		return ethereum.FilterQuery{},
+			fmt.Errorf("cannot generate a FilterQuery for initiator of type %T", i)
 	}
+	return q, nil
 }
 
 // LogRequest is the interface to allow polymorphic functionality of different
@@ -155,11 +169,13 @@ type LogRequest interface {
 }
 
 // InitiatorLogEvent encapsulates all information as a result of a received log from an
-// InitiatorSubscription.
+// InitiatorSubscription, and acts as a base struct for other log-initiated events
 type InitiatorLogEvent struct {
 	Log       eth.Log
 	Initiator Initiator
 }
+
+var _ LogRequest = InitiatorLogEvent{} // InitiatorLogEvent implements LogRequest
 
 // LogRequest is a factory method that coerces this log event to the correct
 // type based on Initiator.Type, exposed by the LogRequest interface.
@@ -167,10 +183,10 @@ func (le InitiatorLogEvent) LogRequest() LogRequest {
 	switch le.Initiator.Type {
 	case InitiatorEthLog:
 		return EthLogEvent{InitiatorLogEvent: le}
-	case InitiatorServiceAgreementExecutionLog:
-		fallthrough
-	case InitiatorRunLog:
+	case InitiatorRunLog, InitiatorServiceAgreementExecutionLog:
 		return RunLogEvent{le}
+	case InitiatorRandomnessLog:
+		return RandomnessLogEvent{le}
 	}
 	logger.Warnw("LogRequest: Unable to discern initiator type for log request", le.ForLogger()...)
 	return EthLogEvent{InitiatorLogEvent: le}
@@ -217,26 +233,18 @@ func (le InitiatorLogEvent) ToDebug() {
 
 // BlockNumber returns the block number for the given InitiatorSubscriptionLogEvent.
 func (le InitiatorLogEvent) BlockNumber() *big.Int {
-	num := new(big.Int)
-	num.SetUint64(le.Log.BlockNumber)
-	return num
+	return new(big.Int).SetUint64(le.Log.BlockNumber)
 }
 
 // RunRequest returns a run request instance with the transaction hash,
 // present on all log initiated runs.
 func (le InitiatorLogEvent) RunRequest() (RunRequest, error) {
-	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
-	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
-
 	requestParams, err := le.JSON()
 	if err != nil {
 		return RunRequest{}, err
 	}
-	return RunRequest{
-		BlockHash:     &blockHash,
-		TxHash:        &txHash,
-		RequestParams: requestParams,
-	}, nil
+	return RunRequest{BlockHash: &le.Log.BlockHash, TxHash: &le.Log.TxHash,
+		RequestParams: requestParams}, nil
 }
 
 // Validate returns true, no validation on this log event type.
@@ -290,7 +298,7 @@ func (le RunLogEvent) Validate() bool {
 func contractPayment(log eth.Log) (*assets.Link, error) {
 	version, err := log.GetTopic(0)
 	if err != nil {
-		return nil, fmt.Errorf("Missing RunLogEvent Topic#0: %v", err)
+		return nil, fmt.Errorf("missing RunLogEvent Topic#0: %v", err)
 	}
 
 	var encodedAmount common.Hash
@@ -298,7 +306,11 @@ func contractPayment(log eth.Log) (*assets.Link, error) {
 		encodedAmount = log.Topics[RequestLogTopicPayment]
 	} else {
 		paymentStart := requesterSize + idSize
-		encodedAmount = common.BytesToHash(log.Data[paymentStart : paymentStart+paymentSize])
+		paymentData, err := log.Data.SafeByteSlice(paymentStart, paymentStart+paymentSize)
+		if err != nil {
+			return nil, err
+		}
+		encodedAmount = common.BytesToHash(paymentData)
 	}
 
 	payment, ok := new(assets.Link).SetString(encodedAmount.Hex(), 0)
@@ -320,25 +332,33 @@ func (le RunLogEvent) ValidateRequester() error {
 	if len(le.Initiator.Requesters) == 0 {
 		return nil
 	}
+	requester, err := le.Requester()
+	if err != nil {
+		return err
+	}
 	for _, r := range le.Initiator.Requesters {
-		if le.Requester() == r {
+		if requester == r {
 			return nil
 		}
 	}
-	return fmt.Errorf("Run Log didn't have have a valid requester: %v", le.Requester().Hex())
+	return fmt.Errorf("run Log didn't have have a valid requester: %v", requester.Hex())
 }
 
 // Requester pulls the requesting address out of the LogEvent's topics.
-func (le RunLogEvent) Requester() common.Address {
+func (le RunLogEvent) Requester() (common.Address, error) {
 	version, err := le.Log.GetTopic(0)
 	if err != nil {
-		return common.Address{}
+		return common.Address{}, nil
 	}
 
 	if oldRequestVersion(version) {
-		return common.BytesToAddress(le.Log.Topics[RequestLogTopicRequester].Bytes())
+		return common.BytesToAddress(le.Log.Topics[RequestLogTopicRequester].Bytes()), nil
 	}
-	return common.BytesToAddress(le.Log.Data[:requesterSize])
+	requesterData, err := le.Log.Data.SafeByteSlice(0, requesterSize)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.BytesToAddress(requesterData), nil
 }
 
 // RunRequest returns an RunRequest instance with all parameters
@@ -360,15 +380,19 @@ func (le RunLogEvent) RunRequest() (RunRequest, error) {
 		return RunRequest{}, err
 	}
 
-	txHash := common.BytesToHash(le.Log.TxHash.Bytes())
-	blockHash := common.BytesToHash(le.Log.BlockHash.Bytes())
-	str := parser.parseRequestID(le.Log)
-	requester := le.Requester()
+	requestID, err := parser.parseRequestID(le.Log)
+	if err != nil {
+		return RunRequest{}, err
+	}
+	requester, err := le.Requester()
+	if err != nil {
+		return RunRequest{}, err
+	}
 
 	return RunRequest{
-		RequestID:     &str,
-		TxHash:        &txHash,
-		BlockHash:     &blockHash,
+		RequestID:     &requestID,
+		TxHash:        &le.Log.TxHash,
+		BlockHash:     &le.Log.BlockHash,
 		Requester:     &requester,
 		Payment:       payment,
 		RequestParams: requestParams,
@@ -387,7 +411,7 @@ func parserFromLog(log eth.Log) (logRequestParser, error) {
 	}
 	parser, ok := topicFactoryMap[topic]
 	if !ok {
-		return nil, fmt.Errorf("No parser for the RunLogEvent topic %s", topic.String())
+		return nil, fmt.Errorf("no parser for the RunLogEvent topic %s", topic.String())
 	}
 	return parser, nil
 }
@@ -413,25 +437,31 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 		return JSON{}, errors.New("malformed data")
 	}
 
-	js, err := ParseCBOR(data[start:])
+	cborData, err := data.SafeByteSlice(start, len(data))
+	if err != nil {
+		return JSON{}, err
+	}
+	js, err := ParseCBOR(cborData)
 	if err != nil {
 		return js, err
 	}
-	js, err = js.Add("address", log.Address.String())
+	idData, err := data.SafeByteSlice(0, idSize)
 	if err != nil {
-		return js, err
+		return JSON{}, err
 	}
-
-	js, err = js.Add("dataPrefix", bytesToHex(data[:idSize]))
-	if err != nil {
-		return js, err
-	}
-
-	return js.Add("functionSelector", OracleFullfillmentFunctionID0original)
+	return js.MultiAdd(KV{
+		"address":          log.Address.String(),
+		"dataPrefix":       bytesToHex(idData),
+		"functionSelector": OracleFullfillmentFunctionID0original,
+	})
 }
 
-func (parseRunLog0original) parseRequestID(log eth.Log) string {
-	return common.BytesToHash(log.Data[:idSize]).Hex()
+func (parseRunLog0original) parseRequestID(log eth.Log) (string, error) {
+	idData, err := log.Data.SafeByteSlice(0, idSize)
+	if err != nil {
+		return "", err
+	}
+	return hexutil.Encode(idData), nil
 }
 
 // parseRunLog20190123withFulfillmentParams parses the OracleRequest log format
@@ -447,31 +477,41 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	if len(data) < cborStart {
 		return JSON{}, errors.New("malformed data")
 	}
-	js, err := ParseCBOR(data[cborStart:])
+	cborData, err := data.SafeByteSlice(cborStart, len(data))
+	if err != nil {
+		return JSON{}, err
+	}
+	js, err := ParseCBOR(cborData)
 	if err != nil {
 		return js, err
 	}
-
-	js, err = js.Add("address", log.Address.String())
-	if err != nil {
-		return js, err
-	}
-
 	callbackAndExpStart := idSize + versionSize
 	callbackAndExpEnd := callbackAndExpStart + callbackAddrSize + callbackFuncSize + expirationSize
-	dataPrefix := bytesToHex(append(append(data[:idSize],
-		log.Topics[RequestLogTopicPayment].Bytes()...),
-		data[callbackAndExpStart:callbackAndExpEnd]...))
-	js, err = js.Add("dataPrefix", dataPrefix)
-	if err != nil {
-		return js, err
-	}
 
-	return js.Add("functionSelector", OracleFulfillmentFunctionID20190123withFulfillmentParams)
+	idData, err := data.SafeByteSlice(0, idSize)
+	if err != nil {
+		return JSON{}, err
+	}
+	callbackData, err := data.SafeByteSlice(callbackAndExpStart, callbackAndExpEnd)
+	if err != nil {
+		return JSON{}, err
+	}
+	dataPrefix := bytesToHex(append(append(idData,
+		log.Topics[RequestLogTopicPayment].Bytes()...),
+		callbackData...))
+	return js.MultiAdd(KV{
+		"address":          log.Address.String(),
+		"dataPrefix":       dataPrefix,
+		"functionSelector": OracleFulfillmentFunctionID20190123withFulfillmentParams,
+	})
 }
 
-func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) string {
-	return common.BytesToHash(log.Data[:idSize]).Hex()
+func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) (string, error) {
+	idData, err := log.Data.SafeByteSlice(0, idSize)
+	if err != nil {
+		return "", err
+	}
+	return common.BytesToHash(idData).Hex(), nil
 }
 
 // parseRunLog20190207withoutIndexes parses the OracleRequest log format after
@@ -493,43 +533,45 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 		return JSON{}, errors.New("malformed data")
 	}
 
-	dataLength := whisperv6.BytesToUintBigEndian(data[dataLengthStart : dataLengthStart+32])
+	dataLengthBytes, err := data.SafeByteSlice(dataLengthStart, dataLengthStart+32)
+	if err != nil {
+		return JSON{}, err
+	}
+	dataLength := whisperv6.BytesToUintBigEndian(dataLengthBytes)
 
 	if len(log.Data) < cborStart+int(dataLength) {
 		return JSON{}, errors.New("cbor too short")
 	}
 
-	js, err := ParseCBOR(data[cborStart : cborStart+int(dataLength)])
+	cborData, err := data.SafeByteSlice(cborStart, cborStart+int(dataLength))
+	if err != nil {
+		return JSON{}, err
+	}
+
+	js, err := ParseCBOR(cborData)
 	if err != nil {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}
 
-	js, err = js.Add("address", log.Address.String())
+	dataPrefixBytes, err := data.SafeByteSlice(idStart, expirationEnd)
 	if err != nil {
-		return js, err
+		return JSON{}, err
 	}
 
-	js, err = js.Add("dataPrefix", bytesToHex(data[idStart:expirationEnd]))
-	if err != nil {
-		return js, err
-	}
-
-	return js.Add("functionSelector", OracleFulfillmentFunctionID20190128withoutCast)
+	return js.MultiAdd(KV{
+		"address":          log.Address.String(),
+		"dataPrefix":       bytesToHex(dataPrefixBytes),
+		"functionSelector": OracleFulfillmentFunctionID20190128withoutCast,
+	})
 }
 
-func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) string {
+func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) (string, error) {
 	start := requesterSize
-	return common.BytesToHash(log.Data[start : start+idSize]).Hex()
-}
-
-// ParseNewRoundLog pulls the round from the aggregator log event.
-func ParseNewRoundLog(log eth.Log) (*big.Int, error) {
-	encodedRound := log.Topics[NewRoundTopicRoundID]
-	round, ok := new(big.Int).SetString(encodedRound.Hex(), 0)
-	if !ok {
-		return nil, fmt.Errorf("unable to parse new round log from %s", encodedRound.Hex())
+	requestIDBytes, err := log.Data.SafeByteSlice(start, start+idSize)
+	if err != nil {
+		return "", err
 	}
-	return round, nil
+	return common.BytesToHash(requestIDBytes).Hex(), nil
 }
 
 func bytesToHex(data []byte) string {
@@ -545,4 +587,11 @@ func IDToTopic(id *ID) common.Hash {
 // IDToHexTopic encodes the string representation of the ID
 func IDToHexTopic(id *ID) common.Hash {
 	return common.BytesToHash([]byte(id.String()))
+}
+
+type LogCursor struct {
+	Name        string `gorm:"primary_key"`
+	Initialized bool   `gorm:"not null;default true"`
+	BlockIndex  uint64 `gorm:"not null;default 0"`
+	LogIndex    uint64 `gorm:"not null;default 0"`
 }

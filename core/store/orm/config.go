@@ -18,6 +18,7 @@ import (
 	"chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethCore "github.com/ethereum/go-ethereum/core"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
@@ -27,6 +28,9 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+// this permission grants read / write accccess to file owners only
+const readWritePerms = os.FileMode(0600)
 
 // Config holds parameters used by the application which can be overridden by
 // setting environment variables.
@@ -76,6 +80,20 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	return config
 }
 
+// Validate performs basic sanity checks on config and returns error if any
+// misconfiguration would be fatal to the application
+func (c *Config) Validate() error {
+	ethGasBumpPercent := c.EthGasBumpPercent()
+	if uint64(ethGasBumpPercent) < ethCore.DefaultTxPoolConfig.PriceBump {
+		logger.Warnf(
+			"ETH_GAS_BUMP_PERCENT of %v is less than Geth's default of %v, transactions may fail with underpriced replacement errors",
+			c.EthGasBumpPercent(),
+			ethCore.DefaultTxPoolConfig.PriceBump,
+		)
+	}
+	return nil
+}
+
 // SetRuntimeStore tells the configuration system to use a store for retrieving
 // configuration variables that can be configured at runtime.
 func (c *Config) SetRuntimeStore(orm *ORM) {
@@ -122,15 +140,24 @@ func (c Config) DatabaseTimeout() time.Duration {
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
-// a properly formatted URL, with a valid scheme (postgres://, file://), or
-// an empty string, so the application defaults to .chainlink/db.sqlite.
+// a properly formatted URL, with a valid scheme (postgres://)
 func (c Config) DatabaseURL() string {
 	return c.viper.GetString(EnvVarName("DatabaseURL"))
+}
+
+// DefaultMaxHTTPAttempts defines the limit for HTTP requests.
+func (c Config) DefaultMaxHTTPAttempts() uint {
+	return c.viper.GetUint(EnvVarName("DefaultMaxHTTPAttempts"))
 }
 
 // DefaultHTTPLimit defines the limit for HTTP requests.
 func (c Config) DefaultHTTPLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("DefaultHTTPLimit"))
+}
+
+// DefaultHTTPTimeout defines the default timeout for http requests
+func (c Config) DefaultHTTPTimeout() time.Duration {
+	return c.viper.GetDuration(EnvVarName("DefaultHTTPTimeout"))
 }
 
 // Dev configures "development" mode for chainlink.
@@ -440,15 +467,6 @@ func (c Config) getWithFallback(name string, parser func(string) (interface{}, e
 	return v
 }
 
-// NormalizedDatabaseURL returns the DatabaseURL with the empty default
-// coerced to a sqlite3 URL.
-func NormalizedDatabaseURL(c ConfigReader) string {
-	if c.DatabaseURL() == "" {
-		return filepath.ToSlash(filepath.Join(c.RootDir(), "db.sqlite3"))
-	}
-	return c.DatabaseURL()
-}
-
 // SecretGenerator is the interface for objects that generate a secret
 // used to sign or encrypt.
 type SecretGenerator interface {
@@ -468,7 +486,7 @@ func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	}
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
-	return key, ioutil.WriteFile(sessionPath, []byte(str), 0644)
+	return key, ioutil.WriteFile(sessionPath, []byte(str), readWritePerms)
 }
 
 func parseAddress(str string) (interface{}, error) {

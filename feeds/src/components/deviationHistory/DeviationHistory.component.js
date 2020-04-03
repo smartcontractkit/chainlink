@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
-import DeviationHistoryD3 from './DeviationGraph.d3'
 import { Icon } from 'antd'
+import DeviationHistoryD3 from './DeviationGraph.d3'
 
 function DeviationHistory({ answerHistory, options }) {
   const graph = useRef()

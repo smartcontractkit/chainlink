@@ -9,7 +9,6 @@ import (
 
 	"chainlink/core/adapters"
 	"chainlink/core/assets"
-	"chainlink/core/services/fluxmonitor"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/store/orm"
@@ -112,6 +111,8 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 		return nil
 	case models.InitiatorEthLog:
 		return nil
+	case models.InitiatorRandomnessLog:
+		return validateRandomnessLogInitiator(i, j)
 	default:
 		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}
@@ -119,6 +120,7 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
+	minimumPollingInterval := models.Duration(store.Config.DefaultHTTPTimeout())
 
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
@@ -134,8 +136,8 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	}
 	if i.PollingInterval == 0 {
 		fe.Add("no pollingInterval")
-	} else if i.PollingInterval < fluxmonitor.MinimumPollingInterval {
-		fe.Add("pollingInterval must be equal or greater than " + fluxmonitor.MinimumPollingInterval.String())
+	} else if i.PollingInterval < minimumPollingInterval {
+		fe.Add("pollingInterval must be equal or greater than " + minimumPollingInterval.String())
 	}
 	if err := validateFeeds(i.Feeds, store); err != nil {
 		fe.Add(err.Error())
@@ -233,6 +235,17 @@ func validateServiceAgreementInitiator(i models.Initiator, j models.JobSpec) err
 	fe := models.NewJSONAPIErrors()
 	if len(j.Initiators) != 1 {
 		fe.Add("ServiceAgreement should have at most one initiator")
+	}
+	return fe.CoerceEmptyToNil()
+}
+
+func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error {
+	fe := models.NewJSONAPIErrors()
+	if len(j.Initiators) != 1 {
+		fe.Add("randomness log must have exactly one initiator")
+	}
+	if i.Address == utils.ZeroAddress {
+		fe.Add("randomness log must specify address of expected emmitter")
 	}
 	return fe.CoerceEmptyToNil()
 }

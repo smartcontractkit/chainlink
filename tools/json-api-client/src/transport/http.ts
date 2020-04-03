@@ -1,5 +1,4 @@
 import 'isomorphic-unfetch'
-import formatRequestURI from '../formatRequestURI'
 
 export enum Method {
   GET = 'GET',
@@ -25,13 +24,6 @@ export function getOptions(method: Method): (val?: any) => FetchOptions {
   return CUDOptionFactory(method)
 }
 
-export function formatURI(path: string, query: Record<string, string> = {}) {
-  return formatRequestURI(path, query, {
-    hostname: location.hostname,
-    port: process.env.CHAINLINK_PORT,
-  })
-}
-
 /**
  * Create, Update, Delete option factory
  * @param method The http method to create the option object for
@@ -46,4 +38,31 @@ function CUDOptionFactory(method: Method): (body?: any) => FetchOptions {
       'Content-Type': 'application/json',
     },
   })
+}
+
+export function createUrl(base: string, path: string, query?: object) {
+  let u: URL
+  try {
+    u = new URL(path, base)
+  } catch (e) {
+    const origMsg = (e as TypeError).message
+    const newMsg = `Error when creating url with path=${path}, base=${base}: ${origMsg}`
+    const err = Error(newMsg)
+    throw err
+  }
+
+  if (query) {
+    Object.entries(query).forEach(([k, v]) => {
+      if (typeof v === 'string') {
+        return u.searchParams.append(k, v)
+      }
+
+      // serialize v as long as its not "null" or undefined
+      if (v != undefined) {
+        // eslint-disable-next-line @typescript-eslint/ban-types
+        return u.searchParams.append(k, (v as Object).toString())
+      }
+    })
+  }
+  return u
 }

@@ -22,15 +22,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	_ "github.com/jinzhu/gorm/dialects/sqlite"   // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
 // BatchSize is the safe number of records to cache during Batch calls for
 // SQLite without causing load problems.
+// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
 const BatchSize = 100
 
 var (
@@ -46,8 +45,6 @@ type DialectName string
 const (
 	// DialectPostgres represents the postgres dialect.
 	DialectPostgres DialectName = "postgres"
-	// DialectSqlite represents the sqlite dialect.
-	DialectSqlite = "sqlite3"
 )
 
 // ORM contains the database object used by Chainlink.
@@ -57,6 +54,7 @@ type ORM struct {
 	advisoryLockTimeout time.Duration
 	dialectName         DialectName
 	closeOnce           sync.Once
+	shutdownSignal      gracefulpanic.Signal
 }
 
 var (
@@ -67,16 +65,14 @@ var (
 // mapError tries to coerce the error into package defined errors.
 func mapError(err error) error {
 	err = errors.Cause(err)
-	if v, ok := err.(sqlite3.Error); ok && v.Code == sqlite3.ErrConstraint {
-		return ErrorConflict
-	} else if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
+	if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
 		return ErrorConflict
 	}
 	return err
 }
 
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration) (*ORM, error) {
+func NewORM(uri string, timeout time.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -93,6 +89,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
 		dialectName:         dialect,
+		shutdownSignal:      shutdownSignal,
 	}
 	orm.MustEnsureAdvisoryLock()
 
@@ -113,7 +110,7 @@ func (orm *ORM) MustEnsureAdvisoryLock() {
 	err := orm.lockingStrategy.Lock(orm.advisoryLockTimeout)
 	if err != nil {
 		logger.Errorf("unable to lock ORM: %v", err)
-		gracefulpanic.Panic()
+		orm.shutdownSignal.Panic()
 	}
 }
 
@@ -136,14 +133,6 @@ func initializeDatabase(dialect, path string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := dbutil.SetSqlitePragmas(db); err != nil {
-		return nil, err
-	}
-
-	if err := dbutil.LimitSqliteOpenConnections(db); err != nil {
-		return nil, err
-	}
-
 	return db, nil
 }
 
@@ -157,16 +146,9 @@ func DeduceDialect(path string) (DialectName, error) {
 	switch scheme {
 	case "postgresql", "postgres":
 		return DialectPostgres, nil
-	case "file", "":
-		if len(strings.Split(url.Path, " ")) > 1 {
-			return "", errors.New("error deducing ORM dialect, no spaces allowed, please use a postgres URL or file path")
-		}
-		return DialectSqlite, nil
-	case "sqlite3", "sqlite":
-		return "", fmt.Errorf("do not have full support for the sqlite URL, please use file:// instead for path %s", path)
+	default:
+		return "", fmt.Errorf("missing or unsupported database path: \"%s\". Did you forget to specify DATABASE_URL?", path)
 	}
-
-	return DialectSqlite, nil
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
@@ -325,8 +307,6 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 // Encourages the use of transactions for gorm calls that translate
 // into multiple sql calls, i.e. orm.SaveJobRun(run), which are better suited
 // in a database transaction.
-// Improves efficiency in sqlite by preventing autocommit on each line, instead
-// Batch committing at the end of the transaction.
 func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	orm.MustEnsureAdvisoryLock()
 	dbtx := orm.db.Begin()
@@ -724,6 +704,19 @@ func (orm *ORM) FindAllTxsInNonceRange(beginningNonce uint, endingNonce uint) ([
 	return txs, err
 }
 
+// FindTxsBySenderAndRecipient returns an array of transactions sent by `sender` to `recipient`
+func (orm *ORM) FindTxsBySenderAndRecipient(sender, recipient common.Address, offset, limit uint) ([]models.Tx, error) {
+	orm.MustEnsureAdvisoryLock()
+	var txs []models.Tx
+	err := orm.db.
+		Where(`"from" = ? AND "to" = ?`, sender, recipient).
+		Order("nonce DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&txs).Error
+	return txs, err
+}
+
 // FindTxByAttempt returns the specific transaction attempt with the hash.
 func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, *models.TxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()
@@ -1109,8 +1102,6 @@ func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		// NOTE: SQLite doesn't support compound delete statements, so delete run
-		// results for job_runs ...
 		err := dbtx.Exec(`
 			DELETE
 			FROM run_results
@@ -1173,6 +1164,45 @@ func (orm *ORM) Keys() ([]*models.Key, error) {
 func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.FirstOrCreate(k).Error
+}
+
+// FirstOrCreateEncryptedSecretKey returns the first key found or creates a new one in the orm.
+func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.FirstOrCreate(k).Error
+}
+
+// DeleteEncryptedSecretKey deletes k from the encrypted keys table, or errors
+func (orm *ORM) DeleteEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Delete(k).Error
+}
+
+// FindEncryptedSecretKeys retrieves matches to where from the encrypted keys table, or errors
+func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey) (
+	retrieved []*models.EncryptedSecretVRFKey, err error) {
+	orm.MustEnsureAdvisoryLock()
+	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
+	for _, constraint := range where {
+		anonWhere = append(anonWhere, &constraint)
+	}
+	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
+}
+
+// SaveLogCursor saves the log cursor.
+func (orm *ORM) SaveLogCursor(logCursor *models.LogCursor) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Save(logCursor).Error
+}
+
+// FindLogCursor will find the given log cursor.
+func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
+	orm.MustEnsureAdvisoryLock()
+	lc := models.LogCursor{}
+	err := orm.db.
+		Where("name = ?", name).
+		First(&lc).Error
+	return lc, err
 }
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to

@@ -21877,16 +21877,34 @@ hr {
   padding-top: 15px;
 }
 .listing-grid__item {
+  box-sizing: border-box;
   background-color: #f4f5f6;
-  display: block;
   text-align: center;
   min-height: 125px;
   margin-bottom: 18px;
-  padding: 15px 0;
   line-height: 1.8;
 }
 .listing-grid__item:hover {
   background-color: #e0e6e8;
+}
+.listing-grid__item--link {
+  display: block;
+  padding: 15px 0;
+}
+.listing-grid__item--offchain-comparison {
+  padding-top: 15px;
+}
+.listing-grid__item--health-unknown {
+  background-color: #fffdcc;
+  border: solid 1px #fff619;
+}
+.listing-grid__item--health-ok {
+  background-color: #efffef;
+  border: solid 1px #35ee35;
+}
+.listing-grid__item--health-error {
+  background-color: #ffc0c0;
+  border: solid 1px #ff1414;
 }
 .listing-grid__item--sponsored {
   text-align: center;

@@ -67,7 +67,7 @@ func explorerStatus(app chainlink.Application) gin.HandlerFunc {
 			panic(err)
 		}
 
-		c.SetCookie("explorer", (string)(b), 0, "", "", false, false)
+		c.SetCookie("explorer", (string)(b), 0, "", "", http.SameSiteStrictMode, false, false)
 		c.Next()
 	}
 }

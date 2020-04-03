@@ -63,6 +63,31 @@ func (rq *runQueue) Stop() {
 	rq.workersWg.Wait()
 }
 
+func (rq *runQueue) incrementQueue(runID string) bool {
+	defer rq.workersMutex.Unlock()
+	rq.workersMutex.Lock()
+	numberRunsQueued.Inc()
+
+	wasEmpty := rq.workers[runID] == 0
+	rq.workers[runID]++
+	numberRunQueueWorkers.Set(float64(len(rq.workers)))
+	return wasEmpty
+}
+
+func (rq *runQueue) decrementQueue(runID string) bool {
+	defer rq.workersMutex.Unlock()
+	rq.workersMutex.Lock()
+
+	rq.workers[runID]--
+	isEmpty := rq.workers[runID] <= 0
+	if isEmpty {
+		delete(rq.workers, runID)
+	}
+
+	numberRunQueueWorkers.Set(float64(len(rq.workers)))
+	return isEmpty
+}
+
 // Run tells the job runner to start executing a job
 func (rq *runQueue) Run(run *models.JobRun) {
 	rq.workersMutex.Lock()
@@ -70,38 +95,26 @@ func (rq *runQueue) Run(run *models.JobRun) {
 		rq.workersMutex.Unlock()
 		return
 	}
+	rq.workersMutex.Unlock()
 
 	runID := run.ID.String()
-	defer numberRunsQueued.Inc()
-	if queueCount, present := rq.workers[runID]; present {
-		rq.workers[runID] = queueCount + 1
-		rq.workersMutex.Unlock()
+	if !rq.incrementQueue(runID) {
 		return
 	}
-	rq.workers[runID] = 1
-	numberRunQueueWorkers.Set(float64(len(rq.workers)))
-	rq.workersMutex.Unlock()
 
 	rq.workersWg.Add(1)
 	go func() {
-		for {
-			rq.workersMutex.Lock()
-			queueCount := rq.workers[runID]
-			if queueCount <= 0 {
-				delete(rq.workers, runID)
-				numberRunQueueWorkers.Set(float64(len(rq.workers)))
-				rq.workersMutex.Unlock()
-				break
-			}
-			rq.workers[runID] = queueCount - 1
-			rq.workersMutex.Unlock()
+		defer rq.workersWg.Done()
 
+		for {
 			if err := rq.runExecutor.Execute(run.ID); err != nil {
 				logger.Errorw(fmt.Sprint("Error executing run ", runID), "error", err)
 			}
-		}
 
-		rq.workersWg.Done()
+			if rq.decrementQueue(runID) {
+				return
+			}
+		}
 	}()
 }
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import TimeAgoNoTooltip from 'react-time-ago/no-tooltip'
-import Tooltip from './Tooltip'
+import { Tooltip } from '@chainlink/styleguide'
 
 interface Props {
   children: string

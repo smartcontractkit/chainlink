@@ -1,5 +1,6 @@
 import bodyParser from 'body-parser'
 import cookieSession from 'cookie-session'
+import { randomBytes } from 'crypto'
 import express from 'express'
 import http from 'http'
 import httpStatus from 'http-status-codes'
@@ -28,7 +29,7 @@ app.use(
   cookieSession({
     name: 'explorer',
     maxAge: 60_000,
-    keys: ['key1', 'key2'],
+    secret: randomBytes(32).toString(),
   }),
 )
 app.use(ROUTE_PATH, adminAuth)

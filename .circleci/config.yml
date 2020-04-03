@@ -1,45 +1,9 @@
 version: 2.1
 jobs:
-  go-sqlite:
-    docker:
-      - image: smartcontract/builder:1.0.29
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod download
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - '/go/pkg/mod'
-      - run: ./tools/ci/init_gcloud
-      - run: ./tools/ci/go_test | tee /tmp/go_test.txt
-      - store_artifacts:
-          path: /tmp/go_test.txt
-  go-sqlite-race:
+  go-postgres:
     resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.29
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - '/go/pkg/mod'
-      - run: ./tools/ci/gorace_test | tee /tmp/gorace_test.txt
-      - store_artifacts:
-          path: /tmp/gorace_test.txt
-  go-postgres:
-    docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -71,18 +35,9 @@ jobs:
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}-v2
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}-v2
-          paths:
-            - '/go/pkg/mod'
       - run: ./tools/ci/rust_test
   geth-postgres:
     resource_class: 2xlarge
@@ -95,6 +50,21 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+      - store_artifacts:
+          path: ./tools/docker/logs
+  geth-postgres-ts:
+    resource_class: 2xlarge
+    environment:
+      GETH_MODE: true
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: ~/chainlink
+    steps:
+      - checkout
+      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
+      - store_artifacts:
+          path: ./tools/docker/logs
   parity-postgres:
     resource_class: 2xlarge
     machine:
@@ -104,10 +74,23 @@ jobs:
     steps:
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+      - store_artifacts:
+          path: ./tools/docker/logs
+  parity-postgres-ts:
+    resource_class: 2xlarge
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: ~/chainlink
+    steps:
+      - checkout
+      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
+      - store_artifacts:
+          path: ./tools/docker/logs
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -126,7 +109,7 @@ jobs:
           path: ./integration/logs
   styleguide:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -142,7 +125,7 @@ jobs:
       - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -159,7 +142,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -217,7 +200,7 @@ jobs:
           path: ./integration/logs
   feeds:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -230,6 +213,9 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
+      - run:
+          name: Run dependency setup
+          command: yarn workspace @chainlink/feeds run setup
       - run:
           name: Run Tests
           command: yarn workspace @chainlink/feeds run test
@@ -251,8 +237,8 @@ jobs:
           path: ./integration/forks/logs
   build-publish-explorer:
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -266,24 +252,11 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
-  build-explorer:
-    machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
   build-publish-chainlink:
     resource_class: large
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -298,26 +271,11 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
-  build-chainlink:
-    resource_class: xlarge
-    machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: |
-            DOCKER_TAG=circleci make docker
   build-chainlink-sgx:
     resource_class: xlarge
     machine:
-        image: circleci/classic:201808-01
-        docker_layer_caching: true
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
     steps:
       - checkout
       - run:
@@ -330,7 +288,7 @@ jobs:
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -347,7 +305,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -364,7 +322,7 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.29
+      - image: smartcontract/builder:1.0.31
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -393,10 +351,6 @@ workflows:
                 - /^release\/.*/
                 - master
                 - /^hotfix\/.*/
-      - go-sqlite:
-          filters: # all branches, and /^v../ tags for build-publish...
-            tags:
-              only: /^v.*/
       - go-postgres:
           filters:
             tags:
@@ -409,7 +363,15 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - geth-postgres-ts:
+          filters:
+            tags:
+              only: /^v.*/
       - parity-postgres:
+          filters:
+            tags:
+              only: /^v.*/
+      - parity-postgres-ts:
           filters:
             tags:
               only: /^v.*/
@@ -445,57 +407,35 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - build-explorer:
-          filters:
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
       - build-publish-explorer:
           requires:
             - styleguide
             - json-api-client
             - explorer
           filters:
-            branches:
-              only:
-                - develop
-                - /^release\/.*/
             tags:
-              only: /^explorer-v.*/ # handles final versioned releases
-      - build-chainlink:
-          filters:
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
+              only: /^v.*/
       - build-chainlink-sgx:
           filters:
             tags:
               only: /^v.*/
       - build-publish-chainlink:
           requires:
-            - go-sqlite
             - go-postgres
             - solidity
             - geth-postgres
+            - geth-postgres-ts
             - parity-postgres
+            - parity-postgres-ts
             - styleguide
             - json-api-client
             - operator-ui
             - rust
           filters:
-            branches:
-              only:
-                - develop
-                - /^release\/.*/
             tags:
-              only: /^v.*/ # handles final versioned releases
+              only: /^v.*/
       - reportcoverage:
           requires:
-            - go-sqlite
             - go-postgres
             - solidity
             - operator-ui

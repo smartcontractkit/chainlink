@@ -593,6 +593,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	require.Greater(t, len(tx.Attempts), 0)
 
 	app.EthMock.Register("eth_getTransactionReceipt", eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(gasThreshold)})
+	app.EthMock.Register("eth_getBalance", "0x0100")
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	assert.NoError(t, err)
@@ -770,7 +771,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.NoRegisterGetBlockNumber)
 			defer cleanup()
 
 			store := app.Store
@@ -783,6 +784,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock := app.EthMock
 			ethMock.ShouldCall(test.mockSetup).During(func() {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
+				ethMock.Register("eth_blockNumber", hexutil.Uint64(1))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
@@ -1124,7 +1126,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	manager.OnNewHead(cltest.Head(confirmedAt))
 	ethClient.On("GetTxReceipt", tx.Attempts[0].Hash).Return(&confirmedReceipt, nil)
 	ethClient.On("GetERC20Balance", from, mock.Anything).Return(nil, nil)
-	ethClient.On("GetEthBalance", from).Return(nil, nil)
+	ethClient.On("GetEthBalance", from).Return(cltest.NewEth(t, "10000000"), nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
 	require.NoError(t, err)

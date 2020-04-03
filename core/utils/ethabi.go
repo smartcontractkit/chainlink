@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -16,6 +17,8 @@ import (
 const (
 	// FormatBytes encodes the output as bytes
 	FormatBytes = "bytes"
+	// FormatPreformatted encodes the output, assumed to be hex, as bytes.
+	FormatPreformatted = "preformatted"
 	// FormatUint256 encodes the output as bytes containing a uint256
 	FormatUint256 = "uint256"
 	// FormatInt256 encodes the output as bytes containing an int256
@@ -185,7 +188,8 @@ func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, erro
 	switch format {
 	case FormatBytes:
 		return EVMTranscodeBytes(value)
-
+	case FormatPreformatted:
+		return hex.DecodeString(RemoveHexPrefix(value.Str))
 	case FormatUint256:
 		data, err := EVMTranscodeUint256(value)
 		if err != nil {
@@ -217,6 +221,17 @@ func EVMWordUint64(val uint64) []byte {
 	word := make([]byte, EVMWordByteLen)
 	binary.BigEndian.PutUint64(word[EVMWordByteLen-8:], val)
 	return word
+}
+
+// EVMWordUint128 returns a uint128 as an EVM word byte array.
+func EVMWordUint128(val *big.Int) ([]byte, error) {
+	bytes := val.Bytes()
+	if val.BitLen() > 128 {
+		return nil, fmt.Errorf("Overflow saving uint128 to EVM word: %v", val)
+	} else if val.Sign() == -1 {
+		return nil, fmt.Errorf("Invalid attempt to save negative value as uint128 to EVM word: %v", val)
+	}
+	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
 }
 
 // EVMWordSignedBigInt returns a big.Int as an EVM word byte array, with

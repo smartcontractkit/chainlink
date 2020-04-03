@@ -105,7 +105,10 @@ async function createJob(
     tasks: [
       // 10 seconds to ensure the time has not elapsed by the time the run is triggered
       { type: 'Sleep', params: { until: futureOffsetSeconds(10) } },
-      { type: 'HttpPost', params: { url: echoServerUrl } },
+      {
+        type: 'HttpPostWithUnrestrictedNetworkAccess',
+        params: { url: echoServerUrl },
+      },
       { type: 'EthTx' },
     ],
   }

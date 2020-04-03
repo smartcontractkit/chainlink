@@ -112,7 +112,6 @@ describe('GET /api/v1/admin/nodes/:id', () => {
     rb.sendGet(path(node.id), USERNAME, PASSWORD)
       .expect(httpStatus.OK)
       .expect(res => {
-        console.log(res.body)
         expect(res.body.data.id).toBeDefined()
       })
       .end(done)

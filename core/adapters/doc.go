@@ -20,10 +20,27 @@
 // The HTTPGet adapter is used to grab the JSON data from the given URL.
 //  { "type": "HTTPGet", "params": {"get": "https://some-api-example.net/api" }}
 //
+// NOTE: For security, since the URL is untrusted, HTTPGet imposes some
+// restrictions on which IPs may be fetched. Local network and multicast IPs
+// are disallowed by default and attempting to connect will result in an error.
+//
+//
 // HTTPPost
 //
 // Sends a POST request to the specified URL and will return the response.
 //  { "type": "HTTPPost", "params": {"post": "https://weiwatchers.com/api" }}
+//
+// NOTE: For security, since the URL is untrusted, HTTPPost imposes some
+// restrictions on which IPs may be fetched. Local network and multicast IPs
+// are disallowed by default and attempting to connect will result in an error.
+//
+// HTTPGetWithUnrestrictedNetworkAccess
+//
+// Identical to HTTPGet except there are no IP restrictions. Use with caution.
+//
+// HTTPPostWithUnrestrictedNetworkAccess
+//
+// Identical to HTTPPost except there are no IP restrictions. Use with caution.
 //
 // JSONParse
 //
@@ -83,16 +100,64 @@
 //
 // Random
 //
-// Random adapter generates a number between 0 and 2**256-1
-// WARNING: The random adapter as implemented is not verifiable.
-// Outputs from this adapters are not verifiable onchain as a fairly-drawn random samples.
-// As a result, the oracle potentially has complete discretion to instead deliberately choose
-// values with favorable onchain outcomes. Don't use it for a lottery, for instance, unless
-// you fully trust the oracle not to pick its own tickets.
-// We intend to either improve it in the future, or introduce a verifiable alternative.
-// For now it is provided as an alternative to making web requests for random numbers,
-// which is similarly unverifiable and has additional possible points of failure.
-//  { "type": "Random" }
+// Random adapter generates proofs of randomness verifiable against a public key
+//
+//   WARNING: The Random apdater's output is NOT the randomness you are looking
+//   WARNING: for! The node must send the output onchain for verification by the
+//   WARNING: method VRFCoordinator.sol#fulfillRandomnessRequest, which will
+//   WARNING: pass the actual random output back to the consuming contract.
+//   WARNING: Don't use the output of this adapter in any other way, unless you
+//   WARNING: thoroughly understand the cryptography in use here, and the exact
+//   WARNING: security guarantees it provides. See notes in VRFCoordinator.sol
+//   WARNING: for more info.
+//
+//   WARNING: This system guarantees that the oracle cannot independently
+//   WARNING: concoct a random output to suit itself, but it does not protect
+//   WARNING: against collusion between the oracle and the provider of the seed
+//   WARNING: the oracle uses to generate the randomness. It also does not
+//   WARNING: protect against the oracle simply refusing to respond to a
+//   WARNING: randomness request, if it doesn't like the output it would be
+//   WARNING: required to provide. Solutions to these limitations are planned.
+//
+// Here is an example of a Random task specification. For an example of a full
+// jobspec using this, see ../internal/testdata/randomness_job.json.
+//
+//  {
+//    "type": "Random",
+//    "params": {
+//    	"publicKey":
+//        "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f8179800"
+//    }
+//  }
+//
+// The publicKey must be the concatenation of its hex representation of its the
+// secp256k1 point's x-ordinate as a uint256, followed by 00 if the y-ordinate
+// is even, or 01 if it's odd. (Note that this is NOT an RFC 5480 section 2.2
+// public-key representation. DO NOT prefix with 0x02, 0x03 or 0x04.)
+//
+// The chainlink node must know the corresponding secret key. Such a key pair
+// can be created with the `chainlink local vrf create` command, and exported to
+// a keystore with `vrf export <keystore-path>`.
+//
+// E.g. `chainlink local vrf create -p <password-file>` will log the public key
+// under the field "public id".
+//
+// To see the public keys which have already been imported, use the command
+// `chainlink local vrf list`. See `chainlink local vrf help` for more
+// key-manipulation commands.
+//
+// The adapter output should be passed via EthTx to VRFCoordinator.sol's method
+// fulfillRandomnessRequest.
+//
+// A "random" task must be initiated by a "randomnesslog" initiator which
+// explicitly specifies which ethereum address the logs will be emitted from,
+// such as
+//
+// {"initiators": [{"type": "randomnesslog","address": "0xvrfCoordinatorAddr"}]}
+//
+// This prevents the node from responding to potentially hostile log requests
+// from other contracts, which could be crafted to prematurely reveal the random
+// output if someone learns a prospective input seed prior to its use in the VRF.
 //
 // EthTxABIEncode
 //

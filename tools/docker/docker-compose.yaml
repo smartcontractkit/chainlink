@@ -17,6 +17,7 @@ services:
       - MIN_OUTGOING_CONFIRMATIONS
       - MIN_INCOMING_CONFIRMATIONS
       - MINIMUM_CONTRACT_PAYMENT
+      - DEFAULT_HTTP_TIMEOUT
       - RUST_BACKTRACE
       - CHAINLINK_DEV
       - EXPLORER_URL
@@ -48,7 +49,8 @@ services:
     depends_on:
       - explorer-db
     environment:
-      - SERVER_PORT=$EXPLORER_SERVER_PORT
+      - EXPLORER_COOKIE_SECRET
+      - EXPLORER_SERVER_PORT
       - TYPEORM_DATABASE
       - TYPEORM_USERNAME
       - TYPEORM_HOST

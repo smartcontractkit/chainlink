@@ -29,7 +29,7 @@
     "@chainlink/test-helpers": "0.0.2",
     "@chainlink/contracts": "0.0.3",
     "chalk": "^2.4.2",
-    "ethers": "^4.0.44",
+    "ethers": "^4.0.45",
     "link_token": "^1.0.6",
     "request-promise": "4.2.5",
     "shelljs": "^0.8.3",
@@ -40,7 +40,7 @@
     "@types/shelljs": "^0.8.5",
     "debug": "4.1.1",
     "rimraf": "^3.0.1",
-    "typechain": "1.0.3",
+    "typechain": "1.0.5",
     "typechain-target-ethers": "^1.0.3",
     "typescript": "^3.7.4"
   }

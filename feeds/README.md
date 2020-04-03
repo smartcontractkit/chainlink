@@ -66,3 +66,36 @@ Deploy the newly built image by releasing the container from the root of the mon
 ```
 $ heroku container:release web -a the-app-name
 ```
+
+## Hidden Features
+
+### Display Offchain Comparison Links
+
+On the landing page you can enable a link to an offchain price comparison resource with the `compare_offchain` query parameter.
+
+```
+https://feeds.chain.link?compare_offchain=true
+```
+
+![display-offchain-comparison](./docs/feed-landing-compare-offchain.png)
+
+### Display Reference Contract Health
+
+On the landing page you can enable live health checks with:
+
+```
+https://feeds.chain.link?health=true
+```
+
+![reference-contract-health](./docs/reference-contract-health.png)
+
+#### Checks
+
+* Within price threshold
+* Answer is 0
+
+Color Codes
+
+* Red: A check has failed (hover for tooltip that includes failed checks) 
+* Yellow: Unknown status (when the price health check is not configured)
+* Green: Ok

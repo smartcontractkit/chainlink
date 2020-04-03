@@ -14,6 +14,11 @@ type Sleep struct {
 	Until models.AnyTime `json:"until"`
 }
 
+// TaskType returns the type of Adapter.
+func (adapter *Sleep) TaskType() models.TaskType {
+	return TaskTypeSleep
+}
+
 // Perform returns the input RunResult after waiting for the specified Until parameter.
 func (adapter *Sleep) Perform(input models.RunInput, str *store.Store) models.RunOutput {
 	duration := adapter.Duration()

@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,19 +12,36 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
+
+	"github.com/avast/retry-go"
 )
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL          models.WebURL   `json:"url"`
-	GET          models.WebURL   `json:"get"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL                            models.WebURL   `json:"url"`
+	GET                            models.WebURL   `json:"get"`
+	Headers                        http.Header     `json:"headers"`
+	QueryParams                    QueryParameters `json:"queryParams"`
+	ExtendedPath                   ExtendedPath    `json:"extPath"`
+	AllowUnrestrictedNetworkAccess bool            `json:"-"`
+}
+
+// HTTPRequestConfig holds the configurable settings for an http request
+type HTTPRequestConfig struct {
+	timeout                        time.Duration
+	maxAttempts                    uint
+	sizeLimit                      int64
+	allowUnrestrictedNetworkAccess bool
+}
+
+// TaskType returns the type of Adapter.
+func (hga *HTTPGet) TaskType() models.TaskType {
+	return TaskTypeHTTPGet
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -33,7 +51,9 @@ func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.Ru
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	httpConfig := defaultHTTPConfig(store)
+	httpConfig.allowUnrestrictedNetworkAccess = hga.AllowUnrestrictedNetworkAccess
+	return sendRequest(input, request, httpConfig)
 }
 
 // GetURL retrieves the GET field if set otherwise returns the URL field
@@ -58,12 +78,18 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL          models.WebURL   `json:"url"`
-	POST         models.WebURL   `json:"post"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	Body         *string         `json:"body,omitempty"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL                            models.WebURL   `json:"url"`
+	POST                           models.WebURL   `json:"post"`
+	Headers                        http.Header     `json:"headers"`
+	QueryParams                    QueryParameters `json:"queryParams"`
+	Body                           *string         `json:"body,omitempty"`
+	ExtendedPath                   ExtendedPath    `json:"extPath"`
+	AllowUnrestrictedNetworkAccess bool            `json:"-"`
+}
+
+// TaskType returns the type of Adapter.
+func (hpa *HTTPPost) TaskType() models.TaskType {
+	return TaskTypeHTTPPost
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -73,7 +99,9 @@ func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.R
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	httpConfig := defaultHTTPConfig(store)
+	httpConfig.allowUnrestrictedNetworkAccess = hpa.AllowUnrestrictedNetworkAccess
+	return sendRequest(input, request, httpConfig)
 }
 
 // GetURL retrieves the POST field if set otherwise returns the URL field
@@ -132,19 +160,24 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunInput, request *http.Request, limit int64) models.RunOutput {
+func sendRequest(input models.RunInput, request *http.Request, config HTTPRequestConfig) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
+	if !config.allowUnrestrictedNetworkAccess {
+		tr.DialContext = restrictedDialContext
+	}
 	client := &http.Client{Transport: tr}
-	response, err := client.Do(request)
+
+	response, err := withRetry(client, request, config)
+
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
 
 	defer response.Body.Close()
 
-	source := newMaxBytesReader(response.Body, limit)
+	source := newMaxBytesReader(response.Body, config.sizeLimit)
 	bytes, err := ioutil.ReadAll(source)
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -156,6 +189,34 @@ func sendRequest(input models.RunInput, request *http.Request, limit int64) mode
 	}
 
 	return models.NewRunOutputCompleteWithResult(responseBody)
+}
+
+func withRetry(
+	client *http.Client,
+	originalRequest *http.Request,
+	config HTTPRequestConfig,
+) (*http.Response, error) {
+	var response *http.Response
+	err := retry.Do(
+		func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
+			defer cancel()
+			requestWithTimeout := originalRequest.Clone(ctx)
+
+			r, err := client.Do(requestWithTimeout)
+			if err != nil {
+				return err
+			}
+			response = r
+			return nil
+		},
+		retry.Attempts(config.maxAttempts),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 // maxBytesReader is inspired by
@@ -285,4 +346,13 @@ func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
 	}
 	*ep = ExtendedPath(values)
 	return err
+}
+
+func defaultHTTPConfig(store *store.Store) HTTPRequestConfig {
+	return HTTPRequestConfig{
+		store.Config.DefaultHTTPTimeout(),
+		store.Config.DefaultMaxHTTPAttempts(),
+		store.Config.DefaultHTTPLimit(),
+		false,
+	}
 }

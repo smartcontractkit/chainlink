@@ -1,5 +1,5 @@
 # Build Chainlink
-FROM smartcontract/builder:1.0.29 as builder
+FROM smartcontract/builder:1.0.31 as builder
 
 # Have to reintroduce ENV vars from builder image
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -16,7 +16,7 @@ COPY styleguide/package.json ./styleguide/
 COPY tools/json-api-client/package.json ./tools/json-api-client/
 COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
-COPY tools/ts-test-helpers/package.json ./tools/ts-test-helpers/
+COPY tools/ts-helpers/package.json ./tools/ts-helpers/
 COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json ./evm-test-helpers/
@@ -38,7 +38,7 @@ COPY styleguide ./styleguide
 COPY tools/json-api-client ./tools/json-api-client
 COPY tools/local-storage ./tools/local-storage
 COPY tools/redux ./tools/redux
-COPY tools/ts-test-helpers ./tools/ts-test-helpers
+COPY tools/ts-helpers ./tools/ts-helpers
 COPY belt ./belt
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers ./evm-test-helpers

@@ -27,6 +27,7 @@ import (
 	"chainlink/core/store/orm"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,11 @@ const LenientEthMock = "lenient"
 // and returns the store.config.ChainID
 const EthMockRegisterChainID = "eth_mock_register_chain_id"
 
+// NoRegisterGetBlockNumber prevents the EthMock from expecting to have eth_blockNumber
+// called by the LogBroadcaster at application startup.  Most of our tests should expect
+// this, so this flag should not be used frequently.
+const NoRegisterGetBlockNumber = "no_register_get_block_number"
+
 // MockCallerSubscriberClient create new EthMock Client
 func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock {
 	if ta.ChainlinkApplication.HeadTracker.Connected() {
@@ -50,12 +56,18 @@ func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock 
 // MockEthOnStore given store return new EthMock Client
 func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	mock := &EthMock{t: t, strict: true}
+	registerGetBlockNumber := true
 	for _, flag := range flags {
 		if flag == LenientEthMock {
 			mock.strict = false
 		} else if flag == EthMockRegisterChainID {
 			mock.Register("eth_chainId", s.Config.ChainID())
+		} else if flag == NoRegisterGetBlockNumber {
+			registerGetBlockNumber = false
 		}
+	}
+	if registerGetBlockNumber {
+		mock.Register("eth_blockNumber", hexutil.Uint64(1))
 	}
 	eth := &eth.CallerSubscriberClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
@@ -69,7 +81,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 // EthMock is a mock ethereum client
 type EthMock struct {
 	Responses      []MockResponse
-	Subscriptions  []MockSubscription
+	Subscriptions  []*MockSubscription
 	newHeadsCalled bool
 	logsCalled     bool
 	mutex          sync.RWMutex
@@ -213,16 +225,19 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 // Call, falling back to reflection if the values dont support the required
 // encoding interfaces
 func assignResult(result, response interface{}) error {
-	unmarshaler, uok := result.(encoding.TextUnmarshaler)
-	marshaler, mok := response.(encoding.TextMarshaler)
-
-	if uok && mok {
-		bytes, err := marshaler.MarshalText()
-		if err != nil {
-			return err
+	if unmarshaler, ok := result.(encoding.TextUnmarshaler); ok {
+		switch resp := response.(type) {
+		case encoding.TextMarshaler:
+			bytes, err := resp.MarshalText()
+			if err != nil {
+				return err
+			}
+			return unmarshaler.UnmarshalText(bytes)
+		case string:
+			return unmarshaler.UnmarshalText([]byte(resp))
+		case []byte:
+			return unmarshaler.UnmarshalText(resp)
 		}
-
-		return unmarshaler.UnmarshalText(bytes)
 	}
 
 	ref := reflect.ValueOf(result)
@@ -231,7 +246,7 @@ func assignResult(result, response interface{}) error {
 }
 
 // RegisterSubscription register a mock subscription to the given name and channels
-func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) MockSubscription {
+func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) *MockSubscription {
 	var channel interface{}
 	if len(channels) > 0 {
 		channel = channels[0]
@@ -239,7 +254,7 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 		channel = channelFromSubscriptionName(name)
 	}
 
-	sub := MockSubscription{
+	sub := &MockSubscription{
 		name:    name,
 		channel: channel,
 		Errors:  make(chan error, 1),
@@ -288,7 +303,7 @@ func (mock *EthMock) Subscribe(
 		return EmptyMockSubscription(), nil
 	} else if args[0] == "logs" && !mock.logsCalled {
 		mock.logsCalled = true
-		return MockSubscription{
+		return &MockSubscription{
 			channel: make(chan eth.Log),
 			Errors:  make(chan error),
 		}, nil
@@ -334,21 +349,30 @@ func fwdHeaders(actual, mock interface{}) {
 
 // MockSubscription a mock subscription
 type MockSubscription struct {
-	name    string
-	channel interface{}
-	Errors  chan error
+	mut          sync.Mutex
+	name         string
+	channel      interface{}
+	unsubscribed bool
+	Errors       chan error
 }
 
 // EmptyMockSubscription return empty MockSubscription
-func EmptyMockSubscription() MockSubscription {
-	return MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
+func EmptyMockSubscription() *MockSubscription {
+	return &MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
 }
 
 // Err returns error channel from mes
-func (mes MockSubscription) Err() <-chan error { return mes.Errors }
+func (mes *MockSubscription) Err() <-chan error { return mes.Errors }
 
 // Unsubscribe closes the subscription
-func (mes MockSubscription) Unsubscribe() {
+func (mes *MockSubscription) Unsubscribe() {
+	mes.mut.Lock()
+	defer mes.mut.Unlock()
+
+	if mes.unsubscribed {
+		return
+	}
+	mes.unsubscribed = true
 	switch mes.channel.(type) {
 	case chan struct{}:
 		close(mes.channel.(chan struct{}))
@@ -481,6 +505,12 @@ type CallbackAuthenticator struct {
 func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (string, error) {
 	return a.Callback(store, pwd)
 }
+
+func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
+	return nil
+}
+
+var _ cmd.KeyStoreAuthenticator = CallbackAuthenticator{}
 
 // BlockedRunner is a Runner that blocks until its channel is posted to
 type BlockedRunner struct {

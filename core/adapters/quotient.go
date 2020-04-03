@@ -15,6 +15,11 @@ type Quotient struct {
 	Dividend *big.Float `json:"-"`
 }
 
+// TaskType returns the type of Adapter.
+func (q *Quotient) TaskType() models.TaskType {
+	return TaskTypeQuotient
+}
+
 type jsonQuotient struct {
 	Dividend *utils.BigFloat `json:"dividend,omitempty"`
 }
