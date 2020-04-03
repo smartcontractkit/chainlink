@@ -387,6 +387,8 @@ func initiatorParams(i Initiator) (interface{}, error) {
 			Precision       int32           `json:"precision"`
 			PollingInterval models.Duration `json:"pollingInterval"`
 		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision, i.PollingInterval}, nil
+	case models.InitiatorRandomnessLog:
+		return struct{ Address common.Address }{i.Address}, nil
 	default:
 		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
 	}

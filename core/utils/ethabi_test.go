@@ -7,8 +7,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+func pow2(arg int64) *big.Int {
+	return new(big.Int).Exp(big.NewInt(2), big.NewInt(arg), nil)
+}
 
 func TestEVMWordUint64(t *testing.T) {
 	assert.Equal(t,
@@ -20,6 +25,57 @@ func TestEVMWordUint64(t *testing.T) {
 	assert.Equal(t,
 		hexutil.MustDecode("0x000000000000000000000000000000000000000000000000ffffffffffffffff"),
 		EVMWordUint64(math.MaxUint64))
+}
+
+func TestEVMWordUint128(t *testing.T) {
+	tests := []struct {
+		name string
+		val  *big.Int
+		exp  string
+	}{
+		{
+			name: "1",
+			val:  big.NewInt(1),
+			exp:  "0x0000000000000000000000000000000000000000000000000000000000000001",
+		},
+		{
+			name: "256",
+			val:  big.NewInt(256),
+			exp:  "0x0000000000000000000000000000000000000000000000000000000000000100",
+		},
+		{
+			name: "Max Uint 128",
+			val:  new(big.Int).Sub(pow2(128), big.NewInt(1)),
+			exp:  "0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff",
+		},
+	}
+	for _, test := range tests {
+		t.Log(test.name)
+		ret, err := EVMWordUint128(test.val)
+		assert.Equal(t, hexutil.MustDecode(test.exp), ret)
+		require.NoError(t, err)
+	}
+}
+
+func TestEVMWordUint128_Error(t *testing.T) {
+	tests := []struct {
+		name string
+		val  *big.Int
+	}{
+		{
+			name: "Negative number",
+			val:  big.NewInt(-1),
+		},
+		{
+			name: "Number too large: 128",
+			val:  pow2(128),
+		},
+	}
+	for _, test := range tests {
+		t.Log(test.name)
+		_, err := EVMWordUint128(test.val)
+		assert.Error(t, err)
+	}
 }
 
 func TestEVMWordSignedBigInt(t *testing.T) {
@@ -438,6 +494,12 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 				"0000000000000000000000000000000000000000000000000000000000000020" +
 				"0000000000000000000000000000000000000000000000000000000000000001",
 		},
+		{
+			"result is preformatted",
+			FormatPreformatted,
+			`{"result": "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`,
+			"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		},
 	}
 
 	for _, tt := range tests {
@@ -445,7 +507,7 @@ func TestEVMTranscodeJSONWithFormat(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := gjson.GetBytes([]byte(test.input), "result")
 			out, err := EVMTranscodeJSONWithFormat(input, test.format)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, test.output, hexutil.Encode(out))
 		})
 	}

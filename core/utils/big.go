@@ -61,7 +61,11 @@ func (b *Big) MarshalText() ([]byte, error) {
 
 // MarshalJSON marshals this instance to base 10 number as string.
 func (b *Big) MarshalJSON() ([]byte, error) {
-	return b.MarshalText()
+	text, err := b.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(string(text))
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.

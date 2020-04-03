@@ -1,13 +1,15 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"chainlink/core/logger"
 	"chainlink/core/services/chainlink"
@@ -21,13 +23,21 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// ownerPermsMask are the file permission bits reserved for owner.
+const ownerPermsMask = os.FileMode(0700)
+
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
+	err := cli.Config.Validate()
+	if err != nil {
+		return err
+	}
+
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
-	err := InitEnclave()
+	err = InitEnclave()
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
 	}
@@ -38,6 +48,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
+	if err := checkFilePermissions(cli.Config.RootDir()); err != nil {
+		logger.Warn(err)
+	}
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
@@ -45,6 +58,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
+	}
+	if len(c.String("vrfpassword")) != 0 {
+		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
+		if err != nil {
+			return cli.errorOut(errors.Wrapf(err,
+				"error reading VRF password from vrfpassword file \"%s\"",
+				c.String("vrfpassword")))
+		}
+		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
+			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
+		}
 	}
 
 	var user models.User
@@ -72,6 +96,37 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 func loggedStop(app chainlink.Application) {
 	logger.WarnIf(app.Stop())
+}
+
+func checkFilePermissions(rootDir string) error {
+	errorMsg := "%s has overly permissive file permissions, should be atleast %s"
+	keysDir := filepath.Join(rootDir, "tempkeys")
+	protectedFiles := []string{"secret", "cookie"}
+	err := filepath.Walk(keysDir,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			fileMode := info.Mode().Perm()
+			if fileMode&^ownerPermsMask != 0 {
+				return fmt.Errorf(errorMsg, path, ownerPermsMask)
+			}
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+	for _, fileName := range protectedFiles {
+		fileInfo, err := os.Lstat(filepath.Join(rootDir, fileName))
+		if err != nil {
+			return err
+		}
+		perm := fileInfo.Mode().Perm()
+		if perm&^ownerPermsMask != 0 {
+			return fmt.Errorf(errorMsg, fileName, ownerPermsMask)
+		}
+	}
+	return nil
 }
 
 func passwordFromFile(pwdFile string) (string, error) {

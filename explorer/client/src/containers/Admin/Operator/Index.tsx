@@ -10,12 +10,12 @@ import { ChainlinkNode } from 'explorer/models'
 import React, { useEffect, useState } from 'react'
 import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import build from 'redux-object'
+import { DispatchBinding } from '@chainlink/ts-helpers'
 import { fetchAdminOperators } from '../../../actions/adminOperators'
 import List from '../../../components/Admin/Operators/List'
 import { ChangePageEvent } from '../../../components/Table'
 import Title from '../../../components/Title'
 import { AppState } from '../../../reducers'
-import { DispatchBinding } from '../../../utils/types'
 
 const styles = ({ breakpoints, spacing }: Theme) =>
   createStyles({
@@ -33,8 +33,9 @@ interface OwnProps {
 }
 
 interface StateProps {
-  adminOperators?: ChainlinkNode[]
+  loaded: boolean
   count: AppState['adminOperatorsIndex']['count']
+  adminOperators?: ChainlinkNode[]
 }
 
 interface DispatchProps {
@@ -50,6 +51,7 @@ interface Props
 
 export const Index: React.FC<Props> = ({
   classes,
+  loaded,
   adminOperators,
   fetchAdminOperators,
   count,
@@ -75,6 +77,7 @@ export const Index: React.FC<Props> = ({
         <Title>Endorsed Operators</Title>
 
         <List
+          loaded={loaded}
           currentPage={currentPage}
           operators={adminOperators}
           count={count}
@@ -105,6 +108,7 @@ const mapStateToProps: MapStateToProps<
   return {
     adminOperators: adminOperatorsSelector(state),
     count: state.adminOperatorsIndex.count,
+    loaded: state.adminOperatorsIndex.loaded,
   }
 }
 

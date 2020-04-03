@@ -2,24 +2,33 @@ package internal_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"chainlink/core/assets"
 	"chainlink/core/auth"
 	ethpkg "chainlink/core/eth"
 	"chainlink/core/internal/cltest"
+	"chainlink/core/services/signatures/secp256k1"
+	"chainlink/core/services/vrf"
 	"chainlink/core/store/models"
+	"chainlink/core/store/models/vrfkey"
 	"chainlink/core/utils"
 	"chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -211,6 +220,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	// received sufficient confirmations, so we wait again...
 	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
+		eth.Register("eth_getBalance", "0x0000")
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)
@@ -562,7 +572,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	j := cltest.NewJobWithLogInitiator()
-	post := cltest.NewTask(t, "httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
+	post := cltest.NewTask(t, "httppostwithunrestrictednetworkaccess", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
 	j = cltest.CreateJobSpecViaWeb(t, app, j)
@@ -713,6 +723,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	err := json.Unmarshal([]byte(message), &run)
 	require.NoError(t, err)
 	assert.Equal(t, j.ID, run.JobSpecID)
+	cltest.WaitForJobRunToComplete(t, app.Store, run)
 }
 
 func TestIntegration_SleepAdapter(t *testing.T) {
@@ -792,6 +803,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
 func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
@@ -824,6 +836,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
 func TestIntegration_AuthToken(t *testing.T) {
@@ -863,8 +876,14 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		mock.Register("eth_call", "10000") // 10,000 cents
-		mock.Register("eth_call", "0x1")   // aggregator round: 1
+		var data []byte
+		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
+		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
 	// Have server respond with 102 for price when FM checks external price
@@ -891,6 +910,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -901,7 +921,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	eth.Context("ethTx.Perform() for safe", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 		eth.Register("eth_getBalance", "0x100")
-		eth.Register("eth_call", "0x100")
+		eth.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "256"))
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(10)}
 
@@ -935,9 +955,15 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	eth.EventuallyAllCalled(t)
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
-	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		mock.Register("eth_call", "10000") // 10,000 cents
-		mock.Register("eth_call", "0x1")   // aggregator round: 1
+	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
+		var data []byte
+		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
+		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
 	// Have price adapter server respond with 100 for price on initialization,
@@ -956,6 +982,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	_ = cltest.WaitForRuns(t, j, app.Store, 0)
@@ -964,6 +991,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Send a NewRound log event to trigger a run.
 	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+	log.Address = job.Initiators[0].InitiatorParams.Address
+
 	attemptHash := cltest.NewHash()
 	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        attemptHash,
@@ -973,8 +1002,116 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		eth.Register("eth_sendRawTransaction", attemptHash)         // Initial tx attempt sent
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 	})
+	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
+		var data []byte
+		data = append(data, utils.EVMWordUint64(3)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
+		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
+	})
 	newRounds <- log
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jrs[0])
 	eth.EventuallyAllCalled(t)
+}
+
+func TestIntegration_RandomnessRequest(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.NoRegisterGetBlockNumber)
+	defer cleanup()
+	eth := app.MockCallerSubscriberClient()
+	logs := make(chan ethpkg.Log, 1)
+	txHash := cltest.NewHash()
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
+		eth.Register("eth_sendRawTransaction", txHash)
+		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+			Hash:        cltest.NewHash(),
+			BlockNumber: cltest.Int(10),
+		})
+	})
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	eth.Register("eth_chainId", config.ChainID())
+	app.Start()
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "testdata/randomness_job.json")
+	rawKey := j.Tasks[0].Params.Get("publicKey").String()
+	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
+	require.NoError(t, err)
+	var sk int64 = 1
+	coordinatorAddress := j.Initiators[0].Address
+
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	require.Equal(t, &provingKey.PublicKey, pk,
+		"public key in fixture %s does not match secret key in test %d (which has public key %s)",
+		pk, sk, provingKey.PublicKey.String())
+	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
+	r := vrf.RandomnessRequestLog{
+		KeyHash: provingKey.PublicKey.Hash(),
+		Seed:    big.NewInt(2),
+		JobID:   common.BytesToHash(rawID),
+		Sender:  cltest.NewAddress(),
+		Fee:     assets.NewLink(100),
+	}
+	requestlog := cltest.NewRandomnessRequestLog(t, r, coordinatorAddress, 1)
+
+	logs <- requestlog
+	cltest.WaitForRuns(t, j, app.Store, 1)
+	runs, err := app.Store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
+	require.Len(t, runs, 1)
+	jr := runs[0]
+	require.Len(t, jr.TaskRuns, 2)
+	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
+	require.True(t, eth.AllCalled(), eth.Remaining())
+	require.Len(t, attempts, 1)
+
+	rawTx, err := hexutil.Decode(attempts[0].SignedRawTx)
+	require.NoError(t, err)
+	var tx *types.Transaction
+	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
+	fixtureToAddress := j.Tasks[1].Params.Get("address").String()
+	require.Equal(t, *tx.To(), common.HexToAddress(fixtureToAddress))
+	payload := tx.Data()
+	require.Equal(t, hexutil.Encode(payload[:4]), vrf.FulfillSelector())
+	proofContainer := make(map[string]interface{})
+	err = vrf.FulfillMethod().Inputs.UnpackIntoMap(proofContainer, payload[4:])
+	require.NoError(t, err)
+	proof, ok := proofContainer["_proof"].([]byte)
+	require.True(t, ok)
+	require.Len(t, proof, vrf.ProofLength)
+	publicPoint, err := provingKey.PublicKey.Point()
+	require.NoError(t, err)
+	require.Equal(t, proof[:64], secp256k1.LongMarshal(publicPoint))
+	goProof, err := vrf.UnmarshalSolidityProof(proof)
+	require.NoError(t, err, "problem parsing solidity proof")
+	proofValid, err := goProof.VerifyVRFProof()
+	require.NoError(t, err, "problem verifying solidity proof")
+	require.True(t, proofValid, "vrf proof was invalid: %s", goProof.String())
+
+	// Check that a log from a different address is rejected. (The node will only
+	// ever see this situation if the ethereum.FilterQuery for this job breaks,
+	// but it's hard to test that without a full integration test.)
+	badAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
+	badRequestlog := cltest.NewRandomnessRequestLog(t, r, badAddress, 1)
+	logs <- badRequestlog
+	expectedLogTemplate := `log received from address %s, but expect logs from %s`
+	expectedLog := fmt.Sprintf(expectedLogTemplate, badAddress.String(),
+		coordinatorAddress.String())
+	millisecondsWaited := 0
+	expectedLogDeadline := 200
+	for !strings.Contains(cltest.MemoryLogTestingOnly().String(), expectedLog) &&
+		millisecondsWaited < expectedLogDeadline {
+		time.Sleep(time.Millisecond)
+		millisecondsWaited += 1
+		if millisecondsWaited >= expectedLogDeadline {
+			assert.Fail(t, "message about log with bad source address not found")
+		}
+	}
 }

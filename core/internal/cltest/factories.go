@@ -18,6 +18,7 @@ import (
 	"chainlink/core/assets"
 	"chainlink/core/eth"
 	"chainlink/core/logger"
+	"chainlink/core/services/vrf"
 	"chainlink/core/store"
 	strpkg "chainlink/core/store"
 	"chainlink/core/store/models"
@@ -234,10 +235,23 @@ func CreateTxWithNonceAndGasPrice(
 	nonce uint64,
 	gasPrice int64,
 ) *models.Tx {
+	return CreateTxWithNonceGasPriceAndRecipient(t, store, from, common.Address{}, sentAt, nonce, gasPrice)
+}
+
+// CreateTxWithNonceGasPriceAndRecipient creates a Tx from a specified sender, recipient, sentAt, nonce and gas price
+func CreateTxWithNonceGasPriceAndRecipient(
+	t testing.TB,
+	store *strpkg.Store,
+	from common.Address,
+	to common.Address,
+	sentAt uint64,
+	nonce uint64,
+	gasPrice int64,
+) *models.Tx {
 	data := make([]byte, 36)
 	binary.LittleEndian.PutUint64(data, sentAt)
 
-	transaction := types.NewTransaction(nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(gasPrice), data)
+	transaction := types.NewTransaction(nonce, to, big.NewInt(0), 250000, big.NewInt(gasPrice), data)
 	tx := &models.Tx{
 		From:        from,
 		SentAt:      sentAt,
@@ -378,6 +392,22 @@ func NewRunLog(
 	}
 }
 
+// NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
+// the randomness request log represented by r.
+func NewRandomnessRequestLog(t *testing.T, r vrf.RandomnessRequestLog,
+	emitter common.Address, blk int) eth.Log {
+	rawData, err := r.RawData()
+	require.NoError(t, err)
+	return eth.Log{
+		Address:     emitter,
+		BlockNumber: uint64(blk),
+		Data:        rawData,
+		TxHash:      NewHash(),
+		BlockHash:   NewHash(),
+		Topics:      []common.Hash{models.RandomnessRequestLogTopic, r.JobID},
+	}
+}
+
 // NewServiceAgreementExecutionLog creates a log event for the given jobid,
 // address, block, and json, to simulate a request for execution on a service
 // agreement.
@@ -407,6 +437,13 @@ func NewLink(t *testing.T, amount string) *assets.Link {
 	link, ok := link.SetString(amount, 10)
 	assert.True(t, ok)
 	return link
+}
+
+func NewEth(t *testing.T, amount string) *assets.Eth {
+	eth := assets.NewEth(0)
+	eth, ok := eth.SetString(amount, 10)
+	assert.True(t, ok)
+	return eth
 }
 
 func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
@@ -521,6 +558,18 @@ func Int(val interface{}) *utils.Big {
 		logger.Panicf("Could not convert %v of type %T to utils.Big", val, val)
 		return &utils.Big{}
 	}
+}
+
+func MustEVMUintHexFromBase10String(t *testing.T, strings ...string) string {
+	var allBytes []byte
+	for _, s := range strings {
+		i, ok := big.NewInt(0).SetString(s, 10)
+		require.True(t, ok)
+		bs, err := utils.EVMWordBigInt(i)
+		require.NoError(t, err)
+		allBytes = append(allBytes, bs...)
+	}
+	return fmt.Sprintf("0x%0x", allBytes)
 }
 
 type MockSigner struct{}

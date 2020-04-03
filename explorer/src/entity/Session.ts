@@ -33,11 +33,10 @@ export async function createSession(
   db: Connection,
   node: ChainlinkNode,
 ): Promise<Session> {
-  const now = new Date()
   await db.manager
     .createQueryBuilder()
     .update(Session)
-    .set({ finishedAt: now })
+    .set({ finishedAt: () => 'now()' })
     .where({ chainlinkNodeId: node.id, finishedAt: null })
     .execute()
   const session = new Session()
@@ -61,7 +60,7 @@ export async function closeSession(
   return db.manager
     .createQueryBuilder()
     .update(Session)
-    .set({ finishedAt: new Date() })
+    .set({ finishedAt: () => 'now()' })
     .where({ sessionId: session.id })
     .execute()
 }

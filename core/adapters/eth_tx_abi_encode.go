@@ -31,6 +31,11 @@ type EthTxABIEncode struct {
 	GasLimit    uint64     `json:"gasLimit"`
 }
 
+// TaskType returns the type of Adapter.
+func (etx *EthTxABIEncode) TaskType() models.TaskType {
+	return TaskTypeEthTxABIEncode
+}
+
 // UnmarshalJSON for custom JSON unmarshal that is strict, i.e. doesn't
 // accept spurious fields. (In particular, we wan't to ensure that we don't
 // get spurious fields in the FunctionABI, so that users don't get any wrong

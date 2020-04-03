@@ -1045,6 +1045,33 @@ func TestBulkDeleteRuns(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestORM_FindTxsBySenderAndRecipient(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	defer cleanup()
+
+	from := cltest.GetAccountAddress(t, store)
+	to := cltest.NewAddress()
+	tx1 := cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, to, 0, 0, 1)
+	tx2 := cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, to, 0, 1, 1)
+	cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, cltest.NewAddress(), 0, 2, 1)
+	cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, cltest.NewAddress(), to, 0, 3, 1)
+
+	txs, err := store.FindTxsBySenderAndRecipient(from, to, 0, 4)
+	require.NoError(t, err)
+
+	require.Len(t, txs, 2)
+	expectedTxs := []*models.Tx{tx2, tx1}
+	for i, expected := range expectedTxs {
+		require.Equal(t, expected.To, txs[i].To)
+		require.Equal(t, expected.From, txs[i].From)
+		require.Equal(t, expected.Nonce, txs[i].Nonce)
+	}
+}
+
 func TestORM_FindTxAttempt_CurrentAttempt(t *testing.T) {
 	t.Parallel()
 
@@ -1166,10 +1193,12 @@ func TestORM_DeduceDialect(t *testing.T) {
 		expect           orm.DialectName
 		wantError        bool
 	}{
-		{"windows full path", `D:/node-0/node/db.sqlite3`, `sqlite3`, false},
-		{"relative file", "db.sqlite", "sqlite3", false},
-		{"relative dir path", "store/db/here", "sqlite3", false},
-		{"file url", "file://host/path", "sqlite3", false},
+		// Old sqlite URLs included to verify that they error since sqlite
+		// support has been dropped
+		{"windows full path", `D:/node-0/node/db.sqlite3`, ``, true},
+		{"relative file", "db.sqlite", "", true},
+		{"relative dir path", "store/db/here", "", true},
+		{"file url", "file://host/path", "", true},
 		{"sqlite url", "sqlite:///path/to/sqlite.db", "", true},
 		{"sqlite3 url", "sqlite3:///path/to/sqlite.db", "", true},
 		{"postgres url", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},

@@ -1,7 +1,6 @@
 package fluxmonitor
 
 import (
-	"chainlink/core/eth"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -20,30 +19,16 @@ func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
 	impl.checkerFactory = fac
 }
 
-func (p *PollingDeviationChecker) ExportedFetchAggregatorData(client eth.Client) error {
-	return p.fetchAggregatorData(client)
+func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold float64) bool {
+	return p.pollIfEligible(threshold)
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToNewRound(log eth.Log) error {
-	return p.respondToNewRound(log)
+func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *big.Int) {
+	p.reportableRoundID = roundID
 }
 
-func (p *PollingDeviationChecker) ExportedPoll() (bool, error) {
-	return p.poll(p.threshold)
-}
-
-// ExportedCurrentPrice returns the private current price for assertions;
-// technically thread unsafe because it can be set in parallel from
-// the CSP consumer.
-func (p *PollingDeviationChecker) ExportedCurrentPrice() decimal.Decimal {
-	return p.currentPrice
-}
-
-// ExportedCurrentRound returns the private current round for assertions;
-// technically thread unsafe because it can be set in parallel from
-// the CSP consumer.
-func (p *PollingDeviationChecker) ExportedCurrentRound() *big.Int {
-	return new(big.Int).Set(p.currentRound)
+func (p *PollingDeviationChecker) ExportedRespondToLog(log interface{}) {
+	p.respondToLog(log)
 }
 
 func mustReadFile(t testing.TB, file string) string {

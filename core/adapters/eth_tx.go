@@ -33,6 +33,11 @@ type EthTx struct {
 	GasLimit         uint64               `json:"gasLimit"`
 }
 
+// TaskType returns the type of Adapter.
+func (e *EthTx) TaskType() models.TaskType {
+	return TaskTypeEthTx
+}
+
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
@@ -90,7 +95,7 @@ func createTxRunResult(
 		gasLimit,
 	)
 	if err != nil {
-		return models.NewRunOutputPendingConfirmationsWithData(models.JSON{})
+		return models.NewRunOutputPendingConfirmationsWithData(input.Data())
 	}
 
 	output, err := models.JSON{}.Add("result", tx.Hash.String())
@@ -114,7 +119,12 @@ func createTxRunResult(
 	)
 
 	if state == strpkg.Safe {
-		return addReceiptToResult(receipt, input, output)
+		// I don't see how the receipt could possibly be nil here, but handle it just in case
+		if receipt == nil {
+			err := errors.New("missing receipt for transaction")
+			return models.NewRunOutputError(err)
+		}
+		return addReceiptToResult(*receipt, input, output)
 	}
 
 	return models.NewRunOutputPendingConfirmationsWithData(output)
@@ -156,14 +166,22 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 	}
 
 	if state == strpkg.Safe {
-		return addReceiptToResult(receipt, input, output)
+		// FIXME: Receipt can definitely be nil here, although I don't really know how
+		// it can be "Safe" without a receipt... maybe we should just keep
+		// waiting for confirmations instead?
+		if receipt == nil {
+			err := errors.New("missing receipt for transaction")
+			return models.NewRunOutputError(err)
+		}
+
+		return addReceiptToResult(*receipt, input, output)
 	}
 
 	return models.NewRunOutputPendingConfirmationsWithData(output)
 }
 
 func addReceiptToResult(
-	receipt *eth.TxReceipt,
+	receipt eth.TxReceipt,
 	input models.RunInput,
 	data models.JSON,
 ) models.RunOutput {
@@ -176,12 +194,7 @@ func addReceiptToResult(
 		}
 	}
 
-	if receipt == nil {
-		err := errors.New("missing receipt for transaction")
-		return models.NewRunOutputError(err)
-	}
-
-	receipts = append(receipts, *receipt)
+	receipts = append(receipts, receipt)
 	var err error
 	data, err = data.Add("ethereumReceipts", receipts)
 	if err != nil {

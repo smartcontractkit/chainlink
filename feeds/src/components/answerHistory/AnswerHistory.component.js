@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
-import HistoryGraphD3 from './HistoryGraph.d3'
 import { Icon, Switch, Tooltip } from 'antd'
+import HistoryGraphD3 from './HistoryGraph.d3'
 
 function AnswerHistory({ answerHistory, options }) {
   const graph = useRef()

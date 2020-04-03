@@ -33,6 +33,7 @@ export default async function(req: Request, res: Response, next: NextFunction) {
       /* eslint-disable-next-line require-atomic-updates */
       req.session.admin = null
       res.sendStatus(httpStatus.UNAUTHORIZED)
+      return
     }
   }
 
