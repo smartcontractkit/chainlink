@@ -1739,7 +1739,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#updateRequesterPermission', () => {
+  describe('#setAuthorization', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1772,6 +1772,21 @@ describe('FluxAggregator', () => {
         assert.equal(args.allowed, true)
       })
 
+      describe('when the address is already authorized', () => {
+        beforeEach(async () => {
+          await aggregator.setAuthorization(personas.Neil.address, true)
+        })
+
+        it('does not emit a log for already authorized accounts', async () => {
+          const tx = await aggregator.setAuthorization(
+            personas.Neil.address,
+            true,
+          )
+          const receipt = await tx.wait()
+          assert.equal(0, receipt?.logs?.length)
+        })
+      })
+
       describe('when permission is removed by the owner', () => {
         beforeEach(async () => {
           await aggregator.setAuthorization(personas.Neil.address, true)
@@ -1799,6 +1814,15 @@ describe('FluxAggregator', () => {
 
           assert.equal(args.requester, personas.Neil.address)
           assert.equal(args.allowed, false)
+        })
+
+        it('does not emit a log for accounts without authorization', async () => {
+          const tx = await aggregator.setAuthorization(
+            personas.Ned.address,
+            false,
+          )
+          const receipt = await tx.wait()
+          assert.equal(0, receipt?.logs?.length)
         })
       })
     })
