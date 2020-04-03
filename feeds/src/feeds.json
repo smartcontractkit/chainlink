@@ -509,7 +509,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/EURONEXT-FTSE",
+    "compareOffchain": "https://www.google.com/search?tbm=fin&q=INDEXFTSE:+UKX&stick=H4sIAAAAAAAAAONgecRowi3w8sc9YSntSWtOXmNU5eIKzsgvd80rySypFBLnYoOyeKW4uTj1c_UNjDJyzMp5FrHyefq5uEa4hQS7WimEekcAAMw2dBpKAAAA&sa=X&ved=2ahUKEwjzqpm3_szoAhVQrZ4KHVpsD1AQ3ecFMAB6BAgYEA0&biw=1728&bih=1417#scso=_E46HXuuBFve30PEPw7aEiAY1:0",
     "listing": true
   },
   {
