@@ -367,7 +367,7 @@ func TestVRF_MarshalProof(t *testing.T) {
 		mproof[corruptionTargetByte] += 1
 		_, err = deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
 		require.True(t, inAddressZeroBytes(corruptionTargetByte) || err != nil,
-			"VRF verfication accepted a bad proof! Changed byte %d from %d to %d in %s, which is of length %d",
+			"VRF verification accepted a bad proof! Changed byte %d from %d to %d in %s, which is of length %d",
 			corruptionTargetByte, originalByte, mproof[corruptionTargetByte],
 			mproof.String(), len(mproof))
 		require.True(t,
