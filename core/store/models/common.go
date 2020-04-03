@@ -130,7 +130,7 @@ type JSON struct {
 
 // Value returns this instance serialized for database storage.
 func (j JSON) Value() (driver.Value, error) {
-	s := j.String()
+	s := j.Bytes()
 	if len(s) == 0 {
 		return nil, nil
 	}
@@ -139,12 +139,14 @@ func (j JSON) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (j *JSON) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
+	switch v := value.(type) {
+	case string:
+		*j = JSON{Result: gjson.Parse(v)}
+	case []byte:
+		*j = JSON{Result: gjson.ParseBytes(v)}
+	default:
 		return fmt.Errorf("Unable to convert %v of %T to JSON", value, value)
 	}
-
-	*j = JSON{Result: gjson.Parse(temp)}
 	return nil
 }
 

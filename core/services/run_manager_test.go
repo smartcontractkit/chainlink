@@ -308,7 +308,7 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, job.Tasks, 1)
 	require.Len(t, retrievedJob.Tasks, 1)
-	assert.Equal(t, job.Tasks[0].Params, retrievedJob.Tasks[0].Params)
+	assert.JSONEq(t, job.Tasks[0].Params.String(), retrievedJob.Tasks[0].Params.String())
 }
 
 func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
