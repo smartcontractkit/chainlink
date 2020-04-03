@@ -29,7 +29,7 @@ const positionTypes: PositionTypes = {
 }
 
 const Tooltip: React.FC<Props> = ({ config, tooltip }) => {
-  const [position, setPosition] = useState<Partial<PositionStyles>>({})
+  const [position, setPosition] = useState<Partial<PositionStyles>>()
 
   useEffect(() => {
     if (tooltip && tooltip.x) {
@@ -38,7 +38,7 @@ const Tooltip: React.FC<Props> = ({ config, tooltip }) => {
         top: tooltip.y + positionTypes[tooltip.type].y,
       })
     } else {
-      setPosition({})
+      setPosition(undefined)
     }
   }, [tooltip])
 
