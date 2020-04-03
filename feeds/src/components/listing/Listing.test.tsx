@@ -63,6 +63,7 @@ describe('components/listing/Listing', () => {
           fetchAnswers={() => {}}
           fetchHealthStatus={() => {}}
           enableHealth={false}
+          compareOffchain={false}
         />
       </AllTheProviders>,
     )
@@ -79,6 +80,7 @@ describe('components/listing/Listing', () => {
           fetchAnswers={() => {}}
           fetchHealthStatus={() => {}}
           enableHealth={false}
+          compareOffchain={false}
         />
       </AllTheProviders>,
     )
@@ -97,6 +99,7 @@ describe('components/listing/Listing', () => {
           fetchAnswers={() => {}}
           fetchHealthStatus={() => {}}
           enableHealth={false}
+          compareOffchain={false}
         />
       </AllTheProviders>,
     )

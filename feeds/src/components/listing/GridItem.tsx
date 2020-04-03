@@ -16,7 +16,7 @@ interface StateProps {
 
 interface OwnProps {
   feed: FeedConfig
-  compareOffchain?: boolean
+  compareOffchain: boolean
   enableHealth: boolean
 }
 

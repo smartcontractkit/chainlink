@@ -11,7 +11,7 @@ interface Props {
   fetchAnswers: any
   fetchHealthStatus: any
   enableHealth: boolean
-  compareOffchain?: boolean
+  compareOffchain: boolean
 }
 
 export const Listing: React.FC<Props> = ({
