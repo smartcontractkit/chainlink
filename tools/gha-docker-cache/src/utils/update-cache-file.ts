@@ -5,8 +5,8 @@ import { getGitRoot, getLatestName } from './utils'
 /**
  * Update a docker cache file with the latest base file.
  *
- * @param name The name of the cache file to update
- * @param baseRepo The docker repo of the base file
+ * @param name [cache.Dockerfile] The name of the cache file to update
+ * @param baseRepo [smartcontract/builder] The docker repo of the base file
  */
 export async function updateCacheFile(
   name = 'cache.Dockerfile',
