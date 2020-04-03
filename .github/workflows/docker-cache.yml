@@ -1,0 +1,50 @@
+name: Update cache image
+
+on:
+  schedule:
+    # Run every day at midnight
+    - cron: '0 0 * * *'
+
+env:
+  CACHE_IMAGE_VERSION: '0.0.1'
+
+jobs:
+  update-cache:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ssh checkout needed for https://github.com/peter-evans/create-pull-request/blob/master/docs/concepts-guidelines.md#push-using-ssh-deploy-keys
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          token: ''
+          ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
+
+      - name: Update Cache File
+        uses: ./tools/gha-docker-cache
+        with:
+          actionType: 'UPDATE_CACHE_FILE'
+
+    - name: Get current date
+        id: getDate
+        run: echo '::set-output name=date::$(date +'%s')'
+
+    - name: Publish to Registry
+      uses: elgohr/Publish-Docker-Github-Action
+      with:
+        name: 'smartcontract/cache'
+        dockerfile: 'cache.Dockerfile'
+        tags: '${{ env.CACHE_IMAGE_VERSION }}-${{ steps.getDate.outputs.date }}'
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Update docker files
+      uses: ./tools/gha-docker-cache
+      with:
+        actionType: 'UPDATE_DOCKER_FILES'
+
+    - name: Open PR with updated cache and docker files
+      uses: peter-evans/create-pull-request@v2
+      with:
+        title: 'Update docker cache image'
+        commit-message: 'Update docker cache image'

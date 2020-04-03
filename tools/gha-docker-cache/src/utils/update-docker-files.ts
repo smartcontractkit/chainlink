@@ -4,7 +4,9 @@ import { exec, sed } from 'shelljs'
 import { getGitRoot, getLatestName } from './utils'
 
 /**
- * Update the repo's dockerfiles with the current cache file
+ * Update the repo's dockerfiles with the current cache file.
+ *
+ * @param cacheRepo [smartcontract/cache] The dockerhub repository of the cache image
  */
 export async function updateDockerfiles(cacheRepo = 'smartcontract/cache') {
   const cache = await getLatestName(cacheRepo)

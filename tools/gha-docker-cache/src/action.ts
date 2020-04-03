@@ -1,18 +1,26 @@
 import core from '@actions/core'
-// import github from '@actions/github'
 import { exit, which } from 'shelljs'
+import { updateCacheFile, updateDockerfiles } from './utils'
 
 if (!which('git')) {
   core.setFailed('Sorry, this script requires git')
   exit(1)
 }
 
-// const myToken = core.getInput('myToken')
+enum ActionType {
+  UPDATE_CACHE_FILE = 'UPDATE_CACHE_FILE',
+  UPDATE_DOCKER_FILES = 'UPDATE_DOCKER_FILES',
+}
+const actionType = core.getInput('type', { required: true })
 
-// const octokit = new github.GitHub(myToken)
-// workflow
-// 1. on cron job, update cache and check if cache should use new base builder
-// 2. push up new cache to dockerhub
-// 3. modify workspace, updating all dockerfiles with newly pushed cache
-// 4. create pr via https://github.com/peter-evans/create-pull-request
-// 5. pr will contain new cache file, and new dockerfiles all in 1 PR
+if (actionType === ActionType.UPDATE_CACHE_FILE) {
+  updateCacheFile()
+} else if (actionType === ActionType.UPDATE_DOCKER_FILES) {
+  updateDockerfiles()
+} else {
+  core.setFailed(
+    `Unrecognized action type, valid action types are: ${Object.values(
+      ActionType,
+    )}`,
+  )
+}

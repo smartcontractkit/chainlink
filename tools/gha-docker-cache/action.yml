@@ -1,13 +1,11 @@
 name: 'Docker Cache'
-description: 'Keep a dockerfile that is used as a cache up to date'
+description: 'Keep a cache image up to date'
 inputs:
-  who-to-greet: # id of input
-    description: 'Who to greet'
+  actionType:
+    description: 'Choose to perform an update to the docker cache image,\
+ or to update the dockerfiles within the monorepo to use the latest cache image.\ 
+ Valid values are: UPDATE_CACHE_FILE or UPDATE_DOCKER_FILES'
     required: true
-    default: 'World'
-outputs:
-  time: # id of output
-    description: 'The time we greeted you'
 runs:
   using: 'node12'
   main: 'index.js'
