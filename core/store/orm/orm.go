@@ -614,29 +614,30 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	return found, ignoreRecordNotFound(rval)
 }
 
-// CreateTx returns a transaction by its surrogate key, if it exists, or
+// CreateTx finds and overwrites a transaction by its surrogate key, if it exists, or
 // creates it
 func (orm *ORM) CreateTx(tx *models.Tx) (*models.Tx, error) {
 	orm.MustEnsureAdvisoryLock()
 
 	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		var query *gorm.DB
+		foundTx := models.Tx{}
 		if tx.SurrogateID.Valid {
-			query = dbtx.First(&models.Tx{}, "surrogate_id = ?", tx.SurrogateID.ValueOrZero())
+			query = dbtx.First(&foundTx, "surrogate_id = ?", tx.SurrogateID.ValueOrZero())
 		} else {
-			query = dbtx.First(&models.Tx{}, "hash = ?", tx.Hash)
+			query = dbtx.First(&foundTx, "hash = ?", tx.Hash)
 		}
+		err := query.Error
 
-		ids := []uint64{}
-		err := query.Pluck("id", &ids).Error
-		if err != nil && err != gorm.ErrRecordNotFound {
+		if err != nil && !gorm.IsRecordNotFoundError(err) {
 			return errors.Wrap(err, "CreateTx#First failed")
 		}
 
-		if err == gorm.ErrRecordNotFound {
+		if gorm.IsRecordNotFoundError(err) {
 			return dbtx.Create(tx).Error
 		}
-		tx.ID = ids[0]
+
+		tx.ID = foundTx.ID
 		return dbtx.Save(tx).Error
 	})
 	if err != nil {
