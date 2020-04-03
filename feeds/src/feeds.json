@@ -506,7 +506,7 @@
     "networkId": 1,
     "history": true,
     "decimalPlaces": 8,
-    "multiply": "1000000000",
+    "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/EURONEXT-FTSE",
