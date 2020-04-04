@@ -6,7 +6,7 @@ RUN mkdir -p /usr/src/app/
 WORKDIR /usr/src/app
 ENV PATH /usr/src/app/node_modules/.bin:$PATH
 
-COPY yarn.lock package.json .yarnrc .yarn/ ./
+COPY yarn.lock package.json .yarnrc ./
 COPY .yarn .yarn
 COPY explorer/package.json ./explorer/
 COPY explorer/client/package.json ./explorer/client/
@@ -18,11 +18,11 @@ COPY tools/ts-helpers/package.json ./tools/ts-helpers/
 COPY styleguide/package.json ./styleguide/
 RUN yarn install --frozen-lockfile
 
-ADD tsconfig.*.json babel.config.js ./
-ADD .git .git
-ADD explorer ./explorer
-ADD tools ./tools
-ADD styleguide ./styleguide
+COPY tsconfig.*.json babel.config.js ./
+COPY .git .git
+COPY explorer ./explorer
+COPY tools ./tools
+COPY styleguide ./styleguide
 RUN yarn setup:explorer
 RUN yarn workspace @chainlink/explorer-client build
 
