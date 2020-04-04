@@ -2,13 +2,27 @@ FROM node:10.16.3 as builder
 
 RUN apt-get update && apt-get install -y libudev-dev libusb-dev libusb-1.0-0
 
-RUN mkdir -p /usr/src/app
+RUN mkdir -p /usr/src/app/
 WORKDIR /usr/src/app
 ENV PATH /usr/src/app/node_modules/.bin:$PATH
 
-ADD . .
+COPY yarn.lock package.json .yarnrc ./
+COPY .yarn .yarn
+COPY explorer/package.json ./explorer/
+COPY explorer/client/package.json ./explorer/client/
+COPY tools/package.json ./tools/
+COPY tools/json-api-client/package.json ./tools/json-api-client/
+COPY tools/local-storage/package.json ./tools/local-storage/
+COPY tools/redux/package.json ./tools/redux/
+COPY tools/ts-helpers/package.json ./tools/ts-helpers/
+COPY styleguide/package.json ./styleguide/
+RUN yarn install --frozen-lockfile
 
-RUN yarn install
+COPY tsconfig.*.json babel.config.js ./
+COPY .git .git
+COPY explorer ./explorer
+COPY tools ./tools
+COPY styleguide ./styleguide
 RUN yarn setup:explorer
 RUN yarn workspace @chainlink/explorer-client build
 
