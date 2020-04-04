@@ -1,8 +1,9 @@
 import { contract, helpers, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { WhitelistedFactory } from '../../ethers/v0.6/WhitelistedFactory'
+import { WhitelistedTestHelperFactory } from '../../ethers/v0.6/WhitelistedTestHelperFactory'
 
-const whitelistedFactory = new WhitelistedFactory()
+const whitelistedFactory = new WhitelistedTestHelperFactory()
 const provider = setup.provider()
 let personas: setup.Personas
 beforeAll(async () => {
@@ -11,13 +12,14 @@ beforeAll(async () => {
 
 describe('Whitelisted', () => {
   let whitelisted: contract.Instance<WhitelistedFactory>
+  const value = 17
   const deployment = setup.snapshot(provider, async () => {
-    whitelisted = await whitelistedFactory.connect(personas.Carol).deploy()
+    whitelisted = await whitelistedFactory.connect(personas.Carol).deploy(value)
   })
   beforeEach(deployment)
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(whitelistedFactory, [
+    matchers.publicAbi(new WhitelistedFactory(), [
       'acceptOwnership',
       'addToWhitelist',
       'owner',
@@ -28,7 +30,7 @@ describe('Whitelisted', () => {
   })
 
   describe('#addToWhitelist', () => {
-    describe('when called by a stranger', () => {
+    describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           whitelisted
@@ -54,6 +56,17 @@ describe('Whitelisted', () => {
         )
         expect(helpers.eventArgs(event).user).toEqual(personas.Eddy.address)
       })
+
+      it('allows the address to read from the whitelist', async () => {
+        await whitelisted
+          .connect(personas.Carol)
+          .addToWhitelist(personas.Eddy.address)
+
+        matchers.bigNum(
+          value,
+          await whitelisted.connect(personas.Eddy).getValue(),
+        )
+      })
     })
   })
 
@@ -61,16 +74,16 @@ describe('Whitelisted', () => {
     beforeEach(async () => {
       await whitelisted
         .connect(personas.Carol)
-        .addToWhitelist(personas.Neil.address)
-      assert.isTrue(await whitelisted.whitelisted(personas.Neil.address))
+        .addToWhitelist(personas.Eddy.address)
+      assert.isTrue(await whitelisted.whitelisted(personas.Eddy.address))
     })
 
-    describe('when called by a stranger', () => {
+    describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           whitelisted
             .connect(personas.Eddy)
-            .removeFromWhitelist(personas.Neil.address),
+            .removeFromWhitelist(personas.Eddy.address),
           'Only callable by owner',
         )
       })
@@ -80,16 +93,24 @@ describe('Whitelisted', () => {
       it('removes the address from the whitelist', async () => {
         const tx = await whitelisted
           .connect(personas.Carol)
-          .removeFromWhitelist(personas.Neil.address)
+          .removeFromWhitelist(personas.Eddy.address)
         const receipt = await tx.wait()
 
-        assert.isFalse(await whitelisted.whitelisted(personas.Neil.address))
+        assert.isFalse(await whitelisted.whitelisted(personas.Eddy.address))
 
         const event = helpers.findEventIn(
           receipt,
           whitelisted.interface.events.RemovedFromWhitelist,
         )
-        expect(helpers.eventArgs(event).user).toEqual(personas.Neil.address)
+        expect(helpers.eventArgs(event).user).toEqual(personas.Eddy.address)
+      })
+
+      it('does not allow the address to read from the whitelist', async () => {
+        await whitelisted
+          .connect(personas.Carol)
+          .removeFromWhitelist(personas.Eddy.address)
+
+        await matchers.evmRevert(whitelisted.connect(personas.Eddy).getValue())
       })
     })
   })
