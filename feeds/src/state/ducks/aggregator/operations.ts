@@ -61,7 +61,7 @@ function fetchLatestAnswerTimestamp() {
 const fetchOracleAnswersById = (request: any) => {
   return async (dispatch: any, getState: any) => {
     try {
-      const currentLogs = getState().aggregator.oracleAnswers || []
+      const currentLogs = getState().aggregator.oracleAnswers
 
       const logs = await contractInstance.oracleAnswerLogs(request)
       const withTimestamp = await contractInstance.addBlockTimestampToLogs(logs)
@@ -71,9 +71,7 @@ const fetchOracleAnswersById = (request: any) => {
 
       const uniquePayload = _.uniqBy(
         [...withGasAndTimeStamp, ...currentLogs],
-        l => {
-          return l.sender
-        },
+        l => l.sender,
       )
 
       dispatch(actions.setOracleAnswers(uniquePayload))
@@ -188,9 +186,9 @@ function initListeners() {
           return l.meta.transactionHash !== responseLog.meta.transactionHash
         })
 
-        const updateLogs = uniqueLogs.map((l: any) => {
-          return l.sender === responseLog.sender ? responseLog : l
-        })
+        const updateLogs = uniqueLogs.map((l: any) =>
+          l.sender === responseLog.sender ? responseLog : l,
+        )
 
         const senderIndex = _.findIndex(uniqueLogs, {
           sender: responseLog.sender,
@@ -221,9 +219,7 @@ const initContract = (config: any) => {
     dispatch(actions.clearState())
 
     try {
-      if (contractInstance) {
-        contractInstance.kill()
-      }
+      contractInstance?.kill()
     } catch {
       console.error('Could not close the contract instance')
     }
@@ -244,25 +240,20 @@ const initContract = (config: any) => {
     }
 
     // Oracle addresses
-
     await fetchOracleList()(dispatch, getState)
 
     // Minimum oracle responses
-
     fetchMinimumAnswers()(dispatch)
 
     // Set answer Id
-
     const nextAnswerId = await contractInstance.nextAnswerId()
     dispatch(actions.setNextAnswerId(nextAnswerId))
     dispatch(actions.setPendingAnswerId(nextAnswerId - 1))
 
     // Current answers
-
     await fetchLatestAnswerTimestamp()(dispatch)
 
     // Fetch previous answers
-
     const currentBlockNumber = await contractInstance.provider.getBlockNumber()
 
     await fetchOracleAnswersById({
@@ -271,7 +262,6 @@ const initContract = (config: any) => {
     })(dispatch, getState)
 
     // Fetch latest answers
-
     fetchOracleAnswersById({
       answerId: nextAnswerId - 1,
       fromBlock: currentBlockNumber - 6700,
@@ -281,21 +271,17 @@ const initContract = (config: any) => {
      * Oracle Latest Request Time
      * Used to calculate hearbeat countdown timer
      */
-
     if (config.heartbeat) {
       fetchLatestRequestTimestamp(config)(dispatch)
     }
 
     // Latest completed answer id
-
     fetchLatestCompletedAnswerId()(dispatch)
 
     // Current answer and block height
-
     fetchLatestAnswer()(dispatch)
 
     // initalise listeners
-
     initListeners()(dispatch, getState)
 
     if (config.history) {

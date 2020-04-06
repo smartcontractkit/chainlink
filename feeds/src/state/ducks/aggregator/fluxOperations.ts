@@ -3,6 +3,7 @@ import _ from 'lodash'
 import { ethers } from 'ethers'
 import FluxAggregatorAbi from '../../../contracts/FluxAggregatorAbi.json'
 import FluxAggregatorContract from '../../../contracts/FluxAggregatorContract'
+import { FeedConfig } from 'feeds'
 
 let contractInstance: any
 
@@ -58,7 +59,7 @@ function fetchLatestAnswerTimestamp() {
 const fetchOracleAnswersById = (request: any) => {
   return async (dispatch: any, getState: any) => {
     try {
-      const currentLogs = getState().aggregator.oracleAnswers || []
+      const currentLogs = getState().aggregator.oracleAnswers
       const logs = await contractInstance.submissionReceivedLogs(request)
       const withTimestamp = await contractInstance.addBlockTimestampToLogs(logs)
       const withGasAndTimeStamp = await contractInstance.addGasPriceToLogs(
@@ -67,9 +68,7 @@ const fetchOracleAnswersById = (request: any) => {
 
       const uniquePayload = _.uniqBy(
         [...withGasAndTimeStamp, ...currentLogs],
-        l => {
-          return l.sender
-        },
+        l => l.sender,
       )
 
       dispatch(actions.setOracleAnswers(uniquePayload))
@@ -83,7 +82,7 @@ const fetchLatestRequestTimestamp = (request: any) => {
   return async (dispatch: any) => {
     try {
       const logs = await contractInstance.newRoundLogs(request)
-      const startedAt = logs.length && logs[logs.length - 1].startedAt
+      const startedAt = logs?.[logs.length - 1].startedAt
       dispatch(actions.setLatestRequestTimestamp(startedAt))
     } catch {
       console.error('Could not fetch request time')
@@ -146,14 +145,17 @@ function initListeners() {
   }
 }
 
-const initContract = (config: any) => {
+/**
+ * Initialise aggregator contract and fill the store with all necessery data for a visualisation page.
+ * @param config FeedsConfig
+ */
+
+const initContract = (config: FeedConfig) => {
   return async (dispatch: any, getState: any) => {
     dispatch(actions.clearState())
 
     try {
-      if (contractInstance) {
-        contractInstance.kill()
-      }
+      contractInstance?.kill()
     } catch {
       console.error('Could not close the contract instance')
     }
@@ -170,24 +172,19 @@ const initContract = (config: any) => {
     contractInstance = new FluxAggregatorContract(config, FluxAggregatorAbi)
 
     // Oracle addresses
-
     await fetchOracleList()(dispatch, getState)
 
     // Minimum oracle responses
-
     fetchMinimumAnswers()(dispatch)
 
     // Set answer Id
-
     const reportingAnswerId = await contractInstance.reportingRound()
     dispatch(actions.setPendingAnswerId(reportingAnswerId))
 
     // Current answers
-
     await fetchLatestAnswerTimestamp()(dispatch)
 
     // Fetch previous answers
-
     const currentBlockNumber = await contractInstance.provider.getBlockNumber()
     const latestAnswerId = await contractInstance.latestRound()
     const fromBlock = currentBlockNumber <= 6700 ? 0 : currentBlockNumber - 6700 // ~6700 blocks per day
@@ -198,7 +195,6 @@ const initContract = (config: any) => {
     })(dispatch, getState)
 
     // Fetch latest answers
-
     await fetchOracleAnswersById({
       round: reportingAnswerId,
       fromBlock,
@@ -208,7 +204,6 @@ const initContract = (config: any) => {
      * Oracle Latest Request Time
      * Used to calculate hearbeat countdown timer
      */
-
     if (config.heartbeat) {
       fetchLatestRequestTimestamp({
         round: reportingAnswerId,
@@ -217,11 +212,9 @@ const initContract = (config: any) => {
     }
 
     // Current answer
-
     fetchLatestAnswer()(dispatch)
 
     // initalise listeners
-
     initListeners()(dispatch, getState)
 
     if (config.history) {
