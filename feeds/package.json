@@ -36,6 +36,7 @@
     "@chainlink/ts-helpers": "0.0.1",
     "antd": "^3.23.3",
     "classnames": "^2.2.6",
+    "core-js": "^3.6.4",
     "d3": "^5.11.0",
     "eslint": "^6.6.0",
     "ethers": "^4.0.45",

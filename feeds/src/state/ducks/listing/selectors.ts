@@ -1,33 +1,47 @@
 import { createSelector } from 'reselect'
-import feeds from '../../../feeds.json'
+import { FeedConfig } from 'feeds'
+import { AppState } from 'state'
+import { ListingAnswer } from 'state/ducks/listing/operations'
 
 export interface ListingGroup {
-  list: any[]
   name: string
+  feeds: FeedConfig[]
 }
 
-const GROUP_ORDER: string[] = ['USD', 'ETH']
+const FIAT_GROUP_NAME = 'Fiat'
+const FIAT_GROUP = ['USD', 'JPY', 'GBP']
 
-const answers = (state: any) => state.listing.answers
+const ETH_GROUP_NAME = 'ETH'
+const ETH_GROUP = ['ETH']
 
-export const groups = createSelector([answers], (answersList: any[]) => {
-  return GROUP_ORDER.map(name => {
-    const list = feeds
-      .filter(config => config.pair[1] === name && config.listing)
-      .map(config => {
-        if (answersList) {
-          const addAnswer = answersList.find(
-            (a: any) => a.config.name === config.name,
-          )
-          return addAnswer || { config }
-        }
+const GROUPS: Record<string, string[]> = {
+  [FIAT_GROUP_NAME]: FIAT_GROUP,
+  [ETH_GROUP_NAME]: ETH_GROUP,
+}
+const GROUP_ORDER: string[] = [FIAT_GROUP_NAME, ETH_GROUP_NAME]
 
-        return { config }
-      })
+const orderedFeeds = (state: AppState) =>
+  state.feeds.order.map(f => state.feeds.items[f])
 
-    return {
-      list,
-      name,
-    }
+export const groups = createSelector([orderedFeeds], (feeds: FeedConfig[]) => {
+  return GROUP_ORDER.map(groupName => {
+    const groupFeeds = feeds.filter(f => {
+      if (!f.listing) return false
+
+      const quoteAssets = GROUPS[groupName] || []
+      return quoteAssets.includes(f.pair[1])
+    })
+    const group: ListingGroup = { feeds: groupFeeds, name: groupName }
+
+    return group
   })
 })
+
+export const answer = (
+  state: AppState,
+  contractAddress: FeedConfig['contractAddress'],
+) => {
+  return state.listing.answers.find(
+    (a: ListingAnswer) => a.config.contractAddress === contractAddress,
+  )
+}

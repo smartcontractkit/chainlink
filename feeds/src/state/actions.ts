@@ -17,8 +17,12 @@ import {
 } from './ducks/aggregator/actions'
 import { SetTooltipAction, SetDrawerAction } from './ducks/networkGraph/actions'
 
+export interface InitialStateAction {
+  type: 'INITIAL_STATE'
+}
+
 export type Actions =
-  | { type: 'initial_state' }
+  | InitialStateAction
   | SetAnswersAction
   | SetHealthPriceAction
   | SetOracleListAction

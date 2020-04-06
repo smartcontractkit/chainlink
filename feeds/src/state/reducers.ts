@@ -3,12 +3,14 @@ import { createFilter } from 'redux-persist-transform-filter'
 import { persistReducer, createMigrate } from 'redux-persist'
 import storage from 'redux-persist/lib/storage'
 import * as reducers from './ducks'
+import { InitialStateAction } from 'state/actions'
 
 const rootReducer = combineReducers({
   ...reducers,
 })
 
-export const INITIAL_STATE = rootReducer(undefined, { type: 'initial_state' })
+const initialAction: InitialStateAction = { type: 'INITIAL_STATE' }
+export const INITIAL_STATE = rootReducer(undefined, initialAction)
 export type AppState = typeof INITIAL_STATE
 
 const migrations = {
