@@ -163,6 +163,21 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	assert.Equal(t, 1, requestCount)
 }
 
+func TestORM_SaveJobRun_OnConstraintViolationOtherThanOptimisticLockFailureReturnsError(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	jr := cltest.CreateJobRunWithStatus(t, store, job, models.RunStatusUnstarted)
+
+	jr.InitiatorID = 0
+	jr.Initiator = models.Initiator{}
+	err := store.SaveJobRun(&jr)
+	assert.EqualError(t, err, "pq: insert or update on table \"job_runs\" violates foreign key constraint \"fk_job_runs_initiator_id\"")
+}
+
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
