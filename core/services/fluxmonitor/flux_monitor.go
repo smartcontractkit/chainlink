@@ -471,12 +471,33 @@ func (p *PollingDeviationChecker) consume() {
 			p.respondToLog(maybeLog.Log)
 
 		case <-p.pollTicker.Tick():
+			logger.Debugw("Poll ticker fired",
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
 			p.pollIfEligible(p.threshold)
 
 		case <-p.idleTicker:
+			logger.Debugw("Idle ticker fired",
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
 			p.pollIfEligible(0)
 
 		case <-p.roundTimeoutTicker:
+			logger.Debugw("Round timeout ticker fired",
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
 			p.pollIfEligible(p.threshold)
 		}
 	}
@@ -703,10 +724,39 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 
 	// Update the roundTimeTicker using the .TimesOutAt field describing the current round
 	if roundState.TimesOutAt == 0 {
+		logger.Debugw("updating roundState.TimesOutAt",
+			"value", roundState.TimesOutAt,
+			"pollDelay", p.pollTicker.d,
+			"idleThreshold", p.idleThreshold,
+			"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+			"reportableRoundID", p.reportableRoundID,
+			"contract", p.initr.InitiatorParams.Address.Hex(),
+		)
 		p.roundTimeoutTicker = nil
 	} else {
 		timeUntilTimeout := time.Unix(int64(roundState.TimesOutAt), 0).Sub(time.Now())
-		p.roundTimeoutTicker = time.After(timeUntilTimeout)
+		if timeUntilTimeout.Seconds() <= 0 {
+			p.roundTimeoutTicker = nil
+			logger.Debugw("NOT updating roundState.TimesOutAt, negative duration",
+				"value", roundState.TimesOutAt,
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
+		} else {
+			p.roundTimeoutTicker = time.After(timeUntilTimeout)
+			logger.Debugw("updating roundState.TimesOutAt",
+				"value", roundState.TimesOutAt,
+				"timeUntilTimeout", timeUntilTimeout,
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
+		}
 	}
 
 	return roundState, nil
