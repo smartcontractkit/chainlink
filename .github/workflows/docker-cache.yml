@@ -20,16 +20,16 @@ jobs:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
       - name: Update Cache File
-        uses: smartcontractkit/docker-cache@v0.0.2
+        uses: smartcontractkit/docker-cache@master
         with:
           actionType: 'UPDATE_CACHE_FILE'
 
       - name: Get current date
         id: getDate
-        run: echo '::set-output name=date::$(date +'%s')' # format to iso8601
+        run: echo "::set-output name=date::$(date +'%s')" # format to iso8601
 
       - name: Publish to Registry
-        uses: elgohr/Publish-Docker-Github-Action
+        uses: elgohr/Publish-Docker-Github-Action@2.14
         with:
           name: 'smartcontract/cache'
           dockerfile: 'cache.Dockerfile'
@@ -38,12 +38,12 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Update docker files
-        uses: smartcontractkit/docker-cache@v0.0.1
+        uses: smartcontractkit/docker-cache@master
         with:
           actionType: 'UPDATE_DOCKER_FILES'
 
       - name: Open PR with updated cache and docker files
-        uses: peter-evans/create-pull-request@v2
+        uses: peter-evans/create-pull-request@v2.7.0
         with:
           title: 'Update docker cache image'
           commit-message: 'Update docker cache image'
