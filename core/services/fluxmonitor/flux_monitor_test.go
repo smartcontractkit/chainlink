@@ -327,11 +327,11 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		timesOutAt        int64
+		timesOutAt        func() int64
 		expectedToTrigger bool
 	}{
-		{"timesOutAt == 0", 0, false},
-		{"timesOutAt != 0", time.Now().Add(1 * time.Second).Unix(), true},
+		{"timesOutAt == 0", func() int64 { return 0 }, false},
+		{"timesOutAt != 0", func() int64 { return time.Now().Add(1 * time.Second).Unix() }, true},
 	}
 
 	for _, test := range tests {
@@ -356,7 +356,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt),
+					TimesOutAt:        uint64(test.timesOutAt()),
 				}, nil).Once()
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
@@ -369,7 +369,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt),
+					TimesOutAt:        uint64(test.timesOutAt()),
 				}, nil).Once()
 			}
 
