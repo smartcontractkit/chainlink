@@ -8,7 +8,7 @@ import {
 } from './utils'
 import _ from 'lodash'
 
-export default class PrepaidContract {
+export default class FluxContract {
   answerUpdatedEvent = {
     filter: {},
     listener: {},
@@ -64,18 +64,18 @@ export default class PrepaidContract {
   }
 
   async minimumAnswers() {
-    const minAnswers = await this.contract.minAnswerCount()
-    return Number(minAnswers)
+    return await this.contract.minAnswerCount()
   }
 
   async latestRound() {
     const latestRound = await this.contract.latestRound()
-    return Number(latestRound)
+    this.decimals()
+    return latestRound.toNumber()
   }
 
   async reportingRound() {
     const reportingRound = await this.contract.reportingRound()
-    return Number(reportingRound)
+    return reportingRound.toNumber()
   }
 
   async latestAnswer() {
@@ -89,7 +89,7 @@ export default class PrepaidContract {
 
   async latestTimestamp() {
     const latestTimestamp = await this.contract.latestTimestamp()
-    return Number(latestTimestamp)
+    return latestTimestamp.toNumber()
   }
 
   async getAnswer(answerId) {
@@ -103,7 +103,7 @@ export default class PrepaidContract {
 
   async getTimestamp(answerId) {
     const timestamp = await this.contract.getTimestamp(answerId)
-    return Number(timestamp)
+    return timestamp.toNumber()
   }
 
   async description() {
@@ -112,25 +112,7 @@ export default class PrepaidContract {
   }
 
   async decimals() {
-    const decimals = await this.contract.decimals()
-    return Number(ethers.utils.bigNumberify(decimals))
-  }
-
-  async latestSubmission(oracles) {
-    const submissions = oracles.map(async oracle => {
-      const submission = await this.contract.latestSubmission(oracle)
-      return {
-        responseFormatted: formatAnswer(
-          submission[0],
-          this.options.multiply,
-          this.options.decimalPlaces,
-        ),
-        response: Number(submission[0]),
-        answerId: Number(submission[1]),
-        sender: oracle,
-      }
-    })
-    return Promise.all(submissions)
+    return await this.contract.decimals()
   }
 
   async listenSubmissionReceivedEvent(callback) {
@@ -282,11 +264,9 @@ export default class PrepaidContract {
   async addBlockTimestampToLogs(logs) {
     if (_.isEmpty(logs)) return logs
 
-    const blockTimePromises = []
-
-    for (let i = 0; i < logs.length; i++) {
-      blockTimePromises.push(this.provider.getBlock(logs[i].meta.blockNumber))
-    }
+    const blockTimePromises = logs.map(log =>
+      this.provider.getBlock(log.meta.blockNumber),
+    )
     const blockTimes = await Promise.all(blockTimePromises)
 
     return logs.map((l, i) => {
