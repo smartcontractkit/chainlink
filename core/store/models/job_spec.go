@@ -193,8 +193,8 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID        uint `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID *ID  `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	ID        uint32 `json:"id" gorm:"primary_key;auto_increment"`
+	JobSpecID *ID    `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`

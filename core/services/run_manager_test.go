@@ -17,12 +17,26 @@ import (
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
 
+	strpkg "chainlink/core/store"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v3"
 )
+
+func makeJobRunWithInitiator(t *testing.T, store *strpkg.Store, job models.JobSpec) models.JobRun {
+	require.NoError(t, store.CreateJob(&job))
+
+	initr := models.Initiator{
+		JobSpecID: job.ID,
+	}
+
+	err := store.CreateInitiator(&initr)
+	require.NoError(t, err)
+
+	return models.MakeJobRun(&job, time.Now(), &initr, big.NewInt(0), &models.RunRequest{})
+}
 
 func TestRunManager_ResumePending(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
@@ -39,20 +53,14 @@ func TestRunManager_ResumePending(t *testing.T) {
 	input := cltest.JSONFromString(t, `{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)
 
 	t.Run("reject a run with an invalid state", func(t *testing.T) {
-		job := models.NewJob()
-		require.NoError(t, store.CreateJob(&job))
-
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		require.NoError(t, store.CreateJobRun(&run))
 		err := runManager.ResumePending(run.ID, models.BridgeRunResult{})
 		assert.Error(t, err)
 	})
 
 	t.Run("reject a run with no tasks", func(t *testing.T) {
-		job := models.NewJob()
-		require.NoError(t, store.CreateJob(&job))
-
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, models.NewJob())
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 		err := runManager.ResumePending(run.ID, models.BridgeRunResult{})
@@ -64,10 +72,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 	})
 
 	t.Run("input with error errors run", func(t *testing.T) {
-		job := cltest.NewJob()
-		require.NoError(t, store.CreateJob(&job))
-
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
@@ -85,9 +90,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 	t.Run("completed input with remaining tasks should put task into in-progress", func(t *testing.T) {
 		job := cltest.NewJob()
 		job.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}, {Type: adapters.TaskTypeNoOp}}
-		require.NoError(t, store.CreateJob(&job))
-
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, job)
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
@@ -103,9 +106,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 	})
 
 	t.Run("completed input with no remaining tasks should get marked as complete", func(t *testing.T) {
-		job := cltest.NewJob()
-		require.NoError(t, store.CreateJob(&job))
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
@@ -136,10 +137,7 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 
 	t.Run("reject a run with no tasks", func(t *testing.T) {
-		job := models.NewJob()
-		require.NoError(t, store.CreateJob(&job))
-
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, models.NewJob())
 		run.SetStatus(models.RunStatusPendingConfirmations)
 		require.NoError(t, store.CreateJobRun(&run))
 
@@ -151,13 +149,8 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 		assert.Equal(t, models.RunStatusErrored, run.GetStatus())
 	})
 
-	creationHeight := big.NewInt(0)
-
 	t.Run("leave in pending if not enough confirmations have been met yet", func(t *testing.T) {
-		job := cltest.NewJob()
-		require.NoError(t, store.CreateJob(&job))
-
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, creationHeight, &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingConfirmations)
 		run.TaskRuns[0].MinimumConfirmations = clnull.Uint32From(2)
 		require.NoError(t, store.CreateJobRun(&run))
@@ -172,10 +165,7 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 	})
 
 	t.Run("input, should go from pending -> in progress and save the input", func(t *testing.T) {
-		job := cltest.NewJob()
-		require.NoError(t, store.CreateJob(&job))
-
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, creationHeight, &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingConfirmations)
 		run.TaskRuns[0].MinimumConfirmations = clnull.Uint32From(2)
 		require.NoError(t, store.CreateJobRun(&run))
@@ -204,11 +194,8 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 
 	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 
-	job := models.NewJob()
-	require.NoError(t, store.CreateJob(&job))
-
 	t.Run("reject a run with no tasks", func(t *testing.T) {
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, models.NewJob())
 		run.SetStatus(models.RunStatusPendingConnection)
 		require.NoError(t, store.CreateJobRun(&run))
 
@@ -221,7 +208,7 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 	})
 
 	t.Run("input, should go from pending -> in progress", func(t *testing.T) {
-		run := models.MakeJobRun(&job, time.Now(), &models.Initiator{}, big.NewInt(0), &models.RunRequest{})
+		run := makeJobRunWithInitiator(t, store, models.NewJob())
 		run.SetStatus(models.RunStatusPendingConnection)
 		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID()}}
 		require.NoError(t, store.CreateJobRun(&run))
