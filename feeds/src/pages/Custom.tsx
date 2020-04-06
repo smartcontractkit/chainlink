@@ -23,12 +23,10 @@ const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
   const [config] = useState(formatConfig(parseQuery(history.location.search)))
 
   useEffect(() => {
-    initContract(config).catch(() => {
-      console.error('Could not initiate contract')
+    initContract(config).catch((error: Error) => {
+      console.error('Could not initiate contract:', error)
     })
-    return () => {
-      clearState()
-    }
+    return clearState
   }, [initContract, clearState, config])
 
   return (

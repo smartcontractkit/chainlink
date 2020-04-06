@@ -21,12 +21,10 @@ interface Props extends OwnProps, DispatchProps {}
 
 const Page: React.FC<Props> = ({ initContract, clearState, config }) => {
   useEffect(() => {
-    initContract(config).catch(() => {
-      console.error('Could not initiate contract')
+    initContract(config).catch((error: Error) => {
+      console.error('Could not initiate contract:', error)
     })
-    return () => {
-      clearState()
-    }
+    return clearState
   }, [initContract, clearState, config])
 
   return (
