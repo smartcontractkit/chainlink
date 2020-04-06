@@ -20,8 +20,8 @@ interface Props extends OwnProps, DispatchProps {}
 
 const Page: React.FC<Props> = ({ initContract, config }) => {
   useEffect(() => {
-    initContract(config).catch(() => {
-      console.error('Could not initiate contract')
+    initContract(config).catch((error: Error) => {
+      console.error('Could not initiate contract:', error)
     })
   }, [initContract, config])
 

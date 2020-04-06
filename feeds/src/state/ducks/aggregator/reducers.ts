@@ -34,7 +34,7 @@ export const INITIAL_STATE: State = {
   latestCompletedAnswerId: null,
   pendingAnswerId: null,
   nextAnswerId: null,
-  oracleAnswers: null,
+  oracleAnswers: [],
   latestRequestTimestamp: null,
   minimumAnswers: null,
   latestAnswerTimestamp: null,
