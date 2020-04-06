@@ -318,3 +318,50 @@ func TestDecodingLogListener(t *testing.T) {
 	listener.HandleLog(nil, expectedErr)
 	require.Equal(t, err, expectedErr)
 }
+
+func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	const blockHeight uint64 = 0
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+
+	chchRawLogs := make(chan chan<- eth.Log, 1)
+
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			chRawLogs := args.Get(1).(chan<- eth.Log)
+			chchRawLogs <- chRawLogs
+		}).
+		Return(sub, nil).
+		Twice()
+
+	ethClient.On("GetBlockHeight").Return(blockHeight, nil)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return()
+
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM)
+	lb.Start()
+
+	logCount := 0
+	logListener := funcLogListener{
+		fn: func(log interface{}, err error) { logCount++ },
+	}
+	logListener2 := funcLogListener{
+		fn: func(log interface{}, err error) {},
+	}
+
+	lb.Register(common.Address{}, &logListener)
+	chRawLogs1 := <-chchRawLogs
+	chRawLogs1 <- eth.Log{BlockNumber: 0, Index: 0}
+	chRawLogs1 <- eth.Log{BlockNumber: 1, Index: 0}
+
+	lb.Register(common.Address{1}, &logListener2) // trigger resubscription
+	chRawLogs2 := <-chchRawLogs
+	chRawLogs2 <- eth.Log{BlockNumber: 1, Index: 0} // send overlapping logs
+	chRawLogs2 <- eth.Log{BlockNumber: 2, Index: 0}
+
+	require.Eventually(t, func() bool { return logCount == 3 }, 5*time.Second, 10*time.Millisecond)
+}
