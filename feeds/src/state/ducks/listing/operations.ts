@@ -10,15 +10,16 @@ import {
 } from '../../../contracts/utils'
 import { Networks } from '../../../utils'
 import feeds from '../../../feeds.json'
+import { ListingGroup } from './selectors'
 
 interface HealthPrice {
   config: any
   price: number
 }
 
-export function fetchHealthStatus(groups: any) {
+export function fetchHealthStatus(groups: ListingGroup[]) {
   return async (dispatch: Dispatch) => {
-    const configs = groups.flatMap((g: any) => g.list.map((l: any) => l.config))
+    const configs = groups.flatMap(g => g.feeds)
     const priceResponses = await Promise.all(configs.map(fetchHealthPrice))
 
     priceResponses
