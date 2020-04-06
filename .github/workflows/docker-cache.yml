@@ -17,11 +17,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          token: ''
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
       - name: Update Cache File
-        uses: ./tools/gha-docker-cache
+        uses: smartcontractkit/docker-cache@v0.0.2
         with:
           actionType: 'UPDATE_CACHE_FILE'
 
@@ -39,7 +38,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Update docker files
-        uses: ./tools/gha-docker-cache
+        uses: smartcontractkit/docker-cache@v0.0.1
         with:
           actionType: 'UPDATE_DOCKER_FILES'
 
