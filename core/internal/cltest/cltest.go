@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
@@ -152,6 +153,7 @@ type TestApplication struct {
 	connectedChannel chan struct{}
 	Started          bool
 	EthMock          *EthMock
+	Backend          *backends.SimulatedBackend
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -244,6 +246,15 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 		cleanupDB()
 		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
+}
+
+func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
+	t testing.TB, tc *TestConfig, backend *backends.SimulatedBackend,
+	flags ...string) (app *TestApplication, cleanup func()) {
+	app, cleanup = NewApplicationWithConfigAndKey(t, tc, flags...)
+	app.EthMock = nil
+	app.Backend = backend
+	return app, func() { cleanup() }
 }
 
 func newServer(app chainlink.Application) *httptest.Server {

@@ -110,9 +110,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	fa := deployFluxAggregator(t, big.NewInt(10), 1, 8, description)
 	_, err := fa.aggregatorContract.UpdateAnswer(fa.neil, big.NewInt(1), big.NewInt(1))
 	require.NoError(t, err, "failed to initialize first flux aggregation round")
-	store, cleanup := cltest.NewStore(t)
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
-	rm := new(mocks.RunManager)
+
 }
 
 // XAU/XAG happened partly because you can update the entire state all at once.
