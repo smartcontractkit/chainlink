@@ -172,7 +172,7 @@ func (rm *runManager) CreateErrored(
 		JobSpecID:   job.ID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-		InitiatorID: initiator.ID,
+		InitiatorID: clnull.Uint32From(initiator.ID),
 	}
 
 	run.SetError(runErr)

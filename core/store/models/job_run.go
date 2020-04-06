@@ -27,23 +27,23 @@ var (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             *ID          `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      *ID          `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
-	Result         RunResult    `json:"result"`
-	ResultID       uint         `json:"-"`
-	RunRequest     RunRequest   `json:"-"`
-	RunRequestID   uint         `json:"-"`
-	Status         RunStatus    `json:"status" gorm:"index"`
-	TaskRuns       []TaskRun    `json:"taskRuns"`
-	CreatedAt      time.Time    `json:"createdAt" gorm:"index"`
-	FinishedAt     null.Time    `json:"finishedAt"`
-	UpdatedAt      time.Time    `json:"updatedAt"`
-	Initiator      Initiator    `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
-	InitiatorID    uint         `json:"-"`
-	CreationHeight *utils.Big   `json:"creationHeight"`
-	ObservedHeight *utils.Big   `json:"observedHeight"`
-	DeletedAt      null.Time    `json:"-" gorm:"index"`
-	Payment        *assets.Link `json:"payment,omitempty"`
+	ID             *ID           `json:"id" gorm:"primary_key;not null"`
+	JobSpecID      *ID           `json:"jobId" gorm:"index;not null;type:varchar(36) REFERENCES job_specs(id)"`
+	Result         RunResult     `json:"result"`
+	ResultID       clnull.Uint32 `json:"-"`
+	RunRequest     RunRequest    `json:"-"`
+	RunRequestID   clnull.Uint32 `json:"-"`
+	Status         RunStatus     `json:"status" gorm:"index"`
+	TaskRuns       []TaskRun     `json:"taskRuns"`
+	CreatedAt      time.Time     `json:"createdAt" gorm:"index"`
+	FinishedAt     null.Time     `json:"finishedAt"`
+	UpdatedAt      time.Time     `json:"updatedAt"`
+	Initiator      Initiator     `json:"initiator" gorm:"association_autoupdate:false;association_autocreate:false"`
+	InitiatorID    clnull.Uint32 `json:"-"`
+	CreationHeight *utils.Big    `json:"creationHeight"`
+	ObservedHeight *utils.Big    `json:"observedHeight"`
+	DeletedAt      null.Time     `json:"-" gorm:"index"`
+	Payment        *assets.Link  `json:"payment,omitempty"`
 }
 
 // MakeJobRun returns a new JobRun copy
@@ -54,7 +54,7 @@ func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		Initiator:   *initiator,
-		InitiatorID: initiator.ID,
+		InitiatorID: clnull.Uint32From(initiator.ID),
 		TaskRuns:    make([]TaskRun, len(job.Tasks)),
 		RunRequest:  *runRequest,
 		Payment:     runRequest.Payment,
@@ -241,10 +241,10 @@ type TaskRun struct {
 	ID                   *ID           `json:"id" gorm:"primary_key;not null"`
 	JobRunID             *ID           `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`
 	Result               RunResult     `json:"result"`
-	ResultID             uint          `json:"-"`
+	ResultID             clnull.Uint32 `json:"-"`
 	Status               RunStatus     `json:"status"`
 	TaskSpec             TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
-	TaskSpecID           uint          `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
+	TaskSpecID           clnull.Uint32 `json:"-" gorm:"index;not null REFERENCES task_specs(id)"`
 	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 	Confirmations        clnull.Uint32 `json:"confirmations"`
 	CreatedAt            time.Time     `json:"-" gorm:"index"`

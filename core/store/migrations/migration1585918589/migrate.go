@@ -24,7 +24,7 @@ func Migrate(tx *gorm.DB) error {
 
 	// FIXME: This should ideally be unique but there exists non-unique data out in the wild so need to handle that...
 	err = tx.Exec(`
-	CREATE INDEX idx_txs_hash ON tx_attempts(hash);
+	CREATE INDEX idx_txs_hash ON txes(hash);
 	`).Error
 	if err != nil {
 		return err
@@ -65,5 +65,10 @@ func Migrate(tx *gorm.DB) error {
 	CREATE INDEX idx_tx_attempts_created_at ON tx_attempts USING BRIN (created_at);
 
 	CREATE INDEX idx_run_requests_created_at ON run_requests USING BRIN (created_at);
+
+	DROP INDEX idx_task_specs_deleted_at;
+	CREATE INDEX idx_task_specs_deleted_at ON task_specs USING BRIN (deleted_at);
+	CREATE INDEX idx_task_specs_created_at ON task_specs USING BRIN (created_at);
+	CREATE INDEX idx_task_specs_updated_at ON task_specs USING BRIN (updated_at);
 	`).Error
 }
