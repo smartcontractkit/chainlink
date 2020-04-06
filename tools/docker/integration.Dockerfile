@@ -38,7 +38,6 @@ COPY integration-scripts/package.json integration-scripts/
 
 # install deps for our integration scripts
 RUN yarn
-RUN yarn cypress install
 # copy our CI test
 COPY tools/ci/ethereum_test tools/ci/
 COPY tools/docker tools/docker/
