@@ -26,7 +26,7 @@ jobs:
 
       - name: Get current date
         id: getDate
-        run: echo "::set-output name=date::$(date +'%s')" # format to iso8601
+        run: echo "::set-output name=date::$(date -u +"%Y-%m-%dT%H%MZ")"
 
       - name: Publish to Registry
         uses: elgohr/Publish-Docker-Github-Action@2.14
