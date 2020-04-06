@@ -57,7 +57,6 @@ describe('WhitelistedAggregator', () => {
     matchers.publicAbi(aggregatorFactory, [
       'acceptAdmin',
       'addOracle',
-      'addToWhitelist',
       'allocatedFunds',
       'availableFunds',
       'decimals',
@@ -78,7 +77,6 @@ describe('WhitelistedAggregator', () => {
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'removeFromWhitelist',
       'removeOracle',
       'reportingRound',
       'reportingRoundStartedAt',
@@ -91,7 +89,6 @@ describe('WhitelistedAggregator', () => {
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'whitelisted',
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
@@ -100,6 +97,13 @@ describe('WhitelistedAggregator', () => {
       'acceptOwnership',
       'owner',
       'transferOwnership',
+      // Owned methods:
+      'addToWhitelist',
+      'disableWhitelist',
+      'enableWhitelist',
+      'removeFromWhitelist',
+      'whitelistEnabled',
+      'whitelisted',
     ])
   })
 
