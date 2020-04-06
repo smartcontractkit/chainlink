@@ -471,7 +471,7 @@ func (p *PollingDeviationChecker) consume() {
 			p.respondToLog(maybeLog.Log)
 
 		case <-p.pollTicker.Tick():
-			logger.Debugw("got POLL TICKER",
+			logger.Debugw("Poll ticker fired",
 				"pollDelay", p.pollTicker.d,
 				"idleThreshold", p.idleThreshold,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
@@ -481,7 +481,7 @@ func (p *PollingDeviationChecker) consume() {
 			p.pollIfEligible(p.threshold)
 
 		case <-p.idleTicker:
-			logger.Debugw("got IDLE TICKER",
+			logger.Debugw("Idle ticker fired",
 				"pollDelay", p.pollTicker.d,
 				"idleThreshold", p.idleThreshold,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
@@ -491,7 +491,7 @@ func (p *PollingDeviationChecker) consume() {
 			p.pollIfEligible(0)
 
 		case <-p.roundTimeoutTicker:
-			logger.Debugw("got ROUND TIMEOUT",
+			logger.Debugw("Round timeout ticker fired",
 				"pollDelay", p.pollTicker.d,
 				"idleThreshold", p.idleThreshold,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
