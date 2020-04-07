@@ -1,13 +1,10 @@
 import { DispatchBinding } from '@chainlink/ts-helpers'
-import React, { useState, useEffect } from 'react'
+import React, { Fragment, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
 import { Col, Popover, Tooltip } from 'antd'
 import classNames from 'classnames'
 import { FeedConfig } from 'config'
-import React, { useState } from 'react'
-import { connect, MapStateToProps } from 'react-redux'
-import { Link } from 'react-router-dom'
 import { AppState } from 'state'
 import { listingSelectors, listingOperations } from '../../state/ducks/listing'
 import { HealthCheck } from 'state/ducks/listing/reducers'
@@ -57,7 +54,7 @@ export const GridItem: React.FC<Props> = ({
     'listing-grid__item',
     healthClasses(status, enableHealth),
   )
-  const sponsors = listingAnswer?.config.sponsored ?? []
+  const sponsors = feed.sponsored ?? []
 
   const gridItem = (
     <div className={classes}>
@@ -121,10 +118,16 @@ const Sponsored: React.FC<SponsoredProps> = ({ data }) => {
   const [sliced] = useState(data.slice(0, 2))
 
   if (data.length <= 2) {
-    return sliced.map((name, i) => [
-      i > 0 ? ', ' : '',
-      <span key={name}>{name}</span>,
-    ])
+    return (
+      <>
+        {sliced.map((name, i) => (
+          <Fragment key={name}>
+            {i > 0 ? ', ' : ''}
+            <span key={name}>{name}</span>
+          </Fragment>
+        ))}
+      </>
+    )
   }
 
   return (
@@ -176,7 +179,7 @@ function normalizeStatus(
     return { result: 'unknown', errors }
   }
 
-  const answer = parseFloat(rawAnswer)
+  const answer = parseFloat(rawAnswer ?? '0')
   const thresholdDiff = healthCheck.currentPrice * (feed.threshold / 100)
   const thresholdMin = Math.max(healthCheck.currentPrice - thresholdDiff, 0)
   const thresholdMax = healthCheck.currentPrice + thresholdDiff
