@@ -170,10 +170,12 @@ func sendRequest(input models.RunInput, request *http.Request, config HTTPReques
 	}
 	client := &http.Client{Transport: tr}
 
-	responseBody, statusCode, err := withRetry(client, request, config)
+	bytes, statusCode, err := withRetry(client, request, config)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
+
+	responseBody := string(bytes)
 
 	// This is either a client error caused on our end or a server error that persists even after retrying.
 	// Either way, there is no way for us to complete the run with a result.
@@ -191,7 +193,7 @@ func withRetry(
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
-) (responseBody string, statusCode int, err error) {
+) (responseBody []byte, statusCode int, err error) {
 	err = retry.Do(
 		func() error {
 			ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
@@ -218,7 +220,7 @@ func withRetry(
 			elapsed = time.Since(start)
 			logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
-			responseBody = string(bytes)
+			responseBody = bytes
 
 			// Retry on 5xx since this might give a different result
 			if 500 <= r.StatusCode && r.StatusCode < 600 {
@@ -248,12 +250,12 @@ func withRetry(
 }
 
 type RemoteServerError struct {
-	responseBody string
+	responseBody []byte
 	statusCode   int
 }
 
 func (e *RemoteServerError) Error() string {
-	return fmt.Sprintf("remote server error: %v\nResponse body: %v", e.statusCode, e.responseBody)
+	return fmt.Sprintf("remote server error: %v\nResponse body: %v", e.statusCode, string(e.responseBody))
 }
 
 // maxBytesReader is inspired by
