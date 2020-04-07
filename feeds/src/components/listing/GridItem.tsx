@@ -136,7 +136,7 @@ function normalizeStatus(
     return { result: 'unknown', errors }
   }
 
-  const answer = parseFloat(rawAnswer)
+  const answer = parseFloat(rawAnswer ?? '0')
   const thresholdDiff = healthCheck.currentPrice * (feed.threshold / 100)
   const thresholdMin = Math.max(healthCheck.currentPrice - thresholdDiff, 0)
   const thresholdMax = healthCheck.currentPrice + thresholdDiff
