@@ -1,4 +1,4 @@
-package simclient
+package cltest
 
 import (
 	"reflect"
