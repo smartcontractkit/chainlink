@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
 import { Col, Tooltip } from 'antd'
 import classNames from 'classnames'
-import { AppState } from 'state'
 import { FeedConfig } from 'config'
+import { AppState } from 'state'
 import { listingSelectors, listingOperations } from '../../state/ducks/listing'
 import { HealthCheck } from 'state/ducks/listing/reducers'
 import Sponsors from './Sponsors'
@@ -55,6 +55,7 @@ export const GridItem: React.FC<Props> = ({
     'listing-grid__item',
     healthClasses(status, enableHealth),
   )
+
   const gridItem = (
     <div className={classes}>
       {compareOffchain && <CompareOffchain feed={feed} />}
@@ -88,15 +89,13 @@ interface CompareOffchainProps {
 }
 
 function CompareOffchain({ feed }: CompareOffchainProps) {
-  let content: any = 'No offchain comparison'
-
-  if (feed.compareOffchain) {
-    content = (
-      <a href={feed.compareOffchain} rel="noopener noreferrer">
-        Compare Offchain
-      </a>
-    )
-  }
+  const content = feed.compareOffchain ? (
+    <a href={feed.compareOffchain} rel="noopener noreferrer">
+      Compare Offchain
+    </a>
+  ) : (
+    'No offchain comparison'
+  )
 
   return (
     <div className="listing-grid__item--offchain-comparison">{content}</div>

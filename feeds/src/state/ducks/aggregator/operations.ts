@@ -162,7 +162,7 @@ const fetchOracleAnswersById = (request: any) => {
   }
 }
 
-const fetchLatestRequestTimestamp = (config: any) => {
+const fetchLatestRequestTimestamp = (config: FeedConfig) => {
   return async (dispatch: any) => {
     try {
       // calculate last update time
