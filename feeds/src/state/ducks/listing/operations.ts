@@ -1,13 +1,14 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import { Dispatch } from 'redux'
+import { ThunkAction } from 'redux-thunk'
 import { FunctionFragment } from 'ethers/utils'
 import { JsonRpcProvider } from 'ethers/providers'
 import { FeedConfig, Config } from '../../../config'
 import * as actions from './actions'
 import {
-  formatAnswer,
   createContract,
   createInfuraProvider,
+  formatAnswer,
 } from '../../../contracts/utils'
 
 /**
@@ -55,6 +56,8 @@ async function latestAnswer(
     ? await contract.latestAnswer()
     : await contract.currentAnswer()
 }
+
+
 
 const ANSWER_ABI: FunctionFragment[] = [
   {

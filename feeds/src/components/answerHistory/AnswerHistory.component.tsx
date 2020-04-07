@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react'
 import { Icon } from 'antd'
-import HistoryGraphD3 from './HistoryGraph.d3'
 import { FeedConfig } from 'config'
+import React, { useEffect, useRef } from 'react'
+import HistoryGraphD3 from './HistoryGraph.d3'
 
 interface StateProps {
   answerHistory: any

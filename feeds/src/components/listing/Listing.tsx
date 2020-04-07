@@ -1,10 +1,10 @@
 import { DispatchBinding } from '@chainlink/ts-helpers'
-import React, { useEffect } from 'react'
-import { connect, MapStateToProps } from 'react-redux'
 import { Row } from 'antd'
-import GridItem from './GridItem'
+import React, { useEffect } from 'react'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { AppState } from 'state'
 import { listingOperations, listingSelectors } from '../../state/ducks/listing'
+import GridItem from './GridItem'
 
 interface OwnProps {
   enableHealth: boolean
@@ -75,7 +75,7 @@ const mapStateToProps: MapStateToProps<
   }
 }
 
-const mapDispatchToProps = {
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   fetchFeeds: listingOperations.fetchFeeds,
 }
 
