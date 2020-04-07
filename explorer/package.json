@@ -68,7 +68,7 @@
     "@types/node-fetch": "^2.5.5",
     "@types/pino": "^5.17.0",
     "@types/supertest": "^2.0.7",
-    "@types/uuid": "^3.4.7",
+    "@types/uuid": "^7.0.2",
     "@types/ws": "^7.2.0",
     "@types/yargs": "^15.0.4",
     "concurrently": "^5.0.2",
