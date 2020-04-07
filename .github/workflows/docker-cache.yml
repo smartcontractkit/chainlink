@@ -31,8 +31,8 @@ jobs:
       - name: Publish to Registry
         uses: elgohr/Publish-Docker-Github-Action@2.14
         with:
-          name: 'smartcontract/cache'
-          dockerfile: 'cache.Dockerfile'
+          name: 'smartcontract/builder-cache'
+          dockerfile: 'builder-cache.Dockerfile'
           tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
