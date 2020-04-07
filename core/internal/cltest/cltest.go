@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -17,19 +18,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/eth"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
+	"chainlink/core/assets"
+	"chainlink/core/auth"
+	"chainlink/core/cmd"
+	"chainlink/core/eth"
+	"chainlink/core/gracefulpanic"
+	"chainlink/core/logger"
+	"chainlink/core/services/chainlink"
+	strpkg "chainlink/core/store"
+	"chainlink/core/store/models"
+	"chainlink/core/store/orm"
+	"chainlink/core/store/presenters"
+	"chainlink/core/utils"
+	"chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -42,6 +43,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -251,10 +253,15 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB, tc *TestConfig, backend *backends.SimulatedBackend,
 	flags ...string) (app *TestApplication, cleanup func()) {
-	app, cleanup = NewApplicationWithConfigAndKey(t, tc, flags...)
-	app.EthMock = nil
-	app.Backend = backend
-	return app, func() { cleanup() }
+	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
+	var client SimulatedBackendClient
+	if txm, ok := app.Store.TxManager.(*store.EthTxManager); ok {
+		client = SimulatedBackendClient{b: backend}
+		txm.Client = &client
+	} else {
+		log.Panic("SimulatedBackend only works on EthTxManager")
+	}
+	return app, func() { appCleanup(); client.Close() }
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
