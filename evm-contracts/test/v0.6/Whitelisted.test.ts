@@ -118,7 +118,7 @@ describe('Whitelisted', () => {
     })
   })
 
-  describe('#whitelistEnabled', async () => {
+  describe('#whitelistEnabled', () => {
     it('defaults to true', async () => {
       assert(await whitelisted.whitelistEnabled())
     })

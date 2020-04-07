@@ -190,7 +190,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
-    require(enabled(_oracle), "Oracle not enabled");
+    require(enabled(_oracle));
 
     oracles[_oracle].endingRound = reportingRoundId;
     address tail = oracleAddresses[oracleCount().sub(1)];
