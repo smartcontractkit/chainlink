@@ -26,7 +26,6 @@
     "chalk": "^3.0.0",
     "cli-ux": "^5.4.4",
     "debug": "^4.1.1",
-    "execa": "^4.0.0",
     "inquirer": "^7.0.5",
     "shelljs": "^0.8.3",
     "ts-generator": "^0.0.8",
