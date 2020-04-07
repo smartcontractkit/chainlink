@@ -40,7 +40,8 @@ COPY operator_ui/@types operator_ui/@types/
 COPY tools/ci-ts tools/ci-ts
 
 # install deps for our integration scripts
-RUN yarn
+RUN yarn install
+RUN cd ./tools/ci-ts/ && yarn install && cd ../../
 
 # setup contracts
 RUN yarn setup:contracts
