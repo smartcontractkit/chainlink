@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"chainlink/core/store"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // KeyStoreAuthenticator implements the Authenticate method for the store and

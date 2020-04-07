@@ -10,10 +10,10 @@ package adapters
 import "C"
 
 import (
-	"chainlink/core/store"
-	"chainlink/core/store/models"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"unsafe"
 
 	"github.com/pkg/errors"

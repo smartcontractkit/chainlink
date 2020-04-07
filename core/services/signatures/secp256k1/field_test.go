@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"chainlink/core/services/signatures/cryptotest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
 )
 
 var numFieldSamples = 10

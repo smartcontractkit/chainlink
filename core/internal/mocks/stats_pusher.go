@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	synchronization "chainlink/core/services/synchronization"
+	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
 
 	mock "github.com/stretchr/testify/mock"
 

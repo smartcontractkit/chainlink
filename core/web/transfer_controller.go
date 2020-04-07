@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"

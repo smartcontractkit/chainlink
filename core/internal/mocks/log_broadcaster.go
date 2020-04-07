@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	eth "chainlink/core/services/eth"
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	common "github.com/ethereum/go-ethereum/common"
 

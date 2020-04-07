@@ -1,9 +1,9 @@
 package eth_test
 
 import (
-	"chainlink/core/eth"
-	"chainlink/core/internal/cltest"
 	"encoding/json"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"

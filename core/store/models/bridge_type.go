@@ -4,8 +4,8 @@ import (
 	"crypto/subtle"
 	"fmt"
 
-	"chainlink/core/assets"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // BridgeTypeRequest is the incoming record used to create a BridgeType

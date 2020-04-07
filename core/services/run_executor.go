@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/logger"
-	"chainlink/core/services/synchronization"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"

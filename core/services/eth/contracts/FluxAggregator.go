@@ -3,8 +3,8 @@ package contracts
 import (
 	"math/big"
 
-	"chainlink/core/eth"
-	ethsvc "chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"

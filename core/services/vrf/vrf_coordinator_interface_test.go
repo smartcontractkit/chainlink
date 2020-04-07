@@ -4,10 +4,10 @@ import (
 	"math/big"
 	"testing"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/services/vrf"
-	"chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

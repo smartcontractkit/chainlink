@@ -3,9 +3,9 @@ package services
 import (
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/store"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 type storeReaper struct {

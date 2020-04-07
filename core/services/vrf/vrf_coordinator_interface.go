@@ -7,10 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // RawRandomnessRequestLog is used to parse a RandomnessRequest log into types
