@@ -20,7 +20,7 @@ jobs:
 
       - name: Update Cache File
         id: updateCacheFile
-        uses: smartcontractkit/docker-cache@master
+        uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
         with:
           actionType: 'UPDATE_CACHE_FILE'
 
@@ -38,7 +38,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Update docker files
-        uses: smartcontractkit/docker-cache@master
+        uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
         with:
           actionType: 'UPDATE_DOCKER_FILES'
 
