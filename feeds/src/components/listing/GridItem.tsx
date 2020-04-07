@@ -1,12 +1,12 @@
 import { Col, Popover, Tooltip } from 'antd'
 import classNames from 'classnames'
 import { FeedConfig } from 'config'
-import React, { useState } from 'react'
+import React, { Fragment, useState } from 'react'
 import { connect, MapStateToProps } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { AppState } from 'state'
+import { listingSelectors } from 'state/ducks/listing'
 import { HealthCheck, ListingAnswer } from 'state/ducks/listing/reducers'
-import { listingSelectors } from '../../state/ducks/listing'
 
 interface StateProps {
   healthCheck?: HealthCheck
@@ -101,10 +101,16 @@ const Sponsored: React.FC<SponsoredProps> = ({ data }) => {
   const [sliced] = useState(data.slice(0, 2))
 
   if (data.length <= 2) {
-    return sliced.map((name, i) => [
-      i > 0 ? ', ' : '',
-      <span key={name}>{name}</span>,
-    ])
+    return (
+      <>
+        {sliced.map((name, i) => (
+          <Fragment key={name}>
+            {i > 0 ? ', ' : ''}
+            <span key={name}>{name}</span>
+          </Fragment>
+        ))}
+      </>
+    )
   }
 
   return (
@@ -156,7 +162,7 @@ function normalizeStatus(
     return { result: 'unknown', errors }
   }
 
-  const answer = parseFloat(listingAnswer.answer)
+  const answer = parseFloat(listingAnswer.answer ?? '0')
   const thresholdDiff = healthCheck.currentPrice * (feed.threshold / 100)
   const thresholdMin = Math.max(healthCheck.currentPrice - thresholdDiff, 0)
   const thresholdMax = healthCheck.currentPrice + thresholdDiff
