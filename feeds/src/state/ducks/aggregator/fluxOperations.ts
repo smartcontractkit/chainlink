@@ -1,9 +1,9 @@
-import * as actions from './actions'
-import _ from 'lodash'
+import { FeedConfig } from 'config'
 import { ethers } from 'ethers'
+import _ from 'lodash'
 import FluxAggregatorAbi from '../../../contracts/FluxAggregatorAbi.json'
 import FluxAggregatorContract from '../../../contracts/FluxAggregatorContract'
-import { FeedConfig } from 'feeds'
+import * as actions from './actions'
 
 let contractInstance: any
 

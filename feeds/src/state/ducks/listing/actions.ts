@@ -1,4 +1,5 @@
 import { FeedConfig } from 'config'
+import { ListingAnswer } from './reducers'
 
 /**
  * listing/FETCH_FEEDS_BEGIN

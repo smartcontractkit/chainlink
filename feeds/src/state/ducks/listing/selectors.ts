@@ -1,5 +1,5 @@
-import { createSelector } from 'reselect'
 import { FeedConfig } from 'config'
+import { createSelector } from 'reselect'
 import { AppState } from 'state'
 
 /**

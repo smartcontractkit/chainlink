@@ -1,3 +1,4 @@
+import { FeedConfig } from 'config'
 import React from 'react'
 import { connect } from 'react-redux'
 import { FeedConfig } from 'config'
