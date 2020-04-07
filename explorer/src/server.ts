@@ -9,6 +9,7 @@ import { addRequestLogging, logger } from './logging'
 import adminAuth from './middleware/adminAuth'
 import seed from './seed'
 import { bootstrapRealtime } from './server/realtime'
+import { getVersion } from './utils/version'
 
 export default function server(): http.Server {
   const conf = getConfig()
@@ -72,7 +73,9 @@ export default function server(): http.Server {
   const httpServer = new http.Server(app)
   bootstrapRealtime(httpServer)
 
-  return httpServer.listen(conf.port, () => {
+  return httpServer.listen(conf.port, async () => {
+    const version = await getVersion(conf)
     logger.info(`Server started, listening on port ${conf.port}`)
+    logger.info(version)
   })
 }

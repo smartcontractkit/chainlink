@@ -24,12 +24,14 @@ COPY explorer ./explorer
 COPY tools ./tools
 COPY styleguide ./styleguide
 RUN yarn setup:explorer
+RUN yarn workspace @chainlink/explorer write-version
 RUN yarn workspace @chainlink/explorer-client build
 
 FROM node:10.16.3-alpine
 
 WORKDIR /app
 
+COPY --from=builder /usr/src/app/VERSION.json VERSION.json
 COPY --from=builder /usr/src/app/package.json package.json
 COPY --from=builder /usr/src/app/yarn.lock yarn.lock
 COPY --from=builder /usr/src/app/node_modules node_modules
