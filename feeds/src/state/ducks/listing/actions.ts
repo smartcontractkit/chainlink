@@ -1,5 +1,5 @@
 import { FeedConfig } from 'config'
-import { ListingAnswer } from './reducers'
+import { HealthPrice, ListingAnswer } from './reducers'
 
 /**
  * listing/FETCH_FEEDS_BEGIN
