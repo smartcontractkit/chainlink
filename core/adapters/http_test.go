@@ -106,6 +106,8 @@ func TestHTTPGet_Perform(t *testing.T) {
 func TestHTTP_TooLarge(t *testing.T) {
 	cfg := orm.NewConfig()
 	cfg.Set("DEFAULT_HTTP_LIMIT", "1")
+	cfg.Set("MAX_HTTP_ATTEMPTS", "3")
+
 	store := &store.Store{Config: cfg}
 
 	tests := []struct {
@@ -130,7 +132,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 			result := hga.Perform(input, store)
 
 			require.Error(t, result.Error())
-			assert.Equal(t, "HTTP request too large, must be less than 1 bytes", result.Error().Error())
+			assert.Equal(t, "All attempts fail:\n#1: HTTP response too large, must be less than 1 bytes", result.Error().Error())
 			assert.Equal(t, "", result.Result().String())
 		})
 	}
