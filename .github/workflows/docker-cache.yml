@@ -4,9 +4,8 @@ on:
   schedule:
     # Run every day at midnight
     - cron: '0 0 * * *'
-
-env:
-  CACHE_IMAGE_VERSION: '0.0.1'
+  push:
+    branches: [develop]
 
 jobs:
   update-cache:
@@ -20,6 +19,7 @@ jobs:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
       - name: Update Cache File
+        id: updateCacheFile
         uses: smartcontractkit/docker-cache@master
         with:
           actionType: 'UPDATE_CACHE_FILE'
@@ -33,7 +33,7 @@ jobs:
         with:
           name: 'smartcontract/cache'
           dockerfile: 'cache.Dockerfile'
-          tags: '${{ env.CACHE_IMAGE_VERSION }}-${{ steps.getDate.outputs.date }}'
+          tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
