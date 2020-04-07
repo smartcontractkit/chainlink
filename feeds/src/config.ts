@@ -3,7 +3,7 @@ import feeds from './feeds.json'
 export interface FeedConfig {
   contractAddress: string
   contractType: 'aggregator'
-  valuePrefix: '$' | 'Ξ'
+  valuePrefix: '$' | 'Ξ' | '£' | '¥'
   name: string
   pair: string[]
   path: string
