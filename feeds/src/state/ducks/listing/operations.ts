@@ -31,9 +31,9 @@ export function fetchHealthStatus(groups: ListingGroup[]) {
 }
 
 async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
-  if (!config.health_price) return
+  if (!config.healthPrice) return
 
-  const json = await fetch(config.health_price).then(r => r.json())
+  const json = await fetch(config.healthPrice).then(r => r.json())
   return { config, price: json[0].current_price }
 }
 

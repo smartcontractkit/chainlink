@@ -15,7 +15,7 @@
     "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
     "listing": true
   },
   {
@@ -34,7 +34,7 @@
     "sponsored": ["Synthetix"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin",
     "listing": true
   },
   {
@@ -178,7 +178,7 @@
     "sponsored": ["Set protocol"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
     "listing": true
   },
   {
@@ -196,7 +196,7 @@
     "sponsored": ["Loopring", "1inch"],
     "threshold": 5,
     "compareOffchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=loopring",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=loopring",
     "listing": true
   },
   {
@@ -247,7 +247,7 @@
     "sponsored": ["Aave", "1inch"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=maker",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=maker",
     "listing": true
   },
   {
@@ -282,7 +282,7 @@
     "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 2,
     "compareOffchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=kyber-network",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=kyber-network",
     "listing": true
   },
   {
@@ -300,7 +300,7 @@
     "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=chainlink",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=chainlink",
     "listing": true
   },
   {
@@ -334,7 +334,7 @@
     "sponsored": ["Aave", "1inch"],
     "threshold": 2,
     "compareOffchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=augur",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=augur",
     "listing": true
   },
   {
@@ -352,7 +352,7 @@
     "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 2,
     "compareOffchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=0x",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=0x",
     "listing": true
   },
   {
@@ -370,7 +370,7 @@
     "sponsored": ["Aave", "1inch"],
     "threshold": 2,
     "compareOffchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=basic-attention-token",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=basic-attention-token",
     "listing": true
   },
   {
@@ -388,7 +388,7 @@
     "sponsored": ["Aave", "Nexus Mutual", "bZx", "1inch"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/DAIETH/?exchange=BITFINEX",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=dai",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=dai",
     "listing": true
   },
   {
@@ -491,7 +491,7 @@
     "sponsored": ["Haven Protocol"],
     "threshold": 2,
     "compareOffchain": "https://www.coingecko.com/en/coins/haven/usd",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=haven",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=haven",
     "listing": true
   },
   {
