@@ -1,14 +1,17 @@
-import { Dispatch } from 'redux'
-import { FunctionFragment } from 'ethers/utils'
+import { FeedConfig, getFeedsConfig } from 'config'
 import { JsonRpcProvider } from 'ethers/providers'
-import { FeedConfig } from 'feeds'
-import * as actions from './actions'
+import { FunctionFragment } from 'ethers/utils'
+import { Dispatch } from 'redux'
+import { ThunkAction } from 'redux-thunk'
+import { AppState } from 'state'
+import { Actions } from 'state/actions'
 import {
-  formatAnswer,
   createContract,
   createInfuraProvider,
+  formatAnswer,
 } from '../../../contracts/utils'
-import feeds from '../../../feeds.json'
+import * as actions from './actions'
+import { ListingAnswer } from './reducers'
 import { ListingGroup } from './selectors'
 
 interface HealthPrice {
@@ -36,13 +39,8 @@ async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
   return { config, price: json[0].current_price }
 }
 
-export interface ListingAnswer {
-  answer: string
-  config: FeedConfig
-}
-
-export function fetchAnswers() {
-  return async (dispatch: Dispatch) => {
+export function fetchAnswers(): ThunkAction<void, AppState, void, Actions> {
+  return async dispatch => {
     const provider = createInfuraProvider()
     const answerList = await allAnswers(provider)
     dispatch(actions.setAnswers(answerList))
@@ -87,8 +85,8 @@ async function latestAnswer(
     : await contract.currentAnswer()
 }
 
-async function allAnswers(provider: JsonRpcProvider) {
-  const answers = feeds
+async function allAnswers(provider: JsonRpcProvider): Promise<ListingAnswer[]> {
+  const answers = getFeedsConfig()
     .filter(config => config.listing)
     .map(async config => {
       try {

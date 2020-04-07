@@ -1,8 +1,8 @@
+import { FeedConfig } from 'config'
 import React, { useEffect, useState } from 'react'
 import { connect } from 'react-redux'
-import { humanizeUnixTimestamp } from 'utils'
 import { AppState } from 'state'
-import { FeedConfig } from 'feeds'
+import { humanizeUnixTimestamp } from 'utils'
 
 export interface Props {
   config: FeedConfig

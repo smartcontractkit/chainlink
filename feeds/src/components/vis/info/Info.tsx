@@ -1,11 +1,11 @@
-import React from 'react'
 import { Icon } from 'antd'
-import Heartbeat from './Heartbeat'
-import Percent from './Percent'
-import Legend from './Legend'
-import TooltipQuestion from '../../shared/TooltipQuestion'
+import { FeedConfig } from 'config'
+import React from 'react'
 import { humanizeUnixTimestamp, networkName, Networks } from 'utils'
-import { FeedConfig } from 'feeds'
+import TooltipQuestion from '../../shared/TooltipQuestion'
+import Heartbeat from './Heartbeat'
+import Legend from './Legend'
+import Percent from './Percent'
 
 interface OwnProps {
   config: FeedConfig

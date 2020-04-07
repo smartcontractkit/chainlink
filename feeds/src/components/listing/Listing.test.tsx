@@ -1,12 +1,13 @@
-import React from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { partialAsFull } from '@chainlink/ts-helpers'
 import '@testing-library/jest-dom/extend-expect'
 import { render } from '@testing-library/react'
+import { FeedConfig } from 'config'
+import React from 'react'
 import { Provider as ReduxProvider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
+import { ListingGroup } from 'state/ducks/listing/selectors'
 import createStore from '../../state/createStore'
 import { Listing } from './Listing'
-import { ListingGroup } from 'state/ducks/listing/selectors'
-import { FeedConfig } from 'feeds'
 
 const AllTheProviders: React.FC = ({ children }) => {
   const { store } = createStore()
@@ -18,38 +19,38 @@ const AllTheProviders: React.FC = ({ children }) => {
   )
 }
 
-const listingGroup1: ListingGroup = {
+const listingGroup1 = {
   name: 'List 1',
   feeds: [
-    {
+    partialAsFull<FeedConfig>({
       name: 'pair name 1',
       path: '/link',
-      valuePrefix: 'prefix ',
+      valuePrefix: '$',
       sponsored: ['sponsor 1', 'sponsor 2'],
-    } as FeedConfig,
-    {
+    }),
+    partialAsFull<FeedConfig>({
       name: 'pair name 2',
       path: '/link2',
-      valuePrefix: 'prefix2',
+      valuePrefix: 'Ξ',
       sponsored: ['sponsor 1', 'sponsor 2'],
-    } as FeedConfig,
+    }),
   ],
 }
 const listingGroup2 = {
   name: 'List 2',
   feeds: [
-    {
+    partialAsFull<FeedConfig>({
       name: 'pair name 3',
       path: '/link',
-      valuePrefix: 'prefix',
+      valuePrefix: '$',
       sponsored: ['sponsor 1', 'sponsor 2'],
-    } as FeedConfig,
-    {
+    }),
+    partialAsFull<FeedConfig>({
       name: 'pair name 4',
       path: '/link2',
-      valuePrefix: 'prefix2',
+      valuePrefix: 'Ξ',
       sponsored: ['sponsor 1', 'sponsor 2'],
-    } as FeedConfig,
+    }),
   ],
 }
 const listingGroups: ListingGroup[] = [listingGroup1, listingGroup2]

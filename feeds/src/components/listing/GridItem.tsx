@@ -1,13 +1,12 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { connect, MapStateToProps } from 'react-redux'
 import { Col, Popover, Tooltip } from 'antd'
 import classNames from 'classnames'
+import { FeedConfig } from 'config'
+import React, { useState } from 'react'
+import { connect, MapStateToProps } from 'react-redux'
+import { Link } from 'react-router-dom'
 import { AppState } from 'state'
-import { FeedConfig } from 'feeds'
+import { HealthCheck, ListingAnswer } from 'state/ducks/listing/reducers'
 import { listingSelectors } from '../../state/ducks/listing'
-import { ListingAnswer } from 'state/ducks/listing/operations'
-import { HealthCheck } from 'state/ducks/listing/reducers'
 
 interface StateProps {
   healthCheck?: HealthCheck
@@ -38,6 +37,8 @@ export const GridItem: React.FC<Props> = ({
     'listing-grid__item',
     healthClasses(status, enableHealth),
   )
+  const sponsors = listingAnswer?.config.sponsored ?? []
+
   const gridItem = (
     <div className={classes}>
       {compareOffchain && <CompareOffchain feed={feed} />}
@@ -54,13 +55,13 @@ export const GridItem: React.FC<Props> = ({
             </>
           )}
         </div>
-        {feed.sponsored && feed.sponsored.length > 0 && (
+        {sponsors.length > 0 && (
           <>
             <div className="listing-grid__item--sponsored-title">
               Sponsored by
             </div>
             <div className="listing-grid__item--sponsored">
-              <Sponsored data={feed.sponsored} />
+              <Sponsored data={sponsors} />
             </div>
           </>
         )}
@@ -80,44 +81,42 @@ interface CompareOffchainProps {
 }
 
 function CompareOffchain({ feed }: CompareOffchainProps) {
-  let content: any = 'No offchain comparison'
-
-  if (feed.compareOffchain) {
-    content = (
-      <a href={feed.compareOffchain} rel="noopener noreferrer">
-        Compare Offchain
-      </a>
-    )
-  }
+  const content = feed.compareOffchain ? (
+    <a href={feed.compareOffchain} rel="noopener noreferrer">
+      Compare Offchain
+    </a>
+  ) : (
+    'No offchain comparison'
+  )
 
   return (
     <div className="listing-grid__item--offchain-comparison">{content}</div>
   )
 }
 
-function Sponsored({ data }: any) {
+interface SponsoredProps {
+  data: string[]
+}
+const Sponsored: React.FC<SponsoredProps> = ({ data }) => {
   const [sliced] = useState(data.slice(0, 2))
 
   if (data.length <= 2) {
-    return sliced.map((name: any, i: number) => [
-      i > 0 && ', ',
+    return sliced.map((name, i) => [
+      i > 0 ? ', ' : '',
       <span key={name}>{name}</span>,
     ])
   }
 
   return (
     <Popover
-      content={data.map((name: any) => (
+      content={data.map(name => (
         <div className="listing-grid__item--sponsored-popover" key={name}>
           {name}
         </div>
       ))}
       title="Sponsored by"
     >
-      {sliced.map((name: any, i: number) => [
-        i > 0 && ', ',
-        <span key={name}>{name}</span>,
-      ])}
+      {sliced.map((name, i) => [i > 0 && ', ', <span key={name}>{name}</span>])}
       , (+{data.length - 2})
     </Popover>
   )

@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react'
-import { connect } from 'react-redux'
-import { aggregatorOperations } from 'state/ducks/aggregator'
 import { AggregatorVis } from 'components/aggregatorVis'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
-import { OracleTable } from 'components/oracleTable'
 import { Header } from 'components/header'
+import { OracleTable } from 'components/oracleTable'
+import { FeedConfig } from 'config'
+import React, { useEffect, useState } from 'react'
+import { connect } from 'react-redux'
+import { aggregatorOperations } from 'state/ducks/aggregator'
 import { parseQuery, uIntFrom } from 'utils'
 
 interface OwnProps {
@@ -20,7 +21,7 @@ interface DispatchProps {
 interface Props extends OwnProps, DispatchProps {}
 
 const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
-  const [config] = useState(formatConfig(parseQuery(history.location.search)))
+  const [config] = useState(parseConfig(parseQuery(history.location.search)))
 
   useEffect(() => {
     initContract(config).catch((error: Error) => {
@@ -49,9 +50,14 @@ const mapDispatchToProps = {
   clearState: aggregatorOperations.clearState,
 }
 
-function formatConfig(config: any) {
+/**
+ * Hydrate a feed config into its internal representation
+ *
+ * @param config The config in map format
+ */
+function parseConfig(config: Record<string, string>): FeedConfig {
   return {
-    ...config,
+    ...((config as unknown) as FeedConfig),
     networkId: uIntFrom(config.networkId ?? 0),
     contractVersion: 2,
     decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),

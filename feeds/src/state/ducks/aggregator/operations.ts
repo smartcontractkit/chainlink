@@ -1,11 +1,12 @@
-import * as actions from './actions'
+import { FeedConfig } from 'config'
+import { ethers } from 'ethers'
 import _ from 'lodash'
 import moment from 'moment'
-import { ethers } from 'ethers'
 import AggregatorAbi from '../../../contracts/AggregatorAbi.json'
 import AggregatorAbiV2 from '../../../contracts/AggregatorAbi.v2.json'
 import AggregatorContract from '../../../contracts/AggregatorContract'
 import AggregatorContractV2 from '../../../contracts/AggregatorContractV2'
+import * as actions from './actions'
 
 let contractInstance: any
 
@@ -81,7 +82,7 @@ const fetchOracleAnswersById = (request: any) => {
   }
 }
 
-const fetchLatestRequestTimestamp = (config: any) => {
+const fetchLatestRequestTimestamp = (config: FeedConfig) => {
   return async (dispatch: any) => {
     try {
       // calculate last update time
@@ -214,7 +215,7 @@ function initListeners() {
   }
 }
 
-const initContract = (config: any) => {
+const initContract = (config: FeedConfig) => {
   return async (dispatch: any, getState: any) => {
     dispatch(actions.clearState())
 

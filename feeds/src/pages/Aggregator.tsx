@@ -1,12 +1,12 @@
-import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
-import { FeedConfig } from 'feeds'
-import { aggregatorOperations } from 'state/ducks/aggregator'
 import { AggregatorVis } from 'components/aggregatorVis'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
-import { OracleTable } from 'components/oracleTable'
 import { Header } from 'components/header'
+import { OracleTable } from 'components/oracleTable'
+import { FeedConfig } from 'config'
+import React, { useEffect } from 'react'
+import { connect } from 'react-redux'
+import { aggregatorOperations } from 'state/ducks/aggregator'
 
 interface OwnProps {
   config: FeedConfig

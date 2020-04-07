@@ -1,7 +1,6 @@
+import { FeedConfig } from 'config'
 import { createSelector } from 'reselect'
-import { FeedConfig } from 'feeds'
 import { AppState } from 'state'
-import { ListingAnswer } from 'state/ducks/listing/operations'
 
 export interface ListingGroup {
   name: string
@@ -23,7 +22,7 @@ const GROUP_ORDER: string[] = [FIAT_GROUP_NAME, ETH_GROUP_NAME]
 const orderedFeeds = (state: AppState) =>
   state.feeds.order.map(f => state.feeds.items[f])
 
-export const groups = createSelector([orderedFeeds], (feeds: FeedConfig[]) => {
+export const groups = createSelector([orderedFeeds], feeds => {
   return GROUP_ORDER.map(groupName => {
     const groupFeeds = feeds.filter(f => {
       if (!f.listing) return false
@@ -42,6 +41,6 @@ export const answer = (
   contractAddress: FeedConfig['contractAddress'],
 ) => {
   return state.listing.answers.find(
-    (a: ListingAnswer) => a.config.contractAddress === contractAddress,
+    a => a.config.contractAddress === contractAddress,
   )
 }

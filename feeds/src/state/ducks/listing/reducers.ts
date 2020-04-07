@@ -1,6 +1,11 @@
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
+import { Reducer } from 'redux'
 import { Actions } from 'state/actions'
-import { ListingAnswer } from './operations'
+
+export interface ListingAnswer {
+  answer?: string
+  config: FeedConfig
+}
 
 export interface HealthCheck {
   currentPrice: number
@@ -16,7 +21,7 @@ export const INITIAL_STATE: State = {
   healthChecks: {},
 }
 
-const reducer = (state: State = INITIAL_STATE, action: Actions) => {
+const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
     case 'listing/SET_ANSWERS':
       return {

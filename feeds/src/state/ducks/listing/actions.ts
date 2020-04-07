@@ -1,3 +1,5 @@
+import { ListingAnswer } from './reducers'
+
 /**
  * listing/SET_ANSWERS
  */
@@ -6,7 +8,7 @@ export interface SetAnswersAction {
   payload: any
 }
 
-export function setAnswers(payload: any): SetAnswersAction {
+export function setAnswers(payload: ListingAnswer[]): SetAnswersAction {
   return {
     type: 'listing/SET_ANSWERS',
     payload,

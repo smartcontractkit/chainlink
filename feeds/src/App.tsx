@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react'
-import { Route, Router, Switch, RouteComponentProps } from 'react-router-dom'
+import { FeedConfig } from 'config'
 import { createBrowserHistory } from 'history'
+import React, { useEffect } from 'react'
 import ReactGA from 'react-ga'
-import { FeedConfig } from 'feeds'
-import * as pages from './pages'
-import WithFeedConfig from './enhancers/WithFeedConfig'
+import { Route, RouteComponentProps, Router, Switch } from 'react-router-dom'
 import { Footer } from './components/footer'
+import WithFeedConfig from './enhancers/WithFeedConfig'
+import * as pages from './pages'
 import { Networks } from './utils'
 
 const history = createBrowserHistory()
