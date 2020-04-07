@@ -1,9 +1,8 @@
+import { FeedConfig, getFeedsConfig } from 'config'
 import React from 'react'
-import { Redirect } from 'react-router-dom'
 import { match } from 'react-router'
-import { FeedConfig } from 'feeds'
+import { Redirect } from 'react-router-dom'
 import { Networks } from '../utils'
-import feeds from '../feeds.json'
 
 interface Params {
   pair?: string
@@ -24,7 +23,7 @@ interface Props {
  * this component redirects to the root of the application '/'
  */
 const WithFeedConfig: React.FC<Props> = ({ render, match, networkId }) => {
-  const config = feeds.find(feedConfig => {
+  const config = getFeedsConfig().find(feedConfig => {
     if (match.params.pair) {
       return (
         compareInsensitive(feedConfig.path, match.params.pair) &&

@@ -1,11 +1,11 @@
-import React from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { partialAsFull } from '@chainlink/ts-helpers'
 import '@testing-library/jest-dom/extend-expect'
 import { render } from '@testing-library/react'
+import { FeedConfig } from 'config'
+import React from 'react'
 import { Provider as ReduxProvider } from 'react-redux'
-import { partialAsFull } from '@chainlink/ts-helpers'
-import { FeedConfig } from 'feeds'
-import { ListingAnswer } from '../../state/ducks/listing/operations'
+import { MemoryRouter } from 'react-router-dom'
+import { ListingAnswer } from 'state/ducks/listing/reducers'
 import createStore from '../../state/createStore'
 import { GridItem } from './GridItem'
 
@@ -22,7 +22,7 @@ const AllTheProviders: React.FC = ({ children }) => {
 const feed = partialAsFull<FeedConfig>({
   name: 'pair name',
   path: '/link',
-  valuePrefix: 'prefix',
+  valuePrefix: '$',
   sponsored: ['sponsor 1', 'sponsor 2'],
 })
 const listingAnswer: ListingAnswer = {

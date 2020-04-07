@@ -1,18 +1,26 @@
-import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
+import { DispatchBinding } from '@chainlink/ts-helpers'
 import { Row } from 'antd'
+import React, { useEffect } from 'react'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { AppState } from 'state'
 import { listingOperations, listingSelectors } from '../../state/ducks/listing'
 import GridItem from './GridItem'
-import { ListingGroup } from 'state/ducks/listing/selectors'
 
-interface Props {
-  groups: ListingGroup[]
-  fetchAnswers: any
-  fetchHealthStatus: any
+interface OwnProps {
   enableHealth: boolean
   compareOffchain: boolean
 }
+
+interface DispatchProps {
+  fetchAnswers: DispatchBinding<typeof listingOperations.fetchAnswers>
+  fetchHealthStatus: DispatchBinding<typeof listingOperations.fetchHealthStatus>
+}
+
+interface StateProps {
+  groups: ReturnType<typeof listingSelectors.groups>
+}
+
+type Props = OwnProps & DispatchProps & StateProps
 
 export const Listing: React.FC<Props> = ({
   fetchAnswers,
@@ -54,11 +62,15 @@ export const Listing: React.FC<Props> = ({
   )
 }
 
-const mapStateToProps = (state: AppState) => ({
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => ({
   groups: listingSelectors.groups(state),
 })
 
-const mapDispatchToProps = {
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   fetchAnswers: listingOperations.fetchAnswers,
   fetchHealthStatus: listingOperations.fetchHealthStatus,
 }

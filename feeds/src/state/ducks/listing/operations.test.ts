@@ -1,12 +1,12 @@
+import { partialAsFull } from '@chainlink/ts-helpers'
+import { getFeedsConfig } from 'config'
+import { Contract } from 'ethers'
 import configureStore from 'redux-mock-store'
 import thunk from 'redux-thunk'
-import { Contract } from 'ethers'
-import { partialAsFull } from '@chainlink/ts-helpers'
-import { INITIAL_STATE } from './reducers'
-import * as operations from './operations'
-import { Networks } from '../../../utils'
 import * as utils from '../../../contracts/utils'
-import feeds from '../../../feeds.json'
+import { Networks } from '../../../utils'
+import * as operations from './operations'
+import { INITIAL_STATE } from './reducers'
 
 jest.mock('../../../contracts/utils')
 
@@ -24,7 +24,7 @@ const createContractSpy = jest
     return contract
   })
 
-const mainnetContracts = feeds.filter(
+const mainnetContracts = getFeedsConfig().filter(
   config => config.networkId === Networks.MAINNET,
 )
 

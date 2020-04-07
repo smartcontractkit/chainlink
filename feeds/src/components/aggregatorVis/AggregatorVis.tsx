@@ -1,12 +1,12 @@
+import { FeedConfig } from 'config'
 import React from 'react'
 import { connect } from 'react-redux'
 import { AppState } from 'state'
-import { Vis } from '../vis'
-import { FeedConfig } from 'feeds'
 import {
-  aggregatorSelectors,
   aggregatorOperations,
+  aggregatorSelectors,
 } from 'state/ducks/aggregator'
+import { Vis } from '../vis'
 
 interface StateProps {
   config: FeedConfig
