@@ -7,6 +7,11 @@ export interface ListingAnswer {
   config: FeedConfig
 }
 
+export interface HealthPrice {
+  config: FeedConfig
+  price: number
+}
+
 export interface HealthCheck {
   currentPrice: number
 }

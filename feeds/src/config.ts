@@ -14,7 +14,7 @@ export interface FeedConfig {
 
   heartbeat?: number
   compareOffchain?: string
-  health_price?: string
+  healthPrice?: string
   multiply?: string
   sponsored?: string[]
   decimalPlaces?: number

@@ -1,14 +1,16 @@
-import { ListingAnswer } from './reducers'
+import { HealthPrice, ListingAnswer } from './reducers'
 
 /**
  * listing/SET_ANSWERS
  */
 export interface SetAnswersAction {
   type: 'listing/SET_ANSWERS'
-  payload: any
+  payload: ListingAnswer[]
 }
 
-export function setAnswers(payload: ListingAnswer[]): SetAnswersAction {
+export function setAnswers(
+  payload: SetAnswersAction['payload'],
+): SetAnswersAction {
   return {
     type: 'listing/SET_ANSWERS',
     payload,
@@ -20,10 +22,12 @@ export function setAnswers(payload: ListingAnswer[]): SetAnswersAction {
  */
 export interface SetHealthPriceAction {
   type: 'listing/SET_HEALTH_PRICE'
-  payload: any
+  payload: HealthPrice
 }
 
-export function setHealthPrice(payload: any): SetHealthPriceAction {
+export function setHealthPrice(
+  payload: SetHealthPriceAction['payload'],
+): SetHealthPriceAction {
   return {
     type: 'listing/SET_HEALTH_PRICE',
     payload,

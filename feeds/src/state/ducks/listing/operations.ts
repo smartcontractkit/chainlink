@@ -11,28 +11,27 @@ import {
   formatAnswer,
 } from '../../../contracts/utils'
 import * as actions from './actions'
-import { ListingAnswer } from './reducers'
+import { HealthPrice, ListingAnswer } from './reducers'
 import { ListingGroup } from './selectors'
 
-interface HealthPrice {
-  config: any
-  price: number
-}
-
-export function fetchHealthStatus(groups: ListingGroup[]) {
+export function fetchHealthStatus(
+  groups: ListingGroup[],
+): ThunkAction<void, AppState, void, Actions> {
   return async (dispatch: Dispatch) => {
     const configs = groups.flatMap(g => g.feeds)
     const priceResponses = await Promise.all(configs.map(fetchHealthPrice))
 
     priceResponses
-      .filter(pr => pr)
+      .filter((pr): pr is HealthPrice => !!pr)
       .forEach(pr => {
         dispatch(actions.setHealthPrice(pr))
       })
   }
 }
 
-async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
+async function fetchHealthPrice(
+  config: FeedConfig,
+): Promise<HealthPrice | undefined> {
   if (!config.healthPrice) return
 
   const json = await fetch(config.healthPrice).then(r => r.json())
