@@ -5,7 +5,7 @@
 // core/services/eth.ConnectedContract interface, as that makes actual RPC
 // calls, which are not supported here. Fixing this would be a matter of
 // implementing the Client.Call method here to deal with "eth_call" calls.
-package simclient
+package cltest
 
 import (
 	"context"
@@ -25,20 +25,20 @@ import (
 	"chainlink/core/utils"
 )
 
-// Client is an eth.Client implementation using a simulated blockchain backend.
-type Client struct{ b backends.SimulatedBackend }
+// SimulatedBackendClient is an eth.SimulatedBackendClient implementation using a simulated blockchain backend.
+type SimulatedBackendClient struct{ b *backends.SimulatedBackend }
 
 // Close terminates the underlying blockchain's update loop.
-func (c *Client) Close() {
+func (c *SimulatedBackendClient) Close() {
 	c.b.Close()
 }
 
-var _ eth.Client = (*Client)(nil)
+var _ eth.Client = (*SimulatedBackendClient)(nil)
 
 // Call is a dummy method present only to satisfy the eth.Client interface. The
 // original method is for sending an RPC call over the client, but for a
 // simulated backend that makes no sense.
-func (c *Client) Call(result interface{}, method string, args ...interface{},
+func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{},
 ) error {
 	panic(
 		"unimplemented; there is no actual RPC mechanism on a simulated blockchain")
@@ -47,12 +47,13 @@ func (c *Client) Call(result interface{}, method string, args ...interface{},
 // Subscribe is a dummy method present only to satisfy the eth.Client interface.
 // The original method is for subscribing to events observed by the RPC client,
 // but for a simulated backend that makes no sense.
-func (c *Client) Subscribe(ctx context.Context, namespace interface{},
+func (c *SimulatedBackendClient) Subscribe(ctx context.Context, namespace interface{},
 	channelAndArgs ...interface{}) (eth.Subscription, error) {
 	// if these are needed, there are subscribe methods on SimulatedBackend
 	panic("unimplemented")
 }
 
+// XXX: Move these to utils.
 // chainlinkEthLogFromGethLog returns a copy of l as an eth.Log. (They have
 // identical fields, but the field tags differ, and the types differ slightly.)
 func chainlinkEthLogFromGethLog(l types.Log) eth.Log {
@@ -62,7 +63,7 @@ func chainlinkEthLogFromGethLog(l types.Log) eth.Log {
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (c *Client) GetLogs(q ethereum.FilterQuery) (logs []eth.Log,
+func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []eth.Log,
 	err error) {
 	rawLogs, err := c.b.FilterLogs(context.Background(), q)
 	if err != nil {
@@ -76,7 +77,7 @@ func (c *Client) GetLogs(q ethereum.FilterQuery) (logs []eth.Log,
 
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
-func (c *Client) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log,
+func (c *SimulatedBackendClient) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log,
 	q ethereum.FilterQuery) (eth.Subscription, error) {
 	ch := make(chan types.Log)
 	go func() {
@@ -88,17 +89,17 @@ func (c *Client) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log,
 }
 
 // currentBlockNumber returns index of *pending* block in simulated blockchain
-func (c *Client) currentBlockNumber() *big.Int {
+func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
-func (c *Client) GetNonce(address common.Address) (nonce uint64, err error) {
+func (c *SimulatedBackendClient) GetNonce(address common.Address) (nonce uint64, err error) {
 	return c.b.NonceAt(context.Background(), address, c.currentBlockNumber())
 }
 
 // GetEthBalance returns the balance of the given addresses in Ether.
-func (c *Client) GetEthBalance(address common.Address,
+func (c *SimulatedBackendClient) GetEthBalance(address common.Address,
 ) (balance *assets.Eth, err error) {
 	b, err := c.b.BalanceAt(context.Background(), address, c.currentBlockNumber())
 	ab := assets.Eth(*b)
@@ -139,7 +140,7 @@ func init() {
 
 // GetERC20Balance returns the balance of the given address for the token
 // contract address.
-func (c *Client) GetERC20Balance(address common.Address,
+func (c *SimulatedBackendClient) GetERC20Balance(address common.Address,
 	contractAddress common.Address) (balance *big.Int, err error) {
 	callData, err := balanceOfAPI.Pack("balanceOf", address)
 	if err != nil {
@@ -158,7 +159,7 @@ func (c *Client) GetERC20Balance(address common.Address,
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (c *Client) SendRawTx(hex string) (txHash common.Hash, err error) {
+func (c *SimulatedBackendClient) SendRawTx(hex string) (txHash common.Hash, err error) {
 	tx, err := utils.DecodeEthereumTx(hex)
 	if err != nil {
 		return common.Hash{}, errors.Wrapf(err, "while sending tx %s", hex)
@@ -167,7 +168,7 @@ func (c *Client) SendRawTx(hex string) (txHash common.Hash, err error) {
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (c *Client) GetTxReceipt(receipt common.Hash) (*eth.TxReceipt, error) {
+func (c *SimulatedBackendClient) GetTxReceipt(receipt common.Hash) (*eth.TxReceipt, error) {
 	rawReceipt, err := c.b.TransactionReceipt(context.Background(), receipt)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while retrieving tx receipt for %s", receipt)
@@ -181,13 +182,13 @@ func (c *Client) GetTxReceipt(receipt common.Hash) (*eth.TxReceipt, error) {
 }
 
 // GetBlockHeight returns height of latest block in the simulated blockchain.
-func (c *Client) GetBlockHeight() (height uint64, err error) {
+func (c *SimulatedBackendClient) GetBlockHeight() (height uint64, err error) {
 	return c.currentBlockNumber().Uint64() - 1, nil
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest",
 // "earliest", "pending". Includes all transactions
-func (c *Client) GetBlockByNumber(hex string) (block eth.Block, err error) {
+func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block, err error) {
 	var blockNumber *big.Int
 	switch hex {
 	case "latest":
@@ -223,13 +224,13 @@ func (c *Client) GetBlockByNumber(hex string) (block eth.Block, err error) {
 }
 
 // GetChainID returns the ethereum ChainID.
-func (c *Client) GetChainID() (*big.Int, error) {
+func (c *SimulatedBackendClient) GetChainID() (*big.Int, error) {
 	return c.b.Blockchain().Config().ChainID, nil
 }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
-func (c *Client) SubscribeToNewHeads(ctx context.Context,
+func (c *SimulatedBackendClient) SubscribeToNewHeads(ctx context.Context,
 	channel chan<- eth.BlockHeader) (eth.Subscription, error) {
 	ch := make(chan *types.Header)
 	for h := range ch {
