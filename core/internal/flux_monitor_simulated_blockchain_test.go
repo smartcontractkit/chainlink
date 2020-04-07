@@ -1,7 +1,10 @@
-package fluxmonitor_test
+package internal_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +12,7 @@ import (
 	"chainlink/core/internal/cltest"
 	"chainlink/core/services/eth/contracts/generated/flux_aggregator_wrapper"
 	"chainlink/core/services/eth/contracts/generated/link_token_interface"
+	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -110,9 +114,32 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	fa := deployFluxAggregator(t, big.NewInt(10), 1, 8, description)
 	_, err := fa.aggregatorContract.UpdateAnswer(fa.neil, big.NewInt(1), big.NewInt(1))
 	require.NoError(t, err, "failed to initialize first flux aggregation round")
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t,
+		config, fa.backend)
 	defer cleanup()
+	require.NoError(t, app.StartAndConnect(),
+		"failed to start chainlink application")
 
+	// Have server respond with 102 for price when FM checks external price
+	// adapter for deviation. 102 is enough deviation to trigger a job run.
+	priceResponse := `{"data":{"result": 102}}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST",
+		priceResponse)
+	defer assertCalled()
+
+	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
+	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	var job models.JobSpec
+	err = json.Unmarshal(buffer, &job)
+	require.NoError(t, err)
+	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
+
+	j := cltest.CreateJobSpecViaWeb(t, app, job)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+	_ = jrs
 }
 
 // XAU/XAG happened partly because you can update the entire state all at once.
