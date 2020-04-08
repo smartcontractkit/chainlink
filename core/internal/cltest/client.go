@@ -195,7 +195,7 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address,
 			address, contractAddress)
 	}
 	b, err := c.b.CallContract(context.Background(), ethereum.CallMsg{
-		From: common.Address{}, To: &contractAddress, Data: callData},
+		To: &contractAddress, Data: callData},
 		c.currentBlockNumber())
 	if err != nil {
 		return nil, errors.Wrapf(err, "while calling ERC20 balanceOf method on %s "+
