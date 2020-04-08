@@ -12,7 +12,7 @@ CDIR=$(dirname "$0")
 
 TMP_DIR=$(mktemp -d /tmp/link_token.XXXXXXXXX)
 
-LINK_COMPILER_ARTIFACT_PATH="$CDIR/../../../../../evm-test-helpers/src/LinkToken.json"
+LINK_COMPILER_ARTIFACT_PATH="$CDIR/../../../../evm-test-helpers/src/LinkToken.json"
 
 ABI=$(jq -c -r .abi < "$LINK_COMPILER_ARTIFACT_PATH")
 ABI_PATH="${TMP_DIR}/abi.json"
