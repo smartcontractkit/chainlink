@@ -119,7 +119,7 @@ case "$1" in
     $deps up --exit-code-from wait-db wait-db
     $deps up --exit-code-from wait-db-2 wait-db-2
     set +e
-    $dev_ts_integration run integration-ts /bin/sh -c \
+    $ts_test run  integration-ts /bin/sh -c \
       "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
       && yarn workspace @chainlink/ci-ts test --runInBand ${@:2}"
     exit_code=$?
