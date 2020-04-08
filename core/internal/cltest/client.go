@@ -238,7 +238,8 @@ func (c *SimulatedBackendClient) blockNumber(
 		case "earliest":
 			return big.NewInt(0), nil
 		case "pending":
-			return big.NewInt(0).Add(c.currentBlockNumber(), big.NewInt(1)), nil
+			panic("not implemented") // I don't understand the semantics of this.
+			// return big.NewInt(0).Add(c.currentBlockNumber(), big.NewInt(1)), nil
 		default:
 			blockNumber, err = utils.HexToUint256(n)
 			if err != nil {
