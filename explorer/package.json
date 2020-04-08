@@ -16,6 +16,7 @@
     "depcheck": "echo \"@chainlink/explorer\" && depcheck --ignore-dirs=client || exit 0",
     "predev": "yarn automigrate",
     "dev": "concurrently \"yarn dev:server\" \"yarn dev:client\" ",
+    "dev:server:docker": "NODE_ENV=development TYPEORM_NAME=docker EXPLORER_COOKIE_SECRET=testingtestingtestingtestingtesting  ts-node-dev --transpileOnly ./src/index.ts",
     "dev:client": "yarn workspace @chainlink/explorer-client run start",
     "dev:server": "NODE_ENV=development ts-node-dev --respawn --transpileOnly ./src/index.ts",
     "dev:compose": "NODE_ENV=development COMPOSE_MODE=TRUE yarn migration:run && ts-node ./src/index.ts",

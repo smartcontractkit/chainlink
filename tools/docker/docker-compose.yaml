@@ -91,6 +91,8 @@ services:
     image: postgres:11.6
     volumes:
       - explorer-db-data:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
     environment:
       POSTGRES_DB: $EXPLORER_DB_NAME
       POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
