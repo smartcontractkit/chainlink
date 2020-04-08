@@ -1,39 +1,60 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { ExplorerConfig } from '../config'
-const VERSION_FILE_NAME = 'VERSION.json'
+/**
+ * The name of the file to write to the root of this package, which contains version data.
+ */
+export const VERSION_FILE_NAME = 'VERSION.json'
 
+/**
+ * Git data describing the current commit sha and current branch
+ */
 interface GitMeta {
   gitSha: string
   gitBranch: string
 }
+
+/**
+ * Versions of the explorer client and server
+ */
 interface PkgVersions {
   serverVersion: string
   clientVersion: string
 }
-type VersionFile = GitMeta & PkgVersions
 
-export async function fetchPkgVersions(): Promise<PkgVersions> {
-  const clientPkg = await import('../../client/package.json')
-  const serverPkg = await import('../../package.json')
+/**
+ * Abstract representation of a version file, contains data like client/server version,
+ * and git metadata
+ */
+export type VersionFile = GitMeta & PkgVersions
 
-  return { serverVersion: serverPkg.version, clientVersion: clientPkg.version }
+/**
+ * Get the current version data.
+ *
+ * If in production mode, will try to read version from a local file.
+ * Else, the version data will be fetched
+ *
+ * @param conf The explorer configuration
+ */
+export async function getVersion(conf: ExplorerConfig): Promise<VersionFile> {
+  if (conf.prod) {
+    return readVersion()
+  }
+
+  return await fetchVersion()
 }
 
-export async function fetchMeta(): Promise<GitMeta> {
-  const simplegit = await import('simple-git/promise')
-  const g = simplegit.default()
-
-  const gitSha = await g.revparse(['HEAD'])
-  const { current: gitBranch } = await g.status()
-  return { gitSha, gitBranch }
-}
-
+/**
+ * Write the current version into a file in the root of this package
+ */
 export async function writeVersion() {
   const version = await fetchVersion()
   writeFileSync(VERSION_FILE_NAME, JSON.stringify(version))
 }
 
-export function readVersion(): VersionFile {
+/**
+ * Read the current version file from the root of this package
+ */
+function readVersion(): VersionFile {
   try {
     const file = readFileSync(VERSION_FILE_NAME, { encoding: 'utf-8' })
     return JSON.parse(file) as VersionFile
@@ -44,14 +65,32 @@ export function readVersion(): VersionFile {
   }
 }
 
-export async function getVersion(conf: ExplorerConfig): Promise<VersionFile> {
-  if (conf.dev) {
-    return await fetchVersion()
-  }
-  return readVersion()
+/**
+ * Fetch package versions by reading from package.json
+ */
+async function fetchPkgVersions(): Promise<PkgVersions> {
+  const clientPkg = await import('../../client/package.json')
+  const serverPkg = await import('../../package.json')
+
+  return { serverVersion: serverPkg.version, clientVersion: clientPkg.version }
 }
 
-async function fetchVersion() {
+/**
+ * Fetch git meta data from the current repository
+ */
+async function fetchMeta(): Promise<GitMeta> {
+  const simplegit = await import('simple-git/promise')
+  const g = simplegit.default()
+
+  const gitSha = await g.revparse(['HEAD'])
+  const { current: gitBranch } = await g.status()
+  return { gitSha, gitBranch }
+}
+
+/**
+ * Fetch the current version
+ */
+async function fetchVersion(): Promise<VersionFile> {
   const packageVersions = await fetchPkgVersions()
   const gitMeta = await fetchMeta()
   return { ...packageVersions, ...gitMeta }

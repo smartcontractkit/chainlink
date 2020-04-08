@@ -11,6 +11,10 @@ export interface ExplorerConfig {
    */
   dev: boolean
   /**
+   * Whether production mode is enabled or not
+   */
+  prod: boolean
+  /**
    * The origin of the client, used for CORS purposes
    */
   clientOrigin: string
@@ -37,7 +41,8 @@ export function getConfig(): ExplorerConfig {
 
   const conf: ExplorerConfig = {
     port: parseInt(env.EXPLORER_SERVER_PORT) || 8080,
-    dev: !!env.EXPLORER_DEV,
+    dev: env.NODE_ENV == 'development',
+    prod: env.NODE_ENV === 'production',
     clientOrigin: env.EXPLORER_CLIENT_ORIGIN ?? '',
     cookieSecret: env.EXPLORER_COOKIE_SECRET,
     cookieExpirationMs: 86_400_000, // 1 day in ms
