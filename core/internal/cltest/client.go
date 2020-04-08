@@ -190,28 +190,41 @@ func (c *SimulatedBackendClient) GetBlockHeight() (height uint64, err error) {
 	return c.currentBlockNumber().Uint64() - 1, nil
 }
 
+func (c *SimulatedBackendClient) blockNumber(
+	number interface{}) (blockNumber *big.Int, err error) {
+	switch n := number.(type) {
+	case string:
+		switch n {
+		case "latest":
+			return c.currentBlockNumber(), nil
+		case "earliest":
+			return big.NewInt(0), nil
+		case "pending":
+			return big.NewInt(0).Add(c.currentBlockNumber(), big.NewInt(1)), nil
+		default:
+			blockNumber, err = utils.HexToUint256(n)
+			if err != nil {
+				return nil, errors.Wrapf(err, "while parsing '%s' as hex-encoded"+
+					"block number", n)
+			}
+			return blockNumber, nil
+		}
+	case *big.Int:
+		if n.Sign() < 0 {
+			return nil, fmt.Errorf("block number musts be non-negative")
+		}
+		return n, nil
+	}
+	panic("can never reach here")
+}
+
 // GetBlockByNumber returns the block for the passed hex, or "latest",
 // "earliest", "pending". Includes all transactions
-func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block, err error) {
-	var blockNumber *big.Int
-	switch hex {
-	case "latest":
-		height, err := c.GetBlockHeight()
-		if err != nil {
-			return eth.Block{}, errors.Wrapf(err, "while getting latest block from "+
-				"simulated blockchain")
-		}
-		blockNumber = big.NewInt(int64(height))
-	case "earliest":
-		blockNumber = big.NewInt(0)
-	case "pending":
-		blockNumber = c.currentBlockNumber()
-	default:
-		blockNumber, err = utils.HexToUint256(hex)
-		if err != nil {
-			return eth.Block{}, errors.Wrapf(err, "while parsing '%s' as hex-encoded"+
-				"block number", hex)
-		}
+func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block,
+	err error) {
+	blockNumber, err := c.blockNumber(hex)
+	if err != nil {
+		c.t.Fatalf("while getting block by number: %s", err)
 	}
 	b, err := c.b.BlockByNumber(context.Background(), blockNumber)
 	if err != nil {
