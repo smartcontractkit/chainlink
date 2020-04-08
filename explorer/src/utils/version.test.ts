@@ -1,6 +1,6 @@
 import { partialAsFull } from '@chainlink/ts-helpers'
 import { existsSync, unlinkSync } from 'fs'
-import { ExplorerConfig } from '../config'
+import { Environment, ExplorerConfig } from '../config'
 import { getVersion, VERSION_FILE_NAME, writeVersion } from './version'
 
 function removeVersionFile() {
@@ -15,7 +15,7 @@ beforeAll(removeVersionFile)
 describe('version tests', () => {
   describe('in a production environment', () => {
     afterEach(removeVersionFile)
-    const conf = partialAsFull<ExplorerConfig>({ prod: true })
+    const conf = partialAsFull<ExplorerConfig>({ env: Environment.PROD })
     it(`writes to a ${VERSION_FILE_NAME} file`, async () => {
       await writeVersion()
       const file = await getVersion(conf)
@@ -36,7 +36,7 @@ describe('version tests', () => {
   })
 
   describe('in a development or test environment', () => {
-    const conf = partialAsFull<ExplorerConfig>({ prod: false })
+    const conf = partialAsFull<ExplorerConfig>({ env: Environment.DEV })
     it('reads directly from the git repository and package.jsons', async () => {
       expect(existsSync(VERSION_FILE_NAME)).toBeFalsy()
       const file = await getVersion(conf)
