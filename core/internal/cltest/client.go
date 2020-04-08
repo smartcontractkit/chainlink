@@ -225,7 +225,9 @@ func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block, 
 
 // GetChainID returns the ethereum ChainID.
 func (c *SimulatedBackendClient) GetChainID() (*big.Int, error) {
-	return c.b.Blockchain().Config().ChainID, nil
+	// The actual chain ID is c.b.Blockchain().Config().ChainID, but here we need
+	// to match the chain ID used by the testing harness.
+	return big.NewInt(int64(testConfigConstants["ETH_CHAIN_ID"].(int))), nil
 }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new
