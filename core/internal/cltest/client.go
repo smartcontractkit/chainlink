@@ -11,6 +11,7 @@ import (
 	"context"
 	"math/big"
 	"strings"
+	"testing"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -26,7 +27,10 @@ import (
 )
 
 // SimulatedBackendClient is an eth.SimulatedBackendClient implementation using a simulated blockchain backend.
-type SimulatedBackendClient struct{ b *backends.SimulatedBackend }
+type SimulatedBackendClient struct {
+	b *backends.SimulatedBackend
+	t testing.TB
+}
 
 // Close terminates the underlying blockchain's update loop.
 func (c *SimulatedBackendClient) Close() {
