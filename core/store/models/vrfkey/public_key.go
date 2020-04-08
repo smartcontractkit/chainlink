@@ -60,7 +60,7 @@ func NewPublicKeyFromHex(hex string) (*PublicKey, error) {
 }
 
 // SetFromHex sets k to the public key represented by hex, which must represent
-// the uncompressed binary format
+// the compressed binary format
 func (k *PublicKey) SetFromHex(hex string) error {
 	nk, err := NewPublicKeyFromHex(hex)
 	if err != nil {
@@ -70,15 +70,28 @@ func (k *PublicKey) SetFromHex(hex string) error {
 	return nil
 }
 
-// String returns k's binary uncompressed representation, as 0x-hex
+// String returns k's binary compressed representation, as 0x-hex
 func (k *PublicKey) String() string {
 	return hexutil.Encode(k[:])
+}
+
+// String returns k's binary uncompressed representation, as 0x-hex
+func (k *PublicKey) StringUncompressed() string {
+	p, err := k.Point()
+	if err != nil {
+		panic("PublicKey.Point() failed.")
+	}
+	return hexutil.Encode(secp256k1.LongMarshal(p))
 }
 
 // Hash returns the solidity Keccak256 hash of k. Corresponds to hashOfKey on
 // VRFCoordinator.
 func (k *PublicKey) Hash() common.Hash {
-	return utils.MustHash(string(k[:]))
+	p, err := k.Point()
+	if err != nil {
+		panic("PublicKey.Point() failed.")
+	}
+	return utils.MustHash(string(secp256k1.LongMarshal(p)))
 }
 
 // Address returns the Ethereum address of k
