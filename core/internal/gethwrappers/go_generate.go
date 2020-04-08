@@ -3,7 +3,7 @@ package contracts
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
 
-//go:generate ./generation/generate.sh ../../../../evm-contracts/abi/v0.6/FluxAggregator.json flux_aggregator_wrapper
+//go:generate ./generation/generate.sh ../../../evm-contracts/abi/v0.6/FluxAggregator.json flux_aggregator_wrapper
 //go:generate ./generation/generate_link.sh
 
 // To run these commands, you must either install docker, or the correct version

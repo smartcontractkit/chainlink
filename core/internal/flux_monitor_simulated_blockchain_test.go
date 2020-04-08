@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"chainlink/core/internal/cltest"
-	"chainlink/core/services/eth/contracts/generated/flux_aggregator_wrapper"
-	"chainlink/core/services/eth/contracts/generated/link_token_interface"
+	"chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
