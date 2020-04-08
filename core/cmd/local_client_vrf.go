@@ -30,14 +30,17 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
 	}
-	fmt.Printf(`Created keypair, with public key
+	fmt.Printf(`Created keypair.
 
-%s
+Compressed public key (use this for interactions with the chainlink node):
+  %s
+Uncompressed public key (use this for interactions with the VRFCoordinator):
+  %s
 
 The following command will export the encrypted secret key from the db to <save_path>:
 
 chainlink local vrf export -f <save_path> -pk %s
-`, key, key)
+`, key, key.StringUncompressed(), key)
 	return nil
 }
 
