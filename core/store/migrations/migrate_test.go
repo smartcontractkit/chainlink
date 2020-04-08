@@ -296,7 +296,7 @@ func TestMigrate_Migration1570675883(t *testing.T) {
 		jobRun := migration0.JobRun{
 			ID:             utils.NewBytes32ID(),
 			JobSpecID:      jobSpec.ID,
-			OverridesID:    overrides.ID,
+			OverridesID:    uint(overrides.ID),
 			CreationHeight: "0",
 			ObservedHeight: "0",
 		}
