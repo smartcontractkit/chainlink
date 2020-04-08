@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"chainlink/core/logger"
 	"chainlink/core/store"
 	"chainlink/core/store/models"
 	"chainlink/core/utils"
@@ -169,54 +170,92 @@ func sendRequest(input models.RunInput, request *http.Request, config HTTPReques
 	}
 	client := &http.Client{Transport: tr}
 
-	response, err := withRetry(client, request, config)
-
-	if err != nil {
-		return models.NewRunOutputError(err)
-	}
-
-	defer response.Body.Close()
-
-	source := newMaxBytesReader(response.Body, config.sizeLimit)
-	bytes, err := ioutil.ReadAll(source)
+	bytes, statusCode, err := withRetry(client, request, config)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
 
 	responseBody := string(bytes)
-	if response.StatusCode >= 400 {
+
+	// This is either a client error caused on our end or a server error that persists even after retrying.
+	// Either way, there is no way for us to complete the run with a result.
+	if statusCode >= 400 {
 		return models.NewRunOutputError(errors.New(responseBody))
 	}
 
 	return models.NewRunOutputCompleteWithResult(responseBody)
 }
 
+// withRetry executes the http request in a retry. Timeout is controlled with a context
+// Retry occurs if the request timeout, or there is any kind of connection or transport-layer error
+// Retry also occurs on remote server 5xx errors
 func withRetry(
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
-) (*http.Response, error) {
-	var response *http.Response
-	err := retry.Do(
+) (responseBody []byte, statusCode int, err error) {
+	err = retry.Do(
 		func() error {
 			ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
 			defer cancel()
 			requestWithTimeout := originalRequest.Clone(ctx)
 
+			start := time.Now()
+
 			r, err := client.Do(requestWithTimeout)
 			if err != nil {
 				return err
 			}
-			response = r
+			defer r.Body.Close()
+			statusCode = r.StatusCode
+			elapsed := time.Since(start)
+			logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+
+			source := newMaxBytesReader(r.Body, config.sizeLimit)
+			bytes, err := ioutil.ReadAll(source)
+			if err != nil {
+				logger.Errorf("http adapter error reading body: %v", err.Error())
+				return err
+			}
+			elapsed = time.Since(start)
+			logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+
+			responseBody = bytes
+
+			// Retry on 5xx since this might give a different result
+			if 500 <= r.StatusCode && r.StatusCode < 600 {
+				return &RemoteServerError{responseBody, statusCode}
+			}
+
 			return nil
 		},
 		retry.Attempts(config.maxAttempts),
+		retry.RetryIf(func(err error) bool {
+			switch err.(type) {
+			// There is no point in retrying a request if the response was
+			// too large since it's likely that all retries will suffer the
+			// same problem
+			case *HTTPResponseTooLargeError:
+				return false
+			default:
+				return true
+			}
+		}),
+		retry.OnRetry(func(n uint, err error) {
+			logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", n, "timeout", config.timeout)
+		}),
 	)
 
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
+	return responseBody, statusCode, err
+}
+
+type RemoteServerError struct {
+	responseBody []byte
+	statusCode   int
+}
+
+func (e *RemoteServerError) Error() string {
+	return fmt.Sprintf("remote server error: %v\nResponse body: %v", e.statusCode, string(e.responseBody))
 }
 
 // maxBytesReader is inspired by
@@ -271,8 +310,16 @@ func (mbr *maxBytesReader) Read(p []byte) (n int, err error) {
 	return
 }
 
+type HTTPResponseTooLargeError struct {
+	limit int64
+}
+
+func (e *HTTPResponseTooLargeError) Error() string {
+	return fmt.Sprintf("HTTP response too large, must be less than %d bytes", e.limit)
+}
+
 func (mbr *maxBytesReader) tooLarge() (int, error) {
-	return 0, fmt.Errorf("HTTP request too large, must be less than %d bytes", mbr.limit)
+	return 0, &HTTPResponseTooLargeError{mbr.limit}
 }
 
 func (mbr *maxBytesReader) Close() error {
