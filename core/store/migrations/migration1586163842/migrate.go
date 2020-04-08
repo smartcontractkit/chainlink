@@ -42,6 +42,7 @@ func Migrate(tx *gorm.DB) error {
 	// This was assumed by the code and probably would have crashed/hung if this assumption was violated.
 	// Let's make that explicit.
 	err = tx.Exec(`
+	DELETE FROM job_runs WHERE initiator_id IS NULL;
 	ALTER TABLE job_runs ALTER COLUMN initiator_id SET NOT NULL;
 	`).Error
 	if err != nil {
