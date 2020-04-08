@@ -1,10 +1,3 @@
-// package simclient is an eth.Client implementation using a simulated blockchain
-// backend.
-//
-// This client is incompatible with contracts which use the
-// core/services/eth.ConnectedContract interface, as that makes actual RPC
-// calls, which are not supported here. Fixing this would be a matter of
-// implementing the Client.Call method here to deal with "eth_call" calls.
 package cltest
 
 import (
@@ -27,7 +20,9 @@ import (
 	"chainlink/core/utils"
 )
 
-// SimulatedBackendClient is an eth.SimulatedBackendClient implementation using a simulated blockchain backend.
+// SimulatedBackendClient is an eth.SimulatedBackendClient implementation using
+// a simulated blockchain backend. Note that not all RPC methods are implemented
+// here.
 type SimulatedBackendClient struct {
 	b *backends.SimulatedBackend
 	t testing.TB
