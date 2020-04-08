@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"time"
 
-	"chainlink/core/assets"
-	clnull "chainlink/core/null"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"

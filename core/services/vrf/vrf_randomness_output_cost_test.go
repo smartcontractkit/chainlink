@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
 
 func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {

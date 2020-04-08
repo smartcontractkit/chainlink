@@ -3,8 +3,8 @@ package vrfkey
 import (
 	"crypto/ecdsa"
 
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"fmt"
 	"math/big"

@@ -38,8 +38,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"go.dedis.ch/kyber/v3"
 )

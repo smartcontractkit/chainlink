@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
