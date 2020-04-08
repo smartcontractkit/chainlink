@@ -20,7 +20,7 @@ import (
 
 func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
 	task0RunID := models.NewID()
@@ -68,7 +68,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	initiator, ok := data["initiator"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, initiator["type"], "runlog")
-	assert.Equal(t, initiator["requestId"], "RequestID")
+	assert.Equal(t, initiator["requestId"], "0x000000000000000000000000000000000000000000000000000000000000cafe")
 	assert.Equal(t, initiator["txHash"], "0x00000000000000000000000000000000000000000000000000000000deadbeef")
 	assert.Equal(t, initiator["requester"], newAddress.Hex())
 
@@ -93,7 +93,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 
 func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
 	tests := []struct {
@@ -163,7 +163,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-			requestID := "RequestID"
+			requestID := common.HexToHash("0xcafe")
 			requestTxHash := common.HexToHash("0xdeadbeef")
 			dataJSON := jsonFromFixture(t, test.path)
 			outgoingTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"

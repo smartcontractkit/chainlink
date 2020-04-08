@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,7 +89,7 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 		GasPrice:    utils.NewBig(big.NewInt(333)),
 		Confirmed:   true,
 		SentAt:      1745,
-		SignedRawTx: "signed",
+		SignedRawTx: hexutil.MustDecode("0xcafe"),
 	}
 
 	ptx := presenters.NewTx(&createdTx)
@@ -101,7 +102,7 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 		`"gasLimit":"1999",`+
 		`"gasPrice":"333",`+
 		`"hash":"0x0000000000000000000000000000000000000000000000000000000000000000",`+
-		`"rawHex":"signed",`+
+		`"rawHex":"0xcafe",`+
 		`"nonce":"32776",`+
 		`"sentAt":"1745",`+
 		`"to":"0x0000000000000000000000000000000000000070",`+

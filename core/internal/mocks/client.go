@@ -217,13 +217,13 @@ func (_m *Client) GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error) {
 	return r0, r1
 }
 
-// SendRawTx provides a mock function with given fields: hex
-func (_m *Client) SendRawTx(hex string) (common.Hash, error) {
-	ret := _m.Called(hex)
+// SendRawTx provides a mock function with given fields: bytes
+func (_m *Client) SendRawTx(bytes []byte) (common.Hash, error) {
+	ret := _m.Called(bytes)
 
 	var r0 common.Hash
-	if rf, ok := ret.Get(0).(func(string) common.Hash); ok {
-		r0 = rf(hex)
+	if rf, ok := ret.Get(0).(func([]byte) common.Hash); ok {
+		r0 = rf(bytes)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(common.Hash)
@@ -231,8 +231,8 @@ func (_m *Client) SendRawTx(hex string) (common.Hash, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(hex)
+	if rf, ok := ret.Get(1).(func([]byte) error); ok {
+		r1 = rf(bytes)
 	} else {
 		r1 = ret.Error(1)
 	}
