@@ -27,8 +27,9 @@ import (
 // fluxAggregator represents the universe with which the aggregator contract
 // interacts
 type fluxAggregator struct {
-	aggregatorContract *flux_aggregator_wrapper.FluxAggregator
-	linkContract       *link_token_interface.LinkToken
+	aggregatorContract        *flux_aggregator_wrapper.FluxAggregator
+	aggregatorContractAddress common.Address
+	linkContract              *link_token_interface.LinkToken
 	// Abstraction representation of the ethereum blockchain
 	backend       *backends.SimulatedBackend
 	aggregatorABI abi.ABI
@@ -56,7 +57,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 	f.sergey = newIdentity(t)
 	f.neil = newIdentity(t)
 	f.ned = newIdentity(t)
-	f.nallory = newIdentity(t)
+	f.nallory = cltest.OracleTransactor
 	oneEth := big.NewInt(1000000000000000000)
 	genesisData := core.GenesisAlloc{
 		f.sergey.From:  {Balance: oneEth},
@@ -82,14 +83,13 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 	// arithmetic operations, so do everything as int64 and then convert.
 	waitTimeMs := int64(timeout * 1000)
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
-	var aggregatorContractAddress common.Address
-	aggregatorContractAddress, _, f.aggregatorContract, err =
+	f.aggregatorContractAddress, _, f.aggregatorContract, err =
 		flux_aggregator_wrapper.DeployFluxAggregator(f.sergey, f.backend,
 			linkAddress, paymentAmount, timeout, decimals, description)
 	f.backend.Commit() // Must commit contract to chain before we can fund with LINK
 	require.NoError(t, err,
 		"failed to deploy FluxAggregator contract to simulated ethereum blockchain")
-	_, err = f.linkContract.Transfer(f.sergey, aggregatorContractAddress,
+	_, err = f.linkContract.Transfer(f.sergey, f.aggregatorContractAddress,
 		oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to fund FluxAggregator contract with LINK")
 	_, err = f.aggregatorContract.UpdateAvailableFunds(f.sergey)
