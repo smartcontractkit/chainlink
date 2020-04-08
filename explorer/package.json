@@ -17,8 +17,8 @@
     "predev": "yarn automigrate",
     "dev": "concurrently \"yarn dev:server\" \"yarn dev:client\" ",
     "dev:client": "yarn workspace @chainlink/explorer-client run start",
-    "dev:server": "EXPLORER_DEV=TRUE ts-node-dev --respawn --transpileOnly ./src/index.ts",
-    "dev:compose": "COMPOSE_MODE=TRUE EXPLORER_DEV=TRUE yarn migration:run && ts-node ./src/index.ts",
+    "dev:server": "NODE_ENV=development ts-node-dev --respawn --transpileOnly ./src/index.ts",
+    "dev:compose": "NODE_ENV=development COMPOSE_MODE=TRUE yarn migration:run && ts-node ./src/index.ts",
     "setup": "tsc -b",
     "clean": "rimraf .migrations.*.md5",
     "prod": "yarn migration:run && ts-node ./src/index.ts",
@@ -34,6 +34,7 @@
   },
   "main": "src/index.ts",
   "dependencies": {
+    "@chainlink/ts-helpers": "0.0.1",
     "argon2": "^0.25.1",
     "bignumber.js": "^9.0.0",
     "class-validator": "^0.11.1",
