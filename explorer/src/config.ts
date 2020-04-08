@@ -1,4 +1,13 @@
 /**
+ * The envionment the explorer application is running in
+ */
+export enum Environment {
+  TEST,
+  DEV,
+  PROD,
+}
+
+/**
  * Application configuration for the explorer
  */
 export interface ExplorerConfig {
@@ -9,11 +18,7 @@ export interface ExplorerConfig {
   /**
    * Whether dev mode is enabled or not
    */
-  dev: boolean
-  /**
-   * Whether production mode is enabled or not
-   */
-  prod: boolean
+  env: Environment
   /**
    * The origin of the client, used for CORS purposes
    */
@@ -39,10 +44,22 @@ export interface ExplorerConfig {
 export function getConfig(): ExplorerConfig {
   const { env } = process
 
+  let appEnv: Environment = Environment.DEV
+  switch (env.NODE_ENV) {
+    case 'production':
+      appEnv = Environment.PROD
+      break
+    case 'test':
+      appEnv = Environment.TEST
+      break
+    default:
+      appEnv = Environment.DEV
+      break
+  }
+
   const conf: ExplorerConfig = {
     port: parseInt(env.EXPLORER_SERVER_PORT) || 8080,
-    dev: env.NODE_ENV == 'development',
-    prod: env.NODE_ENV === 'production',
+    env: appEnv,
     clientOrigin: env.EXPLORER_CLIENT_ORIGIN ?? '',
     cookieSecret: env.EXPLORER_COOKIE_SECRET,
     cookieExpirationMs: 86_400_000, // 1 day in ms

@@ -3,7 +3,7 @@ import express from 'express'
 import helmet from 'helmet'
 import http from 'http'
 import mime from 'mime-types'
-import { getConfig } from './config'
+import { Environment, getConfig } from './config'
 import * as controllers from './controllers'
 import { addRequestLogging, logger } from './logging'
 import adminAuth from './middleware/adminAuth'
@@ -13,7 +13,7 @@ import { getVersion } from './utils/version'
 
 export default function server(): http.Server {
   const conf = getConfig()
-  if (conf.dev) {
+  if (conf.env === Environment.DEV) {
     seed()
   }
 
@@ -21,7 +21,7 @@ export default function server(): http.Server {
   addRequestLogging(app)
 
   app.use(helmet())
-  if (conf.dev) {
+  if (conf.env === Environment.DEV) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const cors: typeof import('cors') = require('cors')
 

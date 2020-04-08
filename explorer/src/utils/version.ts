@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'fs'
-import { ExplorerConfig } from '../config'
+import { Environment, ExplorerConfig } from '../config'
 /**
  * The name of the file to write to the root of this package, which contains version data.
  */
@@ -36,7 +36,7 @@ export type VersionFile = GitMeta & PkgVersions
  * @param conf The explorer configuration
  */
 export async function getVersion(conf: ExplorerConfig): Promise<VersionFile> {
-  if (conf.prod) {
+  if (conf.env === Environment.PROD) {
     return readVersion()
   }
 
