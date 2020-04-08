@@ -9,6 +9,7 @@ package cltest
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -39,13 +40,55 @@ func (c *SimulatedBackendClient) Close() {
 
 var _ eth.Client = (*SimulatedBackendClient)(nil)
 
-// Call is a dummy method present only to satisfy the eth.Client interface. The
-// original method is for sending an RPC call over the client, but for a
-// simulated backend that makes no sense.
-func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{},
-) error {
-	panic(
-		"unimplemented; there is no actual RPC mechanism on a simulated blockchain")
+// checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
+func (c *SimulatedBackendClient) checkEthCallArgs(
+	args []interface{}) (*eth.CallArgs, *big.Int, error) {
+	if len(args) != 2 {
+		return nil, nil, fmt.Errorf(
+			"should have two arguments after \"eth_call\", got %d", len(args))
+	}
+	callArgs, ok := args[0].(eth.CallArgs)
+	if !ok {
+		return nil, nil, fmt.Errorf("third arg to SimulatedBackendClient.Call "+
+			"must be an eth.CallArgs, got %+#v", args[0])
+	}
+	blockNumber, err := c.blockNumber(args[1])
+	if err != nil {
+		return nil, nil, fmt.Errorf("fourth arg to SimulatedBackendClient.Call " +
+			"must be a positive *big.Int, or one of the strings \"latest\", " +
+			"\"pending\", or \"earliest\"")
+	}
+	return &callArgs, blockNumber, nil
+}
+
+// Call mocks the ethereum client RPC calls used by chainlink.
+func (c *SimulatedBackendClient) Call(result interface{}, method string,
+	args ...interface{}) error {
+	switch method {
+	case "eth_call":
+		callArgs, blockNumber, err := c.checkEthCallArgs(args)
+		if err != nil {
+			return err
+		}
+		b, err := c.b.CallContract(context.Background(), ethereum.CallMsg{
+			To: &callArgs.To, Data: callArgs.Data}, blockNumber)
+		if err != nil {
+			return errors.Wrapf(err, "while calling contract at address %x with "+
+				"data %x", callArgs.To, callArgs.Data)
+		}
+		switch r := result.(type) {
+		case *hexutil.Bytes:
+			copy(*r, b)
+			return nil
+		default:
+			return fmt.Errorf("first arg to SimulatedBackendClient.Call is an "+
+				"unrecognized type: %T; add processing logic for it here", result)
+		}
+	default:
+		return fmt.Errorf("second arg to SimulatedBackendClient.Call is an RPC "+
+			"API method which has not yet been implemented: %s. Add processing for "+
+			"it here", method)
+	}
 }
 
 // Subscribe is a dummy method present only to satisfy the eth.Client interface.
