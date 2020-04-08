@@ -1,22 +1,25 @@
-import server from './server'
+import { Connection } from 'typeorm'
 import { getDb } from './database'
-import { logger } from './logging'
 import { retireSessions } from './entity/Session'
+import { logger } from './logging'
+import server from './server'
 
-const cleanup = () => {
+const cleanup = (conn: Connection) => {
   logger.info('Cleaning up sessions...')
-  getDb().then(retireSessions)
+  retireSessions(conn)
 }
-cleanup()
 
-const start = async () => {
+const start = () => {
   logger.info('Starting Explorer Node')
   server()
 }
 
-start().catch(e => {
-  logger.error({
-    msg: `Exception during startup: ${e.message}`,
-    stack: e.stack,
+getDb()
+  .then(cleanup)
+  .then(start)
+  .catch(e => {
+    logger.error({
+      msg: `Exception during startup: ${e.message}`,
+      stack: e.stack,
+    })
   })
-})
