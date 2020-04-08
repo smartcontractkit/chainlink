@@ -175,7 +175,7 @@
     "history": true,
     "decimalPlaces": 3,
     "multiply": "100000000",
-    "sponsored": ["Set protocol"],
+    "sponsored": ["Set Protocol"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
