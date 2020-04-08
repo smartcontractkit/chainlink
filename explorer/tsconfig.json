@@ -11,5 +11,6 @@
     "ormconfig.json",
     "client/package.json",
     "package.json"
-  ]
+  ],
+  "references": [{ "path": "../tools/ts-helpers" }]
 }
