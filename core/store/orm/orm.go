@@ -1050,9 +1050,10 @@ func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRe
 func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 	orm.MustEnsureAdvisoryLock()
 	if initr.JobSpecID == nil {
-		// FIXME: This hangs forever if we don't check this here and the
+		// NOTE: This hangs forever if we don't check this here and the
 		// supplied initiator does not have a JobSpecID set.
 		// I do not know why. Seems to be something going wrong inside gorm
+		logger.Error("cannot create initiator without job spec ID")
 		return errors.New("requires job spec ID")
 	}
 	return orm.db.Create(initr).Error
