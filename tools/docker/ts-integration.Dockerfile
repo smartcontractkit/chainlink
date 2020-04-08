@@ -20,27 +20,17 @@ ENV PATH=/chainlink/tools/bin:./node_modules/.bin:$PATH
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
-COPY yarn.lock package.json .yarnrc ./
-COPY .yarn .yarn
-COPY belt/package.json ./belt/
-COPY belt/bin ./belt/bin
-COPY evm-test-helpers/package.json evm-test-helpers/
-COPY evm-contracts/package.json ./evm-contracts/
-COPY tools/ci-ts/package.json tools/ci-ts/
-
-# copy our CI test
-COPY tools/docker tools/docker/
-
 # copy over all our dependencies
-COPY tsconfig.cjs.json tsconfig.es6.json ./
+COPY yarn.lock package.json .yarnrc tsconfig.cjs.json tsconfig.es6.json ./
+COPY .yarn .yarn
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
 COPY evm-contracts evm-contracts
 COPY operator_ui/@types operator_ui/@types/
 COPY tools/ci-ts tools/ci-ts
 
-# install deps for our integration scripts
-RUN yarn
+# install deps
+RUN yarn install
 
 # setup contracts
 RUN yarn setup:contracts
