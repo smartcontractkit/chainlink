@@ -51,6 +51,7 @@ require (
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
+	github.com/securego/gosec v0.0.0-20200401082031-e946c8c39989 // indirect
 	github.com/shopspring/decimal v0.0.0-20191130220710-360f2bc03045
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/viper v1.6.2

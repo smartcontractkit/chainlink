@@ -10,7 +10,10 @@ import (
 )
 
 func init() {
-	time.LoadLocation("UTC")
+	_, err := time.LoadLocation("UTC")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main() {
