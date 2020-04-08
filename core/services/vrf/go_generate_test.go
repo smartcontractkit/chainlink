@@ -223,6 +223,9 @@ func compileCommand(t *testing.T) string {
 	return strings.Trim(string(cmd), "\n")
 }
 
+// boxOutput formats its arguments as fmt.Printf, and encloses them in a box of
+// arrows pointing at their content, in order to better highlight it. See
+// ExampleBoxOutput
 func boxOutput(s string, args ...interface{}) string {
 	s = fmt.Sprintf(s, args...)
 	lines := strings.Split(s, "\n")
@@ -246,4 +249,19 @@ func boxOutput(s string, args ...interface{}) string {
 	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	return "\n" + rv + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
+}
+
+func ExampleBoxOutput() {
+	fmt.Println()
+	fmt.Print(boxOutput("%s is %d", "foo", 17))
+	// Output:
+	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// →  foo is 17  ←
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }
