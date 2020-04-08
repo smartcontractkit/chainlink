@@ -216,10 +216,10 @@ func (b *logBroadcaster) process(subscription eth.Subscription, chRawLogs <-chan
 			b.onRawLog(rawLog)
 
 		case r := <-b.chAddListener:
-			needsResubscribe = b.onAddListener(r)
+			needsResubscribe = b.onAddListener(r) || needsResubscribe
 
 		case r := <-b.chRemoveListener:
-			needsResubscribe = b.onRemoveListener(r)
+			needsResubscribe = b.onRemoveListener(r) || needsResubscribe
 
 		case <-debounceResubscribe.C:
 			if needsResubscribe {
