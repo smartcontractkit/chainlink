@@ -46,7 +46,7 @@ func TestRandom_Perform(t *testing.T) {
 	adapter := adapters.Random{PublicKey: publicKey.String()}
 	jsonInput, err := models.JSON{}.Add("seed", "0x10")
 	require.NoError(t, err) // Can't fail
-	jsonInput, err = jsonInput.Add("keyHash", publicKey.Hash().Hex())
+	jsonInput, err = jsonInput.Add("keyHash", publicKey.MustHash().Hex())
 	require.NoError(t, err) // Can't fail
 	input := models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)

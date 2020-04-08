@@ -76,25 +76,38 @@ func (k *PublicKey) String() string {
 }
 
 // String returns k's binary uncompressed representation, as 0x-hex
-func (k *PublicKey) StringUncompressed() string {
+func (k *PublicKey) StringUncompressed() (string, error) {
 	p, err := k.Point()
 	if err != nil {
-		panic("PublicKey.Point() failed.")
+		return "", err
 	}
-	return hexutil.Encode(secp256k1.LongMarshal(p))
+	return hexutil.Encode(secp256k1.LongMarshal(p)), nil
 }
 
 // Hash returns the solidity Keccak256 hash of k. Corresponds to hashOfKey on
 // VRFCoordinator.
-func (k *PublicKey) Hash() common.Hash {
+func (k *PublicKey) Hash() (common.Hash, error) {
 	p, err := k.Point()
 	if err != nil {
-		panic("PublicKey.Point() failed.")
+		return common.Hash{}, err
 	}
-	return utils.MustHash(string(secp256k1.LongMarshal(p)))
+	return utils.MustHash(string(secp256k1.LongMarshal(p))), nil
 }
 
-// Address returns the Ethereum address of k
+// MusthHash is like Hash, but panics on error. Useful for testing.
+func (k *PublicKey) MustHash() common.Hash {
+	hash, err := k.Hash()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to compute hash of public vrf key %v", k))
+	}
+	return hash
+}
+
+// Address returns the Ethereum address of k or 0 if the key is invalid
 func (k *PublicKey) Address() common.Address {
-	return common.BytesToAddress(k.Hash().Bytes()[12:])
+	hash, err := k.Hash()
+	if err != nil {
+		return common.Address{}
+	}
+	return common.BytesToAddress(hash.Bytes()[12:])
 }

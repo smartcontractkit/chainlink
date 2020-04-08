@@ -1054,7 +1054,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
 	r := vrf.RandomnessRequestLog{
-		KeyHash: provingKey.PublicKey.Hash(),
+		KeyHash: provingKey.PublicKey.MustHash(),
 		Seed:    big.NewInt(2),
 		JobID:   common.BytesToHash(rawID),
 		Sender:  cltest.NewAddress(),
