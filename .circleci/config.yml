@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  go-postgres:
+  go-vet-test:
     resource_class: large
     docker:
       - image: smartcontract/builder:1.0.31
@@ -32,6 +32,7 @@ jobs:
           paths:
             - '/go/pkg/mod'
       - run: yarn setup:contracts
+      - run: go vet ./...
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
@@ -351,7 +352,7 @@ workflows:
                 - /^release\/.*/
                 - master
                 - /^hotfix\/.*/
-      - go-postgres:
+      - go-vet-test:
           filters:
             tags:
               only: /^v.*/
@@ -421,7 +422,7 @@ workflows:
               only: /^v.*/
       - build-publish-chainlink:
           requires:
-            - go-postgres
+            - go-vet-test
             - solidity
             - geth-postgres
             - parity-postgres
@@ -434,7 +435,7 @@ workflows:
               only: /^v.*/
       - reportcoverage:
           requires:
-            - go-postgres
+            - go-vet-test
             - solidity
             - operator-ui
             - rust

@@ -27,6 +27,7 @@ func ExampleRun() {
 	}
 
 	Run(testClient, "core.test", "--help")
+	Run(testClient, "core.test", "--version")
 	// Output:
 	// NAME:
 	//    core.test - CLI for Chainlink
@@ -51,23 +52,5 @@ func ExampleRun() {
 	//    --json, -j     json output as opposed to table
 	//    --help, -h     show help
 	//    --version, -v  print the version
-}
-
-func ExampleVersion() {
-	t := &testing.T{}
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	testClient := &cmd.Client{
-		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
-		Config:                 tc.Config,
-		AppFactory:             cmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
-		Runner:                 cmd.ChainlinkRunner{},
-		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
-	}
-
-	Run(testClient, "core.test", "--version")
-	// Output:
 	// core.test version unset@unset
 }

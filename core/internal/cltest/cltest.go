@@ -319,7 +319,7 @@ func (ta *TestApplication) MustSeedUserSession() models.User {
 // Secret generated.
 func (ta *TestApplication) MustSeedUserAPIKey() models.User {
 	mockUser := MustUser(APIEmail, Password)
-	apiToken := auth.Token{APIKey, APISecret}
+	apiToken := auth.Token{AccessKey: APIKey, Secret: APISecret}
 	require.NoError(ta.t, mockUser.SetAuthToken(&apiToken))
 	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
 	return mockUser

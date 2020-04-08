@@ -147,8 +147,8 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
 			Address:       NewAddress(),
-			RequestData:   models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:         models.JSON{gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
+			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:         models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
 			IdleThreshold: models.Duration(time.Minute),
 			Threshold:     0.5,
 			Precision:     2,
@@ -165,8 +165,8 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
 			Address:     NewAddress(),
-			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:       models.JSON{gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			RequestData: models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
 			Threshold:   0.5,
 			Precision:   2,
 		},

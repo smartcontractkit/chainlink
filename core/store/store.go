@@ -34,7 +34,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	VRFKeyStore *VRFKeyStore
 	TxManager   TxManager
-	closeOnce   sync.Once
+	closeOnce   *sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -178,6 +178,7 @@ func newStoreWithDialerAndKeyStore(
 		KeyStore:  keyStore,
 		ORM:       orm,
 		TxManager: txManager,
+		closeOnce: &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
@@ -202,7 +203,7 @@ func (s *Store) Close() error {
 // one to work with soft deleted records.
 func (s *Store) Unscoped() *Store {
 	cpy := *s
-	cpy.ORM = cpy.ORM.Unscoped()
+	cpy.ORM = s.ORM.Unscoped()
 	return &cpy
 }
 

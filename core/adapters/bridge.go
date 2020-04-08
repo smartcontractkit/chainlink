@@ -61,7 +61,7 @@ func getMeta(store *store.Store, jobRunID *models.ID) *models.JSON {
 		jobRun.RunRequest.TxHash.Hex(),
 		jobRun.RunRequest.BlockHash.Hex(),
 	)
-	return &models.JSON{gjson.Parse(meta)}
+	return &models.JSON{Result: gjson.Parse(meta)}
 }
 
 func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, bridgeResponseURL *url.URL) models.RunOutput {
