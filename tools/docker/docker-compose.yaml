@@ -29,8 +29,6 @@ services:
       - chainlink-variables.env
     ports:
       - 6688:6688
-    depends_on:
-      - explorer
     secrets:
       - node_password
       - apicredentials
