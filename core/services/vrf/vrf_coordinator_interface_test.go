@@ -17,7 +17,7 @@ import (
 
 var (
 	secretKey = vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(1))
-	keyHash   = secretKey.PublicKey.Hash()
+	keyHash   = secretKey.PublicKey.MustHash()
 	jobID     = common.BytesToHash([]byte("1234567890abcdef1234567890abcdef"))
 	seed      = big.NewInt(1)
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
