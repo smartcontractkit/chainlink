@@ -215,7 +215,7 @@ type InitiatorParams struct {
 	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
-	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
+	Topics     Topics            `json:"topics,omitempty"`
 
 	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
 	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
@@ -245,17 +245,17 @@ type Topics [][]common.Hash
 
 // Scan coerces the value returned from the data store to the proper data
 // in this instance.
-func (t Topics) Scan(value interface{}) error {
-	jsonStr, ok := value.(string)
-	if !ok {
+func (t *Topics) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case []byte:
+		err := json.Unmarshal(v, &t)
+		if err != nil {
+			return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
+		}
+		return nil
+	default:
 		return fmt.Errorf("Unable to convert %v of %T to Topics", value, value)
 	}
-
-	err := json.Unmarshal([]byte(jsonStr), &t)
-	if err != nil {
-		return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
-	}
-	return nil
 }
 
 // Value returns this instance serialized for database storage.
