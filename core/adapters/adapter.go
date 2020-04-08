@@ -25,6 +25,10 @@ var (
 	TaskTypeEthTx = models.MustNewTaskType("ethtx")
 	// TaskTypeEthTxABIEncode is the identifier for the EthTxABIEncode adapter.
 	TaskTypeEthTxABIEncode = models.MustNewTaskType("ethtxabiencode")
+	// TaskTypeHTTPGetWithUnrestrictedNetworkAccess is the identifier for the HTTPGet adapter, with local/private IP access enabled.
+	TaskTypeHTTPGetWithUnrestrictedNetworkAccess = models.MustNewTaskType("httpgetwithunrestrictednetworkaccess")
+	// TaskTypeHTTPPostWithUnrestrictedNetworkAccess is the identifier for the HTTPPost adapter, with local/private IP access enabled.
+	TaskTypeHTTPPostWithUnrestrictedNetworkAccess = models.MustNewTaskType("httppostwithunrestrictednetworkaccess")
 	// TaskTypeHTTPGet is the identifier for the HTTPGet adapter.
 	TaskTypeHTTPGet = models.MustNewTaskType("httpget")
 	// TaskTypeHTTPPost is the identifier for the HTTPPost adapter.
@@ -101,6 +105,12 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeEthTxABIEncode:
 		ba = &EthTxABIEncode{}
+		err = unmarshalParams(task.Params, ba)
+	case TaskTypeHTTPGetWithUnrestrictedNetworkAccess:
+		ba = &HTTPGet{AllowUnrestrictedNetworkAccess: true}
+		err = unmarshalParams(task.Params, ba)
+	case TaskTypeHTTPPostWithUnrestrictedNetworkAccess:
+		ba = &HTTPPost{AllowUnrestrictedNetworkAccess: true}
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeHTTPGet:
 		ba = &HTTPGet{}

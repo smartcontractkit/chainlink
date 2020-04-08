@@ -1,7 +1,7 @@
 {
   "initiators": [{ "type": "web" }],
   "tasks": [
-    { "type": "HttpGet", "params": {
+    { "type": "HTTPGetWithUnrestrictedNetworkAccess", "params": {
         "get": "https://bitstamp.net/api/ticker/",
         "headers": {
           "Key1": ["value"],
