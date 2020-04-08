@@ -1075,8 +1075,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.True(t, eth.AllCalled(), eth.Remaining())
 	require.Len(t, attempts, 1)
 
-	rawTx, err := hexutil.Decode(attempts[0].SignedRawTx)
-	require.NoError(t, err)
+	rawTx := attempts[0].SignedRawTx
 	var tx *types.Transaction
 	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
 	fixtureToAddress := j.Tasks[1].Params.Get("address").String()

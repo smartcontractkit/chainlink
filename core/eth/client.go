@@ -21,7 +21,7 @@ type Client interface {
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
-	SendRawTx(hex string) (common.Hash, error)
+	SendRawTx(bytes []byte) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockHeight() (uint64, error)
 	GetBlockByNumber(hex string) (Block, error)
@@ -114,9 +114,9 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (client *CallerSubscriberClient) SendRawTx(hex string) (common.Hash, error) {
+func (client *CallerSubscriberClient) SendRawTx(bytes []byte) (common.Hash, error) {
 	result := common.Hash{}
-	err := client.Call(&result, "eth_sendRawTransaction", hex)
+	err := client.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
 	return result, err
 }
 
