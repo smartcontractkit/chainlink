@@ -23,6 +23,8 @@ func TestNewUser(t *testing.T) {
 		{"bademail", "goodpassword", true},
 		{"bad@", "goodpassword", true},
 		{"@email", "goodpassword", true},
+		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa50", false},
+		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa51", true},
 	}
 
 	for _, test := range tests {
