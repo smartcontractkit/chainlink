@@ -226,9 +226,9 @@ func compileCommand(t *testing.T) string {
 // boxOutput formats its arguments as fmt.Printf, and encloses them in a box of
 // arrows pointing at their content, in order to better highlight it. See
 // ExampleBoxOutput
-func boxOutput(s string, args ...interface{}) string {
-	s = fmt.Sprintf(s, args...)
-	lines := strings.Split(s, "\n")
+func boxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
+	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
+	lines := strings.Split(errorMsgTemplate, "\n")
 	maxlen := 0
 	for _, line := range lines {
 		if len(line) > maxlen {
@@ -236,18 +236,18 @@ func boxOutput(s string, args ...interface{}) string {
 		}
 	}
 	internalLength := maxlen + 4
-	rv := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
-	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	output := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	readme := strings.Repeat("README ", maxlen/7)
-	rv += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
-	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	for _, line := range lines {
-		rv += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
+		output += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
 	}
-	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	rv += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
-	rv += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	return "\n" + rv + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
 }
 
