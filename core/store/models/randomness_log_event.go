@@ -4,8 +4,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 )
 
 // RandomnessLogEvent provides functionality specific to a log event emitted

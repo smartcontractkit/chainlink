@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 )

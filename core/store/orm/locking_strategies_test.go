@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/gracefulpanic"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/jinzhu/gorm"
 	"github.com/onsi/gomega"

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"

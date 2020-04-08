@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"testing"
 
-	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"

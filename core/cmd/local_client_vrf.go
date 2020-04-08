@@ -9,10 +9,10 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
-	"chainlink/core/logger"
-	"chainlink/core/store"
-	"chainlink/core/store/models/vrfkey"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func vRFKeyStore(cli *Client) *store.VRFKeyStore {
