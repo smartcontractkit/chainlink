@@ -69,6 +69,7 @@ function readVersion(): VersionFile {
  * Fetch package versions by reading from package.json
  */
 async function fetchPkgVersions(): Promise<PkgVersions> {
+  // @ts-ignore
   const clientPkg = await import('../../client/package.json')
   const serverPkg = await import('../../package.json')
 
