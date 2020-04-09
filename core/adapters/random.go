@@ -87,7 +87,7 @@ func getSeed(input models.RunInput) (*big.Int, error) {
 
 // getKey returns the public key for the VRF, or an error.
 func getKey(ra *Random, input models.RunInput) (*vrfkey.PublicKey, error) {
-	hash, err := extractHex(input, "keyHash")
+	inputKeyHash, err := extractHex(input, "keyHash")
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +95,14 @@ func getKey(ra *Random, input models.RunInput) (*vrfkey.PublicKey, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse %v as public key", ra.PublicKey)
 	}
-	if key.Hash() != common.BytesToHash(hash) {
+	keyHash, err := key.Hash()
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not compute %v' hash", ra.PublicKey)
+	}
+
+	if keyHash != common.BytesToHash(inputKeyHash) {
 		return nil, fmt.Errorf(
-			"this task's keyHash %x does not match the input hash %x", key.Hash(), hash)
+			"this task's keyHash %x does not match the input hash %x", keyHash, inputKeyHash)
 	}
 	return key, nil
 }
