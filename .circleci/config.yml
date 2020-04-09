@@ -206,6 +206,7 @@ jobs:
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
+      - run: yarn workspace @chainlink/explorer setup
       - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
