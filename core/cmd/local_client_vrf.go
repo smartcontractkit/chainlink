@@ -51,7 +51,7 @@ chainlink local vrf export -f <save_path> -pk %s
 // CreateAndExportWeakVRFKey creates a key in the VRF keystore, protected by the
 // password in the password file, but with weak key-derivation-function
 // parameters, which makes it cheaper for testing, but also more vulnerable to
-// bruteforcing of the encyrpted key material. For testing purposes only!
+// bruteforcing of the encrypted key material. For testing purposes only!
 //
 // The key is only stored at the specified file location, not stored in the DB.
 func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
