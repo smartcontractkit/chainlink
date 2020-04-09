@@ -56,7 +56,8 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 	return &callArgs, blockNumber, nil
 }
 
-// Call mocks the ethereum client RPC calls used by chainlink.
+// Call mocks the ethereum client RPC calls used by chainlink, copying the
+// return value into result.
 func (c *SimulatedBackendClient) Call(result interface{}, method string,
 	args ...interface{}) error {
 	switch method {
