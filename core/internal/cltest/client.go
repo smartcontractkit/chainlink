@@ -1,6 +1,7 @@
 package cltest
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -74,7 +75,11 @@ func (c *SimulatedBackendClient) Call(result interface{}, method string,
 		}
 		switch r := result.(type) {
 		case *hexutil.Bytes:
-			copy(*r, b)
+			*r = append(*r, b...)
+			if !bytes.Equal(*r, b) {
+				return fmt.Errorf("was passed a non-empty array, or failed to copy "+
+					"answer. Expected %x = %x", *r, b)
+			}
 			return nil
 		default:
 			return fmt.Errorf("first arg to SimulatedBackendClient.Call is an "+
