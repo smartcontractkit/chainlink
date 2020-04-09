@@ -44,6 +44,6 @@ describe('components/listing/GridItem', () => {
     )
 
     expect(container).toHaveTextContent('10.1')
-    expect(container).toHaveTextContent('prefix')
+    expect(container).toHaveTextContent('$')
   })
 })

@@ -37,7 +37,7 @@ export const GridItem: React.FC<Props> = ({
     'listing-grid__item',
     healthClasses(status, enableHealth),
   )
-  const sponsors = listingAnswer?.config.sponsored ?? []
+  const sponsors = feed.sponsored ?? []
 
   const gridItem = (
     <div className={classes}>
