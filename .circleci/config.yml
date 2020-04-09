@@ -48,6 +48,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
       - store_artifacts:
@@ -61,6 +66,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
       - store_artifacts:
@@ -72,6 +82,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
       - store_artifacts:
@@ -83,6 +98,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
       - store_artifacts:
