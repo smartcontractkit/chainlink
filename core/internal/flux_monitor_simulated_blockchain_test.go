@@ -136,6 +136,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
+	job.Initiators[0].InitiatorParams.Address = fa.aggregatorContractAddress
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
