@@ -62,12 +62,12 @@ func (c *SimulatedBackendClient) Call(result interface{}, method string,
 	args ...interface{}) error {
 	switch method {
 	case "eth_call":
-		callArgs, blockNumber, err := c.checkEthCallArgs(args)
+		callArgs, _, err := c.checkEthCallArgs(args)
 		if err != nil {
 			return err
 		}
-		b, err := c.b.CallContract(context.Background(), ethereum.CallMsg{
-			To: &callArgs.To, Data: callArgs.Data}, blockNumber)
+		callMsg := ethereum.CallMsg{To: &callArgs.To, Data: callArgs.Data}
+		b, err := c.b.CallContract(context.TODO(), callMsg, nil /* always latest block */)
 		if err != nil {
 			return errors.Wrapf(err, "while calling contract at address %x with "+
 				"data %x", callArgs.To, callArgs.Data)
