@@ -9,7 +9,7 @@
     "heartbeat": 7200,
     "path": "eth-usd",
     "networkId": 1,
-    "history": true,
+    "history": false,
     "decimalPlaces": 3,
     "multiply": "100000000",
     "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch"],
