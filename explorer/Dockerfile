@@ -19,12 +19,13 @@ COPY styleguide/package.json ./styleguide/
 RUN yarn install --frozen-lockfile
 
 COPY tsconfig.*.json babel.config.js ./
-COPY .git .git
 COPY explorer ./explorer
 COPY tools ./tools
 COPY styleguide ./styleguide
 RUN yarn setup:explorer
+COPY .git .git
 RUN yarn workspace @chainlink/explorer-client build
+RUN yarn workspace @chainlink/explorer write-version
 
 FROM node:10.16.3-alpine
 
@@ -33,6 +34,7 @@ WORKDIR /app
 COPY --from=builder /usr/src/app/package.json package.json
 COPY --from=builder /usr/src/app/yarn.lock yarn.lock
 COPY --from=builder /usr/src/app/node_modules node_modules
+COPY --from=builder /usr/src/app/explorer/VERSION.json explorer/VERSION.json
 COPY --from=builder /usr/src/app/explorer/node_modules explorer/node_modules
 COPY --from=builder /usr/src/app/explorer/package.json explorer/package.json
 COPY --from=builder /usr/src/app/explorer/src explorer/src
@@ -44,6 +46,6 @@ COPY --from=builder /usr/src/app/explorer/client/build explorer/client/build
 COPY --from=builder /usr/src/app/styleguide styleguide
 COPY --from=builder /usr/src/app/tools/json-api-client tools/json-api-client
 COPY --from=builder /usr/src/app/tools/redux tools/redux
-
+RUN yarn workspace @chainlink/explorer read-version
 ENV NODE_ENV production
 ENTRYPOINT [ "yarn", "workspace", "@chainlink/explorer", "run", "prod" ]

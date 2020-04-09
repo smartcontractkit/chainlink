@@ -2,11 +2,11 @@ import http from 'http'
 import request from 'supertest'
 import { Connection } from 'typeorm'
 import { getDb } from '../../database'
-import { start, stop } from '../../support/server'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
 import { createJobRun } from '../../factories'
+import { start, stop } from '../../support/server'
 
 let server: http.Server
 let db: Connection

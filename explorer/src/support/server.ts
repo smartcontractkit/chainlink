@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto'
 import http from 'http'
+import { getConfig } from '../config'
 import { closeDbConnection, getDb } from '../database'
 import server from '../server'
 
@@ -14,9 +15,9 @@ export async function start() {
     EXPLORER_SERVER_PORT: `${DEFAULT_TEST_PORT}`,
     EXPLORER_COOKIE_SECRET: randomBytes(32).toString('hex'),
   })
-
+  const conf = getConfig()
   await getDb()
-  return server()
+  return await server(conf)
 }
 
 /**

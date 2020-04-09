@@ -3,16 +3,15 @@ import express from 'express'
 import helmet from 'helmet'
 import http from 'http'
 import mime from 'mime-types'
-import { getConfig } from './config'
+import { Environment, ExplorerConfig } from './config'
 import * as controllers from './controllers'
 import { addRequestLogging, logger } from './logging'
 import adminAuth from './middleware/adminAuth'
 import seed from './seed'
 import { bootstrapRealtime } from './server/realtime'
 
-export default function server(): http.Server {
-  const conf = getConfig()
-  if (conf.dev) {
+export default function server(conf: ExplorerConfig): Promise<http.Server> {
+  if (conf.env === Environment.DEV) {
     seed()
   }
 
@@ -20,7 +19,7 @@ export default function server(): http.Server {
   addRequestLogging(app)
 
   app.use(helmet())
-  if (conf.dev) {
+  if (conf.env === Environment.DEV) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const cors: typeof import('cors') = require('cors')
 
@@ -72,7 +71,10 @@ export default function server(): http.Server {
   const httpServer = new http.Server(app)
   bootstrapRealtime(httpServer)
 
-  return httpServer.listen(conf.port, () => {
-    logger.info(`Server started, listening on port ${conf.port}`)
+  return new Promise(resolve => {
+    const server = httpServer.listen(conf.port, async () => {
+      logger.info(`Server started, listening on port ${conf.port}`)
+      resolve(server)
+    })
   })
 }
