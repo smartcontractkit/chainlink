@@ -48,10 +48,10 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 			"must be an eth.CallArgs, got %+#v", args[0])
 	}
 	blockNumber, err := c.blockNumber(args[1])
-	if err != nil {
-		return nil, nil, fmt.Errorf("fourth arg to SimulatedBackendClient.Call " +
-			"must be a positive *big.Int, or one of the strings \"latest\", " +
-			"\"pending\", or \"earliest\"")
+	if err != nil || blockNumber.Cmp(c.currentBlockNumber()) != 0 {
+		return nil, nil, fmt.Errorf("fourth arg to SimulatedBackendClient.Call "+
+			"must the string \"latest\", or a *big.Int equal to current "+
+			"blocknumber, got %#+v", args[1])
 	}
 	return &callArgs, blockNumber, nil
 }
