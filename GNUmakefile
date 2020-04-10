@@ -51,6 +51,9 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 yarndep: ## Ensure all yarn dependencies are installed
 	yarn install --frozen-lockfile
 
+.PHONY: gen-builder-cache
+gen-builder-cache: gomod yarndep # generate a cache for the builder image
+
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
