@@ -17,10 +17,10 @@ ENV YARN_VERSION=1.22.4
 RUN npm install --global yarn@$YARN_VERSION
 
 #
-RUN apk add --no-cache --upgrade bash wget make git
+RUN apk add --no-cache --upgrade bash wget make git python
 
 COPY . .
-#RUN yarn
-#RUN go mod download
+RUN yarn
+RUN go mod download
 RUN make install
 #-chainlink
