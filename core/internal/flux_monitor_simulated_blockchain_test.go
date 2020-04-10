@@ -101,18 +101,22 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 	return f
 }
 
-//- deploy a brand new FM contract
-//- have one of the fake nodes start a round. UpdateAnswer
-//- successfully close the round through the submissions of the other nodes. UpdateAnswer with the same round ID.
 //- have the malicious node start the next round. UpdateAnswer with the next round ID.
 //- successfully close the round through the submissions of the other nodes
 //- have the malicious node try to start another round repeatedly until the roundDelay is reached, making sure that it isn't successful
 //- finally, ensure it can start a legitimate round after roundDelay is reached
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
+	// Comments starting with "-" describe the steps this test executes.
+
+	//- deploy a brand new FM contract
 	var description [32]byte
 	copy(description[:], "exactly thirty-two characters!!!")
-	fa := deployFluxAggregator(t, big.NewInt(10), 1, 8, description)
-	_, err := fa.aggregatorContract.UpdateAnswer(fa.neil, big.NewInt(1), big.NewInt(1))
+	fee := big.NewInt(100) // Amount paid by FA contract, in LINK-wei
+	fa := deployFluxAggregator(t, fee, 1, 8, description)
+
+	//- have one of the fake nodes start a round. UpdateAnswer
+	_, err := fa.aggregatorContract.UpdateAnswer(fa.neil, big.NewInt(1),
+		big.NewInt(1))
 	require.NoError(t, err, "failed to initialize first flux aggregation round")
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
@@ -121,14 +125,16 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect(),
 		"failed to start chainlink application")
-
+	minFee := app.Store.Config.MinimumContractPayment().ToInt()
+	require.True(t, fee.Cmp(minFee) >= 0, "fee paid by FluxAggregator (%d) must "+
+		"at least match MinimumContractPayment (%s). (Which is currently set in "+
+		"cltest.go.)", fee, minFee)
 	// Have server respond with 102 for price when FM checks external price
 	// adapter for deviation. 102 is enough deviation to trigger a job run.
 	priceResponse := `{"data":{"result": 102}}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST",
 		priceResponse)
 	defer assertCalled()
-
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
 	var job models.JobSpec
@@ -137,10 +143,12 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
 	job.Initiators[0].InitiatorParams.Address = fa.aggregatorContractAddress
-
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
-	_ = jrs
+
+	// - successfully close the round through the submissions of the other nodes.
+	// UpdateAnswer with the same round ID.
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1) // Submit answer from
+	fmt.Println("jrs", jrs)
 }
 
 // XAU/XAG happened partly because you can update the entire state all at once.
