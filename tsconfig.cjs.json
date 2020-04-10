@@ -9,7 +9,7 @@
         "composite": true /* Enable project compilation */,
         "declaration": true /* Generates corresponding '.d.ts' file. */,
         "declarationMap": true /* Generates a sourcemap for each corresponding '.d.ts' file. */,
-        "noEmit": false /* Do not emit outputs. */,
+        //"noEmit": true /* Do not emit outputs. */,
         "noErrorTruncation": true /* Do not truncate error messages */,
         "skipLibCheck": true /* Skip type checking of declaration files. Requires TypeScript version 2.0 or later. */,
         "importHelpers": true /* Import emit helpers from 'tslib'. */,
