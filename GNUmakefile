@@ -3,8 +3,8 @@
 ENVIRONMENT ?= release
 
 REPO := smartcontract/chainlink
-COMMIT_SHA ?= $(shell git rev-parse HEAD)
-VERSION = $(shell cat VERSION)
+COMMIT_SHA ?=  test# $(shell git rev-parse HEAD)
+VERSION = 9.0.0#$(shell cat VERSION)
 GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
@@ -55,13 +55,17 @@ yarndep: ## Ensure all yarn dependencies are installed
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
-chainlink: $(SGX_BUILD_ENCLAVE) ws-setup operator-ui ## Build the chainlink binary.
+chainlink: $(SGX_BUILD_ENCLAVE) contracts-setup # ws-setup operator-ui ## Build the chainlink binary.
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: ws-setup
 ws-setup:
 	yarn setup:chainlink
+
+.PHONY: contracts-setup
+contracts-setup:
+	yarn setup:contracts
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
