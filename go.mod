@@ -20,6 +20,7 @@ require (
 	github.com/ethereum/go-ethereum v1.9.12
 	github.com/fatih/color v1.9.0
 	github.com/fxamacker/cbor/v2 v2.2.0
+	github.com/garslo/gogen v0.0.0-20170307003452-d6ebae628c7c // indirect
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/gin-contrib/cors v1.3.1
@@ -52,6 +53,7 @@ require (
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v0.0.0-20191130220710-360f2bc03045
+	github.com/smartcontractkit/gencodec v0.0.0-20181025021405-42dc7da8c287 // indirect
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
