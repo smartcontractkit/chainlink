@@ -84,6 +84,9 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     return _latestRound();
   }
 
+  /**
+   * @notice represents the number of decimals the aggregator responses represent.
+   */
   function decimals()
     external
     view
