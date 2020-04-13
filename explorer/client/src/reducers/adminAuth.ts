@@ -7,7 +7,7 @@ export interface State {
 }
 
 const INITIAL_STATE: State = {
-  allowed: authenticationStorage.get('adminAllowed') || false,
+  allowed: authenticationStorage.get('adminAllowed') === true,
 }
 
 export const adminAuthReducer: Reducer<State, Actions> = (
