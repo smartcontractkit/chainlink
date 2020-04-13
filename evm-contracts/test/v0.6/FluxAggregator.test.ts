@@ -109,10 +109,10 @@ describe('FluxAggregator', () => {
       'removeOracle',
       'reportingRound',
       'reportingRoundStartedAt',
+      'requestRateUpdate',
       'restartDelay',
       'setAuthorization',
       'oracleRoundState',
-      'startNewRound',
       'timeout',
       'transferAdmin',
       'updateAnswer',
@@ -1691,7 +1691,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#startNewRound', () => {
+  describe('#requestRateUpdate', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1704,7 +1704,7 @@ describe('FluxAggregator', () => {
     })
 
     it('announces a new round via log event', async () => {
-      const tx = await aggregator.startNewRound()
+      const tx = await aggregator.requestRateUpdate()
       const receipt = await tx.wait()
       const event = matchers.eventExists(
         receipt,
@@ -1716,11 +1716,11 @@ describe('FluxAggregator', () => {
 
     describe('when there is a round in progress', () => {
       beforeEach(async () => {
-        await aggregator.startNewRound()
+        await aggregator.requestRateUpdate()
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(aggregator.startNewRound())
+        await matchers.evmRevert(aggregator.requestRateUpdate())
       })
 
       describe('when that round has timed out', () => {
@@ -1730,7 +1730,7 @@ describe('FluxAggregator', () => {
         })
 
         it('starts a new round', async () => {
-          const tx = await aggregator.startNewRound()
+          const tx = await aggregator.requestRateUpdate()
           const receipt = await tx.wait()
           const event = matchers.eventExists(
             receipt,
@@ -1749,7 +1749,7 @@ describe('FluxAggregator', () => {
 
         // advance a few rounds
         for (let i = 0; i < 7; i++) {
-          await aggregator.startNewRound()
+          await aggregator.requestRateUpdate()
           nextRound = nextRound + 1
           await h.increaseTimeBy(timeout + 1, provider)
           await h.mineBlock(provider)
@@ -1777,7 +1777,7 @@ describe('FluxAggregator', () => {
       it('allows the specified address to start new rounds', async () => {
         await aggregator.setAuthorization(personas.Neil.address, true)
 
-        await aggregator.connect(personas.Neil).startNewRound()
+        await aggregator.connect(personas.Neil).requestRateUpdate()
       })
 
       it('emits a log announcing the update', async () => {
@@ -1820,7 +1820,7 @@ describe('FluxAggregator', () => {
           await aggregator.setAuthorization(personas.Neil.address, false)
 
           await matchers.evmRevert(
-            aggregator.connect(personas.Neil).startNewRound(),
+            aggregator.connect(personas.Neil).requestRateUpdate(),
           )
         })
 
@@ -1861,7 +1861,7 @@ describe('FluxAggregator', () => {
         )
 
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).startNewRound(),
+          aggregator.connect(personas.Neil).requestRateUpdate(),
         )
       })
     })

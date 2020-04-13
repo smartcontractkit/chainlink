@@ -501,7 +501,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice allows non-oracles to request a new round
    */
-  function startNewRound()
+  function requestRateUpdate()
     external
   {
     require(authorizedRequesters[msg.sender]);
