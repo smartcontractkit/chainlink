@@ -213,7 +213,10 @@ func (c *SimulatedBackendClient) SendRawTx(hex string) (txHash common.Hash, err 
 	if err != nil {
 		return common.Hash{}, errors.Wrapf(err, "while sending tx %s", hex)
 	}
-	return tx.Hash(), c.b.SendTransaction(context.Background(), &tx)
+	if err = c.b.SendTransaction(context.Background(), &tx); err == nil {
+		c.b.Commit()
+	}
+	return tx.Hash(), err
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
