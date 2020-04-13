@@ -558,8 +558,15 @@ contract FluxAggregator is AggregatorInterface, Owned {
     bool supersedable = supersedable(reportingRoundId);
     _roundId = supersedable ? reportingRoundId.add(1) : reportingRoundId;
 
+
+    if (validateOracleRound(_roundId).length != 0) {
+      _eligibleToSubmit = false;
+    } else {
+      _eligibleToSubmit = supersedable ? delayed(_roundId) : acceptingSubmissions(_roundId);
+    }
+
     return (
-      eligibleToSubmit(_roundId, supersedable),
+      _eligibleToSubmit,
       _roundId,
       oracles[msg.sender].latestAnswer,
       supersedable ? 0 : rounds[_roundId].startedAt + rounds[_roundId].details.timeout,
@@ -619,16 +626,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * Private
    */
-
-  function eligibleToSubmit(uint32 _roundId, bool supersedable)
-    private
-    view
-    returns (bool)
-  {
-    if (validateOracleRound(_roundId).length != 0) return false;
-
-    return supersedable ? delayed(_roundId) : acceptingSubmissions(_roundId);
-  }
 
   function validateOracleRound(uint32 _roundId)
     private
