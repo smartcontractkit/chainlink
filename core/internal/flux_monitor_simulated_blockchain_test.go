@@ -3,10 +3,7 @@ package internal_test
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -193,18 +190,6 @@ func updateAnswer(t *testing.T, fa *fluxAggregator, roundId, answer *big.Int,
 		completesAnswer, 0)
 }
 
-var currentPrice int
-
-var mockServer *httptest.Server
-
-func init() {
-	mockServer = httptest.NewServer(http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			io.WriteString(w, fmt.Sprintf("%d", currentPrice))
-		}))
-}
-
 //- successfully close the round through the submissions of the other nodes
 //- have the malicious node try to start another round repeatedly until the roundDelay is reached, making sure that it isn't successful
 //- finally, ensure it can start a legitimate round after roundDelay is reached
@@ -239,10 +224,11 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Response by malicious chainlink node, nallory
 	initialBalance := currentBalance(t, &fa)
 	reportPrice := answer
-	priceResponse := fmt.Sprintf(`{"data":{"result": %d}}`, reportPrice)
-	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST",
-		priceResponse)
-	defer assertCalled()
+	priceResponse := func() string {
+		return fmt.Sprintf(`{"data":{"result": %d}}`, reportPrice)
+	}
+	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
+	defer mockServer.Close()
 
 	// When event appears on submissionReceived, flux monitor job run is complete
 	submissionReceived := make(chan *faw.FluxAggregatorSubmissionReceived)
@@ -280,11 +266,6 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	//- have the malicious node start the next round.
 	initialBalance = initialBalance.Sub(initialBalance, fee)
 	reportPrice = answer + 1
-	priceResponse = fmt.Sprintf(`{"data":{"result": %d}}`, reportPrice)
-	mockServer, assertCalled2 := cltest.NewHTTPMockServer(t, http.StatusOK, "POST",
-		priceResponse)
-	defer assertCalled2()
-
 }
 
 // XAU/XAG happened partly because you can update the entire state all at once.
