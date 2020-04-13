@@ -1888,7 +1888,7 @@ describe('FluxAggregator', () => {
 
     it('returns all of the important round information', async () => {
       const state = await aggregator.connect(personas.Nelly).oracleRoundState()
-      matchers.bigNum(1, state._reportableRoundId)
+      matchers.bigNum(1, state._roundId)
       assert.equal(true, state._eligibleToSubmit)
       matchers.bigNum(0, state._latestRoundAnswer)
       matchers.bigNum(0, state._timesOutAt)
@@ -1905,7 +1905,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator
           .connect(personas.Nelly)
           .oracleRoundState()
-        matchers.bigNum(1, state._reportableRoundId)
+        matchers.bigNum(1, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
         matchers.bigNum(0, state._latestRoundAnswer)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
@@ -1922,7 +1922,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator
           .connect(personas.Nelly)
           .oracleRoundState()
-        matchers.bigNum(1, state._reportableRoundId)
+        matchers.bigNum(1, state._roundId)
         assert.equal(false, state._eligibleToSubmit)
         matchers.bigNum(answer, state._latestRoundAnswer)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
@@ -1939,7 +1939,7 @@ describe('FluxAggregator', () => {
             .connect(personas.Nelly)
             .oracleRoundState()
 
-          matchers.bigNum(2, state._reportableRoundId)
+          matchers.bigNum(2, state._roundId)
           assert.equal(true, state._eligibleToSubmit)
           matchers.bigNum(answer, state._latestRoundAnswer)
           matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
@@ -1959,7 +1959,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator
           .connect(personas.Nelly)
           .oracleRoundState()
-        matchers.bigNum(2, state._reportableRoundId)
+        matchers.bigNum(2, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
         matchers.bigNum(answer, state._latestRoundAnswer)
         const expected = deposit.sub(paymentAmount).sub(paymentAmount)
