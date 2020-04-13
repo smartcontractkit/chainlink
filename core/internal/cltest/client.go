@@ -25,8 +25,9 @@ import (
 // a simulated blockchain backend. Note that not all RPC methods are implemented
 // here.
 type SimulatedBackendClient struct {
-	b *backends.SimulatedBackend
-	t testing.TB
+	b       *backends.SimulatedBackend
+	t       testing.TB
+	chainId int
 }
 
 // Close terminates the underlying blockchain's update loop.
@@ -289,7 +290,7 @@ func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block,
 func (c *SimulatedBackendClient) GetChainID() (*big.Int, error) {
 	// The actual chain ID is c.b.Blockchain().Config().ChainID, but here we need
 	// to match the chain ID used by the testing harness.
-	return big.NewInt(int64(testConfigConstants["ETH_CHAIN_ID"].(int))), nil
+	return big.NewInt(int64(c.chainId)), nil
 }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new

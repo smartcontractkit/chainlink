@@ -259,10 +259,12 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB, tc *TestConfig, backend *backends.SimulatedBackend,
 	flags ...string) (app *TestApplication, cleanup func()) {
+	chainId := int(backend.Blockchain().Config().ChainID.Int64())
+	tc.Config.Set("ETH_CHAIN_ID", chainId)
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
 	var client SimulatedBackendClient
 	if txm, ok := app.Store.TxManager.(*store.EthTxManager); ok {
-		client = SimulatedBackendClient{b: backend, t: t}
+		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 		txm.Client = &client
 	} else {
 		log.Panic("SimulatedBackend only works on EthTxManager")
