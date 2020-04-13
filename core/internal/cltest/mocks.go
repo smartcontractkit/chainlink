@@ -594,6 +594,16 @@ func NewHTTPMockServer(
 	}
 }
 
+func NewHTTPMockServerWithAlterableResponse(
+	t *testing.T, response func() string) (server *httptest.Server) {
+	server = httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, response())
+		}))
+	return server
+}
+
 // MockCron represents a mock cron
 type MockCron struct {
 	Entries []MockCronEntry
