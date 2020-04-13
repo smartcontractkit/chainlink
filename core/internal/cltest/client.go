@@ -217,10 +217,15 @@ func (c *SimulatedBackendClient) SendRawTx(hex string) (txHash common.Hash, err 
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (c *SimulatedBackendClient) GetTxReceipt(receipt common.Hash) (*eth.TxReceipt, error) {
+func (c *SimulatedBackendClient) GetTxReceipt(
+	receipt common.Hash) (*eth.TxReceipt, error) {
 	rawReceipt, err := c.b.TransactionReceipt(context.Background(), receipt)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while retrieving tx receipt for %s", receipt)
+	}
+	if rawReceipt == nil {
+		// Calling code depends on getting empty TxReceipt, rather than nil
+		return &eth.TxReceipt{}, nil
 	}
 	logs := []eth.Log{}
 	for _, log := range rawReceipt.Logs {
