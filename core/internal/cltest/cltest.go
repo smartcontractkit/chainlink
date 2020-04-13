@@ -270,6 +270,9 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	} else {
 		log.Panic("SimulatedBackend only works on EthTxManager")
 	}
+	// Clean out the mock registrations, since we don't need those...
+	app.EthMock.Responses = app.EthMock.Responses[:0]
+	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
 	return app, func() { appCleanup(); client.Close() }
 }
 
