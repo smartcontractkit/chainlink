@@ -1,3 +1,15 @@
+./**
+!evm-contracts/**
+!belt/**
+!core/**
+!tools/**
+!packr/**
+!go.mod
+!go.sum
+!GNUmakefile
+!package.json
+
+
 .git-together
 .DS_Store
 .envrc
