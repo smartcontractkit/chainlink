@@ -225,9 +225,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
   {
     uint32 oracleNum = oracleCount(); // Save on storage reads
-    require(oracleNum >= _maxAnswers, "Max answers can't exceed oracles");
-    require(_maxAnswers >= _minAnswers, "Min answers can't exceed max");
-    require(oracleNum == 0 || oracleNum > _restartDelay, "Delay must be less than oracles");
+    require(oracleNum >= _maxAnswers && _maxAnswers >= _minAnswers);
+    require(oracleNum == 0 || oracleNum > _restartDelay);
 
     paymentAmount = _newPaymentAmount;
     minAnswerCount = _minAnswers;
@@ -421,11 +420,11 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function withdrawPayment(address _oracle, address _recipient, uint256 _amount)
     external
   {
-    require(oracles[_oracle].admin == msg.sender);
+    require(oracles[_oracle].admin == msg.sender,  "Only admin can withdraw");
 
     uint128 amount = uint128(_amount);
     uint128 available = oracles[_oracle].withdrawable;
-    require(available >= amount);
+    require(available >= amount, "Insufficient funds");
 
     oracles[_oracle].withdrawable = available.sub(amount);
     allocatedFunds = allocatedFunds.sub(amount);
@@ -479,7 +478,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function transferAdmin(address _oracle, address _newAdmin)
     external
   {
-    require(oracles[_oracle].admin == msg.sender);
+    require(oracles[_oracle].admin == msg.sender, "Only admin can transfer");
     oracles[_oracle].pendingAdmin = _newAdmin;
 
     emit OracleAdminUpdateRequested(_oracle, msg.sender, _newAdmin);
