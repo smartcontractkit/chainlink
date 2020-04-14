@@ -463,7 +463,7 @@ type ServiceAgreementPresentation struct {
 	ID            string             `json:"id"`
 	CreatedAt     string             `json:"createdAt"`
 	Encumbrance   models.Encumbrance `json:"encumbrance"`
-	EncumbranceID uint               `json:"encumbranceID"`
+	EncumbranceID int64              `json:"encumbranceID"`
 	RequestBody   string             `json:"requestBody"`
 	Signature     string             `json:"signature"`
 	JobSpec       models.JobSpec     `json:"jobSpec"`
