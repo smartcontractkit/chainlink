@@ -1,5 +1,6 @@
 import { getConfig } from './config'
-import { getDb } from './database'
+import { openDbConnection } from './database'
+import { Connection } from 'typeorm'
 import { retireSessions } from './entity/Session'
 import { logger } from './logging'
 import server from './server'
@@ -11,12 +12,18 @@ async function main() {
   logger.info(version)
 
   try {
-    const db = await getDb()
-    logger.info('Cleaning up sessions...')
-    await retireSessions(db)
+    openDbConnection().then(async (db: Connection) => {
+      logger.info('Cleaning up sessions...')
+      await retireSessions(db)
 
-    logger.info('Starting Explorer Node')
-    await server(conf)
+      logger.info('Starting Explorer Node')
+      await server(conf, db)
+    }).catch(e => {
+      logger.error({
+        msg: `Exception during openDbConnection in startup: ${e.message}`,
+        stack: e.stack,
+      })
+    })
   } catch (e) {
     logger.error({
       msg: `Exception during startup: ${e.message}`,

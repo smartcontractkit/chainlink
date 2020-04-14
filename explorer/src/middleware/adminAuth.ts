@@ -1,7 +1,7 @@
+import { getConnection } from 'typeorm'
 import { Request, Response, NextFunction } from 'express'
 import httpStatus from 'http-status-codes'
 import { find as findAdmin, isValidPassword } from '../entity/Admin'
-import { getDb } from '../database'
 import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
@@ -21,7 +21,7 @@ export default async function(req: Request, res: Response, next: NextFunction) {
       return
     }
 
-    const db = await getDb()
+    const db = getConnection()
     const admin = await findAdmin(db, username)
     const validPassword = await isValidPassword(password, admin)
 

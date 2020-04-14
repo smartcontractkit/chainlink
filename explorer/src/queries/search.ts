@@ -56,20 +56,14 @@ const searchBuilder = (
   return query
 }
 
-export const search = async (
-  db: Connection,
-  params: SearchParams,
-): Promise<JobRun[]> => {
+export const search = async (db: Connection, params: SearchParams): Promise<JobRun[]> => {
   return searchBuilder(db, params)
     .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
     .orderBy('job_run.createdAt', 'DESC')
     .getMany()
 }
 
-export const count = async (
-  db: Connection,
-  params: SearchParams,
-): Promise<number> => {
+export const count = async (db: Connection, params: SearchParams): Promise<number> => {
   const result = await searchBuilder(db, params)
     .select('COUNT(*)', 'count')
     .getRawOne()

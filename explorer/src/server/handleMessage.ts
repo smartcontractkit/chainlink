@@ -1,6 +1,6 @@
+import { Connection } from 'typeorm'
 import rpcServer from './rpcServer'
 import { logger } from '../logging'
-import { getDb } from '../database'
 import { fromString, saveJobRunTree } from '../entity/JobRun'
 import jayson from 'jayson'
 
@@ -9,9 +9,8 @@ export interface ServerContext {
 }
 
 // legacy server response synonymous with upsertJobRun RPC method
-const handleLegacy = async (json: string, context: ServerContext) => {
+const handleLegacy = async (db: Connection, json: string, context: ServerContext) => {
   try {
-    const db = await getDb()
     const jobRun = fromString(json)
     jobRun.chainlinkNodeId = context.chainlinkNodeId
     await saveJobRunTree(db, jobRun)
@@ -41,12 +40,13 @@ const handleJSONRCP = (request: string, context: ServerContext) => {
 }
 
 export const handleMessage = async (
+  db: Connection,
   message: string,
   context: ServerContext,
 ) => {
   if (message.includes('jsonrpc')) {
     return await handleJSONRCP(message, context)
   } else {
-    return await handleLegacy(message, context)
+    return await handleLegacy(db, message, context)
   }
 }

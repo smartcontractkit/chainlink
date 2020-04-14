@@ -3,6 +3,7 @@ import express from 'express'
 import helmet from 'helmet'
 import http from 'http'
 import mime from 'mime-types'
+import { Connection } from 'typeorm'
 import { Environment, ExplorerConfig } from './config'
 import * as controllers from './controllers'
 import { addRequestLogging, logger } from './logging'
@@ -10,9 +11,9 @@ import adminAuth from './middleware/adminAuth'
 import seed from './seed'
 import { bootstrapRealtime } from './server/realtime'
 
-export default function server(conf: ExplorerConfig): Promise<http.Server> {
+export default function server(conf: ExplorerConfig, db: Connection): Promise<http.Server> {
   if (conf.env === Environment.DEV) {
-    seed()
+    seed(db)
   }
 
   const app = express()
