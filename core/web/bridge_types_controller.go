@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services"
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"

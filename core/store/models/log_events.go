@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	"chainlink/core/services/vrf"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"

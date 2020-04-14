@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"sync"
 
-	"chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/fatih/color"
 	"go.uber.org/zap"

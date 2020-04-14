@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gorilla/websocket"
 )

@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"strings"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 )

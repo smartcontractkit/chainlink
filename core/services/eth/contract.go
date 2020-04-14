@@ -1,7 +1,7 @@
 package eth
 
 import (
-	"chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/eth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

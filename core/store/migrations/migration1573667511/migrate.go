@@ -1,8 +1,8 @@
 package migration1573667511
 
 import (
-	"chainlink/core/store/migrations/migration1568280052"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1568280052"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
