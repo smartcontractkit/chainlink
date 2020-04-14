@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -11,8 +12,10 @@ import (
 	"chainlink/core/internal/cltest"
 	faw "chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"chainlink/core/services/fluxmonitor"
 	"chainlink/core/store/models"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -20,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	goEthereumEth "github.com/ethereum/go-ethereum/eth"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -140,37 +144,62 @@ func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
 		receiptBlock = fa.backend.Blockchain().CurrentBlock().Number().Uint64()
 	}
 	fromBlock := &bind.FilterOpts{Start: receiptBlock, End: &receiptBlock}
+	// Could filter for the known values here, but while that would be more
+	// succinct it leads to less informative error messages... Did the log not
+	// appear at all, or did it just have a wrong value?
 	ilogs, err := fa.aggregatorContract.FilterSubmissionReceived(fromBlock,
-		[]*big.Int{answer}, []uint32{uint32(roundId.Uint64())},
-		[]common.Address{from.From})
+		[]*big.Int{}, []uint32{}, []common.Address{})
 	require.NoError(t, err, "failed to get SubmissionReceived logs")
-	assert.Len(t, cltest.GetLogs(ilogs), 1,
-		"FluxAggregator did not emit correct SubmissionReceived log")
-	inrlogs, err := fa.aggregatorContract.FilterNewRound(fromBlock,
-		[]*big.Int{roundId}, []common.Address{from.From})
+	srlogs := cltest.GetLogs(ilogs)
+	assert.Len(t, srlogs, 1,
+		"FluxAggregator did not correct SubmissionReceived log")
+	srlog := srlogs[0].(*faw.FluxAggregatorSubmissionReceived)
+	assert.True(t, srlog.Answer.Cmp(answer) == 0,
+		"SubmissionReceived log has wrong answer")
+	assert.Equal(t, uint32(roundId.Int64()), srlog.Round,
+		"SubmissionReceived log has wrong round")
+	assert.Equal(t, from.From, srlog.Oracle,
+		"SubmissionReceived log has wrong oracle")
+	inrlogs, err := fa.aggregatorContract.FilterNewRound(fromBlock, []*big.Int{},
+		[]common.Address{})
 	require.NoError(t, err, "failed to get NewRound logs")
 	if isNewRound {
-		assert.Len(t, cltest.GetLogs(inrlogs), 1,
+		nrlogs := cltest.GetLogs(inrlogs)
+		require.Len(t, nrlogs, 1,
 			"FluxAggregator did not emit correct NewRound log")
+		nrlog := nrlogs[0].(*faw.FluxAggregatorNewRound)
+		assert.Equal(t, roundId, nrlog.RoundId, "NewRound log has wrong roundId")
+		assert.Equal(t, from.From, nrlog.StartedBy,
+			"NewRound log started by wrong oracle")
 	} else {
 		assert.Len(t, cltest.GetLogs(inrlogs), 0,
 			"FluxAggregator emitted unexpected NewRound log")
 	}
 	iaflogs, err := fa.aggregatorContract.FilterAvailableFundsUpdated(fromBlock,
-		[]*big.Int{big.NewInt(0).Sub(currentBalance, fee)})
+		[]*big.Int{})
 	require.NoError(t, err, "failed to get AvailableFundsUpdated logs")
-	assert.Len(t, cltest.GetLogs(iaflogs), 1,
+	aflogs := cltest.GetLogs(iaflogs)
+	assert.Len(t, aflogs, 1,
 		"FluxAggregator did not emit correct AvailableFundsUpdated log")
+	aflog := aflogs[0].(*faw.FluxAggregatorAvailableFundsUpdated)
+	assert.True(t, big.NewInt(0).Sub(currentBalance, fee).Cmp(aflog.Amount) == 0,
+		"AvailableFundsUpdated log has wrong amount")
 	iaulogs, err := fa.aggregatorContract.FilterAnswerUpdated(fromBlock,
 		[]*big.Int{answer}, []*big.Int{roundId})
 	require.NoError(t, err, "failed to get AnswerUpdated logs")
 	if completesAnswer {
-		assert.Len(t, cltest.GetLogs(iaulogs), 1,
+		aulogs := cltest.GetLogs(iaulogs)
+		assert.Len(t, aulogs, 1,
 			"FluxAggregator did not emit correct AnswerUpdated log")
+		aulog := aulogs[0].(*faw.FluxAggregatorAnswerUpdated)
+		assert.Equal(t, roundId, aulog.RoundId,
+			"AnswerUpdated log has wrong roundId")
+		assert.True(t, answer.Cmp(aulog.Current) == 0,
+			"AnswerUpdated log has wrong current value")
 	}
 }
 
-// currentBalance returns the current balance of fa's FluxAggregator
+// currentbalance returns the current balance of fa's FluxAggregator
 func currentBalance(t *testing.T, fa *fluxAggregator) *big.Int {
 	currentBalance, err := fa.aggregatorContract.AvailableFunds(nil)
 	require.NoError(t, err, "failed to get current FA balance")
@@ -183,16 +212,15 @@ func currentBalance(t *testing.T, fa *fluxAggregator) *big.Int {
 func updateAnswer(t *testing.T, fa *fluxAggregator, roundId, answer *big.Int,
 	from *bind.TransactOpts, isNewRound, completesAnswer bool) {
 	cb := currentBalance(t, fa)
-	_, err := fa.aggregatorContract.UpdateAnswer(from, roundId, answer)
+	tx, err := fa.aggregatorContract.UpdateAnswer(from, roundId, answer)
 	require.NoError(t, err, "failed to initialize first flux aggregation round:")
 	fa.backend.Commit()
+	receipt, err := fa.backend.TransactionReceipt(context.TODO(), tx.Hash())
+	spew.Dump(receipt)
 	checkUpdateAnswer(t, fa, roundId, answer, cb, from, isNewRound,
 		completesAnswer, 0)
 }
 
-//- successfully close the round through the submissions of the other nodes
-//- have the malicious node try to start another round repeatedly until the roundDelay is reached, making sure that it isn't successful
-//- finally, ensure it can start a legitimate round after roundDelay is reached
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
 
@@ -203,6 +231,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
+	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t,
 		config, fa.backend)
@@ -232,9 +261,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// When event appears on submissionReceived, flux monitor job run is complete
 	submissionReceived := make(chan *faw.FluxAggregatorSubmissionReceived)
-	subscription, err := fa.aggregatorContract.WatchSubmissionReceived(nil,
-		submissionReceived, []*big.Int{ /* big.NewInt(int64(reportPrice)) */ }, // XXX: I would expect the reportPrice, here
-		[]uint32{uint32(roundId.Uint64())}, []common.Address{fa.nallory.From})
+	_, err := fa.aggregatorContract.WatchSubmissionReceived(nil,
+		submissionReceived, []*big.Int{}, []uint32{},
+		[]common.Address{fa.nallory.From})
 	require.NoError(t, err, "failed to subscribe to SubmissionReceived events")
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer calls
@@ -244,9 +273,12 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
-	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
-	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
-	job.Initiators[0].InitiatorParams.Address = fa.aggregatorContractAddress
+	initr := &job.Initiators[0]
+	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`,
+		mockServer.URL))
+	initr.InitiatorParams.PollingInterval =
+		models.Duration(100 * time.Millisecond)
+	initr.InitiatorParams.Address = fa.aggregatorContractAddress
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1) // Submit answer from
 	reportedPrice := jrs[0].RunRequest.RequestParams.Get("result").String()
@@ -256,16 +288,66 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		receiptBlock = log.Raw.BlockNumber
-	case <-time.After(2 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
-	subscription.Unsubscribe()
 	checkUpdateAnswer(t, &fa, roundId, processedAnswer, initialBalance,
 		fa.nallory, false, true, receiptBlock)
 
 	//- have the malicious node start the next round.
 	initialBalance = initialBalance.Sub(initialBalance, fee)
+	// Triggers a new round, since price deviation exceeds threshold
 	reportPrice = answer + 1
+	select {
+	case log := <-submissionReceived:
+		receiptBlock = log.Raw.BlockNumber
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
+	}
+	newRound := big.NewInt(0).Add(roundId, big.NewInt(1))
+	processedAnswer = big.NewInt(int64(100 * reportPrice))
+	checkUpdateAnswer(t, &fa, newRound, processedAnswer, initialBalance,
+		fa.nallory, true, false,
+		receiptBlock)
+	//- successfully close the round through the submissions of the other nodes
+	updateAnswer(t, &fa, newRound, processedAnswer, fa.neil, false, true)
+
+	//- have the malicious node try to start another round repeatedly until the
+	//roundDelay is reached, making sure that it isn't successful
+	// Triggers a new round, since price deviation exceeds threshold
+	reportPrice = answer + 1
+	select {
+	case <-submissionReceived:
+		t.Fatalf("chainlink node updated FA, even though it's not allowed to")
+	case <-time.After(500 * time.Millisecond):
+	}
+	// Could add a check for "not eligible to submit here", using the memory log
+	newRound = big.NewInt(0).Add(newRound, big.NewInt(1))
+	processedAnswer = big.NewInt(int64(100 * reportPrice))
+	precision := job.Initiators[0].InitiatorParams.Precision
+	// FORCE node to try to start a new round
+	err = app.FluxMonitor.(*fluxmonitor.ConcreteFluxMonitor).
+		XXXTestingOnlyCreateJob(t, j.ID,
+			decimal.New(processedAnswer.Int64(), precision), newRound)
+	require.NoError(t, err)
+	select {
+	case <-submissionReceived:
+		t.Fatalf("FA allowed chainlink node to start a new round early")
+	case <-time.After(500 * time.Millisecond):
+	}
+	// Try to start a new round directly, should fail
+	_, err = fa.aggregatorContract.StartNewRound(fa.nallory)
+	assert.Error(t, err, "FA allowed chainlink node to start a new round early")
+
+	//- finally, ensure it can start a legitimate round after roundDelay is reached
+	updateAnswer(t, &fa, newRound, processedAnswer, fa.ned, true, false)
+	// Triggers a new round, since price deviation exceeds threshold
+	reportPrice = answer + 1
+	select {
+	case <-submissionReceived:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatalf("could not start a new round, even though delay has passed")
+	}
 }
 
 // XAU/XAG happened partly because you can update the entire state all at once.
