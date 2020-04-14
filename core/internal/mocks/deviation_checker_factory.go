@@ -3,10 +3,8 @@
 package mocks
 
 import (
-	fluxmonitor "github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
-
 	common "github.com/ethereum/go-ethereum/common"
-
+	fluxmonitor "github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"

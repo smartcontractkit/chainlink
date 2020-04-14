@@ -3,10 +3,8 @@
 package mocks
 
 import (
-	eth "github.com/smartcontractkit/chainlink/core/services/eth"
-
 	common "github.com/ethereum/go-ethereum/common"
-
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 	mock "github.com/stretchr/testify/mock"
 )
 

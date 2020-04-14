@@ -4,10 +4,8 @@ package mocks
 
 import (
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
-
-	contracts "github.com/smartcontractkit/chainlink/core/services/eth/contracts"
-
 	coreeth "github.com/smartcontractkit/chainlink/core/eth"
+	contracts "github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 
 	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 

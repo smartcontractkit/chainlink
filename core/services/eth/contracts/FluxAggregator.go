@@ -79,7 +79,7 @@ func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connecte
 
 type FluxAggregatorRoundState struct {
 	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
-	ReportableRoundID uint32   `abi:"_reportableRoundId"`
+	ReportableRoundID uint32   `abi:"_roundId"`
 	LatestAnswer      *big.Int `abi:"_latestRoundAnswer"`
 	TimesOutAt        uint64   `abi:"_timesOutAt"`
 	AvailableFunds    *big.Int `abi:"_availableFunds"`
