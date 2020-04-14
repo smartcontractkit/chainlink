@@ -1,9 +1,10 @@
 import { createSelector } from 'reselect'
+import { AppState } from 'state'
 import nodes from '../../../nodes.json'
 
-const oracleList = (state: any) => state.aggregator.oracleList
-const oracleAnswers = (state: any) => state.aggregator.oracleAnswers
-const pendingAnswerId = (state: any) => state.aggregator.pendingAnswerId
+const oracleList = (state: AppState) => state.aggregator.oracleList
+const oracleAnswers = (state: AppState) => state.aggregator.oracleAnswers
+const pendingAnswerId = (state: AppState) => state.aggregator.pendingAnswerId
 
 const oracles = createSelector([oracleList], list => {
   if (!list) return []

@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import { Row } from 'antd'
+import { FeedConfig } from 'config'
+import GridItem from './GridItem'
 import { AppState } from 'state'
 import { listingOperations, listingSelectors } from '../../state/ducks/listing'
-import GridItem from './GridItem'
-import { ListingGroup } from 'state/ducks/listing/selectors'
 
 interface Props {
-  groups: ListingGroup[]
+  groups: listingSelectors.ListingGroup[]
+  feeds: FeedConfig[]
   fetchAnswers: any
   fetchHealthStatus: any
   enableHealth: boolean
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export const Listing: React.FC<Props> = ({
+  feeds,
   fetchAnswers,
   fetchHealthStatus,
   groups,
@@ -22,8 +24,8 @@ export const Listing: React.FC<Props> = ({
   enableHealth,
 }) => {
   useEffect(() => {
-    fetchAnswers()
-  }, [fetchAnswers])
+    fetchAnswers(feeds)
+  }, [fetchAnswers, feeds])
   useEffect(() => {
     if (enableHealth) {
       fetchHealthStatus(groups)
@@ -54,9 +56,12 @@ export const Listing: React.FC<Props> = ({
   )
 }
 
-const mapStateToProps = (state: AppState) => ({
-  groups: listingSelectors.groups(state),
-})
+const mapStateToProps = (state: AppState) => {
+  const groups = listingSelectors.groups(state)
+  const feeds = groups.flatMap(g => g.feeds)
+
+  return { feeds, groups }
+}
 
 const mapDispatchToProps = {
   fetchAnswers: listingOperations.fetchAnswers,

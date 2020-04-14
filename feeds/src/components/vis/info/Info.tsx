@@ -5,7 +5,7 @@ import Percent from './Percent'
 import Legend from './Legend'
 import TooltipQuestion from '../../shared/TooltipQuestion'
 import { humanizeUnixTimestamp, networkName, Networks } from 'utils'
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
 
 interface OwnProps {
   config: FeedConfig

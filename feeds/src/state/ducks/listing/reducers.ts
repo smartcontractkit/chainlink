@@ -1,4 +1,4 @@
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
 import { Actions } from 'state/actions'
 import { ListingAnswer } from './operations'
 

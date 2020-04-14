@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { AppState } from 'state'
 import { Vis } from '../vis'
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
 import {
   aggregatorSelectors,
   aggregatorOperations,

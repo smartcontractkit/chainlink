@@ -1,6 +1,6 @@
 import { groups, answer } from './selectors'
 import { partialAsFull } from '@chainlink/ts-helpers/src'
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
 import { AppState } from 'state/reducers'
 import { ListingAnswer } from 'state/ducks/listing/operations'
 import { HealthCheck } from 'state/ducks/listing/reducers'
