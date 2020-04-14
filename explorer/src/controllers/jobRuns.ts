@@ -1,9 +1,8 @@
-import { getDb } from '../database'
+import { getConnection } from 'typeorm'
 import { Router, Request, Response } from 'express'
 import { search, count, SearchParams } from '../queries/search'
 import jobRunsSerializer from '../serializers/jobRunsSerializer'
 import jobRunSerializer from '../serializers/jobRunSerializer'
-import { getCustomRepository } from 'typeorm'
 import { JobRunRepository } from '../repositories/JobRunRepository'
 import * as pagination from '../utils/pagination'
 
@@ -20,7 +19,7 @@ const searchParams = (req: Request): SearchParams => {
 
 router.get('/job_runs', async (req: Request, res: Response) => {
   const params = searchParams(req)
-  const db = await getDb()
+  const db = getConnection()
   const runs = await search(db, params)
   const runCount = await count(db, params)
   const json = jobRunsSerializer(runs, runCount)
@@ -29,8 +28,7 @@ router.get('/job_runs', async (req: Request, res: Response) => {
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
   const id = req.params.id
-  const db = await getDb()
-  const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+  const jobRunRepository = getConnection().getCustomRepository(JobRunRepository)
   const jobRun = await jobRunRepository.findById(id)
 
   if (jobRun) {

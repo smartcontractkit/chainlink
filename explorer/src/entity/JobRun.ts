@@ -111,7 +111,7 @@ export const fromString = (str: string): JobRun => {
 }
 
 export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
-  await db.manager.transaction(async manager => {
+  await db.transaction(async manager => {
     let builder = manager.createQueryBuilder()
 
     await builder

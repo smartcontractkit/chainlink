@@ -1,6 +1,6 @@
+import { Connection } from 'typeorm'
 import { ChainlinkNode } from './entity/ChainlinkNode'
 import { createJobRun } from './factories'
-import { getDb } from './database'
 
 // NOT FOR PRODUCTION USE
 // THE VALUES IN THIS FILE ARE ONLY USED FOR A LOCAL DEVELOPMENT ENVIRONMENT
@@ -12,8 +12,7 @@ const CORE_NODE_HASHED_SECRET =
 const CORE_NODE_SALT = '5dhpzBypVnddiYNRRz0eIO9Y6ZBqqv8D'
 const CORE_NODE_ACCESS_KEY = 'bL1wMDLp4GVJ5p5n'
 
-export default async () => {
-  const db = await getDb()
+export default async (db: Connection) => {
   const count = await db.manager.count(ChainlinkNode)
 
   if (count === 0) {

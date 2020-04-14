@@ -1,7 +1,7 @@
 import http from 'http'
+import { getConnection } from 'typeorm'
 import { logger } from '../logging'
 import WebSocket from 'ws'
-import { getDb } from '../database'
 import { authenticate } from '../sessions'
 import { closeSession, Session } from '../entity/Session'
 import { handleMessage } from './handleMessage'
@@ -12,7 +12,6 @@ import {
 } from '../utils/constants'
 
 export const bootstrapRealtime = async (server: http.Server) => {
-  const db = await getDb()
   let clnodeCount = 0
   const sessions = new Map<string, Session>()
   const connections = new Map<string, WebSocket>()
@@ -46,6 +45,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
+      const db = getConnection()
       authenticate(db, accessKey, secret).then((session: Session | null) => {
         if (session === null) {
           logger.info({
@@ -95,7 +95,8 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
-      const result = await handleMessage(message as string, {
+      const db = getConnection()
+      const result = await handleMessage(db, message as string, {
         chainlinkNodeId: session.chainlinkNodeId,
       })
 
@@ -107,6 +108,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
       const existingConnection = connections.get(accessKey)
 
       if (session != null) {
+        const db = getConnection()
         closeSession(db, session)
         sessions.delete(accessKey)
       }
