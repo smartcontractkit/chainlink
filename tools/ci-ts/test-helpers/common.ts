@@ -217,6 +217,15 @@ export async function txWait(
   return await tx.wait()
 }
 
+export function setRecurringTx(wallet: ethers.Wallet, interval = 2000): number {
+  return (setInterval(() => {
+    wallet.sendTransaction({
+      to: ethers.constants.AddressZero,
+      value: 0,
+    })
+  }, interval) as unknown) as number
+}
+
 /**
  * adds a listener to the provided contract to watch for the provided
  * events; automatically parses the log data, logs the event emissions,

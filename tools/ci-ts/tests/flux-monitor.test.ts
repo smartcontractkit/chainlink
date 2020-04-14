@@ -56,7 +56,8 @@ const clClient2 = new ChainlinkClient(
   NODE_2_CONTAINER,
 )
 
-// TODO how to import JobSpecRequest from operator_ui/@types/core/store/models.d.ts
+// TODO import JobSpecRequest from operator_ui/@types/core/store/models.d.ts
+// https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
 let linkToken: contract.Instance<contract.LinkTokenFactory>
 let fluxAggregator: contract.Instance<FluxAggregatorFactory>
@@ -234,19 +235,40 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
 
     // reduce minAnswers to 1
     await clClient2.pause()
-    await fluxAggregator.updateFutureRounds(1, 1, 2, 0, 5)
+    await fluxAggregator.updateFutureRounds(
+      MINIMUM_CONTRACT_PAYMENT,
+      1,
+      2,
+      0,
+      5,
+    )
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 130)
     await t.assertJobRun(clClient1, node1InitialRunCount + 3, 'third update')
     await assertAggregatorValues(13000, 3, 3, 3, 2, 'third round')
+
+    // FIXME: force parity to "mine" block every 2 seconds
+    // www.pivotaltracker.com/story/show/172321994
+    let interval: number | undefined
+    if (!process.env.GETH_MODE) {
+      interval = t.setRecurringTx(carol)
+    }
 
     // node should continue to start new rounds alone
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 140)
     await t.assertJobRun(clClient1, node1InitialRunCount + 4, 'fourth update')
     await assertAggregatorValues(14000, 4, 4, 4, 2, 'fourth round')
+
+    clearInterval(interval)
   })
 
   it('respects the idleThreshold', async () => {
-    await fluxAggregator.updateFutureRounds(1, 2, 2, 0, 10)
+    await fluxAggregator.updateFutureRounds(
+      MINIMUM_CONTRACT_PAYMENT,
+      2,
+      2,
+      0,
+      10,
+    )
 
     const node1InitialRunCount = clClient1.getJobRuns().length
     const node2InitialRunCount = clClient2.getJobRuns().length

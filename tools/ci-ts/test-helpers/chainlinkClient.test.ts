@@ -22,8 +22,8 @@ afterEach(() => {
 describe('ChainlinkClient', () => {
   describe('#constructor', () => {
     it('sets the correct properties on the instance', () => {
-      expect(mock.docker.getContainer).toHaveBeenCalledTimes(1)
-      expect(mock.docker.getContainer).toHaveBeenCalledWith(CONTAINER_NAME)
+      expect(mock.getContainer).toHaveBeenCalledTimes(1)
+      expect(mock.getContainer).toHaveBeenCalledWith(CONTAINER_NAME)
       assert.equal(clClient.name, CLIENT_NAME)
       assert.equal(clClient.clientURL, CLIENT_ENDPOINT)
       assert.equal(clClient.clientURL, CLIENT_ENDPOINT)
