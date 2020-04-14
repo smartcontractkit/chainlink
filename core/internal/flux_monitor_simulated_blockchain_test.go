@@ -110,10 +110,14 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 	logs := cltest.GetLogs(ilogs)
 	require.Len(t, logs, 1, "a single AvailableFundsUpdated log should be emitted")
 
+	// Add the participating oracles. Ends up with minAnswers=restartDelay=2,
+	// maxAnswers=3
 	oracleList := []common.Address{f.neil.From, f.ned.From, f.nallory.From}
-	_, err = f.aggregatorContract.AddOracles(
-		f.sergey, oracleList, oracleList, 2, 3, 2)
-	require.NoError(t, err, "failed to update oracles list")
+	for numOracles, o := range oracleList {
+		n := uint32(numOracles)
+		_, err = f.aggregatorContract.AddOracle(f.sergey, o, o, n, n+1, n)
+		require.NoError(t, err, "failed to update oracles list")
+	}
 	f.backend.Commit()
 	iaddedLogs, err := f.aggregatorContract.FilterOracleAdded(nil, oracleList)
 	require.NoError(t, err, "failed to gather OracleAdded logs")
