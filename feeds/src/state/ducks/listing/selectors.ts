@@ -20,8 +20,13 @@ const GROUPS: Record<string, string[]> = {
 }
 const GROUP_ORDER: string[] = [FIAT_GROUP_NAME, ETH_GROUP_NAME]
 
-const orderedFeeds = (state: AppState) =>
-  state.feeds.order.map(f => state.feeds.items[f])
+const feedsItems = (state: AppState) => state.feeds.items
+const feedsOrder = (state: AppState) => state.feeds.order
+
+export const orderedFeeds = createSelector(
+  [feedsItems, feedsOrder],
+  (items, order) => order.map(f => items[f]),
+)
 
 export const groups = createSelector([orderedFeeds], (feeds: FeedConfig[]) => {
   return GROUP_ORDER.map(groupName => {
