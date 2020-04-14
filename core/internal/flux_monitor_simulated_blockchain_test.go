@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/internal/cltest"
-	faw "chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"chainlink/core/services/fluxmonitor"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi"

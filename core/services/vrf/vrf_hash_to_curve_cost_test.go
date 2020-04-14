@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
-	"chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/eth"
 )
 
 // fail unless the struct fields on object match those in fields.
