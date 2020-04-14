@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -192,8 +191,8 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID        uint32 `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID *ID    `json:"jobSpecId"`
+	ID        int64 `json:"id" gorm:"primary_key;auto_increment"`
+	JobSpecID *ID   `json:"jobSpecId"`
 
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
@@ -354,11 +353,14 @@ type Feeds = JSON
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	gorm.Model
+	ID                               int64         `gorm:"primary_key"`
 	JobSpecID                        *ID           `json:"-"`
 	Type                             TaskType      `json:"type" gorm:"index;not null"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	Params                           JSON          `json:"params" gorm:"type:text"`
+	CreatedAt                        time.Time
+	UpdatedAt                        time.Time
+	DeletedAt                        *time.Time
 }
 
 // TaskType defines what Adapter a TaskSpec will use.
