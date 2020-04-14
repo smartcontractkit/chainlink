@@ -1,5 +1,5 @@
 import { createSelector } from 'reselect'
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
 import { AppState } from 'state'
 import { ListingAnswer } from 'state/ducks/listing/operations'
 

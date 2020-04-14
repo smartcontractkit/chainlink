@@ -1,16 +1,14 @@
 import { Dispatch } from 'redux'
 import { FunctionFragment } from 'ethers/utils'
 import { JsonRpcProvider } from 'ethers/providers'
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
 import * as actions from './actions'
+import { ListingGroup } from './selectors'
 import {
   formatAnswer,
   createContract,
   createInfuraProvider,
 } from '../../../contracts/utils'
-import { Networks } from '../../../utils'
-import feeds from '../../../feeds.json'
-import { ListingGroup } from './selectors'
 
 interface HealthPrice {
   config: any
@@ -42,10 +40,10 @@ export interface ListingAnswer {
   config: FeedConfig
 }
 
-export function fetchAnswers() {
+export function fetchAnswers(feeds: FeedConfig[]) {
   return async (dispatch: Dispatch) => {
     const provider = createInfuraProvider()
-    const answerList = await allAnswers(provider)
+    const answerList = await allAnswers(provider, feeds)
     dispatch(actions.setAnswers(answerList))
   }
 }
@@ -87,19 +85,13 @@ async function latestAnswer(
     : await contract.currentAnswer()
 }
 
-async function allAnswers(provider: JsonRpcProvider) {
-  const answers = feeds
-    .filter(config => config.networkId === Networks.MAINNET)
-    .map(async config => {
-      const payload = await latestAnswer(config, provider)
-      const answer = formatAnswer(
-        payload,
-        config.multiply,
-        config.decimalPlaces,
-      )
+async function allAnswers(provider: JsonRpcProvider, feeds: FeedConfig[]) {
+  const answers = feeds.map(async config => {
+    const payload = await latestAnswer(config, provider)
+    const answer = formatAnswer(payload, config.multiply, config.decimalPlaces)
 
-      return { answer, config }
-    })
+    return { answer, config }
+  })
 
   return Promise.all(answers)
 }
