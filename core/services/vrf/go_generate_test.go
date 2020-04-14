@@ -251,7 +251,7 @@ func boxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 		"\n\n"
 }
 
-func ExampleBoxOutput() {
+func Example_boxOutput() {
 	fmt.Println()
 	fmt.Print(boxOutput("%s is %d", "foo", 17))
 	// Output:

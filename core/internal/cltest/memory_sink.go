@@ -48,7 +48,7 @@ var createSinkOnce sync.Once
 func registerMemorySink() {
 	testMemoryLog = &MemorySink{m: sync.Mutex{}, b: bytes.Buffer{}}
 	if err := zap.RegisterSink("memory", func(*url.URL) (zap.Sink, error) {
-		return logger.PrettyConsole{testMemoryLog}, nil
+		return logger.PrettyConsole{Sink: testMemoryLog}, nil
 	}); err != nil {
 		panic(err)
 	}
