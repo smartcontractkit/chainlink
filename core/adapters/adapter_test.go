@@ -4,10 +4,10 @@ import (
 	"reflect"
 	"testing"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 )

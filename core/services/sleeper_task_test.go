@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"

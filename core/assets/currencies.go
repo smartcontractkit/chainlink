@@ -1,7 +1,7 @@
 package assets
 
 import (
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"database/sql/driver"
 	"errors"
 	"fmt"

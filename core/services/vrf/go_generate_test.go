@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"

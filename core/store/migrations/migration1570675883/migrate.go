@@ -1,7 +1,7 @@
 package migration1570675883
 
 import (
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/jinzhu/gorm"
 )
 

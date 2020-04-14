@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"chainlink/core/adapters"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 )
