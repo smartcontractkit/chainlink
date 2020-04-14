@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"reflect"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,6 +22,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
 )
 
@@ -222,6 +224,19 @@ func (fm *ConcreteFluxMonitor) RemoveJob(id *models.ID) {
 		return
 	}
 	fm.chRemove <- *id
+}
+
+// XXXTestingOnlyCreateJob creates a job with a specific answer and round, for
+// testing nodes with malicious behavior
+func (fm *ConcreteFluxMonitor) XXXTestingOnlyCreateJob(t *testing.T,
+	jobSpecId *models.ID, polledAnswer decimal.Decimal,
+	nextRound *big.Int) error {
+	jobSpec, err := fm.store.ORM.FindJob(jobSpecId)
+	require.NoError(t, err, "could not find job spec with that ID")
+	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], fm.runManager,
+		fm.store.ORM, 100*time.Second)
+	require.NoError(t, err, "could not create deviation checker")
+	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, nextRound)
 }
 
 // DeviationCheckerFactory holds the New method needed to create a new instance
