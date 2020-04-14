@@ -568,7 +568,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
       _eligibleToSubmit,
       _roundId,
       oracles[msg.sender].latestAnswer,
-      supersedable ? 0 : rounds[_roundId].startedAt + rounds[_roundId].details.timeout,
+      rounds[_roundId].startedAt + rounds[_roundId].details.timeout,
       availableFunds,
       supersedable ? paymentAmount : rounds[_roundId].details.paymentAmount
     );
