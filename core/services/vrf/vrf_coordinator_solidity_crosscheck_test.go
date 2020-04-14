@@ -20,10 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_request_id"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_vrf_consumer_interface"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
+	"chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"chainlink/core/internal/gethwrappers/generated/solidity_request_id"
+	"chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface"
+	"chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 )
 
 func toCLEthLog(log gethTypes.Log) chainlink_eth.Log {
