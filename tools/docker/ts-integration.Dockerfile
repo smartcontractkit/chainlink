@@ -2,7 +2,6 @@ FROM node:10.16
 
 # Install docker and docker compose
 RUN apt-get update \
-    #
     # Install Docker CE CLI
     && apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common lsb-release \
     && curl -fsSL https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]')/gpg | apt-key add - 2>/dev/null \
@@ -26,6 +25,8 @@ COPY .yarn .yarn
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
 COPY evm-contracts evm-contracts
+# TODO remove @types import
+# https://www.pivotaltracker.com/story/show/171715396
 COPY operator_ui/@types operator_ui/@types/
 COPY tools/ci-ts tools/ci-ts
 
