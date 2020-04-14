@@ -46,7 +46,7 @@ type Service interface {
 	Stop()
 }
 
-type concreteFluxMonitor struct {
+type ConcreteFluxMonitor struct {
 	store          *store.Store
 	runManager     RunManager
 	logBroadcaster eth.LogBroadcaster
@@ -143,7 +143,7 @@ func (fm *concreteFluxMonitor) Stop() {
 // serveInternalRequests handles internal requests for state change via
 // channels.  Inspired by the ideas of Communicating Sequential Processes, or
 // CSP.
-func (fm *concreteFluxMonitor) serveInternalRequests() {
+func (fm *ConcreteFluxMonitor) serveInternalRequests() {
 	defer close(fm.chDone)
 
 	jobMap := map[models.ID][]DeviationChecker{}
@@ -184,7 +184,7 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
-func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
+func (fm *ConcreteFluxMonitor) AddJob(job models.JobSpec) error {
 	if job.ID == nil {
 		err := errors.New("received job with nil ID")
 		logger.Error(err)
@@ -216,7 +216,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
 // to the passed job ID.
-func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
+func (fm *ConcreteFluxMonitor) RemoveJob(id *models.ID) {
 	if id == nil {
 		logger.Warn("nil job ID passed to FluxMonitor#RemoveJob")
 		return
