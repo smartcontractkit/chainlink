@@ -60,6 +60,7 @@ func TestORM_CreateJob(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, j2.Initiators, 1)
 	j1.Initiators[0].CreatedAt = j2.Initiators[0].CreatedAt
+	j1.Initiators[0].UpdatedAt = j2.Initiators[0].UpdatedAt
 	assert.Equal(t, j1.ID, j2.ID)
 	assert.Equal(t, j1.Initiators[0], j2.Initiators[0])
 	assert.Equal(t, j2.ID, j2.Initiators[0].JobSpecID)
@@ -644,6 +645,8 @@ func TestORM_FindBridge(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.description, func(t *testing.T) {
 			tt, err := store.FindBridge(test.name)
+			tt.CreatedAt = test.want.CreatedAt
+			tt.UpdatedAt = test.want.UpdatedAt
 			assert.Equal(t, test.want, tt)
 			assert.Equal(t, test.errored, err != nil)
 		})
@@ -683,7 +686,12 @@ func TestORM_FindBridgesByNames(t *testing.T) {
 			bridges, err := store.FindBridgesByNames(test.arguments)
 			assert.Equal(t, test.errored, err != nil)
 			if test.expectation != nil {
-				assert.Equal(t, bridges, test.expectation)
+				require.Len(t, bridges, len(test.expectation))
+				for i, bridge := range test.expectation {
+					bridges[i].CreatedAt = bridge.CreatedAt
+					bridges[i].UpdatedAt = bridge.UpdatedAt
+					assert.Equal(t, bridge, bridges[i])
+				}
 			}
 		})
 	}
@@ -732,6 +740,8 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	unfinishedRun := cltest.NewJobRun(job)
 	retrievedBt, err := store.PendingBridgeType(unfinishedRun)
 	assert.NoError(t, err)
+	retrievedBt.CreatedAt = bt.CreatedAt
+	retrievedBt.UpdatedAt = bt.UpdatedAt
 	assert.Equal(t, retrievedBt, *bt)
 }
 
@@ -1232,6 +1242,35 @@ func TestORM_DeduceDialect(t *testing.T) {
 			assert.Equal(t, test.wantError, err != nil)
 		})
 	}
+}
+
+func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := store.ORM
+
+	testJSON := cltest.JSONFromString(t, "{}")
+
+	earlierAddress, err := models.NewEIP55Address("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
+	require.NoError(t, err)
+	earlier := models.Key{Address: earlierAddress, JSON: testJSON}
+
+	require.NoError(t, orm.FirstOrCreateKey(&earlier))
+	time.Sleep(10 * time.Millisecond)
+
+	laterAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
+	require.NoError(t, err)
+	later := models.Key{Address: laterAddress, JSON: testJSON}
+
+	require.NoError(t, orm.FirstOrCreateKey(&later))
+
+	keys, err := store.Keys()
+	require.NoError(t, err)
+
+	require.Len(t, keys, 2)
+
+	assert.Equal(t, keys[0].Address, earlierAddress)
+	assert.Equal(t, keys[1].Address, laterAddress)
 }
 
 func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {

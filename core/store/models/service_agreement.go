@@ -35,6 +35,8 @@ type Encumbrance struct {
 	AggInitiateJobSelector eth.FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
 	// selector for fulfillment (oracle reporting) method on aggregator contract
 	AggFulfillSelector eth.FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
+	CreatedAt          time.Time            `json:"-"`
+	UpdatedAt          time.Time            `json:"-"`
 }
 
 // UnsignedServiceAgreement contains the information to sign a service agreement
@@ -55,6 +57,7 @@ type ServiceAgreement struct {
 	Signature     Signature   `json:"signature" gorm:"type:varchar(255)"`
 	JobSpec       JobSpec     `gorm:"foreignkey:JobSpecID"`
 	JobSpecID     *ID         `json:"jobSpecId"`
+	UpdatedAt     time.Time   `json:"-"`
 }
 
 // ServiceAgreementRequest encodes external ServiceAgreement json representation.
