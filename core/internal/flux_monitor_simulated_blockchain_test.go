@@ -1,7 +1,6 @@
 package internal_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -15,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -216,11 +214,9 @@ func currentBalance(t *testing.T, fa *fluxAggregator) *big.Int {
 func updateAnswer(t *testing.T, fa *fluxAggregator, roundId, answer *big.Int,
 	from *bind.TransactOpts, isNewRound, completesAnswer bool) {
 	cb := currentBalance(t, fa)
-	tx, err := fa.aggregatorContract.UpdateAnswer(from, roundId, answer)
+	_, err := fa.aggregatorContract.UpdateAnswer(from, roundId, answer)
 	require.NoError(t, err, "failed to initialize first flux aggregation round:")
 	fa.backend.Commit()
-	receipt, err := fa.backend.TransactionReceipt(context.TODO(), tx.Hash())
-	spew.Dump(receipt)
 	checkUpdateAnswer(t, fa, roundId, answer, cb, from, isNewRound,
 		completesAnswer, 0)
 }
