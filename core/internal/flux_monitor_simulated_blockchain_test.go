@@ -267,10 +267,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	require.NoError(t, err, "failed to subscribe to SubmissionReceived events")
 	defer subscription.Unsubscribe()
 
-	// Create FM Job, and wait for job run to start (the above UpdateAnswer calls
-	// to FluxAggregator contract initiate a run.)
-	//
-	// Emits SubmissionReceived, AnswerUpdated and AvailableFundsUpdated
+	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
+	// to FluxAggregator contract initiates a run.)
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
