@@ -340,8 +340,6 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	//- finally, ensure it can start a legitimate round after roundDelay is reached
 	updateAnswer(t, &fa, newRound, processedAnswer, fa.ned, true, false)
-	// Triggers a new round, since price deviation exceeds threshold
-	reportPrice = answer + 1
 	select {
 	case <-submissionReceived:
 	case <-time.After(500 * time.Millisecond):
