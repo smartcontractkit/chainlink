@@ -244,7 +244,7 @@ type TaskRun struct {
 	ResultID             clnull.Uint32 `json:"-"`
 	Status               RunStatus     `json:"status"`
 	TaskSpec             TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
-	TaskSpecID           clnull.Uint32 `json:"-"`
+	TaskSpecID           uint          `json:"-"`
 	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 	Confirmations        clnull.Uint32 `json:"confirmations"`
 	CreatedAt            time.Time     `json:"-"`

@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/ethereum/go-ethereum/common"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -208,11 +208,14 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 	})
 
 	t.Run("input, should go from pending -> in progress", func(t *testing.T) {
-		run := makeJobRunWithInitiator(t, store, models.NewJob())
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingConnection)
-		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID()}}
+
+		job, err := store.FindJob(run.JobSpecID)
+		require.NoError(t, err)
+		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID}}
 		require.NoError(t, store.CreateJobRun(&run))
-		err := runManager.ResumeAllConnecting()
+		err = runManager.ResumeAllConnecting()
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)

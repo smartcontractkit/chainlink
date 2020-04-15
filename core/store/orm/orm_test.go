@@ -97,7 +97,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 	exi, err := models.NewExternalInitiator(token, &req)
 	require.NoError(t, err)
 	require.NoError(t, store.CreateExternalInitiator(exi))
-	require.Equal(t, store.CreateExternalInitiator(exi), orm.ErrorConflict)
+	require.Equal(t, store.CreateExternalInitiator(exi).Error(), `pq: duplicate key value violates unique constraint "external_initiators_name_key"`)
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {
