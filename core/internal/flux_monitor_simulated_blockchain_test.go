@@ -132,7 +132,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 			"log for wrong oracle emitted")
 		require.Equal(t, oracle,
 			adminLogs[oracleIdx].(*faw.FluxAggregatorOracleAdminUpdated).Oracle,
-			"log for wrong oracle emmitted")
+			"log for wrong oracle emitted")
 	}
 	return f
 }
