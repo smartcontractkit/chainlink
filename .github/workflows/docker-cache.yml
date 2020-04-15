@@ -12,6 +12,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Free disk space
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo apt clean
+          docker rmi $(docker image ls -aq)
+          df -h
+
       # ssh checkout needed for https://github.com/peter-evans/create-pull-request/blob/master/docs/concepts-guidelines.md#push-using-ssh-deploy-keys
       - name: Checkout
         uses: actions/checkout@v2
