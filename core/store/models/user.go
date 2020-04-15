@@ -20,6 +20,7 @@ type User struct {
 	TokenKey          string    `json:"tokenKey"`
 	TokenSalt         string    `json:"-"`
 	TokenHashedSecret string    `json:"-"`
+	UpdatedAt         time.Time `json:"-"`
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/

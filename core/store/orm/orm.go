@@ -1127,7 +1127,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 func (orm *ORM) Keys() ([]*models.Key, error) {
 	orm.MustEnsureAdvisoryLock()
 	var keys []*models.Key
-	return keys, orm.db.Find(&keys).Error
+	return keys, orm.db.Find(&keys).Order("created_at ASC").Error
 }
 
 // FirstOrCreateKey returns the first key found or creates a new one in the orm.
