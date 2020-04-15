@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -43,12 +44,19 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if errors.Cause(err) == orm.ErrorConflict {
-		jsonAPIError(c, http.StatusConflict, fmt.Errorf("Bridge Type %v conflict", bt.Name))
+	switch err.(type) {
+	case *pq.Error:
+		var apiErr error
+		if err.(pq.Error).Constraint == "external_initiators_name_key" {
+			apiErr = fmt.Errorf("Bridge Type %v conflict", bt.Name)
+		} else {
+			apiErr = err
+		}
+		jsonAPIError(c, http.StatusConflict, apiErr)
 		return
+	default:
+		jsonAPIResponse(c, bta, "bridge")
 	}
-
-	jsonAPIResponse(c, bta, "bridge")
 }
 
 // Index lists Bridges, one page at a time.

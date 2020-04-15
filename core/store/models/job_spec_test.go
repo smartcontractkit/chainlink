@@ -125,7 +125,7 @@ func TestInitiatorParams(t *testing.T) {
 	assert.Equal(t, address, saved.InitiatorParams.Address)
 	assert.Equal(t, requesters, saved.InitiatorParams.Requesters)
 	assert.Equal(t, "foo", saved.InitiatorParams.Name)
-	assert.Equal(t, json, *saved.InitiatorParams.Body)
+	assert.JSONEq(t, json.String(), saved.InitiatorParams.Body.String())
 	assert.Equal(t, big, saved.InitiatorParams.FromBlock)
 	assert.Equal(t, big, saved.InitiatorParams.ToBlock)
 	assert.Equal(t, topics, saved.InitiatorParams.Topics)
