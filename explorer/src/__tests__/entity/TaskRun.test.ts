@@ -1,17 +1,14 @@
 import { Connection, getCustomRepository } from 'typeorm'
-import { closeDbConnection, getDb } from '../../database'
+import { getDb } from '../testdatabase'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString, JobRun, saveJobRunTree } from '../../entity/JobRun'
 import fixture from '../fixtures/JobRun.fixture.json'
 import { JobRunRepository } from '../../repositories/JobRunRepository'
 
 let db: Connection
-
-beforeAll(async () => {
-  db = await getDb()
+beforeEach(() => {
+  db = getDb()
 })
-
-afterAll(async () => closeDbConnection())
 
 describe('entity/taskRun', () => {
   it('copies old confirmations to new column on INSERT', async () => {

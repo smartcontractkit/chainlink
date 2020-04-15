@@ -18,6 +18,7 @@ const loadOptions = (env?: string) => {
   env = env || process.env.TYPEORM_NAME || process.env.NODE_ENV || 'default'
   for (const option of options) {
     if (isEnvEqual(option.name, env)) {
+      delete option.name
       return option
     }
   }

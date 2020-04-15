@@ -1,17 +1,14 @@
 import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../../database'
+import { getDb } from '../testdatabase'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString, JobRun, saveJobRunTree } from '../../entity/JobRun'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import fixture from '../fixtures/JobRun.fixture.json'
 
 let db: Connection
-
-beforeAll(async () => {
-  db = await getDb()
+beforeEach(() => {
+  db = getDb()
 })
-
-afterAll(async () => closeDbConnection())
 
 describe('entity/jobRun/fromString', () => {
   it('successfully creates a run and tasks from json', async () => {

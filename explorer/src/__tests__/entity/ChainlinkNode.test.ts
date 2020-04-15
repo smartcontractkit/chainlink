@@ -1,4 +1,5 @@
 import { Connection } from 'typeorm'
+import { getDb } from '../testdatabase'
 import {
   ChainlinkNode,
   createChainlinkNode,
@@ -7,7 +8,6 @@ import {
   uptime,
 } from '../../entity/ChainlinkNode'
 import { createSession, closeSession } from '../../entity/Session'
-import { closeDbConnection, getDb } from '../../database'
 
 async function wait(sec: number) {
   return new Promise(res => {
@@ -18,12 +18,9 @@ async function wait(sec: number) {
 }
 
 let db: Connection
-
-beforeAll(async () => {
-  db = await getDb()
+beforeEach(() => {
+  db = getDb()
 })
-
-afterAll(async () => closeDbConnection())
 
 describe('createChainlinkNode', () => {
   it('returns a valid ChainlinkNode record', async () => {

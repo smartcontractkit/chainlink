@@ -2,7 +2,7 @@ import http from 'http'
 import httpStatus from 'http-status-codes'
 import { Connection } from 'typeorm'
 import { BigNumber } from 'bignumber.js'
-import { getDb } from '../../../database'
+import { getDb } from '../../testdatabase'
 import { clearDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
 import { Head } from '../../../entity/Head'
@@ -18,9 +18,11 @@ let server: http.Server
 let db: Connection
 let rb: RequestBuilder
 
+beforeEach(() => {
+  db = getDb()
+})
 beforeAll(async () => {
-  db = await getDb()
-  server = await start()
+  server = await start(db)
   rb = requestBuilder(server)
 })
 afterAll(done => stop(server, done))

@@ -1,8 +1,7 @@
 import http from 'http'
 import httpStatus from 'http-status-codes'
 import { Connection } from 'typeorm'
-import { getDb } from '../../../database'
-import { clearDb } from '../../testdatabase'
+import { getDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
 import {
   createChainlinkNode,
@@ -20,14 +19,15 @@ let server: http.Server
 let db: Connection
 let rb: RequestBuilder
 
+beforeEach(() => {
+  db = getDb()
+})
 beforeAll(async () => {
-  db = await getDb()
-  server = await start()
+  server = await start(db)
   rb = requestBuilder(server)
 })
 afterAll(done => stop(server, done))
 beforeEach(async () => {
-  await clearDb()
   await createAdmin(db, USERNAME, PASSWORD)
 })
 

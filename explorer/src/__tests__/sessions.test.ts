@@ -1,16 +1,13 @@
 import { authenticate } from '../sessions'
 import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../database'
 import { createChainlinkNode } from '../entity/ChainlinkNode'
 import { Session } from '../entity/Session'
+import { getDb } from './testdatabase'
 
 describe('sessions', () => {
   let db: Connection
-  beforeAll(async () => {
-    db = await getDb()
-  })
-  afterAll(async () => {
-    await closeDbConnection()
+  beforeAll(() => {
+    db = getDb()
   })
 
   describe('authenticate', () => {

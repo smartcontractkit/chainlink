@@ -1,7 +1,7 @@
 import { Server } from 'http'
+import { getDb } from '../testdatabase'
 import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
-import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
@@ -20,9 +20,12 @@ describe('realtime', () => {
   let secret: string
   let ws: WebSocket
 
+  beforeEach(() => {
+    db = getDb()
+  })
+
   beforeAll(async () => {
-    server = await start()
-    db = await getDb()
+    server = await start(db)
   })
 
   beforeEach(async () => {

@@ -1,23 +1,26 @@
 import http from 'http'
 import request from 'supertest'
 import { Connection } from 'typeorm'
-import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
 import { createJobRun } from '../../factories'
 import { start, stop } from '../../support/server'
+import { getDb } from '../testdatabase'
 
 let server: http.Server
-let db: Connection
 
+let db: Connection
+beforeEach(async () => {
+  db = getDb()
+})
 beforeAll(async () => {
-  db = await getDb()
-  server = await start()
+  server = await start(db)
 })
 afterAll(done => stop(server, done))
 
 describe('#index', () => {
+
   describe('with no runs', () => {
     it('returns empty', async () => {
       const response = await request(server).get('/api/v1/job_runs')

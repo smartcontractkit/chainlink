@@ -2,7 +2,6 @@ import { Server } from 'http'
 import jayson from 'jayson'
 import { Connection, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
-import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
@@ -16,7 +15,7 @@ import { start, stop } from '../../support/server'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import createFixture from '../fixtures/JobRun.fixture.json'
 import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
-import { clearDb } from '../testdatabase'
+import { getDb, clearDb } from '../testdatabase'
 
 const { INVALID_PARAMS } = jayson.Server.errors
 
@@ -28,11 +27,12 @@ describe('realtime', () => {
   let ws: WebSocket
 
   beforeAll(async () => {
-    server = await start()
-    db = await getDb()
+    db = getDb()
+    server = await start(db)
   })
 
   beforeEach(async () => {
+    db = getDb()
     clearDb()
     ;[chainlinkNode, secret] = await createChainlinkNode(
       db,
