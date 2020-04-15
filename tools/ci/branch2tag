@@ -8,7 +8,7 @@ set -e
 # branch2tag develop -> develop
 # branch2tag master -> master
 # branch2tag release/explorer -> candidate-explorer
-# branch2tag release/explorer-0.1.0 -> candidate-explorer-0.1.0
+# branch2tag release/explorer-0.1.0 -> candidate-0.1.0
 # branch2tag release/explorer-0.1.0-rc1 -> candidate-0.1.0-rc1
 # branch2tag release/chainlink -> candidate-chainlink
 # branch2tag release/0.42.1 -> candidate-0.42.1
