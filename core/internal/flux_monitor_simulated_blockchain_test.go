@@ -261,10 +261,11 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// When event appears on submissionReceived, flux monitor job run is complete
 	submissionReceived := make(chan *faw.FluxAggregatorSubmissionReceived)
-	_, err := fa.aggregatorContract.WatchSubmissionReceived(nil,
+	subscription, err := fa.aggregatorContract.WatchSubmissionReceived(nil,
 		submissionReceived, []*big.Int{}, []uint32{},
 		[]common.Address{fa.nallory.From})
 	require.NoError(t, err, "failed to subscribe to SubmissionReceived events")
+	defer subscription.Unsubscribe()
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer calls
 	// to FluxAggregator contract initiate a run.)
