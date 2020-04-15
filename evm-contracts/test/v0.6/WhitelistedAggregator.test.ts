@@ -72,6 +72,7 @@ describe('WhitelistedAggregator', () => {
       'latestRound',
       'latestSubmission',
       'latestTimestamp',
+      'linkToken',
       'maxAnswerCount',
       'minAnswerCount',
       'onTokenTransfer',

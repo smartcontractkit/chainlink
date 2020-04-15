@@ -59,7 +59,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
-  LinkTokenInterface private LINK;
+  LinkTokenInterface public linkToken;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
   mapping(address => bool) internal authorizedRequesters;
@@ -101,7 +101,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint8 _decimals,
     bytes32 _description
   ) public {
-    LINK = LinkTokenInterface(_link);
+    linkToken = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
     decimals = _decimals;
@@ -238,7 +238,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     uint128 pastAvailableFunds = availableFunds;
 
-    uint256 available = sub(LINK.balanceOf(address(this)), allocatedFunds);
+    uint256 available = sub(linkToken.balanceOf(address(this)), allocatedFunds);
     availableFunds = uint128(available);
 
     if (pastAvailableFunds != available) {
@@ -416,7 +416,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     oracles[_oracle].withdrawable = uint128(sub(available, amount));
     allocatedFunds = uint128(sub(allocatedFunds, amount));
 
-    assert(LINK.transfer(_recipient, uint256(amount)));
+    assert(linkToken.transfer(_recipient, uint256(amount)));
   }
 
   /**
@@ -429,7 +429,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
   {
     require(availableFunds >= _amount);
-    require(LINK.transfer(_recipient, _amount));
+    require(linkToken.transfer(_recipient, _amount));
     updateAvailableFunds();
   }
 
