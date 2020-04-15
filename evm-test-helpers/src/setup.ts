@@ -43,7 +43,7 @@ export function provider(): ethers.providers.JsonRpcProvider {
     providerEngine.addProvider(revertTraceSubprovider)
   }
 
-  providerEngine.addProvider(new GanacheSubprovider({}))
+  providerEngine.addProvider(new GanacheSubprovider({ gasLimit: 8_000_000 }))
   providerEngine.start()
 
   return new ethers.providers.Web3Provider(providerEngine)

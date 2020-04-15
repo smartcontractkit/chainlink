@@ -20,15 +20,16 @@ describe('Whitelisted', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(new WhitelistedFactory(), [
-      'acceptOwnership',
       'addToWhitelist',
       'disableWhitelist',
       'enableWhitelist',
-      'owner',
       'removeFromWhitelist',
-      'transferOwnership',
       'whitelisted',
       'whitelistEnabled',
+      // Owned
+      'acceptOwnership',
+      'owner',
+      'transferOwnership',
     ])
   })
 
@@ -118,7 +119,7 @@ describe('Whitelisted', () => {
     })
   })
 
-  describe('#whitelistEnabled', async () => {
+  describe('#whitelistEnabled', () => {
     it('defaults to true', async () => {
       assert(await whitelisted.whitelistEnabled())
     })

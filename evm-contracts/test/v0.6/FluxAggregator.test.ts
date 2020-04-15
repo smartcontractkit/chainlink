@@ -101,6 +101,7 @@ describe('FluxAggregator', () => {
       'latestRound',
       'latestSubmission',
       'latestTimestamp',
+      'linkToken',
       'maxAnswerCount',
       'minAnswerCount',
       'onTokenTransfer',
