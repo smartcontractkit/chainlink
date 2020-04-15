@@ -1,4 +1,5 @@
 import feeds from './feeds.json'
+import nodes from './nodes.json'
 
 export interface FeedConfig {
   contractAddress: string
@@ -21,6 +22,16 @@ export interface FeedConfig {
   contractVersion?: 1 | 2 | 3
 }
 
+export interface OracleNode {
+  address: string
+  name: string
+  networkId: number
+}
+
 export function getFeedsConfig(): FeedConfig[] {
   return feeds as FeedConfig[]
+}
+
+export function getOracleNodes(): OracleNode[] {
+  return nodes as OracleNode[]
 }

@@ -1,36 +1,60 @@
+import 'core-js/stable/object/from-entries'
 import { createSelector } from 'reselect'
 import { AppState } from 'state'
-import nodes from '../../../nodes.json'
+import { OracleNode } from '../../../config'
 
+const upcaseOracles = (
+  state: AppState,
+): Record<OracleNode['address'], OracleNode['name']> => {
+  return Object.fromEntries(
+    Object.keys(state.oracleNodes.items).map(k => [
+      k.toUpperCase(),
+      state.oracleNodes.items[k].name,
+    ]),
+  )
+}
 const oracleList = (state: AppState) => state.aggregator.oracleList
 const oracleAnswers = (state: AppState) => state.aggregator.oracleAnswers
 const pendingAnswerId = (state: AppState) => state.aggregator.pendingAnswerId
 
-const oracles = createSelector([oracleList], list => {
-  if (!list) return []
+const oracles = createSelector(
+  [oracleList, upcaseOracles],
+  (
+    list: Array<OracleNode['address']>,
+    upcaseOracles: Record<OracleNode['address'], OracleNode['name']>,
+  ) => {
+    if (!list) return []
 
-  const names: Record<string, string> = {}
+    const result = list
+      .map(a => {
+        return {
+          address: a,
+          name: upcaseOracles[a.toUpperCase()] || 'Unknown',
+          type: 'oracle',
+        }
+      })
+      .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
-  nodes.forEach(n => {
-    names[n.address.toUpperCase()] = n.name
-  })
+    return result
+  },
+)
 
-  const result = list
-    .map((a: any) => {
-      return {
-        address: a,
-        name: names[a.toUpperCase()] || 'Unknown',
-        type: 'oracle',
-      }
-    })
-    .sort((a: any, b: any) => a.name.localeCompare(b.name))
-
-  return result
-})
+interface OracleAnswer {
+  answerFormatted: string
+  answer: number
+  answerId: number
+  sender: string
+  meta: {
+    blockNumer: number
+    transactionHash: string
+    timestamp: number
+    gasPrice: string
+  }
+}
 
 const latestOraclesState = createSelector(
   [oracles, oracleAnswers, pendingAnswerId],
-  (list, answers, pendingAnswerId) => {
+  (list, answers: OracleAnswer[], pendingAnswerId) => {
     if (!list) return []
 
     const data = list.map((o: any, id: any) => {
