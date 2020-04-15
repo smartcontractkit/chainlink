@@ -107,7 +107,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 	ilogs, err := f.aggregatorContract.FilterAvailableFundsUpdated(nil,
 		[]*big.Int{oneEth})
 	require.NoError(t, err, "failed to gather AvailableFundsUpdated logs")
-	logs := cltest.GetLogs(ilogs)
+	logs := cltest.GetLogs(t, nil, ilogs)
 	require.Len(t, logs, 1, "a single AvailableFundsUpdated log should be emitted")
 
 	// Add the participating oracles. Ends up with minAnswers=restartDelay=2,
@@ -121,12 +121,12 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 	f.backend.Commit()
 	iaddedLogs, err := f.aggregatorContract.FilterOracleAdded(nil, oracleList)
 	require.NoError(t, err, "failed to gather OracleAdded logs")
-	addedLogs := cltest.GetLogs(iaddedLogs)
+	addedLogs := cltest.GetLogs(t, nil, iaddedLogs)
 	require.Len(t, addedLogs, len(oracleList), "should have log for each oracle")
 	iadminLogs, err := f.aggregatorContract.FilterOracleAdminUpdated(nil,
 		oracleList, oracleList)
 	require.NoError(t, err, "failed to gather OracleAdminUpdated logs")
-	adminLogs := cltest.GetLogs(iadminLogs)
+	adminLogs := cltest.GetLogs(t, nil, iadminLogs)
 	require.Len(t, adminLogs, len(oracleList), "should have log for each oracle")
 	for oracleIdx, oracle := range oracleList {
 		require.Equal(t, oracle,
@@ -154,51 +154,51 @@ func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
 	ilogs, err := fa.aggregatorContract.FilterSubmissionReceived(fromBlock,
 		[]*big.Int{}, []uint32{}, []common.Address{})
 	require.NoError(t, err, "failed to get SubmissionReceived logs")
-	srlogs := cltest.GetLogs(ilogs)
+	var srlogs []*faw.FluxAggregatorSubmissionReceived
+	_ = cltest.GetLogs(t, &srlogs, ilogs)
 	assert.Len(t, srlogs, 1,
-		"FluxAggregator did not correct SubmissionReceived log")
-	srlog := srlogs[0].(*faw.FluxAggregatorSubmissionReceived)
-	assert.True(t, srlog.Answer.Cmp(answer) == 0,
+		"FluxAggregator did not emit correct SubmissionReceived log")
+	assert.True(t, srlogs[0].Answer.Cmp(answer) == 0,
 		"SubmissionReceived log has wrong answer")
-	assert.Equal(t, uint32(roundId.Int64()), srlog.Round,
+	assert.Equal(t, uint32(roundId.Int64()), srlogs[0].Round,
 		"SubmissionReceived log has wrong round")
-	assert.Equal(t, from.From, srlog.Oracle,
+	assert.Equal(t, from.From, srlogs[0].Oracle,
 		"SubmissionReceived log has wrong oracle")
 	inrlogs, err := fa.aggregatorContract.FilterNewRound(fromBlock, []*big.Int{},
 		[]common.Address{})
 	require.NoError(t, err, "failed to get NewRound logs")
 	if isNewRound {
-		nrlogs := cltest.GetLogs(inrlogs)
+		var nrlogs []*faw.FluxAggregatorNewRound
+		cltest.GetLogs(t, &nrlogs, inrlogs)
 		require.Len(t, nrlogs, 1,
 			"FluxAggregator did not emit correct NewRound log")
-		nrlog := nrlogs[0].(*faw.FluxAggregatorNewRound)
-		assert.Equal(t, roundId, nrlog.RoundId, "NewRound log has wrong roundId")
-		assert.Equal(t, from.From, nrlog.StartedBy,
+		assert.Equal(t, roundId, nrlogs[0].RoundId, "NewRound log has wrong roundId")
+		assert.Equal(t, from.From, nrlogs[0].StartedBy,
 			"NewRound log started by wrong oracle")
 	} else {
-		assert.Len(t, cltest.GetLogs(inrlogs), 0,
+		assert.Len(t, cltest.GetLogs(t, nil, inrlogs), 0,
 			"FluxAggregator emitted unexpected NewRound log")
 	}
 	iaflogs, err := fa.aggregatorContract.FilterAvailableFundsUpdated(fromBlock,
 		[]*big.Int{})
 	require.NoError(t, err, "failed to get AvailableFundsUpdated logs")
-	aflogs := cltest.GetLogs(iaflogs)
+	var aflogs []*faw.FluxAggregatorAvailableFundsUpdated
+	_ = cltest.GetLogs(t, &aflogs, iaflogs)
 	assert.Len(t, aflogs, 1,
 		"FluxAggregator did not emit correct AvailableFundsUpdated log")
-	aflog := aflogs[0].(*faw.FluxAggregatorAvailableFundsUpdated)
-	assert.True(t, big.NewInt(0).Sub(currentBalance, fee).Cmp(aflog.Amount) == 0,
+	assert.True(t, big.NewInt(0).Sub(currentBalance, fee).Cmp(aflogs[0].Amount) == 0,
 		"AvailableFundsUpdated log has wrong amount")
 	iaulogs, err := fa.aggregatorContract.FilterAnswerUpdated(fromBlock,
 		[]*big.Int{answer}, []*big.Int{roundId})
 	require.NoError(t, err, "failed to get AnswerUpdated logs")
 	if completesAnswer {
-		aulogs := cltest.GetLogs(iaulogs)
+		var aulogs []*faw.FluxAggregatorAnswerUpdated
+		_ = cltest.GetLogs(t, &aulogs, iaulogs)
 		assert.Len(t, aulogs, 1,
 			"FluxAggregator did not emit correct AnswerUpdated log")
-		aulog := aulogs[0].(*faw.FluxAggregatorAnswerUpdated)
-		assert.Equal(t, roundId, aulog.RoundId,
+		assert.Equal(t, roundId, aulogs[0].RoundId,
 			"AnswerUpdated log has wrong roundId")
-		assert.True(t, answer.Cmp(aulog.Current) == 0,
+		assert.True(t, answer.Cmp(aulogs[0].Current) == 0,
 			"AnswerUpdated log has wrong current value")
 	}
 }
