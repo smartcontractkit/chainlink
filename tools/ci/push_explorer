@@ -44,7 +44,7 @@ version_tag=`tools/ci/gittag2dockertag ${circle_tag}` # aka GIT_TAG. explorer-v0
 # version tag takes precedence.
 if [ -n "${version_tag}" ]; then
   # Only if we have an explorer tag
-  if [[ "${version_tag}" =~ ^explorer-v([a-zA-Z0-9.]+) ]]; then
+  if [[ "${circle_tag}" =~ ^explorer-v([a-zA-Z0-9.]+) ]]; then
     tag_and_push "$version_tag"
     # if version tag, also push latest.
     # ie: after pushing smartcontract/explorer:0.6.9, also update smartcontract/explorer:latest
@@ -54,7 +54,7 @@ if [ -n "${version_tag}" ]; then
   fi
 elif [ -n "$branch_tag" ]; then
   # Only if we're on explorer branch
-  if [[ "${branch_tag}" =~ ^release(s)?\/explorer-(.+)$ ]]; then
+  if [[ "${circle_branch}" =~ ^release(s)?\/explorer-(.+)$ ]]; then
     tag_and_push "$branch_tag"
   else
     echo "Skipping publishing for this branch/tag."
