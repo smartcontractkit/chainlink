@@ -1,5 +1,5 @@
 import fixture from '../fixtures/JobRun.fixture.json'
-import { closeDbConnection, getDb } from '../../database'
+import { getDb } from '../testdatabase'
 import { Connection } from 'typeorm'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString } from '../../entity/JobRun'
@@ -7,11 +7,9 @@ import { search, count } from '../../queries/search'
 
 let db: Connection
 
-beforeAll(async () => {
-  db = await getDb()
+beforeEach(() => {
+  db = getDb()
 })
-
-afterAll(async () => closeDbConnection())
 
 describe('search and count', () => {
   beforeEach(async () => {

@@ -5,8 +5,7 @@ import express from 'express'
 import http from 'http'
 import httpStatus from 'http-status-codes'
 import request from 'supertest'
-import { Connection } from 'typeorm'
-import { getDb } from '../../database'
+import { getConnection, Connection } from 'typeorm'
 import adminAuth from '../../middleware/adminAuth'
 import { createAdmin } from '../../support/admin'
 import { stop } from '../../support/server'
@@ -39,7 +38,7 @@ let server: http.Server
 let db: Connection
 
 beforeAll(async () => {
-  db = await getDb()
+  db = getConnection()
   server = app.listen(null)
 })
 afterAll(done => stop(server, done))

@@ -2,7 +2,7 @@ import { Server } from 'http'
 import jayson from 'jayson'
 import { Connection } from 'typeorm'
 import WebSocket from 'ws'
-import { getDb } from '../../database'
+import { getDb } from '../testdatabase'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import {
   createRPCRequest,
@@ -24,9 +24,11 @@ describe('realtime', () => {
   const newAuthenticatedNode = async () =>
     newChainlinkNode(chainlinkNode.accessKey, secret)
 
+  beforeEach(() => {
+    db = getDb()
+  })
   beforeAll(async () => {
-    server = await start()
-    db = await getDb()
+    server = await start(db)
   })
 
   beforeEach(async () => {

@@ -1,3 +1,4 @@
+import { getConnection } from 'typeorm'
 import { fromJSONObject, saveJobRunTree } from '../../entity/JobRun'
 import { logger } from '../../logging'
 import { ServerContext } from './../handleMessage'
@@ -15,7 +16,8 @@ export default async (
   try {
     const jobRun = fromJSONObject(payload)
     jobRun.chainlinkNodeId = context.chainlinkNodeId
-    await saveJobRunTree(jobRun)
+    const db = getConnection()
+    await saveJobRunTree(db, jobRun)
     callback(null, 'success')
   } catch (e) {
     logger.error(e)

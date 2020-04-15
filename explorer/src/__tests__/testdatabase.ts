@@ -1,4 +1,4 @@
-import { getDb } from '../database'
+import { getConnection, Connection } from 'typeorm'
 
 if (process.env.NODE_ENV !== 'test') {
   throw Error(
@@ -13,9 +13,10 @@ const TRUNCATE_TABLES: string[] = [
   'ethereum_log',
 ]
 
+export const getDb = () : Connection => {
+  return getConnection()
+}
+
 export const clearDb = async () => {
-  const db = await getDb()
-  if (db) {
-    await db.query(`TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`)
-  }
+  return getDb().query(`TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`)
 }

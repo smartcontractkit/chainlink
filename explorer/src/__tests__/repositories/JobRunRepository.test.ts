@@ -1,18 +1,15 @@
+import { Connection, getCustomRepository } from 'typeorm'
+import { getDb } from '../testdatabase'
 import { JobRunRepository } from '../../repositories/JobRunRepository'
 import * as JobRun from '../../entity/JobRun'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import fixture from '../fixtures/JobRun.fixture.json'
-import { Connection, getCustomRepository } from 'typeorm'
-import { getDb, closeDbConnection } from '../../database'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 
 let db: Connection
-
-beforeAll(async () => {
-  db = await getDb()
+beforeEach(() => {
+  db = getDb()
 })
-
-afterAll(async () => closeDbConnection())
 
 describe('JobRunRepository tests', () => {
   describe('getFirst', () => {
