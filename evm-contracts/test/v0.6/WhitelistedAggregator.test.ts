@@ -41,7 +41,7 @@ describe('WhitelistedAggregator', () => {
         h.toBytes32String(description),
         // Remove when this PR gets merged:
         // https://github.com/ethereum-ts/TypeChain/pull/218
-        { gasLimit: 5_500_000 },
+        { gasLimit: 8_000_000 },
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
