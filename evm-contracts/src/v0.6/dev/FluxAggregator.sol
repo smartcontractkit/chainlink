@@ -1,10 +1,6 @@
 pragma solidity 0.6.2;
 
 import "../Median.sol";
-import "../vendor/SafeMath.sol";
-import "./SafeMath128.sol";
-import "./SafeMath64.sol";
-import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "./AggregatorInterface.sol";
 import "../Owned.sol";
@@ -18,10 +14,6 @@ import "../Owned.sol";
  * answers and their updated at timestamp.
  */
 contract FluxAggregator is AggregatorInterface, Owned {
-  using SafeMath for uint256;
-  using SafeMath128 for uint128;
-  using SafeMath64 for uint64;
-  using SafeMath32 for uint32;
 
   struct Round {
     int256 answer;
@@ -114,7 +106,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     timeout = _timeout;
     decimals = _decimals;
     description = _description;
-    rounds[0].updatedAt = uint64(block.timestamp.sub(uint256(_timeout)));
+    rounds[0].updatedAt = uint64(sub(block.timestamp, _timeout));
   }
 
   /**
@@ -162,7 +154,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleAddresses.push(_oracle);
-    oracles[_oracle].index = uint16(oracleAddresses.length.sub(1));
+    oracles[_oracle].index = uint16(sub(oracleAddresses.length, 1));
     oracles[_oracle].admin = _admin;
 
     emit OracleAdded(_oracle);
@@ -191,7 +183,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyEnabledAddress(_oracle)
   {
     oracles[_oracle].endingRound = reportingRoundId;
-    address tail = oracleAddresses[oracleCount().sub(1)];
+    address tail = oracleAddresses[sub(oracleCount(), 1)];
     uint16 index = oracles[_oracle].index;
     oracles[tail].index = index;
     delete oracles[_oracle].index;
@@ -246,7 +238,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     uint128 pastAvailableFunds = availableFunds;
 
-    uint256 available = LINK.balanceOf(address(this)).sub(allocatedFunds);
+    uint256 available = sub(LINK.balanceOf(address(this)), allocatedFunds);
     availableFunds = uint128(available);
 
     if (pastAvailableFunds != available) {
@@ -421,8 +413,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint128 available = oracles[_oracle].withdrawable;
     require(available >= amount);
 
-    oracles[_oracle].withdrawable = available.sub(amount);
-    allocatedFunds = allocatedFunds.sub(amount);
+    oracles[_oracle].withdrawable = uint128(sub(available, amount));
+    allocatedFunds = uint128(sub(allocatedFunds, amount));
 
     assert(LINK.transfer(_recipient, uint256(amount)));
   }
@@ -504,7 +496,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
     require(rounds[current].updatedAt > 0 || timedOut(current));
 
-    initializeNewRound(current.add(1));
+    initializeNewRound(uint32(add(current, 1, 32)));
   }
 
   /**
@@ -588,7 +580,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     ifNewRound(_id)
     ifDelayed(_id)
   {
-    updateTimedOutRoundInfo(_id.sub(1));
+    updateTimedOutRoundInfo(uint32(sub(_id, 1)));
 
     reportingRoundId = _id;
     rounds[_id].details.maxAnswers = maxAnswerCount;
@@ -607,7 +599,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     ifTimedOut(_id)
     onlyWithPreviousAnswer(_id)
   {
-    uint32 prevId = _id.sub(1);
+    uint32 prevId = uint32(sub(_id, 1));
     rounds[_id].answer = rounds[prevId].answer;
     rounds[_id].answeredInRound = rounds[prevId].answeredInRound;
     rounds[_id].updatedAt = uint64(block.timestamp);
@@ -632,11 +624,11 @@ contract FluxAggregator is AggregatorInterface, Owned {
     private
   {
     uint128 payment = rounds[_id].details.paymentAmount;
-    uint128 available = availableFunds.sub(payment);
+    uint128 available = uint128(sub(availableFunds, payment));
 
     availableFunds = available;
-    allocatedFunds = allocatedFunds.add(payment);
-    oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
+    allocatedFunds = uint128(add(allocatedFunds, payment, 128));
+    oracles[msg.sender].withdrawable = uint128(add(oracles[msg.sender].withdrawable, payment, 128));
 
     emit AvailableFundsUpdated(available);
   }
@@ -666,7 +658,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     uint64 startedAt = rounds[_id].startedAt;
     uint32 roundTimeout = rounds[_id].details.timeout;
-    return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
+    return startedAt > 0 && roundTimeout > 0 && add(startedAt, roundTimeout, 64) < block.timestamp;
   }
 
   function finished(uint32 _id)
@@ -686,7 +678,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     if (currentRound != 0 && currentRound == oracles[_oracle].endingRound) {
       return currentRound;
     }
-    return currentRound.add(1);
+    return uint32(add(currentRound, 1, 32));
   }
 
   function roundState(address _oracle)
@@ -702,7 +694,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     )
   {
     bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
-    _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
+    _reportableRoundId = finishedOrTimedOut ? uint32(add(reportingRoundId, 1, 32)) : reportingRoundId;
     return (
       _reportableRoundId,
       eligibleToSubmit(_oracle, _reportableRoundId, finishedOrTimedOut),
@@ -776,7 +768,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier ifNewRound(uint32 _id) {
-    if (_id == reportingRoundId.add(1)) {
+    if (_id == add(reportingRoundId, 1, 32)) {
       _;
     }
   }
@@ -789,8 +781,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyValidRoundId(uint32 _id) {
-    require(_id == reportingRoundId || _id == reportingRoundId.add(1));
-    require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)));
+    require(_id == reportingRoundId || _id == add(reportingRoundId, 1, 32));
+    require(_id == 1 || finished(uint32(sub(_id, 1))) || timedOut(uint32(sub(_id, 1))));
     _;
   }
 
@@ -819,13 +811,27 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyWithPreviousAnswer(uint32 _id) {
-    require(rounds[_id.sub(1)].updatedAt != 0);
+    require(rounds[uint32(sub(_id, 1))].updatedAt != 0);
     _;
   }
 
   modifier onlyAuthorizedRequesters() {
     require(authorizedRequesters[msg.sender]);
     _;
+  }
+
+  function add(uint256 a, uint256 b, uint256 bits) internal pure returns (uint256) {
+    uint256 c = a + b;
+    require(c >= a && c < 2**bits, "SafeMath: addition overflow");
+
+    return c;
+  }
+
+  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+    require(b <= a, "SafeMath: subtraction overflow");
+    uint256 c = a - b;
+
+    return c;
   }
 
 }
