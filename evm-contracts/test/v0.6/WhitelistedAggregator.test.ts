@@ -26,8 +26,8 @@ describe('WhitelistedAggregator', () => {
   const decimals = 18
   const description = 'LINK/USD'
 
-  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
+  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
   let nextRound: number
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
