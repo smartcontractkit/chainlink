@@ -346,7 +346,3 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		t.Fatalf("could not start a new round, even though delay has passed")
 	}
 }
-
-// XAU/XAG happened partly because you can update the entire state all at once.
-// Having to add oracles one-by-one slows you down, so you can avoid some
-// mistakes.
