@@ -294,7 +294,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		fa.nallory, false, true, receiptBlock)
 
 	//- have the malicious node start the next round.
-	initialBalance = initialBalance.Sub(initialBalance, fee)
+	nextRoundBalance := initialBalance.Sub(initialBalance, fee)
 	// Triggers a new round, since price deviation exceeds threshold
 	reportPrice = answer + 1
 	select {
@@ -305,7 +305,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	}
 	newRound := big.NewInt(0).Add(roundId, big.NewInt(1))
 	processedAnswer = big.NewInt(int64(100 * reportPrice))
-	checkUpdateAnswer(t, &fa, newRound, processedAnswer, initialBalance,
+	checkUpdateAnswer(t, &fa, newRound, processedAnswer, nextRoundBalance,
 		fa.nallory, true, false,
 		receiptBlock)
 	//- successfully close the round through the submissions of the other nodes
