@@ -13,6 +13,7 @@
   "include": ["src", "src/**/*.json", "@types"],
   "references": [
     { "path": "../tools/redux" },
-    { "path": "../tools/ts-helpers" }
+    { "path": "../tools/ts-helpers" },
+    { "path": "../tools/json-api-client" }
   ]
 }
