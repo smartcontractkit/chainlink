@@ -17,7 +17,7 @@ jobs:
           sudo swapoff -a
           sudo rm -f /swapfile
           sudo apt clean
-          docker rmi $(docker image ls -aq)
+          docker rmi $(docker image ls -aq) -f
           df -h
 
       # ssh checkout needed for https://github.com/peter-evans/create-pull-request/blob/master/docs/concepts-guidelines.md#push-using-ssh-deploy-keys
