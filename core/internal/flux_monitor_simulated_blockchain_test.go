@@ -352,12 +352,19 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	assert.Error(t, err, "FA allowed chainlink node to start a new round early")
 
 	//- finally, ensure it can start a legitimate round after roundDelay is reached
+	// start an intervening round
 	updateAnswer(t, answerParams{fa: &fa, roundId: newRound,
 		answer: processedAnswer, from: fa.ned, isNewRound: true,
 		completesAnswer: false})
+	updateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+		answer: processedAnswer, from: fa.neil, isNewRound: false,
+		completesAnswer: true})
+	// start a legitimate new round
+	reportPrice = reportPrice + 3
 	select {
 	case <-submissionReceived:
 	case <-time.After(5 * timeout):
 		t.Fatalf("could not start a new round, even though delay has passed")
 	}
+
 }
