@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
@@ -35,7 +34,6 @@ const BatchSize = 100
 var (
 	// ErrorNotFound is returned when finding a single value fails.
 	ErrorNotFound = gorm.ErrRecordNotFound
-	ErrorConflict = errors.New("record already exists")
 )
 
 // DialectName is a compiler enforced type used that maps to gorm's dialect
@@ -61,15 +59,6 @@ var (
 	ErrNoAdvisoryLock    = errors.New("can't acquire advisory lock")
 	ErrReleaseLockFailed = errors.New("advisory lock release failed")
 )
-
-// mapError tries to coerce the error into package defined errors.
-func mapError(err error) error {
-	err = errors.Cause(err)
-	if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
-		return ErrorConflict
-	}
-	return err
-}
 
 // NewORM initializes a new database file at the configured uri.
 func NewORM(uri string, timeout time.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
@@ -378,14 +367,14 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	orm.MustEnsureAdvisoryLock()
 	err := orm.db.Create(externalInitiator).Error
-	return mapError(err)
+	return err
 }
 
 // DeleteExternalInitiator removes an external initiator
 func (orm *ORM) DeleteExternalInitiator(name string) error {
 	orm.MustEnsureAdvisoryLock()
 	err := orm.db.Delete(&models.ExternalInitiator{Name: name}).Error
-	return mapError(err)
+	return err
 }
 
 // FindExternalInitiator finds an external initiator given an authentication request
