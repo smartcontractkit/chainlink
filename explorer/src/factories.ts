@@ -1,11 +1,10 @@
-import { Connection } from 'typeorm'
+import { getRepository } from 'typeorm'
 import { v4 as uuid } from 'uuid'
 import { ChainlinkNode } from './entity/ChainlinkNode'
 import { JobRun } from './entity/JobRun'
 import { TaskRun } from './entity/TaskRun'
 
 export const createJobRun = async (
-  db: Connection,
   chainlinkNode: ChainlinkNode,
 ): Promise<JobRun> => {
   const jobRun = new JobRun()
@@ -18,7 +17,8 @@ export const createJobRun = async (
   jobRun.requestId = 'requestId' + uuid()
   jobRun.requester = 'requester' + uuid()
   jobRun.createdAt = new Date('2019-04-08T01:00:00.000Z')
-  await db.manager.save(jobRun)
+  const jobRunRepo = getRepository(JobRun)
+  await jobRunRepo.save(jobRun)
 
   const tr = new TaskRun()
   tr.jobRun = jobRun
@@ -27,7 +27,8 @@ export const createJobRun = async (
   tr.type = 'httpget'
   tr.confirmations = '1'
   tr.minimumConfirmations = '3'
-  await db.manager.save(tr)
+  const taskRunRepo = getRepository(TaskRun)
+  await taskRunRepo.save(tr)
 
   return jobRun
 }

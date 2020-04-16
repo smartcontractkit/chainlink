@@ -10,11 +10,16 @@ const options: Parameters<typeof pino>[0] = {
     paths: ['req.headers', 'res.headers'],
   },
 }
-if (process.env.EXPLORER_DEV) {
-  options.prettyPrint = { colorize: true }
-  options.level = 'debug'
-} else if (process.env.NODE_ENV === 'test') {
-  options.level = 'silent'
+
+switch (process.env.NODE_ENV) {
+  case 'production':
+    break
+  case 'test':
+    options.level = 'silent'
+    break
+  default:
+    options.prettyPrint = { colorize: true }
+    options.level = 'debug'
 }
 export const logger = pino(options)
 
