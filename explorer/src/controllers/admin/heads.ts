@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { EthereumHeadRepository } from '../../repositories/EthereumHeadRepository'
 import { Head } from '../../entity/Head'
-import { getConnection } from 'typeorm'
+import { getCustomRepository, getRepository } from 'typeorm'
 import { parseParams } from '../../utils/pagination'
 import headsSerializer from '../../serializers/headsSerializer'
 import headSerializer from '../../serializers/headSerializer'
@@ -10,7 +10,7 @@ const router = Router()
 
 router.get('/heads', async (req, res) => {
   const params = parseParams(req.query)
-  const ethereumHeadRepository = getConnection().getCustomRepository(
+  const ethereumHeadRepository = getCustomRepository(
     EthereumHeadRepository,
   )
 
@@ -22,7 +22,7 @@ router.get('/heads', async (req, res) => {
 })
 
 router.get('/heads/:headId', async (req, res) => {
-  const ethereumHeadRepository = getConnection().getRepository(Head)
+  const ethereumHeadRepository = getRepository(Head)
 
   const { id } = req.params
   const head = await ethereumHeadRepository.findOne(id)
