@@ -333,7 +333,6 @@ func TestClient_CreateJobSpec(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
-
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -344,7 +343,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		{"bad json", "{bad son}", 0, true},
 		{"bad filepath", "bad/filepath/", 0, true},
 		{"web", `{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
-		{"runAt", `{"initiators":[{"type":"runAt","params":{"time":"2018-01-08T18:12:01.103Z"}}],"tasks":[{"type":"NoOp"}]}`, 2, false},
+		{"runAt", `{"initiators":[{"type":"runAt","params":{"time":"3000-01-08T18:12:01.103Z"}}],"tasks":[{"type":"NoOp"}]}`, 2, false},
 		{"file", "../internal/fixtures/web/end_at_job.json", 3, false},
 	}
 
