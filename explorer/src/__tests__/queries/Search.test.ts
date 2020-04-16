@@ -6,7 +6,9 @@ import { search, count } from '../../queries/search'
 
 describe('search and count', () => {
   beforeEach(async () => {
-    const [chainlinkNode] = await createChainlinkNode('job-run-search-chainlink-node')
+    const [chainlinkNode] = await createChainlinkNode(
+      'job-run-search-chainlink-node',
+    )
 
     const jrA = fromString(JSON.stringify(fixture))
     jrA.chainlinkNodeId = chainlinkNode.id

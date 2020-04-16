@@ -55,9 +55,7 @@ export async function retireSessions(): Promise<UpdateResult> {
     .execute()
 }
 
-export async function closeSession(
-  session: Session,
-): Promise<UpdateResult> {
+export async function closeSession(session: Session): Promise<UpdateResult> {
   return getConnection()
     .createQueryBuilder()
     .update(Session)

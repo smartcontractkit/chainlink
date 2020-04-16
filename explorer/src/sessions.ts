@@ -21,7 +21,10 @@ export const authenticate = async (
   })
 }
 
-function findNode(manager: EntityManager, accessKey: string): Promise<ChainlinkNode> {
+function findNode(
+  manager: EntityManager,
+  accessKey: string,
+): Promise<ChainlinkNode> {
   return manager.getRepository(ChainlinkNode).findOne({ accessKey })
 }
 

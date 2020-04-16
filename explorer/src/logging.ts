@@ -16,7 +16,7 @@ switch (process.env.NODE_ENV) {
     break
   case 'test':
     options.level = 'silent'
-  break
+    break
   default:
     options.prettyPrint = { colorize: true }
     options.level = 'debug'

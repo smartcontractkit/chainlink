@@ -6,7 +6,9 @@ import { JobRunRepository } from '../../repositories/JobRunRepository'
 
 describe('entity/taskRun', () => {
   it('copies old confirmations to new column on INSERT', async () => {
-    const [chainlinkNode] = await createChainlinkNode('testOverwriteJobRunsErrorOnConflict')
+    const [chainlinkNode] = await createChainlinkNode(
+      'testOverwriteJobRunsErrorOnConflict',
+    )
 
     const jr = fromString(JSON.stringify(fixture))
     jr.chainlinkNodeId = chainlinkNode.id
@@ -34,7 +36,9 @@ describe('entity/taskRun', () => {
   })
 
   it('copies old confirmations to new column on UPDATE', async () => {
-    const [chainlinkNode] = await createChainlinkNode('testOverwriteJobRunsErrorOnConflict')
+    const [chainlinkNode] = await createChainlinkNode(
+      'testOverwriteJobRunsErrorOnConflict',
+    )
 
     const jr = fromString(JSON.stringify(fixture))
     jr.chainlinkNodeId = chainlinkNode.id

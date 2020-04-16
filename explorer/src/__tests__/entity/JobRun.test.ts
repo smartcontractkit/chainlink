@@ -30,7 +30,9 @@ describe('entity/jobRun/fromString', () => {
     expect(jr.taskRuns[0].minimumConfirmations).toEqual('3')
     expect(jr.taskRuns[0].error).toEqual(null)
 
-    const [chainlinkNode] = await createChainlinkNode('job-run-fromString-chainlink-node')
+    const [chainlinkNode] = await createChainlinkNode(
+      'job-run-fromString-chainlink-node',
+    )
     jr.chainlinkNodeId = chainlinkNode.id
     const r = await getRepository(JobRun).save(jr)
     expect(r.id).toBeDefined()
@@ -74,7 +76,9 @@ describe('entity/jobRun/fromString', () => {
 
 describe('entity/jobRun/saveJobRunTree', () => {
   it('updates jobRun error', async () => {
-    const [chainlinkNode] = await createChainlinkNode('testOverwriteJobRunsErrorOnConflict')
+    const [chainlinkNode] = await createChainlinkNode(
+      'testOverwriteJobRunsErrorOnConflict',
+    )
 
     const jr = fromString(JSON.stringify(fixture))
     jr.chainlinkNodeId = chainlinkNode.id
@@ -96,7 +100,9 @@ describe('entity/jobRun/saveJobRunTree', () => {
   })
 
   it('overwrites taskRun values on conflict', async () => {
-    const [chainlinkNode] = await createChainlinkNode('testOverwriteTaskRunsOnConflict')
+    const [chainlinkNode] = await createChainlinkNode(
+      'testOverwriteTaskRunsOnConflict',
+    )
 
     const jr = fromString(JSON.stringify(fixture))
     jr.chainlinkNodeId = chainlinkNode.id

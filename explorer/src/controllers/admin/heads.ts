@@ -10,9 +10,7 @@ const router = Router()
 
 router.get('/heads', async (req, res) => {
   const params = parseParams(req.query)
-  const ethereumHeadRepository = getCustomRepository(
-    EthereumHeadRepository,
-  )
+  const ethereumHeadRepository = getCustomRepository(EthereumHeadRepository)
 
   const heads = await ethereumHeadRepository.all(params)
 

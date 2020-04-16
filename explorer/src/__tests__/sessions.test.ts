@@ -6,7 +6,9 @@ import { Session } from '../entity/Session'
 describe('sessions', () => {
   describe('authenticate', () => {
     it('creates a session record', async () => {
-      const [chainlinkNode, secret] = await createChainlinkNode('valid-chainlink-node')
+      const [chainlinkNode, secret] = await createChainlinkNode(
+        'valid-chainlink-node',
+      )
       const session = await authenticate(chainlinkNode.accessKey, secret)
       expect(session).toBeDefined()
       expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
@@ -26,7 +28,9 @@ describe('sessions', () => {
     })
 
     it('returns null if the secret is incorrect', async () => {
-      const [chainlinkNode] = await createChainlinkNode('invalid-chainlink-node')
+      const [chainlinkNode] = await createChainlinkNode(
+        'invalid-chainlink-node',
+      )
       const result = await authenticate(chainlinkNode.accessKey, 'wrong-secret')
       expect(result).toBeNull()
     })
