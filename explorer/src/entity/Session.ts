@@ -59,6 +59,6 @@ export async function closeSession(session: Session): Promise<UpdateResult> {
     .createQueryBuilder()
     .update(Session)
     .set({ finishedAt: () => 'now()' })
-    .where({ sessionId: session.id })
+    .where({ x: session.id })
     .execute()
 }
