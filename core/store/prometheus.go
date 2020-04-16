@@ -1,11 +1,11 @@
 package store
 
 import (
+	"errors"
+	"fmt"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"errors"
-	"fmt"
 	"math"
 	"math/big"
 
