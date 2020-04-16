@@ -1,6 +1,5 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   EntityManager,
   getConnection,
@@ -22,7 +21,6 @@ export class Session {
   @PrimaryGeneratedColumn('uuid')
   public id: string
 
-  @CreateDateColumn()
   // @ts-ignore
   private createdAt: Date
 
@@ -35,6 +33,7 @@ export async function createSession(
   node: ChainlinkNode,
   manager?: EntityManager,
 ): Promise<Session> {
+  // Close any other open sessions for this node
   await (manager || getManager())
     .createQueryBuilder()
     .update(Session)
@@ -50,7 +49,7 @@ export async function retireSessions(): Promise<UpdateResult> {
   return getConnection()
     .createQueryBuilder()
     .update(Session)
-    .set({ finishedAt: new Date() })
+    .set({ finishedAt: () => 'now()' })
     .where({ finishedAt: null })
     .execute()
 }
