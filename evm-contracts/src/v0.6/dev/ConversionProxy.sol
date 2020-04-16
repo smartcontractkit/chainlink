@@ -118,7 +118,7 @@ contract ConversionProxy is AggregatorInterface, Owned {
   }
 
   function _latestAnswer() internal view returns (int256) {
-    return convertAnswer(from.latestAnswer(), to.latestAnswer());
+    return convertAnswer(from.latestAnswer());
   }
 
   function _latestTimestamp() internal view returns (uint256) {
@@ -130,7 +130,7 @@ contract ConversionProxy is AggregatorInterface, Owned {
   }
 
   function _getAnswer(uint256 _roundId) internal view returns (int256) {
-    return convertAnswer(from.getAnswer(_roundId), to.latestAnswer());
+    return convertAnswer(from.getAnswer(_roundId));
   }
 
   function _getTimestamp(uint256 _roundId) internal view returns (uint256) {
@@ -141,12 +141,10 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * @notice Converts the answer of the `from` aggregator to the rate
    * of the `to` aggregator at the precision of `decimals` of the `to`
    * aggregator
+   * @param _answerFrom The answer of the `from` aggregator
    * @return The converted answer
    */
-  function convertAnswer(
-    int256 _answerFrom,
-    int256 _answerTo
-  ) internal view returns (int256) {
-    return _answerFrom.mul(_answerTo).div(int256(10 ** uint256(to.decimals())));
+  function convertAnswer(int256 _answerFrom) internal view returns (int256) {
+    return _answerFrom.mul(to.latestAnswer()).div(int256(10 ** uint256(to.decimals())));
   }
 }
