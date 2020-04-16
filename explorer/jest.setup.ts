@@ -9,8 +9,9 @@ beforeAll(async () => {
 })
 afterEach(() => clearDb())
 afterAll(async () => {
-  const db = getConnection()
-  if (db) {
-    await db.close()
+  try {
+    await getConnection().close()
+  } catch {
+    // swallow error or it supresses all other test output
   }
 })
