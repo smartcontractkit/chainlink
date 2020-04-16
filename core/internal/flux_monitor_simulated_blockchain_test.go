@@ -235,6 +235,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
+	timeout := 100 * time.Millisecond // if failing due to timeouts, increase this
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t,
 		config, fa.backend)
@@ -279,7 +280,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`,
 		mockServer.URL))
 	initr.InitiatorParams.PollingInterval =
-		models.Duration(100 * time.Millisecond)
+		models.Duration(timeout)
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1) // Submit answer from
@@ -290,7 +291,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		receiptBlock = log.Raw.BlockNumber
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(timeout):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
 	checkUpdateAnswer(t, &fa, roundId, processedAnswer, initialBalance,
@@ -303,7 +304,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select {
 	case log := <-submissionReceived:
 		receiptBlock = log.Raw.BlockNumber
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * timeout):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
 	newRound := roundId + 1
@@ -321,7 +322,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select {
 	case <-submissionReceived:
 		t.Fatalf("chainlink node updated FA, even though it's not allowed to")
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * timeout):
 	}
 	// Could add a check for "not eligible to submit here", using the memory log
 	newRound = newRound + 1
@@ -335,7 +336,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select {
 	case <-submissionReceived:
 		t.Fatalf("FA allowed chainlink node to start a new round early")
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * timeout):
 	}
 	// Try to start a new round directly, should fail
 	_, err = fa.aggregatorContract.StartNewRound(fa.nallory)
@@ -345,7 +346,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	updateAnswer(t, &fa, newRound, processedAnswer, fa.ned, true, false)
 	select {
 	case <-submissionReceived:
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * timeout):
 		t.Fatalf("could not start a new round, even though delay has passed")
 	}
 }
