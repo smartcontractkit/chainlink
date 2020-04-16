@@ -4,6 +4,10 @@
   "contractAbstractionDir": ".",
   "useDockerisedSolc": false,
   "compilerSettings": {
+    "optimizer": {
+      "runs": 1,
+      "enabled": true
+    },
     "versions": {
       "v0.4": "0.4.24",
       "v0.5": "0.5.0",
