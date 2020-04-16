@@ -68,6 +68,7 @@ func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight
 			ID:       NewID(),
 			JobRunID: run.ID,
 			TaskSpec: task,
+			Status:   RunStatusUnstarted,
 		}
 	}
 	run.SetStatus(RunStatusInProgress)

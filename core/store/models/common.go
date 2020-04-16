@@ -113,12 +113,14 @@ func (s RunStatus) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (s *RunStatus) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to RunStatus", value, value)
+	switch v := value.(type) {
+	case []byte:
+		*s = RunStatus(string(v))
+	case string:
+		*s = RunStatus(v)
+	default:
+		return fmt.Errorf("Unable to convert %#v of %T to RunStatus", value, value)
 	}
-
-	*s = RunStatus(temp)
 	return nil
 }
 
