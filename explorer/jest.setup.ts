@@ -10,5 +10,7 @@ beforeAll(async () => {
 })
 afterEach(() => clearDb())
 afterAll(async () => {
-  await globalDBConnection.close()
+  if (globalDBConnection) {
+    await globalDBConnection.close()
+  }
 })
