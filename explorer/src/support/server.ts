@@ -21,10 +21,8 @@ export async function start(): Promise<Server> {
 }
 
 /**
- * Stop the server then close the database connection
+ * Stop the server
  */
 export function stop(server: http.Server, done: jest.DoneCallback): void {
-  if (server !== undefined) {
-    server.close(done)
-  }
+  server.close(done)
 }
