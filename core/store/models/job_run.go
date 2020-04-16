@@ -33,7 +33,7 @@ type JobRun struct {
 	ResultID       clnull.Uint32 `json:"-"`
 	RunRequest     RunRequest    `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
 	RunRequestID   clnull.Uint32 `json:"-"`
-	Status         RunStatus     `json:"status"`
+	Status         RunStatus     `json:"status" gorm:"default:'unstarted'"`
 	TaskRuns       []TaskRun     `json:"taskRuns"`
 	CreatedAt      time.Time     `json:"createdAt"`
 	FinishedAt     null.Time     `json:"finishedAt"`
@@ -243,7 +243,7 @@ type TaskRun struct {
 	JobRunID             *ID           `json:"-"`
 	Result               RunResult     `json:"result"`
 	ResultID             clnull.Uint32 `json:"-"`
-	Status               RunStatus     `json:"status"`
+	Status               RunStatus     `json:"status" gorm:"default:'unstarted'"`
 	TaskSpec             TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
 	TaskSpecID           uint          `json:"-"`
 	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
