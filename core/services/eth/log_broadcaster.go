@@ -93,22 +93,12 @@ func (b *logBroadcaster) Start() {
 }
 
 func (b *logBroadcaster) getOnChainBlockHeight() (_ uint64, abort bool) {
-	var currentHeight uint64
-	for {
-		var err error
-		currentHeight, err = b.ethClient.GetBlockHeight()
-		if err == nil {
-			break
-		}
-
+	currentHeight, err := b.ethClient.GetBlockHeight()
+	if err != nil {
 		logger.Errorf("error fetching current block height: %v", err)
-		select {
-		case <-b.chStop:
-			return 0, true
-		case <-time.After(10 * time.Second):
-		}
-		continue
+		return
 	}
+
 	return currentHeight, false
 }
 
