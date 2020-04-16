@@ -137,48 +137,54 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	return f
 }
 
+type answerParams struct {
+	fa                          *fluxAggregator
+	roundId, answer             int64
+	from                        *bind.TransactOpts
+	isNewRound, completesAnswer bool
+}
+
 // checkUpdateAnswer verifies all the logs emitted by fa's FluxAggregator
 // contract after an updateAnswer with the given values.
-func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
-	answer, currentBalance int64, from *bind.TransactOpts, isNewRound,
-	completesAnswer bool, receiptBlock uint64) {
+func checkUpdateAnswer(t *testing.T, p answerParams,
+	currentBalance int64, receiptBlock uint64) {
 	if receiptBlock == 0 {
-		receiptBlock = fa.backend.Blockchain().CurrentBlock().Number().Uint64()
+		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number().Uint64()
 	}
 	fromBlock := &bind.FilterOpts{Start: receiptBlock, End: &receiptBlock}
 	// Could filter for the known values here, but while that would be more
 	// succinct it leads to less informative error messages... Did the log not
 	// appear at all, or did it just have a wrong value?
-	ilogs, err := fa.aggregatorContract.FilterSubmissionReceived(fromBlock,
+	ilogs, err := p.fa.aggregatorContract.FilterSubmissionReceived(fromBlock,
 		[]*big.Int{}, []uint32{}, []common.Address{})
 	require.NoError(t, err, "failed to get SubmissionReceived logs")
 	var srlogs []*faw.FluxAggregatorSubmissionReceived
 	_ = cltest.GetLogs(t, &srlogs, ilogs)
 	assert.Len(t, srlogs, 1,
 		"FluxAggregator did not emit correct SubmissionReceived log")
-	assert.True(t, srlogs[0].Answer.Cmp(big.NewInt(answer)) == 0,
+	assert.True(t, srlogs[0].Answer.Cmp(big.NewInt(p.answer)) == 0,
 		"SubmissionReceived log has wrong answer")
-	assert.Equal(t, uint32(roundId), srlogs[0].Round,
+	assert.Equal(t, uint32(p.roundId), srlogs[0].Round,
 		"SubmissionReceived log has wrong round")
-	assert.Equal(t, from.From, srlogs[0].Oracle,
+	assert.Equal(t, p.from.From, srlogs[0].Oracle,
 		"SubmissionReceived log has wrong oracle")
-	inrlogs, err := fa.aggregatorContract.FilterNewRound(fromBlock, []*big.Int{},
-		[]common.Address{})
+	inrlogs, err := p.fa.aggregatorContract.FilterNewRound(fromBlock,
+		[]*big.Int{}, []common.Address{})
 	require.NoError(t, err, "failed to get NewRound logs")
-	if isNewRound {
+	if p.isNewRound {
 		var nrlogs []*faw.FluxAggregatorNewRound
 		cltest.GetLogs(t, &nrlogs, inrlogs)
 		require.Len(t, nrlogs, 1,
 			"FluxAggregator did not emit correct NewRound log")
-		assert.Equal(t, roundId, nrlogs[0].RoundId.Int64(),
+		assert.Equal(t, p.roundId, nrlogs[0].RoundId.Int64(),
 			"NewRound log has wrong roundId")
-		assert.Equal(t, from.From, nrlogs[0].StartedBy,
+		assert.Equal(t, p.from.From, nrlogs[0].StartedBy,
 			"NewRound log started by wrong oracle")
 	} else {
 		assert.Len(t, cltest.GetLogs(t, nil, inrlogs), 0,
 			"FluxAggregator emitted unexpected NewRound log")
 	}
-	iaflogs, err := fa.aggregatorContract.FilterAvailableFundsUpdated(fromBlock,
+	iaflogs, err := p.fa.aggregatorContract.FilterAvailableFundsUpdated(fromBlock,
 		[]*big.Int{})
 	require.NoError(t, err, "failed to get AvailableFundsUpdated logs")
 	var aflogs []*faw.FluxAggregatorAvailableFundsUpdated
@@ -188,17 +194,17 @@ func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
 	expectedBalance := currentBalance - fee
 	assert.Equal(t, expectedBalance, aflogs[0].Amount.Int64(),
 		"AvailableFundsUpdated log has wrong amount")
-	iaulogs, err := fa.aggregatorContract.FilterAnswerUpdated(fromBlock,
-		[]*big.Int{big.NewInt(answer)}, []*big.Int{big.NewInt(roundId)})
+	iaulogs, err := p.fa.aggregatorContract.FilterAnswerUpdated(fromBlock,
+		[]*big.Int{big.NewInt(p.answer)}, []*big.Int{big.NewInt(p.roundId)})
 	require.NoError(t, err, "failed to get AnswerUpdated logs")
-	if completesAnswer {
+	if p.completesAnswer {
 		var aulogs []*faw.FluxAggregatorAnswerUpdated
 		_ = cltest.GetLogs(t, &aulogs, iaulogs)
 		assert.Len(t, aulogs, 1,
 			"FluxAggregator did not emit correct AnswerUpdated log")
-		assert.Equal(t, roundId, aulogs[0].RoundId.Int64(),
+		assert.Equal(t, p.roundId, aulogs[0].RoundId.Int64(),
 			"AnswerUpdated log has wrong roundId")
-		assert.Equal(t, answer, aulogs[0].Current.Int64(),
+		assert.Equal(t, p.answer, aulogs[0].Current.Int64(),
 			"AnswerUpdated log has wrong current value")
 	}
 }
@@ -213,15 +219,13 @@ func currentBalance(t *testing.T, fa *fluxAggregator) *big.Int {
 // updateAnswer simulates a call to fa's FluxAggregator contract from from, with
 // the given roundId and answer, and checks that all the logs emitted by the
 // contract are correct
-func updateAnswer(t *testing.T, fa *fluxAggregator, roundId, answer int64,
-	from *bind.TransactOpts, isNewRound, completesAnswer bool) {
-	cb := currentBalance(t, fa)
-	_, err := fa.aggregatorContract.UpdateAnswer(from, big.NewInt(roundId),
-		big.NewInt(answer))
+func updateAnswer(t *testing.T, p answerParams) {
+	cb := currentBalance(t, p.fa)
+	_, err := p.fa.aggregatorContract.UpdateAnswer(p.from, big.NewInt(p.roundId),
+		big.NewInt(p.answer))
 	require.NoError(t, err, "failed to initialize first flux aggregation round:")
-	fa.backend.Commit()
-	checkUpdateAnswer(t, fa, roundId, answer, cb.Int64(), from, isNewRound,
-		completesAnswer, 0)
+	p.fa.backend.Commit()
+	checkUpdateAnswer(t, p, cb.Int64(), 0)
 }
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
@@ -251,7 +255,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	//- have one of the fake nodes start a round.
 	roundId := int64(1)
 	processedAnswer := answer * 100 /* job has multiply times 100 */
-	updateAnswer(t, &fa, roundId, processedAnswer, fa.neil, true, false)
+	updateAnswer(t, answerParams{fa: &fa, roundId: roundId,
+		answer: processedAnswer, from: fa.neil, isNewRound: true,
+		completesAnswer: false})
 
 	// - successfully close the round through the submissions of the other nodes
 	// Response by malicious chainlink node, nallory
@@ -294,8 +300,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(timeout):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
-	checkUpdateAnswer(t, &fa, roundId, processedAnswer, initialBalance,
-		fa.nallory, false, true, receiptBlock)
+	checkUpdateAnswer(t, answerParams{fa: &fa, roundId: roundId,
+		answer: processedAnswer, from: fa.nallory, isNewRound: false,
+		completesAnswer: true}, initialBalance, receiptBlock)
 
 	//- have the malicious node start the next round.
 	nextRoundBalance := initialBalance - fee
@@ -309,11 +316,13 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	}
 	newRound := roundId + 1
 	processedAnswer = 100 * reportPrice
-	checkUpdateAnswer(t, &fa, newRound, processedAnswer, nextRoundBalance,
-		fa.nallory, true, false,
-		receiptBlock)
+	checkUpdateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+		answer: processedAnswer, from: fa.nallory, isNewRound: true,
+		completesAnswer: false}, nextRoundBalance, receiptBlock)
 	//- successfully close the round through the submissions of the other nodes
-	updateAnswer(t, &fa, newRound, processedAnswer, fa.neil, false, true)
+	updateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+		answer: processedAnswer, from: fa.neil, isNewRound: false,
+		completesAnswer: true})
 
 	//- have the malicious node try to start another round repeatedly until the
 	//roundDelay is reached, making sure that it isn't successful
@@ -343,7 +352,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	assert.Error(t, err, "FA allowed chainlink node to start a new round early")
 
 	//- finally, ensure it can start a legitimate round after roundDelay is reached
-	updateAnswer(t, &fa, newRound, processedAnswer, fa.ned, true, false)
+	updateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+		answer: processedAnswer, from: fa.ned, isNewRound: true,
+		completesAnswer: false})
 	select {
 	case <-submissionReceived:
 	case <-time.After(5 * timeout):
