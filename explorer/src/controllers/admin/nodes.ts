@@ -1,7 +1,7 @@
 import { validate } from 'class-validator'
 import { Router } from 'express'
 import httpStatus from 'http-status-codes'
-import { getConnection, getCustomRepository, getRepository } from 'typeorm'
+import { getCustomRepository, getRepository } from 'typeorm'
 import {
   buildChainlinkNode,
   ChainlinkNode,
@@ -85,10 +85,7 @@ router.get('/nodes/:id', async (req, res) => {
 })
 
 router.delete('/nodes/:name', async (req, res) => {
-  const db = getConnection()
-
-  await db.getRepository(ChainlinkNode).delete({ name: req.params.name })
-
+  await getRepository(ChainlinkNode).delete({ name: req.params.name })
   return res.sendStatus(httpStatus.OK)
 })
 
