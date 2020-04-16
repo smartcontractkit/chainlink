@@ -1,51 +1,57 @@
+import * as jsonapi from '@chainlink/json-api-client'
 import { Dispatch } from 'redux'
 import { FunctionFragment } from 'ethers/utils'
 import { JsonRpcProvider } from 'ethers/providers'
 import { FeedConfig } from 'config'
 import * as actions from './actions'
-import { ListingGroup } from './selectors'
 import {
   formatAnswer,
   createContract,
   createInfuraProvider,
 } from '../../../contracts/utils'
 
-interface HealthPrice {
-  config: any
-  price: number
-}
-
-export function fetchHealthStatus(groups: ListingGroup[]) {
+/**
+ * feeds
+ */
+export function fetchFeeds() {
   return async (dispatch: Dispatch) => {
-    const configs = groups.flatMap(g => g.feeds)
-    const priceResponses = await Promise.all(configs.map(fetchHealthPrice))
-
-    priceResponses
-      .filter(pr => pr)
-      .forEach(pr => {
-        dispatch(actions.setHealthPrice(pr))
+    dispatch(actions.fetchFeedsBegin())
+    jsonapi
+      .fetchWithTimeout('/feeds.json', {})
+      .then((r: Response) => r.json())
+      .then((json: FeedConfig[]) => {
+        dispatch(actions.fetchFeedsSuccess(json))
+      })
+      .catch(e => {
+        dispatch(actions.fetchFeedsError(e))
       })
   }
 }
 
-async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
-  if (!config.healthPrice) return
-
-  const json = await fetch(config.healthPrice).then(r => r.json())
-  return { config, price: json[0].current_price }
-}
-
-export interface ListingAnswer {
-  answer: string
-  config: FeedConfig
-}
-
-export function fetchAnswers(feeds: FeedConfig[]) {
+/**
+ * answers
+ */
+export function fetchAnswer(config: FeedConfig) {
   return async (dispatch: Dispatch) => {
     const provider = createInfuraProvider()
-    const answerList = await allAnswers(provider, feeds)
-    dispatch(actions.setAnswers(answerList))
+    const payload = await latestAnswer(config, provider)
+    const answer = formatAnswer(payload, config.multiply, config.decimalPlaces)
+    const listingAnswer: actions.ListingAnswer = { answer, config }
+
+    dispatch(actions.fetchAnswerSuccess(listingAnswer))
   }
+}
+
+const LATEST_ANSWER_CONTRACT_VERSION = 2
+
+async function latestAnswer(
+  contractConfig: FeedConfig,
+  provider: JsonRpcProvider,
+) {
+  const contract = answerContract(contractConfig.contractAddress, provider)
+  return contractConfig.contractVersion === LATEST_ANSWER_CONTRACT_VERSION
+    ? await contract.latestAnswer()
+    : await contract.currentAnswer()
 }
 
 const ANSWER_ABI: FunctionFragment[] = [
@@ -73,25 +79,27 @@ function answerContract(contractAddress: string, provider: JsonRpcProvider) {
   return createContract(contractAddress, provider, ANSWER_ABI)
 }
 
-const LATEST_ANSWER_CONTRACT_VERSION = 2
-
-async function latestAnswer(
-  contractConfig: FeedConfig,
-  provider: JsonRpcProvider,
-) {
-  const contract = answerContract(contractConfig.contractAddress, provider)
-  return contractConfig.contractVersion === LATEST_ANSWER_CONTRACT_VERSION
-    ? await contract.latestAnswer()
-    : await contract.currentAnswer()
+/**
+ * health checks
+ */
+interface HealthPrice {
+  config: any
+  price: number
 }
 
-async function allAnswers(provider: JsonRpcProvider, feeds: FeedConfig[]) {
-  const answers = feeds.map(async config => {
-    const payload = await latestAnswer(config, provider)
-    const answer = formatAnswer(payload, config.multiply, config.decimalPlaces)
+export function fetchHealthStatus(feed: FeedConfig) {
+  return async (dispatch: Dispatch) => {
+    const priceResponse = await fetchHealthPrice(feed)
 
-    return { answer, config }
-  })
+    if (priceResponse) {
+      dispatch(actions.fetchHealthPriceSuccess(priceResponse))
+    }
+  }
+}
 
-  return Promise.all(answers)
+async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
+  if (!config.healthPrice) return
+
+  const json = await fetch(config.healthPrice).then(r => r.json())
+  return { config, price: json[0].current_price }
 }

@@ -49,10 +49,13 @@ const Page: React.FC<Props> = ({ config }) => {
 }
 
 function selectFeedConfig(
-  { feeds }: AppState,
+  state: AppState,
   contractAddress: string,
 ): FeedConfig | undefined {
-  return feeds.items[contractAddress]
+  console.log(state, contractAddress)
+  /* return feeds.items[contractAddress] */
+
+  return undefined
 }
 
 const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (

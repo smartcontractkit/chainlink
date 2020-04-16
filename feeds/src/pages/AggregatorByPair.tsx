@@ -6,6 +6,7 @@ import { Header } from 'components/header'
 import { Aggregator } from 'components/aggregator'
 import { AppState } from 'state'
 import { Networks } from '../utils'
+/* import { feedsOperations } from '../state/ducks/feeds' */
 
 interface OwnProps {
   match: {
@@ -20,14 +21,19 @@ interface StateProps {
   config?: FeedConfig
 }
 
-interface DispatchProps {}
+interface DispatchProps {
+  fetchFeeds: any
+}
 
 interface Props extends StateProps, DispatchProps, OwnProps {}
 
-const Page: React.FC<Props> = ({ config }) => {
+const Page: React.FC<Props> = ({ fetchFeeds, config }) => {
   const [loaded, setLoaded] = useState<boolean>(false)
   let content
 
+  useEffect(() => {
+    fetchFeeds()
+  }, [fetchFeeds])
   useEffect(() => {
     setLoaded(true)
   }, [loaded, setLoaded])
@@ -51,19 +57,20 @@ const Page: React.FC<Props> = ({ config }) => {
 }
 
 function selectFeedConfig(
-  { feeds }: AppState,
+  state: AppState,
   pair: string,
   networkId: Networks,
 ): FeedConfig | undefined {
-  const pairNetwork = feeds.pairPaths.find(
-    ([p, n, _c]) => p === pair && n === networkId,
-  )
-  const contractAddress: FeedConfig['contractAddress'] | undefined =
-    pairNetwork && pairNetwork[2]
+  /* const pairNetwork = feeds.pairPaths.find( */
+  /*   ([p, n, _c]) => p === pair && n === networkId, */
+  /* ) */
+  /* const contractAddress: FeedConfig['contractAddress'] | undefined = */
+  /*   pairNetwork && pairNetwork[2] */
 
-  if (contractAddress) {
-    return feeds.items[contractAddress]
-  }
+  /* if (contractAddress) { */
+  /*   return feeds.items[contractAddress] */
+  /* } */
+  console.log(state, pair, networkId)
 
   return undefined
 }
@@ -89,4 +96,9 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
   }
 }
 
-export default connect(mapStateToProps)(Page)
+const mapDispatchToProps = {
+  /* fetchFeeds: feedsOperations.fetchFeeds, */
+  fetchFeeds: () => {},
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(Page)

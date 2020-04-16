@@ -1,4 +1,3 @@
-import feeds from './feeds.json'
 import nodes from './nodes.json'
 
 export interface FeedConfig {
@@ -28,9 +27,6 @@ export interface OracleNode {
   networkId: number
 }
 
-export function getFeedsConfig(): FeedConfig[] {
-  return feeds as FeedConfig[]
-}
 
 export function getOracleNodes(): OracleNode[] {
   return nodes as OracleNode[]

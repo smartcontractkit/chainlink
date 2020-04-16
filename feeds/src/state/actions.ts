@@ -1,4 +1,10 @@
-import { SetAnswersAction, SetHealthPriceAction } from './ducks/listing/actions'
+import {
+  FetchFeedsBeginAction,
+  FetchFeedsSuccessAction,
+  FetchFeedsErrorAction,
+  FetchAnswerSuccessAction,
+  FetchHealthPriceSuccessAction,
+} from './ducks/listing/actions'
 import {
   SetOracleListAction,
   SetLatestAnswerAction,
@@ -23,8 +29,11 @@ export interface InitialStateAction {
 
 export type Actions =
   | InitialStateAction
-  | SetAnswersAction
-  | SetHealthPriceAction
+  | FetchFeedsBeginAction
+  | FetchFeedsSuccessAction
+  | FetchFeedsErrorAction
+  | FetchAnswerSuccessAction
+  | FetchHealthPriceSuccessAction
   | SetOracleListAction
   | SetLatestAnswerAction
   | SetLatestCompletedAnswerIdAction

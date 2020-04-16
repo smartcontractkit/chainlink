@@ -13,7 +13,7 @@ import {
   UnknownResponseError,
   UnprocessableEntityError,
 } from '../errors'
-import fetchWithTimeout from '../fetchWithTimeout'
+import { fetchWithTimeout } from '../fetchWithTimeout'
 import * as http from './http'
 
 /**
