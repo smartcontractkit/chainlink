@@ -1,6 +1,6 @@
 import { Server } from 'http'
 import jayson from 'jayson'
-import { Connection, getCustomRepository } from 'typeorm'
+import { getRepository, getCustomRepository } from 'typeorm'
 import WebSocket from 'ws'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
@@ -15,29 +15,23 @@ import { start, stop } from '../../support/server'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import createFixture from '../fixtures/JobRun.fixture.json'
 import updateFixture from '../fixtures/JobRunUpdate.fixture.json'
-import { getDb, clearDb } from '../testdatabase'
+import { clearDb } from '../testdatabase'
 
 const { INVALID_PARAMS } = jayson.Server.errors
 
 describe('realtime', () => {
   let server: Server
-  let db: Connection
   let chainlinkNode: ChainlinkNode
   let secret: string
   let ws: WebSocket
 
   beforeAll(async () => {
-    db = getDb()
-    server = await start(db)
+    server = await start()
   })
 
   beforeEach(async () => {
-    db = getDb()
     clearDb()
-    ;[chainlinkNode, secret] = await createChainlinkNode(
-      db,
-      'upsertJobRun test chainlinkNode',
-    )
+    ;[chainlinkNode, secret] = await createChainlinkNode('upsertJobRun test chainlinkNode')
     ws = await newChainlinkNode(chainlinkNode.accessKey, secret)
   })
 
@@ -55,10 +49,10 @@ describe('realtime', () => {
       const response = await sendSingleMessage(ws, request)
       expect(response.result).toEqual('success')
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(1)
     })
 
@@ -84,13 +78,13 @@ describe('realtime', () => {
         })
       })
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(1)
 
-      const jr = await db.manager.findOne(JobRun)
+      const jr = await getRepository(JobRun).findOne()
       expect(jr.status).toEqual('completed')
 
       const tr = jr.taskRuns[0]
@@ -104,13 +98,13 @@ describe('realtime', () => {
       const response = await sendSingleMessage(ws, request)
       expect(response.result).toEqual('success')
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(4)
 
-      const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+      const jobRunRepository = getCustomRepository(JobRunRepository)
       const jr = await jobRunRepository.getFirst()
 
       expect(jr.status).toEqual('completed')
@@ -131,7 +125,7 @@ describe('realtime', () => {
       const request = createRPCRequest('upsertJobRun', { invalid: 'params' })
       const response = await sendSingleMessage(ws, request)
       expect(response.error.code).toEqual(INVALID_PARAMS)
-      const count = await db.manager.count(JobRun)
+      const count = await getRepository(JobRun).count()
       expect(count).toEqual(0)
     })
   })

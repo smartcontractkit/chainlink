@@ -1,4 +1,3 @@
-import { getConnection } from 'typeorm'
 import { Request, Response, NextFunction } from 'express'
 import httpStatus from 'http-status-codes'
 import { find as findAdmin, isValidPassword } from '../entity/Admin'
@@ -21,8 +20,7 @@ export default async function(req: Request, res: Response, next: NextFunction) {
       return
     }
 
-    const db = getConnection()
-    const admin = await findAdmin(db, username)
+    const admin = await findAdmin(username)
     const validPassword = await isValidPassword(password, admin)
 
     // Express.js middleware is sequential

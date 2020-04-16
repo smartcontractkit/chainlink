@@ -10,20 +10,21 @@ async function main() {
   const version = await getVersion(conf)
   logger.info(version)
 
+  const db = await openDbConnection()
   try {
-    const db = await openDbConnection()
-
     logger.info('Cleaning up sessions...')
-    await retireSessions(db)
+    await retireSessions()
 
     logger.info('Starting Explorer Node')
-    await server(conf, db)
+    await server(conf)
 
   } catch (e) {
     logger.error({
       msg: `Exception during startup: ${e.message}`,
       stack: e.stack,
     })
+  } finally {
+    db.close()
   }
 }
 

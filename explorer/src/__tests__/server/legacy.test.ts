@@ -1,6 +1,5 @@
 import { Server } from 'http'
-import { getDb } from '../testdatabase'
-import { Connection, getCustomRepository } from 'typeorm'
+import { getCustomRepository, getRepository } from 'typeorm'
 import WebSocket from 'ws'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
@@ -15,25 +14,17 @@ import { clearDb } from '../testdatabase'
 
 describe('realtime', () => {
   let server: Server
-  let db: Connection
   let chainlinkNode: ChainlinkNode
   let secret: string
   let ws: WebSocket
 
-  beforeEach(() => {
-    db = getDb()
-  })
-
   beforeAll(async () => {
-    server = await start(db)
+    server = await start()
   })
 
   beforeEach(async () => {
     clearDb()
-    ;[chainlinkNode, secret] = await createChainlinkNode(
-      db,
-      'legacy test chainlinkNode',
-    )
+    ;[chainlinkNode, secret] = await createChainlinkNode('legacy test chainlinkNode')
     ws = await newChainlinkNode(chainlinkNode.accessKey, secret)
   })
 
@@ -50,10 +41,10 @@ describe('realtime', () => {
       const response = await sendSingleMessage(ws, createFixture)
       expect(response.status).toEqual(201)
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(1)
     })
 
@@ -81,13 +72,13 @@ describe('realtime', () => {
         })
       })
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(1)
 
-      const jr = await db.manager.findOne(JobRun)
+      const jr = await getRepository(JobRun).findOne()
       expect(jr.status).toEqual('completed')
 
       const tr = jr.taskRuns[0]
@@ -100,13 +91,13 @@ describe('realtime', () => {
       const response = await sendSingleMessage(ws, ethtxFixture)
       expect(response.status).toEqual(201)
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(4)
 
-      const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+      const jobRunRepository = getCustomRepository(JobRunRepository)
       const jr = await jobRunRepository.getFirst()
 
       expect(jr.status).toEqual('completed')
@@ -128,7 +119,7 @@ describe('realtime', () => {
       const request = '{invalid json}'
       const response = await sendSingleMessage(ws, request)
       expect(response.status).toEqual(422)
-      const count = await db.manager.count(JobRun)
+      const count = await getRepository(JobRun).count()
       expect(count).toEqual(0)
     })
   })

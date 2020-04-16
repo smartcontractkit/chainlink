@@ -1,7 +1,7 @@
 import { validate } from 'class-validator'
 import { Router } from 'express'
 import httpStatus from 'http-status-codes'
-import { getConnection } from 'typeorm'
+import { getConnection, getCustomRepository, getRepository } from 'typeorm'
 import {
   buildChainlinkNode,
   ChainlinkNode,
@@ -19,8 +19,7 @@ const router = Router()
 
 router.get('/nodes', async (req, res) => {
   const params = parseParams(req.query)
-  const db = getConnection()
-  const chainlinkNodeRepository = db.getCustomRepository(ChainlinkNodeRepository)
+  const chainlinkNodeRepository = getCustomRepository(ChainlinkNodeRepository)
   const chainlinkNodes = await chainlinkNodeRepository.all(params)
   const nodeCount = await chainlinkNodeRepository.count()
   const json = chainlinkNodesSerializer(chainlinkNodes, nodeCount)
@@ -31,13 +30,12 @@ router.get('/nodes', async (req, res) => {
 router.post('/nodes', async (req, res) => {
   const name = req.body.name
   const url = req.body.url
-  const db = getConnection()
   const [node, secret] = buildChainlinkNode(name, url)
   const errors = await validate(node)
 
   if (errors.length === 0) {
     try {
-      const savedNode = await db.manager.save(node)
+      const savedNode = await getRepository(ChainlinkNode).save(node)
 
       return res.status(httpStatus.CREATED).json({
         id: savedNode.id,
@@ -69,10 +67,9 @@ router.post('/nodes', async (req, res) => {
 
 router.get('/nodes/:id', async (req, res) => {
   const { id } = req.params
-  const db = getConnection()
-  const node = await db.getRepository(ChainlinkNode).findOne(id)
-  const uptime = await nodeUptime(db, node)
-  const jobCounts = await jobCountReport(db, node)
+  const node = await getRepository(ChainlinkNode).findOne(id)
+  const uptime = await nodeUptime(node)
+  const jobCounts = await jobCountReport(node)
 
   const data = {
     id: node.id,

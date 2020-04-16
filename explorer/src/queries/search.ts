@@ -1,4 +1,4 @@
-import { Connection, SelectQueryBuilder } from 'typeorm'
+import { getRepository, SelectQueryBuilder } from 'typeorm'
 import { JobRun } from '../entity/JobRun'
 import { PaginationParams } from '../utils/pagination'
 
@@ -19,11 +19,8 @@ const normalizeSearchToken = (id: string): string => {
   return id
 }
 
-const searchBuilder = (
-  db: Connection,
-  params: SearchParams,
-): SelectQueryBuilder<JobRun> => {
-  let query = db.getRepository(JobRun).createQueryBuilder('job_run')
+const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
+  let query = getRepository(JobRun).createQueryBuilder('job_run')
 
   if (params.searchQuery != null) {
     const searchTokens = params.searchQuery.split(/\s+/)
@@ -56,15 +53,15 @@ const searchBuilder = (
   return query
 }
 
-export const search = async (db: Connection, params: SearchParams): Promise<JobRun[]> => {
-  return searchBuilder(db, params)
+export const search = async (params: SearchParams): Promise<JobRun[]> => {
+  return searchBuilder(params)
     .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
     .orderBy('job_run.createdAt', 'DESC')
     .getMany()
 }
 
-export const count = async (db: Connection, params: SearchParams): Promise<number> => {
-  const result = await searchBuilder(db, params)
+export const count = async (params: SearchParams): Promise<number> => {
+  const result = await searchBuilder(params)
     .select('COUNT(*)', 'count')
     .getRawOne()
 

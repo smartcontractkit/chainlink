@@ -1,4 +1,4 @@
-import { Connection } from 'typeorm'
+import { getRepository } from 'typeorm'
 import { ChainlinkNode } from './entity/ChainlinkNode'
 import { createJobRun } from './factories'
 
@@ -12,14 +12,15 @@ const CORE_NODE_HASHED_SECRET =
 const CORE_NODE_SALT = '5dhpzBypVnddiYNRRz0eIO9Y6ZBqqv8D'
 const CORE_NODE_ACCESS_KEY = 'bL1wMDLp4GVJ5p5n'
 
-export default async (db: Connection) => {
-  const count = await db.manager.count(ChainlinkNode)
+export default async () => {
+  const repo = getRepository(ChainlinkNode)
+  const count = await repo.count()
 
   if (count === 0) {
-    const node = await db.manager.save(buildChainlinkNode())
+    const node = await repo.save(buildChainlinkNode())
 
-    await createJobRun(db, node)
-    await createJobRun(db, node)
+    await createJobRun(node)
+    await createJobRun(node)
   }
 }
 
