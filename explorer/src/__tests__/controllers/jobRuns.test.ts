@@ -1,21 +1,15 @@
 import http from 'http'
+import { getRepository } from 'typeorm'
 import request from 'supertest'
-import { Connection } from 'typeorm'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
 import { createJobRun } from '../../factories'
 import { start, stop } from '../../support/server'
-import { getDb } from '../testdatabase'
 
 let server: http.Server
-
-let db: Connection
-beforeEach(async () => {
-  db = getDb()
-})
 beforeAll(async () => {
-  server = await start(db)
+  server = await start()
 })
 afterAll(done => stop(server, done))
 
@@ -32,11 +26,8 @@ describe('#index', () => {
     let jobRun: JobRun
 
     beforeEach(async () => {
-      const [node] = await createChainlinkNode(
-        db,
-        'jobRunsIndexTestChainlinkNode',
-      )
-      jobRun = await createJobRun(db, node)
+      const [node] = await createChainlinkNode('jobRunsIndexTestChainlinkNode')
+      jobRun = await createJobRun(node)
     })
 
     it('returns runs with chainlink node names', async () => {
@@ -58,11 +49,11 @@ describe('#show', () => {
   let node: ChainlinkNode
 
   beforeEach(async () => {
-    ;[node] = await createChainlinkNode(db, 'jobRunsShowTestChainlinkNode')
+    ;[node] = await createChainlinkNode('jobRunsShowTestChainlinkNode')
   })
 
   it('returns the job run with task runs', async () => {
-    const jobRun = await createJobRun(db, node)
+    const jobRun = await createJobRun(node)
     const response = await request(server).get(`/api/v1/job_runs/${jobRun.id}`)
     expect(response.status).toEqual(200)
     expect(response.body.data.id).toEqual(jobRun.id)
@@ -73,10 +64,7 @@ describe('#show', () => {
   describe('with out of order task runs', () => {
     let jobRunId: string
     beforeEach(async () => {
-      const [chainlinkNode] = await createChainlinkNode(
-        db,
-        'testOutOfOrderTaskRuns',
-      )
+      const [chainlinkNode] = await createChainlinkNode('testOutOfOrderTaskRuns')
       const jobRun = new JobRun()
       jobRun.chainlinkNodeId = chainlinkNode.id
       jobRun.runId = 'OutOfOrderTaskRuns'
@@ -87,7 +75,7 @@ describe('#show', () => {
       jobRun.requestId = 'requestIdA'
       jobRun.requester = 'requesterA'
       jobRun.createdAt = new Date('2019-04-08T01:00:00.000Z')
-      await db.manager.save(jobRun)
+      await getRepository(JobRun).save(jobRun)
       jobRunId = jobRun.id
 
       const taskRunB = new TaskRun()
@@ -95,14 +83,14 @@ describe('#show', () => {
       taskRunB.index = 1
       taskRunB.status = ''
       taskRunB.type = 'jsonparse'
-      await db.manager.save(taskRunB)
+      await getRepository(TaskRun).save(taskRunB)
 
       const taskRunA = new TaskRun()
       taskRunA.jobRun = jobRun
       taskRunA.index = 0
       taskRunA.status = 'in_progress'
       taskRunA.type = 'httpget'
-      await db.manager.save(taskRunA)
+      await getRepository(TaskRun).save(taskRunA)
     })
 
     it('returns ordered task runs', async () => {
@@ -118,7 +106,7 @@ describe('#show', () => {
   })
 
   it('returns the job run with only public chainlink node information', async () => {
-    const jobRun = await createJobRun(db, node)
+    const jobRun = await createJobRun(node)
 
     const response = await request(server).get(`/api/v1/job_runs/${jobRun.id}`)
     expect(response.status).toEqual(200)

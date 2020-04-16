@@ -1,4 +1,3 @@
-import { Connection } from 'typeorm'
 import { randomBytes } from 'crypto'
 import http from 'http'
 import { getConfig } from '../config'
@@ -11,19 +10,21 @@ export const DEFAULT_TEST_PORT =
 /**
  * Start database then initialize the server on the specified port
  */
-export async function start(db: Connection): Promise<Server> {
+export async function start(): Promise<Server> {
   Object.assign(process.env, {
     EXPLORER_SERVER_PORT: `${DEFAULT_TEST_PORT}`,
     EXPLORER_COOKIE_SECRET: randomBytes(32).toString('hex'),
   })
 
   const conf = getConfig()
-  return server(conf, db)
+  return server(conf)
 }
 
 /**
  * Stop the server then close the database connection
  */
 export function stop(server: http.Server, done: jest.DoneCallback): void {
-  server.close(done)
+  if (server !== undefined) {
+    server.close(done)
+  }
 }

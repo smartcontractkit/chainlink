@@ -5,7 +5,6 @@ import express from 'express'
 import http from 'http'
 import httpStatus from 'http-status-codes'
 import request from 'supertest'
-import { getConnection, Connection } from 'typeorm'
 import adminAuth from '../../middleware/adminAuth'
 import { createAdmin } from '../../support/admin'
 import { stop } from '../../support/server'
@@ -35,17 +34,15 @@ app.use(ROUTE_PATH, adminAuth)
 app.use(ROUTE_PATH, (_, res) => res.sendStatus(200))
 
 let server: http.Server
-let db: Connection
 
 beforeAll(async () => {
-  db = getConnection()
   server = app.listen(null)
 })
 afterAll(done => stop(server, done))
 
 beforeEach(async () => {
   await clearDb()
-  await createAdmin(db, USERNAME, PASSWORD)
+  await createAdmin(USERNAME, PASSWORD)
 })
 
 function sendPostHeaders(path: string, username: string, password: string) {

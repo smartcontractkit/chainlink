@@ -1,9 +1,8 @@
-import { Connection } from 'typeorm'
+import { getRepository } from 'typeorm'
 import { Admin } from '../entity/Admin'
 import { hash } from '../services/password'
 
 export async function createAdmin(
-  db: Connection,
   username: string,
   password: string,
 ) {
@@ -12,5 +11,5 @@ export async function createAdmin(
   admin.username = username
   admin.hashedPassword = hashedPassword
 
-  return db.manager.save(admin)
+  return getRepository(Admin).save(admin)
 }

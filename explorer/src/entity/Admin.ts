@@ -1,4 +1,4 @@
-import { Column, Connection, Entity, PrimaryGeneratedColumn } from 'typeorm'
+import { getRepository, Column, Entity, PrimaryGeneratedColumn } from 'typeorm'
 import { compare as comparePassword } from '../services/password'
 
 @Entity()
@@ -19,8 +19,8 @@ export class Admin {
   updatedAt: Date
 }
 
-export function find(db: Connection, username: string): Promise<Admin> {
-  return db.getRepository(Admin).findOne({ username })
+export function find(username: string): Promise<Admin> {
+  return getRepository(Admin).findOne({ username })
 }
 
 export async function isValidPassword(

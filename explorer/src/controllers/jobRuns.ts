@@ -1,4 +1,4 @@
-import { getConnection } from 'typeorm'
+import { getCustomRepository } from 'typeorm'
 import { Router, Request, Response } from 'express'
 import { search, count, SearchParams } from '../queries/search'
 import jobRunsSerializer from '../serializers/jobRunsSerializer'
@@ -19,16 +19,15 @@ const searchParams = (req: Request): SearchParams => {
 
 router.get('/job_runs', async (req: Request, res: Response) => {
   const params = searchParams(req)
-  const db = getConnection()
-  const runs = await search(db, params)
-  const runCount = await count(db, params)
+  const runs = await search(params)
+  const runCount = await count(params)
   const json = jobRunsSerializer(runs, runCount)
   return res.send(json)
 })
 
 router.get('/job_runs/:id', async (req: Request, res: Response) => {
   const id = req.params.id
-  const jobRunRepository = getConnection().getCustomRepository(JobRunRepository)
+  const jobRunRepository = getCustomRepository(JobRunRepository)
   const jobRun = await jobRunRepository.findById(id)
 
   if (jobRun) {

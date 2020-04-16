@@ -1,7 +1,5 @@
 import http from 'http'
 import request from 'supertest'
-import { Connection } from 'typeorm'
-import { getDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
 import { requestBuilder, RequestBuilder } from '../../../support/requestBuilder'
 import { start, stop } from '../../../support/server'
@@ -11,21 +9,17 @@ const PASSWORD = 'validpassword'
 const adminLoginPath = '/api/v1/admin/login'
 
 let server: http.Server
-let db: Connection
 let rb: RequestBuilder
 
-beforeEach(() => {
-  db = getDb()
-})
 beforeAll(async () => {
-  server = await start(db)
+  server = await start()
   rb = requestBuilder(server)
 })
 afterAll(done => stop(server, done))
 
 describe('POST /api/v1/admin/login', () => {
   beforeEach(async () => {
-    await createAdmin(db, USERNAME, PASSWORD)
+    await createAdmin(USERNAME, PASSWORD)
   })
 
   it('returns a 200 with valid credentials', done => {
