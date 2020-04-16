@@ -212,7 +212,7 @@ func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw",
+		SignedRawTx: hexutil.MustDecode("0xcafe11"),
 	}
 }
 
@@ -262,7 +262,7 @@ func CreateTxWithNonceGasPriceAndRecipient(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw-attempt 1",
+		SignedRawTx: hexutil.MustDecode("0xcafe22"),
 	}
 
 	tx, err := store.CreateTx(tx)
@@ -291,7 +291,7 @@ func AddTxAttempt(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: fmt.Sprintf("signed-raw-attempt %d", len(tx.Attempts)+1),
+		SignedRawTx: []byte{byte(len(tx.Attempts))},
 	}
 
 	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
