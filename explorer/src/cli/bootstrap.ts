@@ -1,12 +1,17 @@
 import { Connection } from 'typeorm'
 import { openDbConnection } from '../database'
 
-export async function bootstrap(cb: (db: Connection) => void) {
+interface Callback {
+  (db: Connection): Promise<void>
+}
+
+export async function bootstrap(cb: Callback) {
   const db = await openDbConnection()
   try {
-    return cb(db)
+    return await cb(db)
   } catch (err) {
     console.error(err)
+    throw err
   } finally {
     db.close()
   }
