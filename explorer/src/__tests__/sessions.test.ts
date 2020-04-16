@@ -58,9 +58,8 @@ describe('sessions', () => {
       expect(session.finishedAt).toBeNull()
 
       await closeSession(session)
-      expect(session.finishedAt).toEqual(expect.any(Date))
 
-      let foundSession = await getRepository(Session).findOne()
+      const foundSession = await getRepository(Session).findOne()
       expect(foundSession.chainlinkNodeId).toEqual(chainlinkNode.id)
       expect(foundSession.finishedAt).toEqual(expect.any(Date))
     })
