@@ -1,4 +1,4 @@
-flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json b2a8de2b0b8314b794f22d83812a4d049477bd9f8f6d896ed303cf03749eede1
+flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json d7bc50e1a9d54135838bd8a460821cfa5737ca18bbf23e3b6aecd0f63129d411
 GETH_VERSION: 1.9.12
 link_token_interface: ./generation/../../../../evm-test-helpers/src/LinkToken.json a16bfa4690d25769959dd59034f03d101a46ecbf7e774a57ca6874f8352c8568
 solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 37323e90d064503ebfb0a2c9d6c40d4787fac916df659d082c3927f7f3de6b09
