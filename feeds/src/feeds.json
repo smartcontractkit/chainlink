@@ -12,7 +12,7 @@
     "history": false,
     "decimalPlaces": 3,
     "multiply": "100000000",
-    "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch"],
+    "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch", "ParaSwap"],
     "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
@@ -32,7 +32,7 @@
     "decimalPlaces": 3,
     "multiply": "100000000",
     "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch", "ParaSwap"],
-    "threshold": 1,
+    "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
     "listing": false
