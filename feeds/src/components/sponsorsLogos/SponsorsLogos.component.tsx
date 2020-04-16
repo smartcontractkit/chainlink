@@ -11,6 +11,7 @@ import dmm from 'assets/sponsors/dmm.png'
 import bzx from 'assets/sponsors/bzx.png'
 import haven from 'assets/sponsors/haven.png'
 import OneInch from 'assets/sponsors/1inch.png'
+import paraswap from 'assets/sponsors/paraswap.png'
 
 import ReactGA from 'react-ga'
 
@@ -76,6 +77,11 @@ const list: Sponsor[] = [
     name: '1inch',
     url: 'https://1inch.exchange',
     src: OneInch,
+  },
+  {
+    name: 'ParaSwap',
+    url: 'https://paraswap.io',
+    src: paraswap,
   },
 ]
 
