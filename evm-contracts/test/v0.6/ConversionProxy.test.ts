@@ -204,4 +204,27 @@ describe('ConversionProxy', () => {
       matchers.bigNum(await aggregator.latestRound(), await proxy.latestRound())
     })
   })
+
+  describe('#getAnswer', () => {
+    const newAnswer = h.numToBytes32(13340400000)
+    const newFiatAnswer = h.numToBytes32(125330000)
+    const expectedRates = [
+      h.numToBytes32(16594193320), // (13240400000 * 125330000) / (10 ** 8)
+      h.numToBytes32(16719523320), // (13340400000 * 125330000) / (10 ** 8)
+    ]
+
+    beforeEach(async () => {
+      await aggregator.updateAnswer(newAnswer)
+      await aggregatorFiat.updateAnswer(newFiatAnswer)
+    })
+
+    it('returns the rate of the latest conversion rate', async () => {
+      for (let i = 2; i > 0; i--) {
+        matchers.bigNum(
+          ethers.utils.bigNumberify(expectedRates[i - 1]),
+          await proxy.getAnswer(i),
+        )
+      }
+    })
+  })
 })
