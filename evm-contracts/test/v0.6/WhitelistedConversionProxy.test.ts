@@ -23,7 +23,7 @@ beforeAll(async () => {
   defaultAccount = users.roles.defaultAccount
 })
 
-describe('WhitelistedAggregatorProxy', () => {
+describe('WhitelistedConversionProxy', () => {
   const response = h.numToBytes32(13240400000)
   const fiatAnswer = h.numToBytes32(124330000)
   const convertedFiat = h.numToBytes32(16461789320)
@@ -65,7 +65,10 @@ describe('WhitelistedAggregatorProxy', () => {
       'transferOwnership',
       // Whitelisted methods:
       'addToWhitelist',
+      'disableWhitelist',
+      'enableWhitelist',
       'removeFromWhitelist',
+      'whitelistEnabled',
       'whitelisted',
     ])
   })
