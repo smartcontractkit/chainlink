@@ -31,7 +31,9 @@ describe('realtime', () => {
 
   beforeEach(async () => {
     clearDb()
-    ;[chainlinkNode, secret] = await createChainlinkNode('upsertJobRun test chainlinkNode')
+    ;[chainlinkNode, secret] = await createChainlinkNode(
+      'upsertJobRun test chainlinkNode',
+    )
     ws = await newChainlinkNode(chainlinkNode.accessKey, secret)
   })
 

@@ -11,4 +11,3 @@ export async function bootstrap(cb: (db: Connection) => void) {
     db.close()
   }
 }
-

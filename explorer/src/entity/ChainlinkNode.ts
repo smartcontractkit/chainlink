@@ -134,7 +134,9 @@ export interface JobCountReport {
   total: number
 }
 
-export async function jobCountReport(node: ChainlinkNode | number): Promise<JobCountReport> {
+export async function jobCountReport(
+  node: ChainlinkNode | number,
+): Promise<JobCountReport> {
   const id = node instanceof ChainlinkNode ? node.id : node
 
   const initialReport: JobCountReport = {

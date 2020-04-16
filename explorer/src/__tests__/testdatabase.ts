@@ -14,5 +14,7 @@ const TRUNCATE_TABLES: string[] = [
 ]
 
 export const clearDb = async () => {
-  return getConnection().query(`TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`)
+  return getConnection().query(
+    `TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`,
+  )
 }

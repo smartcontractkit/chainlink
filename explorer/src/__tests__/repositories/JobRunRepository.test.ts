@@ -8,7 +8,9 @@ import { createChainlinkNode } from '../../entity/ChainlinkNode'
 describe('JobRunRepository tests', () => {
   describe('getFirst', () => {
     it('should return a job run with its task runs sorted', async () => {
-      const [chainlinkNode] = await createChainlinkNode('job-run-fromString-chainlink-node')
+      const [chainlinkNode] = await createChainlinkNode(
+        'job-run-fromString-chainlink-node',
+      )
 
       const jr1 = JobRun.fromString(JSON.stringify(ethtxFixture))
       jr1.chainlinkNodeId = chainlinkNode.id
@@ -24,7 +26,9 @@ describe('JobRunRepository tests', () => {
 
   describe('findById', () => {
     it('should find a task run by its id with its task runs sorted', async () => {
-      const [chainlinkNode] = await createChainlinkNode('job-run-fromString-chainlink-node')
+      const [chainlinkNode] = await createChainlinkNode(
+        'job-run-fromString-chainlink-node',
+      )
 
       const jr1 = JobRun.fromString(JSON.stringify(ethtxFixture))
       jr1.chainlinkNodeId = chainlinkNode.id

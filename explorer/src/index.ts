@@ -17,7 +17,6 @@ async function main() {
 
     logger.info('Starting Explorer Node')
     await server(conf)
-
   } catch (e) {
     logger.error({
       msg: `Exception during startup: ${e.message}`,

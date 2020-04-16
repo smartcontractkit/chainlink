@@ -14,7 +14,6 @@ beforeAll(async () => {
 afterAll(done => stop(server, done))
 
 describe('#index', () => {
-
   describe('with no runs', () => {
     it('returns empty', async () => {
       const response = await request(server).get('/api/v1/job_runs')
@@ -64,7 +63,9 @@ describe('#show', () => {
   describe('with out of order task runs', () => {
     let jobRunId: string
     beforeEach(async () => {
-      const [chainlinkNode] = await createChainlinkNode('testOutOfOrderTaskRuns')
+      const [chainlinkNode] = await createChainlinkNode(
+        'testOutOfOrderTaskRuns',
+      )
       const jobRun = new JobRun()
       jobRun.chainlinkNodeId = chainlinkNode.id
       jobRun.runId = 'OutOfOrderTaskRuns'

@@ -18,7 +18,9 @@ async function wait(sec: number) {
 
 describe('createChainlinkNode', () => {
   it('returns a valid ChainlinkNode record', async () => {
-    const [chainlinkNode, secret] = await createChainlinkNode('new-valid-chainlink-node-record')
+    const [chainlinkNode, secret] = await createChainlinkNode(
+      'new-valid-chainlink-node-record',
+    )
     expect(chainlinkNode.accessKey).toHaveLength(16)
     expect(chainlinkNode.salt).toHaveLength(32)
     expect(chainlinkNode.hashedSecret).toBeDefined()
