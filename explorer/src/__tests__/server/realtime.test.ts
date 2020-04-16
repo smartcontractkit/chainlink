@@ -1,8 +1,6 @@
 import { Server } from 'http'
 import jayson from 'jayson'
-import { Connection } from 'typeorm'
 import WebSocket from 'ws'
-import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import {
   createRPCRequest,
@@ -17,7 +15,6 @@ const { PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND } = jayson.Server.errors
 
 describe('realtime', () => {
   let server: Server
-  let db: Connection
   let chainlinkNode: ChainlinkNode
   let secret: string
 
@@ -26,13 +23,11 @@ describe('realtime', () => {
 
   beforeAll(async () => {
     server = await start()
-    db = await getDb()
   })
 
   beforeEach(async () => {
     await clearDb()
     ;[chainlinkNode, secret] = await createChainlinkNode(
-      db,
       'realtime test chainlinkNode',
     )
   })

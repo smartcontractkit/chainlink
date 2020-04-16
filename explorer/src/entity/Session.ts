@@ -1,8 +1,10 @@
 import {
   Column,
-  Connection,
   CreateDateColumn,
   Entity,
+  EntityManager,
+  getConnection,
+  getManager,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   UpdateResult,
@@ -30,10 +32,10 @@ export class Session {
 }
 
 export async function createSession(
-  db: Connection,
   node: ChainlinkNode,
+  manager?: EntityManager,
 ): Promise<Session> {
-  await db.manager
+  await (manager || getManager())
     .createQueryBuilder()
     .update(Session)
     .set({ finishedAt: () => 'now()' })
@@ -41,11 +43,11 @@ export async function createSession(
     .execute()
   const session = new Session()
   session.chainlinkNodeId = node.id
-  return db.manager.save(session)
+  return (manager || getManager()).save(session)
 }
 
-export async function retireSessions(db: Connection): Promise<UpdateResult> {
-  return db.manager
+export async function retireSessions(): Promise<UpdateResult> {
+  return getConnection()
     .createQueryBuilder()
     .update(Session)
     .set({ finishedAt: new Date() })
@@ -53,11 +55,8 @@ export async function retireSessions(db: Connection): Promise<UpdateResult> {
     .execute()
 }
 
-export async function closeSession(
-  db: Connection,
-  session: Session,
-): Promise<UpdateResult> {
-  return db.manager
+export async function closeSession(session: Session): Promise<UpdateResult> {
+  return getConnection()
     .createQueryBuilder()
     .update(Session)
     .set({ finishedAt: () => 'now()' })
