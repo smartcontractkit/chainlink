@@ -261,7 +261,8 @@ func TestIntegration_RunAt(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
 	assert.Equal(t, "2018-01-08T18:12:01Z", utils.ISO8601UTC(initr.Time.Time))
 
-	cltest.WaitForRuns(t, j, app.Store, 1)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
 
 func TestIntegration_EthLog(t *testing.T) {
