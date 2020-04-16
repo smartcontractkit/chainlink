@@ -16,7 +16,7 @@ describe('sessions', () => {
       expect(foundSession.finishedAt).toBeNull()
 
       await authenticate(chainlinkNode.accessKey, secret)
-      foundSession = await getRepository(Session).findOne(foundSession.id) // db.manager.findOne(Session, foundSession.id)
+      foundSession = await getRepository(Session).findOne(foundSession.id)
       expect(foundSession.finishedAt).toBeDefined()
     })
 
