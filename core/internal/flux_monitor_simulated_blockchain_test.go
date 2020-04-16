@@ -51,12 +51,12 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 }
 
 var oneEth = big.NewInt(1000000000000000000)
-var fee = big.NewInt(100) // Amount paid by FA contract, in LINK-wei
+var fee = int64(100) // Amount paid by FA contract, in LINK-wei
 
 // deployFluxAggregator returns a fully initialized fluxAggregator universe. The
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
-func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
+func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	decimals uint8, description [32]byte) fluxAggregator {
 	var f fluxAggregator
 	f.sergey = newIdentity(t)
@@ -89,7 +89,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
 	f.aggregatorContractAddress, _, f.aggregatorContract, err =
 		faw.DeployFluxAggregator(f.sergey, f.backend,
-			linkAddress, paymentAmount, timeout, decimals, description)
+			linkAddress, big.NewInt(paymentAmount), timeout, decimals, description)
 	f.backend.Commit() // Must commit contract to chain before we can fund with LINK
 	require.NoError(t, err,
 		"failed to deploy FluxAggregator contract to simulated ethereum blockchain")
@@ -140,7 +140,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount *big.Int, timeout uint32,
 // checkUpdateAnswer verifies all the logs emitted by fa's FluxAggregator
 // contract after an updateAnswer with the given values.
 func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
-	answer, currentBalance *big.Int, from *bind.TransactOpts, isNewRound,
+	answer, currentBalance int64, from *bind.TransactOpts, isNewRound,
 	completesAnswer bool, receiptBlock uint64) {
 	if receiptBlock == 0 {
 		receiptBlock = fa.backend.Blockchain().CurrentBlock().Number().Uint64()
@@ -156,9 +156,9 @@ func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
 	_ = cltest.GetLogs(t, &srlogs, ilogs)
 	assert.Len(t, srlogs, 1,
 		"FluxAggregator did not emit correct SubmissionReceived log")
-	assert.True(t, srlogs[0].Answer.Cmp(answer) == 0,
+	assert.True(t, srlogs[0].Answer.Cmp(big.NewInt(answer)) == 0,
 		"SubmissionReceived log has wrong answer")
-	assert.Equal(t, uint32(roundId.Int64()), srlogs[0].Round,
+	assert.Equal(t, uint32(roundId), srlogs[0].Round,
 		"SubmissionReceived log has wrong round")
 	assert.Equal(t, from.From, srlogs[0].Oracle,
 		"SubmissionReceived log has wrong oracle")
@@ -170,7 +170,8 @@ func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
 		cltest.GetLogs(t, &nrlogs, inrlogs)
 		require.Len(t, nrlogs, 1,
 			"FluxAggregator did not emit correct NewRound log")
-		assert.Equal(t, roundId, nrlogs[0].RoundId, "NewRound log has wrong roundId")
+		assert.Equal(t, roundId, nrlogs[0].RoundId.Int64(),
+			"NewRound log has wrong roundId")
 		assert.Equal(t, from.From, nrlogs[0].StartedBy,
 			"NewRound log started by wrong oracle")
 	} else {
@@ -184,19 +185,20 @@ func checkUpdateAnswer(t *testing.T, fa *fluxAggregator, roundId,
 	_ = cltest.GetLogs(t, &aflogs, iaflogs)
 	assert.Len(t, aflogs, 1,
 		"FluxAggregator did not emit correct AvailableFundsUpdated log")
-	assert.True(t, big.NewInt(0).Sub(currentBalance, fee).Cmp(aflogs[0].Amount) == 0,
+	expectedBalance := currentBalance - fee
+	assert.Equal(t, expectedBalance, aflogs[0].Amount.Int64(),
 		"AvailableFundsUpdated log has wrong amount")
 	iaulogs, err := fa.aggregatorContract.FilterAnswerUpdated(fromBlock,
-		[]*big.Int{answer}, []*big.Int{roundId})
+		[]*big.Int{big.NewInt(answer)}, []*big.Int{big.NewInt(roundId)})
 	require.NoError(t, err, "failed to get AnswerUpdated logs")
 	if completesAnswer {
 		var aulogs []*faw.FluxAggregatorAnswerUpdated
 		_ = cltest.GetLogs(t, &aulogs, iaulogs)
 		assert.Len(t, aulogs, 1,
 			"FluxAggregator did not emit correct AnswerUpdated log")
-		assert.Equal(t, roundId, aulogs[0].RoundId,
+		assert.Equal(t, roundId, aulogs[0].RoundId.Int64(),
 			"AnswerUpdated log has wrong roundId")
-		assert.True(t, answer.Cmp(aulogs[0].Current) == 0,
+		assert.Equal(t, answer, aulogs[0].Current.Int64(),
 			"AnswerUpdated log has wrong current value")
 	}
 }
@@ -211,13 +213,14 @@ func currentBalance(t *testing.T, fa *fluxAggregator) *big.Int {
 // updateAnswer simulates a call to fa's FluxAggregator contract from from, with
 // the given roundId and answer, and checks that all the logs emitted by the
 // contract are correct
-func updateAnswer(t *testing.T, fa *fluxAggregator, roundId, answer *big.Int,
+func updateAnswer(t *testing.T, fa *fluxAggregator, roundId, answer int64,
 	from *bind.TransactOpts, isNewRound, completesAnswer bool) {
 	cb := currentBalance(t, fa)
-	_, err := fa.aggregatorContract.UpdateAnswer(from, roundId, answer)
+	_, err := fa.aggregatorContract.UpdateAnswer(from, big.NewInt(roundId),
+		big.NewInt(answer))
 	require.NoError(t, err, "failed to initialize first flux aggregation round:")
 	fa.backend.Commit()
-	checkUpdateAnswer(t, fa, roundId, answer, cb, from, isNewRound,
+	checkUpdateAnswer(t, fa, roundId, answer, cb.Int64(), from, isNewRound,
 		completesAnswer, 0)
 }
 
@@ -237,21 +240,21 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		config, fa.backend)
 	defer cleanup()
 	require.NoError(t, app.StartAndConnect(), "failed to start chainlink")
-	minFee := app.Store.Config.MinimumContractPayment().ToInt()
-	require.True(t, fee.Cmp(minFee) >= 0, "fee paid by FluxAggregator (%d) must "+
-		"at least match MinimumContractPayment (%s). (Which is currently set in "+
+	minFee := app.Store.Config.MinimumContractPayment().ToInt().Int64()
+	require.Equal(t, fee, minFee, "fee paid by FluxAggregator (%d) must at "+
+		"least match MinimumContractPayment (%s). (Which is currently set in "+
 		"cltest.go.)", fee, minFee)
 
 	answer := int64(1) // Answer the nodes give on the first round
 
 	//- have one of the fake nodes start a round.
-	roundId := big.NewInt(1)
-	processedAnswer := big.NewInt(answer * 100 /* job has multiply times 100 */)
+	roundId := int64(1)
+	processedAnswer := answer * 100 /* job has multiply times 100 */
 	updateAnswer(t, &fa, roundId, processedAnswer, fa.neil, true, false)
 
 	// - successfully close the round through the submissions of the other nodes
 	// Response by malicious chainlink node, nallory
-	initialBalance := currentBalance(t, &fa)
+	initialBalance := currentBalance(t, &fa).Int64()
 	reportPrice := answer
 	priceResponse := func() string {
 		return fmt.Sprintf(`{"data":{"result": %d}}`, reportPrice)
@@ -294,7 +297,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		fa.nallory, false, true, receiptBlock)
 
 	//- have the malicious node start the next round.
-	nextRoundBalance := initialBalance.Sub(initialBalance, fee)
+	nextRoundBalance := initialBalance - fee
 	// Triggers a new round, since price deviation exceeds threshold
 	reportPrice = answer + 1
 	select {
@@ -303,8 +306,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
-	newRound := big.NewInt(0).Add(roundId, big.NewInt(1))
-	processedAnswer = big.NewInt(int64(100 * reportPrice))
+	newRound := roundId + 1
+	processedAnswer = 100 * reportPrice
 	checkUpdateAnswer(t, &fa, newRound, processedAnswer, nextRoundBalance,
 		fa.nallory, true, false,
 		receiptBlock)
@@ -321,13 +324,13 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 	}
 	// Could add a check for "not eligible to submit here", using the memory log
-	newRound = big.NewInt(0).Add(newRound, big.NewInt(1))
-	processedAnswer = big.NewInt(int64(100 * reportPrice))
+	newRound = newRound + 1
+	processedAnswer = 100 * reportPrice
 	precision := job.Initiators[0].InitiatorParams.Precision
 	// FORCE node to try to start a new round
 	err = app.FluxMonitor.(*fluxmonitor.ConcreteFluxMonitor).
 		XXXTestingOnlyCreateJob(t, j.ID,
-			decimal.New(processedAnswer.Int64(), precision), newRound)
+			decimal.New(processedAnswer, precision), big.NewInt(newRound))
 	require.NoError(t, err)
 	select {
 	case <-submissionReceived:
