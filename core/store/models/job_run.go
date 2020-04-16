@@ -221,7 +221,7 @@ func (jr *JobRun) ErrorString() string {
 // RunRequest stores the fields used to initiate the parent job run.
 type RunRequest struct {
 	ID            uint32 `gorm:"primary_key"`
-	RequestID     *string
+	RequestID     *common.Hash
 	TxHash        *common.Hash
 	BlockHash     *common.Hash
 	Requester     *common.Address

@@ -29,15 +29,15 @@ type Tx struct {
 	To       common.Address `gorm:"not null"`
 	Data     []byte         `gorm:"not null"`
 	Nonce    uint64         `gorm:"index;not null"`
-	Value    *utils.Big     `gorm:"type:varchar(78);not null"`
+	Value    *utils.Big     `gorm:"not null"`
 	GasLimit uint64         `gorm:"not null"`
 
 	// TxAttempt fields manually included; can't embed another primary_key
 	Hash        common.Hash `gorm:"not null"`
-	GasPrice    *utils.Big  `gorm:"type:varchar(78);not null"`
+	GasPrice    *utils.Big  `gorm:"not null"`
 	Confirmed   bool        `gorm:"not null"`
 	SentAt      uint64      `gorm:"not null"`
-	SignedRawTx string      `gorm:"type:text;not null"`
+	SignedRawTx []byte      `gorm:"not null"`
 }
 
 // String implements Stringer for Tx
@@ -79,7 +79,7 @@ type TxAttempt struct {
 	GasPrice    *utils.Big  `gorm:"type:varchar(78);not null"`
 	Confirmed   bool        `gorm:"not null"`
 	SentAt      uint64      `gorm:"not null"`
-	SignedRawTx string      `gorm:"type:text;not null"`
+	SignedRawTx []byte      `gorm:"not null"`
 }
 
 // String implements Stringer for TxAttempt

@@ -458,13 +458,13 @@ func (_m *TxManager) Register(_a0 []accounts.Account) {
 	_m.Called(_a0)
 }
 
-// SendRawTx provides a mock function with given fields: hex
-func (_m *TxManager) SendRawTx(hex string) (common.Hash, error) {
-	ret := _m.Called(hex)
+// SendRawTx provides a mock function with given fields: bytes
+func (_m *TxManager) SendRawTx(bytes []byte) (common.Hash, error) {
+	ret := _m.Called(bytes)
 
 	var r0 common.Hash
-	if rf, ok := ret.Get(0).(func(string) common.Hash); ok {
-		r0 = rf(hex)
+	if rf, ok := ret.Get(0).(func([]byte) common.Hash); ok {
+		r0 = rf(bytes)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(common.Hash)
@@ -472,8 +472,8 @@ func (_m *TxManager) SendRawTx(hex string) (common.Hash, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(hex)
+	if rf, ok := ret.Get(1).(func([]byte) error); ok {
+		r1 = rf(bytes)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -482,14 +482,16 @@ func (_m *TxManager) SendRawTx(hex string) (common.Hash, error) {
 }
 
 // SignedRawTxWithBumpedGas provides a mock function with given fields: originalTx, gasLimit, gasPrice
-func (_m *TxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+func (_m *TxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) ([]byte, error) {
 	ret := _m.Called(originalTx, gasLimit, gasPrice)
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func(models.Tx, uint64, big.Int) string); ok {
+	var r0 []byte
+	if rf, ok := ret.Get(0).(func(models.Tx, uint64, big.Int) []byte); ok {
 		r0 = rf(originalTx, gasLimit, gasPrice)
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
 	}
 
 	var r1 error

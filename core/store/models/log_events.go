@@ -14,7 +14,6 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/pkg/errors"
 )
@@ -68,7 +67,7 @@ var (
 
 type logRequestParser interface {
 	parseJSON(eth.Log) (JSON, error)
-	parseRequestID(eth.Log) (string, error)
+	parseRequestID(eth.Log) (common.Hash, error)
 }
 
 // topicFactoryMap maps the log topic to a factory method that returns an
@@ -456,12 +455,12 @@ func (p parseRunLog0original) parseJSON(log eth.Log) (JSON, error) {
 	})
 }
 
-func (parseRunLog0original) parseRequestID(log eth.Log) (string, error) {
+func (parseRunLog0original) parseRequestID(log eth.Log) (common.Hash, error) {
 	idData, err := log.Data.SafeByteSlice(0, idSize)
 	if err != nil {
-		return "", err
+		return common.Hash{}, err
 	}
-	return hexutil.Encode(idData), nil
+	return common.BytesToHash(idData), nil
 }
 
 // parseRunLog20190123withFulfillmentParams parses the OracleRequest log format
@@ -506,12 +505,12 @@ func (parseRunLog20190123withFulfillmentParams) parseJSON(log eth.Log) (JSON, er
 	})
 }
 
-func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) (string, error) {
+func (parseRunLog20190123withFulfillmentParams) parseRequestID(log eth.Log) (common.Hash, error) {
 	idData, err := log.Data.SafeByteSlice(0, idSize)
 	if err != nil {
-		return "", err
+		return common.Hash{}, err
 	}
-	return common.BytesToHash(idData).Hex(), nil
+	return common.BytesToHash(idData), nil
 }
 
 // parseRunLog20190207withoutIndexes parses the OracleRequest log format after
@@ -565,13 +564,13 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log eth.Log) (JSON, error) {
 	})
 }
 
-func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) (string, error) {
+func (parseRunLog20190207withoutIndexes) parseRequestID(log eth.Log) (common.Hash, error) {
 	start := requesterSize
 	requestIDBytes, err := log.Data.SafeByteSlice(start, start+idSize)
 	if err != nil {
-		return "", err
+		return common.Hash{}, err
 	}
-	return common.BytesToHash(requestIDBytes).Hex(), nil
+	return common.BytesToHash(requestIDBytes), nil
 }
 
 func bytesToHex(data []byte) string {

@@ -586,7 +586,7 @@ func NewTx(tx *models.Tx) Tx {
 		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
 		GasPrice:  tx.GasPrice.String(),
 		Hash:      tx.Hash,
-		Hex:       tx.SignedRawTx,
+		Hex:       hexutil.Encode(tx.SignedRawTx),
 		Nonce:     strconv.FormatUint(tx.Nonce, 10),
 		SentAt:    strconv.FormatUint(tx.SentAt, 10),
 		To:        &tx.To,
