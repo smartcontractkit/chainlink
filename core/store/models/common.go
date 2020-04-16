@@ -26,7 +26,7 @@ type RunStatus string
 
 const (
 	// RunStatusUnstarted is the default state of any run status.
-	RunStatusUnstarted = RunStatus("")
+	RunStatusUnstarted = RunStatus("unstarted")
 	// RunStatusInProgress is used for when a run is actively being executed.
 	RunStatusInProgress = RunStatus("in_progress")
 	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.

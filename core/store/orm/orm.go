@@ -339,7 +339,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	orm.MustEnsureAdvisoryLock()
-	return orm.db.Debug().Create(run).Error
+	return orm.db.Create(run).Error
 }
 
 // LinkEarnedFor shows the total link earnings for a job

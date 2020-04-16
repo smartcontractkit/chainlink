@@ -213,7 +213,8 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 
 		job, err := store.FindJob(run.JobSpecID)
 		require.NoError(t, err)
-		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID}}
+		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
+
 		require.NoError(t, store.CreateJobRun(&run))
 		err = runManager.ResumeAllConnecting()
 		assert.NoError(t, err)
