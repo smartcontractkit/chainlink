@@ -71,6 +71,26 @@
     "listing": true
   },
   {
+    "contractAddress": "0xa7D38FBD325a6467894A13EeFD977aFE558bC1f0",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "name": "DAI / USD",
+    "valuePrefix": "$",
+    "pair": ["DAI", "USD"],
+    "path": "dai-usd",
+    "networkId": 1,
+    "history": false,
+    "decimalPlaces": 8,
+    "multiply": "100000000",
+    "sponsored": [
+      "Futureswap"
+    ],
+    "threshold": 0.5,
+    "compareOffchain": "https://www.tradingview.com/symbols/DAIUSDC/?exchange=COINBASE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=dai",
+    "listing": true
+  },
+  {
     "contractAddress": "0x05Cf62c4bA0ccEA3Da680f9A8744Ac51116D6231",
     "contractType": "aggregator",
     "contractVersion": 2,
