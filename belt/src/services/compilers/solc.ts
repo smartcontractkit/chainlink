@@ -32,11 +32,21 @@ export async function compileAll(conf: config.App) {
  * @param solcVersion The solidity compiler version to use with sol-compiler
  */
 function compiler(
-  { artifactsDir, useDockerisedSolc, contractsDir }: config.App,
+  {
+    artifactsDir,
+    useDockerisedSolc,
+    contractsDir,
+    compilerSettings,
+  }: config.App,
   subDir: string,
   solcVersion: string,
 ) {
   const _d = d.extend('compiler')
+  // remove our custom versions property
+  const compilerSettingCopy: config.App['compilerSettings'] = JSON.parse(
+    JSON.stringify(compilerSettings),
+  )
+  delete compilerSettingCopy.versions
 
   const settings: CompilerOptions = {
     artifactsDir: join(artifactsDir, subDir),
@@ -56,6 +66,7 @@ function compiler(
           ],
         },
       },
+      ...compilerSettingCopy,
     },
     contracts: '*',
     contractsDir: join(contractsDir, subDir),
