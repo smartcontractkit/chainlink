@@ -3,9 +3,8 @@
 package mocks
 
 import (
-	assets "github.com/smartcontractkit/chainlink/core/assets"
-
 	accounts "github.com/ethereum/go-ethereum/accounts"
+	assets "github.com/smartcontractkit/chainlink/core/assets"
 
 	big "math/big"
 

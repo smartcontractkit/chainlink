@@ -4,7 +4,6 @@ package mocks
 
 import (
 	fluxmonitor "github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
-
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
