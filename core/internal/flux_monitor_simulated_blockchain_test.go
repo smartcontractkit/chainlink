@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
@@ -333,7 +334,10 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		t.Fatalf("chainlink node updated FA, even though it's not allowed to")
 	case <-time.After(5 * timeout):
 	}
-	// Could add a check for "not eligible to submit here", using the memory log
+	gomega.NewGomegaWithT(t).Eventually(
+		cltest.MemoryLogTestingOnly().String).Should(gomega.ContainSubstring(
+		"skipping poll: not eligible to submit"), "did not see log about skipping "+
+		"poll because it's too early")
 	newRound = newRound + 1
 	processedAnswer = 100 * reportPrice
 	precision := job.Initiators[0].InitiatorParams.Precision
