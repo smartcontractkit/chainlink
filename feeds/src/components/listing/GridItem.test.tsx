@@ -34,8 +34,8 @@ describe('components/listing/GridItem', () => {
           answer={'10.1'}
           enableHealth={false}
           compareOffchain={false}
-          fetchAnswer={() => {}}
-          fetchHealthStatus={() => {}}
+          fetchAnswer={jest.fn()}
+          fetchHealthStatus={jest.fn()}
         />
       </AllTheProviders>,
     )
