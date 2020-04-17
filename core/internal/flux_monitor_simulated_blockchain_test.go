@@ -97,7 +97,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 		oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to fund FluxAggregator contract with LINK")
 	_, err = f.aggregatorContract.UpdateAvailableFunds(f.sergey)
-	require.NoError(t, err, "failed to update aggregator's vailableFunds field")
+	require.NoError(t, err, "failed to update aggregator's availableFunds field")
 	f.backend.Commit()
 	availableFunds, err := f.aggregatorContract.AvailableFunds(nil)
 	require.NoError(t, err, "failed to retrieve AvailableFunds")
