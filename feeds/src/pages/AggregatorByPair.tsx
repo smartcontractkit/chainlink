@@ -1,6 +1,6 @@
 import { DispatchBinding } from '@chainlink/ts-helpers'
 import React, { useEffect } from 'react'
-import { Redirect } from 'react-router-dom'
+import { Redirect, RouteComponentProps } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
 import { FeedConfig } from 'config'
 import { Header } from 'components/header'
@@ -8,14 +8,8 @@ import { Aggregator } from 'components/aggregator'
 import { AppState } from 'state'
 import { aggregatorOperations } from '../state/ducks/aggregator'
 
-interface OwnProps {
-  match: {
-    params: {
-      pair: string
-      network?: string
-    }
-  }
-}
+interface OwnProps
+  extends RouteComponentProps<{ pair: string; network?: string }> {}
 
 interface StateProps {
   config?: FeedConfig
