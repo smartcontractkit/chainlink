@@ -1,7 +1,7 @@
 import { DispatchBinding } from '@chainlink/ts-helpers'
 import React, { useEffect } from 'react'
 import { Redirect, RouteComponentProps } from 'react-router-dom'
-import { connect, MapStateToProps } from 'react-redux'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { FeedConfig } from 'config'
 import { Aggregator } from 'components/aggregator'
 import { Header } from 'components/header'
@@ -76,7 +76,7 @@ const mapStateToProps: MapStateToProps<
   }
 }
 
-const mapDispatchToProps = {
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   fetchFeedByAddress: aggregatorOperations.fetchFeedByAddress,
   fetchOracleNodes: aggregatorOperations.fetchOracleNodes,
 }
