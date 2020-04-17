@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import { DispatchBinding } from '@chainlink/ts-helpers'
+import React, { useEffect } from 'react'
 import { Redirect } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
 import { FeedConfig } from 'config'
 import { Aggregator } from 'components/aggregator'
 import { Header } from 'components/header'
 import { AppState } from 'state'
+import { aggregatorOperations } from '../state/ducks/aggregator'
 
 interface OwnProps {
   match: {
@@ -16,26 +18,46 @@ interface OwnProps {
 
 interface StateProps {
   config?: FeedConfig
+  loadingFeed: boolean
+  errorFeed?: string
 }
 
-interface DispatchProps {}
+interface DispatchProps {
+  fetchFeedByAddress: DispatchBinding<
+    typeof aggregatorOperations.fetchFeedByAddress
+  >
+  fetchOracleNodes: DispatchBinding<
+    typeof aggregatorOperations.fetchOracleNodes
+  >
+}
 
 interface Props extends OwnProps, StateProps, DispatchProps {}
 
-const Page: React.FC<Props> = ({ config }) => {
-  const [loaded, setLoaded] = useState<boolean>(false)
-  let content
-
+const Page: React.FC<Props> = ({
+  fetchFeedByAddress,
+  fetchOracleNodes,
+  match,
+  loadingFeed,
+  errorFeed,
+  config,
+}) => {
+  const contractAddress = match.params.contractAddress
   useEffect(() => {
-    setLoaded(true)
-  }, [loaded, setLoaded])
+    fetchFeedByAddress(contractAddress)
+  }, [fetchFeedByAddress, contractAddress])
+  useEffect(() => {
+    fetchOracleNodes()
+  }, [fetchOracleNodes])
 
+  let content
   if (config) {
     content = <Aggregator config={config} />
-  } else if (loaded) {
+  } else if (loadingFeed) {
+    content = <>Loading Feed...</>
+  } else if (errorFeed && errorFeed === 'Not Found') {
     content = <Redirect to="/" />
   } else {
-    content = <>Loading Feed...</>
+    content = <>There was an error loading the page. Refresh to try again.</>
   }
 
   return (
@@ -48,26 +70,21 @@ const Page: React.FC<Props> = ({ config }) => {
   )
 }
 
-function selectFeedConfig(
-  state: AppState,
-  contractAddress: string,
-): FeedConfig | undefined {
-  console.log(state, contractAddress)
-  /* return feeds.items[contractAddress] */
-
-  return undefined
-}
-
-const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
-  state,
-  ownProps,
-) => {
-  const contractAddress = ownProps.match.params.contractAddress
-  const config = selectFeedConfig(state, contractAddress)
-
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
-    config,
+    config: state.aggregator.config,
+    loadingFeed: state.aggregator.loadingFeed,
+    errorFeed: state.aggregator.errorFeed,
   }
 }
 
-export default connect(mapStateToProps)(Page)
+const mapDispatchToProps = {
+  fetchFeedByAddress: aggregatorOperations.fetchFeedByAddress,
+  fetchOracleNodes: aggregatorOperations.fetchOracleNodes,
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(Page)

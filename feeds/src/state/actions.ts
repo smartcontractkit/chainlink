@@ -6,6 +6,15 @@ import {
   FetchHealthPriceSuccessAction,
 } from './ducks/listing/actions'
 import {
+  FetchFeedByPairBeginAction,
+  FetchFeedByPairSuccessAction,
+  FetchFeedByPairErrorAction,
+  FetchFeedByAddressBeginAction,
+  FetchFeedByAddressSuccessAction,
+  FetchFeedByAddressErrorAction,
+  FetchOracleNodesBeginAction,
+  FetchOracleNodesSuccessAction,
+  FetchOracleNodesErrorAction,
   SetOracleListAction,
   SetLatestAnswerAction,
   SetLatestCompletedAnswerIdAction,
@@ -17,8 +26,6 @@ import {
   SetLatestAnswerTimestampAction,
   SetAnswersHistoryAction,
   SetCurrentAddressAction,
-  SetConfigAction,
-  SetClearStateAction,
   SetEthGasPriceAction,
 } from './ducks/aggregator/actions'
 import { SetTooltipAction, SetDrawerAction } from './ducks/networkGraph/actions'
@@ -34,6 +41,15 @@ export type Actions =
   | FetchFeedsErrorAction
   | FetchAnswerSuccessAction
   | FetchHealthPriceSuccessAction
+  | FetchFeedByPairBeginAction
+  | FetchFeedByPairSuccessAction
+  | FetchFeedByPairErrorAction
+  | FetchFeedByAddressBeginAction
+  | FetchFeedByAddressSuccessAction
+  | FetchFeedByAddressErrorAction
+  | FetchOracleNodesBeginAction
+  | FetchOracleNodesSuccessAction
+  | FetchOracleNodesErrorAction
   | SetOracleListAction
   | SetLatestAnswerAction
   | SetLatestCompletedAnswerIdAction
@@ -45,8 +61,6 @@ export type Actions =
   | SetLatestAnswerTimestampAction
   | SetAnswersHistoryAction
   | SetCurrentAddressAction
-  | SetConfigAction
-  | SetClearStateAction
   | SetEthGasPriceAction
   | SetTooltipAction
   | SetDrawerAction

@@ -7,9 +7,9 @@ const upcaseOracles = (
   state: AppState,
 ): Record<OracleNode['address'], OracleNode['name']> => {
   return Object.fromEntries(
-    Object.keys(state.oracleNodes.items).map(k => [
+    Object.keys(state.aggregator.oracleNodes).map(k => [
       k.toUpperCase(),
-      state.oracleNodes.items[k].name,
+      state.aggregator.oracleNodes[k].name,
     ]),
   )
 }
