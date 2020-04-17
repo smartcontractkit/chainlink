@@ -240,7 +240,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-	timeout := 100 * time.Millisecond // if failing due to timeouts, increase this
+	timeout := 200 * time.Millisecond // if failing due to timeouts, increase this
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t,
 		config, fa.backend)
@@ -370,5 +370,4 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(5 * timeout):
 		t.Fatalf("could not start a new round, even though delay has passed")
 	}
-
 }
