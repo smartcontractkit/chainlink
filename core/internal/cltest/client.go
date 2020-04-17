@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -212,6 +213,7 @@ func (c *SimulatedBackendClient) SendRawTx(
 	txBytes []byte) (txHash common.Hash, err error) {
 	tx, err := utils.DecodeEthereumTx(hexutil.Encode(txBytes))
 	if err != nil {
+		logger.Errorf("could not deserialize transaction: %x", txBytes)
 		return common.Hash{}, errors.Wrapf(err, "while sending tx %x", txBytes)
 	}
 	if err = c.b.SendTransaction(context.Background(), &tx); err == nil {
