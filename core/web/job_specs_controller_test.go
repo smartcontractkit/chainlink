@@ -243,8 +243,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	assert.Equal(t, expected, eiReceived)
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
-	_, err = app.Store.JobRunsFor(jobRun.ID)
-	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
