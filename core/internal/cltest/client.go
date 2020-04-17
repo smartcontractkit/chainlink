@@ -208,10 +208,11 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address,
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (c *SimulatedBackendClient) SendRawTx(hex string) (txHash common.Hash, err error) {
-	tx, err := utils.DecodeEthereumTx(hex)
+func (c *SimulatedBackendClient) SendRawTx(
+	txBytes []byte) (txHash common.Hash, err error) {
+	tx, err := utils.DecodeEthereumTx(hexutil.Encode(txBytes))
 	if err != nil {
-		return common.Hash{}, errors.Wrapf(err, "while sending tx %s", hex)
+		return common.Hash{}, errors.Wrapf(err, "while sending tx %x", txBytes)
 	}
 	if err = c.b.SendTransaction(context.Background(), &tx); err == nil {
 		c.b.Commit()
