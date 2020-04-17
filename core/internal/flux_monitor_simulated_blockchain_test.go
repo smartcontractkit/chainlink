@@ -26,9 +26,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fluxAggregator represents the universe with which the aggregator contract
-// interacts
-type fluxAggregator struct {
+// fluxAggregatorUniverse represents the universe with which the aggregator
+// contract interacts
+type fluxAggregatorUniverse struct {
 	aggregatorContract        *faw.FluxAggregator
 	aggregatorContractAddress common.Address
 	linkContract              *link_token_interface.LinkToken
@@ -57,8 +57,8 @@ var fee = int64(100) // Amount paid by FA contract, in LINK-wei
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
-	decimals uint8, description [32]byte) fluxAggregator {
-	var f fluxAggregator
+	decimals uint8, description [32]byte) fluxAggregatorUniverse {
+	var f fluxAggregatorUniverse
 	f.sergey = newIdentity(t)
 	f.neil = newIdentity(t)
 	f.ned = newIdentity(t)
@@ -138,7 +138,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 }
 
 type answerParams struct {
-	fa                          *fluxAggregator
+	fa                          *fluxAggregatorUniverse
 	roundId, answer             int64
 	from                        *bind.TransactOpts
 	isNewRound, completesAnswer bool
@@ -210,7 +210,7 @@ func checkUpdateAnswer(t *testing.T, p answerParams,
 }
 
 // currentbalance returns the current balance of fa's FluxAggregator
-func currentBalance(t *testing.T, fa *fluxAggregator) *big.Int {
+func currentBalance(t *testing.T, fa *fluxAggregatorUniverse) *big.Int {
 	currentBalance, err := fa.aggregatorContract.AvailableFunds(nil)
 	require.NoError(t, err, "failed to get current FA balance")
 	return currentBalance
