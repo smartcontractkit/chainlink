@@ -39,7 +39,7 @@ const reducer = (state: State = INITIAL_STATE, action: Actions) => {
         .filter(f => f.listing)
         .map(f => [f.contractAddress, f])
       const feedItems = Object.fromEntries(listedFeeds)
-      const feedOrder = listedFeeds.map(([a, _]) => a)
+      const feedOrder = listedFeeds.map(([a]) => a)
 
       return {
         ...state,
