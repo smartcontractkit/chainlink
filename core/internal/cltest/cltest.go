@@ -1239,14 +1239,14 @@ func MakeRoundStateReturnData(
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
 // logs.
-type EthereumLog interface{ Next() bool }
+type EthereumLogIterator interface{ Next() bool }
 
 // GetLogs drains logs of EVM log representations. Since those log
 // representations don't fit into a type hierarchy, this API is a bit awkward.
 // It returns the logs as a slice of blank interface{}s, and if rv is non-nil,
 // it must be a pointer to a slice for elements of the same type as the logs,
 // in which case GetLogs will append the logs to it.
-func GetLogs(t *testing.T, rv interface{}, logs EthereumLog) []interface{} {
+func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface{} {
 	v := reflect.ValueOf(rv)
 	require.True(t, rv == nil ||
 		v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Slice,
