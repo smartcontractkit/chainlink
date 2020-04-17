@@ -1,5 +1,3 @@
-import nodes from './nodes.json'
-
 export interface FeedConfig {
   contractAddress: string
   contractType: 'aggregator'
@@ -25,9 +23,4 @@ export interface OracleNode {
   address: string
   name: string
   networkId: number
-}
-
-
-export function getOracleNodes(): OracleNode[] {
-  return nodes as OracleNode[]
 }

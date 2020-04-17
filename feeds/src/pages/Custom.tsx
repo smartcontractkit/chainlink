@@ -1,3 +1,4 @@
+import { partialAsFull } from '@chainlink/ts-helpers'
 import React, { useEffect, useState } from 'react'
 import { connect } from 'react-redux'
 import { aggregatorOperations } from 'state/ducks/aggregator'
@@ -7,6 +8,7 @@ import { DeviationHistory } from 'components/deviationHistory'
 import { OracleTable } from 'components/oracleTable'
 import { Header } from 'components/header'
 import { parseQuery, uIntFrom } from 'utils'
+import { FeedConfig } from 'config'
 
 interface OwnProps {
   history: any
@@ -14,22 +16,18 @@ interface OwnProps {
 
 interface DispatchProps {
   initContract: any
-  clearState: any
 }
 
 interface Props extends OwnProps, DispatchProps {}
 
-const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
+const Page: React.FC<Props> = ({ initContract, history }) => {
   const [config] = useState(formatConfig(parseQuery(history.location.search)))
 
   useEffect(() => {
     initContract(config).catch(() => {
       console.error('Could not initiate contract')
     })
-    return () => {
-      clearState()
-    }
-  }, [initContract, clearState, config])
+  }, [initContract, config])
 
   return (
     <>
@@ -48,17 +46,16 @@ const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
 
 const mapDispatchToProps = {
   initContract: aggregatorOperations.initContract,
-  clearState: aggregatorOperations.clearState,
 }
 
-function formatConfig(config: any) {
-  return {
-    ...config,
-    networkId: uIntFrom(config.networkId ?? 0),
+function formatConfig(queryConfig: Record<string, string>): FeedConfig {
+  return partialAsFull<FeedConfig>({
+    ...queryConfig,
+    networkId: uIntFrom(queryConfig.networkId ?? 0),
     contractVersion: 2,
-    decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),
-    heartbeat: uIntFrom(config.heartbeat ?? 0) ?? false,
-  }
+    decimalPlaces: uIntFrom(queryConfig.decimalPlaces ?? 0),
+    heartbeat: uIntFrom(queryConfig.heartbeat ?? 0) ?? false,
+  })
 }
 
 export default connect(null, mapDispatchToProps)(Page)

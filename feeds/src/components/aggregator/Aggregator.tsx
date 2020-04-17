@@ -13,20 +13,16 @@ interface OwnProps {
 
 interface DispatchProps {
   initContract: any
-  clearState: any
 }
 
 interface Props extends OwnProps, DispatchProps {}
 
-const Aggregator: React.FC<Props> = ({ initContract, clearState, config }) => {
+const Aggregator: React.FC<Props> = ({ initContract, config }) => {
   useEffect(() => {
     initContract(config).catch(() => {
       console.error('Could not initiate contract')
     })
-    return () => {
-      clearState()
-    }
-  }, [initContract, clearState, config])
+  }, [initContract, config])
 
   return (
     <>
@@ -40,7 +36,6 @@ const Aggregator: React.FC<Props> = ({ initContract, clearState, config }) => {
 
 const mapDispatchToProps = {
   initContract: aggregatorOperations.initContract,
-  clearState: aggregatorOperations.clearState,
 }
 
 export default connect(null, mapDispatchToProps)(Aggregator)

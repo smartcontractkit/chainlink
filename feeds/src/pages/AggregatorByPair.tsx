@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react'
+import { DispatchBinding } from '@chainlink/ts-helpers'
+import React, { useEffect } from 'react'
 import { Redirect } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
 import { FeedConfig } from 'config'
 import { Header } from 'components/header'
 import { Aggregator } from 'components/aggregator'
 import { AppState } from 'state'
-import { Networks } from '../utils'
-/* import { feedsOperations } from '../state/ducks/feeds' */
+import { aggregatorOperations } from '../state/ducks/aggregator'
 
 interface OwnProps {
   match: {
@@ -19,31 +19,44 @@ interface OwnProps {
 
 interface StateProps {
   config?: FeedConfig
+  loadingFeed: boolean
+  errorFeed?: string
 }
 
 interface DispatchProps {
-  fetchFeeds: any
+  fetchFeedByPair: DispatchBinding<typeof aggregatorOperations.fetchFeedByPair>
+  fetchOracleNodes: DispatchBinding<
+    typeof aggregatorOperations.fetchOracleNodes
+  >
 }
 
-interface Props extends StateProps, DispatchProps, OwnProps {}
+interface Props extends OwnProps, StateProps, DispatchProps {}
 
-const Page: React.FC<Props> = ({ fetchFeeds, config }) => {
-  const [loaded, setLoaded] = useState<boolean>(false)
+const Page: React.FC<Props> = ({
+  fetchFeedByPair,
+  fetchOracleNodes,
+  match,
+  loadingFeed,
+  errorFeed,
+  config,
+}) => {
+  const { pair, network } = match.params
+  useEffect(() => {
+    fetchFeedByPair(pair, network)
+  }, [fetchFeedByPair, pair, network])
+  useEffect(() => {
+    fetchOracleNodes()
+  }, [fetchOracleNodes])
+
   let content
-
-  useEffect(() => {
-    fetchFeeds()
-  }, [fetchFeeds])
-  useEffect(() => {
-    setLoaded(true)
-  }, [loaded, setLoaded])
-
   if (config) {
     content = <Aggregator config={config} />
-  } else if (loaded) {
+  } else if (loadingFeed) {
+    content = <>Loading Feed...</>
+  } else if (errorFeed && errorFeed === 'Not Found') {
     content = <Redirect to="/" />
   } else {
-    content = <>Loading Feed...</>
+    content = <>There was an error loading the page. Refresh to try again.</>
   }
 
   return (
@@ -56,49 +69,21 @@ const Page: React.FC<Props> = ({ fetchFeeds, config }) => {
   )
 }
 
-function selectFeedConfig(
-  state: AppState,
-  pair: string,
-  networkId: Networks,
-): FeedConfig | undefined {
-  /* const pairNetwork = feeds.pairPaths.find( */
-  /*   ([p, n, _c]) => p === pair && n === networkId, */
-  /* ) */
-  /* const contractAddress: FeedConfig['contractAddress'] | undefined = */
-  /*   pairNetwork && pairNetwork[2] */
-
-  /* if (contractAddress) { */
-  /*   return feeds.items[contractAddress] */
-  /* } */
-  console.log(state, pair, networkId)
-
-  return undefined
-}
-
-const NetworkPaths: Record<string, Networks> = {
-  ropsten: Networks.ROPSTEN,
-}
-
-function networkFromPath(network?: string): Networks {
-  return (network && NetworkPaths[network]) || Networks.MAINNET
-}
-
-const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
-  state,
-  ownProps,
-) => {
-  const pair = ownProps.match.params.pair
-  const networkId = networkFromPath(ownProps.match.params.network)
-  const config = selectFeedConfig(state, pair, networkId)
-
+const mapStateToProps: MapStateToProps<
+  StateProps,
+  OwnProps,
+  AppState
+> = state => {
   return {
-    config,
+    config: state.aggregator.config,
+    loadingFeed: state.aggregator.loadingFeed,
+    errorFeed: state.aggregator.errorFeed,
   }
 }
 
 const mapDispatchToProps = {
-  /* fetchFeeds: feedsOperations.fetchFeeds, */
-  fetchFeeds: () => {},
+  fetchFeedByPair: aggregatorOperations.fetchFeedByPair,
+  fetchOracleNodes: aggregatorOperations.fetchOracleNodes,
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(Page)
