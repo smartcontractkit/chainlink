@@ -1,0 +1,6 @@
+status = [
+  "ci/circleci: test"  
+]
+block_labels = [ "do-not-merge-yet" ]
+timeout_sec = 3600 # one hour
+required_approvals = 1
