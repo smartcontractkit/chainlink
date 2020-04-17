@@ -177,11 +177,11 @@ var balanceOfABIString string = `[
   }
 ]`
 
-var balanceOfAPI abi.ABI
+var balanceOfABI abi.ABI
 
 func init() {
 	var err error
-	balanceOfAPI, err = abi.JSON(strings.NewReader(balanceOfABIString))
+	balanceOfABI, err = abi.JSON(strings.NewReader(balanceOfABIString))
 	if err != nil {
 		panic(errors.Wrapf(err, "while parsing erc20ABI"))
 	}
@@ -191,7 +191,7 @@ func init() {
 // contract address.
 func (c *SimulatedBackendClient) GetERC20Balance(address common.Address,
 	contractAddress common.Address) (balance *big.Int, err error) {
-	callData, err := balanceOfAPI.Pack("balanceOf", address)
+	callData, err := balanceOfABI.Pack("balanceOf", address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while seeking the ERC20 balance of %s on %s",
 			address, contractAddress)
@@ -204,7 +204,7 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address,
 			"for balance of %s", contractAddress, address)
 	}
 	balance = new(big.Int)
-	return balance, balanceOfAPI.Unpack(balance, "balanceOf", b)
+	return balance, balanceOfABI.Unpack(balance, "balanceOf", b)
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
