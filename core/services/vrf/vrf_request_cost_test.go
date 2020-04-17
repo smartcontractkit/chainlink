@@ -15,8 +15,8 @@ func TestMeasureRandomnessRequestGasCost(t *testing.T) {
 		coordinator.consumerContractAddress, coordinator.consumerABI,
 		"requestRandomness", common.BytesToHash(keyHash_[:]), fee, one)
 
-	assert.Greater(t, estimate, uint64(175000),
+	assert.Greater(t, estimate, uint64(174000),
 		"requestRandomness tx gas cost lower than expected")
-	assert.Less(t, estimate, uint64(176000),
+	assert.Less(t, estimate, uint64(175000),
 		"requestRandomness tx gas cost higher than expected")
 }

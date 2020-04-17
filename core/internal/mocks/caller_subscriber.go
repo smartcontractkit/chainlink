@@ -4,8 +4,8 @@ package mocks
 
 import (
 	context "context"
-	eth "github.com/smartcontractkit/chainlink/core/eth"
 
+	eth "github.com/smartcontractkit/chainlink/core/eth"
 	mock "github.com/stretchr/testify/mock"
 )
 
