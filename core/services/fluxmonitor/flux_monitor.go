@@ -699,8 +699,7 @@ var (
 func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
 	if !roundState.EligibleToSubmit {
 		return ErrNotEligible
-	}
-	if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
+	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
 		return ErrUnderfunded
 	} else if !p.SufficientPayment(roundState.PaymentAmount) {
 		return ErrPaymentTooLow
