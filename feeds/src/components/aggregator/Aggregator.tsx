@@ -24,11 +24,15 @@ const Aggregator: React.FC<Props> = ({ initContract, config }) => {
     })
   }, [initContract, config])
 
+  const history = config.history && [
+    <AnswerHistory key="answerHistory" config={config} />,
+    <DeviationHistory key="deviationHistory" config={config} />,
+  ]
+
   return (
     <>
       <AggregatorVis config={config} />
-      {config.history && <AnswerHistory config={config} />}
-      {config.history && <DeviationHistory config={config} />}
+      {history}
       <OracleTable />
     </>
   )
