@@ -23,9 +23,7 @@ const persistConfig = {
   storage,
   whitelist: [''],
   transforms: [createFilter('aggregation', [''])],
-  migrate: createMigrate(migrations, {
-    debug: process.env.NODE_ENV !== 'production',
-  }),
+  migrate: createMigrate(migrations),
 }
 
 export const reducer = persistReducer(persistConfig, rootReducer)
