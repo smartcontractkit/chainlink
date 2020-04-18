@@ -250,6 +250,11 @@ func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
 }
 
+// EthereumDisabled shows whether Ethereum interactions are supported.
+func (c Config) EthereumDisabled() bool {
+	return c.viper.GetBool(EnvVarName("EthereumDisabled"))
+}
+
 // GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.
 // E.g. if this is set to 3, and we receive block 10, gas updater will
 // fetch block 7.
