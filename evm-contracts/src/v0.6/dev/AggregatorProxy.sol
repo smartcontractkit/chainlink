@@ -85,6 +85,18 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   }
 
   /**
+   * @notice represents the number of decimals the aggregator responses represent.
+   */
+  function decimals()
+    external
+    view
+    override
+    returns (uint8)
+  {
+    return aggregator.decimals();
+  }
+
+  /**
    * @notice Allows the owner to update the aggregator address.
    * @param _aggregator The new address for the aggregator contract
    */
