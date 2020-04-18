@@ -13,6 +13,7 @@ import haven from 'assets/sponsors/haven.png'
 import OneInch from 'assets/sponsors/1inch.png'
 import paraswap from 'assets/sponsors/paraswap.png'
 import mcdex from 'assets/sponsors/mcdex.png'
+import futureswap from 'assets/sponsors/futureswap.png'
 
 import ReactGA from 'react-ga'
 
@@ -88,6 +89,11 @@ const list: Sponsor[] = [
     name: 'MCDEX',
     url: 'https://mcdex.io',
     src: mcdex,
+  },
+  {
+    name: 'Futureswap',
+    url: 'https://www.futureswap.com',
+    src: futureswap,
   },
 ]
 
