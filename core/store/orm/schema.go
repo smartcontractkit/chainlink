@@ -35,6 +35,7 @@ type ConfigSchema struct {
 	EthGasPriceDefault              big.Int        `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000"`
 	EthMaxGasPriceWei               uint64         `env:"ETH_MAX_GAS_PRICE_WEI" default:"500000000000"`
 	EthereumURL                     string         `env:"ETH_URL" default:"ws://localhost:8546"`
+	EthereumDisabled                bool           `env:"ETH_DISABLED" default:"false"`
 	GasUpdaterBlockDelay            uint16         `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
 	GasUpdaterBlockHistorySize      uint16         `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
 	GasUpdaterTransactionPercentile uint16         `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"35"`
