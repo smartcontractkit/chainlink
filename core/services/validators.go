@@ -122,6 +122,9 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	fe := models.NewJSONAPIErrors()
 	minimumPollingInterval := models.Duration(store.Config.DefaultHTTPTimeout())
 
+	if store.Config.EthereumDisabled() {
+		fe.Add("cannot add flux monitor jobs when ethereum is disabled")
+	}
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
