@@ -88,6 +88,10 @@ func New(
 }
 
 func (fm *concreteFluxMonitor) Start() error {
+	if fm.store.Config.EthereumDisabled() {
+		return nil
+	}
+
 	fm.logBroadcaster.Start()
 
 	go fm.serveInternalRequests()
