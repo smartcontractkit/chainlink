@@ -443,13 +443,20 @@ describe('FluxAggregator', () => {
 
     describe('when a new round opens before the previous rounds closes', () => {
       beforeEach(async () => {
-        await updateFutureRounds(aggregator, {
-          minAnswers: 2,
-          maxAnswers: 3,
-          restartDelay: 0,
-        })
+        oracleAddresses = [personas.Nancy, personas.Norbert]
+        for (let i = 0; i < oracleAddresses.length; i++) {
+          await aggregator
+            .connect(personas.Carol)
+            .addOracle(
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              3,
+              4,
+              rrDelay,
+            )
+        }
 
-        oracleAddresses = [personas.Nelly, personas.Neil]
+        oracleAddresses = [personas.Nelly, personas.Neil, personas.Nancy]
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(oracleAddresses[i])
@@ -469,17 +476,37 @@ describe('FluxAggregator', () => {
 
       describe('once the current round is answered', () => {
         beforeEach(async () => {
-          await aggregator
-            .connect(personas.Neil)
-            .updateAnswer(nextRound, answer)
+          oracleAddresses = [personas.Neil, personas.Nancy]
+          for (let i = 0; i < oracleAddresses.length; i++) {
+            await aggregator
+              .connect(oracleAddresses[i])
+              .updateAnswer(nextRound, answer)
+          }
         })
 
-        it('does not allow reports for theprevious round once the current is answered', async () => {
+        it('does not allow reports for the previous round', async () => {
           await matchers.evmRevert(
             aggregator
               .connect(personas.Ned)
               .updateAnswer(nextRound - 1, answer),
             'invalid round to report',
+          )
+        })
+      })
+
+      describe('when the previous round has finished', () => {
+        beforeEach(async () => {
+          await aggregator
+            .connect(personas.Norbert)
+            .updateAnswer(nextRound - 1, answer)
+        })
+
+        it('does not allow reports for the previous round', async () => {
+          await matchers.evmRevert(
+            aggregator
+              .connect(personas.Ned)
+              .updateAnswer(nextRound - 1, answer),
+            'round not accepting anwers',
           )
         })
       })
