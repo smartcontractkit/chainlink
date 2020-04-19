@@ -441,6 +441,50 @@ describe('FluxAggregator', () => {
       })
     })
 
+    describe('when a new round opens before the previous rounds closes', () => {
+      beforeEach(async () => {
+        await updateFutureRounds(aggregator, {
+          minAnswers: 2,
+          maxAnswers: 3,
+          restartDelay: 0,
+        })
+
+        oracleAddresses = [personas.Nelly, personas.Neil]
+        for (let i = 0; i < oracleAddresses.length; i++) {
+          await aggregator
+            .connect(oracleAddresses[i])
+            .updateAnswer(nextRound, answer)
+        }
+
+        // start the next round
+        nextRound++
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+      })
+
+      it('still allows the previous round to be answered', async () => {
+        await aggregator
+          .connect(personas.Ned)
+          .updateAnswer(nextRound - 1, answer)
+      })
+
+      describe('once the current round is answered', () => {
+        beforeEach(async () => {
+          await aggregator
+            .connect(personas.Neil)
+            .updateAnswer(nextRound, answer)
+        })
+
+        it('does not allow reports for theprevious round once the current is answered', async () => {
+          await matchers.evmRevert(
+            aggregator
+              .connect(personas.Ned)
+              .updateAnswer(nextRound - 1, answer),
+            'invalid round to report',
+          )
+        })
+      })
+    })
+
     describe('when price is updated mid-round', () => {
       const newAmount = h.toWei('50')
 
