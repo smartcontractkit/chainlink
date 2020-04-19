@@ -51,6 +51,10 @@ contract FluxAggregator is AggregatorInterface, Owned {
     address pendingAdmin;
   }
 
+  struct Requester {
+    bool authorized;
+  }
+
   uint256 constant public VERSION = 2;
 
   uint128 public allocatedFunds;
@@ -70,7 +74,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   LinkTokenInterface public linkToken;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
-  mapping(address => bool) internal authorizedRequesters;
+  mapping(address => Requester) internal requesters;
   address[] private oracleAddresses;
 
   event AvailableFundsUpdated(uint256 indexed amount);
@@ -516,9 +520,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
-    if (authorizedRequesters[_requester] == _allowed) return;
+    if (requesters[_requester].authorized == _allowed) return;
 
-    authorizedRequesters[_requester] = _allowed;
+    requesters[_requester].authorized = _allowed;
 
     emit RequesterAuthorizationSet(_requester, _allowed);
   }
@@ -833,7 +837,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyAuthorizedRequesters() {
-    require(authorizedRequesters[msg.sender], "not authorized requester");
+    require(requesters[msg.sender].authorized, "not authorized requester");
     _;
   }
 
