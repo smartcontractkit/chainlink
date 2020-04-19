@@ -689,6 +689,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return currentRound.add(1);
   }
 
+  function previousAndCurrentUnanswered(uint32 _id, uint32 _rrId)
+    private
+    view
+    returns (bool)
+  {
+    return _id.add(1) == _rrId && rounds[_rrId].updatedAt == 0;
+  }
+
   function roundState(address _oracle)
     external
     view
@@ -789,7 +797,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyValidRoundId(uint32 _id) {
-    require(_id == reportingRoundId || _id == reportingRoundId.add(1), "invalid round to report");
+    uint32 rrId = reportingRoundId; //cache storage reads
+    require(_id == rrId || _id == rrId.add(1) || previousAndCurrentUnanswered(_id, rrId), "invalid round to report");
     require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)), "previous round not supersedable");
     _;
   }
