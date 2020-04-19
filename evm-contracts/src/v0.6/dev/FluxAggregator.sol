@@ -53,6 +53,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   struct Requester {
     bool authorized;
+    uint32 delay;
   }
 
   uint256 constant public VERSION = 2;
@@ -516,13 +517,18 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @param _requester is the address to set permissions for
    * @param _allowed is a boolean specifying whether they can start new rounds or not
    */
-  function setAuthorization(address _requester, bool _allowed)
+  function setAuthorization(address _requester, bool _allowed, uint32 _delay)
     external
     onlyOwner()
   {
     if (requesters[_requester].authorized == _allowed) return;
 
-    requesters[_requester].authorized = _allowed;
+    if (_allowed) {
+      requesters[_requester].authorized = _allowed;
+      requesters[_requester].delay = _delay;
+    } else {
+      delete requesters[_requester];
+    }
 
     emit RequesterAuthorizationSet(_requester, _allowed);
   }
