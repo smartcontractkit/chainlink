@@ -112,7 +112,7 @@ describe('FluxAggregator', () => {
       'reportingRoundStartedAt',
       'restartDelay',
       'roundState',
-      'setAuthorization',
+      'setRequesterPermissions',
       'startNewRound',
       'timeout',
       'transferAdmin',
@@ -1810,7 +1810,7 @@ describe('FluxAggregator', () => {
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       nextRound = nextRound + 1
 
-      await aggregator.setAuthorization(personas.Carol.address, true, 0)
+      await aggregator.setRequesterPermissions(personas.Carol.address, true, 0)
     })
 
     it('announces a new round via log event', async () => {
@@ -1855,7 +1855,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#setAuthorization', () => {
+  describe('#setRequesterPermissions', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1867,13 +1867,13 @@ describe('FluxAggregator', () => {
 
     describe('when called by the owner', () => {
       it('allows the specified address to start new rounds', async () => {
-        await aggregator.setAuthorization(personas.Neil.address, true, 0)
+        await aggregator.setRequesterPermissions(personas.Neil.address, true, 0)
 
         await aggregator.connect(personas.Neil).startNewRound()
       })
 
       it('emits a log announcing the update', async () => {
-        const tx = await aggregator.setAuthorization(
+        const tx = await aggregator.setRequesterPermissions(
           personas.Neil.address,
           true,
           0,
@@ -1881,7 +1881,7 @@ describe('FluxAggregator', () => {
         const receipt = await tx.wait()
         const event = matchers.eventExists(
           receipt,
-          aggregator.interface.events.RequesterAuthorizationSet,
+          aggregator.interface.events.RequesterPermissionsSet,
         )
         const args = h.eventArgs(event)
 
@@ -1891,11 +1891,15 @@ describe('FluxAggregator', () => {
 
       describe('when the address is already authorized', () => {
         beforeEach(async () => {
-          await aggregator.setAuthorization(personas.Neil.address, true, 0)
+          await aggregator.setRequesterPermissions(
+            personas.Neil.address,
+            true,
+            0,
+          )
         })
 
         it('does not emit a log for already authorized accounts', async () => {
-          const tx = await aggregator.setAuthorization(
+          const tx = await aggregator.setRequesterPermissions(
             personas.Neil.address,
             true,
             0,
@@ -1907,11 +1911,19 @@ describe('FluxAggregator', () => {
 
       describe('when permission is removed by the owner', () => {
         beforeEach(async () => {
-          await aggregator.setAuthorization(personas.Neil.address, true, 0)
+          await aggregator.setRequesterPermissions(
+            personas.Neil.address,
+            true,
+            0,
+          )
         })
 
         it('does not allow the specified address to start new rounds', async () => {
-          await aggregator.setAuthorization(personas.Neil.address, false, 0)
+          await aggregator.setRequesterPermissions(
+            personas.Neil.address,
+            false,
+            0,
+          )
 
           await matchers.evmRevert(
             aggregator.connect(personas.Neil).startNewRound(),
@@ -1920,7 +1932,7 @@ describe('FluxAggregator', () => {
         })
 
         it('emits a log announcing the update', async () => {
-          const tx = await aggregator.setAuthorization(
+          const tx = await aggregator.setRequesterPermissions(
             personas.Neil.address,
             false,
             0,
@@ -1928,7 +1940,7 @@ describe('FluxAggregator', () => {
           const receipt = await tx.wait()
           const event = matchers.eventExists(
             receipt,
-            aggregator.interface.events.RequesterAuthorizationSet,
+            aggregator.interface.events.RequesterPermissionsSet,
           )
           const args = h.eventArgs(event)
 
@@ -1937,7 +1949,7 @@ describe('FluxAggregator', () => {
         })
 
         it('does not emit a log for accounts without authorization', async () => {
-          const tx = await aggregator.setAuthorization(
+          const tx = await aggregator.setRequesterPermissions(
             personas.Ned.address,
             false,
             0,
@@ -1953,7 +1965,7 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .setAuthorization(personas.Neil.address, true, 0),
+            .setRequesterPermissions(personas.Neil.address, true, 0),
           'Only callable by owner',
         )
 

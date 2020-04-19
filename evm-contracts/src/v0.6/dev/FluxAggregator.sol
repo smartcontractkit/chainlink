@@ -89,13 +89,21 @@ contract FluxAggregator is AggregatorInterface, Owned {
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
   event OracleAdminUpdated(address indexed oracle, address indexed newAdmin);
-  event OracleAdminUpdateRequested(address indexed oracle, address admin, address newAdmin);
+  event OracleAdminUpdateRequested(
+    address indexed oracle,
+    address admin,
+    address newAdmin
+  );
   event SubmissionReceived(
     int256 indexed answer,
     uint32 indexed round,
     address indexed oracle
   );
-  event RequesterAuthorizationSet(address indexed requester, bool allowed);
+  event RequesterPermissionsSet(
+    address indexed requester,
+    bool allowed,
+    uint32 delay
+  );
 
   uint32 constant private ROUND_MAX = 2**32-1;
 
@@ -517,7 +525,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @param _requester is the address to set permissions for
    * @param _allowed is a boolean specifying whether they can start new rounds or not
    */
-  function setAuthorization(address _requester, bool _allowed, uint32 _delay)
+  function setRequesterPermissions(address _requester, bool _allowed, uint32 _delay)
     external
     onlyOwner()
   {
@@ -530,7 +538,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
       delete requesters[_requester];
     }
 
-    emit RequesterAuthorizationSet(_requester, _allowed);
+    emit RequesterPermissionsSet(_requester, _allowed, _delay);
   }
 
   /**
