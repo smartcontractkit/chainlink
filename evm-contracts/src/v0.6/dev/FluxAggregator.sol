@@ -502,7 +502,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     uint32 current = reportingRoundId;
 
-    require(rounds[current].updatedAt > 0 || timedOut(current), "prev round must update/expire");
+    require(rounds[current].updatedAt > 0 || timedOut(current), "prev round must be supersedable");
 
     initializeNewRound(current.add(1));
   }
@@ -751,8 +751,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   modifier onlyValidOracleRound(uint32 _id) {
     uint32 startingRound = oracles[msg.sender].startingRound;
-    require(startingRound != 0, "not allowed oracle");
-    require(startingRound <= _id, "not yet allowed oracle");
+    require(startingRound != 0, "not enabled oracle");
+    require(startingRound <= _id, "not yet enabled oracle");
     require(oracles[msg.sender].endingRound >= _id, "no longer allowed oracle");
     require(oracles[msg.sender].lastReportedRound < _id, "cannot report on previous rounds");
     _;
