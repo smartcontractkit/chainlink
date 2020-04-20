@@ -168,6 +168,24 @@ func TestUint32Scan(t *testing.T) {
 	assert.True(t, i.Valid)
 	assert.Equal(t, uint32(12345), i.Uint32)
 
+	// int64 overflows uint32
+	err = i.Scan(int64(math.MaxInt64))
+	require.Error(t, err)
+
+	err = i.Scan(uint(12345))
+	require.NoError(t, err)
+	assert.True(t, i.Valid)
+	assert.Equal(t, uint32(12345), i.Uint32)
+
+	// uint overflows uint32
+	err = i.Scan(uint(math.MaxUint64))
+	require.Error(t, err)
+
+	err = i.Scan(uint32(12345))
+	require.NoError(t, err)
+	assert.True(t, i.Valid)
+	assert.Equal(t, uint32(12345), i.Uint32)
+
 	err = i.Scan(nil)
 	require.NoError(t, err)
 	assert.False(t, i.Valid)

@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/null"
-	"chainlink/core/services"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,7 +48,7 @@ func TestRunExecutor_Execute(t *testing.T) {
 
 	run, err = store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusCompleted, run.Status)
+	assert.Equal(t, models.RunStatusCompleted, run.GetStatus())
 	require.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, models.RunStatusCompleted, run.TaskRuns[0].Status)
 
@@ -85,7 +85,7 @@ func TestRunExecutor_Execute_Pending(t *testing.T) {
 
 	run, err = store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.GetStatus())
 	require.Len(t, run.TaskRuns, 2)
 	assert.Equal(t, models.RunStatusCompleted, run.TaskRuns[0].Status)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[1].Status)
@@ -152,7 +152,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 
 	run, err := store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusCancelled, run.Status)
+	assert.Equal(t, models.RunStatusCancelled, run.GetStatus())
 
 	require.Len(t, run.TaskRuns, 2)
 	assert.Equal(t, models.RunStatusCancelled, run.TaskRuns[0].Status)
@@ -189,7 +189,7 @@ func TestRunExecutor_InitialTaskLacksConfirmations(t *testing.T) {
 
 	run, err := store.FindJobRun(run.ID)
 	require.NoError(t, err)
-	assert.Equal(t, models.RunStatusPendingConfirmations, run.Status)
+	assert.Equal(t, models.RunStatusPendingConfirmations, run.GetStatus())
 	require.Len(t, run.TaskRuns, 1)
 	assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[0].Status)
 }

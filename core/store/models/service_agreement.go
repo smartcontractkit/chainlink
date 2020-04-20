@@ -8,9 +8,9 @@ import (
 	"math/big"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"

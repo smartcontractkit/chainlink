@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/cmd"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/services/eth"
-	"chainlink/core/services/eth/contracts"
-	"chainlink/core/services/fluxmonitor"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
@@ -327,11 +327,11 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		timesOutAt        int64
+		timesOutAt        func() int64
 		expectedToTrigger bool
 	}{
-		{"timesOutAt == 0", 0, false},
-		{"timesOutAt != 0", time.Now().Add(1 * time.Second).Unix(), true},
+		{"timesOutAt == 0", func() int64 { return 0 }, false},
+		{"timesOutAt != 0", func() int64 { return time.Now().Add(1 * time.Second).Unix() }, true},
 	}
 
 	for _, test := range tests {
@@ -356,7 +356,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt),
+					TimesOutAt:        uint64(test.timesOutAt()),
 				}, nil).Once()
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
@@ -369,7 +369,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt),
+					TimesOutAt:        uint64(test.timesOutAt()),
 				}, nil).Once()
 			}
 

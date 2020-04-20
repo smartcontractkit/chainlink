@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"testing"
 
-	"chainlink/core/adapters"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

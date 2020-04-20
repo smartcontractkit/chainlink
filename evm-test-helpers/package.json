@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@types/cbor": "^5.0.0",
-    "@types/chai": "^4.2.9",
+    "@types/chai": "^4.2.11",
     "@types/debug": "^4.1.5",
     "@types/ganache-core": "^2.7.0",
     "@types/jest": "^24.0.25",

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/logger"
-	"chainlink/core/services/synchronization"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -54,7 +54,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 
 	for taskIndex := range run.TaskRuns {
 		taskRun := &run.TaskRuns[taskIndex]
-		if !run.Status.Runnable() {
+		if !run.GetStatus().Runnable() {
 			logger.Debugw("Run execution blocked", run.ForLogger("task", taskRun.ID.String())...)
 			break
 		}
@@ -80,7 +80,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 				run.ForLogger("required_height", taskRun.MinimumConfirmations)...,
 			)
 			taskRun.Status = models.RunStatusPendingConfirmations
-			run.Status = models.RunStatusPendingConfirmations
+			run.SetStatus(models.RunStatusPendingConfirmations)
 
 		}
 
@@ -94,8 +94,8 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 		re.statsPusher.PushNow()
 	}
 
-	if run.Status.Finished() {
-		if run.Status.Errored() {
+	if run.GetStatus().Finished() {
+		if run.GetStatus().Errored() {
 			logger.Warnw("Task failed", run.ForLogger()...)
 		} else {
 			logger.Debugw("All tasks complete for run", run.ForLogger()...)

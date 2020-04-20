@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/services"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,17 +85,17 @@ func TestValidateJob(t *testing.T) {
 	}
 }
 
-func TestValidateJob_DevRejectsSleepAdapter(t *testing.T) {
+func TestValidateJob_RejectsSleepAdapterWhenExperimentalAdaptersAreDisabled(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	sleepingJob := cltest.NewJobWithWebInitiator()
 	sleepingJob.Tasks[0].Type = adapters.TaskTypeSleep
 
-	store.Config.Set("CHAINLINK_DEV", true)
+	store.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", true)
 	assert.NoError(t, services.ValidateJob(sleepingJob, store))
 
-	store.Config.Set("CHAINLINK_DEV", false)
+	store.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", false)
 	assert.Error(t, services.ValidateJob(sleepingJob, store))
 }
 

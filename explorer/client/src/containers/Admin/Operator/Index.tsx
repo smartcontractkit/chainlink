@@ -13,7 +13,6 @@ import build from 'redux-object'
 import { DispatchBinding } from '@chainlink/ts-helpers'
 import { fetchAdminOperators } from '../../../actions/adminOperators'
 import List from '../../../components/Admin/Operators/List'
-import { ChangePageEvent } from '../../../components/Table'
 import Title from '../../../components/Title'
 import { AppState } from '../../../reducers'
 
@@ -58,9 +57,6 @@ export const Index: React.FC<Props> = ({
   rowsPerPage = 10,
 }) => {
   const [currentPage, setCurrentPage] = useState(1)
-  const onChangePage = (_event: ChangePageEvent, page: number) => {
-    setCurrentPage(page)
-  }
 
   useEffect(() => {
     fetchAdminOperators(currentPage, rowsPerPage)
@@ -81,7 +77,9 @@ export const Index: React.FC<Props> = ({
           currentPage={currentPage}
           operators={adminOperators}
           count={count}
-          onChangePage={onChangePage}
+          onChangePage={(_, page) => {
+            setCurrentPage(page + 1)
+          }}
         />
       </Grid>
     </Grid>

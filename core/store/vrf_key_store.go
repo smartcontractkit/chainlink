@@ -8,11 +8,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"chainlink/core/services/vrf"
-	"chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 )
 
-// VRFKeyStore tracks auxillary VRF secret keys, and generates their VRF proofs
+// VRFKeyStore tracks auxiliary VRF secret keys, and generates their VRF proofs
 //
 // VRF proofs need access to the actual secret key, which geth does not expose.
 // Similar to the way geth's KeyStore exposes signing capability, VRFKeyStore

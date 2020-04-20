@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 
-	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
 
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Cross-checks of golang implementation details vs corresponding solidity
@@ -367,7 +367,7 @@ func TestVRF_MarshalProof(t *testing.T) {
 		mproof[corruptionTargetByte] += 1
 		_, err = deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
 		require.True(t, inAddressZeroBytes(corruptionTargetByte) || err != nil,
-			"VRF verfication accepted a bad proof! Changed byte %d from %d to %d in %s, which is of length %d",
+			"VRF verification accepted a bad proof! Changed byte %d from %d to %d in %s, which is of length %d",
 			corruptionTargetByte, originalByte, mproof[corruptionTargetByte],
 			mproof.String(), len(mproof))
 		require.True(t,

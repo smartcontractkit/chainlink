@@ -17,20 +17,22 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/auth"
-	"chainlink/core/cmd"
-	"chainlink/core/gracefulpanic"
-	"chainlink/core/logger"
-	"chainlink/core/services/chainlink"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
@@ -282,22 +284,6 @@ func (ta *TestApplication) waitForConnection() error {
 		return nil
 	}
 }
-
-// TODO: DELETE THIS
-// func (ta *TestApplication) MockStartAndConnect() (*EthMock, error) {
-//     ethMock := ta.MockCallerSubscriberClient()
-//     ethMock.Context("TestApplication#MockStartAndConnect()", func(ethMock *EthMock) {
-//         ethMock.Register("eth_chainId", ta.Config.ChainID())
-//         ethMock.Register("eth_getTransactionCount", `0x0`)
-//     })
-
-//     err := ta.Start()
-//     if err != nil {
-//         return ethMock, err
-//     }
-
-//     return ethMock, ta.WaitForConnection()
-// }
 
 // Stop will stop the test application and perform cleanup
 func (ta *TestApplication) Stop() error {
@@ -790,7 +776,7 @@ func WaitForJobRunStatus(
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
-		return jr.Status
+		return jr.GetStatus()
 	}).Should(gomega.Equal(status))
 	return jr
 }
@@ -814,7 +800,7 @@ func JobRunStays(
 	gomega.NewGomegaWithT(t).Consistently(func() models.RunStatus {
 		jr, err = store.FindJobRun(jr.ID)
 		assert.NoError(t, err)
-		return jr.Status
+		return jr.GetStatus()
 	}, duration).Should(gomega.Equal(status))
 	return jr
 }
@@ -957,6 +943,23 @@ func Head(val interface{}) *models.Head {
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 		return nil
+	}
+}
+
+// EmptyBlock returns a new empty ethereum block
+func EmptyBlock() eth.Block {
+	return eth.Block{}
+}
+
+// BlockWithTransactions returns a new ethereum block with transactions
+// matching the given gas prices
+func BlockWithTransactions(gasPrices ...uint64) eth.Block {
+	txs := make([]eth.Transaction, len(gasPrices))
+	for i, gasPrice := range gasPrices {
+		txs[i].GasPrice = hexutil.Uint64(gasPrice)
+	}
+	return eth.Block{
+		Transactions: txs,
 	}
 }
 

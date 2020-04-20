@@ -6,15 +6,15 @@ import (
 	"math/big"
 	"testing"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/store"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -514,7 +514,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPrice
 	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
-	assert.EqualError(t, err, "bumped gas price of 548900000000 would exceed maximum configured limit of 500000000000, set by ETH_GAS_PRICE_WEI")
+	assert.EqualError(t, err, "bumped gas price of 548900000000 would exceed maximum configured limit of 500000000000, set by ETH_MAX_GAS_PRICE_WEI")
 	assert.Nil(t, receipt)
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
@@ -1171,9 +1171,9 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 		expectedGasLimit uint64
 	}{
 		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
-		{"dev but not set", true, nil, 0, defaultGasPrice, strpkg.DefaultGasLimit},
-		{"not dev", false, customGasPrice, customGasLimit, defaultGasPrice, strpkg.DefaultGasLimit},
-		{"not dev not set", false, nil, 0, defaultGasPrice, strpkg.DefaultGasLimit},
+		{"dev but not set", true, nil, 0, defaultGasPrice, config.EthGasLimitDefault()},
+		{"not dev", false, customGasPrice, customGasLimit, defaultGasPrice, config.EthGasLimitDefault()},
+		{"not dev not set", false, nil, 0, defaultGasPrice, config.EthGasLimitDefault()},
 	}
 
 	for _, test := range tests {

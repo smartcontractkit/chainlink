@@ -69,7 +69,10 @@ describe('AggregatorProxy', () => {
       'transferOwnership',
       // Whitelisted methods:
       'addToWhitelist',
+      'disableWhitelist',
+      'enableWhitelist',
       'removeFromWhitelist',
+      'whitelistEnabled',
       'whitelisted',
     ])
   })

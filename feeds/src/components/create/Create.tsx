@@ -70,8 +70,8 @@ const Create: React.FC<CreateProps> = ({ form, history }) => {
           {getFieldDecorator('valuePrefix')(<Input placeholder="$" />)}
         </Form.Item>
 
-        <Form.Item label="Counter (seconds)">
-          {getFieldDecorator('counter')(
+        <Form.Item label="Heartbeat (seconds)">
+          {getFieldDecorator('heartbeat')(
             <InputNumber placeholder="600" style={{ width: '100%' }} />,
           )}
         </Form.Item>

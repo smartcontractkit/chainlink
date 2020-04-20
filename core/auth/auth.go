@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"encoding/hex"
 	"fmt"
 

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"

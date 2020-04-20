@@ -2,7 +2,7 @@
 
 package cmd
 
-import "chainlink/core/logger"
+import "github.com/smartcontractkit/chainlink/core/logger"
 
 // InitEnclave initialized the SGX enclave for use by adapters
 func InitEnclave() error {

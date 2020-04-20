@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
