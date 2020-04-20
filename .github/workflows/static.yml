@@ -25,17 +25,17 @@ jobs:
         comment: false
   
   # TODO: Enable linters below one by one and fix issues with each
-  #
-  # shadow:
-  #   name: Shadow
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: shadow
-  #       comment: false
+
+  shadow:
+    name: Shadow
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: check
+      uses: grandcolline/golang-github-actions@v1.1.0
+      with:
+        run: shadow
+        comment: false
 
   # imports:
   #   name: Imports
