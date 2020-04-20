@@ -3,7 +3,7 @@ import { Dispatch } from 'redux'
 import _ from 'lodash'
 import moment from 'moment'
 import { ethers } from 'ethers'
-import { FeedConfig, OracleNode } from 'config'
+import { FeedConfig, OracleNode, DefaultConfig } from 'config'
 import { Networks } from '../../../utils'
 import * as actions from './actions'
 import AggregatorAbi from '../../../contracts/AggregatorAbi.json'
@@ -24,7 +24,7 @@ export function fetchFeedByPair(pairPath: string, networkPath = 'mainnet') {
     dispatch(actions.fetchFeedByPairBegin())
 
     jsonapi
-      .fetchWithTimeout('/feeds.json', {})
+      .fetchWithTimeout(DefaultConfig.feedsJson, {})
       .then((r: Response) => r.json())
       .then((json: FeedConfig[]) => {
         const networkId = NETWORK_PATHS[networkPath] ?? Networks.MAINNET
@@ -49,7 +49,7 @@ export function fetchFeedByAddress(contractAddress: string) {
     dispatch(actions.fetchFeedByAddressBegin())
 
     jsonapi
-      .fetchWithTimeout('/feeds.json', {})
+      .fetchWithTimeout(DefaultConfig.feedsJson, {})
       .then((r: Response) => r.json())
       .then((json: FeedConfig[]) => {
         const feed = json.find(f => f.contractAddress === contractAddress)
@@ -74,7 +74,7 @@ export function fetchOracleNodes() {
     dispatch(actions.fetchOracleNodesBegin())
 
     jsonapi
-      .fetchWithTimeout('/nodes.json', {})
+      .fetchWithTimeout(DefaultConfig.nodesJson, {})
       .then((r: Response) => r.json())
       .then((json: OracleNode[]) => {
         dispatch(actions.fetchOracleNodesSuccess(json))
