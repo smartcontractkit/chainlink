@@ -89,6 +89,7 @@ func New(
 
 func (fm *concreteFluxMonitor) Start() error {
 	if fm.store.Config.EthereumDisabled() {
+		logger.Info("Ethereum disabled: Cannot start Flux Monitor")
 		return nil
 	}
 
@@ -123,6 +124,11 @@ func (fm *concreteFluxMonitor) Start() error {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
+	if fm.store.Config.EthereumDisabled() {
+		logger.Info("Flux monitor disabled: cannot stop")
+		return
+	}
+
 	fm.logBroadcaster.Stop()
 	close(fm.chStop)
 	<-fm.chDone
