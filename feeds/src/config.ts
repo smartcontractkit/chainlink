@@ -24,3 +24,15 @@ export interface OracleNode {
   name: string
   networkId: number
 }
+
+export interface Config {
+  feedsJson: string
+  nodesJson: string
+}
+
+export const DefaultConfig: Config = {
+  feedsJson:
+    process.env.REACT_APP_FEEDS_JSON ?? 'https://feeds.chain.link/feeds.json',
+  nodesJson:
+    process.env.REACT_APP_NODES_JSON ?? 'https://feeds.chain.link/nodes.json',
+}
