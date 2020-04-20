@@ -86,6 +86,22 @@ On the landing page you can enable live health checks with:
 https://feeds.chain.link?health=true
 ```
 
+### Override feeds & nodes JSON endpoints
+
+Override the urls with a URI encoded query param
+
+```
+https://feeds.chain.link?feeds-json=https%3A%2F%2Fweiwatchers.com%2Ffeeds.json
+https://feeds.chain.link?nodes-json=https%3A%2F%2Fweiwatchers.com%2Fnodes.json
+```
+
+You can use the browser console to encode your URI:
+
+```javascript
+> encodeURIComponent('https://weiwatchers.com/feeds.json')
+"https%3A%2F%2Fweiwatchers.com%2Ffeeds.json"
+```
+
 ![reference-contract-health](./docs/reference-contract-health.png)
 
 #### Checks

@@ -25,6 +25,28 @@ export interface OracleNode {
   networkId: number
 }
 
+class UrlConfig {
+  static feedsJson(location: Location): string | undefined {
+    const query = new URLSearchParams(location.search)
+    const feedsJson = query.get('feeds-json')
+
+    if (feedsJson) {
+      return decodeURIComponent(feedsJson)
+    }
+    return undefined
+  }
+
+  static nodesJson(location: Location): string | undefined {
+    const query = new URLSearchParams(location.search)
+    const nodesJson = query.get('nodes-json')
+
+    if (nodesJson) {
+      return decodeURIComponent(nodesJson)
+    }
+    return undefined
+  }
+}
+
 export class Config {
   static infuraKey(env = process.env): string {
     if (env.REACT_APP_INFURA_KEY === undefined) {
@@ -40,14 +62,22 @@ export class Config {
     return env.REACT_APP_GA_ID
   }
 
-  static feedsJson(env = process.env): string {
+  static feedsJson(env = process.env, location = window.location): string {
+    const urlFeedsJson = UrlConfig.feedsJson(location)
+    if (urlFeedsJson) {
+      return urlFeedsJson
+    }
     if (env.REACT_APP_FEEDS_JSON === undefined) {
       return 'https://weiwatchers.com/feeds.json'
     }
     return env.REACT_APP_FEEDS_JSON
   }
 
-  static nodesJson(env = process.env): string {
+  static nodesJson(env = process.env, location = window.location): string {
+    const urlNodesJson = UrlConfig.nodesJson(location)
+    if (urlNodesJson) {
+      return urlNodesJson
+    }
     if (env.REACT_APP_NODES_JSON === undefined) {
       return 'https://weiwatchers.com/nodes.json'
     }
