@@ -14,6 +14,7 @@ import OneInch from 'assets/sponsors/1inch.png'
 import paraswap from 'assets/sponsors/paraswap.png'
 import mcdex from 'assets/sponsors/mcdex.png'
 import futureswap from 'assets/sponsors/futureswap.png'
+import linkpool from 'assets/sponsors/linkpool.png'
 
 import ReactGA from 'react-ga'
 
@@ -94,6 +95,11 @@ const list: Sponsor[] = [
     name: 'Futureswap',
     url: 'https://www.futureswap.com',
     src: futureswap,
+  },
+  {
+    name: 'LinkPool',
+    url: 'https://www.linkpool.io',
+    src: linkpool,
   },
 ]
 
