@@ -4,8 +4,6 @@ on:
   schedule:
     # Run every day at midnight
     - cron: '0 0 * * *'
-  push:
-    branches: [develop]
 
 jobs:
   update-cache:
