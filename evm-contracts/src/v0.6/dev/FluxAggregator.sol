@@ -54,6 +54,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   struct Requester {
     bool authorized;
     uint32 delay;
+    uint32 lastStartedRound;
   }
 
   uint256 constant public VERSION = 2;
@@ -140,7 +141,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyValidRoundId(uint32(_round))
     onlyValidOracleRound(uint32(_round))
   {
-    initializeNewRound(uint32(_round));
+    oracleInitializeNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
     payOracle(uint32(_round));
@@ -517,7 +518,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
     require(rounds[current].updatedAt > 0 || timedOut(current), "prev round must be supersedable");
 
-    initializeNewRound(current.add(1));
+    requesterInitializeNewRound(current.add(1));
   }
 
   /**
@@ -603,8 +604,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function initializeNewRound(uint32 _id)
     private
-    ifNewRound(_id)
-    ifDelayed(_id)
   {
     updateTimedOutRoundInfo(_id.sub(1));
 
@@ -615,9 +614,27 @@ contract FluxAggregator is AggregatorInterface, Owned {
     rounds[_id].details.timeout = timeout;
     rounds[_id].startedAt = uint64(block.timestamp);
 
-    oracles[msg.sender].lastStartedRound = _id;
-
     emit NewRound(_id, msg.sender, rounds[_id].startedAt);
+  }
+
+  function oracleInitializeNewRound(uint32 _id)
+    private
+    ifNewRound(_id)
+    ifOracleDelayed(_id)
+  {
+    initializeNewRound(_id);
+
+    oracles[msg.sender].lastStartedRound = _id;
+  }
+
+  function requesterInitializeNewRound(uint32 _id)
+    private
+    ifNewRound(_id)
+    onlyDelayedRequesters(_id)
+  {
+    initializeNewRound(_id);
+
+    requesters[msg.sender].lastStartedRound = _id;
   }
 
   function updateTimedOutRoundInfo(uint32 _id)
@@ -807,11 +824,17 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
   }
 
-  modifier ifDelayed(uint32 _id) {
+  modifier ifOracleDelayed(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
     if (_id > lastStarted + restartDelay || lastStarted == 0) {
       _;
     }
+  }
+
+  modifier onlyDelayedRequesters(uint32 _id) {
+    uint256 lastStarted = requesters[msg.sender].lastStartedRound;
+    require(_id > lastStarted + requesters[msg.sender].delay || lastStarted == 0, "must delay requests");
+    _;
   }
 
   modifier onlyValidRoundId(uint32 _id) {

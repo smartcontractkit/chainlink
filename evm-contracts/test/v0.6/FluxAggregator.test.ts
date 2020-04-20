@@ -1853,6 +1853,34 @@ describe('FluxAggregator', () => {
         })
       })
     })
+
+    describe('when there is a restart delay set', () => {
+      beforeEach(async () => {
+        await aggregator.setRequesterPermissions(personas.Eddy.address, true, 1)
+      })
+
+      it('reverts if a round is started before the delay', async () => {
+        await aggregator.connect(personas.Eddy).startNewRound()
+
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        nextRound = nextRound + 1
+
+        // Eddy can't start because of the delay
+        await matchers.evmRevert(
+          aggregator.connect(personas.Eddy).startNewRound(),
+          'must delay requests',
+        )
+        // Carol starts a new round instead
+        await aggregator.connect(personas.Carol).startNewRound()
+
+        // round completes
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        nextRound = nextRound + 1
+
+        // now Eddy can start again
+        await aggregator.connect(personas.Eddy).startNewRound()
+      })
+    })
   })
 
   describe('#setRequesterPermissions', () => {
