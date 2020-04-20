@@ -65,6 +65,7 @@ func TestConcreteFluxMonitor_Start_withEthereumDisabled(t *testing.T) {
 			logBroadcaster := fm.(fluxmonitor.MockableLogBroadcaster).MockLogBroadcaster()
 
 			err := fm.Start()
+			defer fm.Stop()
 			assert.NoError(t, err)
 			assert.Equal(t, test.wantStarted, logBroadcaster.Started)
 		})
