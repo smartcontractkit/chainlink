@@ -8,23 +8,23 @@ const aggregationMiddleware: Middleware = store => next => (
     return next(action)
   }
 
-  if (!store.getState().aggregation.contractAddress) {
+  if (!store.getState().aggregator.contractAddress) {
     return
   }
 
   return next(action)
 }
 
-const IGNORE_AGGREGATION_TYPES: Array<string> = [
-  'aggregation/CLEAR_STATE',
-  'aggregation/OPTIONS',
-  'aggregation/CONTRACT_ADDRESS',
+const IGNORE_AGGREGATOR_TYPES: Array<string> = [
+  'aggregator/CLEAR_STATE',
+  'aggregator/CONFIG',
+  'aggregator/CONTRACT_ADDRESS',
 ]
 
 function ignore(action: Actions) {
   return (
-    IGNORE_AGGREGATION_TYPES.includes(action.type) ||
-    !action.type.startsWith('aggregation')
+    IGNORE_AGGREGATOR_TYPES.includes(action.type) ||
+    !action.type.startsWith('aggregator')
   )
 }
 

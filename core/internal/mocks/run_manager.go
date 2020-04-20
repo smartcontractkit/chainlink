@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	models "chainlink/core/store/models"
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 	big "math/big"
 
 	mock "github.com/stretchr/testify/mock"

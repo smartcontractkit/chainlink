@@ -14,16 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/auth"
-	ethpkg "chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/services/vrf"
-	"chainlink/core/store/models"
-	"chainlink/core/store/models/vrfkey"
-	"chainlink/core/utils"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -285,7 +285,8 @@ func TestIntegration_EthLog(t *testing.T) {
 	assert.Equal(t, address, initr.Address)
 
 	logs <- cltest.LogFromFixture(t, "testdata/requestLog0original.json")
-	cltest.WaitForRuns(t, j, app.Store, 1)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
 
 func TestIntegration_RunLog(t *testing.T) {
@@ -731,6 +732,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 
 	sleepSeconds := 4
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -1052,7 +1054,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
 	r := vrf.RandomnessRequestLog{
-		KeyHash: provingKey.PublicKey.Hash(),
+		KeyHash: provingKey.PublicKey.MustHash(),
 		Seed:    big.NewInt(2),
 		JobID:   common.BytesToHash(rawID),
 		Sender:  cltest.NewAddress(),

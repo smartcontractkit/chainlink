@@ -1,9 +1,9 @@
 package store
 
 import (
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"errors"
 	"fmt"
 	"math"

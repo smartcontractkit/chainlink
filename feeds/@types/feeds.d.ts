@@ -7,7 +7,7 @@ declare module 'feeds' {
     name: string
     valuePrefix: string
     pair: string[]
-    counter?: number
+    heartbeat?: number
     path: string
     networkId: number
     history: boolean

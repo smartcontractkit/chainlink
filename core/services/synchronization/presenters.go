@@ -3,11 +3,11 @@ package synchronization
 import (
 	"encoding/json"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	clnull "chainlink/core/null"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	null "gopkg.in/guregu/null.v3"
@@ -40,7 +40,7 @@ func (p SyncJobRunPresenter) MarshalJSON() ([]byte, error) {
 		ID:         p.ID.String(),
 		RunID:      p.ID.String(),
 		JobID:      p.JobSpecID.String(),
-		Status:     string(p.Status),
+		Status:     string(p.GetStatus()),
 		Error:      p.Result.ErrorMessage,
 		CreatedAt:  utils.ISO8601UTC(p.CreatedAt),
 		Payment:    p.Payment,

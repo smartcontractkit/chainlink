@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/logger"
-	clnull "chainlink/core/null"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/imdario/mergo"
@@ -193,11 +193,12 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID        uint `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID *ID  `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	ID        uint32 `json:"id" gorm:"primary_key;auto_increment"`
+	JobSpecID *ID    `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
-	CreatedAt       time.Time `gorm:"index"`
+	CreatedAt       time.Time `json:"createdAt" gorm:"index"`
 	InitiatorParams `json:"params,omitempty"`
 	DeletedAt       null.Time `json:"-" gorm:"index"`
 }
@@ -214,7 +215,7 @@ type InitiatorParams struct {
 	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
-	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
+	Topics     Topics            `json:"topics,omitempty"`
 
 	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
 	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
@@ -244,17 +245,17 @@ type Topics [][]common.Hash
 
 // Scan coerces the value returned from the data store to the proper data
 // in this instance.
-func (t Topics) Scan(value interface{}) error {
-	jsonStr, ok := value.(string)
-	if !ok {
+func (t *Topics) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case []byte:
+		err := json.Unmarshal(v, &t)
+		if err != nil {
+			return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
+		}
+		return nil
+	default:
 		return fmt.Errorf("Unable to convert %v of %T to Topics", value, value)
 	}
-
-	err := json.Unmarshal([]byte(jsonStr), &t)
-	if err != nil {
-		return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
-	}
-	return nil
 }
 
 // Value returns this instance serialized for database storage.

@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.dedis.ch/kyber/v3"
 
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // PublicKey is a secp256k1 point in compressed format
@@ -60,7 +60,7 @@ func NewPublicKeyFromHex(hex string) (*PublicKey, error) {
 }
 
 // SetFromHex sets k to the public key represented by hex, which must represent
-// the uncompressed binary format
+// the compressed binary format
 func (k *PublicKey) SetFromHex(hex string) error {
 	nk, err := NewPublicKeyFromHex(hex)
 	if err != nil {
@@ -70,18 +70,44 @@ func (k *PublicKey) SetFromHex(hex string) error {
 	return nil
 }
 
-// String returns k's binary uncompressed representation, as 0x-hex
+// String returns k's binary compressed representation, as 0x-hex
 func (k *PublicKey) String() string {
 	return hexutil.Encode(k[:])
 }
 
-// Hash returns the solidity Keccak256 hash of k. Corresponds to hashOfKey on
-// VRFCoordinator.
-func (k *PublicKey) Hash() common.Hash {
-	return utils.MustHash(string(k[:]))
+// String returns k's binary uncompressed representation, as 0x-hex
+func (k *PublicKey) StringUncompressed() (string, error) {
+	p, err := k.Point()
+	if err != nil {
+		return "", err
+	}
+	return hexutil.Encode(secp256k1.LongMarshal(p)), nil
 }
 
-// Address returns the Ethereum address of k
+// Hash returns the solidity Keccak256 hash of k. Corresponds to hashOfKey on
+// VRFCoordinator.
+func (k *PublicKey) Hash() (common.Hash, error) {
+	p, err := k.Point()
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return utils.MustHash(string(secp256k1.LongMarshal(p))), nil
+}
+
+// MusthHash is like Hash, but panics on error. Useful for testing.
+func (k *PublicKey) MustHash() common.Hash {
+	hash, err := k.Hash()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to compute hash of public vrf key %v", k))
+	}
+	return hash
+}
+
+// Address returns the Ethereum address of k or 0 if the key is invalid
 func (k *PublicKey) Address() common.Address {
-	return common.BytesToAddress(k.Hash().Bytes()[12:])
+	hash, err := k.Hash()
+	if err != nil {
+		return common.Address{}
+	}
+	return common.BytesToAddress(hash.Bytes()[12:])
 }

@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -168,7 +168,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if !jr.Status.PendingBridge() {
+	if !jr.GetStatus().PendingBridge() {
 		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("Cannot resume a job run that isn't pending"))
 		return
 	}

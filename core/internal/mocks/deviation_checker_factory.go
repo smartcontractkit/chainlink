@@ -3,13 +3,13 @@
 package mocks
 
 import (
-	fluxmonitor "chainlink/core/services/fluxmonitor"
+	fluxmonitor "github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "chainlink/core/store/models"
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
-	orm "chainlink/core/store/orm"
+	orm "github.com/smartcontractkit/chainlink/core/store/orm"
 
 	time "time"
 )

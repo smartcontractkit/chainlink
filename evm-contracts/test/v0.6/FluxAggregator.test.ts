@@ -84,9 +84,11 @@ describe('FluxAggregator', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(fluxAggregatorFactory, [
+      'acceptAdmin',
       'addOracle',
       'allocatedFunds',
       'availableFunds',
+      'decimals',
       'description',
       'getAdmin',
       'getAnswer',
@@ -104,22 +106,21 @@ describe('FluxAggregator', () => {
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'decimals',
       'removeOracle',
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
       'roundState',
+      'setAuthorization',
       'startNewRound',
       'timeout',
-      'updateAdmin',
+      'transferAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'setAuthorization',
-      'withdraw',
       'withdrawFunds',
-      'withdrawable',
+      'withdrawPayment',
+      'withdrawablePayment',
       'VERSION',
       // Owned methods:
       'acceptOwnership',
@@ -229,7 +230,7 @@ describe('FluxAggregator', () => {
           0,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -238,19 +239,19 @@ describe('FluxAggregator', () => {
           paymentAmount,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Ned)
-            .withdrawable(personas.Ned.address),
+            .withdrawablePayment(personas.Ned.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
       })
 
@@ -439,13 +440,13 @@ describe('FluxAggregator', () => {
           0,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -458,13 +459,13 @@ describe('FluxAggregator', () => {
           paymentAmount,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           paymentAmount,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
       })
     })
@@ -1500,7 +1501,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#withdraw', () => {
+  describe('#withdrawPayment', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1520,7 +1521,11 @@ describe('FluxAggregator', () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
+        .withdrawPayment(
+          personas.Neil.address,
+          personas.Neil.address,
+          paymentAmount,
+        )
 
       matchers.bigNum(
         originalBalance.sub(paymentAmount),
@@ -1537,7 +1542,11 @@ describe('FluxAggregator', () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
+        .withdrawPayment(
+          personas.Neil.address,
+          personas.Neil.address,
+          paymentAmount,
+        )
 
       matchers.bigNum(
         originalAllocation.sub(paymentAmount),
@@ -1550,7 +1559,7 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .withdraw(
+            .withdrawPayment(
               personas.Neil.address,
               personas.Neil.address,
               paymentAmount.add(ethers.utils.bigNumberify(1)),
@@ -1564,7 +1573,7 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Nelly)
-            .withdraw(
+            .withdrawPayment(
               personas.Neil.address,
               personas.Nelly.address,
               ethers.utils.bigNumberify(1),
@@ -1574,7 +1583,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#updateAdmin', () => {
+  describe('#transferAdmin', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1587,23 +1596,19 @@ describe('FluxAggregator', () => {
         )
     })
 
-    describe('when the admin tries to update the admin', () => {
+    describe('when the admin tries to transfer the admin', () => {
       it('works', async () => {
+        const tx = await aggregator
+          .connect(personas.Neil)
+          .transferAdmin(personas.Ned.address, personas.Nelly.address)
+        const receipt = await tx.wait()
         assert.equal(
           personas.Neil.address,
           await aggregator.getAdmin(personas.Ned.address),
         )
-        const tx = await aggregator
-          .connect(personas.Neil)
-          .updateAdmin(personas.Ned.address, personas.Nelly.address)
-        const receipt = await tx.wait()
-        assert.equal(
-          personas.Nelly.address,
-          await aggregator.getAdmin(personas.Ned.address),
-        )
-
         const event = h.eventArgs(receipt.events?.[0])
         assert.equal(event.oracle, personas.Ned.address)
+        assert.equal(event.admin, personas.Neil.address)
         assert.equal(event.newAdmin, personas.Nelly.address)
       })
     })
@@ -1613,7 +1618,7 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .updateAdmin(personas.Ned.address, personas.Nelly.address),
+            .transferAdmin(personas.Ned.address, personas.Nelly.address),
         )
       })
     })
@@ -1623,7 +1628,52 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Ned)
-            .updateAdmin(personas.Ned.address, personas.Nelly.address),
+            .transferAdmin(personas.Ned.address, personas.Nelly.address),
+        )
+      })
+    })
+  })
+
+  describe('#acceptAdmin', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(
+          personas.Ned.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
+      const tx = await aggregator
+        .connect(personas.Neil)
+        .transferAdmin(personas.Ned.address, personas.Nelly.address)
+      await tx.wait()
+    })
+
+    describe('when the new admin tries to accept', () => {
+      it('works', async () => {
+        const tx = await aggregator
+          .connect(personas.Nelly)
+          .acceptAdmin(personas.Ned.address)
+        const receipt = await tx.wait()
+        assert.equal(
+          personas.Nelly.address,
+          await aggregator.getAdmin(personas.Ned.address),
+        )
+        const event = h.eventArgs(receipt.events?.[0])
+        assert.equal(event.oracle, personas.Ned.address)
+        assert.equal(event.newAdmin, personas.Nelly.address)
+      })
+    })
+
+    describe('when someone other than the new admin tries to accept', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator.connect(personas.Ned).acceptAdmin(personas.Ned.address),
+        )
+        await matchers.evmRevert(
+          aggregator.connect(personas.Neil).acceptAdmin(personas.Ned.address),
         )
       })
     })
@@ -1697,7 +1747,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#updateRequesterPermission', () => {
+  describe('#setAuthorization', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1730,6 +1780,21 @@ describe('FluxAggregator', () => {
         assert.equal(args.allowed, true)
       })
 
+      describe('when the address is already authorized', () => {
+        beforeEach(async () => {
+          await aggregator.setAuthorization(personas.Neil.address, true)
+        })
+
+        it('does not emit a log for already authorized accounts', async () => {
+          const tx = await aggregator.setAuthorization(
+            personas.Neil.address,
+            true,
+          )
+          const receipt = await tx.wait()
+          assert.equal(0, receipt?.logs?.length)
+        })
+      })
+
       describe('when permission is removed by the owner', () => {
         beforeEach(async () => {
           await aggregator.setAuthorization(personas.Neil.address, true)
@@ -1757,6 +1822,15 @@ describe('FluxAggregator', () => {
 
           assert.equal(args.requester, personas.Neil.address)
           assert.equal(args.allowed, false)
+        })
+
+        it('does not emit a log for accounts without authorization', async () => {
+          const tx = await aggregator.setAuthorization(
+            personas.Ned.address,
+            false,
+          )
+          const receipt = await tx.wait()
+          assert.equal(0, receipt?.logs?.length)
         })
       })
     })

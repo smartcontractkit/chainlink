@@ -1,22 +1,41 @@
 [
   {
+    "contractAddress": "0xF79D6aFBb6dA890132F9D7c355e3015f15F3406F",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "name": "ETH / USD",
+    "valuePrefix": "$",
+    "pair": ["ETH", "USD"],
+    "heartbeat": 7200,
+    "path": "eth-usd",
+    "networkId": 1,
+    "history": false,
+    "decimalPlaces": 3,
+    "multiply": "100000000",
+    "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch"],
+    "threshold": 1,
+    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
+    "listing": true
+  },
+  {
     "contractAddress": "0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9",
     "contractType": "aggregator",
     "contractVersion": 1,
     "name": "ETH / USD",
     "valuePrefix": "$",
     "pair": ["ETH", "USD"],
-    "counter": 3600,
-    "path": "eth-usd",
+    "heartbeat": 7200,
+    "path": "eth-usd-depreciated",
     "networkId": 1,
     "history": true,
     "decimalPlaces": 3,
     "multiply": "100000000",
     "sponsored": ["Synthetix", "Loopring", "OpenLaw", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
-    "listing": true
+    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
+    "listing": false
   },
   {
     "contractAddress": "0xF5fff180082d6017036B771bA883025c654BC935",
@@ -25,7 +44,7 @@
     "name": "BTC / USD",
     "valuePrefix": "$",
     "pair": ["BTC", "USD"],
-    "counter": 3600,
+    "heartbeat": 7200,
     "path": "btc-usd",
     "networkId": 1,
     "history": true,
@@ -33,8 +52,8 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin",
+    "compareOffchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin",
     "listing": true
   },
   {
@@ -44,7 +63,7 @@
     "name": "AUD / USD",
     "valuePrefix": "$",
     "pair": ["AUD", "USD"],
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "aud-usd",
     "networkId": 1,
     "history": true,
@@ -52,7 +71,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
     "listing": true
   },
   {
@@ -62,7 +81,7 @@
     "name": "EUR / USD",
     "valuePrefix": "$",
     "pair": ["EUR", "USD"],
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "eur-usd",
     "networkId": 1,
     "history": true,
@@ -70,7 +89,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
     "listing": true
   },
   {
@@ -80,7 +99,7 @@
     "name": "CHF / USD",
     "valuePrefix": "$",
     "pair": ["CHF", "USD"],
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "chf-usd",
     "networkId": 1,
     "history": true,
@@ -88,7 +107,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
     "listing": true
   },
   {
@@ -98,7 +117,7 @@
     "name": "GBP / USD",
     "valuePrefix": "$",
     "pair": ["GBP", "USD"],
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "gbp-usd",
     "networkId": 1,
     "history": true,
@@ -106,7 +125,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
     "listing": true
   },
   {
@@ -116,7 +135,7 @@
     "name": "JPY / USD",
     "valuePrefix": "$",
     "pair": ["JPY", "USD"],
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "jpy-usd",
     "networkId": 1,
     "history": true,
@@ -124,7 +143,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
     "listing": true
   },
   {
@@ -134,7 +153,7 @@
     "name": "XAG / USD",
     "valuePrefix": "$",
     "pair": ["XAG", "USD"],
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "xag-usd",
     "networkId": 1,
     "history": true,
@@ -142,7 +161,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
     "listing": true
   },
   {
@@ -152,7 +171,7 @@
     "name": "XAU / USD",
     "valuePrefix": "$",
     "pair": ["XAU", "USD"],
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "xau-usd",
     "networkId": 1,
     "history": true,
@@ -160,7 +179,7 @@
     "multiply": "100000000",
     "sponsored": ["Synthetix"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
     "listing": true
   },
   {
@@ -175,10 +194,10 @@
     "history": true,
     "decimalPlaces": 3,
     "multiply": "100000000",
-    "sponsored": ["Set protocol"],
+    "sponsored": ["Set Protocol"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
+    "compareOffchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
     "listing": true
   },
   {
@@ -195,8 +214,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Loopring", "1inch"],
     "threshold": 5,
-    "compare_offchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=loopring",
+    "compareOffchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=loopring",
     "listing": true
   },
   {
@@ -213,7 +232,7 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "1inch"],
     "threshold": 2,
-    "compare_offchain": "https://www.tradingview.com/symbols/LENDETH/?exchange=BINANCE",
+    "compareOffchain": "https://www.tradingview.com/symbols/LENDETH/?exchange=BINANCE",
     "listing": true
   },
   {
@@ -246,8 +265,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=maker",
+    "compareOffchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=maker",
     "listing": true
   },
   {
@@ -264,7 +283,7 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "1inch"],
     "threshold": 2,
-    "compare_offchain": "https://www.tradingview.com/symbols/MANAETH/?exchange=BINANCE",
+    "compareOffchain": "https://www.tradingview.com/symbols/MANAETH/?exchange=BINANCE",
     "listing": true
   },
   {
@@ -281,8 +300,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 2,
-    "compare_offchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=kyber-network",
+    "compareOffchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=kyber-network",
     "listing": true
   },
   {
@@ -299,8 +318,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=chainlink",
+    "compareOffchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=chainlink",
     "listing": true
   },
   {
@@ -333,8 +352,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "1inch"],
     "threshold": 2,
-    "compare_offchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=augur",
+    "compareOffchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=augur",
     "listing": true
   },
   {
@@ -351,8 +370,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 2,
-    "compare_offchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=0x",
+    "compareOffchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=0x",
     "listing": true
   },
   {
@@ -369,8 +388,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "1inch"],
     "threshold": 2,
-    "compare_offchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=basic-attention-token",
+    "compareOffchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=basic-attention-token",
     "listing": true
   },
   {
@@ -387,8 +406,8 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "Nexus Mutual", "bZx", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/DAIETH/?exchange=BITFINEX",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=dai",
+    "compareOffchain": "https://www.tradingview.com/symbols/DAIETH/?exchange=BITFINEX",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=dai",
     "listing": true
   },
   {
@@ -405,7 +424,7 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://www.coingecko.com/en/coins/true-usd/eth",
+    "compareOffchain": "https://www.coingecko.com/en/coins/true-usd/eth",
     "listing": true
   },
   {
@@ -422,7 +441,7 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://www.coingecko.com/en/coins/tether/eth",
+    "compareOffchain": "https://www.coingecko.com/en/coins/tether/eth",
     "listing": true
   },
   {
@@ -437,9 +456,9 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave"],
+    "sponsored": ["Aave", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://nomics.com/markets/busd-binance-usd/eth-ethereum",
+    "compareOffchain": "https://nomics.com/markets/busd-binance-usd/eth-ethereum",
     "listing": true
   },
   {
@@ -456,7 +475,7 @@
     "multiply": "1000000000000000000",
     "sponsored": ["Aave", "bZx", "1inch"],
     "threshold": 1,
-    "compare_offchain": "https://www.coingecko.com/en/coins/susd/eth",
+    "compareOffchain": "https://www.coingecko.com/en/coins/susd/eth",
     "listing": true
   },
   {
@@ -473,7 +492,7 @@
     "decimalPlaces": 9,
     "sponsored": ["Aave", "1inch"],
     "threshold": 2,
-    "compare_offchain": "https://www.coingecko.com/en/coins/synthetix-network-token/eth",
+    "compareOffchain": "https://www.coingecko.com/en/coins/synthetix-network-token/eth",
     "listing": true
   },
   {
@@ -490,8 +509,44 @@
     "decimalPlaces": 9,
     "sponsored": ["Haven Protocol"],
     "threshold": 2,
-    "compare_offchain": "https://www.coingecko.com/en/coins/haven/usd",
-    "health_price": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=haven",
+    "compareOffchain": "https://www.coingecko.com/en/coins/haven/usd",
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=haven",
+    "listing": true
+  },
+  {
+    "contractAddress": "0x16924ae9C2ac6cdbC9D6bB16FAfCD38BeD560936",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "name": "FTSE / GBP",
+    "valuePrefix": "£",
+    "pair": ["FTSE", "GBP"],
+    "heartbeat": 7200,
+    "path": "ftse-gbp",
+    "networkId": 1,
+    "history": false,
+    "decimalPlaces": 8,
+    "multiply": "100000000",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "compareOffchain": "https://www.google.com/search?tbm=fin&q=INDEXFTSE:+UKX&stick=H4sIAAAAAAAAAONgecRowi3w8sc9YSntSWtOXmNU5eIKzsgvd80rySypFBLnYoOyeKW4uTj1c_UNjDJyzMp5FrHyefq5uEa4hQS7WimEekcAAMw2dBpKAAAA&sa=X&ved=2ahUKEwjzqpm3_szoAhVQrZ4KHVpsD1AQ3ecFMAB6BAgYEA0&biw=1728&bih=1417#scso=_E46HXuuBFve30PEPw7aEiAY1:0",
+    "listing": true
+  },
+  {
+    "contractAddress": "0x3f6E09A4EC3811765F5b2ad15c0279910dbb2c04",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "name": "N225 / JPY",
+    "valuePrefix": "¥",
+    "pair": ["N225", "JPY"],
+    "heartbeat": 7200,
+    "path": "n225-jpy",
+    "networkId": 1,
+    "history": false,
+    "decimalPlaces": 6,
+    "multiply": "100000000",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "compareOffchain": "https://www.tradingview.com/symbols/INDEX-NKY",
     "listing": true
   },
   {
@@ -500,12 +555,12 @@
     "name": "BNB / USD",
     "pair": ["BNB", "USD"],
     "valuePrefix": "$",
-    "counter": 1800,
+    "heartbeat": 1800,
     "path": "bnb-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/BNBUSD/?exchange=BINANCE",
+    "compareOffchain": "https://www.tradingview.com/symbols/BNBUSD/?exchange=BINANCE",
     "listing": false
   },
   {
@@ -514,12 +569,12 @@
     "name": "BTC / USD",
     "pair": ["BTC", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "btc-usd",
     "networkId": 3,
     "history": true,
     "threshold": 0.5,
-    "compare_offchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
+    "compareOffchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
     "listing": false
   },
   {
@@ -528,12 +583,12 @@
     "name": "SNX / USD",
     "pair": ["SNX", "USD"],
     "valuePrefix": "$",
-    "counter": 1800,
+    "heartbeat": 1800,
     "path": "snx-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.coingecko.com/en/coins/synthetix-network-token/usd",
+    "compareOffchain": "https://www.coingecko.com/en/coins/synthetix-network-token/usd",
     "listing": false
   },
   {
@@ -543,12 +598,12 @@
     "name": "XTZ / USD",
     "pair": ["XTZ", "USD"],
     "valuePrefix": "$",
-    "counter": 1800,
+    "heartbeat": 1800,
     "path": "xtz-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XTZUSD/?exchange=COINBASE",
+    "compareOffchain": "https://www.tradingview.com/symbols/XTZUSD/?exchange=COINBASE",
     "listing": false
   },
   {
@@ -561,7 +616,7 @@
     "networkId": 3,
     "history": true,
     "threshold": 0.5,
-    "compare_offchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
+    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "listing": false
   },
   {
@@ -571,12 +626,12 @@
     "name": "MKR / USD",
     "pair": ["MKR", "USD"],
     "valuePrefix": "$",
-    "counter": 1800,
+    "heartbeat": 1800,
     "path": "mkr-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/MKRUSD/?exchange=BITFINEX",
+    "compareOffchain": "https://www.tradingview.com/symbols/MKRUSD/?exchange=BITFINEX",
     "listing": false
   },
   {
@@ -586,12 +641,12 @@
     "name": "TRX / USD",
     "pair": ["TRX", "USD"],
     "valuePrefix": "$",
-    "counter": 1800,
+    "heartbeat": 1800,
     "path": "trx-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/TRXUSD/?exchange=BITFINEX",
+    "compareOffchain": "https://www.tradingview.com/symbols/TRXUSD/?exchange=BITFINEX",
     "listing": false
   },
   {
@@ -601,12 +656,12 @@
     "name": "AUD / USD",
     "pair": ["AUD", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "aud-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
     "listing": false
   },
   {
@@ -616,12 +671,12 @@
     "name": "XAG / USD",
     "pair": ["XAG", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "xag-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
     "listing": false
   },
   {
@@ -631,12 +686,12 @@
     "name": "CHF / USD",
     "pair": ["CHF", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "chf-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
     "listing": false
   },
   {
@@ -646,12 +701,12 @@
     "name": "GBP / USD",
     "pair": ["GBP", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "gbp-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
     "listing": false
   },
   {
@@ -661,12 +716,12 @@
     "name": "XAU / USD",
     "pair": ["XAU", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "xau-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
     "listing": false
   },
   {
@@ -676,12 +731,12 @@
     "name": "EUR / USD",
     "pair": ["EUR", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "eur-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
     "listing": false
   },
   {
@@ -691,12 +746,12 @@
     "name": "JPY / USD",
     "pair": ["JPY", "USD"],
     "valuePrefix": "$",
-    "counter": 3600,
+    "heartbeat": 3600,
     "path": "jpy-usd",
     "networkId": 3,
     "history": true,
     "threshold": 1,
-    "compare_offchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
+    "compareOffchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
     "listing": false
   }
 ]

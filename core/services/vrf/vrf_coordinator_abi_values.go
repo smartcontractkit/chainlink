@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_vrf_coordinator_interface"
 )
 
 // CoordinatorABI returns the ABI for the VRFCoordinator contract

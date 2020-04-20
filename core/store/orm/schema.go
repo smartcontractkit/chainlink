@@ -7,60 +7,66 @@ import (
 	"reflect"
 	"time"
 
-	"chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
-	AllowOrigins              string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
-	BridgeResponseURL         url.URL        `env:"BRIDGE_RESPONSE_URL"`
-	ChainID                   big.Int        `env:"ETH_CHAIN_ID" default:"1"`
-	ClientNodeURL             string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseTimeout           time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
-	DatabaseURL               string         `env:"DATABASE_URL"`
-	DefaultHTTPLimit          int64          `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
-	DefaultHTTPTimeout        time.Duration  `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
-	Dev                       bool           `env:"CHAINLINK_DEV" default:"false"`
-	FeatureExternalInitiators bool           `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
-	FeatureFluxMonitor        bool           `env:"FEATURE_FLUX_MONITOR" default:"false"`
-	MaximumServiceDuration    time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
-	MinimumServiceDuration    time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
-	EthGasBumpThreshold       uint64         `env:"ETH_GAS_BUMP_THRESHOLD" default:"12" `
-	EthGasBumpWei             big.Int        `env:"ETH_GAS_BUMP_WEI" default:"5000000000"`
-	EthGasBumpPercent         uint16         `env:"ETH_GAS_BUMP_PERCENT" default:"10"`
-	EthGasPriceDefault        big.Int        `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000"`
-	EthMaxGasPriceWei         uint64         `env:"ETH_MAX_GAS_PRICE_WEI" default:"500000000000"`
-	EthereumURL               string         `env:"ETH_URL" default:"ws://localhost:8546"`
-	JSONConsole               bool           `env:"JSON_CONSOLE" default:"false"`
-	LinkContractAddress       string         `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
-	ExplorerURL               *url.URL       `env:"EXPLORER_URL"`
-	ExplorerAccessKey         string         `env:"EXPLORER_ACCESS_KEY"`
-	ExplorerSecret            string         `env:"EXPLORER_SECRET"`
-	LogLevel                  LogLevel       `env:"LOG_LEVEL" default:"info"`
-	LogToDisk                 bool           `env:"LOG_TO_DISK" default:"true"`
-	LogSQLStatements          bool           `env:"LOG_SQL" default:"false"`
-	LogSQLMigrations          bool           `env:"LOG_SQL_MIGRATIONS" default:"true"`
-	DefaultMaxHTTPAttempts    uint           `env:"MAX_HTTP_ATTEMPTS" default:"5"`
-	MinIncomingConfirmations  uint32         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
-	MinOutgoingConfirmations  uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
-	MinimumContractPayment    assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
-	MinimumRequestExpiration  uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
-	MaxRPCCallsPerSecond      uint64         `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
-	OracleContractAddress     common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
-	Port                      uint16         `env:"CHAINLINK_PORT" default:"6688"`
-	ReaperExpiration          time.Duration  `env:"REAPER_EXPIRATION" default:"240h"`
-	ReplayFromBlock           int64          `env:"REPLAY_FROM_BLOCK" default:"-1"`
-	RootDir                   string         `env:"ROOT" default:"~/.chainlink"`
-	SecureCookies             bool           `env:"SECURE_COOKIES" default:"true"`
-	SessionTimeout            time.Duration  `env:"SESSION_TIMEOUT" default:"15m"`
-	TLSCertPath               string         `env:"TLS_CERT_PATH" `
-	TLSHost                   string         `env:"CHAINLINK_TLS_HOST" `
-	TLSKeyPath                string         `env:"TLS_KEY_PATH" `
-	TLSPort                   uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
-	TLSRedirect               bool           `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
-	TxAttemptLimit            uint16         `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
+	AllowOrigins                    string         `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
+	BridgeResponseURL               url.URL        `env:"BRIDGE_RESPONSE_URL"`
+	ChainID                         big.Int        `env:"ETH_CHAIN_ID" default:"1"`
+	ClientNodeURL                   string         `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
+	DatabaseTimeout                 time.Duration  `env:"DATABASE_TIMEOUT" default:"500ms"`
+	DatabaseURL                     string         `env:"DATABASE_URL"`
+	DefaultHTTPLimit                int64          `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
+	DefaultHTTPTimeout              time.Duration  `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
+	Dev                             bool           `env:"CHAINLINK_DEV" default:"false"`
+	EnableExperimentalAdapters      bool           `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
+	FeatureExternalInitiators       bool           `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
+	FeatureFluxMonitor              bool           `env:"FEATURE_FLUX_MONITOR" default:"false"`
+	MaximumServiceDuration          time.Duration  `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
+	MinimumServiceDuration          time.Duration  `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
+	EthGasBumpThreshold             uint64         `env:"ETH_GAS_BUMP_THRESHOLD" default:"12" `
+	EthGasBumpWei                   big.Int        `env:"ETH_GAS_BUMP_WEI" default:"5000000000"`
+	EthGasBumpPercent               uint16         `env:"ETH_GAS_BUMP_PERCENT" default:"10"`
+	EthGasLimitDefault              uint64         `env:"ETH_GAS_LIMIT_DEFAULT" default:"500000"`
+	EthGasPriceDefault              big.Int        `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000"`
+	EthMaxGasPriceWei               uint64         `env:"ETH_MAX_GAS_PRICE_WEI" default:"500000000000"`
+	EthereumURL                     string         `env:"ETH_URL" default:"ws://localhost:8546"`
+	GasUpdaterBlockDelay            uint16         `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
+	GasUpdaterBlockHistorySize      uint16         `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
+	GasUpdaterTransactionPercentile uint16         `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"35"`
+	GasUpdaterEnabled               bool           `env:"GAS_UPDATER_ENABLED" default:"false"`
+	JSONConsole                     bool           `env:"JSON_CONSOLE" default:"false"`
+	LinkContractAddress             string         `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
+	ExplorerURL                     *url.URL       `env:"EXPLORER_URL"`
+	ExplorerAccessKey               string         `env:"EXPLORER_ACCESS_KEY"`
+	ExplorerSecret                  string         `env:"EXPLORER_SECRET"`
+	LogLevel                        LogLevel       `env:"LOG_LEVEL" default:"info"`
+	LogToDisk                       bool           `env:"LOG_TO_DISK" default:"true"`
+	LogSQLStatements                bool           `env:"LOG_SQL" default:"false"`
+	LogSQLMigrations                bool           `env:"LOG_SQL_MIGRATIONS" default:"true"`
+	DefaultMaxHTTPAttempts          uint           `env:"MAX_HTTP_ATTEMPTS" default:"5"`
+	MinIncomingConfirmations        uint32         `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
+	MinOutgoingConfirmations        uint64         `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
+	MinimumContractPayment          assets.Link    `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
+	MinimumRequestExpiration        uint64         `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
+	MaxRPCCallsPerSecond            uint64         `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
+	OracleContractAddress           common.Address `env:"ORACLE_CONTRACT_ADDRESS"`
+	Port                            uint16         `env:"CHAINLINK_PORT" default:"6688"`
+	ReaperExpiration                time.Duration  `env:"REAPER_EXPIRATION" default:"240h"`
+	ReplayFromBlock                 int64          `env:"REPLAY_FROM_BLOCK" default:"-1"`
+	RootDir                         string         `env:"ROOT" default:"~/.chainlink"`
+	SecureCookies                   bool           `env:"SECURE_COOKIES" default:"true"`
+	SessionTimeout                  time.Duration  `env:"SESSION_TIMEOUT" default:"15m"`
+	TLSCertPath                     string         `env:"TLS_CERT_PATH" `
+	TLSHost                         string         `env:"CHAINLINK_TLS_HOST" `
+	TLSKeyPath                      string         `env:"TLS_KEY_PATH" `
+	TLSPort                         uint16         `env:"CHAINLINK_TLS_PORT" default:"6689"`
+	TLSRedirect                     bool           `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
+	TxAttemptLimit                  uint16         `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field

@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/pkg/errors"
@@ -252,7 +252,10 @@ func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error 
 
 func validateTask(task models.TaskSpec, store *store.Store) error {
 	adapter, err := adapters.For(task, store.Config, store.ORM)
-	if !store.Config.Dev() {
+	if err != nil {
+		return err
+	}
+	if !store.Config.EnableExperimentalAdapters() {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")
 		}
@@ -260,7 +263,7 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 			return errors.New("EthTxABIEncode Adapter is not implemented yet")
 		}
 	}
-	return err
+	return nil
 }
 
 // ValidateServiceAgreement checks the ServiceAgreement for any application logic errors.

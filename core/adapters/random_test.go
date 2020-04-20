@@ -4,12 +4,12 @@ import (
 	"math/big"
 	"testing"
 
-	"chainlink/core/adapters"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -46,7 +46,7 @@ func TestRandom_Perform(t *testing.T) {
 	adapter := adapters.Random{PublicKey: publicKey.String()}
 	jsonInput, err := models.JSON{}.Add("seed", "0x10")
 	require.NoError(t, err) // Can't fail
-	jsonInput, err = jsonInput.Add("keyHash", publicKey.Hash().Hex())
+	jsonInput, err = jsonInput.Add("keyHash", publicKey.MustHash().Hex())
 	require.NoError(t, err) // Can't fail
 	input := models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)

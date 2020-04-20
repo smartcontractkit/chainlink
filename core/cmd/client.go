@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
 	clipkg "github.com/urfave/cli"

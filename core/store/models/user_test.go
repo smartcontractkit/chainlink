@@ -3,8 +3,8 @@ package models_test
 import (
 	"testing"
 
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,6 +23,8 @@ func TestNewUser(t *testing.T) {
 		{"bademail", "goodpassword", true},
 		{"bad@", "goodpassword", true},
 		{"@email", "goodpassword", true},
+		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa50", false},
+		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa51", true},
 	}
 
 	for _, test := range tests {

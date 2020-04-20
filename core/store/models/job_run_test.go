@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"testing"
 
-	"chainlink/core/assets"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/services/synchronization"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -127,10 +127,10 @@ func TestJobRun_ForLogger(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	job := cltest.NewJobWithWebInitiator()
+	job := models.NewJob()
+	job.Initiators = []models.Initiator{{JobSpecID: job.ID, Type: models.InitiatorWeb}}
 	require.NoError(t, store.CreateJob(&job))
 	jr := cltest.NewJobRun(job)
-	jr.JobSpecID = job.ID
 	linkReward := assets.NewLink(5)
 
 	jr.Result = models.RunResult{Data: cltest.JSONFromString(t, `{"result":"11850.00"}`)}
@@ -142,13 +142,13 @@ func TestJobRun_ForLogger(t *testing.T) {
 	assert.Equal(t, logsBeforeCompletion[2], "run")
 	assert.Equal(t, logsBeforeCompletion[3], jr.ID.String())
 	assert.Equal(t, logsBeforeCompletion[4], "status")
-	assert.Equal(t, logsBeforeCompletion[5], jr.Status)
+	assert.Equal(t, logsBeforeCompletion[5], jr.GetStatus())
 
-	jr.Status = "completed"
+	jr.SetStatus("completed")
 	logsAfterCompletion := jr.ForLogger()
 	require.Len(t, logsAfterCompletion, 8)
 	assert.Equal(t, logsAfterCompletion[4], "status")
-	assert.Equal(t, logsAfterCompletion[5], jr.Status)
+	assert.Equal(t, logsAfterCompletion[5], jr.GetStatus())
 	assert.Equal(t, logsAfterCompletion[6], "link_earned")
 	assert.Equal(t, logsAfterCompletion[7], linkReward)
 
@@ -162,7 +162,7 @@ func TestJobRun_ForLogger(t *testing.T) {
 	assert.Equal(t, logsWithBlockHeights[9], big.NewInt(10))
 
 	run := cltest.NewJobRun(job)
-	run.Status = models.RunStatusErrored
+	run.SetStatus(models.RunStatusErrored)
 	run.Result.ErrorMessage = null.StringFrom("bad idea")
 	logsWithErr := run.ForLogger()
 	require.Len(t, logsWithErr, 10)
@@ -192,7 +192,7 @@ func TestJobRun_ApplyOutput_CompletedWithTasksRemaining(t *testing.T) {
 	result := models.NewRunOutputComplete(models.JSON{})
 	jobRun.ApplyOutput(result)
 	assert.False(t, jobRun.FinishedAt.Valid)
-	assert.Equal(t, jobRun.Status, models.RunStatusInProgress)
+	assert.Equal(t, jobRun.GetStatus(), models.RunStatusInProgress)
 }
 
 func TestJobRun_ApplyOutput_ErrorSetsFinishedAt(t *testing.T) {
@@ -200,7 +200,7 @@ func TestJobRun_ApplyOutput_ErrorSetsFinishedAt(t *testing.T) {
 
 	job := cltest.NewJobWithWebInitiator()
 	jobRun := cltest.NewJobRun(job)
-	jobRun.Status = models.RunStatusErrored
+	jobRun.SetStatus(models.RunStatusErrored)
 
 	result := models.NewRunOutputError(errors.New("oh futz"))
 	jobRun.ApplyOutput(result)
