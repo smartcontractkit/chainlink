@@ -56,6 +56,7 @@ type concreteFluxMonitor struct {
 	chDisconnect   chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
+	disabled       bool
 }
 
 type addEntry struct {
@@ -69,6 +70,10 @@ func New(
 	store *store.Store,
 	runManager RunManager,
 ) Service {
+	if store.Config.EthereumDisabled() {
+		return &concreteFluxMonitor{disabled: true}
+	}
+
 	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM)
 	return &concreteFluxMonitor{
 		store:          store,
@@ -88,8 +93,8 @@ func New(
 }
 
 func (fm *concreteFluxMonitor) Start() error {
-	if fm.store.Config.EthereumDisabled() {
-		logger.Info("Ethereum disabled: Cannot start Flux Monitor")
+	if fm.disabled {
+		logger.Info("Flux monitor disabled: skipping start")
 		return nil
 	}
 
@@ -124,7 +129,7 @@ func (fm *concreteFluxMonitor) Start() error {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
-	if fm.store.Config.EthereumDisabled() {
+	if fm.disabled {
 		logger.Info("Flux monitor disabled: cannot stop")
 		return
 	}
