@@ -2,7 +2,7 @@ import * as jsonapi from '@chainlink/json-api-client'
 import { Dispatch } from 'redux'
 import { FunctionFragment } from 'ethers/utils'
 import { JsonRpcProvider } from 'ethers/providers'
-import { FeedConfig, DefaultConfig } from 'config'
+import { FeedConfig, Config } from '../../../config'
 import * as actions from './actions'
 import {
   formatAnswer,
@@ -17,7 +17,7 @@ export function fetchFeeds() {
   return async (dispatch: Dispatch) => {
     dispatch(actions.fetchFeedsBegin())
     jsonapi
-      .fetchWithTimeout(DefaultConfig.feedsJson, {})
+      .fetchWithTimeout(Config.feedsJson(), {})
       .then((r: Response) => r.json())
       .then((json: FeedConfig[]) => {
         dispatch(actions.fetchFeedsSuccess(json))

@@ -25,14 +25,32 @@ export interface OracleNode {
   networkId: number
 }
 
-export interface Config {
-  feedsJson: string
-  nodesJson: string
-}
+export class Config {
+  static infuraKey(env = process.env): string {
+    if (env.REACT_APP_INFURA_KEY === undefined) {
+      return ''
+    }
+    return env.REACT_APP_INFURA_KEY
+  }
 
-export const DefaultConfig: Config = {
-  feedsJson:
-    process.env.REACT_APP_FEEDS_JSON ?? 'https://feeds.chain.link/feeds.json',
-  nodesJson:
-    process.env.REACT_APP_NODES_JSON ?? 'https://feeds.chain.link/nodes.json',
+  static gaId(env = process.env): string {
+    if (env.REACT_APP_GA_ID === undefined) {
+      return ''
+    }
+    return env.REACT_APP_GA_ID
+  }
+
+  static feedsJson(env = process.env): string {
+    if (env.REACT_APP_FEEDS_JSON === undefined) {
+      return 'https://weiwatchers.com/feeds.json'
+    }
+    return env.REACT_APP_FEEDS_JSON
+  }
+
+  static nodesJson(env = process.env): string {
+    if (env.REACT_APP_NODES_JSON === undefined) {
+      return 'https://weiwatchers.com/nodes.json'
+    }
+    return env.REACT_APP_NODES_JSON
+  }
 }
