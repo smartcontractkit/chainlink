@@ -335,9 +335,9 @@ func (txm *EthTxManager) sendInitialTx(
 			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")
 		}
 
-		txAttempt, err := txm.orm.AddTxAttempt(tx, tx)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#sendInitialTx AddTxAttempt")
+		txAttempt, e := txm.orm.AddTxAttempt(tx, tx)
+		if e != nil {
+			return errors.Wrap(e, "TxManager#sendInitialTx AddTxAttempt")
 		}
 
 		logger.Debugw("Added Tx attempt #0", "txID", tx.ID, "txAttemptID", txAttempt.ID)
@@ -630,9 +630,9 @@ func (txm *EthTxManager) processAttempt(
 		// Update prometheus metric here as waiting on the transaction
 		// to be marked 'Safe' may be too delayed due to possible
 		// backlog of transaction confirmations.
-		ethBalance, err := txm.GetEthBalance(tx.From)
-		if err != nil {
-			return receipt, state, errors.Wrap(err, "confirming confirmation attempt")
+		ethBalance, e := txm.GetEthBalance(tx.From)
+		if e != nil {
+			return receipt, state, errors.Wrap(e, "confirming confirmation attempt")
 		}
 		promUpdateEthBalance(ethBalance, tx.From)
 		return receipt, state, nil
@@ -795,9 +795,9 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 		}
 		if err != nil {
 			promTxAttemptFailed.Inc()
-			err := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
-			logger.Error(err)
-			return err
+			e := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+			logger.Error(e)
+			return e
 		}
 
 		logger.Infow(
