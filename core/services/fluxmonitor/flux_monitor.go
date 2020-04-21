@@ -738,7 +738,7 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 		)
 		p.roundTimeoutTicker = nil
 	} else {
-		timeUntilTimeout := time.Unix(int64(roundState.TimesOutAt), 0).Sub(time.Now())
+		timeUntilTimeout := time.Until(time.Unix(int64(roundState.TimesOutAt), 0))
 		if timeUntilTimeout.Seconds() <= 0 {
 			p.roundTimeoutTicker = nil
 			logger.Debugw("NOT updating roundState.TimesOutAt, negative duration",

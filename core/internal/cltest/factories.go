@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -219,7 +218,7 @@ func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
 // CreateTx creates a Tx from a specified address, and sentAt
 func CreateTx(
 	t testing.TB,
-	store *strpkg.Store,
+	store *store.Store,
 	from common.Address,
 	sentAt uint64,
 ) *models.Tx {
@@ -229,7 +228,7 @@ func CreateTx(
 // CreateTxWithNonceAndGasPrice creates a Tx from a specified address, sentAt, nonce and gas price
 func CreateTxWithNonceAndGasPrice(
 	t testing.TB,
-	store *strpkg.Store,
+	store *store.Store,
 	from common.Address,
 	sentAt uint64,
 	nonce uint64,
@@ -241,7 +240,7 @@ func CreateTxWithNonceAndGasPrice(
 // CreateTxWithNonceGasPriceAndRecipient creates a Tx from a specified sender, recipient, sentAt, nonce and gas price
 func CreateTxWithNonceGasPriceAndRecipient(
 	t testing.TB,
-	store *strpkg.Store,
+	store *store.Store,
 	from common.Address,
 	to common.Address,
 	sentAt uint64,
@@ -274,7 +273,7 @@ func CreateTxWithNonceGasPriceAndRecipient(
 
 func AddTxAttempt(
 	t testing.TB,
-	store *strpkg.Store,
+	store *store.Store,
 	tx *models.Tx,
 	etx *types.Transaction,
 	blkNum uint64,

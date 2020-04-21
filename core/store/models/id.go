@@ -64,6 +64,6 @@ func (id *ID) Scan(value interface{}) error {
 	case string:
 		return id.UnmarshalString(v)
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to ID", value, value)
+		return fmt.Errorf("unable to convert %v of %T to ID", value, value)
 	}
 }

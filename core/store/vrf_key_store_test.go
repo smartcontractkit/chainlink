@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 )
 
-var suite = secp256k1.NewBlakeKeccackSecp256k1()
+var _ = secp256k1.NewBlakeKeccackSecp256k1()
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.

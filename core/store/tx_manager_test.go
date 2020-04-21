@@ -3,6 +3,7 @@ package store_test
 import (
 	"encoding/hex"
 	"errors"
+	"github.com/vlyl/chainlink/core/store"
 	"math/big"
 	"testing"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"

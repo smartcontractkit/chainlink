@@ -931,15 +931,15 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 
 // Head given the value convert it into an Head
 func Head(val interface{}) *models.Head {
-	switch val.(type) {
+	switch vt := val.(type) {
 	case int:
-		return models.NewHead(big.NewInt(int64(val.(int))), NewHash())
+		return models.NewHead(big.NewInt(int64(vt)), NewHash())
 	case uint64:
-		return models.NewHead(big.NewInt(int64(val.(uint64))), NewHash())
+		return models.NewHead(big.NewInt(int64(vt)), NewHash())
 	case int64:
-		return models.NewHead(big.NewInt(val.(int64)), NewHash())
+		return models.NewHead(big.NewInt(vt), NewHash())
 	case *big.Int:
-		return models.NewHead(val.(*big.Int), NewHash())
+		return models.NewHead(vt, NewHash())
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 		return nil

@@ -18,11 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func mustEVMBigInt(t *testing.T, val *big.Int) []byte {
-	ret, err := utils.EVMWordBigInt(val)
-	require.NoError(t, err, "evm BigInt serialization")
-	return ret
-}
+//func mustEVMBigInt(t *testing.T, val *big.Int) []byte {
+//	ret, err := utils.EVMWordBigInt(val)
+//	require.NoError(t, err, "evm BigInt serialization")
+//	return ret
+//}
 
 func makeRoundStateReturnData(roundID uint64, eligible bool, answer, timesOutAt, availableFunds, paymentAmount uint64) string {
 	var data []byte

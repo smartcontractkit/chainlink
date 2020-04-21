@@ -157,7 +157,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	from := cltest.GetAccountAddress(t, store)
 	assert.NoError(t, err)
 	app.EthMock.EventuallyAllCalled(t)
-	txs, err := store.TxFrom(from)
+	txs, _ := store.TxFrom(from)
 	require.Len(t, txs, 1)
 	assert.Len(t, txs[0].Attempts, 1)
 }
