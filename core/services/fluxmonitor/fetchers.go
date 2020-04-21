@@ -3,12 +3,13 @@ package fluxmonitor
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/guregu/null"
 	"github.com/pkg/errors"

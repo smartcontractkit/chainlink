@@ -37,16 +37,16 @@ jobs:
   #       run: shadow
   #       comment: false
 
-  # imports:
-  #   name: Imports
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: imports
-  #       comment: false
+  imports:
+    name: Imports
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: check
+      uses: grandcolline/golang-github-actions@v1.1.0
+      with:
+        run: imports
+        comment: false
 
   # lint:
   #   name: Lint

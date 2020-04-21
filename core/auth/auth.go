@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/hex"
 	"fmt"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
