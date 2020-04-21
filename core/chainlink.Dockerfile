@@ -10,6 +10,7 @@ COPY tools/bin/ldflags ./tools/bin/
 
 # Install yarn dependencies
 COPY yarn.lock package.json .yarnrc ./
+COPY patches patches
 COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/

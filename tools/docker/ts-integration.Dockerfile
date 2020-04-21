@@ -21,6 +21,7 @@ WORKDIR ${SRCROOT}
 
 # copy over all our dependencies
 COPY yarn.lock package.json .yarnrc tsconfig.cjs.json tsconfig.es6.json ./
+COPY patches patches
 COPY .yarn .yarn
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
