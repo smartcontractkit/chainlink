@@ -8,25 +8,81 @@ import {
 } from './utils'
 import _ from 'lodash'
 import { FeedConfig } from 'config'
+import { Log, Filter, TransactionResponse, Block } from 'ethers/providers'
+
+interface EventListener {
+  filter: ethers.providers.EventType
+  listener: ethers.providers.Listener
+}
+
+interface Meta {
+  timestamp?: number
+  gasPrice?: string
+  transactionHash: string
+  blockNumber: number
+}
+
+interface DecodedLog {
+  meta: Meta
+}
+
+interface SubmissionReceivedEventLog extends Log {
+  answer: number
+  round: number
+  oracle: string
+}
+
+interface NewRoundEventLog extends Log {
+  roundId: number
+  startedBy: number
+  startedAt: number
+}
+
+interface AnswerUpdatedLog extends Log {
+  current: number
+  roundId: number
+  timestamp: number
+}
+
+export interface AnswerUpdatedLogFormat extends DecodedLog {
+  answerFormatted: string
+  answer: number
+  answerId: number
+  timestamp: number
+}
+
+export interface SubmissionReceivedEventLogFormat extends DecodedLog {
+  answerFormatted: string
+  answer: number
+  answerId: number
+  sender: string
+  timestamp: number
+}
+
+export interface NewRoundEventLogFormat extends DecodedLog {
+  startedBy: number
+  startedAt: number
+  answerId: number
+}
 
 export default class FluxContract {
-  private submissionReceivedEvent: any = {
+  private submissionReceivedEvent: EventListener = {
     filter: {},
-    listener: {},
+    listener: () => {},
   }
 
-  private newRoundEvent: any = {
+  private newRoundEvent: EventListener = {
     filter: {},
-    listener: {},
+    listener: () => {},
   }
 
   private answerIdInterval: ReturnType<typeof setTimeout | any> = null
   private alive: boolean
-  private options: FeedConfig | any
+  private options: FeedConfig
 
-  private provider: ethers.providers.JsonRpcProvider
-  private contract: ethers.Contract | any
-  address: string | any
+  private contract: ethers.Contract | null
+  provider: ethers.providers.JsonRpcProvider
+  address: string
 
   constructor(options: FeedConfig, abi: any) {
     this.provider = createInfuraProvider(options.networkId)
@@ -49,40 +105,60 @@ export default class FluxContract {
         this.newRoundEvent.listener,
       )
       this.contract = null
-      this.address = null
       this.alive = false
-      this.options = null
     } catch {
       console.error('Cannot delete FluxContract')
     }
   }
 
-  removeListener(filter: any, eventListener: any): void {
+  removeListener(
+    filter: ethers.providers.EventType,
+    eventListener: ethers.providers.Listener,
+  ): void {
     if (!this.alive) return
 
     this.provider.removeListener(filter, eventListener)
   }
 
   async oracles(): Promise<string[]> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     return await this.contract.getOracles()
   }
 
   async minimumAnswers(): Promise<number> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     return await this.contract.minAnswerCount()
   }
 
   async latestRound(): Promise<number> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const latestRound = await this.contract.latestRound()
-    this.decimals()
     return latestRound.toNumber()
   }
 
   async reportingRound(): Promise<number> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const reportingRound = await this.contract.reportingRound()
     return reportingRound.toNumber()
   }
 
   async latestAnswer(): Promise<string> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const latestAnswer = await this.contract.latestAnswer()
     return formatAnswer(
       latestAnswer,
@@ -92,11 +168,19 @@ export default class FluxContract {
   }
 
   async latestTimestamp(): Promise<number> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const latestTimestamp = await this.contract.latestTimestamp()
     return latestTimestamp.toNumber()
   }
 
   async getAnswer(answerId: number): Promise<string> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const getAnswer = await this.contract.getAnswer(answerId)
     return formatAnswer(
       getAnswer,
@@ -106,21 +190,35 @@ export default class FluxContract {
   }
 
   async getTimestamp(answerId: number): Promise<number> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const timestamp = await this.contract.getTimestamp(answerId)
     return timestamp.toNumber()
   }
 
   async description(): Promise<string> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const description = await this.contract.description()
     return ethers.utils.parseBytes32String(description)
   }
 
   async decimals(): Promise<number> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     return await this.contract.decimals()
   }
 
-  async listenSubmissionReceivedEvent(callback: any) {
-    if (!this.alive) return
+  async listenSubmissionReceivedEvent(callback: Function | undefined) {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
 
     this.removeListener(
       this.submissionReceivedEvent.filter,
@@ -133,13 +231,17 @@ export default class FluxContract {
 
     return this.provider.on(
       this.submissionReceivedEvent.filter,
-      (this.submissionReceivedEvent.listener = async (log: any) => {
+      (this.submissionReceivedEvent.listener = async (log: Log) => {
+        if (!this.contract) {
+          throw Error('Contract instance does not exist')
+        }
+
         const logged = decodeLog(
           {
             log,
             eventInterface: this.contract.interface.events.SubmissionReceived,
           },
-          (decodedLog: any) => ({
+          (decodedLog: SubmissionReceivedEventLog) => ({
             answerFormatted: formatAnswer(
               decodedLog.answer,
               this.options.multiply,
@@ -160,8 +262,10 @@ export default class FluxContract {
     )
   }
 
-  async listenNewRoundEvent(callback: any) {
-    if (!this.alive) return
+  async listenNewRoundEvent(callback: Function | undefined) {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
 
     this.removeListener(this.newRoundEvent.filter, this.newRoundEvent.listener)
 
@@ -171,13 +275,17 @@ export default class FluxContract {
 
     return this.provider.on(
       this.newRoundEvent.filter,
-      (this.newRoundEvent.listener = async (log: any) => {
+      (this.newRoundEvent.listener = async (log: Log) => {
+        if (!this.contract) {
+          throw Error('Contract instance does not exist')
+        }
+
         const logged = decodeLog(
           {
             log,
             eventInterface: this.contract.interface.events.NewRound,
           },
-          (decodedLog: any) => ({
+          (decodedLog: NewRoundEventLog) => ({
             answerId: Number(decodedLog.roundId),
             startedBy: decodedLog.startedBy,
             startedAt: Number(decodedLog.startedAt),
@@ -196,7 +304,11 @@ export default class FluxContract {
     fromBlock: number
     round: number
   }) {
-    const newRoundFilter = {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
+    const newRoundFilter: Filter = {
       ...this.contract.filters.NewRound(round, null, null),
       fromBlock,
       toBlock: 'latest',
@@ -207,7 +319,7 @@ export default class FluxContract {
         filter: newRoundFilter,
         eventInterface: this.contract.interface.events.NewRound,
       },
-      (decodedLog: any) => ({
+      (decodedLog: NewRoundEventLog) => ({
         answerId: Number(decodedLog.roundId),
         startedBy: decodedLog.startedBy,
         startedAt: Number(decodedLog.startedAt),
@@ -224,6 +336,10 @@ export default class FluxContract {
     fromBlock: number
     round: number
   }) {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const submissionReceivedFilter = {
       ...this.contract.filters.SubmissionReceived(null, round, null),
       fromBlock,
@@ -235,7 +351,7 @@ export default class FluxContract {
         filter: submissionReceivedFilter,
         eventInterface: this.contract.interface.events.SubmissionReceived,
       },
-      (decodedLog: any) => ({
+      (decodedLog: SubmissionReceivedEventLog) => ({
         answerFormatted: formatAnswer(
           decodedLog.answer,
           this.options.multiply,
@@ -250,7 +366,15 @@ export default class FluxContract {
     return logs
   }
 
-  async answerUpdatedLogs({ fromBlock }: { fromBlock: number }) {
+  async answerUpdatedLogs({
+    fromBlock,
+  }: {
+    fromBlock: number
+  }): Promise<AnswerUpdatedLogFormat[]> {
+    if (!this.contract) {
+      throw Error('Contract instance does not exist')
+    }
+
     const filter = {
       ...this.contract.filters.AnswerUpdated(null, null, null),
       fromBlock,
@@ -262,7 +386,7 @@ export default class FluxContract {
         filter,
         eventInterface: this.contract.interface.events.AnswerUpdated,
       },
-      (decodedLog: any) => ({
+      (decodedLog: AnswerUpdatedLog) => ({
         answerFormatted: formatAnswer(
           decodedLog.current,
           this.options.multiply,
@@ -277,25 +401,29 @@ export default class FluxContract {
     return logs
   }
 
-  async addBlockTimestampToLogs(logs: any) {
+  async addBlockTimestampToLogs(
+    logs: DecodedLog[],
+  ): Promise<Array<DecodedLog>> {
     if (_.isEmpty(logs)) return logs
 
     const blockTimePromises = logs.map((log: any) =>
       this.provider.getBlock(log.meta.blockNumber),
     )
-    const blockTimes: any = await Promise.all(blockTimePromises)
+    const blockTimes: Block[] = await Promise.all(blockTimePromises)
 
-    return logs.map((l: any, i: number) => {
+    return logs.map((l: DecodedLog, i: number) => {
       l.meta.timestamp = blockTimes[i].timestamp
       return l
     })
   }
 
-  async addGasPriceToLogs(logs: any): Promise<Array<any>> {
+  async addGasPriceToLogs(logs: DecodedLog[]): Promise<Array<DecodedLog>> {
     if (!logs) return logs
 
-    const logsWithGasPriceOps = logs.map(async (log: any) => {
-      const tx = await this.provider.getTransaction(log.meta.transactionHash)
+    const logsWithGasPriceOps = logs.map(async (log: DecodedLog) => {
+      const tx: TransactionResponse = await this.provider.getTransaction(
+        log.meta.transactionHash,
+      )
       // eslint-disable-next-line require-atomic-updates
       log.meta.gasPrice = ethers.utils.formatUnits(tx.gasPrice, 'gwei')
       return log

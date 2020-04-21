@@ -2,17 +2,22 @@ import { FeedConfig } from 'config'
 import { ethers } from 'ethers'
 import _ from 'lodash'
 import FluxAggregatorAbi from '../../../contracts/FluxAggregatorAbi.json'
-import FluxAggregatorContract from '../../../contracts/FluxAggregatorContract'
+import FluxAggregatorContract, {
+  AnswerUpdatedLogFormat,
+  SubmissionReceivedEventLogFormat,
+  NewRoundEventLogFormat,
+} from '../../../contracts/FluxAggregatorContract'
 import * as actions from './actions'
 import { AppState } from 'state'
 import { Actions } from 'state/actions'
 import { ThunkAction } from 'redux-thunk'
+import { Dispatch } from 'redux'
 
 export default class FluxOperations {
-  static contractInstance: any
+  static contractInstance: FluxAggregatorContract
 
-  static fetchOracleList() {
-    return async (dispatch: any, getState: any) => {
+  static fetchOracleList(): ThunkAction<void, AppState, void, Actions> {
+    return async (dispatch: Dispatch, getState: () => AppState) => {
       if (getState().aggregator.oracleList) {
         return
       }
@@ -31,11 +36,10 @@ export default class FluxOperations {
     void,
     Actions
   > {
-    return async (dispatch: any) => {
+    return async (dispatch: Dispatch) => {
       try {
         const payload = await FluxOperations.contractInstance.latestRound()
         dispatch(actions.setLatestCompletedAnswerId(payload))
-        return payload
       } catch {
         console.error('Could not fetch latest completed answer id')
       }
@@ -43,7 +47,7 @@ export default class FluxOperations {
   }
 
   static fetchLatestAnswer(): ThunkAction<void, AppState, void, Actions> {
-    return async (dispatch: any) => {
+    return async (dispatch: Dispatch) => {
       try {
         const payload = await FluxOperations.contractInstance.latestAnswer()
         dispatch(actions.setLatestAnswer(payload))
@@ -59,21 +63,22 @@ export default class FluxOperations {
     void,
     Actions
   > {
-    return async (dispatch: any) => {
+    return async (dispatch: Dispatch) => {
       try {
         const payload = await FluxOperations.contractInstance.latestTimestamp()
         dispatch(actions.setLatestAnswerTimestamp(payload))
         return payload
       } catch {
-        console.error('Could not fetch latest answer timestamp')
+        return console.error('Could not fetch latest answer timestamp')
       }
     }
   }
 
-  static fetchOracleAnswersById(
-    request: any,
-  ): ThunkAction<void, AppState, void, Actions> {
-    return async (dispatch: any, getState: any) => {
+  static fetchOracleAnswersById(request: {
+    fromBlock: number
+    round: number
+  }): ThunkAction<void, AppState, void, Actions> {
+    return async (dispatch: Dispatch, getState: () => AppState) => {
       try {
         const currentLogs = getState().aggregator.oracleAnswers
         const logs = await FluxOperations.contractInstance.submissionReceivedLogs(
@@ -98,10 +103,11 @@ export default class FluxOperations {
     }
   }
 
-  static fetchLatestRequestTimestamp = (
-    request: any,
-  ): ThunkAction<void, AppState, void, Actions> => {
-    return async (dispatch: any) => {
+  static fetchLatestRequestTimestamp = (request: {
+    fromBlock: number
+    round: number
+  }): ThunkAction<void, AppState, void, Actions> => {
+    return async (dispatch: Dispatch) => {
       try {
         const logs = await FluxOperations.contractInstance.newRoundLogs(request)
         const startedAt = logs?.[logs.length - 1].startedAt
@@ -113,7 +119,7 @@ export default class FluxOperations {
   }
 
   static fetchMinimumAnswers(): ThunkAction<void, AppState, void, Actions> {
-    return async (dispatch: any) => {
+    return async (dispatch: Dispatch) => {
       try {
         const payload = await FluxOperations.contractInstance.minimumAnswers()
         dispatch(actions.setMinumumAnswers(payload))
@@ -126,14 +132,14 @@ export default class FluxOperations {
   static fetchAnswerHistory(
     fromBlock: number,
   ): ThunkAction<void, AppState, void, Actions> {
-    return async (dispatch: any) => {
+    return async (dispatch: Dispatch) => {
       try {
         const payload = await FluxOperations.contractInstance.answerUpdatedLogs(
           {
             fromBlock,
           },
         )
-        const uniquePayload = _.uniqBy(payload, (e: any) => {
+        const uniquePayload = _.uniqBy(payload, (e: AnswerUpdatedLogFormat) => {
           return e.answerId
         })
 
@@ -145,16 +151,18 @@ export default class FluxOperations {
   }
 
   static initListeners() {
-    return async (dispatch: any, getState: any) => {
+    return async (dispatch: Dispatch, getState: () => AppState) => {
       FluxOperations.contractInstance.listenSubmissionReceivedEvent(
-        async (responseLog: any) => {
+        async (responseLog: SubmissionReceivedEventLogFormat) => {
           const { minimumAnswers } = getState().aggregator
           const oracleAnswers = getState().aggregator.oracleAnswers || []
-          const updatedAnswers = oracleAnswers.map((response: any) => {
-            return response.sender === responseLog.sender
-              ? responseLog
-              : response
-          })
+          const updatedAnswers = oracleAnswers.map(
+            (response: SubmissionReceivedEventLogFormat) => {
+              return response.sender === responseLog.sender
+                ? responseLog
+                : response
+            },
+          )
 
           dispatch(actions.setOracleAnswers(updatedAnswers))
 
@@ -170,7 +178,7 @@ export default class FluxOperations {
       )
 
       FluxOperations.contractInstance.listenNewRoundEvent(
-        async (responseLog: any) => {
+        async (responseLog: NewRoundEventLogFormat) => {
           await FluxOperations.fetchLatestCompletedAnswerId()(
             dispatch,
             getState,
@@ -188,7 +196,7 @@ export default class FluxOperations {
    */
 
   static initContract(config: FeedConfig) {
-    return async (dispatch: any, getState: any) => {
+    return async (dispatch: Dispatch, getState: () => AppState) => {
       try {
         FluxOperations.contractInstance?.kill()
       } catch {
