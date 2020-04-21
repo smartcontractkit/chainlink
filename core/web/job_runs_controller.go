@@ -38,7 +38,8 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	if id == "" {
 		runs, count, err = store.JobRunsSorted(order, offset, size)
 	} else {
-		runID, err := models.NewIDFromString(id)
+		var runID *models.ID
+		runID, err = models.NewIDFromString(id)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
@@ -174,8 +175,8 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	}
 
 	var brr models.BridgeRunResult
-	if err := c.ShouldBindJSON(&brr); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if e := c.ShouldBindJSON(&brr); e != nil {
+		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
 

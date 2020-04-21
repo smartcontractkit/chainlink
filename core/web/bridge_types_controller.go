@@ -32,16 +32,16 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, StatusCodeForError(err), err)
 		return
 	}
-	if err := services.ValidateBridgeType(btr, btc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+	if e := services.ValidateBridgeType(btr, btc.App.GetStore()); e != nil {
+		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
-	if err := services.ValidateBridgeTypeNotExist(btr, btc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+	if e := services.ValidateBridgeTypeNotExist(btr, btc.App.GetStore()); e != nil {
+		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
-	if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if e := btc.App.GetStore().CreateBridgeType(bt); e != nil {
+		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
 	switch err.(type) {

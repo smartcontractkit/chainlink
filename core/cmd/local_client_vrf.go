@@ -114,9 +114,9 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 		if err == store.MatchingVRFKeyError {
 			fmt.Println(`The database already has an entry for that public key.`)
 			var key struct{ PublicKey string }
-			if err := json.Unmarshal(keyjson, &key); err != nil {
+			if e := json.Unmarshal(keyjson, &key); e != nil {
 				fmt.Println("could not extract public key from json input")
-				return errors.Wrapf(err, "while extracting public key from %s", keyjson)
+				return errors.Wrapf(e, "while extracting public key from %s", keyjson)
 			}
 			fmt.Printf(`If you want to import the new key anyway, delete the old key with the command
 
