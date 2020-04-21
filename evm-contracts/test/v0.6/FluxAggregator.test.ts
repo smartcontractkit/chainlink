@@ -1914,7 +1914,7 @@ describe('FluxAggregator', () => {
         const args = h.eventArgs(event)
 
         assert.equal(args.requester, personas.Neil.address)
-        assert.equal(args.allowed, true)
+        assert.equal(args.authorized, true)
       })
 
       describe('when the address is already authorized', () => {
@@ -1973,7 +1973,7 @@ describe('FluxAggregator', () => {
           const args = h.eventArgs(event)
 
           assert.equal(args.requester, personas.Neil.address)
-          assert.equal(args.allowed, false)
+          assert.equal(args.authorized, false)
         })
 
         it('does not emit a log for accounts without authorization', async () => {
