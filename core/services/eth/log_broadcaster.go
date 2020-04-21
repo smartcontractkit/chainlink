@@ -55,6 +55,30 @@ type registration struct {
 	listener LogListener
 }
 
+type ManagedSubscription interface {
+	Err() <-chan error
+	Logs() chan eth.Log
+	Unsubscribe()
+}
+
+type managedSubscription struct {
+	subscription eth.Subscription
+	chRawLogs    chan eth.Log
+}
+
+func (sub managedSubscription) Err() <-chan error {
+	return sub.subscription.Err()
+}
+
+func (sub managedSubscription) Logs() chan eth.Log {
+	return sub.chRawLogs
+}
+
+func (sub managedSubscription) Unsubscribe() {
+	sub.subscription.Unsubscribe()
+	close(sub.chRawLogs)
+}
+
 func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
 	return &logBroadcaster{
 		ethClient:        ethClient,
@@ -141,12 +165,15 @@ func (b *logBroadcaster) Unregister(address common.Address, listener LogListener
 // notifies its subscribers.
 func (b *logBroadcaster) startResubscribeLoop() {
 	defer close(b.chDone)
+	var subscription ManagedSubscription = noopSubscription{}
+	var chRawLogs chan eth.Log
+	defer func() { subscription.Unsubscribe() }()
+
 ResubscribeLoop:
 	for {
-		subscription, chRawLogs, err := b.createSubscription()
+		newSubscription, err := b.createSubscription()
 		if err != nil {
 			logger.Errorf("error creating subscription to Ethereum node: %v", err)
-
 			select {
 			case <-b.chStop:
 				return
@@ -157,8 +184,11 @@ ResubscribeLoop:
 			}
 		}
 
-		b.notifyConnect()
+		chRawLogs = appendLogChannel(chRawLogs, newSubscription.Logs())
+		subscription.Unsubscribe()
+		subscription = newSubscription
 
+		b.notifyConnect()
 		shouldResubscribe, err := b.process(subscription, chRawLogs)
 		if err != nil {
 			logger.Error(err)
@@ -202,8 +232,6 @@ func (b *logBroadcaster) updateLogCursor(blockIdx, logIdx uint64) {
 }
 
 func (b *logBroadcaster) process(subscription eth.Subscription, chRawLogs <-chan eth.Log) (shouldResubscribe bool, _ error) {
-	defer subscription.Unsubscribe()
-
 	// We debounce requests to subscribe and unsubscribe to avoid making too many
 	// RPC calls to the Ethereum node, particularly on startup.
 	var needsResubscribe bool
@@ -279,9 +307,9 @@ func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool
 	return false
 }
 
-func (b *logBroadcaster) createSubscription() (eth.Subscription, chan eth.Log, error) {
+func (b *logBroadcaster) createSubscription() (ManagedSubscription, error) {
 	if len(b.listeners) == 0 {
-		return noopSubscription{}, nil, nil
+		return noopSubscription{}, nil
 	}
 
 	var addresses []common.Address
@@ -295,17 +323,23 @@ func (b *logBroadcaster) createSubscription() (eth.Subscription, chan eth.Log, e
 	}
 	chRawLogs := make(chan eth.Log)
 
-	subscription, err := b.ethClient.SubscribeToLogs(context.Background(), chRawLogs, filterQuery)
+	sub, err := b.ethClient.SubscribeToLogs(context.Background(), chRawLogs, filterQuery)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return subscription, chRawLogs, nil
+
+	managedSub := managedSubscription{
+		subscription: sub,
+		chRawLogs:    chRawLogs,
+	}
+	return managedSub, nil
 }
 
 type noopSubscription struct{}
 
-func (s noopSubscription) Err() <-chan error { return nil }
-func (s noopSubscription) Unsubscribe()      {}
+func (s noopSubscription) Err() <-chan error  { return nil }
+func (s noopSubscription) Logs() chan eth.Log { return nil }
+func (s noopSubscription) Unsubscribe()       {}
 
 // DecodingLogListener receives raw logs from the LogBroadcaster and decodes them into
 // Go structs using the provided ContractCodec (a simple wrapper around a go-ethereum
@@ -378,4 +412,28 @@ func (l *decodingLogListener) HandleLog(log interface{}, err error) {
 	}
 
 	l.LogListener.HandleLog(decodedLog, nil)
+}
+
+func appendLogChannel(ch1, ch2 chan eth.Log) chan eth.Log {
+	if ch1 == nil && ch2 == nil {
+		return nil
+	}
+
+	chCombined := make(chan eth.Log)
+
+	go func() {
+		defer close(chCombined)
+		if ch1 != nil {
+			for rawLog := range ch1 {
+				chCombined <- rawLog
+			}
+		}
+		if ch2 != nil {
+			for rawLog := range ch2 {
+				chCombined <- rawLog
+			}
+		}
+	}()
+
+	return chCombined
 }
