@@ -13,6 +13,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/guregu/null"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
