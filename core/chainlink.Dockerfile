@@ -10,6 +10,9 @@ COPY tools/bin/ldflags ./tools/bin/
 
 # Install yarn dependencies
 COPY yarn.lock package.json .yarnrc ./
+COPY patches patches
+COPY solc_bin solc_bin
+COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
 COPY styleguide/package.json ./styleguide/
@@ -22,6 +25,7 @@ COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY evm-contracts/package.json ./evm-contracts/
 RUN make yarndep
+RUN tools/bin/restore-solc-cache
 
 # Do go mod download in a cacheable step
 ADD go.mod go.sum ./
