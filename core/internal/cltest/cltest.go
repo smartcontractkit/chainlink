@@ -219,6 +219,13 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...strin
 	return app, cleanup
 }
 
+type noopFluxMonitor struct{}
+
+func (fm noopFluxMonitor) Start() error                { return nil }
+func (fm noopFluxMonitor) Stop()                       {}
+func (fm noopFluxMonitor) AddJob(models.JobSpec) error { return nil }
+func (fm noopFluxMonitor) RemoveJob(*models.ID)        {}
+
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
 	t.Helper()
@@ -231,6 +238,16 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
 	ta.EthMock = MockEthOnStore(t, app.Store, flags...)
+
+	enableFluxMonitor := false
+	for _, flag := range flags {
+		if flag == EnableFluxMonitor {
+			enableFluxMonitor = true
+		}
+	}
+	if !enableFluxMonitor {
+		ta.ChainlinkApplication.FluxMonitor = noopFluxMonitor{}
+	}
 
 	server := newServer(ta)
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
