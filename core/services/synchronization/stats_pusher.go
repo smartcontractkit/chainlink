@@ -196,13 +196,13 @@ func (sp *statsPusher) syncEvent(event *models.SyncEvent) error {
 		return errors.Wrap(err, "syncEvent#WSClient.Receive failed")
 	}
 
-	var response response
-	err = json.Unmarshal(message, &response)
+	var resp response
+	err = json.Unmarshal(message, &resp)
 	if err != nil {
 		return errors.Wrap(err, "syncEvent#json.Unmarshal failed")
 	}
 
-	if response.Status != 201 {
+	if resp.Status != 201 {
 		return errors.New("event not created")
 	}
 
