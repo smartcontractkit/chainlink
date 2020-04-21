@@ -228,7 +228,7 @@ type InitiatorParams struct {
 // FluxMonitorDefaultInitiatorParams are the default parameters for Flux
 // Monitor Job Specs.
 var FluxMonitorDefaultInitiatorParams = InitiatorParams{
-	PollingInterval: Duration(time.Minute),
+	PollingInterval: MustNewDuration(time.Minute),
 }
 
 // SetDefaultValues returns a InitiatorParams with empty fields set to their
@@ -237,6 +237,9 @@ func (i *InitiatorParams) SetDefaultValues(typ string) {
 	if typ == InitiatorFluxMonitor {
 		err := mergo.Merge(i, &FluxMonitorDefaultInitiatorParams)
 		logger.PanicIf(errors.Wrap(err, "type level dependent error covered by tests"))
+		if i.PollingInterval.IsInstant() { // mergo can't handle structs well
+			i.PollingInterval = FluxMonitorDefaultInitiatorParams.PollingInterval
+		}
 	}
 }
 

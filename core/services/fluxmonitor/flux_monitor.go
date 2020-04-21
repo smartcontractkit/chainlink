@@ -197,7 +197,8 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"initr", initr.ID,
 		)
 		timeout := fm.store.Config.DefaultHTTPTimeout()
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout)
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM,
+			timeout)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -224,7 +225,7 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM, time.Duration) (DeviationChecker, error)
+	New(models.Initiator, RunManager, *orm.ORM, models.Duration) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -236,12 +237,13 @@ func (f pollingDeviationCheckerFactory) New(
 	initr models.Initiator,
 	runManager RunManager,
 	orm *orm.ORM,
-	timeout time.Duration,
+	timeout models.Duration,
 ) (DeviationChecker, error) {
 	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
 
-	if initr.InitiatorParams.PollingInterval < minimumPollingInterval {
-		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", minimumPollingInterval)
+	if initr.InitiatorParams.PollingInterval.Shorter(minimumPollingInterval) {
+		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s",
+			minimumPollingInterval)
 	}
 
 	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
@@ -250,7 +252,7 @@ func (f pollingDeviationCheckerFactory) New(
 	}
 
 	fetcher, err := newMedianFetcherFromURLs(
-		timeout,
+		timeout.Duration(),
 		initr.InitiatorParams.RequestData.String(),
 		urls)
 	if err != nil {

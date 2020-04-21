@@ -210,7 +210,8 @@ func (s *Store) Unscoped() *Store {
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
-	return s.ORM.AuthorizedUserWithSession(sessionID, s.Config.SessionTimeout())
+	return s.ORM.AuthorizedUserWithSession(
+		sessionID, s.Config.SessionTimeout().Duration())
 }
 
 // SyncDiskKeyStoreToDB writes all keys in the keys directory to the underlying

@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -134,9 +134,17 @@ func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
 }
 
+func (c Config) getDuration(s string) models.Duration {
+	rv, err := models.NewDuration(c.viper.GetDuration(EnvVarName(s)))
+	if err != nil {
+		panic(errors.Wrapf(err, "bad duration for config value %s: %s", s, rv))
+	}
+	return rv
+}
+
 // DatabaseTimeout represents how long to tolerate non response from the DB.
-func (c Config) DatabaseTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DatabaseTimeout"))
+func (c Config) DatabaseTimeout() models.Duration {
+	return c.getDuration("DatabaseTimeout")
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
@@ -156,8 +164,8 @@ func (c Config) DefaultHTTPLimit() int64 {
 }
 
 // DefaultHTTPTimeout defines the default timeout for http requests
-func (c Config) DefaultHTTPTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DefaultHTTPTimeout"))
+func (c Config) DefaultHTTPTimeout() models.Duration {
+	return c.getDuration("DefaultHTTPTimeout")
 }
 
 // Dev configures "development" mode for chainlink.
@@ -187,14 +195,14 @@ func (c Config) MaxRPCCallsPerSecond() uint64 {
 
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
-func (c Config) MaximumServiceDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("MaximumServiceDuration"))
+func (c Config) MaximumServiceDuration() models.Duration {
+	return c.getDuration("MaximumServiceDuration")
 }
 
 // MinimumServiceDuration is the shortest duration from now that a service is
 // allowed to run.
-func (c Config) MinimumServiceDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("MinimumServiceDuration"))
+func (c Config) MinimumServiceDuration() models.Duration {
+	return c.getDuration("MinimumServiceDuration")
 }
 
 // EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
@@ -378,8 +386,8 @@ func (c Config) Port() uint16 {
 }
 
 // ReaperExpiration represents
-func (c Config) ReaperExpiration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("ReaperExpiration"))
+func (c Config) ReaperExpiration() models.Duration {
+	return c.getDuration("ReaperExpiration")
 }
 
 func (c Config) ReplayFromBlock() int64 {
@@ -398,8 +406,8 @@ func (c Config) SecureCookies() bool {
 }
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
-func (c Config) SessionTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("SessionTimeout"))
+func (c Config) SessionTimeout() models.Duration {
+	return c.getDuration("SessionTimeout")
 }
 
 // TLSCertPath represents the file system location of the TLS certificate

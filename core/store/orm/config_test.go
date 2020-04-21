@@ -24,7 +24,7 @@ func TestStore_ConfigDefaults(t *testing.T) {
 	assert.Equal(t, big.NewInt(20000000000), config.EthGasPriceDefault())
 	assert.Equal(t, "0x514910771AF9Ca656af840dff83E8264EcF986CA", common.HexToAddress(config.LinkContractAddress()).String())
 	assert.Equal(t, assets.NewLink(1000000000000000000), config.MinimumContractPayment())
-	assert.Equal(t, 15*time.Minute, config.SessionTimeout())
+	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
 	assert.Equal(t, false, config.EthereumDisabled())
 }
