@@ -118,6 +118,15 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 	}
 }
 
+// DeviationThresholdValid is true iff threshold is an acceptable deviation
+// threshold for a fluxmonitor initiator
+func CheckDeviationThreshold(threshold float32) error {
+	if threshold <= 0 {
+		return fmt.Errorf("deviation threshold must be positive, got %f", threshold)
+	}
+	return nil
+}
+
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 	minimumPollingInterval := models.Duration(store.Config.DefaultHTTPTimeout())
@@ -131,8 +140,8 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	if !i.IdleThreshold.IsInstant() && i.IdleThreshold.Shorter(i.PollingInterval) {
 		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
 	}
-	if i.Threshold <= 0 {
-		fe.Add("bad threshold")
+	if err := CheckDeviationThreshold(i.Threshold); err != nil {
+		fe.Add("bad threshold: " + err.Error())
 	}
 	if i.RequestData.String() == "" {
 		fe.Add("no requestdata")
