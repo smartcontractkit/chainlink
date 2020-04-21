@@ -36,7 +36,7 @@
     "rimraf": "^3.0.1",
     "ts-jest": "^24.1.0",
     "typechain": "^1.0.5",
-    "typechain-target-ethers": "^1.0.3",
+    "typechain-target-ethers": "^1.0.4",
     "typescript": "^3.7.4"
   },
   "files": [
