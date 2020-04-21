@@ -22,7 +22,6 @@ async function main() {
       msg: `Exception during startup: ${e.message}`,
       stack: e.stack,
     })
-  } finally {
     db.close()
   }
 }
