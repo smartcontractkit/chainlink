@@ -83,7 +83,7 @@ describe('WhitelistedAggregator', () => {
       'reportingRoundStartedAt',
       'restartDelay',
       'roundState',
-      'setAuthorization',
+      'setRequesterPermissions',
       'startNewRound',
       'timeout',
       'transferAdmin',
