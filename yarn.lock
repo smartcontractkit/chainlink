@@ -24456,10 +24456,10 @@ type@^2.0.0:
   resolved "https://registry.npmjs.org/type/-/type-2.0.0.tgz#5f16ff6ef2eb44f260494dae271033b29c09a9c3"
   integrity sha512-KBt58xCHry4Cejnc2ISQAF7QY+ORngsWfxezO68+12hKV6lQY8P/psIkcbjeHWn7MqcgciWJyCCevFMJdIXpow==
 
-typechain-target-ethers@^1.0.3:
-  version "1.0.3"
-  resolved "https://registry.npmjs.org/typechain-target-ethers/-/typechain-target-ethers-1.0.3.tgz#2a55eead6190c87082a3237c55a315695ef0cd43"
-  integrity sha512-01bzf/eJW9QATZcGAXhaVc1WuEup7CIW22xEu22IaNuUlRCWW0yhNGA3H0UInUBVzT7yfsSapyLB8gYTqQnDjg==
+typechain-target-ethers@^1.0.4:
+  version "1.0.4"
+  resolved "https://registry.npmjs.org/typechain-target-ethers/-/typechain-target-ethers-1.0.4.tgz#597d92bb7db66a656126c930db4a0f5be287a37d"
+  integrity sha512-ay4qcan8erubMgBUcMErKplwQXydWCo/mBmrYGfbnnbUYzRe99jGs4uuSEi1JH2jGDtRi1sRDpIW0q9V4fd14A==
   dependencies:
     lodash "^4.17.15"
 
