@@ -30,6 +30,7 @@ ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
 COPY yarn.lock package.json .yarnrc ./
+COPY patches patches
 COPY .yarn .yarn
 COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
