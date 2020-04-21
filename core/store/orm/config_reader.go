@@ -3,9 +3,9 @@ package orm
 import (
 	"math/big"
 	"net/url"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
@@ -18,16 +18,16 @@ type ConfigReader interface {
 	BridgeResponseURL() *url.URL
 	ChainID() *big.Int
 	ClientNodeURL() string
-	DatabaseTimeout() time.Duration
+	DatabaseTimeout() models.Duration
 	DatabaseURL() string
 	DefaultMaxHTTPAttempts() uint
 	DefaultHTTPLimit() int64
-	DefaultHTTPTimeout() time.Duration
+	DefaultHTTPTimeout() models.Duration
 	Dev() bool
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool
-	MaximumServiceDuration() time.Duration
-	MinimumServiceDuration() time.Duration
+	MaximumServiceDuration() models.Duration
+	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
@@ -54,10 +54,10 @@ type ConfigReader interface {
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
 	Port() uint16
-	ReaperExpiration() time.Duration
+	ReaperExpiration() models.Duration
 	RootDir() string
 	SecureCookies() bool
-	SessionTimeout() time.Duration
+	SessionTimeout() models.Duration
 	TLSCertPath() string
 	TLSHost() string
 	TLSKeyPath() string

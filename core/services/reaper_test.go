@@ -28,9 +28,10 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 		wantReap bool
 	}{
 		{"current", time.Now(), false},
-		{"expired", time.Now().Add(-store.Config.SessionTimeout()), false},
-		{"almost stale", time.Now().Add(-store.Config.ReaperExpiration()), false},
-		{"stale", time.Now().Add(-store.Config.ReaperExpiration()).Add(-store.Config.SessionTimeout()), true},
+		{"expired", time.Now().Add(-store.Config.SessionTimeout().Duration()), false},
+		{"almost stale", time.Now().Add(-store.Config.ReaperExpiration().Duration()), false},
+		{"stale", time.Now().Add(-store.Config.ReaperExpiration().Duration()).
+			Add(-store.Config.SessionTimeout().Duration()), true},
 	}
 
 	for _, test := range tests {

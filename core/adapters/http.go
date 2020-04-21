@@ -397,7 +397,7 @@ func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
 
 func defaultHTTPConfig(store *store.Store) HTTPRequestConfig {
 	return HTTPRequestConfig{
-		store.Config.DefaultHTTPTimeout(),
+		store.Config.DefaultHTTPTimeout().Duration(),
 		store.Config.DefaultMaxHTTPAttempts(),
 		store.Config.DefaultHTTPLimit(),
 		false,
