@@ -201,34 +201,41 @@ func TestLogBroadcaster_SkipsOldLogs(t *testing.T) {
 		{Address: addr, BlockNumber: 0, Index: 0},
 		{Address: addr, BlockNumber: 0, Index: 1},
 		{Address: addr, BlockNumber: 0, Index: 2},
+		{Address: addr, BlockNumber: 0, Index: 0}, // old log
 		{Address: addr, BlockNumber: 1, Index: 0},
 		{Address: addr, BlockNumber: 1, Index: 1},
+		{Address: addr, BlockNumber: 1, Index: 1}, // old log
 		{Address: addr, BlockNumber: 1, Index: 2},
 		{Address: addr, BlockNumber: 2, Index: 0},
+		{Address: addr, BlockNumber: 1, Index: 2}, // old log
 		{Address: addr, BlockNumber: 2, Index: 1},
 		{Address: addr, BlockNumber: 2, Index: 2},
 	}
 
-	var recvd []interface{}
+	var recvd []eth.Log
+
 	lb.Register(addr, &funcLogListener{func(log interface{}, err error) {
 		require.NoError(t, err)
-		recvd = append(recvd, log)
+		ethLog := log.(eth.Log)
+		recvd = append(recvd, ethLog)
 	}})
 
 	chRawLogs := <-chchRawLogs
 
-	// Simulates resuming the subscription repeatedly as new blocks are coming in
 	for i := 0; i < len(logs); i++ {
-		for _, log := range logs[0 : i+1] {
-			chRawLogs <- log
-		}
+		chRawLogs <- logs[i]
 	}
 
-	lb.Stop() // This should ensure that all sending is complete
+	require.Eventually(t, func() bool { return len(recvd) == 9 }, 5*time.Second, 10*time.Millisecond)
 
-	require.Len(t, recvd, len(logs))
-	for i := range recvd {
-		require.Equal(t, recvd[i], logs[i])
+	// check that all 9 received logs are unique
+	recvdIdx := 0
+	for blockNum := 0; blockNum < 3; blockNum++ {
+		for index := 0; index < 3; index++ {
+			require.Equal(t, recvd[recvdIdx].BlockNumber, uint64(blockNum))
+			require.Equal(t, recvd[recvdIdx].Index, uint(index))
+			recvdIdx++
+		}
 	}
 
 	ethClient.AssertExpectations(t)
