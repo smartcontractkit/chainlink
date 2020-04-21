@@ -18,7 +18,8 @@
       "OpenLaw",
       "1inch",
       "ParaSwap",
-      "MCDEX"
+      "MCDEX",
+      "Futureswap"
     ],
     "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
@@ -44,7 +45,8 @@
       "OpenLaw",
       "1inch",
       "ParaSwap",
-      "MCDEX"
+      "MCDEX",
+      "Futureswap"
     ],
     "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
@@ -82,9 +84,7 @@
     "history": false,
     "decimalPlaces": 6,
     "multiply": "100000000",
-    "sponsored": [
-      "Futureswap"
-    ],
+    "sponsored": ["Futureswap"],
     "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/DAIUSDC/?exchange=COINBASE",
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=dai",
