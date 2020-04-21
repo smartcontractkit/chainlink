@@ -123,7 +123,7 @@ const Sponsored: React.FC<SponsoredProps> = ({ data }) => {
         {sliced.map((name, i) => (
           <Fragment key={name}>
             {i > 0 ? ', ' : ''}
-            <span key={name}>{name}</span>
+            <span>{name}</span>
           </Fragment>
         ))}
       </>

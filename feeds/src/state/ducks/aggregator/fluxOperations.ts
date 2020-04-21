@@ -4,6 +4,9 @@ import _ from 'lodash'
 import FluxAggregatorAbi from '../../../contracts/FluxAggregatorAbi.json'
 import FluxAggregatorContract from '../../../contracts/FluxAggregatorContract'
 import * as actions from './actions'
+import { AppState } from 'state'
+import { Actions } from 'state/actions'
+import { ThunkAction } from 'redux-thunk'
 
 export default class FluxOperations {
   static contractInstance: any
@@ -22,7 +25,12 @@ export default class FluxOperations {
     }
   }
 
-  static fetchLatestCompletedAnswerId() {
+  static fetchLatestCompletedAnswerId(): ThunkAction<
+    void,
+    AppState,
+    void,
+    Actions
+  > {
     return async (dispatch: any) => {
       try {
         const payload = await FluxOperations.contractInstance.latestRound()
@@ -34,7 +42,7 @@ export default class FluxOperations {
     }
   }
 
-  static fetchLatestAnswer() {
+  static fetchLatestAnswer(): ThunkAction<void, AppState, void, Actions> {
     return async (dispatch: any) => {
       try {
         const payload = await FluxOperations.contractInstance.latestAnswer()
@@ -45,7 +53,12 @@ export default class FluxOperations {
     }
   }
 
-  static fetchLatestAnswerTimestamp() {
+  static fetchLatestAnswerTimestamp(): ThunkAction<
+    void,
+    AppState,
+    void,
+    Actions
+  > {
     return async (dispatch: any) => {
       try {
         const payload = await FluxOperations.contractInstance.latestTimestamp()
@@ -57,7 +70,9 @@ export default class FluxOperations {
     }
   }
 
-  static fetchOracleAnswersById(request: any) {
+  static fetchOracleAnswersById(
+    request: any,
+  ): ThunkAction<void, AppState, void, Actions> {
     return async (dispatch: any, getState: any) => {
       try {
         const currentLogs = getState().aggregator.oracleAnswers
@@ -83,7 +98,9 @@ export default class FluxOperations {
     }
   }
 
-  static fetchLatestRequestTimestamp = (request: any) => {
+  static fetchLatestRequestTimestamp = (
+    request: any,
+  ): ThunkAction<void, AppState, void, Actions> => {
     return async (dispatch: any) => {
       try {
         const logs = await FluxOperations.contractInstance.newRoundLogs(request)
@@ -95,7 +112,7 @@ export default class FluxOperations {
     }
   }
 
-  static fetchMinimumAnswers() {
+  static fetchMinimumAnswers(): ThunkAction<void, AppState, void, Actions> {
     return async (dispatch: any) => {
       try {
         const payload = await FluxOperations.contractInstance.minimumAnswers()
@@ -106,7 +123,9 @@ export default class FluxOperations {
     }
   }
 
-  static fetchAnswerHistory(fromBlock: number) {
+  static fetchAnswerHistory(
+    fromBlock: number,
+  ): ThunkAction<void, AppState, void, Actions> {
     return async (dispatch: any) => {
       try {
         const payload = await FluxOperations.contractInstance.answerUpdatedLogs(
@@ -144,15 +163,18 @@ export default class FluxOperations {
           })
 
           if (latestIdAnswers.length >= minimumAnswers) {
-            FluxOperations.fetchLatestAnswer()(dispatch)
-            FluxOperations.fetchLatestAnswerTimestamp()(dispatch)
+            FluxOperations.fetchLatestAnswer()(dispatch, getState)
+            FluxOperations.fetchLatestAnswerTimestamp()(dispatch, getState)
           }
         },
       )
 
       FluxOperations.contractInstance.listenNewRoundEvent(
         async (responseLog: any) => {
-          await FluxOperations.fetchLatestCompletedAnswerId()(dispatch)
+          await FluxOperations.fetchLatestCompletedAnswerId()(
+            dispatch,
+            getState,
+          )
           dispatch(actions.setPendingAnswerId(responseLog.answerId))
           dispatch(actions.setLatestRequestTimestamp(responseLog.startedAt))
         },
@@ -190,14 +212,14 @@ export default class FluxOperations {
       await FluxOperations.fetchOracleList()(dispatch, getState)
 
       // Minimum oracle responses
-      FluxOperations.fetchMinimumAnswers()(dispatch)
+      FluxOperations.fetchMinimumAnswers()(dispatch, getState)
 
       // Set answer Id
       const reportingAnswerId = await FluxOperations.contractInstance.reportingRound()
       dispatch(actions.setPendingAnswerId(reportingAnswerId))
 
       // Current answers
-      await FluxOperations.fetchLatestAnswerTimestamp()(dispatch)
+      await FluxOperations.fetchLatestAnswerTimestamp()(dispatch, getState)
 
       // Fetch previous answers
       const currentBlockNumber = await FluxOperations.contractInstance.provider.getBlockNumber()
@@ -224,17 +246,17 @@ export default class FluxOperations {
         FluxOperations.fetchLatestRequestTimestamp({
           round: reportingAnswerId,
           fromBlock,
-        })(dispatch)
+        })(dispatch, getState)
       }
 
       // Current answer
-      FluxOperations.fetchLatestAnswer()(dispatch)
+      FluxOperations.fetchLatestAnswer()(dispatch, getState)
 
       // initalise listeners
       FluxOperations.initListeners()(dispatch, getState)
 
       if (config.history) {
-        FluxOperations.fetchAnswerHistory(fromBlock)(dispatch)
+        FluxOperations.fetchAnswerHistory(fromBlock)(dispatch, getState)
       }
     }
   }

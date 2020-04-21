@@ -13,9 +13,9 @@ export default class AggregatorContract {
     filter: {},
     listener: {},
   }
-  answerIdInterval
-  provider
-  contract
+  answerIdInterval = null
+  provider = null
+  contract = null
 
   constructor(config, abi) {
     this.provider = createInfuraProvider(config.networkId)
