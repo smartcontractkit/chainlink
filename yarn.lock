@@ -3341,32 +3341,36 @@
     "@testing-library/dom" "^7.0.2"
     "@types/testing-library__react" "^9.1.3"
 
-"@truffle/blockchain-utils@^0.0.17":
-  version "0.0.17"
-  resolved "https://registry.npmjs.org/@truffle/blockchain-utils/-/blockchain-utils-0.0.17.tgz#a1ab0ec9a9c3cbc6ada769f606d6b07f8e515120"
-  integrity sha512-SqvkHCn65QbRFlNpA3M91tqcV8dVMSEfOu3lfXrPozKJyTTtFg/A8WMvMMs79/Q8SJlUuJARjsXwQmo5V3V78A==
+"@truffle/blockchain-utils@^0.0.18":
+  version "0.0.18"
+  resolved "https://registry.npmjs.org/@truffle/blockchain-utils/-/blockchain-utils-0.0.18.tgz#69e40e380729cc41fd5bf468304f9e32af57e666"
+  integrity sha512-XnRu5p1QO9krJizOeBY5WfzPDvEOmCnOT5u6qF8uN3Kkq9vcH3ZqW4XTuzz9ERZNpZfWb3UJx4PUosgeHLs5vw==
+  dependencies:
+    source-map-support "^0.5.16"
 
-"@truffle/contract-schema@^3.0.23":
-  version "3.0.23"
-  resolved "https://registry.npmjs.org/@truffle/contract-schema/-/contract-schema-3.0.23.tgz#5d869d9b10be23034c07c7dbf3c48542eabe63ef"
-  integrity sha512-N4CaTMcZhOC44Vl6k2r/eua+ojUswl6mNlkVTVYMvWjfKa8GHKKClsZfkGO72aBrBzoTFsM6D75LvQIIRBy3fg==
+"@truffle/contract-schema@^3.1.0":
+  version "3.1.0"
+  resolved "https://registry.npmjs.org/@truffle/contract-schema/-/contract-schema-3.1.0.tgz#00c04c427a2ecd74fe4399e1896dda49820959c4"
+  integrity sha512-eCMc1CwAmxIpQDsuGM9rCp4q/6GMcdQLTw3Tzd1qufyuti0vWGQwJbBAgSvfofr9ItXHueGwn7I5lVsIbOVYpQ==
   dependencies:
     ajv "^6.10.0"
     crypto-js "^3.1.9-1"
     debug "^4.1.0"
 
-"@truffle/contract@^4.1.8":
-  version "4.1.8"
-  resolved "https://registry.npmjs.org/@truffle/contract/-/contract-4.1.8.tgz#7b3a90c086ce232ca9ef2e6e1b110a28141990ac"
-  integrity sha512-BPDcmvzr8Y6kkcvubj8YJyVwCHr2gvhGkrRA/7YwrBGT9D86AaHd0RyJBqJPau1iyXe3d2OiTV91iywLkT3gQA==
+"@truffle/contract@^4.2.1":
+  version "4.2.1"
+  resolved "https://registry.npmjs.org/@truffle/contract/-/contract-4.2.1.tgz#40b6125f7d35487b1b27c775ac6febf4cc0e8e64"
+  integrity sha512-af1rUyU/W75GYHt/i7r+NwHozwaCma7V/q/+SRZ3Cw2MFaGOQ0dA/ZGhH8P1F0fmDiUe1DBEIbKxXWai0PWFYg==
   dependencies:
-    "@truffle/blockchain-utils" "^0.0.17"
-    "@truffle/contract-schema" "^3.0.23"
+    "@truffle/blockchain-utils" "^0.0.18"
+    "@truffle/contract-schema" "^3.1.0"
     "@truffle/error" "^0.0.8"
-    "@truffle/interface-adapter" "^0.4.4"
+    "@truffle/interface-adapter" "^0.4.6"
     bignumber.js "^7.2.1"
     ethereum-ens "^0.8.0"
     ethers "^4.0.0-beta.1"
+    exorcist "^1.0.1"
+    source-map-support "^0.5.16"
     web3 "1.2.1"
     web3-core-promievent "1.2.1"
     web3-eth-abi "1.2.1"
@@ -3377,14 +3381,14 @@
   resolved "https://registry.npmjs.org/@truffle/error/-/error-0.0.8.tgz#dc94ca36393403449d4b7461bf9452c241e53ec1"
   integrity sha512-x55rtRuNfRO1azmZ30iR0pf0OJ6flQqbax1hJz+Avk1K5fdmOv5cr22s9qFnwTWnS6Bw0jvJEoR0ITsM7cPKtQ==
 
-"@truffle/interface-adapter@^0.4.4":
-  version "0.4.4"
-  resolved "https://registry.npmjs.org/@truffle/interface-adapter/-/interface-adapter-0.4.4.tgz#62c4ec0a3edb6755f5da919764b86785e7eba8ed"
-  integrity sha512-aIlIAvzF8kxaXcfpPeUy3bkZoZcJOKsnF3IqkkXUIDBTtYRDilRAScTG2HB3OkuWe2V26FH3aBw2IH5EEjY+nA==
+"@truffle/interface-adapter@^0.4.6":
+  version "0.4.6"
+  resolved "https://registry.npmjs.org/@truffle/interface-adapter/-/interface-adapter-0.4.6.tgz#d904e2ae6e03712f310eb4da858a1fe07fa27d11"
+  integrity sha512-FZAUb7tx/7VbxpAbo70+K2v22j1O7y4BwhWypRwYpf1YbE2C1OCo/L8zInaW5LfzRd2BEsfb2GjUgbK9VaFrDA==
   dependencies:
     bn.js "^4.11.8"
     ethers "^4.0.32"
-    lodash "^4.17.13"
+    source-map-support "^0.5.16"
     web3 "1.2.1"
 
 "@types/babel__core@^7.1.0":
@@ -11151,6 +11155,16 @@ exit@^0.1.2:
   resolved "https://registry.npmjs.org/exit/-/exit-0.1.2.tgz#0632638f8d877cc82107d30a0fff1a17cba1cd0c"
   integrity sha1-BjJjj42HfMghB9MKD/8aF8uhzQw=
 
+exorcist@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.npmjs.org/exorcist/-/exorcist-1.0.1.tgz#79316e3c4885845490f7bb405c0e5b5db1167c52"
+  integrity sha1-eTFuPEiFhFSQ97tAXA5bXbEWfFI=
+  dependencies:
+    is-stream "~1.1.0"
+    minimist "0.0.5"
+    mkdirp "~0.5.1"
+    mold-source-map "~0.4.0"
+
 expand-brackets@^0.1.4:
   version "0.1.5"
   resolved "https://registry.npmjs.org/expand-brackets/-/expand-brackets-0.1.5.tgz#df07284e342a807cd733ac5af72411e581d1177b"
@@ -14218,7 +14232,7 @@ is-set@^2.0.0:
   resolved "https://registry.npmjs.org/is-set/-/is-set-2.0.1.tgz#d1604afdab1724986d30091575f54945da7e5f43"
   integrity sha512-eJEzOtVyenDs1TMzSQ3kU3K+E0GUS9sno+F0OBT97xsgcJsF9nXMBtkT9/kut5JEpM7oL7X/0qxR17K3mcwIAA==
 
-is-stream@^1.0.0, is-stream@^1.0.1, is-stream@^1.1.0:
+is-stream@^1.0.0, is-stream@^1.0.1, is-stream@^1.1.0, is-stream@~1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/is-stream/-/is-stream-1.1.0.tgz#12d4a3dd4e68e0b79ceb8dbc84173ae80d91ca44"
   integrity sha1-EtSj3U5o4Lec6428hBc66A2RykQ=
@@ -16951,6 +16965,11 @@ minimalistic-crypto-utils@^1.0.0, minimalistic-crypto-utils@^1.0.1:
   dependencies:
     brace-expansion "^1.1.7"
 
+minimist@0.0.5:
+  version "0.0.5"
+  resolved "https://registry.npmjs.org/minimist/-/minimist-0.0.5.tgz#d7aa327bcecf518f9106ac6b8f003fa3bcea8566"
+  integrity sha1-16oye87PUY+RBqxrjwA/o7zqhWY=
+
 minimist@0.0.8:
   version "0.0.8"
   resolved "https://registry.npmjs.org/minimist/-/minimist-0.0.8.tgz#857fcabfc3397d2625b8228262e86aa7a011b05d"
@@ -17074,6 +17093,14 @@ module-to-cdn@^3.1.2:
   integrity sha512-4gWp4NXTzJ+zjHA8aVjexMNZ83cfDCb6OWD3XDRsfXJtXDPTibgB4gYZbROB6kDPVElwZmCp4TnLY6pFWk4K3A==
   dependencies:
     semver "^6.0.0"
+
+mold-source-map@~0.4.0:
+  version "0.4.0"
+  resolved "https://registry.npmjs.org/mold-source-map/-/mold-source-map-0.4.0.tgz#cf67e0b31c47ab9badb5c9c25651862127bb8317"
+  integrity sha1-z2fgsxxHq5uttcnCVlGGISe7gxc=
+  dependencies:
+    convert-source-map "^1.1.0"
+    through "~2.2.7"
 
 moment@2.24.0, moment@2.x, moment@^2.24.0:
   version "2.24.0"
@@ -23978,6 +24005,11 @@ through@2, "through@>=2.2.7 <3", through@^2.3.6, through@^2.3.8, through@~2.3.4,
   resolved "https://registry.npmjs.org/through/-/through-2.3.8.tgz#0dd4c9ffaabc357960b1b724115d7e0e86a2e1f5"
   integrity sha1-DdTJ/6q8NXlgsbckEV1+Doai4fU=
 
+through@~2.2.7:
+  version "2.2.7"
+  resolved "https://registry.npmjs.org/through/-/through-2.2.7.tgz#6e8e21200191d4eb6a99f6f010df46aa1c6eb2bd"
+  integrity sha1-bo4hIAGR1OtqmfbwEN9Gqhxusr0=
+
 thunky@^1.0.2:
   version "1.1.0"
   resolved "https://registry.npmjs.org/thunky/-/thunky-1.1.0.tgz#5abaf714a9405db0504732bbccd2cedd9ef9537d"
@@ -25295,7 +25327,7 @@ web3-eth-abi@1.2.1:
     underscore "1.9.1"
     web3-utils "1.2.1"
 
-web3-eth-abi@1.2.4, web3-eth-abi@^1.0.0-beta.24:
+web3-eth-abi@1.2.4:
   version "1.2.4"
   resolved "https://registry.npmjs.org/web3-eth-abi/-/web3-eth-abi-1.2.4.tgz#5b73e5ef70b03999227066d5d1310b168845e2b8"
   integrity sha512-8eLIY4xZKoU3DSVu1pORluAw9Ru0/v4CGdw5so31nn+7fR8zgHMgwbFe0aOqWQ5VU42PzMMXeIJwt4AEi2buFg==
@@ -25304,7 +25336,7 @@ web3-eth-abi@1.2.4, web3-eth-abi@^1.0.0-beta.24:
     underscore "1.9.1"
     web3-utils "1.2.4"
 
-web3-eth-abi@1.2.6:
+web3-eth-abi@1.2.6, web3-eth-abi@^1.0.0-beta.24:
   version "1.2.6"
   resolved "https://registry.npmjs.org/web3-eth-abi/-/web3-eth-abi-1.2.6.tgz#b495383cc5c0d8e2857b26e7fe25606685983b25"
   integrity sha512-w9GAyyikn8nSifSDZxAvU9fxtQSX+W2xQWMmrtTXmBGCaE4/ywKOSPAO78gq8AoU4Wq5yqVGKZLLbfpt7/sHlA==
