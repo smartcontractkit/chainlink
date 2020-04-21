@@ -103,9 +103,7 @@ case "$1" in
   test)
     $test build $DOCKER_COMPOSE_BUILD_OPTS
     $deps up --exit-code-from wait-db wait-db
-    set +e
     $test up --exit-code-from integration
-    set -e
     save_test_logs
     $test down -v
     ;;
