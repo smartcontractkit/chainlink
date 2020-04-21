@@ -1,4 +1,5 @@
 # Chainlink Heartbeat ETH/USD network graph
+[![Netlify Status](https://api.netlify.com/api/v1/badges/e056f5f5-54ff-4e7d-a5e0-0205eb2a1df6/deploy-status)](https://app.netlify.com/sites/sharp-hodgkin-c66bea/deploys)
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
