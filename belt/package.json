@@ -18,7 +18,7 @@
   },
   "bugs": "https://github.com/smartcontractkit/chainlink/issues",
   "dependencies": {
-    "@0x/sol-compiler": "^4.0.4",
+    "@0x/sol-compiler": "https://gitpkg.now.sh/smartcontractkit/0x-monorepo/packages/sol-compiler?solc-v0.6.6",
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^2",
