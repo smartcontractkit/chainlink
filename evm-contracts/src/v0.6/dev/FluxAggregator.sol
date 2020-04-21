@@ -51,6 +51,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
     address pendingAdmin;
   }
 
+  struct Requester {
+    bool authorized;
+    uint32 delay;
+    uint32 lastStartedRound;
+  }
+
   uint256 constant public VERSION = 2;
 
   uint128 public allocatedFunds;
@@ -70,7 +76,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   LinkTokenInterface public linkToken;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
-  mapping(address => bool) internal authorizedRequesters;
+  mapping(address => Requester) internal requesters;
   address[] private oracleAddresses;
 
   event AvailableFundsUpdated(uint256 indexed amount);
@@ -84,13 +90,21 @@ contract FluxAggregator is AggregatorInterface, Owned {
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
   event OracleAdminUpdated(address indexed oracle, address indexed newAdmin);
-  event OracleAdminUpdateRequested(address indexed oracle, address admin, address newAdmin);
+  event OracleAdminUpdateRequested(
+    address indexed oracle,
+    address admin,
+    address newAdmin
+  );
   event SubmissionReceived(
     int256 indexed answer,
     uint32 indexed round,
     address indexed oracle
   );
-  event RequesterAuthorizationSet(address indexed requester, bool allowed);
+  event RequesterPermissionsSet(
+    address indexed requester,
+    bool authorized,
+    uint32 delay
+  );
 
   uint32 constant private ROUND_MAX = 2**32-1;
 
@@ -127,7 +141,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyValidRoundId(uint32(_round))
     onlyValidOracleRound(uint32(_round))
   {
-    initializeNewRound(uint32(_round));
+    oracleInitializeNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
     payOracle(uint32(_round));
@@ -504,23 +518,29 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
     require(rounds[current].updatedAt > 0 || timedOut(current), "prev round must be supersedable");
 
-    initializeNewRound(current.add(1));
+    requesterInitializeNewRound(current.add(1));
   }
 
   /**
    * @notice allows the owner to specify new non-oracles to start new rounds
    * @param _requester is the address to set permissions for
-   * @param _allowed is a boolean specifying whether they can start new rounds or not
+   * @param _authorized is a boolean specifying whether they can start new rounds or not
+   * @param _delay is the number of rounds the requester must wait before starting another round
    */
-  function setAuthorization(address _requester, bool _allowed)
+  function setRequesterPermissions(address _requester, bool _authorized, uint32 _delay)
     external
     onlyOwner()
   {
-    if (authorizedRequesters[_requester] == _allowed) return;
+    if (requesters[_requester].authorized == _authorized) return;
 
-    authorizedRequesters[_requester] = _allowed;
+    if (_authorized) {
+      requesters[_requester].authorized = _authorized;
+      requesters[_requester].delay = _delay;
+    } else {
+      delete requesters[_requester];
+    }
 
-    emit RequesterAuthorizationSet(_requester, _allowed);
+    emit RequesterPermissionsSet(_requester, _authorized, _delay);
   }
 
   /**
@@ -585,8 +605,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function initializeNewRound(uint32 _id)
     private
-    ifNewRound(_id)
-    ifDelayed(_id)
   {
     updateTimedOutRoundInfo(_id.sub(1));
 
@@ -597,9 +615,27 @@ contract FluxAggregator is AggregatorInterface, Owned {
     rounds[_id].details.timeout = timeout;
     rounds[_id].startedAt = uint64(block.timestamp);
 
-    oracles[msg.sender].lastStartedRound = _id;
-
     emit NewRound(_id, msg.sender, rounds[_id].startedAt);
+  }
+
+  function oracleInitializeNewRound(uint32 _id)
+    private
+    ifNewRound(_id)
+    ifOracleDelayed(_id)
+  {
+    initializeNewRound(_id);
+
+    oracles[msg.sender].lastStartedRound = _id;
+  }
+
+  function requesterInitializeNewRound(uint32 _id)
+    private
+    ifNewRound(_id)
+    onlyDelayedRequesters(_id)
+  {
+    initializeNewRound(_id);
+
+    requesters[msg.sender].lastStartedRound = _id;
   }
 
   function updateTimedOutRoundInfo(uint32 _id)
@@ -789,11 +825,17 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
   }
 
-  modifier ifDelayed(uint32 _id) {
+  modifier ifOracleDelayed(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
     if (_id > lastStarted + restartDelay || lastStarted == 0) {
       _;
     }
+  }
+
+  modifier onlyDelayedRequesters(uint32 _id) {
+    uint256 lastStarted = requesters[msg.sender].lastStartedRound;
+    require(_id > lastStarted + requesters[msg.sender].delay || lastStarted == 0, "must delay requests");
+    _;
   }
 
   modifier onlyValidRoundId(uint32 _id) {
@@ -828,12 +870,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyWithPreviousAnswer(uint32 _id) {
-    require(rounds[_id.sub(1)].updatedAt != 0, "preious round unanswered");
+    require(rounds[_id.sub(1)].updatedAt != 0, "previous round unanswered");
     _;
   }
 
   modifier onlyAuthorizedRequesters() {
-    require(authorizedRequesters[msg.sender], "not authorized requester");
+    require(requesters[msg.sender].authorized, "not authorized requester");
     _;
   }
 
