@@ -102,7 +102,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   );
   event RequesterPermissionsSet(
     address indexed requester,
-    bool allowed,
+    bool authorized,
     uint32 delay
   );
 
@@ -524,22 +524,23 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice allows the owner to specify new non-oracles to start new rounds
    * @param _requester is the address to set permissions for
-   * @param _allowed is a boolean specifying whether they can start new rounds or not
+   * @param _authorized is a boolean specifying whether they can start new rounds or not
+   * @param _delay is the number of rounds the requester must wait before starting another round
    */
-  function setRequesterPermissions(address _requester, bool _allowed, uint32 _delay)
+  function setRequesterPermissions(address _requester, bool _authorized, uint32 _delay)
     external
     onlyOwner()
   {
-    if (requesters[_requester].authorized == _allowed) return;
+    if (requesters[_requester].authorized == _authorized) return;
 
-    if (_allowed) {
-      requesters[_requester].authorized = _allowed;
+    if (_authorized) {
+      requesters[_requester].authorized = _authorized;
       requesters[_requester].delay = _delay;
     } else {
       delete requesters[_requester];
     }
 
-    emit RequesterPermissionsSet(_requester, _allowed, _delay);
+    emit RequesterPermissionsSet(_requester, _authorized, _delay);
   }
 
   /**
@@ -869,7 +870,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyWithPreviousAnswer(uint32 _id) {
-    require(rounds[_id.sub(1)].updatedAt != 0, "preious round unanswered");
+    require(rounds[_id.sub(1)].updatedAt != 0, "previous round unanswered");
     _;
   }
 
