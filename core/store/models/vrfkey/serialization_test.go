@@ -10,7 +10,7 @@ import (
 
 var phrase = "as3r8phu82u9ru843cdi4298yf"
 
-var serialSK = 0xdeadbeefdeadbee
+var _ = 0xdeadbeefdeadbee
 var serialK = mustNewPrivateKey(big.NewInt(int64(sk)))
 
 func TestEncryptDecryptRoundTrip(t *testing.T) {

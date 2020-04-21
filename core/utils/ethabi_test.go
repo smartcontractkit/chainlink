@@ -99,7 +99,7 @@ func TestEVMWordSignedBigInt(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, hexutil.MustDecode("0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), val)
 
-	val, err = EVMWordSignedBigInt(new(big.Int).Add(MaxInt256, big.NewInt(1)))
+	_, err = EVMWordSignedBigInt(new(big.Int).Add(MaxInt256, big.NewInt(1)))
 	assert.Error(t, err)
 }
 
@@ -116,14 +116,14 @@ func TestEVMWordBigInt(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000100"), val)
 
-	val, err = EVMWordBigInt(new(big.Int).SetInt64(-1))
+	_, err = EVMWordBigInt(new(big.Int).SetInt64(-1))
 	assert.Error(t, err)
 
-	val, err = EVMWordBigInt(MaxUint256)
+	_, err = EVMWordBigInt(MaxUint256)
 	assert.NoError(t, err)
 	assert.Equal(t, hexutil.MustDecode("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), val)
 
-	val, err = EVMWordBigInt(new(big.Int).Add(MaxUint256, big.NewInt(1)))
+	_, err = EVMWordBigInt(new(big.Int).Add(MaxUint256, big.NewInt(1)))
 	assert.Error(t, err)
 }
 

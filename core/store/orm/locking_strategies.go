@@ -30,12 +30,12 @@ type LockingStrategy interface {
 	Unlock(timeout models.Duration) error
 }
 
-func normalizedTimeout(timeout time.Duration) <-chan time.Time {
-	if timeout == 0 {
-		return make(chan time.Time) // never time out
-	}
-	return time.After(timeout)
-}
+//func normalizedTimeout(timeout time.Duration) <-chan time.Time {
+//	if timeout == 0 {
+//		return make(chan time.Time) // never time out
+//	}
+//	return time.After(timeout)
+//}
 
 // PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive
 // access.

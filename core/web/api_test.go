@@ -152,6 +152,7 @@ func (d DummyResource) GetID() string {
 func TestNewJSONAPIResponse(t *testing.T) {
 	t.Parallel()
 
+	var buffer []byte
 	buffer, err := NewJSONAPIResponse(12981)
 	assert.Error(t, err)
 

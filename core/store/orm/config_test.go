@@ -96,10 +96,10 @@ func TestStore_addressParser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, fifteen, val)
 
-	val, err = parseAddress("0x0")
+	_, err = parseAddress("0x0")
 	assert.Error(t, err)
 
-	val, err = parseAddress("x")
+	_, err = parseAddress("x")
 	assert.Error(t, err)
 }
 
@@ -112,10 +112,10 @@ func TestStore_bigIntParser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, new(big.Int).SetInt64(15), val)
 
-	val, err = parseBigInt("x")
+	_, err = parseBigInt("x")
 	assert.Error(t, err)
 
-	val, err = parseBigInt("")
+	_, err = parseBigInt("")
 	assert.Error(t, err)
 }
 
@@ -128,7 +128,7 @@ func TestStore_levelParser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, LogLevel{zapcore.InfoLevel}, val)
 
-	val, err = parseLogLevel("primus sucks")
+	_, err = parseLogLevel("primus sucks")
 	assert.Error(t, err)
 }
 

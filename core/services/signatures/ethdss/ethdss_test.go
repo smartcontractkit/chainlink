@@ -28,7 +28,7 @@ var partSec []kyber.Scalar
 var longterms []*dkg.DistKeyShare
 var randoms []*dkg.DistKeyShare
 
-var dss []*DSS
+//var dss []*DSS
 
 var msg *big.Int
 

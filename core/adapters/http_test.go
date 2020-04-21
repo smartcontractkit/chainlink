@@ -673,7 +673,8 @@ func TestHTTP_BuildingURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ep := adapters.ExtendedPath{}
 			qp := adapters.QueryParameters{}
-			err := json.Unmarshal([]byte(test.path), &ep)
+			var err error
+			err = json.Unmarshal([]byte(test.path), &ep)
 			err = json.Unmarshal([]byte(test.queryParams), &qp)
 			hga := adapters.HTTPGet{
 				URL:          cltest.WebURL(t, test.startingUrl),

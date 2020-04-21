@@ -331,7 +331,7 @@ type QueryParameters url.Values
 
 // UnmarshalJSON implements the Unmarshaler interface
 func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
-	values := url.Values{}
+	var values = url.Values{}
 	strs := []string{}
 	var err error
 
@@ -347,7 +347,7 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 		// input is an array of strings like
 		// ["someKey0", "someVal0", "someKey1", "someVal1"]
 	} else {
-		err = json.Unmarshal(input, &strs)
+		_ = json.Unmarshal(input, &strs)
 	}
 
 	values, err = buildValues(strs)

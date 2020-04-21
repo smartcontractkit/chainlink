@@ -304,7 +304,7 @@ func (mock *EthMock) Subscribe(
 			case chan<- eth.BlockHeader:
 				fwdHeaders(channel, sub.channel)
 			default:
-				return nil, errors.New("Channel type not supported by ethMock")
+				return nil, errors.New("channel type not supported by ethMock")
 			}
 			return sub, nil
 		}
@@ -321,7 +321,7 @@ func (mock *EthMock) Subscribe(
 	} else if args[0] == "newHeads" {
 		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed")
 	}
-	return nil, errors.New("Must RegisterSubscription before Subscribe")
+	return nil, errors.New("must RegisterSubscription before Subscribe")
 }
 
 // RegisterNewHeads registers a newheads subscription
