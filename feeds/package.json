@@ -67,7 +67,7 @@
     "@types/jest": "^24.0.25",
     "@types/react-router": "^5.1.4",
     "@types/redux-thunk": "^2.1.0",
-    "cross-env": "^6.0.3",
+    "cross-env": "^7.0.2",
     "jest": "^24.9.0",
     "redux-mock-store": "^1.5.4",
     "rimraf": "^3.0.1",
