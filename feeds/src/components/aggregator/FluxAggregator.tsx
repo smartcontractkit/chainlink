@@ -5,15 +5,16 @@ import { Header } from 'components/header'
 import { OracleTable } from 'components/oracleTable'
 import { FeedConfig } from 'config'
 import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
+import { connect, MapDispatchToProps } from 'react-redux'
 import { fluxAggregatorOperations } from 'state/ducks/aggregator'
+import { DispatchBinding } from '@chainlink/ts-helpers'
 
 interface OwnProps {
   config: FeedConfig
 }
 
 interface DispatchProps {
-  initContract: any
+  initContract: DispatchBinding<typeof fluxAggregatorOperations.initContract>
 }
 
 interface Props extends OwnProps, DispatchProps {}
@@ -40,7 +41,7 @@ const Page: React.FC<Props> = ({ initContract, config }) => {
   )
 }
 
-const mapDispatchToProps = {
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   initContract: fluxAggregatorOperations.initContract,
 }
 

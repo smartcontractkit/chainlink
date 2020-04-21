@@ -15,7 +15,7 @@ export interface State {
   latestCompletedAnswerId: null | any
   pendingAnswerId: null | any
   nextAnswerId: null | any
-  oracleAnswers: null | any
+  oracleAnswers: any[]
   latestRequestTimestamp: null | any
   minimumAnswers: null | any
   latestAnswerTimestamp: null | any

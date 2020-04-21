@@ -7,78 +7,82 @@ import {
   createInfuraProvider,
 } from './utils'
 import _ from 'lodash'
+import { FeedConfig } from 'config'
 
 export default class FluxContract {
-  answerUpdatedEvent = {
-    filter: {},
-    listener: {},
-  }
-  submissionReceivedEvent = {
+  private submissionReceivedEvent: any = {
     filter: {},
     listener: {},
   }
 
-  newRoundEvent = {
+  private newRoundEvent: any = {
     filter: {},
     listener: {},
   }
 
-  answerIdInterval
-  provider
-  contract
+  private answerIdInterval: ReturnType<typeof setTimeout | any> = null
+  private alive: boolean
+  private options: FeedConfig | any
 
-  constructor(options, abi) {
+  private provider: ethers.providers.JsonRpcProvider
+  private contract: ethers.Contract | any
+  address: string | any
+
+  constructor(options: FeedConfig, abi: any) {
     this.provider = createInfuraProvider(options.networkId)
     this.contract = createContract(options.contractAddress, this.provider, abi)
-    this.address = options.contractAddress
     this.alive = true
-    this.abi = abi
     this.options = options
+    this.address = options.contractAddress
   }
 
-  kill() {
+  kill(): void {
     try {
-      if (!this.alive) return false
+      if (!this.alive) return
       clearInterval(this.answerIdInterval)
       this.removeListener(
-        this.answerUpdatedEvent.filter,
-        this.answerUpdatedEvent.listener,
+        this.submissionReceivedEvent.filter,
+        this.submissionReceivedEvent.listener,
+      )
+      this.removeListener(
+        this.newRoundEvent.filter,
+        this.newRoundEvent.listener,
       )
       this.contract = null
       this.address = null
       this.alive = false
       this.options = null
-    } catch (error) {
-      //
+    } catch {
+      console.error('Cannot delete FluxContract')
     }
   }
 
-  removeListener(filter, eventListener) {
+  removeListener(filter: any, eventListener: any): void {
     if (!this.alive) return
 
     this.provider.removeListener(filter, eventListener)
   }
 
-  async oracles() {
+  async oracles(): Promise<string[]> {
     return await this.contract.getOracles()
   }
 
-  async minimumAnswers() {
+  async minimumAnswers(): Promise<number> {
     return await this.contract.minAnswerCount()
   }
 
-  async latestRound() {
+  async latestRound(): Promise<number> {
     const latestRound = await this.contract.latestRound()
     this.decimals()
     return latestRound.toNumber()
   }
 
-  async reportingRound() {
+  async reportingRound(): Promise<number> {
     const reportingRound = await this.contract.reportingRound()
     return reportingRound.toNumber()
   }
 
-  async latestAnswer() {
+  async latestAnswer(): Promise<string> {
     const latestAnswer = await this.contract.latestAnswer()
     return formatAnswer(
       latestAnswer,
@@ -87,12 +91,12 @@ export default class FluxContract {
     )
   }
 
-  async latestTimestamp() {
+  async latestTimestamp(): Promise<number> {
     const latestTimestamp = await this.contract.latestTimestamp()
     return latestTimestamp.toNumber()
   }
 
-  async getAnswer(answerId) {
+  async getAnswer(answerId: number): Promise<string> {
     const getAnswer = await this.contract.getAnswer(answerId)
     return formatAnswer(
       getAnswer,
@@ -101,21 +105,21 @@ export default class FluxContract {
     )
   }
 
-  async getTimestamp(answerId) {
+  async getTimestamp(answerId: number): Promise<number> {
     const timestamp = await this.contract.getTimestamp(answerId)
     return timestamp.toNumber()
   }
 
-  async description() {
+  async description(): Promise<string> {
     const description = await this.contract.description()
     return ethers.utils.parseBytes32String(description)
   }
 
-  async decimals() {
+  async decimals(): Promise<number> {
     return await this.contract.decimals()
   }
 
-  async listenSubmissionReceivedEvent(callback) {
+  async listenSubmissionReceivedEvent(callback: any) {
     if (!this.alive) return
 
     this.removeListener(
@@ -129,13 +133,13 @@ export default class FluxContract {
 
     return this.provider.on(
       this.submissionReceivedEvent.filter,
-      (this.submissionReceivedEvent.listener = async log => {
+      (this.submissionReceivedEvent.listener = async (log: any) => {
         const logged = decodeLog(
           {
             log,
             eventInterface: this.contract.interface.events.SubmissionReceived,
           },
-          decodedLog => ({
+          (decodedLog: any) => ({
             answerFormatted: formatAnswer(
               decodedLog.answer,
               this.options.multiply,
@@ -156,7 +160,7 @@ export default class FluxContract {
     )
   }
 
-  async listenNewRoundEvent(callback) {
+  async listenNewRoundEvent(callback: any) {
     if (!this.alive) return
 
     this.removeListener(this.newRoundEvent.filter, this.newRoundEvent.listener)
@@ -167,13 +171,13 @@ export default class FluxContract {
 
     return this.provider.on(
       this.newRoundEvent.filter,
-      (this.newRoundEvent.listener = async log => {
+      (this.newRoundEvent.listener = async (log: any) => {
         const logged = decodeLog(
           {
             log,
             eventInterface: this.contract.interface.events.NewRound,
           },
-          decodedLog => ({
+          (decodedLog: any) => ({
             answerId: Number(decodedLog.roundId),
             startedBy: decodedLog.startedBy,
             startedAt: Number(decodedLog.startedAt),
@@ -185,7 +189,13 @@ export default class FluxContract {
     )
   }
 
-  async newRoundLogs({ fromBlock, round }) {
+  async newRoundLogs({
+    fromBlock,
+    round,
+  }: {
+    fromBlock: number
+    round: number
+  }) {
     const newRoundFilter = {
       ...this.contract.filters.NewRound(round, null, null),
       fromBlock,
@@ -197,7 +207,7 @@ export default class FluxContract {
         filter: newRoundFilter,
         eventInterface: this.contract.interface.events.NewRound,
       },
-      decodedLog => ({
+      (decodedLog: any) => ({
         answerId: Number(decodedLog.roundId),
         startedBy: decodedLog.startedBy,
         startedAt: Number(decodedLog.startedAt),
@@ -207,7 +217,13 @@ export default class FluxContract {
     return logs
   }
 
-  async submissionReceivedLogs({ fromBlock, round }) {
+  async submissionReceivedLogs({
+    fromBlock,
+    round,
+  }: {
+    fromBlock: number
+    round: number
+  }) {
     const submissionReceivedFilter = {
       ...this.contract.filters.SubmissionReceived(null, round, null),
       fromBlock,
@@ -219,7 +235,7 @@ export default class FluxContract {
         filter: submissionReceivedFilter,
         eventInterface: this.contract.interface.events.SubmissionReceived,
       },
-      decodedLog => ({
+      (decodedLog: any) => ({
         answerFormatted: formatAnswer(
           decodedLog.answer,
           this.options.multiply,
@@ -234,7 +250,7 @@ export default class FluxContract {
     return logs
   }
 
-  async answerUpdatedLogs({ fromBlock }) {
+  async answerUpdatedLogs({ fromBlock }: { fromBlock: number }) {
     const filter = {
       ...this.contract.filters.AnswerUpdated(null, null, null),
       fromBlock,
@@ -246,7 +262,7 @@ export default class FluxContract {
         filter,
         eventInterface: this.contract.interface.events.AnswerUpdated,
       },
-      decodedLog => ({
+      (decodedLog: any) => ({
         answerFormatted: formatAnswer(
           decodedLog.current,
           this.options.multiply,
@@ -261,24 +277,24 @@ export default class FluxContract {
     return logs
   }
 
-  async addBlockTimestampToLogs(logs) {
+  async addBlockTimestampToLogs(logs: any) {
     if (_.isEmpty(logs)) return logs
 
-    const blockTimePromises = logs.map(log =>
+    const blockTimePromises = logs.map((log: any) =>
       this.provider.getBlock(log.meta.blockNumber),
     )
-    const blockTimes = await Promise.all(blockTimePromises)
+    const blockTimes: any = await Promise.all(blockTimePromises)
 
-    return logs.map((l, i) => {
+    return logs.map((l: any, i: number) => {
       l.meta.timestamp = blockTimes[i].timestamp
       return l
     })
   }
 
-  async addGasPriceToLogs(logs) {
+  async addGasPriceToLogs(logs: any): Promise<Array<any>> {
     if (!logs) return logs
 
-    const logsWithGasPriceOps = logs.map(async log => {
+    const logsWithGasPriceOps = logs.map(async (log: any) => {
       const tx = await this.provider.getTransaction(log.meta.transactionHash)
       // eslint-disable-next-line require-atomic-updates
       log.meta.gasPrice = ethers.utils.formatUnits(tx.gasPrice, 'gwei')

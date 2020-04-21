@@ -78,7 +78,7 @@ interface Query {
 export async function getLogs(
   { provider, filter, eventInterface }: Query,
   /* eslint-disable-next-line @typescript-eslint/no-empty-function */
-  cb = () => {},
+  cb: any = () => {},
 ): Promise<any[]> {
   const logs = await provider.getLogs(filter)
   const result = logs
