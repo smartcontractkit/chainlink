@@ -35,14 +35,14 @@ DROP TABLE heads_archive;`).Error
 		// SQLite doesn't support decoding at the SQL level
 		err = orm.Batch(1000, func(offset, limit uint) (uint, error) {
 			var heads []migration0.Head
-			err := tx.
+			txErr := tx.
 				Table("heads_archive").
 				Limit(limit).
 				Offset(offset).
 				Order("number").
 				Find(&heads).Error
-			if err != nil {
-				return 0, err
+			if txErr != nil {
+				return 0, txErr
 			}
 
 			for _, head := range heads {

@@ -124,18 +124,18 @@ func marshalArray(writer io.Writer, data []interface{}) error {
 	}
 
 	for index, item := range data {
-		err := marshal(writer, item)
-		if err != nil {
-			return err
+		marErr := marshal(writer, item)
+		if marErr != nil {
+			return marErr
 		}
 
 		if index == len(data)-1 {
 			break
 		}
 
-		_, err = fmt.Fprintf(writer, ",")
-		if err != nil {
-			return err
+		_, fmtErr := fmt.Fprintf(writer, ",")
+		if fmtErr != nil {
+			return fmtErr
 		}
 	}
 

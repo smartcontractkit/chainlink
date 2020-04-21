@@ -57,8 +57,8 @@ func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
 		return nil, errors.Wrapf(err, "could not encrypt vrf key")
 	}
 	rv := EncryptedSecretKey{}
-	if err := json.Unmarshal(keyJSON, &rv.VRFKey); err != nil {
-		return nil, errors.Wrapf(err, "geth returned unexpected key material")
+	if e := json.Unmarshal(keyJSON, &rv.VRFKey); e != nil {
+		return nil, errors.Wrapf(e, "geth returned unexpected key material")
 	}
 	rv.PublicKey = k.PublicKey
 	roundTripKey, err := rv.Decrypt(auth)
