@@ -771,7 +771,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.NoRegisterGetBlockNumber)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 			defer cleanup()
 
 			store := app.Store
@@ -784,7 +784,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock := app.EthMock
 			ethMock.ShouldCall(test.mockSetup).During(func() {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
-				ethMock.Register("eth_blockNumber", hexutil.Uint64(1))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 

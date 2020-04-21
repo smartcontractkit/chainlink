@@ -39,10 +39,11 @@ type LogListener interface {
 }
 
 type logBroadcaster struct {
-	ethClient eth.Client
-	orm       *orm.ORM
-	cursor    models.LogCursor
-	connected bool
+	ethClient     eth.Client
+	orm           *orm.ORM
+	backfillDepth uint64
+	cursor        models.LogCursor
+	connected     bool
 
 	listeners        map[common.Address]map[LogListener]struct{}
 	chAddListener    chan registration
@@ -82,10 +83,11 @@ func (sub managedSubscription) Unsubscribe() {
 	close(sub.chRawLogs)
 }
 
-func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
+func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM, backfillDepth uint64) LogBroadcaster {
 	return &logBroadcaster{
 		ethClient:        ethClient,
 		orm:              orm,
+		backfillDepth:    backfillDepth,
 		listeners:        make(map[common.Address]map[LogListener]struct{}),
 		chAddListener:    make(chan registration),
 		chRemoveListener: make(chan registration),
@@ -98,11 +100,16 @@ func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
 const logBroadcasterCursorName = "logBroadcaster"
 
 func (b *logBroadcaster) Start() {
-	// Grab the current on-chain block height
-	currentHeight, abort := b.getOnChainBlockHeight()
+	var latestBlock eth.Block
+	abort := utils.RetryWithBackoff(b.chStop, "getting latest block", func() (err error) {
+		latestBlock, err = b.ethClient.GetLatestBlock()
+		return
+	})
 	if abort {
+		close(b.chDone)
 		return
 	}
+	currentHeight := uint64(latestBlock.Number)
 
 	// Grab the cursor from the DB
 	cursor, err := b.orm.FindLogCursor(logBroadcasterCursorName)
@@ -139,24 +146,12 @@ Outer:
 	go b.startResubscribeLoop()
 }
 
-func (b *logBroadcaster) getOnChainBlockHeight() (_ uint64, abort bool) {
-	var currentHeight uint64
-	for {
-		var err error
-		currentHeight, err = b.ethClient.GetBlockHeight()
-		if err == nil {
-			break
-		}
-
-		logger.Errorf("error fetching current block height: %v", err)
-		select {
-		case <-b.chStop:
-			return 0, true
-		case <-time.After(10 * time.Second):
-		}
-		continue
+func (b *logBroadcaster) addresses() []common.Address {
+	var addresses []common.Address
+	for address := range b.listeners {
+		addresses = append(addresses, address)
 	}
-	return currentHeight, false
+	return addresses
 }
 
 func (b *logBroadcaster) Stop() {
@@ -188,25 +183,23 @@ func (b *logBroadcaster) Unregister(address common.Address, listener LogListener
 // notifies its subscribers.
 func (b *logBroadcaster) startResubscribeLoop() {
 	defer close(b.chDone)
-	var subscription ManagedSubscription = noopSubscription{}
-	var chRawLogs chan eth.Log
+
+	var subscription ManagedSubscription = newNoopSubscription()
 	defer func() { subscription.Unsubscribe() }()
 
-ResubscribeLoop:
+	var chRawLogs chan eth.Log
 	for {
-		newSubscription, err := b.createSubscription()
-		if err != nil {
-			logger.Errorf("error creating subscription to Ethereum node: %v", err)
-			select {
-			case <-b.chStop:
-				return
-			case <-time.After(10 * time.Second):
-				// Don't hammer the Ethereum node with subscription requests in case of an error.
-				// A configurable timeout might be useful here.
-				continue ResubscribeLoop
-			}
+		newSubscription, abort := b.createSubscription()
+		if abort {
+			return
 		}
 
+		chBackfilledLogs, abort := b.backfillLogs()
+		if abort {
+			return
+		}
+
+		chRawLogs = appendLogChannel(chRawLogs, chBackfilledLogs)
 		chRawLogs = appendLogChannel(chRawLogs, newSubscription.Logs())
 		subscription.Unsubscribe()
 		subscription = newSubscription
@@ -216,9 +209,52 @@ ResubscribeLoop:
 		if err != nil {
 			logger.Error(err)
 			b.notifyDisconnect()
-			continue ResubscribeLoop
+			continue
 		} else if !shouldResubscribe {
 			b.notifyDisconnect()
+			return
+		}
+	}
+}
+
+func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan eth.Log, abort bool) {
+	abort = utils.RetryWithBackoff(b.chStop, "backfilling logs", func() error {
+		latestBlock, err := b.ethClient.GetLatestBlock()
+		if err != nil {
+			return err
+		}
+		currentHeight := uint64(latestBlock.Number)
+
+		// Start at the block we saw last, but go no further back than `currentHeight - backfillDepth`
+		startBlock := b.cursor.BlockIndex
+		if startBlock < currentHeight-b.backfillDepth {
+			startBlock = currentHeight - b.backfillDepth
+		}
+
+		q := ethereum.FilterQuery{
+			FromBlock: big.NewInt(int64(startBlock)),
+			Addresses: b.addresses(),
+		}
+
+		logs, err := b.ethClient.GetLogs(q)
+		if err != nil {
+			return err
+		}
+
+		chBackfilledLogs = make(chan eth.Log)
+		go b.deliverBackfilledLogs(logs, chBackfilledLogs)
+		return nil
+
+	})
+	return
+}
+
+func (b *logBroadcaster) deliverBackfilledLogs(logs []eth.Log, chBackfilledLogs chan<- eth.Log) {
+	defer close(chBackfilledLogs)
+	for _, log := range logs {
+		select {
+		case chBackfilledLogs <- log:
+		case <-b.chStop:
 			return
 		}
 	}
@@ -330,39 +366,45 @@ func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool
 	return false
 }
 
-func (b *logBroadcaster) createSubscription() (ManagedSubscription, error) {
+func (b *logBroadcaster) createSubscription() (sub ManagedSubscription, abort bool) {
 	if len(b.listeners) == 0 {
-		return noopSubscription{}, nil
+		return newNoopSubscription(), false
 	}
 
-	var addresses []common.Address
-	for address := range b.listeners {
-		addresses = append(addresses, address)
-	}
+	abort = utils.RetryWithBackoff(b.chStop, "creating subscription to Ethereum node", func() error {
+		filterQuery := ethereum.FilterQuery{
+			FromBlock: big.NewInt(int64(b.cursor.BlockIndex)),
+			Addresses: b.addresses(),
+		}
+		chRawLogs := make(chan eth.Log)
 
-	filterQuery := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(b.cursor.BlockIndex)),
-		Addresses: addresses,
-	}
-	chRawLogs := make(chan eth.Log)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		innerSub, err := b.ethClient.SubscribeToLogs(ctx, chRawLogs, filterQuery)
+		if err != nil {
+			return err
+		}
 
-	sub, err := b.ethClient.SubscribeToLogs(context.Background(), chRawLogs, filterQuery)
-	if err != nil {
-		return nil, err
-	}
-
-	managedSub := managedSubscription{
-		subscription: sub,
-		chRawLogs:    chRawLogs,
-	}
-	return managedSub, nil
+		sub = managedSubscription{
+			subscription: innerSub,
+			chRawLogs:    chRawLogs,
+		}
+		return nil
+	})
+	return
 }
 
-type noopSubscription struct{}
+type noopSubscription struct {
+	chRawLogs chan eth.Log
+}
+
+func newNoopSubscription() noopSubscription {
+	return noopSubscription{make(chan eth.Log)}
+}
 
 func (s noopSubscription) Err() <-chan error  { return nil }
-func (s noopSubscription) Logs() chan eth.Log { return nil }
-func (s noopSubscription) Unsubscribe()       {}
+func (s noopSubscription) Logs() chan eth.Log { return s.chRawLogs }
+func (s noopSubscription) Unsubscribe()       { close(s.chRawLogs) }
 
 // DecodingLogListener receives raw logs from the LogBroadcaster and decodes them into
 // Go structs using the provided ContractCodec (a simple wrapper around a go-ethereum
@@ -437,7 +479,7 @@ func (l *decodingLogListener) HandleLog(log interface{}, err error) {
 	l.LogListener.HandleLog(decodedLog, nil)
 }
 
-func appendLogChannel(ch1, ch2 chan eth.Log) chan eth.Log {
+func appendLogChannel(ch1, ch2 <-chan eth.Log) chan eth.Log {
 	if ch1 == nil && ch2 == nil {
 		return nil
 	}
