@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -372,9 +373,9 @@ func NewPollingDeviationChecker(
 	pollDelay models.Duration,
 	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
-	threshold := float64(initr.InitiatorParams.Threshold)
-	if threshold == 0 {
-		return nil, errors.WithStack(fmt.Errorf("threshold of 0 is not allowed"))
+	threshold := initr.InitiatorParams.Threshold
+	if err := services.CheckDeviationThreshold(threshold); err != nil {
+		return nil, errors.Wrapf(err, "bad threshold")
 	}
 	return &PollingDeviationChecker{
 		readyForLogs:       readyForLogs,
@@ -862,10 +863,8 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log *contracts.Lo
 
 // OutsideDeviation checks whether the next price is outside the threshold.
 func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) bool {
-	if threshold == 0 {
-		// This is prevented by the fluxmonitor initiator's validation logic, and by
-		// NewPollingDeviationChecker
-		panic("deviation threshold of 0 is not allowed")
+	if err := services.CheckDeviationThreshold(float32(threshold)); err != nil {
+		panic(errors.Wrap(err, "deviation threshold invalid"))
 	}
 	loggerFields := []interface{}{
 		"threshold", threshold,
