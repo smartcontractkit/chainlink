@@ -14,3 +14,4 @@ truffle-config.js
 truffle.js
 gethload.js
 craco.config.js
+solc_bin/**

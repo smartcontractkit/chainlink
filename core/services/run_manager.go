@@ -5,34 +5,17 @@ import (
 	"math/big"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/logger"
-	clnull "chainlink/core/null"
-	"chainlink/core/services/synchronization"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-var (
-	numberRunsExecuted = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "run_manager_runs_started",
-		Help: "The total number of runs that have run",
-	})
-	numberRunsResumed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "run_manager_runs_resumed",
-		Help: "The total number of run resumptions",
-	})
-	numberRunsCancelled = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "run_manager_runs_cancelled",
-		Help: "The total number of run cancellations",
-	})
 )
 
 // RecurringScheduleJobError contains the field for the error message.
@@ -109,22 +92,9 @@ func NewRun(
 	orm *orm.ORM,
 	now time.Time) (*models.JobRun, []*adapters.PipelineAdapter) {
 
-	run := models.JobRun{
-		ID:             models.NewID(),
-		JobSpecID:      job.ID,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		Initiator:      *initiator,
-		InitiatorID:    initiator.ID,
-		TaskRuns:       make([]models.TaskRun, len(job.Tasks)),
-		Status:         models.RunStatusInProgress,
-		CreationHeight: utils.NewBig(currentHeight),
-		ObservedHeight: utils.NewBig(currentHeight),
-		RunRequest:     *runRequest,
-		Payment:        runRequest.Payment,
-	}
-
+	run := models.MakeJobRun(job, now, initiator, currentHeight, runRequest)
 	runAdapters := []*adapters.PipelineAdapter{}
+
 	for i, task := range job.Tasks {
 		adapter, err := adapters.For(task, config, orm)
 		if err != nil {
@@ -133,23 +103,16 @@ func NewRun(
 		}
 
 		runAdapters = append(runAdapters, adapter)
-
-		minimumConfirmations := clnull.Uint32{}
-		if currentHeight != nil {
-			minimumConfirmations = clnull.Uint32From(
-				utils.MaxUint32(
-					config.MinIncomingConfirmations(),
-					task.Confirmations.Uint32,
-					adapter.MinConfs()),
-			)
+		if currentHeight == nil {
+			continue
 		}
 
-		run.TaskRuns[i] = models.TaskRun{
-			ID:                   models.NewID(),
-			JobRunID:             run.ID,
-			TaskSpec:             task,
-			MinimumConfirmations: minimumConfirmations,
-		}
+		run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
+			utils.MaxUint32(
+				config.MinIncomingConfirmations(),
+				task.Confirmations.Uint32,
+				adapter.MinConfs()),
+		)
 	}
 
 	return &run, runAdapters
@@ -211,6 +174,7 @@ func (rm *runManager) CreateErrored(
 		UpdatedAt:   now,
 		InitiatorID: initiator.ID,
 	}
+
 	run.SetError(runErr)
 	defer rm.statsPusher.PushNow()
 	return &run, rm.orm.CreateJobRun(&run)
@@ -266,13 +230,12 @@ func (rm *runManager) Create(
 	}
 	rm.statsPusher.PushNow()
 
-	if run.Status.Runnable() {
+	if run.GetStatus().Runnable() {
 		logger.Debugw(
 			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
 		)
 		rm.runQueue.Run(run)
-		numberRunsExecuted.Inc()
 	}
 	return run, nil
 }
@@ -312,7 +275,7 @@ func (rm *runManager) ResumeAllConnecting() error {
 		}
 
 		currentTaskRun.Status = models.RunStatusInProgress
-		run.Status = models.RunStatusInProgress
+		run.SetStatus(models.RunStatusInProgress)
 		err := rm.updateAndTrigger(run)
 		if err != nil {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
@@ -332,7 +295,7 @@ func (rm *runManager) ResumePending(
 
 	logger.Debugw("External adapter resuming run", run.ForLogger("input_data", input.Data)...)
 
-	if !run.Status.PendingBridge() {
+	if !run.GetStatus().PendingBridge() {
 		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
 	}
 
@@ -374,12 +337,11 @@ func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 	}
 
 	logger.Debugw("Cancelling run", run.ForLogger()...)
-	if run.Status.Finished() {
+	if run.GetStatus().Finished() {
 		return nil, fmt.Errorf("Cannot cancel a run that has already finished")
 	}
 
 	run.Cancel()
-	numberRunsCancelled.Inc()
 	defer rm.statsPusher.PushNow()
 	return &run, rm.orm.SaveJobRun(&run)
 }
@@ -402,8 +364,7 @@ func (rm *runManager) updateAndTrigger(run *models.JobRun) error {
 		return err
 	}
 	rm.statsPusher.PushNow()
-	if run.Status == models.RunStatusInProgress {
-		numberRunsResumed.Inc()
+	if run.GetStatus() == models.RunStatusInProgress {
 		rm.runQueue.Run(run)
 	}
 	return nil

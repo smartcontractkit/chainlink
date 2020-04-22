@@ -20,7 +20,7 @@ const injectFeedConfig = (networkId?: Networks) => (
   <WithFeedConfig
     networkId={networkId}
     {...props}
-    render={(config: FeedConfig) => <pages.Details config={config} />}
+    render={(config: FeedConfig) => <pages.Aggregator config={config} />}
   />
 )
 

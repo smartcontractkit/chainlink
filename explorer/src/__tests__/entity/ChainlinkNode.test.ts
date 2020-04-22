@@ -1,4 +1,4 @@
-import { Connection } from 'typeorm'
+import { getRepository } from 'typeorm'
 import {
   ChainlinkNode,
   createChainlinkNode,
@@ -7,7 +7,6 @@ import {
   uptime,
 } from '../../entity/ChainlinkNode'
 import { createSession, closeSession } from '../../entity/Session'
-import { closeDbConnection, getDb } from '../../database'
 
 async function wait(sec: number) {
   return new Promise(res => {
@@ -17,18 +16,9 @@ async function wait(sec: number) {
   })
 }
 
-let db: Connection
-
-beforeAll(async () => {
-  db = await getDb()
-})
-
-afterAll(async () => closeDbConnection())
-
 describe('createChainlinkNode', () => {
   it('returns a valid ChainlinkNode record', async () => {
     const [chainlinkNode, secret] = await createChainlinkNode(
-      db,
       'new-valid-chainlink-node-record',
     )
     expect(chainlinkNode.accessKey).toHaveLength(16)
@@ -38,18 +28,18 @@ describe('createChainlinkNode', () => {
   })
 
   it('reject duplicate ChainlinkNode names', async () => {
-    await createChainlinkNode(db, 'identical')
-    await expect(createChainlinkNode(db, 'identical')).rejects.toThrow()
+    await createChainlinkNode('identical')
+    await expect(createChainlinkNode('identical')).rejects.toThrow()
   })
 })
 
 describe('deleteChainlinkNode', () => {
   it('deletes a ChainlinkNode with the specified name', async () => {
-    await createChainlinkNode(db, 'chainlink-node-to-be-deleted')
-    let count = await db.manager.count(ChainlinkNode)
+    await createChainlinkNode('chainlink-node-to-be-deleted')
+    let count = await getRepository(ChainlinkNode).count()
     expect(count).toBe(1)
-    await deleteChainlinkNode(db, 'chainlink-node-to-be-deleted')
-    count = await db.manager.count(ChainlinkNode)
+    await deleteChainlinkNode('chainlink-node-to-be-deleted')
+    count = await getRepository(ChainlinkNode).count()
     expect(count).toBe(0)
   })
 })
@@ -62,22 +52,22 @@ describe('hashCredentials', () => {
 
 describe('uptime', () => {
   it('returns 0 when no sessions exist', async () => {
-    const [node] = await createChainlinkNode(db, 'chainlink-node')
-    const initialUptime = await uptime(db, node)
+    const [node] = await createChainlinkNode('chainlink-node')
+    const initialUptime = await uptime(node)
     expect(initialUptime).toEqual(0)
   })
 
   it('calculates uptime based on open and closed sessions', async () => {
-    const [node] = await createChainlinkNode(db, 'chainlink-node')
-    const session = await createSession(db, node)
+    const [node] = await createChainlinkNode('chainlink-node')
+    const session = await createSession(node)
     await wait(1)
-    await closeSession(db, session)
-    const uptime1 = await uptime(db, node)
+    await closeSession(session)
+    const uptime1 = await uptime(node)
     expect(uptime1).toBeGreaterThan(0)
     expect(uptime1).toBeLessThan(3)
-    await createSession(db, node)
+    await createSession(node)
     await wait(1)
-    const uptime2 = await uptime(db, node)
+    const uptime2 = await uptime(node)
     expect(uptime2).toBeGreaterThan(uptime1)
     expect(uptime2).toBeLessThan(4)
   })

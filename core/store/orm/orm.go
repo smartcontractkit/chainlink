@@ -11,18 +11,17 @@ import (
 	"sync"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/auth"
-	"chainlink/core/gracefulpanic"
-	"chainlink/core/logger"
-	"chainlink/core/store/dbutil"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/dbutil"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
@@ -35,7 +34,6 @@ const BatchSize = 100
 var (
 	// ErrorNotFound is returned when finding a single value fails.
 	ErrorNotFound = gorm.ErrRecordNotFound
-	ErrorConflict = errors.New("record already exists")
 )
 
 // DialectName is a compiler enforced type used that maps to gorm's dialect
@@ -54,6 +52,7 @@ type ORM struct {
 	advisoryLockTimeout time.Duration
 	dialectName         DialectName
 	closeOnce           sync.Once
+	shutdownSignal      gracefulpanic.Signal
 }
 
 var (
@@ -61,17 +60,8 @@ var (
 	ErrReleaseLockFailed = errors.New("advisory lock release failed")
 )
 
-// mapError tries to coerce the error into package defined errors.
-func mapError(err error) error {
-	err = errors.Cause(err)
-	if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
-		return ErrorConflict
-	}
-	return err
-}
-
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration) (*ORM, error) {
+func NewORM(uri string, timeout time.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -88,6 +78,7 @@ func NewORM(uri string, timeout time.Duration) (*ORM, error) {
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
 		dialectName:         dialect,
+		shutdownSignal:      shutdownSignal,
 	}
 	orm.MustEnsureAdvisoryLock()
 
@@ -108,7 +99,7 @@ func (orm *ORM) MustEnsureAdvisoryLock() {
 	err := orm.lockingStrategy.Lock(orm.advisoryLockTimeout)
 	if err != nil {
 		logger.Errorf("unable to lock ORM: %v", err)
-		gracefulpanic.Panic()
+		orm.shutdownSignal.Panic()
 	}
 }
 
@@ -229,7 +220,7 @@ func (orm *ORM) FindJob(id *models.ID) (models.JobSpec, error) {
 }
 
 // FindInitiator returns the single initiator defined by the passed ID.
-func (orm *ORM) FindInitiator(ID uint) (models.Initiator, error) {
+func (orm *ORM) FindInitiator(ID uint32) (models.Initiator, error) {
 	orm.MustEnsureAdvisoryLock()
 	initr := models.Initiator{}
 	return initr, orm.db.
@@ -335,10 +326,13 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 			Where("updated_at = ?", run.UpdatedAt).
 			Omit("deleted_at").
 			Save(run)
+		if result.Error != nil {
+			return result.Error
+		}
 		if result.RowsAffected == 0 {
 			return OptimisticUpdateConflictError
 		}
-		return result.Error
+		return nil
 	})
 }
 
@@ -373,14 +367,14 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	orm.MustEnsureAdvisoryLock()
 	err := orm.db.Create(externalInitiator).Error
-	return mapError(err)
+	return err
 }
 
 // DeleteExternalInitiator removes an external initiator
 func (orm *ORM) DeleteExternalInitiator(name string) error {
 	orm.MustEnsureAdvisoryLock()
 	err := orm.db.Delete(&models.ExternalInitiator{Name: name}).Error
-	return mapError(err)
+	return err
 }
 
 // FindExternalInitiator finds an external initiator given an authentication request
@@ -536,7 +530,7 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	return tx.Create(job).Error
 }
 
-// ArchiveJob soft deletes the job and its associated job runs.
+// ArchiveJob soft deletes the job, job_runs and its initiator.
 func (orm *ORM) ArchiveJob(ID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
 	j, err := orm.FindJob(ID)
@@ -546,9 +540,9 @@ func (orm *ORM) ArchiveJob(ID *models.ID) error {
 
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return multierr.Combine(
-			dbtx.Where("job_spec_id = ?", ID).Delete(&models.Initiator{}).Error,
-			dbtx.Where("job_spec_id = ?", ID).Delete(&models.TaskSpec{}).Error,
-			dbtx.Where("job_spec_id = ?", ID).Delete(&models.JobRun{}).Error,
+			dbtx.Exec("UPDATE initiators SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
+			dbtx.Exec("UPDATE task_specs SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
+			dbtx.Exec("UPDATE job_runs SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
 			dbtx.Delete(&j).Error,
 		)
 	})
@@ -612,29 +606,30 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	return found, ignoreRecordNotFound(rval)
 }
 
-// CreateTx returns a transaction by its surrogate key, if it exists, or
+// CreateTx finds and overwrites a transaction by its surrogate key, if it exists, or
 // creates it
 func (orm *ORM) CreateTx(tx *models.Tx) (*models.Tx, error) {
 	orm.MustEnsureAdvisoryLock()
 
 	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		var query *gorm.DB
+		foundTx := models.Tx{}
 		if tx.SurrogateID.Valid {
-			query = dbtx.First(&models.Tx{}, "surrogate_id = ?", tx.SurrogateID.ValueOrZero())
+			query = dbtx.First(&foundTx, "surrogate_id = ?", tx.SurrogateID.ValueOrZero())
 		} else {
-			query = dbtx.First(&models.Tx{}, "hash = ?", tx.Hash)
+			query = dbtx.First(&foundTx, "hash = ?", tx.Hash)
 		}
+		err := query.Error
 
-		ids := []uint64{}
-		err := query.Pluck("id", &ids).Error
-		if err != nil && err != gorm.ErrRecordNotFound {
+		if err != nil && !gorm.IsRecordNotFoundError(err) {
 			return errors.Wrap(err, "CreateTx#First failed")
 		}
 
-		if err == gorm.ErrRecordNotFound {
+		if gorm.IsRecordNotFoundError(err) {
 			return dbtx.Create(tx).Error
 		}
-		tx.ID = ids[0]
+
+		tx.ID = foundTx.ID
 		return dbtx.Save(tx).Error
 	})
 	if err != nil {
@@ -1044,6 +1039,13 @@ func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRe
 // CreateInitiator saves the initiator.
 func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 	orm.MustEnsureAdvisoryLock()
+	if initr.JobSpecID == nil {
+		// NOTE: This hangs forever if we don't check this here and the
+		// supplied initiator does not have a JobSpecID set.
+		// I do not know why. Seems to be something going wrong inside gorm
+		logger.Error("cannot create initiator without job spec ID")
+		return errors.New("requires job spec ID")
+	}
 	return orm.db.Create(initr).Error
 }
 
@@ -1094,55 +1096,23 @@ func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
 // BulkDeleteRuns removes JobRuns and their related records: TaskRuns and
 // RunResults.
 //
-// TaskRuns are removed by ON DELETE CASCADE when the JobRuns are
-// deleted, but RunResults are not using foreign keys because multiple foreign
-// keys on a record creates an ambiguity with gorm.
+// RunResults and RunRequests are pointed at by JobRuns so we must use two CTEs
+// to remove both parents in one hit.
+//
+// TaskRuns are removed by ON DELETE CASCADE when the JobRuns and RunResults
+// are deleted.
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := dbtx.Exec(`
-			DELETE
-			FROM run_results
-			WHERE run_results.id IN (SELECT result_id
-															FROM job_runs
-															WHERE status IN (?) AND updated_at < ?)`,
+			WITH deleted_job_runs AS (
+				DELETE FROM job_runs WHERE status IN (?) AND updated_at < ? RETURNING result_id, run_request_id
+			),
+			deleted_run_results AS (
+				DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_job_runs)
+			)
+			DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-		if err != nil {
-			return errors.Wrap(err, "error deleting JobRun's RunResults")
-		}
-
-		// and run_requests
-		err = dbtx.Exec(`
-			DELETE
-			FROM run_requests
-			WHERE run_requests.id IN (SELECT run_request_id
-															FROM job_runs
-															WHERE status IN (?) AND updated_at < ?)`,
-			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-		if err != nil {
-			return errors.Wrap(err, "error deleting JobRun's RunRequests")
-		}
-
-		// and then task runs using a join in the subquery
-		err = dbtx.Exec(`
-			DELETE
-			FROM run_results
-			WHERE run_results.id IN (SELECT task_runs.result_id
-															FROM task_runs
-															INNER JOIN job_runs ON
-																task_runs.job_run_id = job_runs.id
-															WHERE job_runs.status IN (?) AND job_runs.updated_at < ?)`,
-			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
-		if err != nil {
-			return errors.Wrap(err, "error deleting TaskRuns's RunResults")
-		}
-
-		err = dbtx.
-			Where("status IN (?)", bulkQuery.Status.ToStrings()).
-			Where("updated_at < ?", bulkQuery.UpdatedBefore).
-			Unscoped().
-			Delete(&[]models.JobRun{}).
-			Error
 		if err != nil {
 			return errors.Wrap(err, "error deleting JobRuns")
 		}

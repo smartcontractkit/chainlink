@@ -4,8 +4,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 )
 
 // RandomnessLogEvent provides functionality specific to a log event emitted
@@ -69,10 +69,10 @@ func (le RandomnessLogEvent) RunRequest() (RunRequest, error) {
 			"while parsing request params for VRF run request")
 	}
 
-	str := parsedLog.RequestID().Hex()
+	requestID := parsedLog.RequestID()
 	requester := le.Requester()
 	return RunRequest{
-		RequestID:     &str,
+		RequestID:     &requestID,
 		TxHash:        &le.Log.TxHash,
 		BlockHash:     &le.Log.BlockHash,
 		Requester:     &requester,

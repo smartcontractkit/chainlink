@@ -1,9 +1,9 @@
 package adapters
 
 import (
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -11,6 +11,11 @@ import (
 
 // EthBytes32 holds no fields.
 type EthBytes32 struct{}
+
+// TaskType returns the type of Adapter.
+func (e *EthBytes32) TaskType() models.TaskType {
+	return TaskTypeEthBytes32
+}
 
 // Perform returns the hex value of the first 32 bytes of a string
 // so that it is in the proper format to be written to the blockchain.
@@ -33,6 +38,11 @@ func (*EthBytes32) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 // EthInt256 holds no fields
 type EthInt256 struct{}
 
+// TaskType returns the type of Adapter.
+func (e *EthInt256) TaskType() models.TaskType {
+	return TaskTypeEthInt256
+}
+
 // Perform returns the hex value of a given string so that it
 // is in the proper format to be written to the blockchain.
 //
@@ -50,6 +60,11 @@ func (*EthInt256) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 
 // EthUint256 holds no fields.
 type EthUint256 struct{}
+
+// TaskType returns the type of Adapter.
+func (e *EthUint256) TaskType() models.TaskType {
+	return TaskTypeEthUint256
+}
 
 // Perform returns the hex value of a given string so that it
 // is in the proper format to be written to the blockchain.

@@ -3,7 +3,7 @@ jobs:
   go-postgres:
     resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -35,7 +35,7 @@ jobs:
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: ./tools/ci/rust_test
@@ -48,6 +48,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
       - store_artifacts:
@@ -61,6 +66,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
       - store_artifacts:
@@ -72,6 +82,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
       - store_artifacts:
@@ -83,6 +98,11 @@ jobs:
       docker_layer_caching: true
     working_directory: ~/chainlink
     steps:
+      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
+      - run: sudo rm -rf /usr/share/emacs
+      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
+      - run: sudo rm -rf /home/circleci/.npm
+      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
       - checkout
       - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
       - store_artifacts:
@@ -90,7 +110,7 @@ jobs:
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -109,7 +129,7 @@ jobs:
           path: ./integration/logs
   styleguide:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -125,7 +145,7 @@ jobs:
       - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -142,7 +162,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -186,6 +206,7 @@ jobs:
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
+      - run: yarn workspace @chainlink/explorer setup
       - run: yarn workspace @chainlink/explorer run test:migration:run
       - run:
           name: Run Server Tests
@@ -200,7 +221,7 @@ jobs:
           path: ./integration/logs
   feeds:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -252,19 +273,6 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
-  build-explorer:
-    machine:
-      image: circleci/classic:201808-01
-      docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
   build-publish-chainlink:
     resource_class: large
     machine:
@@ -284,21 +292,6 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
-  build-chainlink:
-    resource_class: xlarge
-    machine:
-      image: circleci/classic:201808-01
-      docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: |
-            DOCKER_TAG=circleci make docker
   build-chainlink-sgx:
     resource_class: xlarge
     machine:
@@ -316,7 +309,7 @@ jobs:
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -333,7 +326,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -350,7 +343,7 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -435,32 +428,14 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - build-explorer:
-          filters:
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
       - build-publish-explorer:
           requires:
             - styleguide
             - json-api-client
             - explorer
           filters:
-            branches:
-              only:
-                - develop
-                - /^release\/explorer-v.*/
             tags:
-              only: /^explorer-v.*/ # handles final versioned releases
-      - build-chainlink:
-          filters:
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
+              only: /^v.*/
       - build-chainlink-sgx:
           filters:
             tags:
@@ -470,20 +445,14 @@ workflows:
             - go-postgres
             - solidity
             - geth-postgres
-            - geth-postgres-ts
             - parity-postgres
-            - parity-postgres-ts
             - styleguide
             - json-api-client
             - operator-ui
             - rust
           filters:
-            branches:
-              only:
-                - develop
-                - /^release\/v.*/
             tags:
-              only: /^v.*/ # handles final versioned releases
+              only: /^v.*/
       - reportcoverage:
           requires:
             - go-postgres

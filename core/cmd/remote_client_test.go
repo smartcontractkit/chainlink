@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/auth"
-	"chainlink/core/cmd"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -333,7 +333,6 @@ func TestClient_CreateJobSpec(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
-
 	client, _ := app.NewClientAndRenderer()
 
 	tests := []struct {
@@ -344,7 +343,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 		{"bad json", "{bad son}", 0, true},
 		{"bad filepath", "bad/filepath/", 0, true},
 		{"web", `{"initiators":[{"type":"web"}],"tasks":[{"type":"NoOp"}]}`, 1, false},
-		{"runAt", `{"initiators":[{"type":"runAt","params":{"time":"2018-01-08T18:12:01.103Z"}}],"tasks":[{"type":"NoOp"}]}`, 2, false},
+		{"runAt", `{"initiators":[{"type":"runAt","params":{"time":"3000-01-08T18:12:01.103Z"}}],"tasks":[{"type":"NoOp"}]}`, 2, false},
 		{"file", "../internal/fixtures/web/end_at_job.json", 3, false},
 	}
 
@@ -953,6 +952,6 @@ func TestClient_CancelJobRun(t *testing.T) {
 
 	runs := cltest.MustAllJobsWithStatus(t, app.Store, models.RunStatusCancelled)
 	require.Len(t, runs, 1)
-	assert.Equal(t, models.RunStatusCancelled, runs[0].Status)
+	assert.Equal(t, models.RunStatusCancelled, runs[0].GetStatus())
 	assert.NotNil(t, runs[0].FinishedAt)
 }

@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -31,6 +31,11 @@ type EthTx struct {
 	DataFormat       string               `json:"format"`
 	GasPrice         *utils.Big           `json:"gasPrice" gorm:"type:numeric"`
 	GasLimit         uint64               `json:"gasLimit"`
+}
+
+// TaskType returns the type of Adapter.
+func (e *EthTx) TaskType() models.TaskType {
+	return TaskTypeEthTx
 }
 
 // Perform creates the run result for the transaction if the existing run result

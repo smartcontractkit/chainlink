@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -26,6 +26,7 @@ func TestStore_ConfigDefaults(t *testing.T) {
 	assert.Equal(t, assets.NewLink(1000000000000000000), config.MinimumContractPayment())
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout())
 	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
+	assert.Equal(t, false, config.EthereumDisabled())
 }
 
 func TestConfig_sessionSecret(t *testing.T) {

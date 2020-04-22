@@ -17,6 +17,23 @@
     }
   },
   {
+    "name": "docker",
+    "username": "postgres",
+    "password": "explorer",
+    "type": "postgres",
+    "host": "localhost",
+    "port": 5433,
+    "database": "explorer_dev",
+    "synchronize": false,
+    "logging": true,
+    "entities": ["src/entity/**/*.ts"],
+    "migrations": ["src/migration/**/*.ts"],
+    "cli": {
+      "entitiesDir": "src/entity",
+      "migrationsDir": "src/migration"
+    }
+  },
+  {
     "name": "production",
     "type": "postgres",
     "host": "localhost",

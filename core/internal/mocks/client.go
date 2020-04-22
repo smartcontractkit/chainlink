@@ -3,14 +3,15 @@
 package mocks
 
 import (
-	assets "chainlink/core/assets"
 	big "math/big"
+
+	assets "github.com/smartcontractkit/chainlink/core/assets"
 
 	common "github.com/ethereum/go-ethereum/common"
 
 	context "context"
 
-	eth "chainlink/core/eth"
+	eth "github.com/smartcontractkit/chainlink/core/eth"
 
 	ethereum "github.com/ethereum/go-ethereum"
 
@@ -40,14 +41,14 @@ func (_m *Client) Call(result interface{}, method string, args ...interface{}) e
 }
 
 // GetBlockByNumber provides a mock function with given fields: hex
-func (_m *Client) GetBlockByNumber(hex string) (eth.BlockHeader, error) {
+func (_m *Client) GetBlockByNumber(hex string) (eth.Block, error) {
 	ret := _m.Called(hex)
 
-	var r0 eth.BlockHeader
-	if rf, ok := ret.Get(0).(func(string) eth.BlockHeader); ok {
+	var r0 eth.Block
+	if rf, ok := ret.Get(0).(func(string) eth.Block); ok {
 		r0 = rf(hex)
 	} else {
-		r0 = ret.Get(0).(eth.BlockHeader)
+		r0 = ret.Get(0).(eth.Block)
 	}
 
 	var r1 error
@@ -217,13 +218,13 @@ func (_m *Client) GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error) {
 	return r0, r1
 }
 
-// SendRawTx provides a mock function with given fields: hex
-func (_m *Client) SendRawTx(hex string) (common.Hash, error) {
-	ret := _m.Called(hex)
+// SendRawTx provides a mock function with given fields: bytes
+func (_m *Client) SendRawTx(bytes []byte) (common.Hash, error) {
+	ret := _m.Called(bytes)
 
 	var r0 common.Hash
-	if rf, ok := ret.Get(0).(func(string) common.Hash); ok {
-		r0 = rf(hex)
+	if rf, ok := ret.Get(0).(func([]byte) common.Hash); ok {
+		r0 = rf(bytes)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(common.Hash)
@@ -231,8 +232,8 @@ func (_m *Client) SendRawTx(hex string) (common.Hash, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(hex)
+	if rf, ok := ret.Get(1).(func([]byte) error); ok {
+		r1 = rf(bytes)
 	} else {
 		r1 = ret.Error(1)
 	}

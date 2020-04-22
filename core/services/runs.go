@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	clnull "chainlink/core/null"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *utils.Big, txManager store.TxManager) {
@@ -21,7 +21,7 @@ func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, c
 		)
 
 		taskRun.Status = models.RunStatusPendingConfirmations
-		run.Status = models.RunStatusPendingConfirmations
+		run.SetStatus(models.RunStatusPendingConfirmations)
 
 	} else if err := validateOnMainChain(run, taskRun, txManager); err != nil {
 		logger.Warnw("Failure while trying to validate chain",
@@ -32,7 +32,7 @@ func validateMinimumConfirmations(run *models.JobRun, taskRun *models.TaskRun, c
 		run.SetError(err)
 
 	} else {
-		run.Status = models.RunStatusInProgress
+		run.SetStatus(models.RunStatusInProgress)
 	}
 }
 

@@ -3,8 +3,8 @@ package contracts
 import (
 	"math/big"
 
-	"chainlink/core/eth"
-	ethsvc "chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -77,6 +77,8 @@ type FluxAggregatorRoundState struct {
 	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
 	LatestAnswer      *big.Int `abi:"_latestRoundAnswer"`
 	TimesOutAt        uint64   `abi:"_timesOutAt"`
+	AvailableFunds    *big.Int `abi:"_availableFunds"`
+	PaymentAmount     *big.Int `abi:"_paymentAmount"`
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {

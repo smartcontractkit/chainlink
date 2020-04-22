@@ -7,13 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/services/fluxmonitor"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/pkg/errors"
@@ -121,7 +120,11 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
+	minimumPollingInterval := models.Duration(store.Config.DefaultHTTPTimeout())
 
+	if store.Config.EthereumDisabled() {
+		fe.Add("cannot add flux monitor jobs when ethereum is disabled")
+	}
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
@@ -136,8 +139,8 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	}
 	if i.PollingInterval == 0 {
 		fe.Add("no pollingInterval")
-	} else if i.PollingInterval < fluxmonitor.MinimumPollingInterval {
-		fe.Add("pollingInterval must be equal or greater than " + fluxmonitor.MinimumPollingInterval.String())
+	} else if i.PollingInterval < minimumPollingInterval {
+		fe.Add("pollingInterval must be equal or greater than " + minimumPollingInterval.String())
 	}
 	if err := validateFeeds(i.Feeds, store); err != nil {
 		fe.Add(err.Error())
@@ -252,7 +255,10 @@ func validateRandomnessLogInitiator(i models.Initiator, j models.JobSpec) error 
 
 func validateTask(task models.TaskSpec, store *store.Store) error {
 	adapter, err := adapters.For(task, store.Config, store.ORM)
-	if !store.Config.Dev() {
+	if err != nil {
+		return err
+	}
+	if !store.Config.EnableExperimentalAdapters() {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")
 		}
@@ -260,7 +266,7 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 			return errors.New("EthTxABIEncode Adapter is not implemented yet")
 		}
 	}
-	return err
+	return nil
 }
 
 // ValidateServiceAgreement checks the ServiceAgreement for any application logic errors.

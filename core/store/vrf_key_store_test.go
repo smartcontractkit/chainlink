@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"chainlink/core/internal/cltest"
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf/generated/solidity_verifier_wrapper"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 )
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()

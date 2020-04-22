@@ -27,7 +27,7 @@ beforeAll(async () => {
   defaultAccount = users.roles.defaultAccount
 })
 
-describe('AggregatorProxy', () => {
+describe('WhitelistedAggregatorProxy', () => {
   const jobId1 =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
   const deposit = h.toWei('100')
@@ -62,6 +62,7 @@ describe('AggregatorProxy', () => {
       'latestAnswer',
       'latestRound',
       'latestTimestamp',
+      'decimals',
       'setAggregator',
       // Ownable methods:
       'acceptOwnership',
@@ -69,7 +70,10 @@ describe('AggregatorProxy', () => {
       'transferOwnership',
       // Whitelisted methods:
       'addToWhitelist',
+      'disableWhitelist',
+      'enableWhitelist',
       'removeFromWhitelist',
+      'whitelistEnabled',
       'whitelisted',
     ])
   })

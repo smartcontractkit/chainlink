@@ -8,7 +8,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 
-	"chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock

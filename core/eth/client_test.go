@@ -6,13 +6,14 @@ import (
 
 	"math/big"
 
-	"chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	strpkg "chainlink/core/store"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -106,10 +107,10 @@ func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 
 	ethClientMock := new(mocks.CallerSubscriber)
 	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
-	txData := "0xdeadbeef"
+	txData := hexutil.MustDecode("0xdeadbeef")
 	returnedHash := cltest.NewHash()
 
-	ethClientMock.On("Call", mock.Anything, "eth_sendRawTransaction", txData).
+	ethClientMock.On("Call", mock.Anything, "eth_sendRawTransaction", "0xdeadbeef").
 		Return(nil).
 		Run(func(args mock.Arguments) {
 			res := args.Get(0).(*common.Hash)

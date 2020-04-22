@@ -8,30 +8,24 @@ import (
 	"sync"
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/eth"
-	"chainlink/core/services/eth/contracts"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/tevino/abool"
 )
 
 //go:generate mockery -name Service -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
-
-// defaultHTTPTimeout is the timeout used by the price adapter fetcher for outgoing HTTP requests.
-const defaultHTTPTimeout = 5 * time.Second
-
-// MinimumPollingInterval is the smallest possible polling interval the Flux
-// Monitor supports.
-const MinimumPollingInterval = models.Duration(defaultHTTPTimeout)
 
 type RunManager interface {
 	Create(
@@ -62,6 +56,7 @@ type concreteFluxMonitor struct {
 	chDisconnect   chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
+	disabled       bool
 }
 
 type addEntry struct {
@@ -75,6 +70,10 @@ func New(
 	store *store.Store,
 	runManager RunManager,
 ) Service {
+	if store.Config.EthereumDisabled() {
+		return &concreteFluxMonitor{disabled: true}
+	}
+
 	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM)
 	return &concreteFluxMonitor{
 		store:          store,
@@ -94,6 +93,11 @@ func New(
 }
 
 func (fm *concreteFluxMonitor) Start() error {
+	if fm.disabled {
+		logger.Info("Flux monitor disabled: skipping start")
+		return nil
+	}
+
 	fm.logBroadcaster.Start()
 
 	go fm.serveInternalRequests()
@@ -125,6 +129,11 @@ func (fm *concreteFluxMonitor) Start() error {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
+	if fm.disabled {
+		logger.Info("Flux monitor disabled: cannot stop")
+		return
+	}
+
 	fm.logBroadcaster.Stop()
 	close(fm.chStop)
 	<-fm.chDone
@@ -187,7 +196,8 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"job", job.ID.String(),
 			"initr", initr.ID,
 		)
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM)
+		timeout := fm.store.Config.DefaultHTTPTimeout()
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -214,7 +224,7 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM) (DeviationChecker, error)
+	New(models.Initiator, RunManager, *orm.ORM, time.Duration) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -222,9 +232,16 @@ type pollingDeviationCheckerFactory struct {
 	logBroadcaster eth.LogBroadcaster
 }
 
-func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager RunManager, orm *orm.ORM) (DeviationChecker, error) {
-	if initr.InitiatorParams.PollingInterval < MinimumPollingInterval {
-		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", MinimumPollingInterval)
+func (f pollingDeviationCheckerFactory) New(
+	initr models.Initiator,
+	runManager RunManager,
+	orm *orm.ORM,
+	timeout time.Duration,
+) (DeviationChecker, error) {
+	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
+
+	if initr.InitiatorParams.PollingInterval < minimumPollingInterval {
+		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", minimumPollingInterval)
 	}
 
 	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
@@ -233,7 +250,7 @@ func (f pollingDeviationCheckerFactory) New(initr models.Initiator, runManager R
 	}
 
 	fetcher, err := newMedianFetcherFromURLs(
-		defaultHTTPTimeout,
+		timeout,
 		initr.InitiatorParams.RequestData.String(),
 		urls)
 	if err != nil {
@@ -319,7 +336,7 @@ type PollingDeviationChecker struct {
 	precision     int32
 	idleThreshold time.Duration
 
-	connected                  utils.AtomicBool
+	connected                  *abool.AtomicBool
 	chMaybeLogs                chan maybeLog
 	reportableRoundID          *big.Int
 	mostRecentSubmittedRoundID uint64
@@ -361,6 +378,7 @@ func NewPollingDeviationChecker(
 		pollTicker:         NewResettableTicker(pollDelay),
 		idleTicker:         nil,
 		roundTimeoutTicker: nil,
+		connected:          abool.New(),
 		chMaybeLogs:        make(chan maybeLog, 100),
 		chStop:             make(chan struct{}),
 		waitOnStop:         make(chan struct{}),
@@ -387,14 +405,14 @@ func (p *PollingDeviationChecker) OnConnect() {
 	logger.Debugw("PollingDeviationChecker connected to Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
 	)
-	p.connected.Set(true)
+	p.connected.Set()
 }
 
 func (p *PollingDeviationChecker) OnDisconnect() {
 	logger.Debugw("PollingDeviationChecker disconnected from Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
 	)
-	p.connected.Set(false)
+	p.connected.UnSet()
 }
 
 type ResettableTicker struct {
@@ -440,7 +458,11 @@ func (p *PollingDeviationChecker) consume() {
 	connected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
 	defer unsubscribeLogs()
 
-	p.connected.Set(connected)
+	if connected {
+		p.connected.Set()
+	} else {
+		p.connected.UnSet()
+	}
 
 	// Try to do an initial poll
 	p.pollIfEligible(p.threshold)
@@ -464,12 +486,33 @@ func (p *PollingDeviationChecker) consume() {
 			p.respondToLog(maybeLog.Log)
 
 		case <-p.pollTicker.Tick():
+			logger.Debugw("Poll ticker fired",
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
 			p.pollIfEligible(p.threshold)
 
 		case <-p.idleTicker:
+			logger.Debugw("Idle ticker fired",
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
 			p.pollIfEligible(0)
 
 		case <-p.roundTimeoutTicker:
+			logger.Debugw("Round timeout ticker fired",
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
 			p.pollIfEligible(p.threshold)
 		}
 	}
@@ -571,10 +614,13 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 		logger.Errorw(fmt.Sprintf("Ignoring new round request: error fetching eligibility from contract: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
-	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
 
-	if !roundState.EligibleToSubmit {
-		logger.Infow("Ignoring new round request: not eligible to submit", p.loggerFieldsForNewRound(log)...)
+	err = p.checkEligibilityAndAggregatorFunding(roundState)
+	if errors.Cause(err) == ErrAlreadySubmitted {
+		logger.Infow(fmt.Sprintf("Ignoring new round request: %v, possible chain reorg", err), p.loggerFieldsForNewRound(log)...)
+		return
+	} else if err != nil {
+		logger.Infow(fmt.Sprintf("Ignoring new round request: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
@@ -584,9 +630,6 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 		return
 	} else if log.RoundId.Uint64() <= p.mostRecentSubmittedRoundID {
 		logger.Infow("Ignoring new round request: already submitted for this round", p.loggerFieldsForNewRound(log)...)
-		return
-	} else if p.reportableRoundID.Uint64() <= p.mostRecentSubmittedRoundID {
-		logger.Infow("Ignoring new round request: possible chain reorg", p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
@@ -601,72 +644,82 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	p.createJobRun(polledAnswer, p.reportableRoundID)
 }
 
-// poll walks through the steps to check for a deviation, early exiting if deviation
-// is not met, or triggering a new job run if deviation is met.
-// Only invoked by the CSP consumer on the single goroutine for thread safety.
+var (
+	ErrNotEligible      = errors.New("not eligible to submit")
+	ErrUnderfunded      = errors.New("aggregator is underfunded")
+	ErrPaymentTooLow    = errors.New("round payment amount < minimum contract payment")
+	ErrAlreadySubmitted = errors.Errorf("already submitted for round")
+)
+
+func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
+	if !roundState.EligibleToSubmit {
+		return ErrNotEligible
+	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
+		return ErrUnderfunded
+	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
+		return ErrPaymentTooLow
+	} else if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
+		return ErrAlreadySubmitted
+	}
+	return nil
+}
+
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
-	if p.connected.Get() == false {
-		logger.Warn("not connected to Ethereum node, skipping poll")
+	loggerFields := []interface{}{
+		"jobID", p.initr.JobSpecID,
+		"address", p.initr.InitiatorParams.Address,
+		"threshold", threshold,
+	}
+
+	if p.connected.IsSet() == false {
+		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
 		return false
 	}
 
 	roundState, err := p.roundState()
 	if err != nil {
-		logger.Errorf("unable to determine eligibility to submit from FluxAggregator contract: %v", err)
+		logger.Errorw(fmt.Sprintf("unable to determine eligibility to submit from FluxAggregator contract: %v", err), loggerFields...)
 		return false
 	}
+	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
 
-	// It's pointless to listen to logs from before the current reporting round
-	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
-
-	// If we've already submitted an answer for this round, but the tx is still pending, don't resubmit
-	if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
-		logger.Infow(fmt.Sprintf("already submitted for round %v, tx is still pending", roundState.ReportableRoundID),
-			"jobID", p.initr.JobSpecID,
-		)
+	err = p.checkEligibilityAndAggregatorFunding(roundState)
+	if errors.Cause(err) == ErrAlreadySubmitted {
+		logger.Infow(fmt.Sprintf("skipping poll: %v, tx is pending", err), loggerFields...)
 		return false
-	}
-
-	if !roundState.EligibleToSubmit {
-		logger.Infow("not eligible to submit, skipping poll",
-			"jobID", p.initr.JobSpecID,
-		)
+	} else if err != nil {
+		logger.Infow(fmt.Sprintf("skipping poll: %v", err), loggerFields...)
 		return false
 	}
 
 	polledAnswer, err := p.fetcher.Fetch()
 	if err != nil {
-		logger.Errorf("can't fetch answer: %v", err)
+		logger.Errorw(fmt.Sprintf("can't fetch answer: %v", err), loggerFields...)
 		return false
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
-	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
-
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestAnswer, -p.precision)
+
+	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
+	loggerFields = append(loggerFields,
+		"latestAnswer", latestAnswer,
+		"polledAnswer", polledAnswer,
+	)
 	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
-		logger.Debugw("deviation < threshold, not submitting",
-			"latestAnswer", latestAnswer,
-			"polledAnswer", polledAnswer,
-			"threshold", threshold,
-		)
+		logger.Debugw("deviation < threshold, not submitting", loggerFields...)
 		return false
 	}
 
-	var logMessage string
 	if roundState.ReportableRoundID > 1 {
-		logMessage = "deviation > threshold, starting new round"
+		logger.Infow("deviation > threshold, starting new round", loggerFields...)
 	} else {
-		logMessage = "starting first round"
+		logger.Infow("starting first round", loggerFields...)
 	}
-	logger.Infow(logMessage,
-		"reportableRound", roundState.ReportableRoundID,
-		"address", p.initr.Address.Hex(),
-		"jobID", p.initr.JobSpecID,
-	)
+
 	err = p.createJobRun(polledAnswer, p.reportableRoundID)
 	if err != nil {
-		logger.Errorf("can't create job run: %v", err)
+		logger.Errorw(fmt.Sprintf("can't create job run: %v", err), loggerFields...)
 		return false
 	}
 
@@ -685,12 +738,44 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 		return contracts.FluxAggregatorRoundState{}, err
 	}
 
-	// Update the roundTimeTicker using the .TimesOutAt field describing the current round
+	// It's pointless to listen to logs from before the current reporting round
+	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
+
+	// Update the roundTimeoutTicker using the .TimesOutAt field describing the current round
 	if roundState.TimesOutAt == 0 {
+		logger.Debugw("updating roundState.TimesOutAt",
+			"value", roundState.TimesOutAt,
+			"pollDelay", p.pollTicker.d,
+			"idleThreshold", p.idleThreshold,
+			"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+			"reportableRoundID", p.reportableRoundID,
+			"contract", p.initr.InitiatorParams.Address.Hex(),
+		)
 		p.roundTimeoutTicker = nil
 	} else {
 		timeUntilTimeout := time.Unix(int64(roundState.TimesOutAt), 0).Sub(time.Now())
-		p.roundTimeoutTicker = time.After(timeUntilTimeout)
+		if timeUntilTimeout.Seconds() <= 0 {
+			p.roundTimeoutTicker = nil
+			logger.Debugw("NOT updating roundState.TimesOutAt, negative duration",
+				"value", roundState.TimesOutAt,
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
+		} else {
+			p.roundTimeoutTicker = time.After(timeUntilTimeout)
+			logger.Debugw("updating roundState.TimesOutAt",
+				"value", roundState.TimesOutAt,
+				"timeUntilTimeout", timeUntilTimeout,
+				"pollDelay", p.pollTicker.d,
+				"idleThreshold", p.idleThreshold,
+				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+				"reportableRoundID", p.reportableRoundID,
+				"contract", p.initr.InitiatorParams.Address.Hex(),
+			)
+		}
 	}
 
 	return roundState, nil

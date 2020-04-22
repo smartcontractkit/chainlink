@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/models/vrfkey"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -49,6 +49,11 @@ type Random struct {
 	PublicKey string `json:"publicKey"`
 }
 
+// TaskType returns the type of Adapter.
+func (ra *Random) TaskType() models.TaskType {
+	return TaskTypeRandom
+}
+
 // Perform returns the the proof for the VRF output given seed, or an error.
 func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunOutput {
 	key, err := getKey(ra, input)
@@ -82,7 +87,7 @@ func getSeed(input models.RunInput) (*big.Int, error) {
 
 // getKey returns the public key for the VRF, or an error.
 func getKey(ra *Random, input models.RunInput) (*vrfkey.PublicKey, error) {
-	hash, err := extractHex(input, "keyHash")
+	inputKeyHash, err := extractHex(input, "keyHash")
 	if err != nil {
 		return nil, err
 	}
@@ -90,9 +95,14 @@ func getKey(ra *Random, input models.RunInput) (*vrfkey.PublicKey, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse %v as public key", ra.PublicKey)
 	}
-	if key.Hash() != common.BytesToHash(hash) {
+	keyHash, err := key.Hash()
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not compute %v' hash", ra.PublicKey)
+	}
+
+	if keyHash != common.BytesToHash(inputKeyHash) {
 		return nil, fmt.Errorf(
-			"this task's keyHash %x does not match the input hash %x", key.Hash(), hash)
+			"this task's keyHash %x does not match the input hash %x", keyHash, inputKeyHash)
 	}
 	return key, nil
 }

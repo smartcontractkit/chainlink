@@ -9,10 +9,10 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
-	"chainlink/core/logger"
-	"chainlink/core/store"
-	"chainlink/core/store/models/vrfkey"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func vRFKeyStore(cli *Client) *store.VRFKeyStore {
@@ -30,21 +30,28 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
 	}
-	fmt.Printf(`Created keypair, with public key
+	uncompressedKey, err := key.StringUncompressed()
+	if err != nil {
+		return errors.Wrapf(err, "while creating new account")
+	}
+	fmt.Printf(`Created keypair.
 
-%s
+Compressed public key (use this for interactions with the chainlink node):
+  %s
+Uncompressed public key (use this for interactions with the VRFCoordinator):
+  %s
 
 The following command will export the encrypted secret key from the db to <save_path>:
 
 chainlink local vrf export -f <save_path> -pk %s
-`, key, key)
+`, key, uncompressedKey, key)
 	return nil
 }
 
 // CreateAndExportWeakVRFKey creates a key in the VRF keystore, protected by the
 // password in the password file, but with weak key-derivation-function
 // parameters, which makes it cheaper for testing, but also more vulnerable to
-// bruteforcing of the encyrpted key material. For testing purposes only!
+// bruteforcing of the encrypted key material. For testing purposes only!
 //
 // The key is only stored at the specified file location, not stored in the DB.
 func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {

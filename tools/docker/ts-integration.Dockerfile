@@ -2,7 +2,6 @@ FROM node:10.16
 
 # Install docker and docker compose
 RUN apt-get update \
-    #
     # Install Docker CE CLI
     && apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common lsb-release \
     && curl -fsSL https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]')/gpg | apt-key add - 2>/dev/null \
@@ -20,27 +19,23 @@ ENV PATH=/chainlink/tools/bin:./node_modules/.bin:$PATH
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
-COPY yarn.lock package.json .yarnrc ./
-COPY .yarn .yarn
-COPY belt/package.json ./belt/
-COPY belt/bin ./belt/bin
-COPY evm-test-helpers/package.json evm-test-helpers/
-COPY evm-contracts/package.json ./evm-contracts/
-COPY tools/ci-ts/package.json tools/ci-ts/
-
-# copy our CI test
-COPY tools/docker tools/docker/
-
 # copy over all our dependencies
-COPY tsconfig.cjs.json tsconfig.es6.json ./
+COPY yarn.lock package.json .yarnrc tsconfig.cjs.json tsconfig.es6.json ./
+COPY patches patches
+COPY solc_bin solc_bin
+COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
+COPY .yarn .yarn
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
 COPY evm-contracts evm-contracts
+# TODO remove @types import
+# https://www.pivotaltracker.com/story/show/171715396
 COPY operator_ui/@types operator_ui/@types/
 COPY tools/ci-ts tools/ci-ts
 
-# install deps for our integration scripts
-RUN yarn
+# install deps
+RUN yarn install
+RUN tools/bin/restore-solc-cache
 
 # setup contracts
 RUN yarn setup:contracts

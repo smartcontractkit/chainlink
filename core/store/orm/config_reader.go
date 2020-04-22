@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	"chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
@@ -20,19 +20,26 @@ type ConfigReader interface {
 	ClientNodeURL() string
 	DatabaseTimeout() time.Duration
 	DatabaseURL() string
+	DefaultMaxHTTPAttempts() uint
 	DefaultHTTPLimit() int64
+	DefaultHTTPTimeout() time.Duration
 	Dev() bool
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool
 	MaximumServiceDuration() time.Duration
 	MinimumServiceDuration() time.Duration
+	EnableExperimentalAdapters() bool
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
+	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
+	GasUpdaterBlockDelay() uint16
+	GasUpdaterBlockHistorySize() uint16
+	GasUpdaterTransactionPercentile() uint16
 	JSONConsole() bool
 	LinkContractAddress() string
 	ExplorerURL() *url.URL

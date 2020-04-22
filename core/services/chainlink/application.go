@@ -6,15 +6,15 @@ import (
 	"sync"
 	"syscall"
 
-	"chainlink/core/gracefulpanic"
-	"chainlink/core/logger"
-	"chainlink/core/services"
-	"chainlink/core/services/fluxmonitor"
-	"chainlink/core/services/synchronization"
-	"chainlink/core/store"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/gobuffalo/packr"
 	"go.uber.org/multierr"
@@ -59,12 +59,14 @@ type ChainlinkApplication struct {
 	services.RunManager
 	RunQueue                 services.RunQueue
 	JobSubscriber            services.JobSubscriber
+	GasUpdater               services.GasUpdater
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *store.Store
 	SessionReaper            services.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
+	shutdownSignal           gracefulpanic.Signal
 }
 
 // NewApplication initializes a new store if one is not already
@@ -72,7 +74,8 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application)) Application {
-	store := store.NewStore(config)
+	shutdownSignal := gracefulpanic.NewSignal()
+	store := store.NewStore(config, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
 	statsPusher := synchronization.NewStatsPusher(
@@ -82,12 +85,14 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	runQueue := services.NewRunQueue(runExecutor)
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	gasUpdater := services.NewGasUpdater(store)
 	fluxMonitor := fluxmonitor.New(store, runManager)
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
 		JobSubscriber:            jobSubscriber,
+		GasUpdater:               gasUpdater,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -97,9 +102,11 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		SessionReaper:            services.NewStoreReaper(store),
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
+		shutdownSignal:           shutdownSignal,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{
+		gasUpdater,
 		store.TxManager,
 		jobSubscriber,
 		pendingConnectionResumer,
@@ -126,7 +133,7 @@ func (app *ChainlinkApplication) Start() error {
 	go func() {
 		select {
 		case <-sigs:
-		case <-gracefulpanic.Wait():
+		case <-app.shutdownSignal.Wait():
 		}
 		logger.ErrorIf(app.Stop())
 		app.Exiter(0)

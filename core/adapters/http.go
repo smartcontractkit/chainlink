@@ -14,25 +14,35 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/avast/retry-go"
 )
 
-const (
-	httpDefaultTimeout  = 15 * time.Second
-	httpDefaultAttempts = uint(5)
-)
-
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
 type HTTPGet struct {
-	URL          models.WebURL   `json:"url"`
-	GET          models.WebURL   `json:"get"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL                            models.WebURL   `json:"url"`
+	GET                            models.WebURL   `json:"get"`
+	Headers                        http.Header     `json:"headers"`
+	QueryParams                    QueryParameters `json:"queryParams"`
+	ExtendedPath                   ExtendedPath    `json:"extPath"`
+	AllowUnrestrictedNetworkAccess bool            `json:"-"`
+}
+
+// HTTPRequestConfig holds the configurable settings for an http request
+type HTTPRequestConfig struct {
+	timeout                        time.Duration
+	maxAttempts                    uint
+	sizeLimit                      int64
+	allowUnrestrictedNetworkAccess bool
+}
+
+// TaskType returns the type of Adapter.
+func (hga *HTTPGet) TaskType() models.TaskType {
+	return TaskTypeHTTPGet
 }
 
 // Perform ensures that the adapter's URL responds to a GET request without
@@ -42,7 +52,9 @@ func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.Ru
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	httpConfig := defaultHTTPConfig(store)
+	httpConfig.allowUnrestrictedNetworkAccess = hga.AllowUnrestrictedNetworkAccess
+	return sendRequest(input, request, httpConfig)
 }
 
 // GetURL retrieves the GET field if set otherwise returns the URL field
@@ -67,12 +79,18 @@ func (hga *HTTPGet) GetRequest() (*http.Request, error) {
 
 // HTTPPost requires a URL which is used for a POST request when the adapter is called.
 type HTTPPost struct {
-	URL          models.WebURL   `json:"url"`
-	POST         models.WebURL   `json:"post"`
-	Headers      http.Header     `json:"headers"`
-	QueryParams  QueryParameters `json:"queryParams"`
-	Body         *string         `json:"body,omitempty"`
-	ExtendedPath ExtendedPath    `json:"extPath"`
+	URL                            models.WebURL   `json:"url"`
+	POST                           models.WebURL   `json:"post"`
+	Headers                        http.Header     `json:"headers"`
+	QueryParams                    QueryParameters `json:"queryParams"`
+	Body                           *string         `json:"body,omitempty"`
+	ExtendedPath                   ExtendedPath    `json:"extPath"`
+	AllowUnrestrictedNetworkAccess bool            `json:"-"`
+}
+
+// TaskType returns the type of Adapter.
+func (hpa *HTTPPost) TaskType() models.TaskType {
+	return TaskTypeHTTPPost
 }
 
 // Perform ensures that the adapter's URL responds to a POST request without
@@ -82,7 +100,9 @@ func (hpa *HTTPPost) Perform(input models.RunInput, store *store.Store) models.R
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	return sendRequest(input, request, store.Config.DefaultHTTPLimit())
+	httpConfig := defaultHTTPConfig(store)
+	httpConfig.allowUnrestrictedNetworkAccess = hpa.AllowUnrestrictedNetworkAccess
+	return sendRequest(input, request, httpConfig)
 }
 
 // GetURL retrieves the POST field if set otherwise returns the URL field
@@ -141,56 +161,101 @@ func setHeaders(request *http.Request, headers http.Header, contentType string) 
 	}
 }
 
-func sendRequest(input models.RunInput, request *http.Request, limit int64) models.RunOutput {
+func sendRequest(input models.RunInput, request *http.Request, config HTTPRequestConfig) models.RunOutput {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
+	if !config.allowUnrestrictedNetworkAccess {
+		tr.DialContext = restrictedDialContext
+	}
 	client := &http.Client{Transport: tr}
 
-	response, err := withRetry(client, request)
-
-	if err != nil {
-		return models.NewRunOutputError(err)
-	}
-
-	defer response.Body.Close()
-
-	source := newMaxBytesReader(response.Body, limit)
-	bytes, err := ioutil.ReadAll(source)
+	bytes, statusCode, err := withRetry(client, request, config)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
 
 	responseBody := string(bytes)
-	if response.StatusCode >= 400 {
+
+	// This is either a client error caused on our end or a server error that persists even after retrying.
+	// Either way, there is no way for us to complete the run with a result.
+	if statusCode >= 400 {
 		return models.NewRunOutputError(errors.New(responseBody))
 	}
 
 	return models.NewRunOutputCompleteWithResult(responseBody)
 }
 
-func withRetry(client *http.Client, originalRequest *http.Request) (*http.Response, error) {
-	var response *http.Response
-	err := retry.Do(
+// withRetry executes the http request in a retry. Timeout is controlled with a context
+// Retry occurs if the request timeout, or there is any kind of connection or transport-layer error
+// Retry also occurs on remote server 5xx errors
+func withRetry(
+	client *http.Client,
+	originalRequest *http.Request,
+	config HTTPRequestConfig,
+) (responseBody []byte, statusCode int, err error) {
+	err = retry.Do(
 		func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), httpDefaultTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
 			defer cancel()
 			requestWithTimeout := originalRequest.Clone(ctx)
+
+			start := time.Now()
 
 			r, err := client.Do(requestWithTimeout)
 			if err != nil {
 				return err
 			}
-			response = r
+			defer r.Body.Close()
+			statusCode = r.StatusCode
+			elapsed := time.Since(start)
+			logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+
+			source := newMaxBytesReader(r.Body, config.sizeLimit)
+			bytes, err := ioutil.ReadAll(source)
+			if err != nil {
+				logger.Errorf("http adapter error reading body: %v", err.Error())
+				return err
+			}
+			elapsed = time.Since(start)
+			logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+
+			responseBody = bytes
+
+			// Retry on 5xx since this might give a different result
+			if 500 <= r.StatusCode && r.StatusCode < 600 {
+				return &RemoteServerError{responseBody, statusCode}
+			}
+
 			return nil
 		},
-		retry.Attempts(httpDefaultAttempts),
+		retry.Attempts(config.maxAttempts),
+		retry.RetryIf(func(err error) bool {
+			switch err.(type) {
+			// There is no point in retrying a request if the response was
+			// too large since it's likely that all retries will suffer the
+			// same problem
+			case *HTTPResponseTooLargeError:
+				return false
+			default:
+				return true
+			}
+		}),
+		retry.OnRetry(func(n uint, err error) {
+			logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", n, "timeout", config.timeout)
+		}),
 	)
 
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
+	return responseBody, statusCode, err
+}
+
+type RemoteServerError struct {
+	responseBody []byte
+	statusCode   int
+}
+
+func (e *RemoteServerError) Error() string {
+	return fmt.Sprintf("remote server error: %v\nResponse body: %v", e.statusCode, string(e.responseBody))
 }
 
 // maxBytesReader is inspired by
@@ -245,8 +310,16 @@ func (mbr *maxBytesReader) Read(p []byte) (n int, err error) {
 	return
 }
 
+type HTTPResponseTooLargeError struct {
+	limit int64
+}
+
+func (e *HTTPResponseTooLargeError) Error() string {
+	return fmt.Sprintf("HTTP response too large, must be less than %d bytes", e.limit)
+}
+
 func (mbr *maxBytesReader) tooLarge() (int, error) {
-	return 0, fmt.Errorf("HTTP request too large, must be less than %d bytes", mbr.limit)
+	return 0, &HTTPResponseTooLargeError{mbr.limit}
 }
 
 func (mbr *maxBytesReader) Close() error {
@@ -320,4 +393,13 @@ func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
 	}
 	*ep = ExtendedPath(values)
 	return err
+}
+
+func defaultHTTPConfig(store *store.Store) HTTPRequestConfig {
+	return HTTPRequestConfig{
+		store.Config.DefaultHTTPTimeout(),
+		store.Config.DefaultMaxHTTPAttempts(),
+		store.Config.DefaultHTTPLimit(),
+		false,
+	}
 }

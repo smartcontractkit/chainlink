@@ -6,7 +6,7 @@ import "./Whitelisted.sol";
 /**
  * @title A trusted proxy for updating where current answers are read from
  * @notice This contract provides a consistent address for the
- * CurrentAnwerInterface but delegates where it reads from to the owner, who is
+ * AggregatorInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  * @notice Only whitelisted addresses are allowed to access getters for
  * aggregated answers and round information.
@@ -18,7 +18,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden function to add the isWhitelisted() modifier
    */
   function latestAnswer()
     external
@@ -32,7 +32,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden function to add the isWhitelisted() modifier
    */
   function latestTimestamp()
     external
@@ -47,7 +47,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   /**
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden function to add the isWhitelisted() modifier
    */
   function getAnswer(uint256 _roundId)
     external
@@ -62,7 +62,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   /**
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden function to add the isWhitelisted() modifier
    */
   function getTimestamp(uint256 _roundId)
     external
@@ -76,7 +76,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
 
   /**
    * @notice get the latest completed round where the answer was updated
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden function to add the isWhitelisted() modifier
    */
   function latestRound()
     external

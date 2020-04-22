@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/Depado/ginprom"
 	helmet "github.com/danielkov/gin-helmet"

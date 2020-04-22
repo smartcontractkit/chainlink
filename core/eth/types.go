@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"regexp"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -123,6 +123,17 @@ type BlockHeader struct {
 	Nonce       types.BlockNonce `json:"nonce"`
 	GethHash    common.Hash      `json:"mixHash"`
 	ParityHash  common.Hash      `json:"hash"`
+}
+
+type Transaction struct {
+	GasPrice hexutil.Uint64 `json:"gasPrice"`
+}
+
+// Block represents a full block
+// See: https://github.com/ethereum/go-ethereum/blob/0e6ea9199ca701ee4c96220e873884327c8d18ff/core/types/block.go#L147
+type Block struct {
+	Transactions []Transaction  `json:"transactions"`
+	Difficulty   hexutil.Uint64 `json:"difficulty"`
 }
 
 var emptyHash = common.Hash{}

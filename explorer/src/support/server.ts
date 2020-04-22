@@ -1,7 +1,8 @@
 import { randomBytes } from 'crypto'
 import http from 'http'
-import { closeDbConnection, getDb } from '../database'
+import { getConfig } from '../config'
 import server from '../server'
+import { Server } from 'http'
 
 export const DEFAULT_TEST_PORT =
   parseInt(process.env.EXPLORER_TEST_SERVER_PORT, 10) || 8081
@@ -9,19 +10,19 @@ export const DEFAULT_TEST_PORT =
 /**
  * Start database then initialize the server on the specified port
  */
-export async function start() {
+export async function start(): Promise<Server> {
   Object.assign(process.env, {
     EXPLORER_SERVER_PORT: `${DEFAULT_TEST_PORT}`,
     EXPLORER_COOKIE_SECRET: randomBytes(32).toString('hex'),
   })
 
-  await getDb()
-  return server()
+  const conf = getConfig()
+  return server(conf)
 }
 
 /**
- * Stop the server then close the database connection
+ * Stop the server
  */
 export function stop(server: http.Server, done: jest.DoneCallback): void {
-  server.close(() => closeDbConnection().then(done))
+  server.close(done)
 }

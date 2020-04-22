@@ -6,7 +6,7 @@ import {
 } from '../utils/constants'
 
 const EXPLORER_BASE_URL =
-  process.env.EXPLORER_BASE_URL || 'https://explorer.chain.link'
+  process.env.EXPLORER_BASE_URL || 'http://localhost:8080'
 const EXPLORER_ADMIN_USERNAME = process.env.EXPLORER_ADMIN_USERNAME
 const EXPLORER_ADMIN_PASSWORD = process.env.EXPLORER_ADMIN_PASSWORD
 

@@ -9,12 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	"chainlink/core/store/migrations"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jinzhu/gorm"
@@ -33,7 +34,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	VRFKeyStore *VRFKeyStore
 	TxManager   TxManager
-	closeOnce   sync.Once
+	closeOnce   *sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -126,35 +127,37 @@ func (ed *EthDialer) Dial(urlString string) (eth.CallerSubscriber, error) {
 }
 
 // NewStore will create a new store using the Eth dialer
-func NewStore(config *orm.Config) *Store {
-	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()))
+func NewStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
+	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()), shutdownSignal)
 }
 
 // NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(config *orm.Config, dialer Dialer) *Store {
+func NewStoreWithDialer(config *orm.Config, dialer Dialer, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
-	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
+	return newStoreWithDialerAndKeyStore(config, dialer, keyStore, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config and
 // dialer, using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *orm.Config) *Store {
+func NewInsecureStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
 	dialer := NewEthDialer(config.MaxRPCCallsPerSecond())
 	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
-	return newStoreWithDialerAndKeyStore(config, dialer, keyStore)
+	return newStoreWithDialerAndKeyStore(config, dialer, keyStore, shutdownSignal)
 }
 
 func newStoreWithDialerAndKeyStore(
 	config *orm.Config,
 	dialer Dialer,
-	keyStoreGenerator func() *KeyStore) *Store {
+	keyStoreGenerator func() *KeyStore,
+	shutdownSignal gracefulpanic.Signal,
+) *Store {
 
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
-	orm, err := initializeORM(config)
+	orm, err := initializeORM(config, shutdownSignal)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to initialize ORM: %+v", err))
 	}
@@ -175,6 +178,7 @@ func newStoreWithDialerAndKeyStore(
 		KeyStore:  keyStore,
 		ORM:       orm,
 		TxManager: txManager,
+		closeOnce: &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
@@ -199,7 +203,7 @@ func (s *Store) Close() error {
 // one to work with soft deleted records.
 func (s *Store) Unscoped() *Store {
 	cpy := *s
-	cpy.ORM = cpy.ORM.Unscoped()
+	cpy.ORM = s.ORM.Unscoped()
 	return &cpy
 }
 
@@ -233,8 +237,8 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 	return merr
 }
 
-func initializeORM(config *orm.Config) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout())
+func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}

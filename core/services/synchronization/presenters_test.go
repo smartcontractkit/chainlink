@@ -3,11 +3,13 @@ package synchronization
 import (
 	"encoding/json"
 	"io/ioutil"
+	"math/big"
 	"testing"
+	"time"
 
-	"chainlink/core/assets"
-	clnull "chainlink/core/null"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -18,42 +20,34 @@ import (
 
 func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
-	runID := models.NewID()
-	specID := models.NewID()
 	task0RunID := models.NewID()
 	task1RunID := models.NewID()
-	jobRun := models.JobRun{
-		ID:        runID,
-		JobSpecID: specID,
-		Status:    models.RunStatusInProgress,
-		Result:    models.RunResult{},
+
+	job := models.JobSpec{ID: models.NewID()}
+	runRequest := models.RunRequest{
 		Payment:   assets.NewLink(2),
-		Initiator: models.Initiator{
-			Type: models.InitiatorRunLog,
+		RequestID: &requestID,
+		TxHash:    &txHash,
+		Requester: &newAddress,
+	}
+	run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
+	run.TaskRuns = []models.TaskRun{
+		models.TaskRun{
+			ID:                   task0RunID,
+			Status:               models.RunStatusPendingConfirmations,
+			Confirmations:        clnull.Uint32From(1),
+			MinimumConfirmations: clnull.Uint32From(3),
 		},
-		RunRequest: models.RunRequest{
-			RequestID: &requestID,
-			TxHash:    &txHash,
-			Requester: &newAddress,
-		},
-		TaskRuns: []models.TaskRun{
-			models.TaskRun{
-				ID:                   task0RunID,
-				Status:               models.RunStatusPendingConfirmations,
-				Confirmations:        clnull.Uint32From(1),
-				MinimumConfirmations: clnull.Uint32From(3),
-			},
-			models.TaskRun{
-				ID:     task1RunID,
-				Status: models.RunStatusErrored,
-				Result: models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
-			},
+		models.TaskRun{
+			ID:     task1RunID,
+			Status: models.RunStatusErrored,
+			Result: models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
 		},
 	}
-	p := SyncJobRunPresenter{JobRun: &jobRun}
+	p := SyncJobRunPresenter{JobRun: &run}
 
 	bytes, err := p.MarshalJSON()
 	require.NoError(t, err)
@@ -62,8 +56,8 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	err = json.Unmarshal(bytes, &data)
 	require.NoError(t, err)
 
-	assert.Equal(t, data["runId"], runID.String())
-	assert.Equal(t, data["jobId"], specID.String())
+	assert.Equal(t, data["runId"], run.ID.String())
+	assert.Equal(t, data["jobId"], job.ID.String())
 	assert.Equal(t, data["status"], "in_progress")
 	assert.Contains(t, data, "error")
 	assert.Contains(t, data, "createdAt")
@@ -74,7 +68,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	initiator, ok := data["initiator"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, initiator["type"], "runlog")
-	assert.Equal(t, initiator["requestId"], "RequestID")
+	assert.Equal(t, initiator["requestId"], "0x000000000000000000000000000000000000000000000000000000000000cafe")
 	assert.Equal(t, initiator["txHash"], "0x00000000000000000000000000000000000000000000000000000000deadbeef")
 	assert.Equal(t, initiator["requester"], newAddress.Hex())
 
@@ -99,7 +93,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 
 func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
 	tests := []struct {
@@ -169,7 +163,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-			requestID := "RequestID"
+			requestID := common.HexToHash("0xcafe")
 			requestTxHash := common.HexToHash("0xdeadbeef")
 			dataJSON := jsonFromFixture(t, test.path)
 			outgoingTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
@@ -177,31 +171,23 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			taskSpec := models.TaskSpec{
 				Type: "ethtx",
 			}
-
-			jobRun := models.JobRun{
-				ID:        models.NewID(),
-				JobSpecID: models.NewID(),
-				Status:    models.RunStatusCompleted,
-				Result:    models.RunResult{},
-				Payment:   assets.NewLink(2),
-				Initiator: models.Initiator{
-					Type: models.InitiatorRunLog,
-				},
-				RunRequest: models.RunRequest{
-					RequestID: &requestID,
-					TxHash:    &requestTxHash,
-					Requester: &newAddress,
-				},
-				TaskRuns: []models.TaskRun{
-					models.TaskRun{
-						ID:       models.NewID(),
-						TaskSpec: taskSpec,
-						Status:   models.RunStatusPendingConfirmations,
-						Result:   models.RunResult{Data: dataJSON},
-					},
+			job := models.JobSpec{ID: models.NewID()}
+			runRequest := models.RunRequest{
+				RequestID: &requestID,
+				TxHash:    &requestTxHash,
+				Requester: &newAddress,
+			}
+			run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
+			run.SetStatus(models.RunStatusCompleted)
+			run.TaskRuns = []models.TaskRun{
+				models.TaskRun{
+					ID:       models.NewID(),
+					TaskSpec: taskSpec,
+					Status:   models.RunStatusPendingConfirmations,
+					Result:   models.RunResult{Data: dataJSON},
 				},
 			}
-			p := SyncJobRunPresenter{JobRun: &jobRun}
+			p := SyncJobRunPresenter{JobRun: &run}
 
 			bytes, err := p.MarshalJSON()
 			require.NoError(t, err)

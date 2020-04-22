@@ -16,11 +16,11 @@ export default class DeviationGraph {
   tooltipPrice
   tooltipTimestamp
   tooltipPercentage
-  options = {}
+  config = {}
   colorRange = ['#c51515', '#c3c3c3']
 
-  constructor(options) {
-    this.options = options
+  constructor(config) {
+    this.config = config
   }
 
   bisectDate = d3.bisector(d => d.timestamp).left
@@ -135,11 +135,10 @@ export default class DeviationGraph {
   addDeviation(data) {
     const reducedData = data.reduce((memo, current, index) => {
       const slice = memo.slice(index - 1, index)
-      const average = d3.mean(slice, d => d.response) || current.response
+      const average = d3.mean(slice, d => d.answer) || current.answer
 
       const deviation =
-        (100 * (current.response - average)) /
-        ((current.response + average) / 2)
+        (100 * (current.answer - average)) / ((current.answer + average) / 2)
 
       return [
         ...memo,
@@ -252,7 +251,7 @@ export default class DeviationGraph {
     this.info.style('display', 'block')
     this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
     this.tooltipPrice.text(
-      () => `${this.options.valuePrefix} ${d.responseFormatted}`,
+      () => `${this.config.valuePrefix} ${d.answerFormatted}`,
     )
     this.tooltipPercentage.text(() => `${d.deviation.toFixed(2)}%`)
   }

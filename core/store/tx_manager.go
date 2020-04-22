@@ -10,16 +10,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -29,11 +28,6 @@ import (
 )
 
 const (
-	// DefaultGasLimit sets the default gas limit for outgoing transactions.
-	// if updating DefaultGasLimit, be sure it matches with the
-	// DefaultGasLimit specified in evm/test/Oracle_test.js
-	DefaultGasLimit uint64 = 500000
-
 	// Linear backoff is used so worst-case transaction time increases quadratically with this number
 	nonceReloadLimit int = 3
 
@@ -86,7 +80,7 @@ type TxManager interface {
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
-	SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error)
+	SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) ([]byte, error)
 
 	eth.Client
 }
@@ -200,7 +194,7 @@ func (txm *EthTxManager) OnNewHead(head *models.Head) {
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
 func (txm *EthTxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
-	return txm.CreateTxWithGas(null.String{}, to, data, txm.config.EthGasPriceDefault(), DefaultGasLimit)
+	return txm.CreateTxWithGas(null.String{}, to, data, txm.config.EthGasPriceDefault(), txm.config.EthGasLimitDefault())
 }
 
 // CreateTxWithGas signs and sends a transaction to the Ethereum blockchain.
@@ -221,7 +215,7 @@ func (txm *EthTxManager) CreateTxWithEth(from, to common.Address, value *assets.
 		return nil, errors.New("account does not exist")
 	}
 
-	return txm.createTx(null.String{}, ma, to, []byte{}, txm.config.EthGasPriceDefault(), DefaultGasLimit, value)
+	return txm.createTx(null.String{}, ma, to, []byte{}, txm.config.EthGasPriceDefault(), txm.config.EthGasLimitDefault(), value)
 }
 
 func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
@@ -239,7 +233,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 
 func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.ConfigReader) (*big.Int, uint64) {
 	if !config.Dev() {
-		return config.EthGasPriceDefault(), DefaultGasLimit
+		return config.EthGasPriceDefault(), config.EthGasLimitDefault()
 	}
 
 	if gasPriceWei == nil {
@@ -247,7 +241,7 @@ func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.Config
 	}
 
 	if gasLimit == 0 {
-		gasLimit = DefaultGasLimit
+		gasLimit = config.EthGasLimitDefault()
 	}
 
 	return gasPriceWei, gasLimit
@@ -369,24 +363,24 @@ func isUnderPricedReplacementError(err error) bool {
 }
 
 // SignedRawTxWithBumpedGas takes a transaction and generates a new signed TX from it with the provided params
-func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) ([]byte, error) {
 	ma := txm.getAccount(originalTx.From)
+	rlp := new(bytes.Buffer)
 	if ma == nil {
-		return "", fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
+		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
 	}
 
 	transaction := types.NewTransaction(originalTx.Nonce, originalTx.To, originalTx.Value.ToInt(), gasLimit, &gasPrice, originalTx.Data)
 
 	transaction, err := txm.keyStore.SignTx(ma.Account, transaction, txm.config.ChainID())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	rlp := new(bytes.Buffer)
 	if err := transaction.EncodeRLP(rlp); err != nil {
-		return "", err
+		return nil, err
 	}
-	return hexutil.Encode(rlp.Bytes()), nil
+	return rlp.Bytes(), nil
 }
 
 // newTx returns a newly signed Ethereum Transaction
@@ -423,7 +417,7 @@ func (txm *EthTxManager) newTx(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: hexutil.Encode(rlp.Bytes()),
+		SignedRawTx: rlp.Bytes(),
 	}, nil
 }
 
@@ -784,7 +778,7 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 			// If we do hit this scenario, we will keep creating new attempts that are guaranteed to fail
 			// until CHAINLINK_TX_ATTEMPT_LIMIT is reached
 			promGasBumpExceedsLimit.Inc()
-			err := fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
+			err := fmt.Errorf("bumped gas price of %v would exceed maximum configured limit of %v, set by ETH_MAX_GAS_PRICE_WEI", bumpedGasPrice, txm.config.EthMaxGasPriceWei())
 			logger.Error(err)
 			return err
 		}

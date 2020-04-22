@@ -1,14 +1,17 @@
 package models_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	null "gopkg.in/guregu/null.v3"
@@ -68,6 +71,71 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 			assert.Equal(t, test.want, res)
 		})
 	}
+}
+
+func TestInitiatorParams(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	schedule := models.Cron("* * * * *")
+	address := common.HexToAddress("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
+	requesters := models.AddressCollection([]common.Address{address})
+	big := utils.NewBig(big.NewInt(42))
+	topics := models.Topics([][]common.Hash{
+		models.TopicsForInitiatorsWhichRequireJobSpecIDTopic[models.InitiatorRunLog],
+	})
+	json := cltest.JSONFromString(t, `{"foo":42}`)
+	duration := models.Duration(42 * time.Second)
+	time := models.NewAnyTime(time.Now())
+
+	j := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&j))
+
+	i := models.Initiator{
+		JobSpecID: j.ID,
+		InitiatorParams: models.InitiatorParams{
+			Schedule:        schedule,
+			Time:            time,
+			Ran:             true,
+			Address:         address,
+			Requesters:      requesters,
+			Name:            "foo",
+			Body:            &json,
+			FromBlock:       big,
+			ToBlock:         big,
+			Topics:          topics,
+			RequestData:     json,
+			IdleThreshold:   duration,
+			Feeds:           json,
+			Threshold:       42.42,
+			Precision:       42,
+			PollingInterval: duration,
+		},
+	}
+
+	require.NoError(t, store.CreateInitiator(&i))
+
+	saved, err := store.FindInitiator(i.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, schedule, saved.InitiatorParams.Schedule)
+	assert.Equal(t, time.Unix(), saved.InitiatorParams.Time.Unix())
+	assert.Equal(t, true, saved.InitiatorParams.Ran)
+	assert.Equal(t, address, saved.InitiatorParams.Address)
+	assert.Equal(t, requesters, saved.InitiatorParams.Requesters)
+	assert.Equal(t, "foo", saved.InitiatorParams.Name)
+	assert.JSONEq(t, json.String(), saved.InitiatorParams.Body.String())
+	assert.Equal(t, big, saved.InitiatorParams.FromBlock)
+	assert.Equal(t, big, saved.InitiatorParams.ToBlock)
+	assert.Equal(t, topics, saved.InitiatorParams.Topics)
+	assert.Equal(t, json, saved.InitiatorParams.RequestData)
+	assert.Equal(t, duration, saved.InitiatorParams.IdleThreshold)
+	assert.Equal(t, json, saved.InitiatorParams.Feeds)
+	assert.Equal(t, float32(42.42), saved.InitiatorParams.Threshold)
+	assert.Equal(t, int32(42), saved.InitiatorParams.Precision)
+	assert.Equal(t, duration, saved.InitiatorParams.PollingInterval)
+
 }
 
 func TestNewJobFromRequest(t *testing.T) {

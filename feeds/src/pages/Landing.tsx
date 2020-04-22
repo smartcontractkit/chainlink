@@ -5,12 +5,12 @@ import { Header } from 'components/header'
 import { NodesLogos } from 'components/nodesLogos'
 import { SponsorsLogos } from 'components/sponsorsLogos'
 
-function useOffchainQuery() {
+function useOffchainQuery(): boolean {
   const query = new URLSearchParams(useLocation().search)
-  return query.get('compare_offchain') === 'true'
+  return query.get('compare-offchain') === 'true'
 }
 
-function useHealthQuery() {
+function useHealthQuery(): boolean {
   const query = new URLSearchParams(useLocation().search)
   return query.get('health') === 'true'
 }
