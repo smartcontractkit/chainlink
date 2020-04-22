@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&TaskRun{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate TaskRun")
@@ -14,6 +15,7 @@ func Migrate(tx *gorm.DB) error {
 	return nil
 }
 
+// TaskRun struct
 type TaskRun struct {
 	ID                   string    `json:"id" gorm:"primary_key;not null"`
 	JobRunID             string    `json:"-" gorm:"index;not null;type:varchar(36) REFERENCES job_runs(id) ON DELETE CASCADE"`

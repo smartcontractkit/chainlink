@@ -457,6 +457,7 @@ type ServiceAgreement struct {
 	models.ServiceAgreement
 }
 
+// ServiceAgreementPresentation struct definition
 type ServiceAgreementPresentation struct {
 	ID            string             `json:"id"`
 	CreatedAt     string             `json:"createdAt"`
@@ -506,7 +507,7 @@ func (sa ServiceAgreement) FriendlyAggregator() string {
 	return sa.Encumbrance.Aggregator.String()
 }
 
-// FriendlyAggregator returns the ServiceAgreement's aggregator initialization
+// FriendlyAggregatorInitMethod returns the ServiceAgreement's aggregator initialization
 // method's function selector, in a human readable format.
 func (sa ServiceAgreement) FriendlyAggregatorInitMethod() string {
 	return sa.Encumbrance.AggInitiateJobSelector.String()
@@ -680,7 +681,7 @@ func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
 // ExplorerStatus represents the connected server and status of the connection
 type ExplorerStatus struct {
 	Status string `json:"status"`
-	Url    string `json:"url"`
+	URL    string `json:"url"`
 }
 
 // NewExplorerStatus returns an initialized ExplorerStatus from the store
@@ -689,6 +690,6 @@ func NewExplorerStatus(statsPusher synchronization.StatsPusher) ExplorerStatus {
 
 	return ExplorerStatus{
 		Status: string(statsPusher.GetStatus()),
-		Url:    url.String(),
+		URL:    url.String(),
 	}
 }

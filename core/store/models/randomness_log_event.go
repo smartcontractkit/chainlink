@@ -14,7 +14,7 @@ type RandomnessLogEvent struct{ InitiatorLogEvent }
 
 var _ LogRequest = RandomnessLogEvent{} // implements LogRequest interface
 
-// Validate() is true if the contained log is parseable as a RandomnessRequest,
+// Validate is true if the contained log is parseable as a RandomnessRequest,
 // and it's from the address specified by the job's initiator. The log filter
 // and the go-ethereum parser should prevent any invalid logs from reacching
 // this point, so Validate emits an error log on failure.

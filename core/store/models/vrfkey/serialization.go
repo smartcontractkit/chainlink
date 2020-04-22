@@ -29,6 +29,7 @@ func adulteratedPassword(auth string) string {
 	return passwordPrefix + auth
 }
 
+// ScryptParams struct
 type ScryptParams struct{ N, P int }
 
 var defaultScryptParams = ScryptParams{

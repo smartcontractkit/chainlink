@@ -27,6 +27,7 @@ import (
 //go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
+// RunManager interface
 type RunManager interface {
 	Create(
 		jobSpecID *models.ID,
@@ -56,7 +57,6 @@ type concreteFluxMonitor struct {
 	chDisconnect   chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
-	disabled       bool
 }
 
 type addEntry struct {
@@ -70,11 +70,7 @@ func New(
 	store *store.Store,
 	runManager RunManager,
 ) Service {
-	if store.Config.EthereumDisabled() {
-		return &concreteFluxMonitor{disabled: true}
-	}
-
-	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, 10)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM)
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
@@ -92,11 +88,9 @@ func New(
 	}
 }
 
+// Start concreteFluxMonitor
 func (fm *concreteFluxMonitor) Start() error {
-	if fm.disabled {
-		logger.Info("Flux monitor disabled: skipping start")
-		return nil
-	}
+	fm.logBroadcaster.Start()
 
 	go fm.serveInternalRequests()
 
@@ -112,7 +106,6 @@ func (fm *concreteFluxMonitor) Start() error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
 			err := fm.AddJob(job)
 			if err != nil {
 				logger.Errorf("error adding FluxMonitor job: %v", err)
@@ -122,18 +115,12 @@ func (fm *concreteFluxMonitor) Start() error {
 	}, models.InitiatorFluxMonitor)
 
 	wg.Wait()
-	fm.logBroadcaster.Start()
 
 	return err
 }
 
-// Disconnect cleans up running deviation checkers.
+// Stop Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
-	if fm.disabled {
-		logger.Info("Flux monitor disabled: cannot stop")
-		return
-	}
-
 	fm.logBroadcaster.Stop()
 	close(fm.chStop)
 	<-fm.chDone
@@ -196,10 +183,8 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"job", job.ID.String(),
 			"initr", initr.ID,
 		)
-
 		timeout := fm.store.Config.DefaultHTTPTimeout()
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM,
-			timeout)
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -226,7 +211,7 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM, models.Duration) (DeviationChecker, error)
+	New(models.Initiator, RunManager, *orm.ORM, time.Duration) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -234,17 +219,17 @@ type pollingDeviationCheckerFactory struct {
 	logBroadcaster eth.LogBroadcaster
 }
 
+// New create new DeviationChecker
 func (f pollingDeviationCheckerFactory) New(
 	initr models.Initiator,
 	runManager RunManager,
 	orm *orm.ORM,
-	timeout models.Duration,
+	timeout time.Duration,
 ) (DeviationChecker, error) {
 	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
 
-	if initr.InitiatorParams.PollingInterval.Shorter(minimumPollingInterval) {
-		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s",
-			minimumPollingInterval)
+	if initr.InitiatorParams.PollingInterval < minimumPollingInterval {
+		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", minimumPollingInterval)
 	}
 
 	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
@@ -260,7 +245,6 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	f.logBroadcaster.AddDependents(1)
 	fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, f.store.TxManager, f.logBroadcaster)
 	if err != nil {
 		return nil, err
@@ -272,8 +256,7 @@ func (f pollingDeviationCheckerFactory) New(
 		initr,
 		runManager,
 		fetcher,
-		initr.InitiatorParams.PollingInterval,
-		func() { f.logBroadcaster.DependentReady() },
+		initr.InitiatorParams.PollingInterval.Duration(),
 	)
 }
 
@@ -339,7 +322,7 @@ type PollingDeviationChecker struct {
 	requestData   models.JSON
 	threshold     float64
 	precision     int32
-	idleThreshold models.Duration
+	idleThreshold time.Duration
 
 	connected                  *abool.AtomicBool
 	backlog                    *utils.BoundedPriorityQueue
@@ -350,9 +333,8 @@ type PollingDeviationChecker struct {
 	idleTicker                 <-chan time.Time
 	roundTimeoutTicker         <-chan time.Time
 
-	readyForLogs func()
-	chStop       chan struct{}
-	waitOnStop   chan struct{}
+	chStop     chan struct{}
+	waitOnStop chan struct{}
 }
 
 // maybeLog is just a tuple that allows us to send either an error or a log over the
@@ -370,16 +352,14 @@ func NewPollingDeviationChecker(
 	initr models.Initiator,
 	runManager RunManager,
 	fetcher Fetcher,
-	pollDelay models.Duration,
-	readyForLogs func(),
+	pollDelay time.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
-		readyForLogs:       readyForLogs,
 		store:              store,
 		fluxAggregator:     fluxAggregator,
 		initr:              initr,
 		requestData:        initr.InitiatorParams.RequestData,
-		idleThreshold:      initr.InitiatorParams.IdleThreshold,
+		idleThreshold:      initr.InitiatorParams.IdleThreshold.Duration(),
 		threshold:          float64(initr.InitiatorParams.Threshold),
 		precision:          initr.InitiatorParams.Precision,
 		runManager:         runManager,
@@ -421,6 +401,7 @@ func (p *PollingDeviationChecker) Stop() {
 	<-p.waitOnStop
 }
 
+// OnConnect set PollingDeviationChecker
 func (p *PollingDeviationChecker) OnConnect() {
 	logger.Debugw("PollingDeviationChecker connected to Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
@@ -428,6 +409,7 @@ func (p *PollingDeviationChecker) OnConnect() {
 	p.connected.Set()
 }
 
+// OnDisconnect unset PollingDeviationChecker
 func (p *PollingDeviationChecker) OnDisconnect() {
 	logger.Debugw("PollingDeviationChecker disconnected from Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
@@ -435,15 +417,18 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 	p.connected.UnSet()
 }
 
+// ResettableTicker struct
 type ResettableTicker struct {
 	*time.Ticker
-	d models.Duration
+	d time.Duration
 }
 
-func NewResettableTicker(d models.Duration) *ResettableTicker {
+// NewResettableTicker returns new ResettableTicker with give duration
+func NewResettableTicker(d time.Duration) *ResettableTicker {
 	return &ResettableTicker{nil, d}
 }
 
+// Tick returns ResettableTicker ticker chan
 func (t *ResettableTicker) Tick() <-chan time.Time {
 	if t.Ticker == nil {
 		return nil
@@ -451,6 +436,7 @@ func (t *ResettableTicker) Tick() <-chan time.Time {
 	return t.Ticker.C
 }
 
+// Stop ResettableTicker
 func (t *ResettableTicker) Stop() {
 	if t.Ticker != nil {
 		t.Ticker.Stop()
@@ -458,11 +444,13 @@ func (t *ResettableTicker) Stop() {
 	}
 }
 
+// Reset ResettableTicker
 func (t *ResettableTicker) Reset() {
 	t.Stop()
-	t.Ticker = time.NewTicker(t.d.Duration())
+	t.Ticker = time.NewTicker(t.d)
 }
 
+// HandleLog handle log
 func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
 	switch log.(type) {
 	case *contracts.LogNewRound:
@@ -496,15 +484,13 @@ func (p *PollingDeviationChecker) consume() {
 		p.connected.UnSet()
 	}
 
-	p.readyForLogs()
-
 	// Try to do an initial poll
 	p.pollIfEligible(p.threshold)
 	p.pollTicker.Reset()
 	defer p.pollTicker.Stop()
 
-	if !p.idleThreshold.IsInstant() {
-		p.idleTicker = time.After(p.idleThreshold.Duration())
+	if p.idleThreshold > 0 {
+		p.idleTicker = time.After(p.idleThreshold)
 	}
 
 	for {
@@ -625,8 +611,8 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAn
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRound) {
 	// The idleThreshold resets when a new round starts
-	if !p.idleThreshold.IsInstant() {
-		p.idleTicker = time.After(p.idleThreshold.Duration())
+	if p.idleThreshold > 0 {
+		p.idleTicker = time.After(p.idleThreshold)
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
@@ -680,6 +666,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	p.createJobRun(polledAnswer, p.reportableRoundID)
 }
 
+// ErrNotEligible error massage
 var (
 	ErrNotEligible      = errors.New("not eligible to submit")
 	ErrUnderfunded      = errors.New("aggregator is underfunded")
@@ -690,29 +677,14 @@ var (
 func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
 	if !roundState.EligibleToSubmit {
 		return ErrNotEligible
-	} else if !p.SufficientFunds(roundState) {
+	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
 		return ErrUnderfunded
-	} else if !p.SufficientPayment(roundState.PaymentAmount) {
+	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
 		return ErrPaymentTooLow
 	} else if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
 		return ErrAlreadySubmitted
 	}
 	return nil
-}
-
-const MinFundedRounds int64 = 3
-
-// Checks if the available payment is enough to submit an answer.
-func (p *PollingDeviationChecker) SufficientFunds(state contracts.FluxAggregatorRoundState) bool {
-	min := big.NewInt(int64(state.OracleCount))
-	min = min.Mul(min, big.NewInt(MinFundedRounds))
-	min = min.Mul(min, state.PaymentAmount)
-	return state.AvailableFunds.Cmp(min) >= 0
-}
-
-// Checks if the available payment is enough to submit an answer.
-func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
-	return payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
 }
 
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {

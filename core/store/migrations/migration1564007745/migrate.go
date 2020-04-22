@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&models.Configuration{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Configuration")

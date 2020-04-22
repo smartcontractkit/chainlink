@@ -47,7 +47,7 @@ func NewSignature() Signature { return &signature{Signature: i()} }
 
 var zero = i()
 
-// ValidSignature(s) is true iff s.Signature represents an element of secp256k1
+// ValidSignature is true iff s.Signature represents an element of secp256k1
 func ValidSignature(s Signature) bool {
 	return s.Signature.Cmp(secp256k1.GroupOrder) == -1 &&
 		s.Signature.Cmp(zero) != -1

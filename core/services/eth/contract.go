@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ConnectedContract interface
 type ConnectedContract interface {
 	eth.ContractCodec
 	Call(result interface{}, methodName string, args ...interface{}) error
@@ -21,8 +22,10 @@ type connectedContract struct {
 	logBroadcaster LogBroadcaster
 }
 
+// UnsubscribeFunc function
 type UnsubscribeFunc func()
 
+// NewConnectedContract create new ConnectedContract
 func NewConnectedContract(
 	codec eth.ContractCodec,
 	address common.Address,
@@ -32,6 +35,7 @@ func NewConnectedContract(
 	return &connectedContract{codec, address, ethClient, logBroadcaster}
 }
 
+// Call call contract method
 func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) error {
 	data, err := contract.EncodeMessageCall(methodName, args...)
 	if err != nil {
@@ -49,6 +53,7 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 	return errors.Wrap(err, "unable to unpack values")
 }
 
+// SubscribeToLogs subscribe log
 func (contract *connectedContract) SubscribeToLogs(listener LogListener) (connected bool, _ UnsubscribeFunc) {
 	connected = contract.logBroadcaster.Register(contract.address, listener)
 	unsub := func() { contract.logBroadcaster.Unregister(contract.address, listener) }

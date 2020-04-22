@@ -7,11 +7,13 @@ type signal struct {
 	panicOnce sync.Once
 }
 
+// Signal interface
 type Signal interface {
 	Panic()
 	Wait() <-chan struct{}
 }
 
+// NewSignal return a signal struct
 func NewSignal() Signal {
 	return &signal{
 		ch: make(chan struct{}),

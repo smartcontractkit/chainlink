@@ -182,6 +182,7 @@ func (app *ChainlinkApplication) GetStore() *store.Store {
 	return app.Store
 }
 
+// GetStatsPusher returns stats pusher for the ChainlinkApplication.
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
 }

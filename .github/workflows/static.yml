@@ -48,16 +48,16 @@ jobs:
   #       run: imports
   #       comment: false
 
-  # lint:
-  #   name: Lint
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: lint
-  #       comment: false
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: check
+      uses: grandcolline/golang-github-actions@v1.1.0
+      with:
+        run: lint
+        comment: false
 
   # staticcheck:
   #   name: StaticCheck

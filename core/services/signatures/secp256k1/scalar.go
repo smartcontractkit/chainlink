@@ -24,6 +24,7 @@ import (
 	"go.dedis.ch/kyber/v3/util/random"
 )
 
+// GroupOrder variable
 var GroupOrder = secp256k1BTCD.S256().N
 
 type secp256k1Scalar big.Int
@@ -45,6 +46,7 @@ func newScalar(v *big.Int) kyber.Scalar {
 
 func zero() *big.Int { return big.NewInt(0) }
 
+// ToInt convert
 func ToInt(s kyber.Scalar) *big.Int { return (*big.Int)(s.(*secp256k1Scalar)) }
 
 func (s *secp256k1Scalar) int() *big.Int { return (*big.Int)(s) }
@@ -218,6 +220,7 @@ func IntToScalar(i *big.Int) kyber.Scalar {
 	return ((*secp256k1Scalar)(i)).modG()
 }
 
+// ScalarToHash convert
 func ScalarToHash(s kyber.Scalar) common.Hash {
 	return common.BigToHash(ToInt(s.(*secp256k1Scalar)))
 }

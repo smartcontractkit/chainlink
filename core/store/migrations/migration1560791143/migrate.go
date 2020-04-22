@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	if !dbutil.IsPostgres(tx) {
 		return nil

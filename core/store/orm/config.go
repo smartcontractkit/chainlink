@@ -390,6 +390,7 @@ func (c Config) ReaperExpiration() models.Duration {
 	return c.getDuration("ReaperExpiration")
 }
 
+// ReplayFromBlock relay from block
 func (c Config) ReplayFromBlock() int64 {
 	return c.viper.GetInt64(EnvVarName("ReplayFromBlock"))
 }

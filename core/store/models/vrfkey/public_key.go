@@ -75,7 +75,7 @@ func (k *PublicKey) String() string {
 	return hexutil.Encode(k[:])
 }
 
-// String returns k's binary uncompressed representation, as 0x-hex
+// StringUncompressed returns k's binary uncompressed representation, as 0x-hex
 func (k *PublicKey) StringUncompressed() (string, error) {
 	p, err := k.Point()
 	if err != nil {
@@ -94,7 +94,7 @@ func (k *PublicKey) Hash() (common.Hash, error) {
 	return utils.MustHash(string(secp256k1.LongMarshal(p))), nil
 }
 
-// MusthHash is like Hash, but panics on error. Useful for testing.
+// MustHash is like Hash, but panics on error. Useful for testing.
 func (k *PublicKey) MustHash() common.Hash {
 	hash, err := k.Hash()
 	if err != nil {

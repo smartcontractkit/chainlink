@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ExternalInitiator struct
 type ExternalInitiator struct {
 	*gorm.Model
 	Name           string        `gorm:"not null;unique"`

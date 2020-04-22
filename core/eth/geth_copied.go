@@ -52,9 +52,9 @@ func parseTopics(out interface{}, fields abi.Arguments, topics []common.Hash) er
 		// The name convention is to remove underscores, capitalize all characters following them, and capitalize the
 		// first letter of the field:
 		//
-		// round_id => RoundId
-		// roundId => RoundId
-		// _roundId => RoundId
+		// round_id => RoundID
+		// roundId => RoundID
+		// _roundId => RoundID
 		_, exists := reflect.TypeOf(out).Elem().FieldByName(capitalise(arg.Name))
 		if !exists {
 			return errors.Errorf(`can't find matching struct field for log "%T", field "%v" (expected "%v")`, out, arg.Name, capitalise(arg.Name))
