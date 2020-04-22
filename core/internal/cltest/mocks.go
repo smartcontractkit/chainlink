@@ -102,19 +102,22 @@ func (mock *EthMock) Context(context string, callback func(*EthMock)) {
 	mock.context = ""
 }
 
-func (mock *EthMock) ShouldCall(setup func(mock *EthMock)) ethMockDuring {
+// ShouldCall returns ethMockDuring
+func (mock *EthMock) ShouldCall(setup func(mock *EthMock)) EthMockDuring {
 	if !mock.AllCalled() {
 		mock.t.Errorf("Remaining ethMockCalls: %v", mock.Remaining())
 	}
 	setup(mock)
-	return ethMockDuring{mock: mock}
+	return EthMockDuring{mock: mock}
 }
 
-type ethMockDuring struct {
+// EthMockDuring struct
+type EthMockDuring struct {
 	mock *EthMock
 }
 
-func (emd ethMockDuring) During(action func()) {
+// During call action
+func (emd EthMockDuring) During(action func()) {
 	action()
 	if !emd.mock.AllCalled() {
 		emd.mock.t.Errorf("Remaining ethMockCalls: %v", emd.mock.Remaining())
@@ -162,6 +165,7 @@ func (mock *EthMock) AllCalled() bool {
 	return (len(mock.Responses) == 0) && (len(mock.Subscriptions) == 0)
 }
 
+// Remaining returns Responses and Subscriptions string
 func (mock *EthMock) Remaining() string {
 	mock.mutex.RLock()
 	defer mock.mutex.RUnlock()
@@ -506,6 +510,7 @@ func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (str
 	return a.Callback(store, pwd)
 }
 
+// AuthenticateVRFKey return nil
 func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
 	return nil
 }
@@ -686,6 +691,7 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
+// MustUser create new user with given email and password
 func MustUser(email, pwd string) models.User {
 	r, err := models.NewUser(email, pwd)
 	if err != nil {
@@ -694,42 +700,50 @@ func MustUser(email, pwd string) models.User {
 	return r
 }
 
+// MockAPIInitializer struct
 type MockAPIInitializer struct {
 	Count int
 }
 
+// Initialize store user
 func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error) {
 	if user, err := store.FindUser(); err == nil {
 		return user, err
 	}
-	m.Count += 1
+	m.Count++
 	user := MustUser(APIEmail, Password)
 	return user, store.SaveUser(&user)
 }
 
+// NewMockAuthenticatedHTTPClient create new authenticated HTTPClient
 func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
 }
 
+// MockCookieAuthenticator struct
 type MockCookieAuthenticator struct {
 	Error error
 }
 
+// Cookie generate session cookie
 func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
 	return MustGenerateSessionCookie(APISessionID), m.Error
 }
 
+// Authenticate generate session cookie
 func (m MockCookieAuthenticator) Authenticate(models.SessionRequest) (*http.Cookie, error) {
 	return MustGenerateSessionCookie(APISessionID), m.Error
 }
 
+// MockSessionRequestBuilder struct
 type MockSessionRequestBuilder struct {
 	Count int
 	Error error
 }
 
+// Build new session request
 func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
-	m.Count += 1
+	m.Count++
 	if m.Error != nil {
 		return models.SessionRequest{}, m.Error
 	}
@@ -738,6 +752,7 @@ func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error)
 
 type mockSecretGenerator struct{}
 
+// Generate returns mock session secret
 func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
@@ -767,19 +782,23 @@ func ExtractTargetAddressFromERC20EthEthCallMock(
 	return address
 }
 
+// MockChangePasswordPrompter struct
 type MockChangePasswordPrompter struct {
 	models.ChangePasswordRequest
 	err error
 }
 
+// Prompt returns ChangePasswordRequest
 func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
 	return m.ChangePasswordRequest, m.err
 }
 
+// MockPasswordPrompter struct
 type MockPasswordPrompter struct {
 	Password string
 }
 
+// Prompt returns MockPasswordPrompter password
 func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }

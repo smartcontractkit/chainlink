@@ -27,6 +27,7 @@ import (
 //go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
 
+// RunManager interface
 type RunManager interface {
 	Create(
 		jobSpecID *models.ID,
@@ -87,6 +88,7 @@ func New(
 	}
 }
 
+// Start concreteFluxMonitor
 func (fm *concreteFluxMonitor) Start() error {
 	fm.logBroadcaster.Start()
 
@@ -117,7 +119,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	return err
 }
 
-// Disconnect cleans up running deviation checkers.
+// Stop Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
 	fm.logBroadcaster.Stop()
 	close(fm.chStop)
@@ -217,6 +219,7 @@ type pollingDeviationCheckerFactory struct {
 	logBroadcaster eth.LogBroadcaster
 }
 
+// New create new DeviationChecker
 func (f pollingDeviationCheckerFactory) New(
 	initr models.Initiator,
 	runManager RunManager,
@@ -386,6 +389,7 @@ func (p *PollingDeviationChecker) Stop() {
 	<-p.waitOnStop
 }
 
+// OnConnect set PollingDeviationChecker
 func (p *PollingDeviationChecker) OnConnect() {
 	logger.Debugw("PollingDeviationChecker connected to Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
@@ -393,6 +397,7 @@ func (p *PollingDeviationChecker) OnConnect() {
 	p.connected.Set()
 }
 
+// OnDisconnect unset PollingDeviationChecker
 func (p *PollingDeviationChecker) OnDisconnect() {
 	logger.Debugw("PollingDeviationChecker disconnected from Ethereum node",
 		"address", p.initr.InitiatorParams.Address.Hex(),
@@ -400,15 +405,18 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 	p.connected.UnSet()
 }
 
+// ResettableTicker struct
 type ResettableTicker struct {
 	*time.Ticker
 	d time.Duration
 }
 
+// NewResettableTicker returns new ResettableTicker with give duration
 func NewResettableTicker(d time.Duration) *ResettableTicker {
 	return &ResettableTicker{nil, d}
 }
 
+// Tick returns ResettableTicker ticker chan
 func (t *ResettableTicker) Tick() <-chan time.Time {
 	if t.Ticker == nil {
 		return nil
@@ -416,6 +424,7 @@ func (t *ResettableTicker) Tick() <-chan time.Time {
 	return t.Ticker.C
 }
 
+// Stop ResettableTicker
 func (t *ResettableTicker) Stop() {
 	if t.Ticker != nil {
 		t.Ticker.Stop()
@@ -423,11 +432,13 @@ func (t *ResettableTicker) Stop() {
 	}
 }
 
+// Reset ResettableTicker
 func (t *ResettableTicker) Reset() {
 	t.Stop()
 	t.Ticker = time.NewTicker(t.d)
 }
 
+// HandleLog handle log
 func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
 	select {
 	case p.chMaybeLogs <- maybeLog{log, err}:
@@ -629,6 +640,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	p.createJobRun(polledAnswer, p.reportableRoundID)
 }
 
+// ErrNotEligible error massage
 var (
 	ErrNotEligible      = errors.New("not eligible to submit")
 	ErrUnderfunded      = errors.New("aggregator is underfunded")

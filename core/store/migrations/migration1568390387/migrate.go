@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Encumbrance struct
 type Encumbrance struct {
 	ID                     uint         `gorm:"primary_key;auto_increment"`
 	Payment                *assets.Link `gorm:"type:varchar(255)"`

@@ -1,5 +1,4 @@
 // Package vrf provides a cryptographically secure pseudo-random number generator.
-
 // Numbers are deterministically generated from seeds and a secret key, and are
 // statistically indistinguishable from uniform sampling from {0,...,2**256-1},
 // to computationally-bounded observers who know the seeds, don't know the key,
@@ -176,7 +175,7 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 // VRF.sol.
 var scalarFromCurveHashPrefix = common.BigToHash(two).Bytes()
 
-// ScalarFromCurve returns a hash for the curve points. Corresponds to the
+// ScalarFromCurvePoints returns a hash for the curve points. Corresponds to the
 // hash computed in VRF.sol#ScalarFromCurvePoints
 func ScalarFromCurvePoints(
 	hash, pk, gamma kyber.Point, uWitness [20]byte, v kyber.Point) *big.Int {
@@ -229,6 +228,7 @@ func (p *Proof) WellFormed() bool {
 		secp256k1.RepresentsScalar(p.S) && p.Output.BitLen() <= 256)
 }
 
+// ErrCGammaEqualsSHash error message
 var ErrCGammaEqualsSHash = fmt.Errorf(
 	"pick a different nonce; c*gamma = s*hash, with this one")
 
@@ -248,7 +248,7 @@ func checkCGammaNotEqualToSHash(c *big.Int, gamma kyber.Point, s *big.Int,
 // compute the final VRF random output
 var vrfRandomOutputHashPrefix = common.BigToHash(three).Bytes()
 
-// VerifyProof is true iff gamma was generated in the mandated way from the
+// VerifyVRFProof is true iff gamma was generated in the mandated way from the
 // given publicKey and seed, and no error was encountered
 func (p *Proof) VerifyVRFProof() (bool, error) {
 	if !p.WellFormed() {

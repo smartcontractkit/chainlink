@@ -251,12 +251,14 @@ func newServer(app chainlink.Application) *httptest.Server {
 	return httptest.NewServer(engine)
 }
 
+// NewBox return new box
 func (ta *TestApplication) NewBox() packr.Box {
 	ta.t.Helper()
 
 	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
+// Start Chainlink application
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
@@ -264,6 +266,7 @@ func (ta *TestApplication) Start() error {
 	return ta.ChainlinkApplication.Start()
 }
 
+// StartAndConnect start test application and wait for connection
 func (ta *TestApplication) StartAndConnect() error {
 	ta.t.Helper()
 
@@ -307,6 +310,7 @@ func (ta *TestApplication) Stop() error {
 	return nil
 }
 
+// MustSeedUserSession return mock user with session
 func (ta *TestApplication) MustSeedUserSession() models.User {
 	mockUser := MustUser(APIEmail, Password)
 	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
@@ -332,12 +336,14 @@ func (ta *TestApplication) ImportKey(content string) {
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
+// AddUnlockedKey add unlocked key
 func (ta *TestApplication) AddUnlockedKey() {
 	_, err := ta.Store.KeyStore.NewAccount(Password)
 	require.NoError(ta.t, err)
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
+// NewHTTPClient returns new http client
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 	ta.t.Helper()
 
@@ -368,6 +374,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	return client, r
 }
 
+// NewAuthenticatingClient returns new client
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
 	ta.MustSeedUserSession()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config.Config, &cmd.MemoryCookieStore{})
@@ -387,6 +394,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	return client
 }
 
+// MustCreateJobRun returns new jobRun
 func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes []byte) *models.JobRun {
 	job := NewJobWithWebInitiator()
 	err := ta.Store.CreateJob(&job)
@@ -438,6 +446,7 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 	require.NoError(t, store.Close())
 }
 
+// ParseJSON decode body to JSON
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	t.Helper()
 
@@ -446,6 +455,7 @@ func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	return models.JSON{Result: gjson.ParseBytes(b)}
 }
 
+// ParseJSONAPIErrors parse response error
 func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 	t.Helper()
 
@@ -465,31 +475,37 @@ func MustReadFile(t testing.TB, file string) []byte {
 	return content
 }
 
+// HTTPClientCleaner struct
 type HTTPClientCleaner struct {
 	HTTPClient cmd.HTTPClient
 	t          testing.TB
 }
 
+// Get method of HTTPClientCleaner
 func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
 	resp, err := r.HTTPClient.Get(path, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
+// Post method of HTTPClientCleaner
 func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
 	resp, err := r.HTTPClient.Post(path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
+// Put method of HTTPClientCleaner
 func (r *HTTPClientCleaner) Put(path string, body io.Reader) (*http.Response, func()) {
 	resp, err := r.HTTPClient.Put(path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
+// Patch method of HTTPClientCleaner
 func (r *HTTPClientCleaner) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, func()) {
 	resp, err := r.HTTPClient.Patch(path, body, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
+// Delete method of HTTPClientCleaner
 func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
 	resp, err := r.HTTPClient.Delete(path)
 	return bodyCleaner(r.t, resp, err)
@@ -568,6 +584,7 @@ func FindJob(t testing.TB, s *strpkg.Store, id *models.ID) models.JobSpec {
 	return j
 }
 
+// FindServiceAgreement returns ServiceAgreement for given JobID
 func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
 	t.Helper()
 
@@ -586,7 +603,7 @@ func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec)
 	return CreateSpecViaWeb(t, app, string(marshaled))
 }
 
-// CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
+// CreateSpecViaWeb creates a jobspec via web using /v2/specs
 func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpec {
 	t.Helper()
 
@@ -621,6 +638,7 @@ func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, bo
 	return jr
 }
 
+// CreateJobRunViaExternalInitiator create JobRun via external initiator
 func CreateJobRunViaExternalInitiator(
 	t testing.TB,
 	app *TestApplication,
@@ -647,7 +665,7 @@ func CreateJobRunViaExternalInitiator(
 	return jr
 }
 
-// CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
+// CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer URL
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	t.Helper()
 
@@ -855,6 +873,7 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
+// WaitForTxAttemptCount returns TxAttempt
 func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.TxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
@@ -984,6 +1003,7 @@ func GetAccountAddresses(store *strpkg.Store) []common.Address {
 	return addresses
 }
 
+// StringToHash convert string to hash
 func StringToHash(s string) common.Hash {
 	return common.BytesToHash([]byte(s))
 }
@@ -1017,6 +1037,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 	}
 }
 
+// DecodeSessionCookie decrypt session
 func DecodeSessionCookie(value string) (string, error) {
 	var decrypted map[interface{}]interface{}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
@@ -1031,6 +1052,7 @@ func DecodeSessionCookie(value string) (string, error) {
 	return value, nil
 }
 
+// MustGenerateSessionCookie returns new cookie
 func MustGenerateSessionCookie(value string) *http.Cookie {
 	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
@@ -1041,6 +1063,7 @@ func MustGenerateSessionCookie(value string) *http.Cookie {
 	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }
 
+// NormalizedJSON returns normalized JSON
 func NormalizedJSON(t testing.TB, input []byte) string {
 	t.Helper()
 
@@ -1049,6 +1072,7 @@ func NormalizedJSON(t testing.TB, input []byte) string {
 	return normalized
 }
 
+// AssertError assert by want
 func AssertError(t testing.TB, want bool, err error) {
 	t.Helper()
 
@@ -1059,6 +1083,7 @@ func AssertError(t testing.TB, want bool, err error) {
 	}
 }
 
+// UnauthenticatedPost post unauthenticated request
 func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
@@ -1074,6 +1099,7 @@ func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[s
 	return resp, func() { resp.Body.Close() }
 }
 
+// UnauthenticatedPatch patch unauthenticated request
 func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
@@ -1089,6 +1115,7 @@ func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[
 	return resp, func() { resp.Body.Close() }
 }
 
+// MustParseDuration returns time.Duration for given string
 func MustParseDuration(t testing.TB, durationStr string) time.Duration {
 	t.Helper()
 
@@ -1097,6 +1124,7 @@ func MustParseDuration(t testing.TB, durationStr string) time.Duration {
 	return duration
 }
 
+// NewSession create new session for given session id
 func NewSession(optionalSessionID ...string) models.Session {
 	session := models.NewSession()
 	if len(optionalSessionID) > 0 {
@@ -1105,6 +1133,7 @@ func NewSession(optionalSessionID ...string) models.Session {
 	return session
 }
 
+// AllExternalInitiators returns all external initiators
 func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalInitiator {
 	t.Helper()
 
@@ -1116,6 +1145,7 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	return all
 }
 
+// AllJobs returns all jobs
 func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	t.Helper()
 
@@ -1127,6 +1157,7 @@ func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	return all
 }
 
+// MustAllJobsWithStatus returns all jobs with status
 func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
 	t.Helper()
 
@@ -1138,6 +1169,7 @@ func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models
 	return runs
 }
 
+// GetLastTxAttempt returns last TxAttempt
 func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
 	t.Helper()
 
@@ -1151,6 +1183,7 @@ func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
 	return attempt
 }
 
+// CallbackOrTimeout callback or send timeout after duration
 func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {
 	t.Helper()
 
@@ -1172,6 +1205,7 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	}
 }
 
+// MustParseURL parse url for given input
 func MustParseURL(input string) *url.URL {
 	u, err := url.Parse(input)
 	if err != nil {
@@ -1180,6 +1214,7 @@ func MustParseURL(input string) *url.URL {
 	return u
 }
 
+// MustResultString returns string of input result
 func MustResultString(t *testing.T, input models.RunResult) string {
 	result := input.Data.Get("result")
 	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))

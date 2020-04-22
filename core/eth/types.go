@@ -18,7 +18,7 @@ import (
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
-// This data can contain anything and is submitted by user on-chain, so we must
+// UntrustedBytes data can contain anything and is submitted by user on-chain, so we must
 // be extra careful how we interact with it
 type UntrustedBytes []byte
 
@@ -125,6 +125,7 @@ type BlockHeader struct {
 	ParityHash  common.Hash      `json:"hash"`
 }
 
+// Transaction struct
 type Transaction struct {
 	GasPrice hexutil.Uint64 `json:"gasPrice"`
 }

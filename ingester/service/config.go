@@ -56,7 +56,7 @@ func DefaultConfig() *Config {
 	})
 }
 
-// DefaultConfig returns an instantiated config with the application defaults for testing
+// TestConfig returns an instantiated config with the application defaults for testing
 func TestConfig() *Config {
 	cfg := DefaultConfig()
 	return cfg

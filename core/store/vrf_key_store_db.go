@@ -78,7 +78,7 @@ func (ks *VRFKeyStore) Delete(key *vrfkey.PublicKey) (err error) {
 			key.String())
 	}
 	if len(matches) == 0 {
-		return AttemptToDeleteNonExistentKeyFromDB
+		return ErrAttemptToDeleteNonExistentKeyFromDB
 	}
 	return multierr.Append(err, ks.store.ORM.DeleteEncryptedSecretVRFKey(
 		&vrfkey.EncryptedSecretKey{PublicKey: *key}))
@@ -98,7 +98,7 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 		return errors.Wrapf(err, "while checking for matching extant key in DB")
 	}
 	if len(extantMatchingKeys) != 0 {
-		return MatchingVRFKeyError
+		return ErrMatchingVRFKey
 	}
 	key, err := enckey.Decrypt(auth)
 	if err != nil {
@@ -135,6 +135,7 @@ func (ks *VRFKeyStore) Get(k *vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, e
 	return ks.get(k)
 }
 
+// GetSpecificKey returns encryptedKey
 func (ks *VRFKeyStore) GetSpecificKey(
 	k *vrfkey.PublicKey) (*vrfkey.EncryptedSecretKey, error) {
 	if k == nil {
@@ -156,7 +157,7 @@ func (ks *VRFKeyStore) GetSpecificKey(
 	return encryptedKey[0], nil
 }
 
-// ListKey lists the public keys contained in the db
+// ListKeys lists the public keys contained in the db
 func (ks *VRFKeyStore) ListKeys() (publicKeys []*vrfkey.PublicKey, err error) {
 	enc, err := ks.Get(nil)
 	if err != nil {
@@ -168,11 +169,11 @@ func (ks *VRFKeyStore) ListKeys() (publicKeys []*vrfkey.PublicKey, err error) {
 	return publicKeys, nil
 }
 
-// MatchingVRFKeyError is returned when Import attempts to import key with a
+// ErrMatchingVRFKey is returned when Import attempts to import key with a
 // PublicKey matching one already in the database
-var MatchingVRFKeyError = errors.New(
+var ErrMatchingVRFKey = errors.New(
 	`key with matching public key already stored in DB`)
 
-// AttemptToDeleteNonExistentKeyFromDB is returned when Delete is asked to
+// ErrAttemptToDeleteNonExistentKeyFromDB is returned when Delete is asked to
 // delete a key it can't find in the DB.
-var AttemptToDeleteNonExistentKeyFromDB = errors.New("key is not present in DB")
+var ErrAttemptToDeleteNonExistentKeyFromDB = errors.New("key is not present in DB")

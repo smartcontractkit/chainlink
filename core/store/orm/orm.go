@@ -55,6 +55,7 @@ type ORM struct {
 	shutdownSignal      gracefulpanic.Signal
 }
 
+// ErrNoAdvisoryLock error message
 var (
 	ErrNoAdvisoryLock    = errors.New("can't acquire advisory lock")
 	ErrReleaseLockFailed = errors.New("advisory lock release failed")
@@ -92,6 +93,7 @@ func NewORM(uri string, timeout time.Duration, shutdownSignal gracefulpanic.Sign
 	return orm, nil
 }
 
+// MustEnsureAdvisoryLock ensure advisory locked
 func (orm *ORM) MustEnsureAdvisoryLock() {
 	if orm.dialectName != DialectPostgres {
 		return
@@ -312,10 +314,10 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	return dbtx.Commit().Error
 }
 
-// OptimisticUpdateConflictError is returned when a record update failed
+// ErrOptimisticUpdateConflict is returned when a record update failed
 // because another update occurred while the model was in memory and the
 // differences must be reconciled.
-var OptimisticUpdateConflictError = errors.New("conflict while updating record")
+var ErrOptimisticUpdateConflict = errors.New("conflict while updating record")
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
@@ -330,7 +332,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return OptimisticUpdateConflictError
+			return ErrOptimisticUpdateConflict
 		}
 		return nil
 	})
@@ -1134,19 +1136,19 @@ func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 	return orm.db.FirstOrCreate(k).Error
 }
 
-// FirstOrCreateEncryptedSecretKey returns the first key found or creates a new one in the orm.
+// FirstOrCreateEncryptedSecretVRFKey returns the first key found or creates a new one in the orm.
 func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.FirstOrCreate(k).Error
 }
 
-// DeleteEncryptedSecretKey deletes k from the encrypted keys table, or errors
+// DeleteEncryptedSecretVRFKey deletes k from the encrypted keys table, or errors
 func (orm *ORM) DeleteEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Delete(k).Error
 }
 
-// FindEncryptedSecretKeys retrieves matches to where from the encrypted keys table, or errors
+// FindEncryptedSecretVRFKeys retrieves matches to where from the encrypted keys table, or errors
 func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey) (
 	retrieved []*models.EncryptedSecretVRFKey, err error) {
 	orm.MustEnsureAdvisoryLock()
@@ -1198,6 +1200,7 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 	return merr
 }
 
+// CountOf count given variable
 func (orm *ORM) CountOf(t interface{}) (int, error) {
 	orm.MustEnsureAdvisoryLock()
 	var count int
@@ -1212,6 +1215,7 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		Find(collection).Error
 }
 
+// RawDB execute given function
 func (orm *ORM) RawDB(fn func(*gorm.DB) error) error {
 	orm.MustEnsureAdvisoryLock()
 	return fn(orm.db)

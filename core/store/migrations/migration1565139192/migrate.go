@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	if err := tx.Exec(`ALTER TABLE job_specs ADD min_payment varchar(255)`).Error; err != nil {
 		return errors.Wrap(err, "failed to add MinPayment to JobSpec")

@@ -30,7 +30,7 @@ func projectiveMul(x1, z1, x2, z2 fieldElt) (fieldElt, fieldElt) {
 	return mul(x1, x2), mul(z1, z2)
 }
 
-// ProjectiveECAdd(px, py, qx, qy) duplicates the calculation in projective
+// ProjectiveECAdd (px, py, qx, qy) duplicates the calculation in projective
 // coordinates of VRF.sol#projectiveECAdd, so we can reliably get the
 // denominator (i.e, z)
 func ProjectiveECAdd(p, q kyber.Point) (x, y, z fieldElt) {

@@ -21,6 +21,7 @@ var (
 	ErrReceiveTimeout = errors.New("timeout waiting for message")
 )
 
+// ConnectionStatus string
 type ConnectionStatus string
 
 const (
@@ -35,7 +36,7 @@ const (
 // WebSocketClient encapsulates all the functionality needed to
 // push run information to explorer.
 type WebSocketClient interface {
-	Url() url.URL
+	URL() url.URL
 	Status() ConnectionStatus
 	Start() error
 	Close() error
@@ -45,7 +46,7 @@ type WebSocketClient interface {
 
 type noopWebSocketClient struct{}
 
-func (noopWebSocketClient) Url() url.URL                             { return url.URL{} }
+func (noopWebSocketClient) URL() url.URL                             { return url.URL{} }
 func (noopWebSocketClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
 func (noopWebSocketClient) Start() error                             { return nil }
 func (noopWebSocketClient) Close() error                             { return nil }
@@ -81,8 +82,8 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient 
 	}
 }
 
-// Url returns the URL the client was initialized with
-func (w *websocketClient) Url() url.URL {
+// URL returns the URL the client was initialized with
+func (w *websocketClient) URL() url.URL {
 	return *w.url
 }
 

@@ -186,7 +186,7 @@ func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {
 	ethTxCount := 0
 	for _, task := range j.Tasks {
 		if task.Type == adapters.TaskTypeEthTx {
-			ethTxCount += 1
+			ethTxCount++
 
 			task.Params.ForEach(func(k, _ gjson.Result) bool {
 				key := strings.ToLower(k.String())

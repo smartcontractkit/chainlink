@@ -24,6 +24,7 @@ const (
 	ExternalInitiatorSecretHeader = "X-Chainlink-EA-Secret"
 )
 
+// AuthStorer interface definition
 type AuthStorer interface {
 	AuthorizedUserWithSession(sessionID string) (models.User, error)
 	FindExternalInitiator(eia *auth.Token) (*models.ExternalInitiator, error)
@@ -40,6 +41,7 @@ func authenticatedUser(c *gin.Context) (*models.User, bool) {
 	return obj.(*models.User), ok
 }
 
+// AuthenticateExternalInitiator auth given external initiator
 func AuthenticateExternalInitiator(store AuthStorer, c *gin.Context) error {
 	eia := &auth.Token{
 		AccessKey: c.GetHeader(ExternalInitiatorAccessKeyHeader),
@@ -102,6 +104,7 @@ func AuthenticateByToken(store AuthStorer, c *gin.Context) error {
 
 var _ authType = AuthenticateByToken
 
+// AuthenticateBySession auth user with given session
 func AuthenticateBySession(store AuthStorer, c *gin.Context) error {
 	session := sessions.Default(c)
 	sessionID, ok := session.Get(SessionIDKey).(string)
@@ -119,6 +122,7 @@ func AuthenticateBySession(store AuthStorer, c *gin.Context) error {
 
 var _ authType = AuthenticateBySession
 
+// RequireAuth return auth required function
 func RequireAuth(store AuthStorer, methods ...authType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var err error

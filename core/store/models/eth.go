@@ -108,6 +108,7 @@ func (txa *TxAttempt) SetID(value string) error {
 	return nil
 }
 
+// HighestPricedTxAttemptPerTx returns highest priced TxAttempts
 func HighestPricedTxAttemptPerTx(items []TxAttempt) []TxAttempt {
 	highestPricedSet := map[uint64]TxAttempt{}
 	for _, item := range items {
@@ -167,34 +168,34 @@ func NewHead(bigint *big.Int, hash common.Hash) *Head {
 }
 
 // String returns a string representation of this number.
-func (l *Head) String() string {
-	return l.ToInt().String()
+func (h *Head) String() string {
+	return h.ToInt().String()
 }
 
 // ToInt return the height as a *big.Int. Also handles nil by returning nil.
-func (l *Head) ToInt() *big.Int {
-	if l == nil {
+func (h *Head) ToInt() *big.Int {
+	if h == nil {
 		return nil
 	}
-	return big.NewInt(l.Number)
+	return big.NewInt(h.Number)
 }
 
 // GreaterThan compares BlockNumbers and returns true if the receiver BlockNumber is greater than
 // the supplied BlockNumber
-func (l *Head) GreaterThan(r *Head) bool {
-	if l == nil {
+func (h *Head) GreaterThan(r *Head) bool {
+	if h == nil {
 		return false
 	}
-	if l != nil && r == nil {
+	if h != nil && r == nil {
 		return true
 	}
-	return l.Number > r.Number
+	return h.Number > r.Number
 }
 
 // NextInt returns the next BlockNumber as big.int, or nil if nil to represent latest.
-func (l *Head) NextInt() *big.Int {
-	if l == nil {
+func (h *Head) NextInt() *big.Int {
+	if h == nil {
 		return nil
 	}
-	return new(big.Int).Add(l.ToInt(), big.NewInt(1))
+	return new(big.Int).Add(h.ToInt(), big.NewInt(1))
 }

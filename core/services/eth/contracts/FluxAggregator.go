@@ -12,6 +12,7 @@ import (
 
 //go:generate mockery -name FluxAggregator -output ../../../internal/mocks/ -case=underscore
 
+// FluxAggregator interface
 type FluxAggregator interface {
 	ethsvc.ConnectedContract
 	RoundState(oracle common.Address) (FluxAggregatorRoundState, error)
@@ -38,17 +39,19 @@ type fluxAggregator struct {
 	address   common.Address
 }
 
+// LogNewRound struct
 type LogNewRound struct {
 	eth.Log
-	RoundId   *big.Int
+	RoundID   *big.Int
 	StartedBy common.Address
 	StartedAt *big.Int
 }
 
+// LogAnswerUpdated struct
 type LogAnswerUpdated struct {
 	eth.Log
 	Current   *big.Int
-	RoundId   *big.Int
+	RoundID   *big.Int
 	Timestamp *big.Int
 }
 
@@ -57,6 +60,7 @@ var fluxAggregatorLogTypes = map[common.Hash]interface{}{
 	AggregatorAnswerUpdatedLogTopic20191220: LogAnswerUpdated{},
 }
 
+// NewFluxAggregator create new FluxAggregator
 func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster ethsvc.LogBroadcaster) (FluxAggregator, error) {
 	codec, err := eth.GetV6ContractCodec(FluxAggregatorName)
 	if err != nil {
@@ -66,12 +70,14 @@ func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcas
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
+// SubscribeToLogs subscribe log
 func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connected bool, _ ethsvc.UnsubscribeFunc) {
 	return fa.ConnectedContract.SubscribeToLogs(
 		ethsvc.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
 	)
 }
 
+// FluxAggregatorRoundState struct
 type FluxAggregatorRoundState struct {
 	ReportableRoundID uint32   `abi:"_reportableRoundId"`
 	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
@@ -81,6 +87,7 @@ type FluxAggregatorRoundState struct {
 	PaymentAmount     *big.Int `abi:"_paymentAmount"`
 }
 
+// RoundState call fluxAggregator
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
 	var result FluxAggregatorRoundState
 	err := fa.Call(&result, "roundState", oracle)

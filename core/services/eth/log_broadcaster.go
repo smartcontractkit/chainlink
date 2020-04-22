@@ -30,6 +30,7 @@ type LogBroadcaster interface {
 	Stop()
 }
 
+// LogListener interface
 type LogListener interface {
 	OnConnect()
 	OnDisconnect()
@@ -55,6 +56,7 @@ type registration struct {
 	listener LogListener
 }
 
+// NewLogBroadcaster create new LogBroadcaster
 func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
 	return &logBroadcaster{
 		ethClient:        ethClient,
@@ -69,6 +71,7 @@ func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
 
 const logBroadcasterCursorName = "logBroadcaster"
 
+// Start logBroadcaster
 func (b *logBroadcaster) Start() {
 	// Grab the current on-chain block height
 	currentHeight, abort := b.getOnChainBlockHeight()
@@ -112,11 +115,13 @@ func (b *logBroadcaster) getOnChainBlockHeight() (_ uint64, abort bool) {
 	return currentHeight, false
 }
 
+// Stop logBroadcaster
 func (b *logBroadcaster) Stop() {
 	close(b.chStop)
 	<-b.chDone
 }
 
+// Register logBroadcaster
 func (b *logBroadcaster) Register(address common.Address, listener LogListener) (connected bool) {
 	select {
 	case b.chAddListener <- registration{address, listener}:
@@ -125,6 +130,7 @@ func (b *logBroadcaster) Register(address common.Address, listener LogListener) 
 	return b.connected
 }
 
+// Unregister logBroadcaster
 func (b *logBroadcaster) Unregister(address common.Address, listener LogListener) {
 	select {
 	case b.chRemoveListener <- registration{address, listener}:
@@ -319,6 +325,7 @@ type decodingLogListener struct {
 // Ensure that DecodingLogListener conforms to the LogListener interface
 var _ LogListener = (*decodingLogListener)(nil)
 
+// NewDecodingLogListener create new decodingLogListener
 func NewDecodingLogListener(codec eth.ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener LogListener) LogListener {
 	logTypes := make(map[common.Hash]reflect.Type)
 	for eventID, logStruct := range nativeLogTypes {

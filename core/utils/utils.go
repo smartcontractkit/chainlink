@@ -71,7 +71,7 @@ func Uint64ToHex(i uint64) string {
 
 var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
 
-// Uint256ToBytes(x) is x represented as the bytes of a uint256
+// Uint256ToBytes (x) is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 	if x.Cmp(maxUint256) > 0 {
 		return nil, fmt.Errorf("too large to convert to uint256")
@@ -487,7 +487,7 @@ func JustError(_ interface{}, err error) error {
 
 var zero = big.NewInt(0)
 
-// CheckUint256(n) returns an error if n is out of bounds for a uint256
+// CheckUint256 (n) returns an error if n is out of bounds for a uint256
 func CheckUint256(n *big.Int) error {
 	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
 		return fmt.Errorf("number out of range for uint256")
@@ -517,6 +517,7 @@ func Uint256ToHex(n *big.Int) (string, error) {
 	return common.BigToHash(n).Hex(), nil
 }
 
+// DecimalFromBigInt converter
 func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
 	return decimal.NewFromBigInt(i, -precision)
 }

@@ -65,13 +65,14 @@ func (l *RandomnessRequestLog) RawData() ([]byte, error) {
 		l.Seed, l.Sender, (*big.Int)(l.Fee))
 }
 
-// Equal(ol) is true iff l is the same log as ol, and both represent valid
+// Equal (ol) is true iff l is the same log as ol, and both represent valid
 // RandomnessRequest logs.
 func (l *RandomnessRequestLog) Equal(ol RandomnessRequestLog) bool {
 	return l.KeyHash == ol.KeyHash && equal(l.Seed, ol.Seed) &&
 		l.JobID == ol.JobID && l.Sender == ol.Sender && l.Fee.Cmp(ol.Fee) == 0
 }
 
+// RequestID returns request hash
 func (l *RandomnessRequestLog) RequestID() common.Hash {
 	soliditySeed, err := utils.Uint256ToBytes(l.Seed)
 	if err != nil {
@@ -80,6 +81,7 @@ func (l *RandomnessRequestLog) RequestID() common.Hash {
 	return utils.MustHash(string(append(l.KeyHash[:], soliditySeed...)))
 }
 
+// RawRandomnessRequestLogToRandomnessRequestLog returns new RandomnessRequestLog
 func RawRandomnessRequestLogToRandomnessRequestLog(
 	l *RawRandomnessRequestLog) *RandomnessRequestLog {
 	return &RandomnessRequestLog{
