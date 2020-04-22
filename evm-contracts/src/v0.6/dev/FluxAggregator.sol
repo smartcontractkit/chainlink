@@ -239,6 +239,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
     onlyValidRange(_minAnswers, _maxAnswers, _restartDelay)
   {
+    uint256 oracleReserve = uint256(_newPaymentAmount).mul(oracleCount()).mul(RESERVE_ROUNDS);
+    require(availableFunds >= oracleReserve, "insufficient funds for payment");
+
     paymentAmount = _newPaymentAmount;
     minAnswerCount = _minAnswers;
     maxAnswerCount = _maxAnswers;
