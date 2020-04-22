@@ -252,7 +252,7 @@ func (f pollingDeviationCheckerFactory) New(
 	}
 
 	fetcher, err := newMedianFetcherFromURLs(
-		timeout.Duration(),
+		timeout,
 		initr.InitiatorParams.RequestData.String(),
 		urls)
 	if err != nil {
@@ -270,7 +270,7 @@ func (f pollingDeviationCheckerFactory) New(
 		initr,
 		runManager,
 		fetcher,
-		initr.InitiatorParams.PollingInterval.Duration(),
+		initr.InitiatorParams.PollingInterval,
 	)
 }
 
@@ -336,7 +336,7 @@ type PollingDeviationChecker struct {
 	requestData   models.JSON
 	threshold     float64
 	precision     int32
-	idleThreshold time.Duration
+	idleThreshold models.Duration
 
 	connected                  *abool.AtomicBool
 	chMaybeLogs                chan maybeLog
@@ -365,14 +365,14 @@ func NewPollingDeviationChecker(
 	initr models.Initiator,
 	runManager RunManager,
 	fetcher Fetcher,
-	pollDelay time.Duration,
+	pollDelay models.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
 		store:              store,
 		fluxAggregator:     fluxAggregator,
 		initr:              initr,
 		requestData:        initr.InitiatorParams.RequestData,
-		idleThreshold:      initr.InitiatorParams.IdleThreshold.Duration(),
+		idleThreshold:      initr.InitiatorParams.IdleThreshold,
 		threshold:          float64(initr.InitiatorParams.Threshold),
 		precision:          initr.InitiatorParams.Precision,
 		runManager:         runManager,
@@ -419,10 +419,10 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 
 type ResettableTicker struct {
 	*time.Ticker
-	d time.Duration
+	d models.Duration
 }
 
-func NewResettableTicker(d time.Duration) *ResettableTicker {
+func NewResettableTicker(d models.Duration) *ResettableTicker {
 	return &ResettableTicker{nil, d}
 }
 
@@ -442,7 +442,7 @@ func (t *ResettableTicker) Stop() {
 
 func (t *ResettableTicker) Reset() {
 	t.Stop()
-	t.Ticker = time.NewTicker(t.d)
+	t.Ticker = time.NewTicker(t.d.Duration())
 }
 
 func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
@@ -471,8 +471,8 @@ func (p *PollingDeviationChecker) consume() {
 	p.pollTicker.Reset()
 	defer p.pollTicker.Stop()
 
-	if p.idleThreshold > 0 {
-		p.idleTicker = time.After(p.idleThreshold)
+	if !p.idleThreshold.IsInstant() {
+		p.idleTicker = time.After(p.idleThreshold.Duration())
 	}
 
 	for {
@@ -591,8 +591,8 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAn
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRound) {
 	// The idleThreshold resets when a new round starts
-	if p.idleThreshold > 0 {
-		p.idleTicker = time.After(p.idleThreshold)
+	if !p.idleThreshold.IsInstant() {
+		p.idleTicker = time.After(p.idleThreshold.Duration())
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
