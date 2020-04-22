@@ -319,3 +319,8 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 	return fe.CoerceEmptyToNil()
 }
+
+// ValidateLogConsumption ...
+func ValidateLogConsumption(lc models.LogConsumption, store *store.Store) error {
+	return nil
+}
