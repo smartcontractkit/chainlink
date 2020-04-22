@@ -448,6 +448,11 @@ func (d Duration) Duration() time.Duration {
 	return d.d
 }
 
+// Before returns the time d units before time t
+func (d Duration) Before(t time.Time) time.Time {
+	return t.Add(-d.Duration())
+}
+
 // Shorter returns true iff d is shorter than od.
 func (d Duration) Shorter(od Duration) bool { return d.d < od.d }
 
