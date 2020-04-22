@@ -49,17 +49,11 @@ class UrlConfig {
 
 export class Config {
   static infuraKey(env = process.env): string {
-    if (env.REACT_APP_INFURA_KEY === undefined) {
-      return ''
-    }
-    return env.REACT_APP_INFURA_KEY
+    return env.REACT_APP_INFURA_KEY ?? ''
   }
 
   static gaId(env = process.env): string {
-    if (env.REACT_APP_GA_ID === undefined) {
-      return ''
-    }
-    return env.REACT_APP_GA_ID
+    return env.REACT_APP_GA_ID ?? ''
   }
 
   static feedsJson(env = process.env, location = window.location): string {
@@ -67,10 +61,7 @@ export class Config {
     if (urlFeedsJson) {
       return urlFeedsJson
     }
-    if (env.REACT_APP_FEEDS_JSON === undefined) {
-      return '/feeds.json'
-    }
-    return env.REACT_APP_FEEDS_JSON
+    return env.REACT_APP_FEEDS_JSON ?? '/feeds.json'
   }
 
   static nodesJson(env = process.env, location = window.location): string {
@@ -78,9 +69,6 @@ export class Config {
     if (urlNodesJson) {
       return urlNodesJson
     }
-    if (env.REACT_APP_NODES_JSON === undefined) {
-      return '/nodes.json'
-    }
-    return env.REACT_APP_NODES_JSON
+    return env.REACT_APP_NODES_JSON ?? '/nodes.json'
   }
 }
