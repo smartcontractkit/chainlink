@@ -453,10 +453,10 @@ func (d Duration) Before(t time.Time) time.Time {
 	return t.Add(-d.Duration())
 }
 
-// Shorter returns true iff d is shorter than od.
+// Shorter returns true if and only if d is shorter than od.
 func (d Duration) Shorter(od Duration) bool { return d.d < od.d }
 
-// IsInstant is true iff d is of duration 0
+// IsInstant is true if and only if d is of duration 0
 func (d Duration) IsInstant() bool { return d.d == 0 }
 
 // String returns a string representing the duration in the form "72h3m0.5s".
