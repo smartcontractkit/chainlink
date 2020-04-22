@@ -1,5 +1,5 @@
 #
-# This action checks PR's to see if the CHANGELOG file was updated. If it wasn't it will add a message to the PR reminding to update it
+# This action checks PR's to see if the CHANGELOG file was updated. If it wasn't it will add a message to the PR asking if it would make sense to doso
 #
 name: Changelog
 
@@ -14,7 +14,7 @@ jobs:
         id: changedfiles 
         uses: futuratrepadeira/changed-files@186b5b30b1f5e44ed655a59652746c3ce00d53ef # Version v3.1.1
         with:
-          repo-token: ${{ github.token }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: '^CHANGELOG.*$'
       - name: Make a comment
         uses: unsplash/comment-on-pr@d1a1d5dd1eb1bb657a01f4d92dd5e4d5bb7857d3 # Version v1.2.0
