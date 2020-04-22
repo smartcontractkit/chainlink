@@ -43,7 +43,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 			initrReq: models.InitiatorRequest{
 				Type: models.InitiatorFluxMonitor,
 				InitiatorParams: models.InitiatorParams{
-					IdleThreshold: models.MustNewDuration(5 * time.Second),
+					IdleThreshold: models.MustMakeDuration(5 * time.Second),
 					Precision:     2,
 					Threshold:     5,
 				},
@@ -53,7 +53,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				Type:      models.InitiatorFluxMonitor,
 				JobSpecID: job.ID,
 				InitiatorParams: models.InitiatorParams{
-					IdleThreshold:   models.MustNewDuration(5 * time.Second),
+					IdleThreshold:   models.MustMakeDuration(5 * time.Second),
 					PollingInterval: models.FluxMonitorDefaultInitiatorParams.PollingInterval,
 					Precision:       2,
 					Threshold:       5,
@@ -86,7 +86,7 @@ func TestInitiatorParams(t *testing.T) {
 		models.TopicsForInitiatorsWhichRequireJobSpecIDTopic[models.InitiatorRunLog],
 	})
 	json := cltest.JSONFromString(t, `{"foo":42}`)
-	duration := models.MustNewDuration(42 * time.Second)
+	duration := models.MustMakeDuration(42 * time.Second)
 	time := models.NewAnyTime(time.Now())
 
 	j := cltest.NewJob()

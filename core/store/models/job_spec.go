@@ -228,7 +228,7 @@ type InitiatorParams struct {
 // FluxMonitorDefaultInitiatorParams are the default parameters for Flux
 // Monitor Job Specs.
 var FluxMonitorDefaultInitiatorParams = InitiatorParams{
-	PollingInterval: MustNewDuration(time.Minute),
+	PollingInterval: MustMakeDuration(time.Minute),
 }
 
 // SetDefaultValues returns a InitiatorParams with empty fields set to their

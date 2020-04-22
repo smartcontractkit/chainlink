@@ -137,7 +137,7 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, err)
 	defer lock.Unlock(delay)
 
-	err = lock.Lock(models.MustNewDuration(1 * time.Second))
+	err = lock.Lock(models.MustMakeDuration(1 * time.Second))
 	require.NoError(t, err)
 	defer lock.Unlock(delay)
 
