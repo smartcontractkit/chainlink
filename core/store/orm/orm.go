@@ -1173,6 +1173,15 @@ func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
 	return lc, err
 }
 
+// TODO - RYAN
+// func (orm *ORM) FindLogConsumption(rawLog eth.Log, listener eth.LogListener) (models.LogConsumption, error) {
+// ...
+// }
+
+// func (orm *ORM) CreateLogConsumption(rawLog eth.Log, listener eth.LogListener) (models.LogConsumption, error) {
+// ...
+// }
+
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
 // the keys folder on disk, deleting anything there prior.
 func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {

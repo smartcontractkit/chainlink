@@ -463,6 +463,8 @@ func (t *ResettableTicker) Reset() {
 	t.Ticker = time.NewTicker(t.d.Duration())
 }
 
+// TODO - RYAN
+// func (p *PollingDeviationChecker) HandleLog(log interface{}, chLogConsumptions chan struct{}, err error) {
 func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
 	switch log.(type) {
 	case *contracts.LogNewRound:
