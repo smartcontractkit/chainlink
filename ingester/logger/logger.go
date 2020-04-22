@@ -33,6 +33,7 @@ func init() {
 	SetLogger(zl)
 }
 
+// GetLogger returns pointer to logger
 func GetLogger() *Logger {
 	return logger
 }

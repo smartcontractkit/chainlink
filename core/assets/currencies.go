@@ -11,6 +11,7 @@ import (
 	"github.com/willf/pad"
 )
 
+// ErrNoQuotesForCurrency error message
 var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
 
 func format(i *big.Int, precision int) string {

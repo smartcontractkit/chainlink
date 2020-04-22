@@ -637,7 +637,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &cwl)
 }
 
-// CancelJob cancels a running job
+// CancelJobRun cancels a running job
 func (cli *Client) CancelJobRun(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the run id to be cancelled"))

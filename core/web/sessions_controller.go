@@ -67,6 +67,7 @@ func saveSessionID(session sessions.Session, sessionID string) error {
 	return session.Save()
 }
 
+// Session struct definition
 type Session struct {
 	Authenticated bool `json:"authenticated"`
 }

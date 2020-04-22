@@ -24,6 +24,7 @@ type VRFKeyStore struct {
 	store *Store
 }
 
+// InMemoryKeyStore map
 type InMemoryKeyStore = map[vrfkey.PublicKey]vrfkey.PrivateKey
 
 // NewVRFKeyStore returns an empty VRFKeyStore
@@ -35,7 +36,7 @@ func NewVRFKeyStore(store *Store) *VRFKeyStore {
 	}
 }
 
-// GenerateProof(k, seed) is marshaled randomness proof given public key k and
+// GenerateProof (k, seed) is marshaled randomness proof given public key k and
 // VRF input seed.
 //
 // k must have already been unlocked in ks, as constructing the VRF proof
@@ -78,12 +79,12 @@ func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrfkey.PublicKey,
 func (ks *VRFKeyStore) forget(k *vrfkey.PublicKey) error {
 	if _, found := ks.keys[*k]; !found {
 		return fmt.Errorf("public key %s is not unlocked; can't forget it", k)
-	} else {
-		delete(ks.keys, *k)
-		return nil
 	}
+	delete(ks.keys, *k)
+	return nil
 }
 
+// Forget export forget
 func (ks *VRFKeyStore) Forget(k *vrfkey.PublicKey) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()

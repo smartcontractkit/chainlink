@@ -55,7 +55,7 @@ func (p *Proof) SolidityPrecalculations() (*SolidityProof, error) {
 	return &rv, nil
 }
 
-// Length of marshaled proof, in bytes
+// ProofLength length of marshaled proof, in bytes
 const ProofLength = 64 + // PublicKey
 	64 + // Gamma
 	32 + // C
@@ -108,6 +108,7 @@ func (p *Proof) MarshalForSolidityVerifier() (MarshaledProof, error) {
 	return solidityProof.MarshalForSolidityVerifier(), nil
 }
 
+// UnmarshalSolidityProof unmarshal given proof
 func UnmarshalSolidityProof(proof []byte) (rv Proof, err error) {
 	failedProof := Proof{}
 	if len(proof) != ProofLength {

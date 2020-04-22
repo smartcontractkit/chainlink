@@ -4,6 +4,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 		ALTER TABLE initiators ADD COLUMN "request_data" text;

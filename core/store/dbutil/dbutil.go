@@ -6,6 +6,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+// IsPostgresURL returns true if postgres url provided
 func IsPostgresURL(url string) bool {
 	return strings.HasPrefix(strings.ToLower(url), "postgres")
 }

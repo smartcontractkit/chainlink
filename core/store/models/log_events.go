@@ -87,7 +87,7 @@ var topicFactoryMap = map[common.Hash]logRequestParser{
 var LogBasedChainlinkJobInitiators = []string{InitiatorRunLog, InitiatorEthLog,
 	InitiatorServiceAgreementExecutionLog, InitiatorRandomnessLog}
 
-// topicsForInitiatorsWhichRequireJobSpecTopic are the log topics which kick off
+// TopicsForInitiatorsWhichRequireJobSpecIDTopic are the log topics which kick off
 // a user job with the given type of initiator. If chainlink has any jobs with
 // these initiators, it subscribes on startup to logs which match both these
 // topics and some representation of the job spec ID.
@@ -105,7 +105,7 @@ func initiationRequiresJobSpecID(initiatorType string) bool {
 	return ok
 }
 
-// jobSpecIDTopics lists the ways jsID could be represented as a log topic. This
+// JobSpecIDTopics lists the ways jsID could be represented as a log topic. This
 // allows log subscriptions to respond to all possible representations.
 func JobSpecIDTopics(jsID *ID) []common.Hash {
 	return []common.Hash{
@@ -588,6 +588,7 @@ func IDToHexTopic(id *ID) common.Hash {
 	return common.BytesToHash([]byte(id.String()))
 }
 
+// LogCursor struct definition
 type LogCursor struct {
 	Name        string `gorm:"primary_key"`
 	Initialized bool   `gorm:"not null;default true"`

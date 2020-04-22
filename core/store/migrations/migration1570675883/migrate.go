@@ -5,15 +5,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// JobRun struct
 type JobRun struct {
 	models.JobRun
 	Overrides models.JSON
 }
 
+// TableName returns table name
 func (JobRun) TableName() string {
 	return "job_runs"
 }
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 ALTER TABLE job_runs ADD COLUMN "overrides" text;

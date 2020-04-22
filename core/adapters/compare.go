@@ -15,6 +15,7 @@ type Compare struct {
 	Value    string `json:"value"`
 }
 
+// Error message
 var (
 	ErrResultNotNumber      = errors.New("The result was not a number")
 	ErrValueNotNumber       = errors.New("The value was not a number")

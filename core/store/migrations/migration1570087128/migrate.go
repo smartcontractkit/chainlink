@@ -6,6 +6,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	if dbutil.IsPostgres(tx) {
 		return tx.Exec(`

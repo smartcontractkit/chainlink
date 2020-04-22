@@ -20,7 +20,10 @@ type Key struct {
 	JSON    JSON         `gorm:"type:text"`
 }
 
+// EncryptedSecretVRFKey type definition
 type EncryptedSecretVRFKey = vrfkey.EncryptedSecretKey
+
+// PublicKey type definition
 type PublicKey = vrfkey.PublicKey
 
 // NewKeyFromFile creates an instance in memory from a key file on disk.
