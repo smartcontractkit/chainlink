@@ -22,9 +22,9 @@ func NewStoreReaper(store *store.Store) SleeperTask {
 }
 
 func (sr *storeReaper) Work() {
-	offset := time.Now().Add(-sr.config.ReaperExpiration().Duration()).
-		Add(-sr.config.SessionTimeout().Duration())
-	err := sr.store.DeleteStaleSessions(offset)
+	recordCreationStaleThreshold := sr.config.ReaperExpiration().Before(
+		sr.config.SessionTimeout().Before(time.Now()))
+	err := sr.store.DeleteStaleSessions(recordCreationStaleThreshold)
 	if err != nil {
 		logger.Error("unable to reap stale sessions: ", err)
 	}
