@@ -322,5 +322,20 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 // ValidateLogConsumption ...
 func ValidateLogConsumption(lc models.LogConsumption, store *store.Store) error {
-	return nil
+	fe := models.NewJSONAPIErrors()
+
+	if _, err := store.ORM.FindLogConsumer(&lc); err != nil {
+		errorMessage := errors.Wrapf(err, "Unable to find LogConsumer of type %s with id %s", lc.ConsumerType, lc.ConsumerID.String())
+		fe.Add(errorMessage.Error())
+	}
+
+	exists, err := store.ORM.LogConsumptionExists(&lc)
+
+	if err != nil {
+		fe.Add(err.Error())
+	} else if exists {
+		fe.Add("LogConsumption record already exists")
+	}
+
+	return fe.CoerceEmptyToNil()
 }
