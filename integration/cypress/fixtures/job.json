@@ -2,7 +2,7 @@
   "initiators": [{ "type": "web" }],
   "tasks": [
     {
-      "type": "httpget",
+      "type": "httpgetwithunrestrictednetworkaccess",
       "params": { "get": "" }
     },
     { "type": "jsonparse", "params": { "path": ["last"] } },
