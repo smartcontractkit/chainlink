@@ -1,5 +1,6 @@
 #
-# This action checks PR's to see if the CHANGELOG file was updated. If it wasn't it will add a message to the PR asking if it would make sense to doso
+# This action checks PRs to see if any CHANGELOG* files were updated. 
+# If none were, it will add a message to the PR asking if it would make sense to do so.
 #
 name: Changelog
 
