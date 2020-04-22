@@ -68,7 +68,7 @@ export class Config {
       return urlFeedsJson
     }
     if (env.REACT_APP_FEEDS_JSON === undefined) {
-      return 'https://weiwatchers.com/feeds.json'
+      return '/feeds.json'
     }
     return env.REACT_APP_FEEDS_JSON
   }
@@ -79,7 +79,7 @@ export class Config {
       return urlNodesJson
     }
     if (env.REACT_APP_NODES_JSON === undefined) {
-      return 'https://weiwatchers.com/nodes.json'
+      return '/nodes.json'
     }
     return env.REACT_APP_NODES_JSON
   }
