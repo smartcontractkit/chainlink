@@ -28,6 +28,7 @@ describe('FluxAggregator', () => {
   const timeout = 1800
   const decimals = 18
   const description = 'LINK/USD'
+  const reserveRounds = 2
 
   let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
@@ -430,7 +431,26 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .withdrawFunds(personas.Carol.address, deposit)
+          .withdrawFunds(
+            personas.Carol.address,
+            deposit.sub(
+              paymentAmount.mul(oracleAddresses.length).mul(reserveRounds),
+            ),
+          )
+
+        // drain remaining funds
+        for (let i = 0; i < oracleAddresses.length; i++) {
+          await aggregator
+            .connect(oracleAddresses[i])
+            .updateAnswer(nextRound, answer)
+        }
+        nextRound++
+        for (let i = 0; i < oracleAddresses.length; i++) {
+          await aggregator
+            .connect(oracleAddresses[i])
+            .updateAnswer(nextRound, answer)
+        }
+        nextRound++
       })
 
       it('reverts', async () => {
@@ -1359,58 +1379,93 @@ describe('FluxAggregator', () => {
   })
 
   describe('#withdrawFunds', () => {
-    describe('when called by the owner', () => {
-      it('succeeds', async () => {
+    it('succeeds', async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .withdrawFunds(personas.Carol.address, deposit)
+
+      matchers.bigNum(0, await aggregator.availableFunds())
+      matchers.bigNum(deposit, await link.balanceOf(personas.Carol.address))
+    })
+
+    it('does not let withdrawals happen multiple times', async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .withdrawFunds(personas.Carol.address, deposit)
+
+      await matchers.evmRevert(
+        aggregator
+          .connect(personas.Carol)
+          .withdrawFunds(personas.Carol.address, deposit),
+        'insufficient reserve funds',
+      )
+    })
+
+    describe('with a number higher than the available LINK balance', () => {
+      beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .withdrawFunds(personas.Carol.address, deposit)
-
-        matchers.bigNum(0, await aggregator.availableFunds())
-        matchers.bigNum(deposit, await link.balanceOf(personas.Carol.address))
+          .addOracle(
+            personas.Neil.address,
+            personas.Neil.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       })
 
-      it('does not let withdrawals happen multiple times', async () => {
-        await aggregator
-          .connect(personas.Carol)
-          .withdrawFunds(personas.Carol.address, deposit)
-
+      it('fails', async () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
             .withdrawFunds(personas.Carol.address, deposit),
-          'insufficient available funds',
+          'insufficient reserve funds',
+        )
+
+        matchers.bigNum(
+          deposit.sub(paymentAmount),
+          await aggregator.availableFunds(),
         )
       })
+    })
 
-      describe('with a number higher than the available LINK balance', () => {
-        beforeEach(async () => {
+    describe('with oracles still present', () => {
+      beforeEach(async () => {
+        oracleAddresses = [personas.Neil, personas.Ned, personas.Nelly]
+        for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
             .addOracle(
-              personas.Neil.address,
-              personas.Neil.address,
-              minAns,
-              maxAns,
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              1,
+              1,
               rrDelay,
             )
-          await aggregator
-            .connect(personas.Neil)
-            .updateAnswer(nextRound, answer)
-        })
+        }
 
-        it('fails', async () => {
-          await matchers.evmRevert(
-            aggregator
-              .connect(personas.Carol)
-              .withdrawFunds(personas.Carol.address, deposit),
-            'insufficient available funds',
-          )
+        matchers.bigNum(deposit, await aggregator.availableFunds())
+      })
 
-          matchers.bigNum(
-            deposit.sub(paymentAmount),
-            await aggregator.availableFunds(),
-          )
-        })
+      it('does not allow withdrawal with less than 2x rounds of payments', async () => {
+        const oracleReserve = paymentAmount
+          .mul(oracleAddresses.length)
+          .mul(reserveRounds)
+        const allowed = deposit.sub(oracleReserve)
+
+        //one more than the allowed amount cannot be withdrawn
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Carol)
+            .withdrawFunds(personas.Carol.address, allowed.add(1)),
+          'insufficient reserve funds',
+        )
+
+        // the allowed amount can be withdrawn
+        await aggregator
+          .connect(personas.Carol)
+          .withdrawFunds(personas.Carol.address, allowed)
       })
     })
 
