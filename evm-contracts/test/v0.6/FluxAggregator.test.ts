@@ -2087,14 +2087,14 @@ describe('FluxAggregator', () => {
     let minMax
 
     beforeEach(async () => {
-      const oracles = [personas.Neil, personas.Nelly]
-      for (let i = 0; i < oracles.length; i++) {
+      oracleAddresses = [personas.Neil, personas.Nelly]
+      for (let i = 0; i < oracleAddresses.length; i++) {
         minMax = i + 1
         await aggregator
           .connect(personas.Carol)
           .addOracle(
-            oracles[i].address,
-            oracles[i].address,
+            oracleAddresses[i].address,
+            oracleAddresses[i].address,
             minMax,
             minMax,
             rrDelay,
@@ -2112,6 +2112,7 @@ describe('FluxAggregator', () => {
       matchers.bigNum(0, state._timesOutAt)
       matchers.bigNum(deposit, state._availableFunds)
       matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
+      matchers.bigNum(oracleAddresses.length, state._oracleCount) // weird that this is 0
     })
 
     describe('after other oracles have reported', () => {

@@ -748,7 +748,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
       int256 _latestRoundAnswer,
       uint64 _timesOutAt,
       uint128 _availableFunds,
-      uint128 _paymentAmount
+      uint128 _paymentAmount,
+      uint32 _oracleCount
     )
   {
     bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
@@ -759,7 +760,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
       rounds[latestRoundId].answer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
-      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
+      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount,
+      oracleCount()
     );
   }
 
