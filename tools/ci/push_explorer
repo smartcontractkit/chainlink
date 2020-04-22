@@ -50,15 +50,15 @@ if [ -n "${version_tag}" ]; then
     # ie: after pushing smartcontract/explorer:0.6.9, also update smartcontract/explorer:latest
     tag_and_push latest
   else
-    echo "Skipping publishing for this branch/tag."
+    echo "Skipping publishing for tag ${circle_tag}."
   fi
 elif [ -n "$branch_tag" ]; then
   # Only if we're on explorer branch
   if [[ "${circle_branch}" =~ ^release(s)?\/explorer-(.+)$ ]]; then
     tag_and_push "$branch_tag"
   else
-    echo "Skipping publishing for this branch/tag."
+    echo "Skipping publishing for ${circle_branch}."
   fi
 else
-  echo "Skipping publishing for this branch/tag."
+  echo "Skipping publishing for this ${circle_tag}/${circle_branch}."
 fi
