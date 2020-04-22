@@ -59,6 +59,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   uint256 constant public VERSION = 2;
 
+  LinkTokenInterface public linkToken;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
@@ -71,9 +72,10 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint8 public override decimals;
   bytes32 public description;
 
+  uint256 constant RESERVE_ROUNDS = 2;
+
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
-  LinkTokenInterface public linkToken;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
   mapping(address => Requester) internal requesters;
@@ -450,7 +452,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
-    require(availableFunds >= _amount, "insufficient available funds");
+    uint256 oracleReserve = uint256(paymentAmount).mul(oracleCount()).mul(RESERVE_ROUNDS);
+    require(uint256(availableFunds).sub(oracleReserve) >= _amount, "insufficient reserve funds");
     require(linkToken.transfer(_recipient, _amount), "token transfer failed");
     updateAvailableFunds();
   }
