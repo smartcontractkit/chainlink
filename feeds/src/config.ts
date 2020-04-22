@@ -48,12 +48,12 @@ class UrlConfig {
 }
 
 export class Config {
-  static infuraKey(env = process.env): string {
-    return env.REACT_APP_INFURA_KEY ?? ''
+  static infuraKey(env = process.env): string | undefined {
+    return env.REACT_APP_INFURA_KEY
   }
 
-  static gaId(env = process.env): string {
-    return env.REACT_APP_GA_ID ?? ''
+  static gaId(env = process.env): string | undefined {
+    return env.REACT_APP_GA_ID
   }
 
   static feedsJson(env = process.env, location = window.location): string {

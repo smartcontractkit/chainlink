@@ -9,7 +9,7 @@ import { PersistGate } from 'redux-persist/integration/react'
 import ReactGA from 'react-ga'
 import './theme.css'
 
-ReactGA.initialize(Config.gaId())
+ReactGA.initialize(Config.gaId() ?? '')
 
 const { store, persistor } = createStore()
 
