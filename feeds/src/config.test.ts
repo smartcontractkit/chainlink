@@ -25,7 +25,7 @@ describe('config', () => {
 
     it('returns a default feeds json when undefined', () => {
       process.env.REACT_APP_FEEDS_JSON = undefined
-      expect(Config.feedsJson()).toEqual('https://weiwatchers.com/feeds.json')
+      expect(Config.feedsJson()).toEqual('/feeds.json')
     })
 
     it('can override feeds json with a query parameter', () => {
@@ -48,7 +48,7 @@ describe('config', () => {
 
     it('returns a default nodes json when undefined', () => {
       process.env.REACT_APP_NODES_JSON = undefined
-      expect(Config.nodesJson()).toEqual('https://weiwatchers.com/nodes.json')
+      expect(Config.nodesJson()).toEqual('/nodes.json')
     })
 
     it('can override nodes json with a query parameter', () => {
