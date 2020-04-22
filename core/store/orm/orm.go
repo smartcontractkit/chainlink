@@ -2,6 +2,7 @@ package orm
 
 import (
 	"crypto/subtle"
+	"database/sql"
 	"encoding"
 	"fmt"
 	"net/url"
@@ -1174,13 +1175,36 @@ func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
 }
 
 // TODO - RYAN
-// func (orm *ORM) FindLogConsumption(rawLog eth.Log, listener eth.LogListener) (models.LogConsumption, error) {
+// func (orm *ORM) FindLogConsumptionBy...(rawLog eth.Log, listener eth.LogListener) (models.LogConsumption, error) {
 // ...
 // }
 
-// func (orm *ORM) CreateLogConsumption(rawLog eth.Log, listener eth.LogListener) (models.LogConsumption, error) {
-// ...
-// }
+// LogConsumptionExists ...
+func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
+	query := "SELECT id FROM log_consumptions " +
+		"WHERE block_hash=$1 " +
+		"AND log_index=$2 " +
+		"AND consumer_type=$3 " +
+		"AND consumer_id=$4"
+	return orm.rowExists(query, lc.BlockHash, lc.LogIndex, lc.ConsumerType, lc.ConsumerID)
+}
+
+// CreateLogConsumption ...
+func (orm *ORM) CreateLogConsumption(lc *models.LogConsumption) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Create(lc).Error
+}
+
+// FindLogConsumer ...
+func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (interface{}, error) {
+	orm.MustEnsureAdvisoryLock()
+
+	if lc.ConsumerType == models.LogConsumerTypeJob {
+		return orm.FindJob(lc.ConsumerID)
+	}
+
+	return nil, errors.Errorf("Consumer type %s does  not exist", lc.ConsumerType)
+}
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
 // the keys folder on disk, deleting anything there prior.
@@ -1243,4 +1267,14 @@ func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
 
 		offset += limit
 	}
+}
+
+func (orm *ORM) rowExists(query string, args ...interface{}) (bool, error) {
+	var exists bool
+	query = fmt.Sprintf("SELECT exists (%s)", query)
+	err := orm.db.DB().QueryRow(query, args...).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return exists, nil
 }
