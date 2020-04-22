@@ -79,6 +79,7 @@ type FluxAggregatorRoundState struct {
 	TimesOutAt        uint64   `abi:"_timesOutAt"`
 	AvailableFunds    *big.Int `abi:"_availableFunds"`
 	PaymentAmount     *big.Int `abi:"_paymentAmount"`
+	OracleCount       uint32   `abi:"_oracleCount"`
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
