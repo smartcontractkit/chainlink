@@ -12,8 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -327,17 +329,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	//- have the malicious node try to start another round repeatedly until the
 	//roundDelay is reached, making sure that it isn't successful
-	// Triggers a new round, since price deviation exceeds threshold
-	reportPrice = answer + 1
-	select {
-	case <-submissionReceived:
-		t.Fatalf("chainlink node updated FA, even though it's not allowed to")
-	case <-time.After(5 * timeout):
-	}
-	gomega.NewGomegaWithT(t).Eventually(
-		cltest.MemoryLogTestingOnly().String).Should(gomega.ContainSubstring(
-		"skipping poll: not eligible to submit"), "did not see log about skipping "+
-		"poll because it's too early")
+	checkNewRoundBlocked(t, reportPrice, answer, submissionReceived, timeout)
 	newRound = newRound + 1
 	processedAnswer = 100 * reportPrice
 	precision := job.Initiators[0].InitiatorParams.Precision
@@ -370,4 +362,30 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(5 * timeout):
 		t.Fatalf("could not start a new round, even though delay has passed")
 	}
+}
+
+// checkNewRoundBlocked fails if the simulated node in
+// TestFluxMonitorAntiSpamLogic can start a new round.
+//
+// NOTE: THIS OVERRIDES LOG_LEVEL ENVIRONMENT VARIABLE FOR THE DURATION OF THIS
+// FUNCTION.
+func checkNewRoundBlocked(t *testing.T, reportPrice, answer int64,
+	submissionReceived chan *faw.FluxAggregatorSubmissionReceived,
+	timeout time.Duration) {
+	// Set logger to debug-level output to the memory sink, so that we can check
+	// the round is skipped for the right reason.
+	currentLogger := logger.GetLogger().SugaredLogger
+	defer logger.SetLogger(currentLogger.Desugar())
+	logger.SetLogger(cltest.CreateMemoryTestLogger(zapcore.DebugLevel))
+	// Triggers a new round, since price deviation exceeds threshold
+	reportPrice = answer + 1
+	select {
+	case <-submissionReceived:
+		t.Fatalf("chainlink node updated FA, even though it's not allowed to")
+	case <-time.After(5 * timeout):
+	}
+	chkLog := func() string { return cltest.MemoryLogTestingOnly().String() }
+	gomega.NewGomegaWithT(t).Eventually(chkLog).Should(gomega.ContainSubstring(
+		"skipping poll: not eligible to submit"), "did not see log about skipping "+
+		"poll because it's too early")
 }
