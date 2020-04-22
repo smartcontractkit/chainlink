@@ -312,9 +312,8 @@ describe('FluxAggregator', () => {
       })
 
       it('updates the updated timestamp', async () => {
-        const deployTime = aggregator.deployTransaction.chainId / 1000
         const originalTimestamp = await aggregator.latestTimestamp()
-        assert.closeTo(deployTime, originalTimestamp.toNumber(), timeout)
+        assert.isAbove(originalTimestamp.toNumber(), 0)
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
