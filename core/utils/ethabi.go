@@ -223,6 +223,17 @@ func EVMWordUint64(val uint64) []byte {
 	return word
 }
 
+// EVMWordUint128 returns a uint128 as an EVM word byte array.
+func EVMWordUint128(val *big.Int) ([]byte, error) {
+	bytes := val.Bytes()
+	if val.BitLen() > 128 {
+		return nil, fmt.Errorf("Overflow saving uint128 to EVM word: %v", val)
+	} else if val.Sign() == -1 {
+		return nil, fmt.Errorf("Invalid attempt to save negative value as uint128 to EVM word: %v", val)
+	}
+	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
+}
+
 // EVMWordSignedBigInt returns a big.Int as an EVM word byte array, with
 // support for a signed representation. Returns error on overflow.
 func EVMWordSignedBigInt(val *big.Int) ([]byte, error) {

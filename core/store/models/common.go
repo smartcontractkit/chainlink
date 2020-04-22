@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/araddon/dateparse"
 	"github.com/jinzhu/gorm"
@@ -26,7 +26,7 @@ type RunStatus string
 
 const (
 	// RunStatusUnstarted is the default state of any run status.
-	RunStatusUnstarted = RunStatus("")
+	RunStatusUnstarted = RunStatus("unstarted")
 	// RunStatusInProgress is used for when a run is actively being executed.
 	RunStatusInProgress = RunStatus("in_progress")
 	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
@@ -113,12 +113,14 @@ func (s RunStatus) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (s *RunStatus) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to RunStatus", value, value)
+	switch v := value.(type) {
+	case []byte:
+		*s = RunStatus(string(v))
+	case string:
+		*s = RunStatus(v)
+	default:
+		return fmt.Errorf("Unable to convert %#v of %T to RunStatus", value, value)
 	}
-
-	*s = RunStatus(temp)
 	return nil
 }
 
@@ -130,7 +132,7 @@ type JSON struct {
 
 // Value returns this instance serialized for database storage.
 func (j JSON) Value() (driver.Value, error) {
-	s := j.String()
+	s := j.Bytes()
 	if len(s) == 0 {
 		return nil, nil
 	}
@@ -139,12 +141,14 @@ func (j JSON) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (j *JSON) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
+	switch v := value.(type) {
+	case string:
+		*j = JSON{Result: gjson.Parse(v)}
+	case []byte:
+		*j = JSON{Result: gjson.ParseBytes(v)}
+	default:
 		return fmt.Errorf("Unable to convert %v of %T to JSON", value, value)
 	}
-
-	*j = JSON{Result: gjson.Parse(temp)}
 	return nil
 }
 
@@ -326,17 +330,21 @@ func (t AnyTime) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON parses the raw time stored in JSON-encoded
 // data and stores it to the Time field.
 func (t *AnyTime) UnmarshalJSON(b []byte) error {
+	var str string
+
 	var n json.Number
-	if err := json.Unmarshal(b, &n); err != nil {
+	if err := json.Unmarshal(b, &n); err == nil {
+		str = n.String()
+	} else if err := json.Unmarshal(b, &str); err != nil {
 		return err
 	}
 
-	if len(n) == 0 {
+	if len(str) == 0 {
 		t.Valid = false
 		return nil
 	}
 
-	newTime, err := dateparse.ParseAny(n.String())
+	newTime, err := dateparse.ParseAny(str)
 	t.Time = newTime.UTC()
 	t.Valid = true
 	return err

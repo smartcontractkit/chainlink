@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -20,6 +20,11 @@ import (
 type Bridge struct {
 	models.BridgeType
 	Params models.JSON
+}
+
+// TaskType returns the bridges defined type.
+func (ba *Bridge) TaskType() models.TaskType {
+	return ba.Name
 }
 
 // Perform sends a POST request containing the JSON of the input to the
@@ -56,7 +61,7 @@ func getMeta(store *store.Store, jobRunID *models.ID) *models.JSON {
 		jobRun.RunRequest.TxHash.Hex(),
 		jobRun.RunRequest.BlockHash.Hex(),
 	)
-	return &models.JSON{gjson.Parse(meta)}
+	return &models.JSON{Result: gjson.Parse(meta)}
 }
 
 func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, bridgeResponseURL *url.URL) models.RunOutput {

@@ -13,9 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const evmWordSize = 32
@@ -29,6 +29,11 @@ type EthTxABIEncode struct {
 	FunctionABI abi.Method `json:"functionABI"`
 	GasPrice    *utils.Big `json:"gasPrice" gorm:"type:numeric"`
 	GasLimit    uint64     `json:"gasLimit"`
+}
+
+// TaskType returns the type of Adapter.
+func (etx *EthTxABIEncode) TaskType() models.TaskType {
+	return TaskTypeEthTxABIEncode
 }
 
 // UnmarshalJSON for custom JSON unmarshal that is strict, i.e. doesn't

@@ -5,14 +5,19 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Quotient holds the Dividend.
 type Quotient struct {
 	Dividend *big.Float `json:"-"`
+}
+
+// TaskType returns the type of Adapter.
+func (q *Quotient) TaskType() models.TaskType {
+	return TaskTypeQuotient
 }
 
 type jsonQuotient struct {

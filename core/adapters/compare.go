@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strconv"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // Compare adapter type takes an Operator and a Value field to
@@ -21,6 +21,11 @@ var (
 	ErrOperatorNotSpecified = errors.New("Operator not specified")
 	ErrValueNotSpecified    = errors.New("Value not specified")
 )
+
+// TaskType returns the type of Adapter.
+func (c *Compare) TaskType() models.TaskType {
+	return TaskTypeCompare
+}
 
 // Perform uses the Operator to check the run's result against the
 // specified Value.

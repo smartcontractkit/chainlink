@@ -1,17 +1,18 @@
-import { ListingAnswer } from './operations'
+import { FeedConfig } from 'feeds'
 import { Actions } from 'state/actions'
+import { ListingAnswer } from './operations'
 
 export interface HealthCheck {
   currentPrice: number
 }
 
 export interface State {
-  answers?: ListingAnswer[]
-  healthChecks: Record<string, HealthCheck>
+  answers: ListingAnswer[]
+  healthChecks: Record<FeedConfig['contractAddress'], HealthCheck>
 }
 
 export const INITIAL_STATE: State = {
-  answers: undefined,
+  answers: [],
   healthChecks: {},
 }
 

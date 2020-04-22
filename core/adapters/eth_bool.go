@@ -1,8 +1,8 @@
 package adapters
 
 import (
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/tidwall/gjson"
 )
@@ -12,6 +12,11 @@ var evmTrue = "0x000000000000000000000000000000000000000000000000000000000000000
 
 // EthBool holds no fields
 type EthBool struct{}
+
+// TaskType returns the type of Adapter.
+func (e *EthBool) TaskType() models.TaskType {
+	return TaskTypeEthBool
+}
 
 // Perform returns the abi encoding for a boolean
 //

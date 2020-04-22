@@ -20,10 +20,27 @@
 // The HTTPGet adapter is used to grab the JSON data from the given URL.
 //  { "type": "HTTPGet", "params": {"get": "https://some-api-example.net/api" }}
 //
+// NOTE: For security, since the URL is untrusted, HTTPGet imposes some
+// restrictions on which IPs may be fetched. Local network and multicast IPs
+// are disallowed by default and attempting to connect will result in an error.
+//
+//
 // HTTPPost
 //
 // Sends a POST request to the specified URL and will return the response.
 //  { "type": "HTTPPost", "params": {"post": "https://weiwatchers.com/api" }}
+//
+// NOTE: For security, since the URL is untrusted, HTTPPost imposes some
+// restrictions on which IPs may be fetched. Local network and multicast IPs
+// are disallowed by default and attempting to connect will result in an error.
+//
+// HTTPGetWithUnrestrictedNetworkAccess
+//
+// Identical to HTTPGet except there are no IP restrictions. Use with caution.
+//
+// HTTPPostWithUnrestrictedNetworkAccess
+//
+// Identical to HTTPPost except there are no IP restrictions. Use with caution.
 //
 // JSONParse
 //

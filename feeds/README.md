@@ -60,7 +60,6 @@ $ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=abc123,REACT_APP_
 $ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=$(heroku config:get REACT_APP_INFURA_KEY -a the-app-name),REACT_APP_GA_ID=$(heroku config:get REACT_APP_GA_ID -a the-app-name) -a the-app-name
 ```
 
-
 Deploy the newly built image by releasing the container from the root of the monorepo
 
 ```
@@ -71,10 +70,10 @@ $ heroku container:release web -a the-app-name
 
 ### Display Offchain Comparison Links
 
-On the landing page you can enable a link to an offchain price comparison resource with the `compare_offchain` query parameter.
+On the landing page you can enable a link to an offchain price comparison resource with the `compare-offchain` query parameter.
 
 ```
-https://feeds.chain.link?compare_offchain=true
+https://feeds.chain.link?compare-offchain=true
 ```
 
 ![display-offchain-comparison](./docs/feed-landing-compare-offchain.png)
@@ -91,11 +90,11 @@ https://feeds.chain.link?health=true
 
 #### Checks
 
-* Within price threshold
-* Answer is 0
+- Within price threshold
+- Answer is 0
 
 Color Codes
 
-* Red: A check has failed (hover for tooltip that includes failed checks) 
-* Yellow: Unknown status (when the price health check is not configured)
-* Green: Ok
+- Red: A check has failed (hover for tooltip that includes failed checks)
+- Yellow: Unknown status (when the price health check is not configured)
+- Green: Ok

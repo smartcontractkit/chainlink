@@ -7,16 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/migrations"
-	"chainlink/core/store/migrations/migration0"
-	"chainlink/core/store/migrations/migration1560881855"
-	"chainlink/core/store/migrations/migration1570675883"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1570675883"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +32,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	cleanupDB := cltest.PrepareTestDB(tc)
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout())
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal())
 	require.NoError(t, err)
 	orm.SetLogging(true)
 
@@ -295,7 +297,7 @@ func TestMigrate_Migration1570675883(t *testing.T) {
 		jobRun := migration0.JobRun{
 			ID:             utils.NewBytes32ID(),
 			JobSpecID:      jobSpec.ID,
-			OverridesID:    overrides.ID,
+			OverridesID:    uint(overrides.ID),
 			CreationHeight: "0",
 			ObservedHeight: "0",
 		}
@@ -307,6 +309,49 @@ func TestMigrate_Migration1570675883(t *testing.T) {
 		require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
 		assert.Equal(t, `{"a": "b"}`, jobRunFound.Overrides.String())
 		require.Error(t, db.Where("id = ?", overrides.ID).Find(&overrides).Error)
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestMigrate_Migration1586369235(t *testing.T) {
+	// Make sure that the data still reads OK afterward
+	orm, cleanup := bootstrapORM(t)
+	defer cleanup()
+
+	err := orm.RawDB(func(db *gorm.DB) error {
+		require.NoError(t, migrations.MigrateTo(db, "1586163842"))
+		hexEncodedData := "0x3162323831336636383832373462366261623565663264366135343866323038"
+		binaryData := hexutil.MustDecode(hexEncodedData)
+		address := hexutil.MustDecode("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
+		bigInt := "42000000000000000000" // 42 LINK
+
+		require.NoError(t, db.Exec(`INSERT INTO encumbrances (payment, aggregator, agg_initiate_job_selector, agg_fulfill_selector) VALUES (?, 'a', E'\\xDEADBEEF', E'\\xDEADBEEF')`, bigInt).Error)
+		require.NoError(t, db.Exec(`INSERT INTO run_requests (request_id) VALUES (?::text)`, hexEncodedData).Error)
+		require.NoError(t, db.Exec(`INSERT INTO txes (signed_raw_tx, "from", "to", data, nonce, value, gas_limit, hash, gas_price, confirmed, sent_at) VALUES (?::text, ?, ?, E'\\xDEADBEEF', 42, ?, 42, ?, ?, false, 42)`, hexEncodedData, address, address, bigInt, binaryData, bigInt).Error)
+		require.NoError(t, db.Exec(`INSERT INTO tx_attempts (signed_raw_tx, created_at, hash, gas_price, confirmed, sent_at) VALUES (?::text, NOW(), ?, ?, false, 42)`, hexEncodedData, binaryData, bigInt).Error)
+
+		require.NoError(t, migrations.MigrateTo(db, "1586369235"))
+
+		var e models.Encumbrance
+		require.NoError(t, db.First(&e, "true").Error)
+		assert.Equal(t, e.Payment.ToInt().String(), bigInt)
+
+		var rr models.RunRequest
+		require.NoError(t, db.First(&rr, "true").Error)
+		assert.Equal(t, rr.RequestID.Bytes(), binaryData)
+
+		var tx models.Tx
+		require.NoError(t, db.First(&tx, "true").Error)
+		assert.Equal(t, tx.SignedRawTx, binaryData)
+		assert.Equal(t, tx.GasPrice.String(), bigInt)
+		assert.Equal(t, tx.Value.String(), bigInt)
+
+		var txa models.TxAttempt
+		require.NoError(t, db.First(&txa, "true").Error)
+		assert.Equal(t, txa.SignedRawTx, binaryData)
+		assert.Equal(t, txa.GasPrice.String(), bigInt)
+
 		return nil
 	})
 	require.NoError(t, err)

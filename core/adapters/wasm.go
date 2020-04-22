@@ -5,13 +5,18 @@ package adapters
 import (
 	"fmt"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // Wasm represents a wasm binary encoded as base64 or wasm encoded as text (a lisp like language).
 type Wasm struct {
 	WasmT string `json:"wasmt"`
+}
+
+// TaskType returns the type of Adapter.
+func (wasm *Wasm) TaskType() models.TaskType {
+	return TaskTypeWasm
 }
 
 // Perform ships the wasm representation to the SGX enclave where it is evaluated.

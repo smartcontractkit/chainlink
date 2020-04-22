@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { connect } from 'react-redux'
-import { aggregationOperations } from 'state/ducks/aggregation'
-import { NetworkGraph } from 'components/networkGraph'
-import { NetworkGraphInfo } from 'components/networkGraphInfo'
+import { aggregatorOperations } from 'state/ducks/aggregator'
+import { AggregatorVis } from 'components/aggregatorVis'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
 import { OracleTable } from 'components/oracleTable'
@@ -13,26 +12,24 @@ interface OwnProps {
   history: any
 }
 
-interface StateProps {}
-
 interface DispatchProps {
   initContract: any
   clearState: any
 }
 
-interface Props extends OwnProps, StateProps, DispatchProps {}
+interface Props extends OwnProps, DispatchProps {}
 
 const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
-  const [options] = useState(formatOptions(parseQuery(history.location.search)))
+  const [config] = useState(formatConfig(parseQuery(history.location.search)))
 
   useEffect(() => {
-    initContract(options).catch(() => {
+    initContract(config).catch(() => {
       console.error('Could not initiate contract')
     })
     return () => {
       clearState()
     }
-  }, [initContract, clearState, options])
+  }, [initContract, clearState, config])
 
   return (
     <>
@@ -40,10 +37,9 @@ const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
         <Header />
       </div>
       <div className="page-wrapper network-page">
-        <NetworkGraph options={options} />
-        <NetworkGraphInfo options={options} />
-        {options && options.history && <AnswerHistory options={options} />}
-        {options && options.history && <DeviationHistory options={options} />}
+        <AggregatorVis config={config} />
+        {config && config.history && <AnswerHistory config={config} />}
+        {config && config.history && <DeviationHistory config={config} />}
         <OracleTable />
       </div>
     </>
@@ -51,17 +47,17 @@ const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
 }
 
 const mapDispatchToProps = {
-  initContract: aggregationOperations.initContract,
-  clearState: aggregationOperations.clearState,
+  initContract: aggregatorOperations.initContract,
+  clearState: aggregatorOperations.clearState,
 }
 
-function formatOptions(options: any) {
+function formatConfig(config: any) {
   return {
-    ...options,
-    networkId: uIntFrom(options.networkId),
+    ...config,
+    networkId: uIntFrom(config.networkId ?? 0),
     contractVersion: 2,
-    decimalPlaces: uIntFrom(options.decimalPlaces),
-    counter: uIntFrom(options.counter) || false,
+    decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),
+    heartbeat: uIntFrom(config.heartbeat ?? 0) ?? false,
   }
 }
 

@@ -4,7 +4,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // Migrate adds VRF proving-key table, and related subtables.

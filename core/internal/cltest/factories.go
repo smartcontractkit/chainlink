@@ -14,15 +14,15 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	"chainlink/core/services/vrf"
-	"chainlink/core/store"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -147,8 +147,8 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
 			Address:       NewAddress(),
-			RequestData:   models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:         models.JSON{gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
+			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:         models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
 			IdleThreshold: models.Duration(time.Minute),
 			Threshold:     0.5,
 			Precision:     2,
@@ -165,8 +165,8 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
 			Address:     NewAddress(),
-			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:       models.JSON{gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			RequestData: models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
 			Threshold:   0.5,
 			Precision:   2,
 		},
@@ -212,7 +212,7 @@ func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw",
+		SignedRawTx: hexutil.MustDecode("0xcafe11"),
 	}
 }
 
@@ -262,7 +262,7 @@ func CreateTxWithNonceGasPriceAndRecipient(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw-attempt 1",
+		SignedRawTx: hexutil.MustDecode("0xcafe22"),
 	}
 
 	tx, err := store.CreateTx(tx)
@@ -291,7 +291,7 @@ func AddTxAttempt(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: fmt.Sprintf("signed-raw-attempt %d", len(tx.Attempts)+1),
+		SignedRawTx: []byte{byte(len(tx.Attempts))},
 	}
 
 	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
@@ -595,30 +595,14 @@ func EmptyCLIContext() *cli.Context {
 func NewJobRun(job models.JobSpec) models.JobRun {
 	initiator := job.Initiators[0]
 	now := time.Now()
-	run := models.JobRun{
-		ID:          models.NewID(),
-		JobSpecID:   job.ID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Initiator:   initiator,
-		InitiatorID: initiator.ID,
-		Status:      models.RunStatusInProgress,
-		TaskRuns:    make([]models.TaskRun, len(job.Tasks)),
-	}
-	for i, task := range job.Tasks {
-		run.TaskRuns[i] = models.TaskRun{
-			ID:       models.NewID(),
-			JobRunID: run.ID,
-			TaskSpec: task,
-		}
-	}
+	run := models.MakeJobRun(&job, now, &initiator, nil, &models.RunRequest{})
 	return run
 }
 
 // NewJobRunPendingBridge returns a new job run in the pending bridge state
 func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
 	run := NewJobRun(job)
-	run.Status = models.RunStatusPendingBridge
+	run.SetStatus(models.RunStatusPendingBridge)
 	run.TaskRuns[0].Status = models.RunStatusPendingBridge
 	return run
 }
@@ -626,7 +610,7 @@ func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
 // CreateJobRunWithStatus returns a new job run with the specified status that has been persisted
 func CreateJobRunWithStatus(t testing.TB, store *store.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
 	run := NewJobRun(job)
-	run.Status = status
+	run.SetStatus(status)
 	require.NoError(t, store.CreateJobRun(&run))
 	return run
 }

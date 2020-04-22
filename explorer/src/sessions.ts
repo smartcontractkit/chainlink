@@ -1,4 +1,4 @@
-import { Connection } from 'typeorm'
+import { getConnection, EntityManager } from 'typeorm'
 import { ChainlinkNode, hashCredentials } from './entity/ChainlinkNode'
 import { createSession, Session } from './entity/Session'
 import { timingSafeEqual } from 'crypto'
@@ -6,15 +6,14 @@ import { timingSafeEqual } from 'crypto'
 // authenticate looks up a chainlink node by accessKey and attempts to verify the
 // provided secret, if verification succeeds a Session is returned
 export const authenticate = async (
-  db: Connection,
   accessKey: string,
   secret: string,
 ): Promise<Session | null> => {
-  return db.manager.transaction(async () => {
-    const chainlinkNode = await findNode(db, accessKey)
+  return getConnection().transaction(async (manager: EntityManager) => {
+    const chainlinkNode = await findNode(manager, accessKey)
     if (chainlinkNode != null) {
       if (authenticateSession(accessKey, secret, chainlinkNode)) {
-        return createSession(db, chainlinkNode)
+        return createSession(chainlinkNode, manager)
       }
     }
 
@@ -22,8 +21,11 @@ export const authenticate = async (
   })
 }
 
-function findNode(db: Connection, accessKey: string): Promise<ChainlinkNode> {
-  return db.getRepository(ChainlinkNode).findOne({ accessKey })
+function findNode(
+  manager: EntityManager,
+  accessKey: string,
+): Promise<ChainlinkNode> {
+  return manager.getRepository(ChainlinkNode).findOne({ accessKey })
 }
 
 function authenticateSession(

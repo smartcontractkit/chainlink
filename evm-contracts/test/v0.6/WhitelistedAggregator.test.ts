@@ -26,8 +26,8 @@ describe('WhitelistedAggregator', () => {
   const decimals = 18
   const description = 'LINK/USD'
 
-  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
+  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
   let nextRound: number
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
@@ -41,7 +41,7 @@ describe('WhitelistedAggregator', () => {
         h.toBytes32String(description),
         // Remove when this PR gets merged:
         // https://github.com/ethereum-ts/TypeChain/pull/218
-        { gasLimit: 5_500_000 },
+        { gasLimit: 8_000_000 },
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
@@ -55,10 +55,11 @@ describe('WhitelistedAggregator', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
+      'acceptAdmin',
       'addOracle',
-      'addToWhitelist',
       'allocatedFunds',
       'availableFunds',
+      'decimals',
       'description',
       'getAdmin',
       'getAnswer',
@@ -71,34 +72,39 @@ describe('WhitelistedAggregator', () => {
       'latestRound',
       'latestSubmission',
       'latestTimestamp',
+      'linkToken',
       'maxAnswerCount',
       'minAnswerCount',
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'decimals',
-      'removeFromWhitelist',
       'removeOracle',
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
       'roundState',
-      'setAuthorization',
+      'setRequesterPermissions',
       'startNewRound',
       'timeout',
-      'updateAdmin',
+      'transferAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'whitelisted',
-      'withdraw',
       'withdrawFunds',
-      'withdrawable',
+      'withdrawPayment',
+      'withdrawablePayment',
       'VERSION',
       // Owned methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
+      // Owned methods:
+      'addToWhitelist',
+      'disableWhitelist',
+      'enableWhitelist',
+      'removeFromWhitelist',
+      'whitelistEnabled',
+      'whitelisted',
     ])
   })
 

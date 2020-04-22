@@ -14,16 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/auth"
-	ethpkg "chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/services/vrf"
-	"chainlink/core/store/models"
-	"chainlink/core/store/models/vrfkey"
-	"chainlink/core/utils"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -261,7 +261,8 @@ func TestIntegration_RunAt(t *testing.T) {
 	assert.Equal(t, models.InitiatorRunAt, initr.Type)
 	assert.Equal(t, "2018-01-08T18:12:01Z", utils.ISO8601UTC(initr.Time.Time))
 
-	cltest.WaitForRuns(t, j, app.Store, 1)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
 
 func TestIntegration_EthLog(t *testing.T) {
@@ -285,7 +286,8 @@ func TestIntegration_EthLog(t *testing.T) {
 	assert.Equal(t, address, initr.Address)
 
 	logs <- cltest.LogFromFixture(t, "testdata/requestLog0original.json")
-	cltest.WaitForRuns(t, j, app.Store, 1)
+	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
+	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
 
 func TestIntegration_RunLog(t *testing.T) {
@@ -387,7 +389,8 @@ func TestIntegration_StartAt(t *testing.T) {
 	startAt := cltest.ParseISO8601(t, "1970-01-01T00:00:00.000Z")
 	assert.Equal(t, startAt, j.StartAt.Time)
 
-	cltest.CreateJobRunViaWeb(t, app, j)
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
 func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
@@ -572,7 +575,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	j := cltest.NewJobWithLogInitiator()
-	post := cltest.NewTask(t, "httppost", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
+	post := cltest.NewTask(t, "httppostwithunrestrictednetworkaccess", fmt.Sprintf(`{"url":"%v"}`, mockServer.URL))
 	tasks := []models.TaskSpec{post}
 	j.Tasks = tasks
 	j = cltest.CreateJobSpecViaWeb(t, app, j)
@@ -723,6 +726,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	err := json.Unmarshal([]byte(message), &run)
 	require.NoError(t, err)
 	assert.Equal(t, j.ID, run.JobSpecID)
+	cltest.WaitForJobRunToComplete(t, app.Store, run)
 }
 
 func TestIntegration_SleepAdapter(t *testing.T) {
@@ -730,6 +734,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 
 	sleepSeconds := 4
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app.Config.Set("ENABLE_EXPERIMENTAL_ADAPTERS", "true")
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -802,6 +807,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
 func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
@@ -834,6 +840,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.ID)
 	assert.NoError(t, err)
+	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
 
 func TestIntegration_AuthToken(t *testing.T) {
@@ -874,10 +881,12 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
 		var data []byte
-		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
-		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
-		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
+		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
@@ -905,7 +914,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
-	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(5 * time.Second)
+	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -952,10 +961,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
 		var data []byte
-		data = append(data, utils.EVMWordUint64(2)...)     // RoundID
-		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
-		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
+		data = append(data, utils.EVMWordUint64(2)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 
@@ -975,7 +986,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
-	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(10 * time.Second)
+	job.Initiators[0].InitiatorParams.PollingInterval = models.Duration(15 * time.Second)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	_ = cltest.WaitForRuns(t, j, app.Store, 0)
@@ -997,10 +1008,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	})
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
 		var data []byte
-		data = append(data, utils.EVMWordUint64(3)...)     // RoundID
-		data = append(data, utils.EVMWordUint64(1)...)     // Eligible
-		data = append(data, utils.EVMWordUint64(10000)...) // LatestAnswer
-		data = append(data, utils.EVMWordUint64(0)...)     // TimesOutAt
+		data = append(data, utils.EVMWordUint64(3)...)                                                          // RoundID
+		data = append(data, utils.EVMWordUint64(1)...)                                                          // Eligible
+		data = append(data, utils.EVMWordUint64(10000)...)                                                      // LatestAnswer
+		data = append(data, utils.EVMWordUint64(0)...)                                                          // TimesOutAt
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // AvailableFunds
+		data = append(data, utils.EVMWordUint64(app.Store.Config.MinimumContractPayment().ToInt().Uint64())...) // PaymentAmount
 		mock.Register("eth_call", "0x"+hex.EncodeToString(data))
 	})
 	newRounds <- log
@@ -1043,7 +1056,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
 	r := vrf.RandomnessRequestLog{
-		KeyHash: provingKey.PublicKey.Hash(),
+		KeyHash: provingKey.PublicKey.MustHash(),
 		Seed:    big.NewInt(2),
 		JobID:   common.BytesToHash(rawID),
 		Sender:  cltest.NewAddress(),
@@ -1063,8 +1076,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.True(t, eth.AllCalled(), eth.Remaining())
 	require.Len(t, attempts, 1)
 
-	rawTx, err := hexutil.Decode(attempts[0].SignedRawTx)
-	require.NoError(t, err)
+	rawTx := attempts[0].SignedRawTx
 	var tx *types.Transaction
 	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
 	fixtureToAddress := j.Tasks[1].Params.Get("address").String()

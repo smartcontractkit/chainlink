@@ -4,8 +4,8 @@ import (
 	"context"
 	"math/big"
 
-	"chainlink/core/assets"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,10 +21,10 @@ type Client interface {
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
-	SendRawTx(hex string) (common.Hash, error)
+	SendRawTx(bytes []byte) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockHeight() (uint64, error)
-	GetBlockByNumber(hex string) (BlockHeader, error)
+	GetBlockByNumber(hex string) (Block, error)
 	GetChainID() (*big.Int, error)
 	SubscribeToNewHeads(ctx context.Context, channel chan<- BlockHeader) (Subscription, error)
 }
@@ -114,9 +114,9 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (client *CallerSubscriberClient) SendRawTx(hex string) (common.Hash, error) {
+func (client *CallerSubscriberClient) SendRawTx(bytes []byte) (common.Hash, error) {
 	result := common.Hash{}
-	err := client.Call(&result, "eth_sendRawTransaction", hex)
+	err := client.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
 	return result, err
 }
 
@@ -134,10 +134,11 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
-func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (BlockHeader, error) {
-	var header BlockHeader
-	err := client.Call(&header, "eth_getBlockByNumber", hex, false)
-	return header, err
+// Includes all transactions
+func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (Block, error) {
+	var block Block
+	err := client.Call(&block, "eth_getBlockByNumber", hex, true)
+	return block, err
 }
 
 // GetLogs returns all logs that respect the passed filter query.

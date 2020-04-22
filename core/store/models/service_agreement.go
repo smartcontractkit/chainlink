@@ -8,9 +8,9 @@ import (
 	"math/big"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -22,7 +22,7 @@ type Encumbrance struct {
 	// Corresponds to requestDigest in solidity ServiceAgreement struct
 	ID uint `json:"-" gorm:"primary_key;auto_increment"`
 	// Price to request a report based on this agreement
-	Payment *assets.Link `json:"payment,omitempty" gorm:"type:varchar(255)"`
+	Payment *assets.Link `json:"payment,omitempty"`
 	// Expiration is the amount of time an oracle has to answer a request
 	Expiration uint64 `json:"expiration"`
 	// Agreement is valid until this time

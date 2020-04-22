@@ -48,6 +48,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
     int256 latestAnswer;
     uint16 index;
     address admin;
+    address pendingAdmin;
+  }
+
+  struct Requester {
+    bool authorized;
+    uint32 delay;
+    uint32 lastStartedRound;
   }
 
   uint256 constant public VERSION = 2;
@@ -61,15 +68,15 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint32 public minAnswerCount;
   uint32 public restartDelay;
   uint32 public timeout;
-  uint8 public decimals;
+  uint8 public override decimals;
   bytes32 public description;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
-  LinkTokenInterface private LINK;
+  LinkTokenInterface public linkToken;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
-  mapping(address => bool) internal authorizedRequesters;
+  mapping(address => Requester) internal requesters;
   address[] private oracleAddresses;
 
   event AvailableFundsUpdated(uint256 indexed amount);
@@ -83,12 +90,21 @@ contract FluxAggregator is AggregatorInterface, Owned {
   event OracleAdded(address indexed oracle);
   event OracleRemoved(address indexed oracle);
   event OracleAdminUpdated(address indexed oracle, address indexed newAdmin);
+  event OracleAdminUpdateRequested(
+    address indexed oracle,
+    address admin,
+    address newAdmin
+  );
   event SubmissionReceived(
     int256 indexed answer,
     uint32 indexed round,
     address indexed oracle
   );
-  event RequesterAuthorizationSet(address indexed requester, bool allowed);
+  event RequesterPermissionsSet(
+    address indexed requester,
+    bool authorized,
+    uint32 delay
+  );
 
   uint32 constant private ROUND_MAX = 2**32-1;
 
@@ -107,7 +123,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint8 _decimals,
     bytes32 _description
   ) public {
-    LINK = LinkTokenInterface(_link);
+    linkToken = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
     decimals = _decimals;
@@ -125,7 +141,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyValidRoundId(uint32(_round))
     onlyValidOracleRound(uint32(_round))
   {
-    initializeNewRound(uint32(_round));
+    oracleInitializeNewRound(uint32(_round));
     recordSubmission(_answer, uint32(_round));
     updateRoundAnswer(uint32(_round));
     payOracle(uint32(_round));
@@ -154,9 +170,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
     onlyUnenabledAddress(_oracle)
   {
-    require(oracleCount() < 42);
-    require(_admin != address(0));
-    require(oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin);
+    require(oracleCount() < 42, "max oracles allowed");
+    require(_admin != address(0), "cannot set admin to 0");
+    require(oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin, "owner cannot overwrite admin");
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
     oracleAddresses.push(_oracle);
@@ -244,7 +260,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     uint128 pastAvailableFunds = availableFunds;
 
-    uint256 available = LINK.balanceOf(address(this)).sub(allocatedFunds);
+    uint256 available = linkToken.balanceOf(address(this)).sub(allocatedFunds);
     availableFunds = uint128(available);
 
     if (pastAvailableFunds != available) {
@@ -357,8 +373,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return answeredIn > 0 && answeredIn != roundId;
   }
 
-  /**	
-   * @notice get the start time of the current reporting round	
+  /**
+   * @notice get the start time of the current reporting round
    */
   function reportingRoundStartedAt()
     external
@@ -395,7 +411,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice query the available amount of LINK for an oracle to withdraw
    */
-  function withdrawable(address _oracle)
+  function withdrawablePayment(address _oracle)
     external
     view
     returns (uint256)
@@ -410,19 +426,19 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @param _recipient is the address to send the LINK to
    * @param _amount is the amount of LINK to send
    */
-  function withdraw(address _oracle, address _recipient, uint256 _amount)
+  function withdrawPayment(address _oracle, address _recipient, uint256 _amount)
     external
   {
-    require(oracles[_oracle].admin == msg.sender);
+    require(oracles[_oracle].admin == msg.sender, "only callable by admin");
 
     uint128 amount = uint128(_amount);
     uint128 available = oracles[_oracle].withdrawable;
-    require(available >= amount);
+    require(available >= amount, "insufficient withdrawable funds");
 
     oracles[_oracle].withdrawable = available.sub(amount);
     allocatedFunds = allocatedFunds.sub(amount);
 
-    assert(LINK.transfer(_recipient, uint256(amount)));
+    assert(linkToken.transfer(_recipient, uint256(amount)));
   }
 
   /**
@@ -434,8 +450,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
-    require(availableFunds >= _amount);
-    require(LINK.transfer(_recipient, _amount));
+    require(availableFunds >= _amount, "insufficient available funds");
+    require(linkToken.transfer(_recipient, _amount), "token transfer failed");
     updateAvailableFunds();
   }
 
@@ -464,17 +480,31 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice update the admin address for an oracle
-   * @param _oracle is the address of the oracle whose admin is being updated
+   * @notice transfer the admin address for an oracle
+   * @param _oracle is the address of the oracle whose admin is being transfered
    * @param _newAdmin is the new admin address
    */
-  function updateAdmin(address _oracle, address _newAdmin)
+  function transferAdmin(address _oracle, address _newAdmin)
     external
   {
-    require(oracles[_oracle].admin == msg.sender);
-    oracles[_oracle].admin = _newAdmin;
+    require(oracles[_oracle].admin == msg.sender, "only callable by admin");
+    oracles[_oracle].pendingAdmin = _newAdmin;
 
-    emit OracleAdminUpdated(_oracle, _newAdmin);
+    emit OracleAdminUpdateRequested(_oracle, msg.sender, _newAdmin);
+  }
+
+  /**
+   * @notice accept the admin address transfer for an oracle
+   * @param _oracle is the address of the oracle whose admin is being transfered
+   */
+  function acceptAdmin(address _oracle)
+    external
+  {
+    require(oracles[_oracle].pendingAdmin == msg.sender, "only callable by pending admin");
+    oracles[_oracle].pendingAdmin = address(0);
+    oracles[_oracle].admin = msg.sender;
+
+    emit OracleAdminUpdated(_oracle, msg.sender);
   }
 
   /**
@@ -486,23 +516,31 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     uint32 current = reportingRoundId;
 
-    require(rounds[current].updatedAt > 0 || timedOut(current));
+    require(rounds[current].updatedAt > 0 || timedOut(current), "prev round must be supersedable");
 
-    initializeNewRound(current.add(1));
+    requesterInitializeNewRound(current.add(1));
   }
 
   /**
    * @notice allows the owner to specify new non-oracles to start new rounds
    * @param _requester is the address to set permissions for
-   * @param _allowed is a boolean specifying whether they can start new rounds or not
+   * @param _authorized is a boolean specifying whether they can start new rounds or not
+   * @param _delay is the number of rounds the requester must wait before starting another round
    */
-  function setAuthorization(address _requester, bool _allowed)
+  function setRequesterPermissions(address _requester, bool _authorized, uint32 _delay)
     external
     onlyOwner()
   {
-    authorizedRequesters[_requester] = _allowed;
+    if (requesters[_requester].authorized == _authorized) return;
 
-    emit RequesterAuthorizationSet(_requester, _allowed);
+    if (_authorized) {
+      requesters[_requester].authorized = _authorized;
+      requesters[_requester].delay = _delay;
+    } else {
+      delete requesters[_requester];
+    }
+
+    emit RequesterPermissionsSet(_requester, _authorized, _delay);
   }
 
   /**
@@ -567,8 +605,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   function initializeNewRound(uint32 _id)
     private
-    ifNewRound(_id)
-    ifDelayed(_id)
   {
     updateTimedOutRoundInfo(_id.sub(1));
 
@@ -579,9 +615,27 @@ contract FluxAggregator is AggregatorInterface, Owned {
     rounds[_id].details.timeout = timeout;
     rounds[_id].startedAt = uint64(block.timestamp);
 
-    oracles[msg.sender].lastStartedRound = _id;
-
     emit NewRound(_id, msg.sender, rounds[_id].startedAt);
+  }
+
+  function oracleInitializeNewRound(uint32 _id)
+    private
+    ifNewRound(_id)
+    ifOracleDelayed(_id)
+  {
+    initializeNewRound(_id);
+
+    oracles[msg.sender].lastStartedRound = _id;
+  }
+
+  function requesterInitializeNewRound(uint32 _id)
+    private
+    ifNewRound(_id)
+    onlyDelayedRequesters(_id)
+  {
+    initializeNewRound(_id);
+
+    requesters[msg.sender].lastStartedRound = _id;
   }
 
   function updateTimedOutRoundInfo(uint32 _id)
@@ -671,18 +725,35 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return currentRound.add(1);
   }
 
+  function previousAndCurrentUnanswered(uint32 _id, uint32 _rrId)
+    private
+    view
+    returns (bool)
+  {
+    return _id.add(1) == _rrId && rounds[_rrId].updatedAt == 0;
+  }
+
   function roundState(address _oracle)
     external
     view
-    returns (uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt)
+    returns (
+      uint32 _reportableRoundId,
+      bool _eligibleToSubmit,
+      int256 _latestRoundAnswer,
+      uint64 _timesOutAt,
+      uint128 _availableFunds,
+      uint128 _paymentAmount
+    )
   {
     bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
-    uint32 reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
+    _reportableRoundId = finishedOrTimedOut ? reportingRoundId.add(1) : reportingRoundId;
     return (
-      reportableRoundId,
-      eligibleToSubmit(_oracle, reportableRoundId, finishedOrTimedOut),
+      _reportableRoundId,
+      eligibleToSubmit(_oracle, _reportableRoundId, finishedOrTimedOut),
       rounds[latestRoundId].answer,
-      finishedOrTimedOut ? 0 : rounds[reportableRoundId].startedAt + rounds[reportableRoundId].details.timeout
+      finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
+      availableFunds,
+      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
     );
   }
 
@@ -724,10 +795,10 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   modifier onlyValidOracleRound(uint32 _id) {
     uint32 startingRound = oracles[msg.sender].startingRound;
-    require(startingRound != 0);
-    require(startingRound <= _id);
-    require(oracles[msg.sender].endingRound >= _id);
-    require(oracles[msg.sender].lastReportedRound < _id);
+    require(startingRound != 0, "not enabled oracle");
+    require(startingRound <= _id, "not yet enabled oracle");
+    require(oracles[msg.sender].endingRound >= _id, "no longer allowed oracle");
+    require(oracles[msg.sender].lastReportedRound < _id, "cannot report on previous rounds");
     _;
   }
 
@@ -744,7 +815,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyWhenAcceptingAnswers(uint32 _id) {
-    require(rounds[_id].details.maxAnswers != 0);
+    require(rounds[_id].details.maxAnswers != 0, "round not accepting anwers");
     _;
   }
 
@@ -754,34 +825,41 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
   }
 
-  modifier ifDelayed(uint32 _id) {
+  modifier ifOracleDelayed(uint32 _id) {
     uint256 lastStarted = oracles[msg.sender].lastStartedRound;
     if (_id > lastStarted + restartDelay || lastStarted == 0) {
       _;
     }
   }
 
+  modifier onlyDelayedRequesters(uint32 _id) {
+    uint256 lastStarted = requesters[msg.sender].lastStartedRound;
+    require(_id > lastStarted + requesters[msg.sender].delay || lastStarted == 0, "must delay requests");
+    _;
+  }
+
   modifier onlyValidRoundId(uint32 _id) {
-    require(_id == reportingRoundId || _id == reportingRoundId.add(1));
-    require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)));
+    uint32 rrId = reportingRoundId; //cache storage reads
+    require(_id == rrId || _id == rrId.add(1) || previousAndCurrentUnanswered(_id, rrId), "invalid round to report");
+    require(_id == 1 || finished(_id.sub(1)) || timedOut(_id.sub(1)), "previous round not supersedable");
     _;
   }
 
   modifier onlyValidRange(uint32 _min, uint32 _max, uint32 _restartDelay) {
     uint32 oracleNum = oracleCount(); // Save on storage reads
-    require(oracleNum >= _max);
-    require(_max >= _min);
-    require(oracleNum == 0 || oracleNum > _restartDelay);
+    require(oracleNum >= _max, "max cannot exceed total");
+    require(_max >= _min, "max must equal/exceed min");
+    require(oracleNum == 0 || oracleNum > _restartDelay, "delay cannot exceed total");
     _;
   }
 
   modifier onlyUnenabledAddress(address _oracle) {
-    require(oracles[_oracle].endingRound != ROUND_MAX);
+    require(oracles[_oracle].endingRound != ROUND_MAX, "oracle already enabled");
     _;
   }
 
   modifier onlyEnabledAddress(address _oracle) {
-    require(oracles[_oracle].endingRound == ROUND_MAX);
+    require(oracles[_oracle].endingRound == ROUND_MAX, "oracle not enabled");
     _;
   }
 
@@ -792,12 +870,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   modifier onlyWithPreviousAnswer(uint32 _id) {
-    require(rounds[_id.sub(1)].updatedAt != 0);
+    require(rounds[_id.sub(1)].updatedAt != 0, "previous round unanswered");
     _;
   }
 
   modifier onlyAuthorizedRequesters() {
-    require(authorizedRequesters[msg.sender]);
+    require(requesters[msg.sender].authorized, "not authorized requester");
     _;
   }
 

@@ -1,5 +1,4 @@
 .git-together
-.git/objects/*
 .DS_Store
 .envrc
 *.log

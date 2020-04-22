@@ -17,11 +17,13 @@ import (
 	"strings"
 	"testing"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+
+	"github.com/fatih/color"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +55,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	require.NotEmpty(t, versions.gethVersion,
 		`version DB should have a "GETH_VERSION:" line`)
 	require.Equal(t, versions.gethVersion, gethParams.Version,
-		"please re-run `go generate` in core/services/vrf")
+		color.HiRedString(boxOutput("please re-run `go generate ./core/services/vrf` and commit the changes")))
 	for _, contractVersionInfo := range versions.contractVersions {
 		compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			t, contractVersionInfo)
@@ -99,10 +101,11 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	hashMsg := string(abiBytes+binBytes) + "\n" // newline from <<< in record_versions.sh
 	_, err = io.WriteString(hasher, hashMsg)
 	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
-	recompileCommand := fmt.Sprintf("`%s && go generate`", compileCommand(t))
-	assert.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
-		"compiler artifact %s has changed; please rerun %s for the vrf package",
-		apath, recompileCommand)
+	recompileCommand := color.HiRedString(fmt.Sprintf("`%s && go generate`", compileCommand(t)))
+	// These outputs are huge, so silence them by assert.True on explicit equality
+	assert.True(t, versionInfo.hash == fmt.Sprintf("%x", hasher.Sum(nil)),
+		boxOutput("compiler artifact %s has changed; please rerun \n%s\nand commit the changes",
+			apath, recompileCommand))
 
 	var artifact struct {
 		Sources map[string]string `json:"sourceCodes"`
@@ -118,9 +121,10 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			sourcePath = filepath.Join(contractPath, sourcePath)
 			actualSource, err := ioutil.ReadFile(sourcePath)
 			require.NoError(t, err, "could not read "+sourcePath)
-			assert.Equal(t, string(actualSource), sourceCode,
-				"%s has changed; please rerun %s for the vrf package",
-				sourcePath, recompileCommand)
+			// These outputs are huge, so silence them by assert.True on explicit equality
+			assert.True(t, string(actualSource) == sourceCode,
+				boxOutput("Change detected in %s,\nwhich is a dependency of %s.\n\nFor the vrf package, please rerun \n%s\n and commit the changes",
+					sourcePath, versionInfo.compilerArtifactPath, recompileCommand))
 		}
 	}
 }
@@ -216,5 +220,48 @@ func compileCommand(t *testing.T) string {
 		}
 		panic(err)
 	}
-	return string(cmd)
+	return strings.Trim(string(cmd), "\n")
+}
+
+// boxOutput formats its arguments as fmt.Printf, and encloses them in a box of
+// arrows pointing at their content, in order to better highlight it. See
+// ExampleBoxOutput
+func boxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
+	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
+	lines := strings.Split(errorMsgTemplate, "\n")
+	maxlen := 0
+	for _, line := range lines {
+		if len(line) > maxlen {
+			maxlen = len(line)
+		}
+	}
+	internalLength := maxlen + 4
+	output := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	readme := strings.Repeat("README ", maxlen/7)
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	for _, line := range lines {
+		output += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
+	}
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
+		"\n\n"
+}
+
+func Example_boxOutput() {
+	fmt.Println()
+	fmt.Print(boxOutput("%s is %d", "foo", 17))
+	// Output:
+	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// →  foo is 17  ←
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }

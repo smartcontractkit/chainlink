@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -72,7 +72,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	// assert contents are the same
 	content, err := utils.FileContents(filepath.Join(app.Config.KeysDir(), files[0]))
 	require.NoError(t, err)
-	require.Equal(t, keys[0].JSON.String(), content)
+	require.JSONEq(t, keys[0].JSON.String(), content)
 }
 
 func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
@@ -120,7 +120,7 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		payloadAddress := gjson.Parse(content).Get("address").String()
-		require.Equal(t, content, payloads[payloadAddress])
+		require.JSONEq(t, content, payloads[payloadAddress])
 	}
 }
 

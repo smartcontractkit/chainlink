@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 )
 
 // CreateKey returns a public key which is immediately unlocked in memory, and

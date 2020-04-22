@@ -6,12 +6,12 @@ import (
 	"reflect"
 	"strconv"
 
-	"chainlink/core/logger"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -263,7 +263,7 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 	for _, jr := range runs {
 		table.Append([]string{
 			jr.ID.String(),
-			string(jr.Status),
+			string(jr.GetStatus()),
 			utils.ISO8601UTC(jr.CreatedAt),
 			utils.NullISO8601UTC(jr.FinishedAt),
 			jr.Result.Data.String(),

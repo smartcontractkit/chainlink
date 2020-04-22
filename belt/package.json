@@ -18,7 +18,7 @@
   },
   "bugs": "https://github.com/smartcontractkit/chainlink/issues",
   "dependencies": {
-    "@0x/sol-compiler": "^4.0.4",
+    "@0x/sol-compiler": "^4.0.8",
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^2",
@@ -26,13 +26,12 @@
     "chalk": "^3.0.0",
     "cli-ux": "^5.4.4",
     "debug": "^4.1.1",
-    "execa": "^4.0.0",
     "inquirer": "^7.0.5",
     "shelljs": "^0.8.3",
     "ts-generator": "^0.0.8",
     "tslib": "^1",
     "typechain": "^1.0.5",
-    "typechain-target-ethers": "^1.0.3"
+    "typechain-target-ethers": "^1.0.4"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",

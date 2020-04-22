@@ -43,7 +43,7 @@ export function provider(): ethers.providers.JsonRpcProvider {
     providerEngine.addProvider(revertTraceSubprovider)
   }
 
-  providerEngine.addProvider(new GanacheSubprovider({}))
+  providerEngine.addProvider(new GanacheSubprovider({ gasLimit: 8_000_000 }))
   providerEngine.start()
 
   return new ethers.providers.Web3Provider(providerEngine)
@@ -110,11 +110,13 @@ export interface Roles {
 
 export interface Personas {
   Default: ethers.Wallet
-  Neil: ethers.Wallet
-  Ned: ethers.Wallet
-  Nelly: ethers.Wallet
   Carol: ethers.Wallet
   Eddy: ethers.Wallet
+  Nancy: ethers.Wallet
+  Ned: ethers.Wallet
+  Neil: ethers.Wallet
+  Nelly: ethers.Wallet
+  Norbert: ethers.Wallet
 }
 
 interface Users {
@@ -139,6 +141,8 @@ export async function users(
     Neil: accounts[1],
     Ned: accounts[2],
     Nelly: accounts[3],
+    Nancy: accounts[4],
+    Norbert: accounts[5],
     Carol: accounts[4],
     Eddy: accounts[5],
   }

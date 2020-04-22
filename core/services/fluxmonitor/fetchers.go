@@ -1,9 +1,9 @@
 package fluxmonitor
 
 import (
-	"chainlink/core/logger"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"net/http"
 	"net/url"
 	"sort"

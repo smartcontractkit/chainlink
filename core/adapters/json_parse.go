@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	simplejson "github.com/bitly/go-simplejson"
 	gjson "github.com/tidwall/gjson"
@@ -18,6 +18,11 @@ import (
 // made up of an array of strings.
 type JSONParse struct {
 	Path JSONPath `json:"path"`
+}
+
+// TaskType returns the type of Adapter.
+func (jpa *JSONParse) TaskType() models.TaskType {
+	return TaskTypeJSONParse
 }
 
 // Perform returns the value associated to the desired field for a

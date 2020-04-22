@@ -1,11 +1,12 @@
 package models
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"chainlink/core/eth"
-	"chainlink/core/services/vrf"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // parseRandomnessRequest parses the RandomnessRequest log format.
@@ -40,10 +41,10 @@ func (parseRandomnessRequest) parseJSON(log eth.Log) (js JSON, err error) {
 	})
 }
 
-func (parseRandomnessRequest) parseRequestID(log eth.Log) (string, error) {
+func (parseRandomnessRequest) parseRequestID(log eth.Log) (common.Hash, error) {
 	parsedLog, err := vrf.ParseRandomnessRequestLog(log)
 	if err != nil {
-		return "", errors.Wrapf(err, "while extracting randomness requestID from %#+v", log)
+		return common.Hash{}, errors.Wrapf(err, "while extracting randomness requestID from %#+v", log)
 	}
-	return parsedLog.RequestID().Hex(), nil
+	return parsedLog.RequestID(), nil
 }

@@ -84,9 +84,11 @@ describe('FluxAggregator', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(fluxAggregatorFactory, [
+      'acceptAdmin',
       'addOracle',
       'allocatedFunds',
       'availableFunds',
+      'decimals',
       'description',
       'getAdmin',
       'getAnswer',
@@ -99,27 +101,27 @@ describe('FluxAggregator', () => {
       'latestRound',
       'latestSubmission',
       'latestTimestamp',
+      'linkToken',
       'maxAnswerCount',
       'minAnswerCount',
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'decimals',
       'removeOracle',
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
       'roundState',
+      'setRequesterPermissions',
       'startNewRound',
       'timeout',
-      'updateAdmin',
+      'transferAdmin',
       'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
-      'setAuthorization',
-      'withdraw',
       'withdrawFunds',
-      'withdrawable',
+      'withdrawPayment',
+      'withdrawablePayment',
       'VERSION',
       // Owned methods:
       'acceptOwnership',
@@ -229,7 +231,7 @@ describe('FluxAggregator', () => {
           0,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -238,19 +240,19 @@ describe('FluxAggregator', () => {
           paymentAmount,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Ned)
-            .withdrawable(personas.Ned.address),
+            .withdrawablePayment(personas.Ned.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
       })
 
@@ -272,7 +274,10 @@ describe('FluxAggregator', () => {
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(aggregator.updateAnswer(nextRound + 1, answer))
+        await matchers.evmRevert(
+          aggregator.updateAnswer(nextRound + 1, answer),
+          'previous round not supersedable',
+        )
       })
     })
 
@@ -338,6 +343,7 @@ describe('FluxAggregator', () => {
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+          'cannot report on previous rounds',
         )
       })
     })
@@ -351,6 +357,7 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+          'round not accepting anwers',
         )
       })
     })
@@ -405,6 +412,7 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound + 1, answer),
+          'invalid round to report',
         )
       })
     })
@@ -413,6 +421,7 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Carol).updateAnswer(nextRound, answer),
+          'not enabled oracle',
         )
       })
     })
@@ -427,7 +436,79 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+          'SafeMath: subtraction overflow',
         )
+      })
+    })
+
+    describe('when a new round opens before the previous rounds closes', () => {
+      beforeEach(async () => {
+        oracleAddresses = [personas.Nancy, personas.Norbert]
+        for (let i = 0; i < oracleAddresses.length; i++) {
+          await aggregator
+            .connect(personas.Carol)
+            .addOracle(
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              3,
+              4,
+              rrDelay,
+            )
+        }
+
+        oracleAddresses = [personas.Nelly, personas.Neil, personas.Nancy]
+        for (let i = 0; i < oracleAddresses.length; i++) {
+          await aggregator
+            .connect(oracleAddresses[i])
+            .updateAnswer(nextRound, answer)
+        }
+
+        // start the next round
+        nextRound++
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+      })
+
+      it('still allows the previous round to be answered', async () => {
+        await aggregator
+          .connect(personas.Ned)
+          .updateAnswer(nextRound - 1, answer)
+      })
+
+      describe('once the current round is answered', () => {
+        beforeEach(async () => {
+          oracleAddresses = [personas.Neil, personas.Nancy]
+          for (let i = 0; i < oracleAddresses.length; i++) {
+            await aggregator
+              .connect(oracleAddresses[i])
+              .updateAnswer(nextRound, answer)
+          }
+        })
+
+        it('does not allow reports for the previous round', async () => {
+          await matchers.evmRevert(
+            aggregator
+              .connect(personas.Ned)
+              .updateAnswer(nextRound - 1, answer),
+            'invalid round to report',
+          )
+        })
+      })
+
+      describe('when the previous round has finished', () => {
+        beforeEach(async () => {
+          await aggregator
+            .connect(personas.Norbert)
+            .updateAnswer(nextRound - 1, answer)
+        })
+
+        it('does not allow reports for the previous round', async () => {
+          await matchers.evmRevert(
+            aggregator
+              .connect(personas.Ned)
+              .updateAnswer(nextRound - 1, answer),
+            'round not accepting anwers',
+          )
+        })
       })
     })
 
@@ -439,13 +520,13 @@ describe('FluxAggregator', () => {
           0,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           0,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
@@ -458,13 +539,13 @@ describe('FluxAggregator', () => {
           paymentAmount,
           await aggregator
             .connect(personas.Neil)
-            .withdrawable(personas.Neil.address),
+            .withdrawablePayment(personas.Neil.address),
         )
         matchers.bigNum(
           paymentAmount,
           await aggregator
             .connect(personas.Nelly)
-            .withdrawable(personas.Nelly.address),
+            .withdrawablePayment(personas.Nelly.address),
         )
       })
     })
@@ -493,6 +574,7 @@ describe('FluxAggregator', () => {
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+          'previous round not supersedable',
         )
       })
     })
@@ -531,10 +613,12 @@ describe('FluxAggregator', () => {
         it('reverts', async () => {
           await matchers.evmRevert(
             aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+            'round not accepting anwers',
           )
 
           await matchers.evmRevert(
             aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+            'round not accepting anwers',
           )
         })
       })
@@ -635,6 +719,7 @@ describe('FluxAggregator', () => {
           // expected to revert because the sender started the last round
           await matchers.evmRevert(
             aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+            'round not accepting anwers',
           )
         })
 
@@ -825,6 +910,7 @@ describe('FluxAggregator', () => {
               maxAns,
               rrDelay,
             ),
+          'oracle already enabled',
         )
       })
     })
@@ -841,6 +927,7 @@ describe('FluxAggregator', () => {
               maxAns,
               rrDelay,
             ),
+          'Only callable by owner',
         )
       })
     })
@@ -876,6 +963,7 @@ describe('FluxAggregator', () => {
       it('does not allow the oracle to update the round', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+          'not yet enabled oracle',
         )
       })
 
@@ -1000,6 +1088,7 @@ describe('FluxAggregator', () => {
               1,
               rrDelay,
             ),
+          'owner cannot overwrite admin',
         )
       })
     })
@@ -1025,6 +1114,7 @@ describe('FluxAggregator', () => {
               limit + 1,
               rrDelay,
             ),
+          'max oracles allowed',
         )
       })
     })
@@ -1105,6 +1195,7 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Carol)
             .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay),
+          'oracle not enabled',
         )
       })
     })
@@ -1127,6 +1218,7 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Ned)
             .removeOracle(personas.Neil.address, 0, 0, rrDelay),
+          'Only callable by owner',
         )
       })
     })
@@ -1147,6 +1239,7 @@ describe('FluxAggregator', () => {
         // cannot participate in future rounds
         await matchers.evmRevert(
           aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+          'no longer allowed oracle',
         )
       })
     })
@@ -1285,6 +1378,7 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Carol)
             .withdrawFunds(personas.Carol.address, deposit),
+          'insufficient available funds',
         )
       })
 
@@ -1309,6 +1403,7 @@ describe('FluxAggregator', () => {
             aggregator
               .connect(personas.Carol)
               .withdrawFunds(personas.Carol.address, deposit),
+            'insufficient available funds',
           )
 
           matchers.bigNum(
@@ -1325,6 +1420,7 @@ describe('FluxAggregator', () => {
           aggregator
             .connect(personas.Eddy)
             .withdrawFunds(personas.Carol.address, deposit),
+          'Only callable by owner',
         )
 
         matchers.bigNum(deposit, await aggregator.availableFunds())
@@ -1408,6 +1504,7 @@ describe('FluxAggregator', () => {
           updateFutureRounds(aggregator, {
             maxAnswers: 4,
           }),
+          'max cannot exceed total',
         )
       })
     })
@@ -1419,6 +1516,7 @@ describe('FluxAggregator', () => {
             minAnswers: 3,
             maxAnswers: 2,
           }),
+          'max must equal/exceed min',
         )
       })
     })
@@ -1429,6 +1527,7 @@ describe('FluxAggregator', () => {
           updateFutureRounds(aggregator, {
             restartDelay: 3,
           }),
+          'revert delay cannot exceed total',
         )
       })
     })
@@ -1437,6 +1536,7 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           updateFutureRounds(aggregator.connect(personas.Ned)),
+          'Only callable by owner',
         )
       })
     })
@@ -1500,7 +1600,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#withdraw', () => {
+  describe('#withdrawPayment', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1520,7 +1620,11 @@ describe('FluxAggregator', () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
+        .withdrawPayment(
+          personas.Neil.address,
+          personas.Neil.address,
+          paymentAmount,
+        )
 
       matchers.bigNum(
         originalBalance.sub(paymentAmount),
@@ -1537,7 +1641,11 @@ describe('FluxAggregator', () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdraw(personas.Neil.address, personas.Neil.address, paymentAmount)
+        .withdrawPayment(
+          personas.Neil.address,
+          personas.Neil.address,
+          paymentAmount,
+        )
 
       matchers.bigNum(
         originalAllocation.sub(paymentAmount),
@@ -1550,11 +1658,12 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .withdraw(
+            .withdrawPayment(
               personas.Neil.address,
               personas.Neil.address,
               paymentAmount.add(ethers.utils.bigNumberify(1)),
             ),
+          'revert insufficient withdrawable funds',
         )
       })
     })
@@ -1564,17 +1673,18 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Nelly)
-            .withdraw(
+            .withdrawPayment(
               personas.Neil.address,
               personas.Nelly.address,
               ethers.utils.bigNumberify(1),
             ),
+          'only callable by admin',
         )
       })
     })
   })
 
-  describe('#updateAdmin', () => {
+  describe('#transferAdmin', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1587,23 +1697,19 @@ describe('FluxAggregator', () => {
         )
     })
 
-    describe('when the admin tries to update the admin', () => {
+    describe('when the admin tries to transfer the admin', () => {
       it('works', async () => {
+        const tx = await aggregator
+          .connect(personas.Neil)
+          .transferAdmin(personas.Ned.address, personas.Nelly.address)
+        const receipt = await tx.wait()
         assert.equal(
           personas.Neil.address,
           await aggregator.getAdmin(personas.Ned.address),
         )
-        const tx = await aggregator
-          .connect(personas.Neil)
-          .updateAdmin(personas.Ned.address, personas.Nelly.address)
-        const receipt = await tx.wait()
-        assert.equal(
-          personas.Nelly.address,
-          await aggregator.getAdmin(personas.Ned.address),
-        )
-
         const event = h.eventArgs(receipt.events?.[0])
         assert.equal(event.oracle, personas.Ned.address)
+        assert.equal(event.admin, personas.Neil.address)
         assert.equal(event.newAdmin, personas.Nelly.address)
       })
     })
@@ -1613,7 +1719,8 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .updateAdmin(personas.Ned.address, personas.Nelly.address),
+            .transferAdmin(personas.Ned.address, personas.Nelly.address),
+          'revert only callable by admin',
         )
       })
     })
@@ -1623,7 +1730,55 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Ned)
-            .updateAdmin(personas.Ned.address, personas.Nelly.address),
+            .transferAdmin(personas.Ned.address, personas.Nelly.address),
+          'revert only callable by admin',
+        )
+      })
+    })
+  })
+
+  describe('#acceptAdmin', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .addOracle(
+          personas.Ned.address,
+          personas.Neil.address,
+          minAns,
+          maxAns,
+          rrDelay,
+        )
+      const tx = await aggregator
+        .connect(personas.Neil)
+        .transferAdmin(personas.Ned.address, personas.Nelly.address)
+      await tx.wait()
+    })
+
+    describe('when the new admin tries to accept', () => {
+      it('works', async () => {
+        const tx = await aggregator
+          .connect(personas.Nelly)
+          .acceptAdmin(personas.Ned.address)
+        const receipt = await tx.wait()
+        assert.equal(
+          personas.Nelly.address,
+          await aggregator.getAdmin(personas.Ned.address),
+        )
+        const event = h.eventArgs(receipt.events?.[0])
+        assert.equal(event.oracle, personas.Ned.address)
+        assert.equal(event.newAdmin, personas.Nelly.address)
+      })
+    })
+
+    describe('when someone other than the new admin tries to accept', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator.connect(personas.Ned).acceptAdmin(personas.Ned.address),
+          'only callable by pending admin',
+        )
+        await matchers.evmRevert(
+          aggregator.connect(personas.Neil).acceptAdmin(personas.Ned.address),
+          'only callable by pending admin',
         )
       })
     })
@@ -1655,7 +1810,7 @@ describe('FluxAggregator', () => {
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       nextRound = nextRound + 1
 
-      await aggregator.setAuthorization(personas.Carol.address, true)
+      await aggregator.setRequesterPermissions(personas.Carol.address, true, 0)
     })
 
     it('announces a new round via log event', async () => {
@@ -1675,7 +1830,10 @@ describe('FluxAggregator', () => {
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(aggregator.startNewRound())
+        await matchers.evmRevert(
+          aggregator.startNewRound(),
+          'prev round must be supersedable',
+        )
       })
 
       describe('when that round has timed out', () => {
@@ -1695,9 +1853,37 @@ describe('FluxAggregator', () => {
         })
       })
     })
+
+    describe('when there is a restart delay set', () => {
+      beforeEach(async () => {
+        await aggregator.setRequesterPermissions(personas.Eddy.address, true, 1)
+      })
+
+      it('reverts if a round is started before the delay', async () => {
+        await aggregator.connect(personas.Eddy).startNewRound()
+
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        nextRound = nextRound + 1
+
+        // Eddy can't start because of the delay
+        await matchers.evmRevert(
+          aggregator.connect(personas.Eddy).startNewRound(),
+          'must delay requests',
+        )
+        // Carol starts a new round instead
+        await aggregator.connect(personas.Carol).startNewRound()
+
+        // round completes
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        nextRound = nextRound + 1
+
+        // now Eddy can start again
+        await aggregator.connect(personas.Eddy).startNewRound()
+      })
+    })
   })
 
-  describe('#updateRequesterPermission', () => {
+  describe('#setRequesterPermissions', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1709,54 +1895,95 @@ describe('FluxAggregator', () => {
 
     describe('when called by the owner', () => {
       it('allows the specified address to start new rounds', async () => {
-        await aggregator.setAuthorization(personas.Neil.address, true)
+        await aggregator.setRequesterPermissions(personas.Neil.address, true, 0)
 
         await aggregator.connect(personas.Neil).startNewRound()
       })
 
       it('emits a log announcing the update', async () => {
-        const tx = await aggregator.setAuthorization(
+        const tx = await aggregator.setRequesterPermissions(
           personas.Neil.address,
           true,
+          0,
         )
         const receipt = await tx.wait()
         const event = matchers.eventExists(
           receipt,
-          aggregator.interface.events.RequesterAuthorizationSet,
+          aggregator.interface.events.RequesterPermissionsSet,
         )
         const args = h.eventArgs(event)
 
         assert.equal(args.requester, personas.Neil.address)
-        assert.equal(args.allowed, true)
+        assert.equal(args.authorized, true)
+      })
+
+      describe('when the address is already authorized', () => {
+        beforeEach(async () => {
+          await aggregator.setRequesterPermissions(
+            personas.Neil.address,
+            true,
+            0,
+          )
+        })
+
+        it('does not emit a log for already authorized accounts', async () => {
+          const tx = await aggregator.setRequesterPermissions(
+            personas.Neil.address,
+            true,
+            0,
+          )
+          const receipt = await tx.wait()
+          assert.equal(0, receipt?.logs?.length)
+        })
       })
 
       describe('when permission is removed by the owner', () => {
         beforeEach(async () => {
-          await aggregator.setAuthorization(personas.Neil.address, true)
+          await aggregator.setRequesterPermissions(
+            personas.Neil.address,
+            true,
+            0,
+          )
         })
 
         it('does not allow the specified address to start new rounds', async () => {
-          await aggregator.setAuthorization(personas.Neil.address, false)
+          await aggregator.setRequesterPermissions(
+            personas.Neil.address,
+            false,
+            0,
+          )
 
           await matchers.evmRevert(
             aggregator.connect(personas.Neil).startNewRound(),
+            'not authorized requester',
           )
         })
 
         it('emits a log announcing the update', async () => {
-          const tx = await aggregator.setAuthorization(
+          const tx = await aggregator.setRequesterPermissions(
             personas.Neil.address,
             false,
+            0,
           )
           const receipt = await tx.wait()
           const event = matchers.eventExists(
             receipt,
-            aggregator.interface.events.RequesterAuthorizationSet,
+            aggregator.interface.events.RequesterPermissionsSet,
           )
           const args = h.eventArgs(event)
 
           assert.equal(args.requester, personas.Neil.address)
-          assert.equal(args.allowed, false)
+          assert.equal(args.authorized, false)
+        })
+
+        it('does not emit a log for accounts without authorization', async () => {
+          const tx = await aggregator.setRequesterPermissions(
+            personas.Ned.address,
+            false,
+            0,
+          )
+          const receipt = await tx.wait()
+          assert.equal(0, receipt?.logs?.length)
         })
       })
     })
@@ -1766,11 +1993,13 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .setAuthorization(personas.Neil.address, true),
+            .setRequesterPermissions(personas.Neil.address, true, 0),
+          'Only callable by owner',
         )
 
         await matchers.evmRevert(
           aggregator.connect(personas.Neil).startNewRound(),
+          'not authorized requester',
         )
       })
     })

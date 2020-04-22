@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import { Connection, createConnection } from 'typeorm'
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions'
-import options from '../ormconfig.json'
+import ormconfig from '../ormconfig.json'
 import { TypeOrmLogger } from './logging'
 
 const overridableKeys = ['host', 'port', 'username', 'password', 'database']
@@ -16,9 +16,10 @@ const isEnvEqual = (optionName: string, env: string): boolean => {
 
 const loadOptions = (env?: string) => {
   env = env || process.env.TYPEORM_NAME || process.env.NODE_ENV || 'default'
-  for (const option of options) {
-    if (isEnvEqual(option.name, env)) {
-      return option
+  for (const config of ormconfig) {
+    if (isEnvEqual(config.name, env)) {
+      delete config.name
+      return config
     }
   }
   throw Error(`env ${env} not found in options from ormconfig.json`)
@@ -34,31 +35,16 @@ const mergeOptions = (): PostgresConnectionOptions => {
       envOptions[v] = envVar
     }
   }
-  return {
+
+  const connectionOpts = {
     ...loadOptions(),
     ...envOptions,
     logger: new TypeOrmLogger(),
   } as PostgresConnectionOptions
+
+  return connectionOpts
 }
 
-// TODO: make not global due to race condition chances https://eslint.org/docs/rules/require-atomic-updates
-/* eslint require-atomic-updates: 'warn' */
-let db: Connection | undefined
-
-export const getDb = async (): Promise<Connection> => {
-  if (db === undefined) {
-    /* eslint-disable-next-line require-atomic-updates */
-    db = await createConnection(mergeOptions())
-  }
-  if (db == null) {
-    throw new Error('no db connection returned')
-  }
-
-  return db
-}
-
-export const closeDbConnection = (): Promise<void> => {
-  const saveDb = db
-  db = null
-  return saveDb.close()
+export const openDbConnection = async (): Promise<Connection> => {
+  return createConnection(mergeOptions())
 }

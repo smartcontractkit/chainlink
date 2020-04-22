@@ -3,10 +3,8 @@
 package mocks
 
 import (
-	eth "chainlink/core/services/eth"
-
 	common "github.com/ethereum/go-ethereum/common"
-
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -16,8 +14,17 @@ type LogBroadcaster struct {
 }
 
 // Register provides a mock function with given fields: address, listener
-func (_m *LogBroadcaster) Register(address common.Address, listener eth.LogListener) {
-	_m.Called(address, listener)
+func (_m *LogBroadcaster) Register(address common.Address, listener eth.LogListener) bool {
+	ret := _m.Called(address, listener)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(common.Address, eth.LogListener) bool); ok {
+		r0 = rf(address, listener)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // Start provides a mock function with given fields:

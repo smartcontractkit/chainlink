@@ -2,21 +2,42 @@ package contracts_test
 
 import (
 	"encoding"
-	"encoding/hex"
 	"math/big"
 	"testing"
 
-	"chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/services/eth/contracts"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func mustEVMBigInt(t *testing.T, val *big.Int) []byte {
+	ret, err := utils.EVMWordBigInt(val)
+	require.NoError(t, err, "evm BigInt serialization")
+	return ret
+}
+
+func makeRoundStateReturnData(roundID uint64, eligible bool, answer, timesOutAt, availableFunds, paymentAmount uint64) string {
+	var data []byte
+	data = append(data, utils.EVMWordUint64(roundID)...)
+	if eligible {
+		data = append(data, utils.EVMWordUint64(1)...)
+	} else {
+		data = append(data, utils.EVMWordUint64(0)...)
+	}
+	data = append(data, utils.EVMWordUint64(answer)...)
+	data = append(data, utils.EVMWordUint64(timesOutAt)...)
+	data = append(data, utils.EVMWordUint64(availableFunds)...)
+	data = append(data, utils.EVMWordUint64(paymentAmount)...)
+	return hexutil.Encode(data)
+}
 
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
@@ -32,34 +53,23 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		Data: append(selector, nodeAddr[:]...),
 	}
 
-	makeReturnData := func(roundID uint64, eligible bool, answer, timesOutAt uint64) string {
-		var data []byte
-		data = append(data, utils.EVMWordUint64(roundID)...)
-		if eligible {
-			data = append(data, utils.EVMWordUint64(1)...)
-		} else {
-			data = append(data, utils.EVMWordUint64(0)...)
-		}
-		data = append(data, utils.EVMWordUint64(answer)...)
-		data = append(data, utils.EVMWordUint64(timesOutAt)...)
-		return "0x" + hex.EncodeToString(data)
-	}
-
-	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e`
+	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000100`
 
 	tests := []struct {
-		name               string
-		response           string
-		expectedRoundID    uint32
-		expectedEligible   bool
-		expectedAnswer     *big.Int
-		expectedTimesOutAt uint64
+		name                   string
+		response               string
+		expectedRoundID        uint32
+		expectedEligible       bool
+		expectedAnswer         *big.Int
+		expectedTimesOutAt     uint64
+		expectedAvailableFunds uint64
+		expectedPaymentAmount  uint64
 	}{
-		{"zero, false", makeReturnData(0, false, 0, 0), 0, false, big.NewInt(0), 0},
-		{"non-zero, false", makeReturnData(1, false, 23, 1234), 1, false, big.NewInt(23), 1234},
-		{"zero, true", makeReturnData(0, true, 0, 0), 0, true, big.NewInt(0), 0},
-		{"non-zero true", makeReturnData(12, true, 91, 9876), 12, true, big.NewInt(91), 9876},
-		{"real call data", rawReturnData, 3, true, big.NewInt(15), 14},
+		{"zero, false", makeRoundStateReturnData(0, false, 0, 0, 0, 0), 0, false, big.NewInt(0), 0, 0, 0},
+		{"non-zero, false", makeRoundStateReturnData(1, false, 23, 1234, 36, 72), 1, false, big.NewInt(23), 1234, 36, 72},
+		{"zero, true", makeRoundStateReturnData(0, true, 0, 0, 0, 0), 0, true, big.NewInt(0), 0, 0, 0},
+		{"non-zero true", makeRoundStateReturnData(12, true, 91, 9876, 45, 999), 12, true, big.NewInt(91), 9876, 45, 999},
+		{"real call data", rawReturnData, 3, true, big.NewInt(15), 14, 10, 256},
 	}
 
 	for _, test := range tests {
@@ -82,6 +92,8 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			assert.Equal(t, test.expectedEligible, roundState.EligibleToSubmit)
 			assert.True(t, test.expectedAnswer.Cmp(roundState.LatestAnswer) == 0)
 			assert.Equal(t, test.expectedTimesOutAt, roundState.TimesOutAt)
+			assert.Equal(t, test.expectedAvailableFunds, roundState.AvailableFunds.Uint64())
+			assert.Equal(t, test.expectedPaymentAmount, roundState.PaymentAmount.Uint64())
 			ethClient.AssertExpectations(t)
 		})
 	}
