@@ -62,6 +62,18 @@ describe('FluxAggregator', () => {
       round.timeout,
     )
   }
+
+  async function advanceRound(
+    aggregator: contract.Instance<FluxAggregatorFactory>,
+    oracleAddresses: ethers.Wallet[],
+  ): Promise<number> {
+    for (const oracle of oracleAddresses) {
+      await aggregator.connect(oracle).updateAnswer(nextRound, answer)
+    }
+    nextRound++
+    return nextRound
+  }
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
     aggregator = await fluxAggregatorFactory
@@ -370,9 +382,7 @@ describe('FluxAggregator', () => {
           await aggregator.reportingRound(),
         )
 
-        for (const oracle of oracleAddresses) {
-          await aggregator.connect(oracle).updateAnswer(nextRound, answer)
-        }
+        await advanceRound(aggregator, oracleAddresses)
 
         matchers.bigNum(ethers.constants.One, await aggregator.reportingRound())
       })
@@ -439,18 +449,8 @@ describe('FluxAggregator', () => {
           )
 
         // drain remaining funds
-        for (let i = 0; i < oracleAddresses.length; i++) {
-          await aggregator
-            .connect(oracleAddresses[i])
-            .updateAnswer(nextRound, answer)
-        }
-        nextRound++
-        for (let i = 0; i < oracleAddresses.length; i++) {
-          await aggregator
-            .connect(oracleAddresses[i])
-            .updateAnswer(nextRound, answer)
-        }
-        nextRound++
+        await advanceRound(aggregator, oracleAddresses)
+        await advanceRound(aggregator, oracleAddresses)
       })
 
       it('reverts', async () => {
@@ -475,16 +475,13 @@ describe('FluxAggregator', () => {
               rrDelay,
             )
         }
-
-        oracleAddresses = [personas.Nelly, personas.Neil, personas.Nancy]
-        for (let i = 0; i < oracleAddresses.length; i++) {
-          await aggregator
-            .connect(oracleAddresses[i])
-            .updateAnswer(nextRound, answer)
-        }
+        await advanceRound(aggregator, [
+          personas.Nelly,
+          personas.Neil,
+          personas.Nancy,
+        ])
 
         // start the next round
-        nextRound++
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
       })
 
@@ -674,10 +671,7 @@ describe('FluxAggregator', () => {
             restartDelay: 1,
           })
 
-          for (const oracle of oracleAddresses) {
-            await aggregator.connect(oracle).updateAnswer(nextRound, answer)
-          }
-          nextRound++
+          await advanceRound(aggregator, oracleAddresses)
 
           await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
           await aggregator
@@ -826,8 +820,7 @@ describe('FluxAggregator', () => {
         )
 
       for (let i = 0; i < 10; i++) {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, i)
-        nextRound++
+        await advanceRound(aggregator, [personas.Neil])
       }
     })
 
