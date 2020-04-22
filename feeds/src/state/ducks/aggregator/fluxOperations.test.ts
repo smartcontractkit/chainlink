@@ -18,7 +18,7 @@ const dispatchWrapper = (f: any) => (...args: any[]) => {
   return f(...args)(store.dispatch, store.getState)
 }
 
-const contractInstance = {
+const contractInstance: any = {
   listenSubmissionReceivedEvent: jest.fn(callback =>
     callback(mockSubmissionEventLog),
   ),
