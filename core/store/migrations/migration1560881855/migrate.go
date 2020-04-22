@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	if err := tx.Table("link_earned").AutoMigrate(&LinkEarned{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate link_earned")

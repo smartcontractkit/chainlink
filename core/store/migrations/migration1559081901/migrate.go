@@ -11,6 +11,7 @@ import (
 	null "gopkg.in/guregu/null.v3"
 )
 
+// Migrate tx
 func Migrate(tx *gorm.DB) error {
 	if err := tx.Exec(
 		`DROP INDEX idx_txes_from;

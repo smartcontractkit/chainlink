@@ -285,9 +285,8 @@ func encStatic(typ *abi.Type, jval interface{}, name string) ([]byte, error) {
 		}
 		if b {
 			return padLeft([]byte{1}, evmWordSize), nil
-		} else {
-			return padLeft([]byte{0}, evmWordSize), nil
 		}
+		return padLeft([]byte{0}, evmWordSize), nil
 	case abi.FixedBytesTy:
 		bytes, err := bytesFromJSON(jval, name)
 		if err != nil {

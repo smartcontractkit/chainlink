@@ -128,6 +128,7 @@ func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*TxReceipt
 	return &receipt, err
 }
 
+// GetBlockHeight returns the block height.
 func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 	var height hexutil.Uint64
 	err := client.Call(&height, "eth_blockNumber")

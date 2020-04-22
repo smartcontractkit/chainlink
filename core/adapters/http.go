@@ -249,6 +249,7 @@ func withRetry(
 	return responseBody, statusCode, err
 }
 
+// RemoteServerError struct
 type RemoteServerError struct {
 	responseBody []byte
 	statusCode   int
@@ -310,6 +311,7 @@ func (mbr *maxBytesReader) Read(p []byte) (n int, err error) {
 	return
 }
 
+// HTTPResponseTooLargeError struct
 type HTTPResponseTooLargeError struct {
 	limit int64
 }

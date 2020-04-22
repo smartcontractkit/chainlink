@@ -159,7 +159,7 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
+// NewJobWithFluxMonitorInitiatorWithBridge create new Job with FluxMonitor initiator
 func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
@@ -190,6 +190,7 @@ func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	return tx
 }
 
+// NewTransaction create new transaction
 func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
 	from := common.HexToAddress("0xf208000000000000000000000000000000000000")
 	to := common.HexToAddress("0x7000000000000000000000000000000000000000")
@@ -274,6 +275,7 @@ func CreateTxWithNonceGasPriceAndRecipient(
 	return tx
 }
 
+// AddTxAttempt add new TxAttempt
 func AddTxAttempt(
 	t testing.TB,
 	store *strpkg.Store,
@@ -394,7 +396,7 @@ func NewRunLog(
 	}
 }
 
-// NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
+// NewRandomnessRequestLog (t, r, emitter, blk) is a RandomnessRequest log for
 // the randomness request log represented by r.
 func NewRandomnessRequestLog(t *testing.T, r vrf.RandomnessRequestLog,
 	emitter common.Address, blk int) eth.Log {
@@ -434,6 +436,7 @@ func NewServiceAgreementExecutionLog(
 	}
 }
 
+// NewLink returns a new struct to represent LINK from it's smallest unit
 func NewLink(t *testing.T, amount string) *assets.Link {
 	link := assets.NewLink(0)
 	link, ok := link.SetString(amount, 10)
@@ -441,6 +444,7 @@ func NewLink(t *testing.T, amount string) *assets.Link {
 	return link
 }
 
+// NewEth returns a new struct to represent ETH from it's smallest unit
 func NewEth(t *testing.T, amount string) *assets.Eth {
 	eth := assets.NewEth(0)
 	eth, ok := eth.SetString(amount, 10)
@@ -448,6 +452,7 @@ func NewEth(t *testing.T, amount string) *assets.Eth {
 	return eth
 }
 
+// StringToVersionedLogData0 format string to log
 func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
 	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
 	buf.Write(utils.EVMWordUint64(1))
@@ -462,6 +467,7 @@ func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
 	return buf.Bytes()
 }
 
+// StringToVersionedLogData20190123withFulfillmentParams format string to log
 func StringToVersionedLogData20190123withFulfillmentParams(t *testing.T, internalID, str string) []byte {
 	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
 	buf := bytes.NewBuffer(requestID)
@@ -490,6 +496,7 @@ func StringToVersionedLogData20190123withFulfillmentParams(t *testing.T, interna
 	return buf.Bytes()
 }
 
+// StringToVersionedLogData20190207withoutIndexes format string to log
 func StringToVersionedLogData20190207withoutIndexes(
 	t *testing.T,
 	internalID string,
@@ -546,6 +553,7 @@ func BigHexInt(val interface{}) hexutil.Big {
 	}
 }
 
+// Int create util.Big value from given value
 func Int(val interface{}) *utils.Big {
 	switch x := val.(type) {
 	case int:
@@ -562,6 +570,7 @@ func Int(val interface{}) *utils.Big {
 	}
 }
 
+// MustEVMUintHexFromBase10String format strings to EVM hex
 func MustEVMUintHexFromBase10String(t *testing.T, strings ...string) string {
 	var allBytes []byte
 	for _, s := range strings {
@@ -574,12 +583,15 @@ func MustEVMUintHexFromBase10String(t *testing.T, strings ...string) string {
 	return fmt.Sprintf("0x%0x", allBytes)
 }
 
+// MockSigner mock signer
 type MockSigner struct{}
 
+// SignHash returns mock signature
 func (s MockSigner) SignHash(common.Hash) (models.Signature, error) {
 	return models.NewSignature("0xb7a987222fc36c4c8ed1b91264867a422769998aadbeeb1c697586a04fa2b616025b5ca936ec5bdb150999e298b6ecf09251d3c4dd1306dedec0692e7037584800")
 }
 
+// ServiceAgreementFromString returns new service agreement for given string
 func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
 	us, err := models.NewUnsignedServiceAgreementFromRequest(strings.NewReader(str))
 	if err != nil {
@@ -588,6 +600,7 @@ func ServiceAgreementFromString(str string) (models.ServiceAgreement, error) {
 	return models.BuildServiceAgreement(us, MockSigner{})
 }
 
+// EmptyCLIContext returns empty context
 func EmptyCLIContext() *cli.Context {
 	set := flag.NewFlagSet("test", 0)
 	return cli.NewContext(nil, set, nil)
@@ -617,6 +630,7 @@ func CreateJobRunWithStatus(t testing.TB, store *store.Store, job models.JobSpec
 	return run
 }
 
+// BuildInitiatorRequests build requests for given initiators
 func BuildInitiatorRequests(t *testing.T, initrs []models.Initiator) []models.InitiatorRequest {
 	bytes, err := json.Marshal(initrs)
 	require.NoError(t, err)
@@ -627,6 +641,7 @@ func BuildInitiatorRequests(t *testing.T, initrs []models.Initiator) []models.In
 	return dst
 }
 
+// BuildTaskRequests build tasks for given specs
 func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpecRequest {
 	bytes, err := json.Marshal(initrs)
 	require.NoError(t, err)
@@ -661,22 +676,26 @@ func CreateServiceAgreementViaWeb(
 	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }
 
+// NewRunInput returns new RunInput
 func NewRunInput(value models.JSON) models.RunInput {
 	jobRunID := models.NewID()
 	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
 }
 
+// NewRunInputWithString returns new RunInput for given string
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
 	jobRunID := models.NewID()
 	data := JSONFromString(t, value)
 	return *models.NewRunInput(jobRunID, data, models.RunStatusUnstarted)
 }
 
+// NewRunInputWithResult create new RunInput with given value
 func NewRunInputWithResult(value interface{}) models.RunInput {
 	jobRunID := models.NewID()
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }
 
+// NewRunInputWithResultAndJobRunID create new RunInput with given jobRunID
 func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }

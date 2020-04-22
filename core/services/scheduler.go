@@ -199,6 +199,7 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 	}
 }
 
+// ExpectedRecurringScheduleJobError returns true if err is RecurringScheduleJobError
 func ExpectedRecurringScheduleJobError(err error) bool {
 	switch errors.Cause(err).(type) {
 	case RecurringScheduleJobError:

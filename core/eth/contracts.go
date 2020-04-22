@@ -13,6 +13,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// ContractCodec interface
 type ContractCodec interface {
 	ABI() *abi.ABI
 	GetMethodID(method string) ([]byte, error)
@@ -40,7 +41,7 @@ func getContractCodec(name string, box packr.Box) (ContractCodec, error) {
 	return &contractCodec{abiParsed}, nil
 }
 
-// GetContract loads the contract JSON file from ../../evm-contracts/abi/v0.4
+// GetContractCodec loads the contract JSON file from ../../evm-contracts/abi/v0.4
 // and parses the ABI JSON contents into an abi.ABI object
 //
 // NB: These contracts can be built by running
@@ -51,7 +52,7 @@ func GetContractCodec(name string) (ContractCodec, error) {
 	return getContractCodec(name, box)
 }
 
-// GetV6Contract loads the contract JSON file from ../../evm-contracts/abi/v0.6
+// GetV6ContractCodec loads the contract JSON file from ../../evm-contracts/abi/v0.6
 // and parses the ABI JSON contents into an abi.ABI object
 //
 // NB: These contracts can be built by running
@@ -62,8 +63,8 @@ func GetV6ContractCodec(name string) (ContractCodec, error) {
 	return getContractCodec(name, box)
 }
 
-func (contract *contractCodec) ABI() *abi.ABI {
-	return &contract.abi
+func (cc *contractCodec) ABI() *abi.ABI {
+	return &cc.abi
 }
 
 // EncodeMessageCall encodes method name and arguments into a byte array

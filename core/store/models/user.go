@@ -84,7 +84,7 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
-// Changeauth.TokenRequest is sent when updating a User's authentication token.
+// ChangeAuthTokenRequest is sent when updating a User's authentication token.
 type ChangeAuthTokenRequest struct {
 	Password string `json:"password"`
 }
