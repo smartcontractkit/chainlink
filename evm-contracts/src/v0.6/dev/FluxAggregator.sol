@@ -72,7 +72,15 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint8 public override decimals;
   bytes32 public description;
 
-  uint256 constant RESERVE_ROUNDS = 2;
+
+  /**
+   * @notice To ensure owner isn't withdrawing required funds as oracles are
+   * submitting updates, we enforce that the contract maintains a minimum
+   * reserve of RESERVE_ROUND * oracleCount() LINK earmarked for payment to
+   * oracles. (Of course, this doesn't prevent the contract from running out of
+   * funds without the owner's intervention.)
+   */
+  uint256 constant private RESERVE_ROUNDS = 2;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
