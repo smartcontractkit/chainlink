@@ -533,6 +533,12 @@ describe('FluxAggregator', () => {
       const newAmount = h.toWei('50')
 
       it('pays the same amount to all oracles per round', async () => {
+        await link.transfer(
+          aggregator.address,
+          newAmount.mul(oracleAddresses.length).mul(reserveRounds),
+        )
+        await aggregator.updateAvailableFunds()
+
         matchers.bigNum(
           0,
           await aggregator
@@ -1109,6 +1115,12 @@ describe('FluxAggregator', () => {
     const limit = 42
     describe(`when adding more than ${limit} oracles`, () => {
       it('reverts', async () => {
+        await link.transfer(
+          aggregator.address,
+          paymentAmount.mul(limit).mul(reserveRounds),
+        )
+        await aggregator.updateAvailableFunds()
+
         for (let i = 0; i < limit; i++) {
           const minMax = i + 1
           const fakeAddress = h.addHexPrefix(randomBytes(20).toString('hex'))
@@ -1577,6 +1589,25 @@ describe('FluxAggregator', () => {
           }),
           'revert delay cannot exceed total',
         )
+      })
+    })
+
+    describe('when the payment amount does not cover reserve rounds', () => {
+      beforeEach(async () => {})
+
+      it('reverts', async () => {
+        const most = deposit.div(oracleAddresses.length * reserveRounds)
+
+        await matchers.evmRevert(
+          updateFutureRounds(aggregator, {
+            payment: most.add(1),
+          }),
+          'insufficient funds for payment',
+        )
+
+        await updateFutureRounds(aggregator, {
+          payment: most,
+        })
       })
     })
 
