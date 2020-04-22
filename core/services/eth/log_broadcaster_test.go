@@ -5,10 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -642,4 +644,173 @@ func TestAppendLogChannel(t *testing.T) {
 		require.Equal(t, expected[i], log)
 		i++
 	}
+}
+
+func TestLogBroadcaster_CreatesLogConsumptionRecords(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	const blockHeight uint64 = 0
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+
+	chchRawLogs := make(chan chan<- eth.Log, 1)
+
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			chRawLogs := args.Get(1).(chan<- eth.Log)
+			chchRawLogs <- chRawLogs
+		}).
+		Return(sub, nil).
+		Once()
+
+	ethClient.On("GetBlockHeight").Return(blockHeight, nil)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return()
+
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM)
+	lb.Start()
+
+	logListener := funcLogListener{
+		fn: func(log interface{}, err error) {},
+	}
+	addr := common.Address{1}
+
+	// TODO - RYAN this signature should change
+	lb.Register(addr, &logListener)
+
+	chRawLogs := <-chchRawLogs
+	chRawLogs <- eth.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
+	chRawLogs <- eth.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
+
+	logConsumptionCount := func() int {
+		count, err := store.ORM.CountOf(&models.LogConsumption{})
+		require.NoError(t, err)
+		return count
+	}
+
+	require.Eventually(t, func() bool { return logConsumptionCount() == 2 }, 5*time.Second, 10*time.Millisecond)
+}
+
+func TestLogBroadcaster_ProcessesLogsOnceForEachConsumer(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	const blockHeight uint64 = 0
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+
+	chchRawLogs := make(chan chan<- eth.Log, 1)
+
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			chRawLogs := args.Get(1).(chan<- eth.Log)
+			chchRawLogs <- chRawLogs
+		}).
+		Return(sub, nil).
+		Twice()
+
+	ethClient.On("GetBlockHeight").Return(blockHeight, nil)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return()
+
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM)
+	lb.Start()
+
+	consumedCount1 := 0
+	consumedCount2 := 0
+	logListener := funcLogListener{
+		fn: func(log interface{}, err error) { consumedCount1++ },
+	}
+	logListener2 := funcLogListener{
+		fn: func(log interface{}, err error) { consumedCount2++ },
+	}
+
+	lb.Register(common.Address{}, &logListener)
+	lb.Register(common.Address{}, &logListener2)
+
+	chRawLogs := <-chchRawLogs
+	hash := cltest.NewHash()
+	chRawLogs <- eth.Log{BlockHash: hash, BlockNumber: 0, Index: 0}
+
+	require.Eventually(t, func() bool { return consumedCount1 == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return consumedCount2 == 1 }, 5*time.Second, 10*time.Millisecond)
+
+	// remove last LogConsumption
+	store.ORM.RawDB(func(db *gorm.DB) error {
+		var lc models.LogConsumption
+		err := db.Last(&lc).Error
+		require.NoError(t, err)
+		err = db.Delete(lc).Error
+		require.NoError(t, err)
+		return nil
+	})
+
+	chRawLogs <- eth.Log{BlockHash: hash, BlockNumber: 0, Index: 0} // same log
+
+	require.Equal(t, consumedCount1, 1)
+	require.Eventually(t, func() bool { return consumedCount2 == 2 }, 5*time.Second, 10*time.Millisecond)
+}
+
+func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+
+	ethClient.On("GetBlockHeight").
+		Return(uint64(0), nil)
+	chchRawLogs := make(chan chan<- eth.Log, 1)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- eth.Log) }).
+		Return(sub, nil).
+		Once()
+
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
+
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM)
+	lb.Start()
+
+	blockHash0 := cltest.NewHash()
+	blockHash1 := cltest.NewHash()
+	blockHash2 := cltest.NewHash()
+	blockHash1R := cltest.NewHash()
+	blockHash2R := cltest.NewHash()
+
+	addr := cltest.NewAddress()
+	logs := []eth.Log{
+		{Address: addr, BlockHash: blockHash0, BlockNumber: 0, Index: 0},
+		{Address: addr, BlockHash: blockHash1, BlockNumber: 1, Index: 0},
+		{Address: addr, BlockHash: blockHash2, BlockNumber: 2, Index: 0},
+		{Address: addr, BlockHash: blockHash1R, BlockNumber: 1, Index: 0},
+		{Address: addr, BlockHash: blockHash2R, BlockNumber: 2, Index: 0},
+	}
+
+	var recvd []eth.Log
+
+	lb.Register(addr, &funcLogListener{func(log interface{}, err error) {
+		require.NoError(t, err)
+		ethLog := log.(eth.Log)
+		recvd = append(recvd, ethLog)
+	}})
+
+	chRawLogs := <-chchRawLogs
+
+	for i := 0; i < len(logs); i++ {
+		chRawLogs <- logs[i]
+	}
+
+	require.Eventually(t, func() bool { return len(recvd) == 5 }, 5*time.Second, 10*time.Millisecond)
+
+	require.Equal(t, recvd[0].BlockNumber, uint64(0))
+	require.Equal(t, recvd[1].BlockNumber, uint64(1))
+	require.Equal(t, recvd[2].BlockNumber, uint64(2))
+	require.Equal(t, recvd[1].BlockNumber, uint64(1))
+	require.Equal(t, recvd[2].BlockNumber, uint64(2))
+
+	ethClient.AssertExpectations(t)
 }
