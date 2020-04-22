@@ -31,8 +31,6 @@ var (
 	)
 )
 
-//go:generate mockery -name GasUpdater  -output ../internal/mocks/ -case=underscore
-
 // GasUpdater listens for new heads and updates the base gas price dynamically
 // based on the configured percentile of gas prices in that block
 type GasUpdater interface {
