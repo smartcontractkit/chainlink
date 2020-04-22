@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import { Connection, createConnection } from 'typeorm'
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions'
-import options from '../ormconfig.json'
+import ormconfig from '../ormconfig.json'
 import { TypeOrmLogger } from './logging'
 
 const overridableKeys = ['host', 'port', 'username', 'password', 'database']
@@ -16,10 +16,10 @@ const isEnvEqual = (optionName: string, env: string): boolean => {
 
 const loadOptions = (env?: string) => {
   env = env || process.env.TYPEORM_NAME || process.env.NODE_ENV || 'default'
-  for (const option of options) {
-    if (isEnvEqual(option.name, env)) {
-      delete option.name
-      return option
+  for (const config of ormconfig) {
+    if (isEnvEqual(config.name, env)) {
+      delete config.name
+      return config
     }
   }
   throw Error(`env ${env} not found in options from ormconfig.json`)
@@ -35,11 +35,14 @@ const mergeOptions = (): PostgresConnectionOptions => {
       envOptions[v] = envVar
     }
   }
-  return {
+
+  const connectionOpts = {
     ...loadOptions(),
     ...envOptions,
     logger: new TypeOrmLogger(),
   } as PostgresConnectionOptions
+
+  return connectionOpts
 }
 
 export const openDbConnection = async (): Promise<Connection> => {
