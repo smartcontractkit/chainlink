@@ -291,8 +291,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.PollingInterval = models.MustNewDuration(math.MaxInt64)
-			initr.IdleThreshold = models.MustNewDuration(test.idleThreshold)
+			initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+			initr.IdleThreshold = models.MustMakeDuration(test.idleThreshold)
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
@@ -373,8 +373,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.PollingInterval = models.MustNewDuration(math.MaxInt64)
-			initr.IdleThreshold = models.MustNewDuration(0)
+			initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+			initr.IdleThreshold = models.MustMakeDuration(0)
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
@@ -690,7 +690,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.InitiatorParams.PollingInterval = models.MustNewDuration(1 * time.Hour)
+			initr.InitiatorParams.PollingInterval = models.MustMakeDuration(1 * time.Hour)
 
 			rm := new(mocks.RunManager)
 			fetcher := new(mocks.Fetcher)

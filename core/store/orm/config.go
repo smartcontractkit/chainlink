@@ -135,7 +135,7 @@ func (c Config) ClientNodeURL() string {
 }
 
 func (c Config) getDuration(s string) models.Duration {
-	rv, err := models.NewDuration(c.viper.GetDuration(EnvVarName(s)))
+	rv, err := models.MakeDuration(c.viper.GetDuration(EnvVarName(s)))
 	if err != nil {
 		panic(errors.Wrapf(err, "bad duration for config value %s: %s", s, rv))
 	}
