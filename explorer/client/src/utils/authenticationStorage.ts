@@ -3,13 +3,19 @@ import storage from 'local-storage-fallback'
 const ADMIN_ALLOWED = 'explorer.adminAllowed'
 
 export function getAdminAllowed(): boolean {
-  const adminAllowed: string | null = storage.getItem(ADMIN_ALLOWED)
+  const value: string | null = storage.getItem(ADMIN_ALLOWED)
 
-  if (adminAllowed) {
+  if (value) {
     try {
-      return JSON.parse(adminAllowed)
-    } catch {
+      return JSON.parse(value)
+    } catch (e) {
       // Fall through
+      console.error(
+        'could not parse local storage key: %o, value: %o, error: %o',
+        ADMIN_ALLOWED,
+        value,
+        e,
+      )
     }
   }
 
