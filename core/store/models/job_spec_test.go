@@ -54,7 +54,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				JobSpecID: job.ID,
 				InitiatorParams: models.InitiatorParams{
 					IdleThreshold:   models.MustMakeDuration(5 * time.Second),
-					PollingInterval: models.FluxMonitorDefaultInitiatorParams.PollingInterval,
+					PollingInterval: models.FluxMonitorDefaultInitiatorParams["PollingInterval"].Value.(models.Duration),
 					Precision:       2,
 					Threshold:       5,
 				},
@@ -296,4 +296,18 @@ func TestNewTaskType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetDefaultValues(t *testing.T) {
+	p := models.InitiatorParams{}
+	p.SetDefaultValues(models.InitiatorFluxMonitor)
+	assert.Equal(t,
+		models.FluxMonitorDefaultInitiatorParams["PollingInterval"].Value,
+		p.PollingInterval,
+		"failed to set default initiator parameter PollingInterval")
+	initialValue := models.MustMakeDuration(2 * time.Second)
+	p.PollingInterval = initialValue
+	p.SetDefaultValues(models.InitiatorFluxMonitor)
+	assert.Equal(t, initialValue, p.PollingInterval,
+		"altered explicitly set initiator parameter PollingInterval")
 }
