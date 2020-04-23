@@ -344,6 +344,8 @@ jobs:
     resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.33
+    environment:
+      NODE_OPTIONS: --max_old_space_size=512
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
