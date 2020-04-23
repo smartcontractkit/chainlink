@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -985,6 +986,11 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 	job.Initiators[0].InitiatorParams.PollingInterval = models.MustMakeDuration(15 * time.Second)
+	// NOTE: Must set a very large idle timeout here because log.StartedAt is
+	// hardcoded to 15 i.e. 1970-01-01T00:00:15Z.
+	// Otherwise this makes the idle timer immediately fire and the subsequent
+	// eth_call is not handled.
+	job.Initiators[0].InitiatorParams.IdleThreshold = models.MustMakeDuration(math.MaxInt64)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	_ = cltest.WaitForRuns(t, j, app.Store, 0)
