@@ -126,7 +126,7 @@ const Table = (props: Props) => {
         count={props.count ?? 0}
         rowsPerPageOptions={[]}
         rowsPerPage={props.rowsPerPage}
-        page={props.currentPage - 1}
+        page={props.currentPage}
         SelectProps={{
           native: true,
         }}
