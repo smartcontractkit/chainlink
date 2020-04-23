@@ -89,7 +89,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   mapping(address => Requester) internal requesters;
   address[] private oracleAddresses;
 
-  event AvailableFundsUpdated(uint256 indexed amount);
+  event AvailableFundsUpdated(
+    uint256 indexed amount
+  );
   event RoundDetailsUpdated(
     uint128 indexed paymentAmount,
     uint32 indexed minAnswerCount,
@@ -97,9 +99,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint32 restartDelay,
     uint32 timeout // measured in seconds
   );
-  event OracleAdded(address indexed oracle);
-  event OracleRemoved(address indexed oracle);
-  event OracleAdminUpdated(address indexed oracle, address indexed newAdmin);
+  event OraclePermissionsUpdated(
+    address indexed oracle,
+    bool indexed whitelisted
+  );
+  event OracleAdminUpdated(
+    address indexed oracle,
+    address indexed newAdmin
+  );
   event OracleAdminUpdateRequested(
     address indexed oracle,
     address admin,
@@ -814,7 +821,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     oracleAddresses.push(_oracle);
     oracles[_oracle].admin = _admin;
 
-    emit OracleAdded(_oracle);
+    emit OraclePermissionsUpdated(_oracle, true);
     emit OracleAdminUpdated(_oracle, _admin);
   }
 
@@ -832,7 +839,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     oracleAddresses[index] = tail;
     oracleAddresses.pop();
 
-    emit OracleRemoved(_oracle);
+    emit OraclePermissionsUpdated(_oracle, false);
   }
 
   /**
