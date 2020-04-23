@@ -49,8 +49,9 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 					PollTimer: models.PollTimerConfig{
 						Period: models.MustMakeDuration(1 * time.Minute),
 					},
-					Precision: 2,
-					Threshold: 5,
+					Precision:         2,
+					Threshold:         5,
+					AbsoluteThreshold: 0.01,
 				},
 			},
 			jobSpec: job,
@@ -64,8 +65,9 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 					PollTimer: models.PollTimerConfig{
 						Period: models.MustMakeDuration(1 * time.Minute),
 					},
-					Precision: 2,
-					Threshold: 5,
+					Precision:         2,
+					Threshold:         5,
+					AbsoluteThreshold: 0.01,
 				},
 			},
 		},
@@ -104,20 +106,21 @@ func TestInitiatorParams(t *testing.T) {
 	i := models.Initiator{
 		JobSpecID: j.ID,
 		InitiatorParams: models.InitiatorParams{
-			Schedule:    schedule,
-			Time:        time,
-			Ran:         true,
-			Address:     address,
-			Requesters:  requesters,
-			Name:        "foo",
-			Body:        &json,
-			FromBlock:   big,
-			ToBlock:     big,
-			Topics:      topics,
-			RequestData: json,
-			Feeds:       json,
-			Threshold:   42.42,
-			Precision:   42,
+			Schedule:          schedule,
+			Time:              time,
+			Ran:               true,
+			Address:           address,
+			Requesters:        requesters,
+			Name:              "foo",
+			Body:              &json,
+			FromBlock:         big,
+			ToBlock:           big,
+			Topics:            topics,
+			RequestData:       json,
+			Feeds:             json,
+			Threshold:         42.42,
+			AbsoluteThreshold: 54, // https://spooniom.com/6-9-42/
+			Precision:         42,
 			IdleTimer: models.IdleTimerConfig{
 				Duration: duration,
 			},
@@ -146,6 +149,8 @@ func TestInitiatorParams(t *testing.T) {
 	assert.Equal(t, duration, saved.InitiatorParams.IdleTimer.Duration)
 	assert.Equal(t, json, saved.InitiatorParams.Feeds)
 	assert.Equal(t, float32(42.42), saved.InitiatorParams.Threshold)
+	assert.Equal(t, i.InitiatorParams.AbsoluteThreshold,
+		saved.InitiatorParams.AbsoluteThreshold)
 	assert.Equal(t, int32(42), saved.InitiatorParams.Precision)
 	assert.Equal(t, duration, saved.InitiatorParams.PollTimer.Period)
 

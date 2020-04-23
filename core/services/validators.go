@@ -131,7 +131,20 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 		fe.Add("no requestdata")
 	}
 	if i.Threshold <= 0 {
-		fe.Add("threshold must be > 0")
+		fe.Add("bad 'threshold' parameter; this is the maximum relative change " +
+			"allowed in the monitored value, before a new report should be made; " +
+			"it must be positive, and appear in the job initiator parameters; e.g." +
+			`{"initiators": [{"type":"fluxmonitor", "params":{"threshold": 0.5}}]} ` +
+			"means that the value can change by up to half its last-reported value " +
+			"before a new report is made")
+	}
+	if i.AbsoluteThreshold < 0 {
+		fe.Add("bad 'absoluteThreshold' value; this is the maximum absolute " +
+			"change allowed in the monitored value, before a new report should be " +
+			"made; it must be nonnegative and appear in the job initiator parameters; e.g." +
+			`{"initiators":[{"type":"fluxmonitor","params":{"absoluteThreshold":0.01}}]} ` +
+			"means that the value can change by up to 0.01 units " +
+			"before a new report is made")
 	}
 
 	if i.PollTimer.Disabled && i.IdleTimer.Disabled {
