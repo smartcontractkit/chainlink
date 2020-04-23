@@ -9,10 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
-func init() {
-	time.LoadLocation("UTC")
-}
-
 func main() {
 	Run(NewProductionClient(), os.Args...)
 }
