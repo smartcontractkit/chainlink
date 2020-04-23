@@ -56,10 +56,10 @@ export const Index: React.FC<Props> = ({
   count,
   rowsPerPage = 10,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(0)
 
   useEffect(() => {
-    fetchAdminOperators(currentPage, rowsPerPage)
+    fetchAdminOperators(currentPage + 1, rowsPerPage)
   }, [rowsPerPage, currentPage, fetchAdminOperators])
 
   return (
@@ -78,7 +78,7 @@ export const Index: React.FC<Props> = ({
           operators={adminOperators}
           count={count}
           onChangePage={(_, page) => {
-            setCurrentPage(page + 1)
+            setCurrentPage(page)
           }}
         />
       </Grid>
