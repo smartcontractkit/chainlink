@@ -33,7 +33,7 @@ describe('FluxAggregator', () => {
   let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
   let nextRound: number
-  let oracleAddresses: ethers.Wallet[]
+  let oracles: ethers.Wallet[]
 
   async function updateFutureRounds(
     aggregator: contract.Instance<FluxAggregatorFactory>,
@@ -65,9 +65,9 @@ describe('FluxAggregator', () => {
 
   async function advanceRound(
     aggregator: contract.Instance<FluxAggregatorFactory>,
-    oracleAddresses: ethers.Wallet[],
+    oracles: ethers.Wallet[],
   ): Promise<number> {
-    for (const oracle of oracleAddresses) {
+    for (const oracle of oracles) {
       await aggregator.connect(oracle).updateAnswer(nextRound, answer)
     }
     nextRound++
@@ -181,14 +181,14 @@ describe('FluxAggregator', () => {
     let minMax
 
     beforeEach(async () => {
-      oracleAddresses = [personas.Neil, personas.Ned, personas.Nelly]
-      for (let i = 0; i < oracleAddresses.length; i++) {
+      oracles = [personas.Neil, personas.Ned, personas.Nelly]
+      for (let i = 0; i < oracles.length; i++) {
         minMax = i + 1
         await aggregator
           .connect(personas.Carol)
           .addOracles(
-            [oracleAddresses[i].address],
-            [oracleAddresses[i].address],
+            [oracles[i].address],
+            [oracles[i].address],
             minMax,
             minMax,
             rrDelay,
@@ -381,7 +381,7 @@ describe('FluxAggregator', () => {
           await aggregator.reportingRound(),
         )
 
-        await advanceRound(aggregator, oracleAddresses)
+        await advanceRound(aggregator, oracles)
 
         matchers.bigNum(ethers.constants.One, await aggregator.reportingRound())
       })
@@ -392,9 +392,7 @@ describe('FluxAggregator', () => {
           await aggregator.reportingRoundStartedAt(),
         )
 
-        await aggregator
-          .connect(oracleAddresses[0])
-          .updateAnswer(nextRound, answer)
+        await aggregator.connect(oracles[0]).updateAnswer(nextRound, answer)
 
         const startedAt = (
           await aggregator.reportingRoundStartedAt()
@@ -442,14 +440,12 @@ describe('FluxAggregator', () => {
           .connect(personas.Carol)
           .withdrawFunds(
             personas.Carol.address,
-            deposit.sub(
-              paymentAmount.mul(oracleAddresses.length).mul(reserveRounds),
-            ),
+            deposit.sub(paymentAmount.mul(oracles.length).mul(reserveRounds)),
           )
 
         // drain remaining funds
-        await advanceRound(aggregator, oracleAddresses)
-        await advanceRound(aggregator, oracleAddresses)
+        await advanceRound(aggregator, oracles)
+        await advanceRound(aggregator, oracles)
       })
 
       it('reverts', async () => {
@@ -462,13 +458,13 @@ describe('FluxAggregator', () => {
 
     describe('when a new round opens before the previous rounds closes', () => {
       beforeEach(async () => {
-        oracleAddresses = [personas.Nancy, personas.Norbert]
-        for (let i = 0; i < oracleAddresses.length; i++) {
+        oracles = [personas.Nancy, personas.Norbert]
+        for (let i = 0; i < oracles.length; i++) {
           await aggregator
             .connect(personas.Carol)
             .addOracles(
-              [oracleAddresses[i].address],
-              [oracleAddresses[i].address],
+              [oracles[i].address],
+              [oracles[i].address],
               3,
               4,
               rrDelay,
@@ -492,11 +488,9 @@ describe('FluxAggregator', () => {
 
       describe('once the current round is answered', () => {
         beforeEach(async () => {
-          oracleAddresses = [personas.Neil, personas.Nancy]
-          for (let i = 0; i < oracleAddresses.length; i++) {
-            await aggregator
-              .connect(oracleAddresses[i])
-              .updateAnswer(nextRound, answer)
+          oracles = [personas.Neil, personas.Nancy]
+          for (let i = 0; i < oracles.length; i++) {
+            await aggregator.connect(oracles[i]).updateAnswer(nextRound, answer)
           }
         })
 
@@ -534,7 +528,7 @@ describe('FluxAggregator', () => {
       it('pays the same amount to all oracles per round', async () => {
         await link.transfer(
           aggregator.address,
-          newAmount.mul(oracleAddresses.length).mul(reserveRounds),
+          newAmount.mul(oracles.length).mul(reserveRounds),
         )
         await aggregator.updateAvailableFunds()
 
@@ -575,8 +569,8 @@ describe('FluxAggregator', () => {
     describe('when delay is on', () => {
       beforeEach(async () => {
         await updateFutureRounds(aggregator, {
-          minAnswers: oracleAddresses.length,
-          maxAnswers: oracleAddresses.length,
+          minAnswers: oracles.length,
+          maxAnswers: oracles.length,
           restartDelay: 1,
         })
       })
@@ -605,11 +599,9 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await updateFutureRounds(aggregator.connect(personas.Carol))
 
-        oracleAddresses = [personas.Neil, personas.Ned, personas.Nelly]
-        for (let i = 0; i < oracleAddresses.length; i++) {
-          await aggregator
-            .connect(oracleAddresses[i])
-            .updateAnswer(nextRound, answer)
+        oracles = [personas.Neil, personas.Ned, personas.Nelly]
+        for (let i = 0; i < oracles.length; i++) {
+          await aggregator.connect(oracles[i]).updateAnswer(nextRound, answer)
           nextRound++
         }
 
@@ -618,7 +610,7 @@ describe('FluxAggregator', () => {
         // to 2, only Nelly can answer as she is the only oracle that hasn't
         // started the last two rounds.
         await updateFutureRounds(aggregator, {
-          maxAnswers: oracleAddresses.length,
+          maxAnswers: oracles.length,
           restartDelay: newDelay,
         })
       })
@@ -671,12 +663,12 @@ describe('FluxAggregator', () => {
       describe('on the third round or later', () => {
         beforeEach(async () => {
           await updateFutureRounds(aggregator, {
-            minAnswers: oracleAddresses.length,
-            maxAnswers: oracleAddresses.length,
+            minAnswers: oracles.length,
+            maxAnswers: oracles.length,
             restartDelay: 1,
           })
 
-          await advanceRound(aggregator, oracleAddresses)
+          await advanceRound(aggregator, oracles)
 
           await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
           await aggregator
@@ -952,13 +944,13 @@ describe('FluxAggregator', () => {
 
     describe('when an oracle gets added mid-round', () => {
       beforeEach(async () => {
-        oracleAddresses = [personas.Neil, personas.Ned]
-        for (let i = 0; i < oracleAddresses.length; i++) {
+        oracles = [personas.Neil, personas.Ned]
+        for (let i = 0; i < oracles.length; i++) {
           await aggregator
             .connect(personas.Carol)
             .addOracles(
-              [oracleAddresses[i].address],
-              [oracleAddresses[i].address],
+              [oracles[i].address],
+              [oracles[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -998,13 +990,13 @@ describe('FluxAggregator', () => {
 
     describe('when an oracle is added after removed for a round', () => {
       it('allows the oracle to update', async () => {
-        oracleAddresses = [personas.Neil, personas.Nelly]
-        for (let i = 0; i < oracleAddresses.length; i++) {
+        oracles = [personas.Neil, personas.Nelly]
+        for (let i = 0; i < oracles.length; i++) {
           await aggregator
             .connect(personas.Carol)
             .addOracles(
-              [oracleAddresses[i].address],
-              [oracleAddresses[i].address],
+              [oracles[i].address],
+              [oracles[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -1038,13 +1030,13 @@ describe('FluxAggregator', () => {
 
     describe('when an oracle is added and immediately removed mid-round', () => {
       it('allows the oracle to update', async () => {
-        oracleAddresses = [personas.Neil, personas.Nelly]
-        for (let i = 0; i < oracleAddresses.length; i++) {
+        oracles = [personas.Neil, personas.Nelly]
+        for (let i = 0; i < oracles.length; i++) {
           await aggregator
             .connect(personas.Carol)
             .addOracles(
-              [oracleAddresses[i].address],
-              [oracleAddresses[i].address],
+              [oracles[i].address],
+              [oracles[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -1078,13 +1070,13 @@ describe('FluxAggregator', () => {
 
     describe('when an oracle is re-added with a different admin address', () => {
       it('reverts', async () => {
-        oracleAddresses = [personas.Neil, personas.Nelly]
-        for (let i = 0; i < oracleAddresses.length; i++) {
+        oracles = [personas.Neil, personas.Nelly]
+        for (let i = 0; i < oracles.length; i++) {
           await aggregator
             .connect(personas.Carol)
             .addOracles(
-              [oracleAddresses[i].address],
-              [oracleAddresses[i].address],
+              [oracles[i].address],
+              [oracles[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -1436,25 +1428,17 @@ describe('FluxAggregator', () => {
 
     describe('with oracles still present', () => {
       beforeEach(async () => {
-        oracleAddresses = [personas.Neil, personas.Ned, personas.Nelly]
-        for (let i = 0; i < oracleAddresses.length; i++) {
-          await aggregator
-            .connect(personas.Carol)
-            .addOracles(
-              [oracleAddresses[i].address],
-              [oracleAddresses[i].address],
-              1,
-              1,
-              rrDelay,
-            )
-        }
+        oracles = [personas.Neil, personas.Ned, personas.Nelly]
+        await aggregator
+          .connect(personas.Carol)
+          .addOracles(oracles[i].address, oracles[i].address, 1, 1, rrDelay)
 
         matchers.bigNum(deposit, await aggregator.availableFunds())
       })
 
       it('does not allow withdrawal with less than 2x rounds of payments', async () => {
         const oracleReserve = paymentAmount
-          .mul(oracleAddresses.length)
+          .mul(oracles.length)
           .mul(reserveRounds)
         const allowed = deposit.sub(oracleReserve)
 
@@ -1495,21 +1479,21 @@ describe('FluxAggregator', () => {
     const newDelay = 2
 
     beforeEach(async () => {
-      oracleAddresses = [personas.Neil, personas.Ned, personas.Nelly]
-      for (let i = 0; i < oracleAddresses.length; i++) {
+      oracles = [personas.Neil, personas.Ned, personas.Nelly]
+      for (let i = 0; i < oracles.length; i++) {
         const minMax = i + 1
         await aggregator
           .connect(personas.Carol)
           .addOracles(
-            [oracleAddresses[i].address],
-            [oracleAddresses[i].address],
+            [oracles[i].address],
+            [oracles[i].address],
             minMax,
             minMax,
             rrDelay,
           )
       }
-      minAnswerCount = oracleAddresses.length
-      maxAnswerCount = oracleAddresses.length
+      minAnswerCount = oracles.length
+      maxAnswerCount = oracles.length
 
       matchers.bigNum(paymentAmount, await aggregator.paymentAmount())
       assert.equal(minAnswerCount, await aggregator.minAnswerCount())
@@ -1595,7 +1579,7 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {})
 
       it('reverts', async () => {
-        const most = deposit.div(oracleAddresses.length * reserveRounds)
+        const most = deposit.div(oracles.length * reserveRounds)
 
         await matchers.evmRevert(
           updateFutureRounds(aggregator, {
@@ -2087,14 +2071,14 @@ describe('FluxAggregator', () => {
     let minMax
 
     beforeEach(async () => {
-      oracleAddresses = [personas.Neil, personas.Nelly]
-      for (let i = 0; i < oracleAddresses.length; i++) {
+      oracles = [personas.Neil, personas.Nelly]
+      for (let i = 0; i < oracles.length; i++) {
         minMax = i + 1
         await aggregator
           .connect(personas.Carol)
           .addOracles(
-            [oracleAddresses[i].address],
-            [oracleAddresses[i].address],
+            [oracles[i].address],
+            [oracles[i].address],
             minMax,
             minMax,
             rrDelay,
@@ -2112,7 +2096,7 @@ describe('FluxAggregator', () => {
       matchers.bigNum(0, state._timesOutAt)
       matchers.bigNum(deposit, state._availableFunds)
       matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
-      matchers.bigNum(oracleAddresses.length, state._oracleCount) // weird that this is 0
+      matchers.bigNum(oracles.length, state._oracleCount) // weird that this is 0
     })
 
     describe('after other oracles have reported', () => {
