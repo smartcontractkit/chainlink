@@ -230,14 +230,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice update the round and payment related parameters for subsequent
    * rounds
-   * @param _newPaymentAmount is the payment amount for subsequent rounds
+   * @param _paymentAmount is the payment amount for subsequent rounds
    * @param _minAnswers is the new minimum answer count for each round
    * @param _maxAnswers is the new maximum answer count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
   function updateFutureRounds(
-    uint128 _newPaymentAmount,
+    uint128 _paymentAmount,
     uint32 _minAnswers,
     uint32 _maxAnswers,
     uint32 _restartDelay,
@@ -247,10 +247,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
     onlyValidRange(_minAnswers, _maxAnswers, _restartDelay)
   {
-    uint256 oracleReserve = uint256(_newPaymentAmount).mul(oracleCount()).mul(RESERVE_ROUNDS);
-    require(availableFunds >= oracleReserve, "insufficient funds for payment");
+    require(availableFunds >= requiredReserve(_paymentAmount), "insufficient funds for payment");
 
-    paymentAmount = _newPaymentAmount;
+    paymentAmount = _paymentAmount;
     minAnswerCount = _minAnswers;
     maxAnswerCount = _maxAnswers;
     restartDelay = _restartDelay;
@@ -463,8 +462,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
-    uint256 oracleReserve = uint256(paymentAmount).mul(oracleCount()).mul(RESERVE_ROUNDS);
-    require(uint256(availableFunds).sub(oracleReserve) >= _amount, "insufficient reserve funds");
+    require(uint256(availableFunds).sub(requiredReserve(paymentAmount)) >= _amount, "insufficient reserve funds");
     require(linkToken.transfer(_recipient, _amount), "token transfer failed");
     updateAvailableFunds();
   }
@@ -803,6 +801,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
 
     return true;
+  }
+
+  function requiredReserve(uint256 payment)
+    private
+    view
+    returns (uint256)
+  {
+    return payment.mul(oracleCount()).mul(RESERVE_ROUNDS);
   }
 
   /**
