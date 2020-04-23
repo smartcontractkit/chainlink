@@ -839,6 +839,7 @@ describe('FluxAggregator', () => {
 
       const oracleAddedEvent = h.eventArgs(receipt.events?.[0])
       assert.equal(oracleAddedEvent.oracle, personas.Ned.address)
+      assert.isTrue(oracleAddedEvent.whitelisted)
       const oracleAdminUpdatedEvent = h.eventArgs(receipt.events?.[1])
       assert.equal(oracleAdminUpdatedEvent.oracle, personas.Ned.address)
       assert.equal(oracleAdminUpdatedEvent.newAdmin, personas.Neil.address)
@@ -1074,8 +1075,9 @@ describe('FluxAggregator', () => {
         .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay)
       const receipt = await tx.wait()
 
-      const added = h.evmWordToAddress(receipt.logs?.[0].topics[1])
-      matchers.bigNum(added, personas.Neil.address)
+      const oracleRemovedEvent = h.eventArgs(receipt.events?.[0])
+      assert.equal(oracleRemovedEvent.oracle, personas.Neil.address)
+      assert.isFalse(oracleRemovedEvent.whitelisted)
     })
 
     it('removes the address in getOracles', async () => {
