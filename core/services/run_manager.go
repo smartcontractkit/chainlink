@@ -246,7 +246,7 @@ func (rm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
+			_ = rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
 			return
 		}
 
@@ -270,7 +270,7 @@ func (rm *runManager) ResumeAllConnecting() error {
 
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			rm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
+			_ = rm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
 			return
 		}
 

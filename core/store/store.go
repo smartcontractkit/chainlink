@@ -91,7 +91,7 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	wrapper.limiter.Wait(ctx)
+	_ = wrapper.limiter.Wait(ctx)
 
 	return wrapper.client.Call(result, method, args...)
 }

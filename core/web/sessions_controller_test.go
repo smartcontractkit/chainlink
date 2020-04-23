@@ -22,7 +22,7 @@ func TestSessionsController_Create(t *testing.T) {
 
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	_ = app.Start()
 	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 	defer cleanup()
@@ -47,7 +47,7 @@ func TestSessionsController_Create(t *testing.T) {
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if test.wantSession {
 				require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -80,7 +80,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	_ = app.Start()
 	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 	defer cleanup()
@@ -92,7 +92,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, "email@test.net", "password123")
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
 	assert.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
@@ -107,7 +107,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 	seedUser := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	_ = app.Start()
 	err := app.Store.SaveUser(&seedUser)
 	assert.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 
-	app.Start()
+	_ = app.Start()
 	err := app.Store.SaveUser(&user)
 	assert.NoError(t, err)
 

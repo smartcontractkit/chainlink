@@ -508,7 +508,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPrice
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 499000000000)
-	store.SaveTx(tx)
+	_ = store.SaveTx(tx)
 	require.Greater(t, len(tx.Attempts), 0)
 
 	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
@@ -901,7 +901,7 @@ func TestTxManager_Register(t *testing.T) {
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 	txm.Register([]accounts.Account{account})
-	txm.Connect(cltest.Head(1))
+	_ = txm.Connect(cltest.Head(1))
 	ethMock.EventuallyAllCalled(t)
 
 	aa := txm.NextActiveAccount()
@@ -932,7 +932,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	ethMock.Register("eth_getTransactionCount", `0x2D0`)
 
 	txm.Register(accounts)
-	txm.Connect(cltest.Head(1))
+	_ = txm.Connect(cltest.Head(1))
 	ethMock.EventuallyAllCalled(t)
 
 	a0 := txm.NextActiveAccount()
@@ -1045,13 +1045,13 @@ func TestManagedAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 	managedAccount := strpkg.NewManagedAccount(account, 0)
 
-	managedAccount.GetAndIncrementNonce(func(y uint64) error {
+	_ = managedAccount.GetAndIncrementNonce(func(y uint64) error {
 		assert.Equal(t, uint64(0), y)
 		return nil
 	})
 	assert.Equal(t, uint64(1), managedAccount.Nonce())
 
-	managedAccount.GetAndIncrementNonce(func(y uint64) error {
+	_ = managedAccount.GetAndIncrementNonce(func(y uint64) error {
 		assert.Equal(t, uint64(1), y)
 		return nil
 	})

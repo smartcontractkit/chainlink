@@ -20,7 +20,7 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 	defer cleanup()
 
 	r := services.NewStoreReaper(store)
-	defer r.Stop()
+	defer func() { _ = r.Stop() }()
 
 	tests := []struct {
 		name     string
@@ -35,7 +35,7 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer store.ORM.ClearSessions()
+			defer func() { _ = store.ORM.ClearSessions() }()
 
 			session := cltest.NewSession(test.name)
 			session.LastUsed = test.lastUsed

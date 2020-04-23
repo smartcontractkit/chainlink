@@ -308,11 +308,11 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 			}
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		if is404 {
 			c.Writer.WriteHeader(http.StatusNotFound)
-			io.Copy(c.Writer, file)
+			_, _ = io.Copy(c.Writer, file)
 		} else {
 			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 		}

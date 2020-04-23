@@ -125,7 +125,7 @@ func (r *Recurring) Stop() {
 // for execution when specified.
 func (r *Recurring) AddJob(job models.JobSpec) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
-		r.Cron.AddFunc(string(initr.Schedule), func() {
+		_ = r.Cron.AddFunc(string(initr.Schedule), func() {
 			now := time.Now()
 			if !job.Started(now) || job.Ended(now) {
 				return

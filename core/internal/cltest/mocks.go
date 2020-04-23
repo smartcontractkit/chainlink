@@ -585,7 +585,7 @@ func NewHTTPMockServer(
 		called = true
 
 		w.WriteHeader(status)
-		io.WriteString(w, response)
+		_, _ = io.WriteString(w, response)
 	})
 
 	server := httptest.NewServer(handler)

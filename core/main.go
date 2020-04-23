@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	time.LoadLocation("UTC")
+	_, _ = time.LoadLocation("UTC")
 }
 
 func main() {

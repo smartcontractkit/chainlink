@@ -28,7 +28,7 @@ func TestUnlockKey_SingleAddress(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	store.KeyStore.NewAccount(correctPassphrase)
+	_, _ = store.KeyStore.NewAccount(correctPassphrase)
 
 	assert.Error(t, store.KeyStore.Unlock("wrong phrase"))
 	assert.NoError(t, store.KeyStore.Unlock(correctPassphrase))
@@ -52,8 +52,8 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			store.KeyStore.NewAccount(test.passphrase1)
-			store.KeyStore.NewAccount(test.passphrase2)
+			_, _ = store.KeyStore.NewAccount(test.passphrase1)
+			_, _ = store.KeyStore.NewAccount(test.passphrase2)
 
 			if test.wantErr {
 				assert.Error(t, store.KeyStore.Unlock(correctPassphrase))

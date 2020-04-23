@@ -61,7 +61,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	client := http.Client{}
 	resp, err := client.Do(request)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := string(cltest.ParseResponseBody(t, resp))
