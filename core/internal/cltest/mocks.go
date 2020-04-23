@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
+	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -598,6 +599,7 @@ func NewHTTPMockServer(
 // MockCron represents a mock cron
 type MockCron struct {
 	Entries []MockCronEntry
+	nextID  cron.EntryID
 }
 
 // NewMockCron returns a new mock cron
@@ -609,15 +611,20 @@ func NewMockCron() *MockCron {
 func (*MockCron) Start() {}
 
 // Stop stops the mockcron
-func (*MockCron) Stop() {}
+func (*MockCron) Stop() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}
 
 // AddFunc appends a schedule to mockcron entries
-func (mc *MockCron) AddFunc(schd string, fn func()) error {
+func (mc *MockCron) AddFunc(schd string, fn func()) (cron.EntryID, error) {
 	mc.Entries = append(mc.Entries, MockCronEntry{
 		Schedule: schd,
 		Function: fn,
 	})
-	return nil
+	mc.nextID++
+	return mc.nextID, nil
 }
 
 // RunEntries run every function for each mockcron entry

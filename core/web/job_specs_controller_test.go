@@ -410,7 +410,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":[{"detail":"Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
+	expected := `{"errors":[{"detail":"Cron: failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
 	body := string(cltest.ParseResponseBody(t, resp))
 	assert.Equal(t, expected, strings.TrimSpace(body))
 }

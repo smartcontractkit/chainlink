@@ -16,10 +16,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/mrwonko/cron"
+	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+// CronParser is the global parser for crontabs.
+// It accepts the standard 5 field cron syntax as well as an optional 6th field
+// at the front to represent seconds.
+var CronParser cron.Parser
+
+func init() {
+	cronParserSpec := cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor
+	CronParser = cron.NewParser(cronParserSpec)
+}
 
 // RunStatus is a string that represents the run status
 type RunStatus string
@@ -396,8 +406,6 @@ func (t *AnyTime) Scan(value interface{}) error {
 }
 
 // Cron holds the string that will represent the spec of the cron-job.
-// It uses 6 fields to represent the seconds (1), minutes (2), hours (3),
-// day of the month (4), month (5), and day of the week (6).
 type Cron string
 
 // UnmarshalJSON parses the raw spec stored in JSON-encoded
@@ -412,7 +420,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
-	_, err = cron.Parse(s)
+	_, err = CronParser.Parse(s)
 	if err != nil {
 		return fmt.Errorf("Cron: %v", err)
 	}
