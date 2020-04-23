@@ -155,11 +155,12 @@ afterAll(() => {
 
 describe('FluxMonitor / FluxAggregator integration with one node', () => {
   it('updates the price', async () => {
+    await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
+    await fluxAggregator.updateAvailableFunds().then(t.txWait)
+
     await fluxAggregator
       .addOracle(node1Address, node1Address, 1, 1, 0)
       .then(t.txWait)
-    await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
-    await fluxAggregator.updateAvailableFunds().then(t.txWait)
 
     expect(await fluxAggregator.getOracles()).toEqual([node1Address])
     matchers.bigNum(
@@ -199,14 +200,15 @@ describe('FluxMonitor / FluxAggregator integration with one node', () => {
 
 describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
   beforeEach(async () => {
+    await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
+    await fluxAggregator.updateAvailableFunds().then(t.txWait)
+
     await fluxAggregator
       .addOracle(node1Address, node1Address, 1, 1, 0)
       .then(t.txWait)
     await fluxAggregator
       .addOracle(node2Address, node2Address, 2, 2, 0)
       .then(t.txWait)
-    await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
-    await fluxAggregator.updateAvailableFunds().then(t.txWait)
 
     expect(await fluxAggregator.getOracles()).toEqual([
       node1Address,
