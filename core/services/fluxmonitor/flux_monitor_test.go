@@ -753,7 +753,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			if test.startedBySelf {
 				startedBy = nodeAddr
 			}
-			checker.ExportedRespondToLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+			checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
