@@ -339,13 +339,13 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer from.Close()
+	defer func() { _ = from.Close() }()
 
 	to, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer to.Close()
+	defer func() { _ = to.Close() }()
 
 	_, err = io.Copy(to, from)
 

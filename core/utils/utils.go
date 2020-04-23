@@ -461,7 +461,7 @@ func FilesInDir(dir string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	r, err := f.Readdirnames(-1)
 	if err != nil {

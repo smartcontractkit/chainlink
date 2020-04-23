@@ -81,14 +81,14 @@ jobs:
   #       run: errcheck
   #       comment: false
 
-  # sec:
-  #   name: Sec
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: sec
-  #       flags: "-exclude=G104"
-  #       comment: false
+  sec:
+    name: Sec
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: check
+      uses: grandcolline/golang-github-actions@v1.1.0
+      with:
+        run: sec
+        flags: "-exclude=G104,G101,G304"
+        comment: false
