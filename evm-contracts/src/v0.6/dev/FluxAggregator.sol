@@ -214,23 +214,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
 
-  function removeOracle(
-    address _oracle
-  )
-    private
-    onlyEnabledAddress(_oracle)
-  {
-    oracles[_oracle].endingRound = reportingRoundId;
-    address tail = oracleAddresses[oracleCount().sub(1)];
-    uint16 index = oracles[_oracle].index;
-    oracles[tail].index = index;
-    delete oracles[_oracle].index;
-    oracleAddresses[index] = tail;
-    oracleAddresses.pop();
-
-    emit OracleRemoved(_oracle);
-  }
-
   /**
    * @notice update the round and payment related parameters for subsequent
    * rounds
@@ -827,12 +810,29 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
     oracles[_oracle].startingRound = getStartingRound(_oracle);
     oracles[_oracle].endingRound = ROUND_MAX;
+    oracles[_oracle].index = uint16(oracleAddresses.length);
     oracleAddresses.push(_oracle);
-    oracles[_oracle].index = uint16(oracleAddresses.length.sub(1));
     oracles[_oracle].admin = _admin;
 
     emit OracleAdded(_oracle);
     emit OracleAdminUpdated(_oracle, _admin);
+  }
+
+  function removeOracle(
+    address _oracle
+  )
+    private
+    onlyEnabledAddress(_oracle)
+  {
+    oracles[_oracle].endingRound = reportingRoundId;
+    address tail = oracleAddresses[oracleCount().sub(1)];
+    uint16 index = oracles[_oracle].index;
+    oracles[tail].index = index;
+    delete oracles[_oracle].index;
+    oracleAddresses[index] = tail;
+    oracleAddresses.pop();
+
+    emit OracleRemoved(_oracle);
   }
 
   /**
