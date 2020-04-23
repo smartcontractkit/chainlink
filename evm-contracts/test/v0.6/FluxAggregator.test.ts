@@ -120,7 +120,7 @@ describe('FluxAggregator', () => {
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'removeOracle',
+      'removeOracles',
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
@@ -1017,7 +1017,7 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Nelly.address, 1, 1, rrDelay)
+          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
         nextRound++
@@ -1057,7 +1057,7 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Nelly.address, 1, 1, rrDelay)
+          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
         nextRound++
@@ -1095,7 +1095,7 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Nelly.address, 1, 1, rrDelay)
+          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
@@ -1144,7 +1144,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#removeOracle', () => {
+  describe('#removeOracles', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
@@ -1171,7 +1171,7 @@ describe('FluxAggregator', () => {
       const pastCount = await aggregator.oracleCount()
       await aggregator
         .connect(personas.Carol)
-        .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay)
       const currentCount = await aggregator.oracleCount()
 
       expect(currentCount).toEqual(pastCount - 1)
@@ -1180,7 +1180,7 @@ describe('FluxAggregator', () => {
     it('updates the round details', async () => {
       await aggregator
         .connect(personas.Carol)
-        .removeOracle(personas.Neil.address, 0, 1, 0)
+        .removeOracles([personas.Neil.address], 0, 1, 0)
 
       matchers.bigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
       matchers.bigNum(
@@ -1193,7 +1193,7 @@ describe('FluxAggregator', () => {
     it('emits a log', async () => {
       const tx = await aggregator
         .connect(personas.Carol)
-        .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay)
       const receipt = await tx.wait()
 
       const added = h.evmWordToAddress(receipt.logs?.[0].topics[1])
@@ -1203,7 +1203,7 @@ describe('FluxAggregator', () => {
     it('removes the address in getOracles', async () => {
       await aggregator
         .connect(personas.Carol)
-        .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+        .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay)
       assert.deepEqual([personas.Nelly.address], await aggregator.getOracles())
     })
 
@@ -1211,14 +1211,14 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+          .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay)
       })
 
       it('reverts', async () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay),
+            .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay),
           'oracle not enabled',
         )
       })
@@ -1228,11 +1228,11 @@ describe('FluxAggregator', () => {
       it('does not revert', async () => {
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+          .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay)
 
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Nelly.address, 0, 0, 0)
+          .removeOracles([personas.Nelly.address], 0, 0, 0)
       })
     })
 
@@ -1241,7 +1241,7 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Ned)
-            .removeOracle(personas.Neil.address, 0, 0, rrDelay),
+            .removeOracles([personas.Neil.address], 0, 0, rrDelay),
           'Only callable by owner',
         )
       })
@@ -1253,7 +1253,7 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Nelly.address, 1, 1, rrDelay)
+          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
       })
 
       it('is allowed to finish that round', async () => {
@@ -1353,7 +1353,7 @@ describe('FluxAggregator', () => {
       it('reorders when removing from the beginning', async () => {
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Neil.address, minAns, maxAns, rrDelay)
+          .removeOracles([personas.Neil.address], minAns, maxAns, rrDelay)
         assert.deepEqual(
           [personas.Nelly.address, personas.Ned.address],
           await aggregator.getOracles(),
@@ -1363,7 +1363,7 @@ describe('FluxAggregator', () => {
       it('reorders when removing from the middle', async () => {
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Ned.address, minAns, maxAns, rrDelay)
+          .removeOracles([personas.Ned.address], minAns, maxAns, rrDelay)
         assert.deepEqual(
           [personas.Neil.address, personas.Nelly.address],
           await aggregator.getOracles(),
@@ -1373,7 +1373,7 @@ describe('FluxAggregator', () => {
       it('pops the last node off at the end', async () => {
         await aggregator
           .connect(personas.Carol)
-          .removeOracle(personas.Nelly.address, minAns, maxAns, rrDelay)
+          .removeOracles([personas.Nelly.address], minAns, maxAns, rrDelay)
         assert.deepEqual(
           [personas.Neil.address, personas.Ned.address],
           await aggregator.getOracles(),
