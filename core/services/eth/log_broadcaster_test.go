@@ -19,6 +19,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	const (
+		blockHeight uint64 = 123
+	)
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+	listener := new(mocks.LogListener)
+
+	chOkayToAssert := make(chan struct{}) // avoid flaky tests
+
+	listener.On("OnConnect").Return()
+	listener.On("OnDisconnect").Return().Run(func(mock.Arguments) { close(chOkayToAssert) })
+
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
+
+	chSubscribe := make(chan struct{}, 10)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(sub, nil).
+		Run(func(mock.Arguments) { chSubscribe <- struct{}{} })
+	ethClient.On("GetBlockHeight").Return(blockHeight, nil)
+
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM)
+	lb.AddDependents(2)
+	lb.Start()
+
+	lb.Register(common.Address{}, listener)
+
+	g.Consistently(func() int { return len(chSubscribe) }).Should(gomega.Equal(0))
+	lb.DependentReady()
+	g.Consistently(func() int { return len(chSubscribe) }).Should(gomega.Equal(0))
+	lb.DependentReady()
+	g.Eventually(func() int { return len(chSubscribe) }).Should(gomega.Equal(1))
+	g.Consistently(func() int { return len(chSubscribe) }).Should(gomega.Equal(1))
+
+	lb.Stop()
+
+	<-chOkayToAssert
+
+	ethClient.AssertExpectations(t)
+	sub.AssertExpectations(t)
+}
+
 func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
