@@ -68,7 +68,9 @@ export const search = async (params: SearchParams): Promise<JobRun[]> => {
     .getMany()
 }
 
-export const count = async (params: SearchParams): Promise<number> => {
+export const count = async (
+  params: Pick<SearchParams, 'searchQuery'>,
+): Promise<number> => {
   const result = await searchBuilder(params.searchQuery)
     .select('COUNT(*)', 'count')
     .getRawOne()
