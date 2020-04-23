@@ -342,3 +342,31 @@ func TestWaitGroupChan(t *testing.T) {
 		<-ch
 	}, 5*time.Second)
 }
+
+func TestDependentAwaiter(t *testing.T) {
+	da := utils.NewDependentAwaiter()
+	da.AddDependents(2)
+
+	select {
+	case <-da.AwaitDependents():
+		t.Fatal("should not fire immediately")
+	default:
+	}
+
+	da.DependentReady()
+
+	select {
+	case <-da.AwaitDependents():
+		t.Fatal("should not fire until finished")
+	default:
+	}
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		da.DependentReady()
+	}()
+
+	cltest.CallbackOrTimeout(t, "dependents are now ready", func() {
+		<-da.AwaitDependents()
+	}, 5*time.Second)
+}
