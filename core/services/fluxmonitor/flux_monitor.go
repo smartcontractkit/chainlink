@@ -347,8 +347,8 @@ type PollingDeviationChecker struct {
 	reportableRoundID          *big.Int
 	mostRecentSubmittedRoundID uint64
 	pollTicker                 *ResettableTicker
-	idleTicker                 <-chan time.Time
-	roundTimeoutTicker         <-chan time.Time
+	idleTimer                  <-chan time.Time
+	roundTimer                 <-chan time.Time
 
 	readyForLogs func()
 	chStop       chan struct{}
@@ -386,20 +386,20 @@ func NewPollingDeviationChecker(
 	}
 
 	return &PollingDeviationChecker{
-		readyForLogs:       readyForLogs,
-		store:              store,
-		fluxAggregator:     fluxAggregator,
-		initr:              initr,
-		requestData:        initr.InitiatorParams.RequestData,
-		idleThreshold:      initr.InitiatorParams.IdleThreshold,
-		threshold:          float64(initr.InitiatorParams.Threshold),
-		precision:          initr.InitiatorParams.Precision,
-		runManager:         runManager,
-		fetcher:            fetcher,
-		pollTicker:         NewResettableTicker(pollDelay),
-		idleTicker:         nil,
-		roundTimeoutTicker: nil,
-		connected:          abool.New(),
+		readyForLogs:   readyForLogs,
+		store:          store,
+		fluxAggregator: fluxAggregator,
+		initr:          initr,
+		requestData:    initr.InitiatorParams.RequestData,
+		idleThreshold:  initr.InitiatorParams.IdleThreshold,
+		threshold:      float64(initr.InitiatorParams.Threshold),
+		precision:      initr.InitiatorParams.Precision,
+		runManager:     runManager,
+		fetcher:        fetcher,
+		pollTicker:     NewResettableTicker(pollDelay),
+		idleTimer:      nil,
+		roundTimer:     nil,
+		connected:      abool.New(),
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
@@ -520,7 +520,9 @@ func (p *PollingDeviationChecker) consume() {
 	defer p.pollTicker.Stop()
 
 	if !p.idleThreshold.IsInstant() {
-		p.idleTicker = time.After(p.idleThreshold.Duration())
+		// On first start, the best we can do is to assume the idle timeout
+		// started from right now
+		p.idleTimer = time.After(p.idleThreshold.Duration())
 	}
 
 	for {
@@ -541,8 +543,8 @@ func (p *PollingDeviationChecker) consume() {
 			)
 			p.pollIfEligible(p.threshold)
 
-		case <-p.idleTicker:
-			logger.Debugw("Idle ticker fired",
+		case <-p.idleTimer:
+			logger.Debugw("Idle timer fired",
 				"pollDelay", p.pollTicker.d,
 				"idleThreshold", p.idleThreshold,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
@@ -551,8 +553,8 @@ func (p *PollingDeviationChecker) consume() {
 			)
 			p.pollIfEligible(0)
 
-		case <-p.roundTimeoutTicker:
-			logger.Debugw("Round timeout ticker fired",
+		case <-p.roundTimer:
+			logger.Debugw("Round timeout",
 				"pollDelay", p.pollTicker.d,
 				"idleThreshold", p.idleThreshold,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
@@ -613,19 +615,13 @@ func (p *PollingDeviationChecker) processLogs() {
 
 		switch log := maybeLog.LogBroadcast.Log().(type) {
 		case *contracts.LogNewRound:
-			logger.Debugw("NewRound log", p.loggerFieldsForNewRound(log)...)
-			// maybeLog.LogBroadcast.Consume(func() { p.respondToNewRoundLog(log) })
-			// p.respondToNewRoundLog(log)
-			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToNewRoundLog(log) })
-
+			logger.Debugw("NewRound log", p.loggerFieldsForNewRound(*log)...)
+			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToNewRoundLog(*log) })
 		case *contracts.LogAnswerUpdated:
-			logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
-			// maybeLog.LogBroadcast.Consume(func() { p.respondToAnswerUpdatedLog(log) })
-			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToAnswerUpdatedLog(log) })
-
-			// p.respondToAnswerUpdatedLog(log)
-
+			logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(*log)...)
+			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToAnswerUpdatedLog(*log) })
 		default:
+			logger.Errorf("unknown log %v of type %t", log, log)
 		}
 	}
 }
@@ -647,7 +643,7 @@ func consumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
 // answer.  This tells us that we need to reset our poll ticker.
 //
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAnswerUpdated) {
+func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log contracts.LogAnswerUpdated) {
 	if p.reportableRoundID != nil && log.RoundId.Cmp(p.reportableRoundID) < 0 {
 		logger.Debugw("Received stale AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
 	}
@@ -657,10 +653,10 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAn
 // need to poll and submit an answer to the contract regardless of the deviation.
 //
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
-func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRound) {
-	// The idleThreshold resets when a new round starts
+func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound) {
+	// The idleTimer resets when a new round starts
 	if !p.idleThreshold.IsInstant() {
-		p.idleTicker = time.After(p.idleThreshold.Duration())
+		p.idleTimer = MakeIdleTimer(log, p.idleThreshold, utils.Clock{})
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
@@ -830,7 +826,7 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 	// It's pointless to listen to logs from before the current reporting round
 	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
 
-	// Update the roundTimeoutTicker using the .TimesOutAt field describing the current round
+	// Update the roundTimer using the .TimesOutAt field describing the current round
 	if roundState.TimesOutAt() == 0 {
 		logger.Debugw("updating roundState.TimesOutAt",
 			"value", roundState.TimesOutAt(),
@@ -840,11 +836,11 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 			"reportableRoundID", p.reportableRoundID,
 			"contract", p.initr.InitiatorParams.Address.Hex(),
 		)
-		p.roundTimeoutTicker = nil
+		p.roundTimer = nil
 	} else {
 		timeUntilTimeout := time.Unix(int64(roundState.TimesOutAt()), 0).Sub(time.Now())
 		if timeUntilTimeout.Seconds() <= 0 {
-			p.roundTimeoutTicker = nil
+			p.roundTimer = nil
 			logger.Debugw("NOT updating roundState.TimesOutAt, negative duration",
 				"value", roundState.TimesOutAt(),
 				"pollDelay", p.pollTicker.d,
@@ -854,7 +850,7 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 				"contract", p.initr.InitiatorParams.Address.Hex(),
 			)
 		} else {
-			p.roundTimeoutTicker = time.After(timeUntilTimeout)
+			p.roundTimer = time.After(timeUntilTimeout)
 			logger.Debugw("updating roundState.TimesOutAt",
 				"value", roundState.TimesOutAt(),
 				"timeUntilTimeout", timeUntilTimeout,
@@ -914,7 +910,7 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 	return nil
 }
 
-func (p *PollingDeviationChecker) loggerFieldsForNewRound(log *contracts.LogNewRound) []interface{} {
+func (p *PollingDeviationChecker) loggerFieldsForNewRound(log contracts.LogNewRound) []interface{} {
 	return []interface{}{
 		"reportableRound", p.reportableRoundID,
 		"round", log.RoundId,
@@ -925,7 +921,7 @@ func (p *PollingDeviationChecker) loggerFieldsForNewRound(log *contracts.LogNewR
 	}
 }
 
-func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log *contracts.LogAnswerUpdated) []interface{} {
+func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log contracts.LogAnswerUpdated) []interface{} {
 	return []interface{}{
 		"round", log.RoundId,
 		"answer", log.Current.String(),
@@ -977,4 +973,40 @@ func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) 
 	}
 	logger.Infow("Deviation threshold met", loggerFields...)
 	return true
+}
+
+// MakeIdleTimer checks the log timestamp and calculates the idle time
+// from that.
+//
+// This function makes the assumption that the local system time is
+// relatively accurate (to within a second or so) and all participating nodes
+// agree on that.
+//
+// If system time is not accurate (compared to the cluster) then you should
+// expect poor behaviour here.
+func MakeIdleTimer(log contracts.LogNewRound, idleThreshold models.Duration, clock utils.AfterNower) <-chan time.Time {
+	fmt.Println("log.StartedAt", log.StartedAt)
+	timeNow := clock.Now()
+	if log.StartedAt == nil {
+		return defaultIdleTimer(idleThreshold, clock)
+	}
+	if !log.StartedAt.IsInt64() {
+		logger.Errorf("Value for log.StartedAt %s would overflow int64, using default idle timer instead.", log.StartedAt.String())
+		return defaultIdleTimer(idleThreshold, clock)
+	}
+	roundStarted := time.Unix(log.StartedAt.Int64(), 0)
+	if roundStarted.After(timeNow) {
+		logger.Warnf("Round started time of %s is later than current system time of %s, setting idle timer to %s from now. Most likely scenario is that this machine's clock is running slow. This is suboptimal! Please ensure your system clock is accurate.", roundStarted.String(), timeNow.String(), idleThreshold.Duration().String())
+		return defaultIdleTimer(idleThreshold, clock)
+	}
+	// duration from now until idle threshold = log timestamp + idle threshold - current time
+	durationUntilIdleThreshold := roundStarted.Add(idleThreshold.Duration()).Sub(timeNow)
+	if durationUntilIdleThreshold < 0 {
+		logger.Warnf("Idle threshold already passed, current time is %s and idle timer expired at %s (round started at %s with idle threshold of %s). It's possible you are processing an old round, or this machine has a fast clock. If this keeps happening, check your system clock and make sure it is accurate.", timeNow, roundStarted.Add(idleThreshold.Duration()).String(), roundStarted.String(), idleThreshold.Duration().String())
+	}
+	return clock.After(durationUntilIdleThreshold)
+}
+
+func defaultIdleTimer(idleThreshold models.Duration, clock utils.AfterNower) <-chan time.Time {
+	return clock.After(idleThreshold.Duration())
 }
