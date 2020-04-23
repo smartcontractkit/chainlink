@@ -159,7 +159,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice called by the owner to add a new Oracle and update the round
+   * @notice called by the owner to add new Oracles and update the round
    * related parameters
    * @param _oracles is the list of addresses of the new Oracles being added
    * @param _admins is the admin addresses of the new respective _oracles list.
@@ -190,22 +190,34 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice called by the owner to remove an Oracle and update the round
+   * @notice called by the owner to remove Oracles and update the round
    * related parameters
-   * @param _oracle is the address of the Oracle being removed
+   * @param _oracles is the address of the Oracles being removed
    * @param _minAnswers is the new minimum answer count for each round
    * @param _maxAnswers is the new maximum answer count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
-  function removeOracle(
-    address _oracle,
+  function removeOracles(
+    address[] calldata _oracles,
     uint32 _minAnswers,
     uint32 _maxAnswers,
     uint32 _restartDelay
   )
     external
     onlyOwner()
+  {
+    for (uint256 i = 0; i < _oracles.length; i++) {
+      removeOracle(_oracles[i]);
+    }
+
+    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
+  }
+
+  function removeOracle(
+    address _oracle
+  )
+    private
     onlyEnabledAddress(_oracle)
   {
     oracles[_oracle].endingRound = reportingRoundId;
@@ -217,8 +229,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     oracleAddresses.pop();
 
     emit OracleRemoved(_oracle);
-
-    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
 
   /**

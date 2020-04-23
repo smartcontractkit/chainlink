@@ -78,7 +78,7 @@ describe('WhitelistedAggregator', () => {
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'removeOracle',
+      'removeOracles',
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
