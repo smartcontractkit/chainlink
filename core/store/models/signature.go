@@ -50,7 +50,7 @@ func (s Signature) String() string {
 
 // Format implements fmt.Formatter
 func (s Signature) Format(state fmt.State, c rune) {
-	fmt.Fprintf(state, "%"+string(c), s.String())
+	_, _ = fmt.Fprintf(state, "%"+string(c), s.String())
 }
 
 // SetBytes assigns the byte array to the signature

@@ -231,7 +231,7 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 
 	store := app.Store
 
-	app.StartAndConnect()
+	_ = app.StartAndConnect()
 
 	job := cltest.NewJobWithRunLogInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
@@ -245,7 +245,7 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 	run.TaskRuns[0].Status = models.RunStatusPendingConnection
 	require.NoError(t, store.CreateJobRun(&run))
 
-	app.RunManager.ResumeAllConnecting()
+	_ = app.RunManager.ResumeAllConnecting()
 
 	cltest.WaitForJobRunToPendConfirmations(t, store, run)
 }
@@ -257,7 +257,7 @@ func TestRunManager_Create(t *testing.T) {
 
 	store := app.Store
 
-	app.StartAndConnect()
+	_ = app.StartAndConnect()
 
 	job := cltest.NewJobWithRunLogInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
@@ -281,7 +281,7 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 
 	store := app.Store
 
-	app.StartAndConnect()
+	_ = app.StartAndConnect()
 
 	job := cltest.NewJobWithWebInitiator()
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
@@ -338,7 +338,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
 			defer cleanup()
 
-			app.StartAndConnect()
+			_ = app.StartAndConnect()
 
 			job := cltest.NewJobWithRunLogInitiator()
 			job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
@@ -688,7 +688,7 @@ func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
 			runQueue.On("Run", mock.Anything).Return(nil)
 
 			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
-			runManager.ResumeAllConfirming(big.NewInt(3821))
+			_ = runManager.ResumeAllConfirming(big.NewInt(3821))
 
 			runQueue.AssertExpectations(t)
 		})
@@ -722,7 +722,7 @@ func TestRunManager_ResumeAllInProgress(t *testing.T) {
 			runQueue.On("Run", mock.Anything).Return(nil)
 
 			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
-			runManager.ResumeAllInProgress()
+			_ = runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
 		})
@@ -758,7 +758,7 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 			runQueue.On("Run", mock.Anything).Return(nil)
 
 			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
-			runManager.ResumeAllInProgress()
+			_ = runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
 		})
@@ -795,7 +795,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgress(t *testing.T) {
 			runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
 			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
-			runManager.ResumeAllInProgress()
+			_ = runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
 		})
@@ -833,7 +833,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 			runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
 			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
-			runManager.ResumeAllInProgress()
+			_ = runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
 		})

@@ -138,7 +138,7 @@ func (ba *Bridge) postToExternalAdapter(input models.RunInput, meta *models.JSON
 	if err != nil {
 		return nil, fmt.Errorf("POST request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		b, _ := ioutil.ReadAll(resp.Body)

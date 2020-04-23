@@ -38,7 +38,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	app.Start()
+	_ = app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/scheduler_job.json")
 
@@ -481,7 +481,7 @@ func TestIntegration_ExternalAdapter_Copy(t *testing.T) {
 		require.Contains(t, url.String(), "https://test.chain.link/always/v2/runs")
 
 		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, eaResponse)
+		_, _ = io.WriteString(w, eaResponse)
 	}))
 	defer ts.Close()
 
@@ -1030,7 +1030,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 	eth.Register("eth_chainId", config.ChainID())
-	app.Start()
+	_ = app.Start()
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "testdata/randomness_job.json")
 	rawKey := j.Tasks[0].Params.Get("publicKey").String()

@@ -50,7 +50,7 @@ func (a EIP55Address) String() string {
 
 // Format implements fmt.Formatter
 func (a EIP55Address) Format(s fmt.State, c rune) {
-	fmt.Fprint(s, a.String())
+	_, _ = fmt.Fprint(s, a.String())
 }
 
 // UnmarshalText parses a hash from plain text

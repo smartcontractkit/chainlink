@@ -677,7 +677,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 		return
 	}
 
-	p.createJobRun(polledAnswer, p.reportableRoundID)
+	_ = p.createJobRun(polledAnswer, p.reportableRoundID)
 }
 
 var (

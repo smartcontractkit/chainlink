@@ -35,7 +35,7 @@ func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var links jsonapi.Links
 	balances := []presenters.AccountBalance{}
@@ -60,7 +60,7 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "from initializing service-agreement-creation request"))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var sa presenters.ServiceAgreement
 	return cli.renderAPIResponse(resp, &sa)
@@ -94,7 +94,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var ei presenters.ExternalInitiatorAuthentication
 	return cli.renderAPIResponse(resp, &ei)
@@ -110,7 +110,7 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, err = cli.parseResponse(resp)
 	return err
 }
@@ -124,7 +124,7 @@ func (cli *Client) ShowJobRun(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var job presenters.JobRun
 	return cli.renderAPIResponse(resp, &job)
 }
@@ -148,7 +148,7 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var job presenters.JobSpec
 	return cli.renderAPIResponse(resp, &job)
 }
@@ -173,7 +173,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var js presenters.JobSpec
 	return cli.renderAPIResponse(resp, &js)
@@ -214,7 +214,7 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var run presenters.JobRun
 	return cli.renderAPIResponse(resp, &run)
 }
@@ -234,7 +234,7 @@ func (cli *Client) CreateBridge(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var bridge models.BridgeTypeAuthentication
 	return cli.renderAPIResponse(resp, &bridge)
@@ -260,7 +260,7 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) error
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
 	if err != nil {
@@ -279,7 +279,7 @@ func (cli *Client) ShowBridge(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var bridge models.BridgeType
 	return cli.renderAPIResponse(resp, &bridge)
 }
@@ -294,7 +294,7 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var bridge models.BridgeType
 	return cli.renderAPIResponse(resp, &bridge)
 }
@@ -359,7 +359,7 @@ func (cli *Client) Withdraw(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return cli.printResponseBody(resp)
 }
@@ -412,7 +412,7 @@ func (cli *Client) SendEther(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return cli.printResponseBody(resp)
 }
@@ -435,7 +435,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusOK {
 		fmt.Println("Password updated.")
@@ -463,7 +463,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var tx presenters.Tx
 	return cli.renderAPIResponse(resp, &tx)
 }
@@ -581,7 +581,7 @@ func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return cli.printResponseBody(resp)
 }
@@ -616,7 +616,7 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	patchResponse := web.ConfigPatchResponse{}
 	if err := cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
@@ -632,7 +632,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	cwl := presenters.ConfigWhitelist{}
 	return cli.renderAPIResponse(resp, &cwl)
 }

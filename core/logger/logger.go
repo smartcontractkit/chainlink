@@ -57,7 +57,7 @@ func (l *Logger) Write(b []byte) (int, error) {
 // SetLogger sets the internal logger to the given input.
 func SetLogger(zl *zap.Logger) {
 	if logger != nil {
-		defer logger.Sync()
+		defer func() { _ = logger.Sync() }()
 	}
 	logger = &Logger{zl.Sugar()}
 }

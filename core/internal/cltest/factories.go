@@ -313,7 +313,7 @@ func NewAddress() common.Address {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return b
 }
 

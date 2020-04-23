@@ -34,7 +34,7 @@ func TestSleeperTask_WakeupAfterStopPanics(t *testing.T) {
 	worker := &countingWorker{}
 	sleeper := services.NewSleeperTask(worker)
 
-	sleeper.Stop()
+	_ = sleeper.Stop()
 
 	require.Panics(t, func() {
 		sleeper.WakeUp()
@@ -47,9 +47,9 @@ func TestSleeperTask_CallingStopTwicePanics(t *testing.T) {
 
 	worker := &countingWorker{}
 	sleeper := services.NewSleeperTask(worker)
-	sleeper.Stop()
+	_ = sleeper.Stop()
 	require.Panics(t, func() {
-		sleeper.Stop()
+		_ = sleeper.Stop()
 	})
 }
 
@@ -61,7 +61,7 @@ func TestSleeperTask_WakeupPerformsWork(t *testing.T) {
 
 	sleeper.WakeUp()
 	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(1))
-	sleeper.Stop()
+	_ = sleeper.Stop()
 }
 
 type controllableWorker struct {
@@ -92,7 +92,7 @@ func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
 	sleeper.WakeUp()
 	worker.ignoreSignals = true
 	worker.allowResumeWork <- struct{}{}
-	sleeper.Stop()
+	_ = sleeper.Stop()
 
 	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(2))
 	gomega.NewGomegaWithT(t).Consistently(worker.getNumJobsPerformed).Should(gomega.BeNumerically("<", 3))
@@ -107,6 +107,6 @@ func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
 	sleeper.WakeUp()
 	require.Equal(t, worker.getNumJobsPerformed(), 0)
 
-	sleeper.Stop()
+	_ = sleeper.Stop()
 	require.Equal(t, worker.getNumJobsPerformed(), 1)
 }

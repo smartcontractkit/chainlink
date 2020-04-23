@@ -54,7 +54,7 @@ func TestORM_CreateJob(t *testing.T) {
 	defer cleanup()
 
 	j1 := cltest.NewJobWithSchedule("* * * * *")
-	store.CreateJob(&j1)
+	_ = store.CreateJob(&j1)
 
 	j2, err := store.FindJob(j1.ID)
 	require.NoError(t, err)
@@ -1291,7 +1291,7 @@ func isDirEmpty(t *testing.T, dir string) bool {
 		}
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if _, err = f.Readdirnames(1); err == io.EOF {
 		return true

@@ -25,7 +25,7 @@ func StatusCodeForError(err interface{}) int {
 // jsonAPIError adds an error to the gin context and sets
 // the JSON value of errors.
 func jsonAPIError(c *gin.Context, statusCode int, err error) {
-	c.Error(err).SetType(gin.ErrorTypePublic)
+	_ = c.Error(err).SetType(gin.ErrorTypePublic)
 	switch v := err.(type) {
 	case *models.JSONAPIErrors:
 		c.JSON(statusCode, v)

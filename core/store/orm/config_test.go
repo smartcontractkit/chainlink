@@ -35,7 +35,7 @@ func TestConfig_sessionSecret(t *testing.T) {
 	config.Set("ROOT", path.Join("/tmp/chainlink_test", "TestConfig_sessionSecret"))
 	err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
 	require.NoError(t, err)
-	defer os.RemoveAll(config.RootDir())
+	defer func() { _ = os.RemoveAll(config.RootDir()) }()
 
 	initial, err := config.SessionSecret()
 	require.NoError(t, err)

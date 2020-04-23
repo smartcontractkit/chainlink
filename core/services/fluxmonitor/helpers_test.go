@@ -71,7 +71,7 @@ func fakePriceResponder(t *testing.T, requestData string, result decimal.Decimal
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		payload, err := ioutil.ReadAll(r.Body)
 		require.NoError(t, err)
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 		assert.Equal(t, requestData, string(payload))
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(response))

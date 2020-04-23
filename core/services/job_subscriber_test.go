@@ -24,7 +24,7 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer func() { _ = jobSubscriber.Stop() }()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -85,7 +85,7 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer func() { _ = jobSubscriber.Stop() }()
 
 	jobSpec := cltest.NewJobWithLogInitiator()
 	err := jobSubscriber.AddJob(jobSpec, cltest.Head(321))
@@ -109,7 +109,7 @@ func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer func() { _ = jobSubscriber.Stop() }()
 
 	job := models.JobSpec{}
 	err := jobSubscriber.AddJob(job, cltest.Head(1))
@@ -124,7 +124,7 @@ func TestJobSubscriber_RemoveJob_NotFoundError(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer func() { _ = jobSubscriber.Stop() }()
 
 	err := jobSubscriber.RemoveJob(models.NewID())
 	require.Error(t, err)
@@ -138,7 +138,7 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	defer jobSubscriber.Stop()
+	defer func() { _ = jobSubscriber.Stop() }()
 
 	eth := cltest.MockEthOnStore(t, store, cltest.NoRegisterGetBlockNumber)
 	eth.Register("eth_getLogs", []ethpkg.Log{})
