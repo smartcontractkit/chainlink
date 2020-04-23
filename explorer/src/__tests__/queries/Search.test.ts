@@ -171,4 +171,9 @@ describe('search and count', () => {
     const countResult = await count({ searchQuery: 'runB runC' })
     expect(countResult).toEqual(2)
   })
+
+  it('returns the number of results matching the search query for the second page', async () => {
+    const countResult = await count({ searchQuery: 'runB runC', page: 2 })
+    expect(countResult).toEqual(2)
+  })
 })
