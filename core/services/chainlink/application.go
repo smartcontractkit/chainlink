@@ -49,10 +49,10 @@ type Application interface {
 	services.RunManager
 }
 
-// ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
+// CLApplication contains fields for the JobSubscriber, Scheduler,
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
-type ChainlinkApplication struct {
+type CLApplication struct {
 	Exiter      func(int)
 	HeadTracker *services.HeadTracker
 	StatsPusher synchronization.StatsPusher
@@ -90,7 +90,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
-	app := &ChainlinkApplication{
+	app := &CLApplication{
 		JobSubscriber:            jobSubscriber,
 		GasUpdater:               gasUpdater,
 		FluxMonitor:              fluxMonitor,
@@ -127,7 +127,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 // Also listens for interrupt signals from the operating system so
 // that the application can be properly closed before the application
 // exits.
-func (app *ChainlinkApplication) Start() error {
+func (app *CLApplication) Start() error {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -159,7 +159,7 @@ func (app *ChainlinkApplication) Start() error {
 
 // Stop allows the application to exit by halting schedules, closing
 // logs, and closing the DB connection.
-func (app *ChainlinkApplication) Stop() error {
+func (app *CLApplication) Stop() error {
 	var merr error
 	app.shutdownOnce.Do(func() {
 		defer logger.Sync()
@@ -177,25 +177,25 @@ func (app *ChainlinkApplication) Stop() error {
 	return merr
 }
 
-// GetStore returns the pointer to the store for the ChainlinkApplication.
-func (app *ChainlinkApplication) GetStore() *store.Store {
+// GetStore returns the pointer to the store for the CLApplication.
+func (app *CLApplication) GetStore() *store.Store {
 	return app.Store
 }
 
-// GetStatsPusher returns stats pusher for the ChainlinkApplication.
-func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
+// GetStatsPusher returns stats pusher for the CLApplication.
+func (app *CLApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.
-func (app *ChainlinkApplication) WakeSessionReaper() {
+func (app *CLApplication) WakeSessionReaper() {
 	app.SessionReaper.WakeUp()
 }
 
 // AddJob adds a job to the store and the scheduler. If there was
 // an error from adding the job to the store, the job will not be
 // added to the scheduler.
-func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
+func (app *CLApplication) AddJob(job models.JobSpec) error {
 	err := app.Store.CreateJob(&job)
 	if err != nil {
 		return err
@@ -212,7 +212,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
-func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
+func (app *CLApplication) ArchiveJob(ID *models.ID) error {
 	_ = app.JobSubscriber.RemoveJob(ID)
 	app.FluxMonitor.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
@@ -220,7 +220,7 @@ func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs
 // to be scheduled.
-func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement) error {
+func (app *CLApplication) AddServiceAgreement(sa *models.ServiceAgreement) error {
 	err := app.Store.CreateServiceAgreement(sa)
 	if err != nil {
 		return err
@@ -238,7 +238,7 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 
 // NewBox returns the packr.Box instance that holds the static assets to
 // be delivered by the router.
-func (app *ChainlinkApplication) NewBox() packr.Box {
+func (app *CLApplication) NewBox() packr.Box {
 	return packr.NewBox("../../../operator_ui/dist")
 }
 
