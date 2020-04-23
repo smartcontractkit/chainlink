@@ -9,35 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
-	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-func mustEVMBigInt(t *testing.T, val *big.Int) []byte {
-	ret, err := utils.EVMWordBigInt(val)
-	require.NoError(t, err, "evm BigInt serialization")
-	return ret
-}
-
-func makeRoundStateReturnData(roundID uint64, eligible bool, answer, timesOutAt, availableFunds, paymentAmount uint64) string {
-	var data []byte
-	data = append(data, utils.EVMWordUint64(roundID)...)
-	if eligible {
-		data = append(data, utils.EVMWordUint64(1)...)
-	} else {
-		data = append(data, utils.EVMWordUint64(0)...)
-	}
-	data = append(data, utils.EVMWordUint64(answer)...)
-	data = append(data, utils.EVMWordUint64(timesOutAt)...)
-	data = append(data, utils.EVMWordUint64(availableFunds)...)
-	data = append(data, utils.EVMWordUint64(paymentAmount)...)
-	return hexutil.Encode(data)
-}
 
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
@@ -53,7 +30,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		Data: append(selector, nodeAddr[:]...),
 	}
 
-	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000100`
+	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000011`
 
 	tests := []struct {
 		name                   string
@@ -65,10 +42,10 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		expectedAvailableFunds uint64
 		expectedPaymentAmount  uint64
 	}{
-		{"zero, false", makeRoundStateReturnData(0, false, 0, 0, 0, 0), 0, false, big.NewInt(0), 0, 0, 0},
-		{"non-zero, false", makeRoundStateReturnData(1, false, 23, 1234, 36, 72), 1, false, big.NewInt(23), 1234, 36, 72},
-		{"zero, true", makeRoundStateReturnData(0, true, 0, 0, 0, 0), 0, true, big.NewInt(0), 0, 0, 0},
-		{"non-zero true", makeRoundStateReturnData(12, true, 91, 9876, 45, 999), 12, true, big.NewInt(91), 9876, 45, 999},
+		{"zero, false", cltest.MakeRoundStateReturnData(0, false, 0, 0, 0, 0, 17), 0, false, big.NewInt(0), 0, 0, 0},
+		{"non-zero, false", cltest.MakeRoundStateReturnData(1, false, 23, 1234, 36, 72, 17), 1, false, big.NewInt(23), 1234, 36, 72},
+		{"zero, true", cltest.MakeRoundStateReturnData(0, true, 0, 0, 0, 0, 17), 0, true, big.NewInt(0), 0, 0, 0},
+		{"non-zero true", cltest.MakeRoundStateReturnData(12, true, 91, 9876, 45, 999, 17), 12, true, big.NewInt(91), 9876, 45, 999},
 		{"real call data", rawReturnData, 3, true, big.NewInt(15), 14, 10, 256},
 	}
 

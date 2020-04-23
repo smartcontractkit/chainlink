@@ -197,7 +197,8 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"initr", initr.ID,
 		)
 		timeout := fm.store.Config.DefaultHTTPTimeout()
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout)
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM,
+			timeout)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -224,7 +225,7 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM, time.Duration) (DeviationChecker, error)
+	New(models.Initiator, RunManager, *orm.ORM, models.Duration) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -236,12 +237,13 @@ func (f pollingDeviationCheckerFactory) New(
 	initr models.Initiator,
 	runManager RunManager,
 	orm *orm.ORM,
-	timeout time.Duration,
+	timeout models.Duration,
 ) (DeviationChecker, error) {
 	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
 
-	if initr.InitiatorParams.PollingInterval < minimumPollingInterval {
-		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", minimumPollingInterval)
+	if initr.InitiatorParams.PollingInterval.Shorter(minimumPollingInterval) {
+		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s",
+			minimumPollingInterval)
 	}
 
 	urls, err := ExtractFeedURLs(initr.InitiatorParams.Feeds, orm)
@@ -268,7 +270,7 @@ func (f pollingDeviationCheckerFactory) New(
 		initr,
 		runManager,
 		fetcher,
-		initr.InitiatorParams.PollingInterval.Duration(),
+		initr.InitiatorParams.PollingInterval,
 	)
 }
 
@@ -334,7 +336,7 @@ type PollingDeviationChecker struct {
 	requestData   models.JSON
 	threshold     float64
 	precision     int32
-	idleThreshold time.Duration
+	idleThreshold models.Duration
 
 	connected                  *abool.AtomicBool
 	chMaybeLogs                chan maybeLog
@@ -363,14 +365,14 @@ func NewPollingDeviationChecker(
 	initr models.Initiator,
 	runManager RunManager,
 	fetcher Fetcher,
-	pollDelay time.Duration,
+	pollDelay models.Duration,
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
 		store:              store,
 		fluxAggregator:     fluxAggregator,
 		initr:              initr,
 		requestData:        initr.InitiatorParams.RequestData,
-		idleThreshold:      initr.InitiatorParams.IdleThreshold.Duration(),
+		idleThreshold:      initr.InitiatorParams.IdleThreshold,
 		threshold:          float64(initr.InitiatorParams.Threshold),
 		precision:          initr.InitiatorParams.Precision,
 		runManager:         runManager,
@@ -417,10 +419,10 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 
 type ResettableTicker struct {
 	*time.Ticker
-	d time.Duration
+	d models.Duration
 }
 
-func NewResettableTicker(d time.Duration) *ResettableTicker {
+func NewResettableTicker(d models.Duration) *ResettableTicker {
 	return &ResettableTicker{nil, d}
 }
 
@@ -440,7 +442,7 @@ func (t *ResettableTicker) Stop() {
 
 func (t *ResettableTicker) Reset() {
 	t.Stop()
-	t.Ticker = time.NewTicker(t.d)
+	t.Ticker = time.NewTicker(t.d.Duration())
 }
 
 func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
@@ -469,8 +471,8 @@ func (p *PollingDeviationChecker) consume() {
 	p.pollTicker.Reset()
 	defer p.pollTicker.Stop()
 
-	if p.idleThreshold > 0 {
-		p.idleTicker = time.After(p.idleThreshold)
+	if !p.idleThreshold.IsInstant() {
+		p.idleTicker = time.After(p.idleThreshold.Duration())
 	}
 
 	for {
@@ -589,8 +591,8 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAn
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRound) {
 	// The idleThreshold resets when a new round starts
-	if p.idleThreshold > 0 {
-		p.idleTicker = time.After(p.idleThreshold)
+	if !p.idleThreshold.IsInstant() {
+		p.idleTicker = time.After(p.idleThreshold.Duration())
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()

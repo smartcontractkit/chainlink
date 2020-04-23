@@ -12,13 +12,16 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // ethUSDPairing has the ETH/USD parameters needed when POSTing to the price
 // external adapters.
 // https://github.com/smartcontractkit/price-adapters
 const ethUSDPairing = `{"data":{"coin":"ETH","market":"USD"}}`
-const defaultHTTPTimeout = 15 * time.Second
+
+var defaultHTTPTimeout = models.MustMakeDuration(15 * time.Second)
 
 func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 	tests := []struct {

@@ -70,7 +70,6 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 		FunctionABI: abi.Method{
 			Name:    "verifyVRFProof",
 			RawName: "verifyVRFProof",
-			Const:   false,
 			Inputs: []abi.Argument{
 				abi.Argument{
 					Name: "gammaX",
