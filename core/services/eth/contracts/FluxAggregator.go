@@ -42,6 +42,7 @@ type LogNewRound struct {
 	eth.Log
 	RoundId   *big.Int
 	StartedBy common.Address
+	// seconds since unix epoch
 	StartedAt *big.Int
 }
 
