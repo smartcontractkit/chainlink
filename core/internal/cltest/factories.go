@@ -149,7 +149,7 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 			Address:       NewAddress(),
 			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
 			Feeds:         models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
-			IdleThreshold: models.Duration(time.Minute),
+			IdleThreshold: models.MustMakeDuration(time.Minute),
 			Threshold:     0.5,
 			Precision:     2,
 		},

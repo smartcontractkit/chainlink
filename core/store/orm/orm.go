@@ -49,7 +49,7 @@ const (
 type ORM struct {
 	db                  *gorm.DB
 	lockingStrategy     LockingStrategy
-	advisoryLockTimeout time.Duration
+	advisoryLockTimeout models.Duration
 	dialectName         DialectName
 	closeOnce           sync.Once
 	shutdownSignal      gracefulpanic.Signal
@@ -61,7 +61,7 @@ var (
 )
 
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -103,8 +103,8 @@ func (orm *ORM) MustEnsureAdvisoryLock() {
 	}
 }
 
-func displayTimeout(timeout time.Duration) string {
-	if timeout == 0 {
+func displayTimeout(timeout models.Duration) string {
+	if timeout.IsInstant() {
 		return "indefinite"
 	}
 	return timeout.String()

@@ -128,7 +128,7 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
-	if i.IdleThreshold != 0 && i.IdleThreshold < i.PollingInterval {
+	if !i.IdleThreshold.IsInstant() && i.IdleThreshold.Shorter(i.PollingInterval) {
 		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
 	}
 	if i.Threshold <= 0 {
@@ -137,9 +137,9 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	if i.RequestData.String() == "" {
 		fe.Add("no requestdata")
 	}
-	if i.PollingInterval == 0 {
+	if i.PollingInterval.IsInstant() {
 		fe.Add("no pollingInterval")
-	} else if i.PollingInterval < minimumPollingInterval {
+	} else if i.PollingInterval.Shorter(minimumPollingInterval) {
 		fe.Add("pollingInterval must be equal or greater than " + minimumPollingInterval.String())
 	}
 	if err := validateFeeds(i.Feeds, store); err != nil {
@@ -305,16 +305,16 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 	untilEndAt := time.Until(sa.Encumbrance.EndAt.Time)
 
-	if untilEndAt > config.MaximumServiceDuration() {
+	if untilEndAt > config.MaximumServiceDuration().Duration() {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %v is too far in the future. Furthest allowed date is %v",
 			sa.Encumbrance.EndAt,
-			time.Now().Add(config.MaximumServiceDuration())))
+			time.Now().Add(config.MaximumServiceDuration().Duration())))
 	}
 
-	if untilEndAt < config.MinimumServiceDuration() {
+	if untilEndAt < config.MinimumServiceDuration().Duration() {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %v is too soon. Earliest allowed date is %v",
 			sa.Encumbrance.EndAt,
-			time.Now().Add(config.MinimumServiceDuration())))
+			time.Now().Add(config.MinimumServiceDuration().Duration())))
 	}
 
 	return fe.CoerceEmptyToNil()

@@ -59,6 +59,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   uint256 constant public VERSION = 2;
 
+  LinkTokenInterface public linkToken;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
@@ -71,9 +72,18 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint8 public override decimals;
   bytes32 public description;
 
+
+  /**
+   * @notice To ensure owner isn't withdrawing required funds as oracles are
+   * submitting updates, we enforce that the contract maintains a minimum
+   * reserve of RESERVE_ROUND * oracleCount() LINK earmarked for payment to
+   * oracles. (Of course, this doesn't prevent the contract from running out of
+   * funds without the owner's intervention.)
+   */
+  uint256 constant private RESERVE_ROUNDS = 2;
+
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
-  LinkTokenInterface public linkToken;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
   mapping(address => Requester) internal requesters;
@@ -220,14 +230,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice update the round and payment related parameters for subsequent
    * rounds
-   * @param _newPaymentAmount is the payment amount for subsequent rounds
+   * @param _paymentAmount is the payment amount for subsequent rounds
    * @param _minAnswers is the new minimum answer count for each round
    * @param _maxAnswers is the new maximum answer count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
   function updateFutureRounds(
-    uint128 _newPaymentAmount,
+    uint128 _paymentAmount,
     uint32 _minAnswers,
     uint32 _maxAnswers,
     uint32 _restartDelay,
@@ -237,7 +247,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
     onlyValidRange(_minAnswers, _maxAnswers, _restartDelay)
   {
-    paymentAmount = _newPaymentAmount;
+    require(availableFunds >= requiredReserve(_paymentAmount), "insufficient funds for payment");
+
+    paymentAmount = _paymentAmount;
     minAnswerCount = _minAnswers;
     maxAnswerCount = _maxAnswers;
     restartDelay = _restartDelay;
@@ -450,7 +462,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
-    require(availableFunds >= _amount, "insufficient available funds");
+    require(uint256(availableFunds).sub(requiredReserve(paymentAmount)) >= _amount, "insufficient reserve funds");
     require(linkToken.transfer(_recipient, _amount), "token transfer failed");
     updateAvailableFunds();
   }
@@ -742,7 +754,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
       int256 _latestRoundAnswer,
       uint64 _timesOutAt,
       uint128 _availableFunds,
-      uint128 _paymentAmount
+      uint128 _paymentAmount,
+      uint32 _oracleCount
     )
   {
     bool finishedOrTimedOut = rounds[reportingRoundId].details.answers.length >= rounds[reportingRoundId].details.maxAnswers || timedOut(reportingRoundId);
@@ -753,7 +766,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
       rounds[latestRoundId].answer,
       finishedOrTimedOut ? 0 : rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
       availableFunds,
-      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
+      finishedOrTimedOut ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount,
+      oracleCount()
     );
   }
 
@@ -787,6 +801,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
     }
 
     return true;
+  }
+
+  function requiredReserve(uint256 payment)
+    private
+    view
+    returns (uint256)
+  {
+    return payment.mul(oracleCount()).mul(RESERVE_ROUNDS);
   }
 
   /**

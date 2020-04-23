@@ -344,11 +344,11 @@ func TestDuration_MarshalJSON(t *testing.T) {
 		input models.Duration
 		want  string
 	}{
-		{"zero", models.Duration(0), `"0s"`},
-		{"one second", models.Duration(time.Second), `"1s"`},
-		{"one minute", models.Duration(time.Minute), `"1m0s"`},
-		{"one hour", models.Duration(time.Hour), `"1h0m0s"`},
-		{"one hour thirty minutes", models.Duration(time.Hour + 30*time.Minute), `"1h30m0s"`},
+		{"zero", models.MustMakeDuration(0), `"0s"`},
+		{"one second", models.MustMakeDuration(time.Second), `"1s"`},
+		{"one minute", models.MustMakeDuration(time.Minute), `"1m0s"`},
+		{"one hour", models.MustMakeDuration(time.Hour), `"1h0m0s"`},
+		{"one hour thirty minutes", models.MustMakeDuration(time.Hour + 30*time.Minute), `"1h30m0s"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

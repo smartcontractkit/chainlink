@@ -28,6 +28,7 @@ describe('FluxAggregator', () => {
   const timeout = 1800
   const decimals = 18
   const description = 'LINK/USD'
+  const reserveRounds = 2
 
   let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
@@ -61,6 +62,18 @@ describe('FluxAggregator', () => {
       round.timeout,
     )
   }
+
+  async function advanceRound(
+    aggregator: contract.Instance<FluxAggregatorFactory>,
+    oracleAddresses: ethers.Wallet[],
+  ): Promise<number> {
+    for (const oracle of oracleAddresses) {
+      await aggregator.connect(oracle).updateAnswer(nextRound, answer)
+    }
+    nextRound++
+    return nextRound
+  }
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
     aggregator = await fluxAggregatorFactory
@@ -299,9 +312,8 @@ describe('FluxAggregator', () => {
       })
 
       it('updates the updated timestamp', async () => {
-        const deployTime = aggregator.deployTransaction.chainId / 1000
         const originalTimestamp = await aggregator.latestTimestamp()
-        assert.closeTo(deployTime, originalTimestamp.toNumber(), timeout)
+        assert.isAbove(originalTimestamp.toNumber(), 0)
 
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
@@ -369,9 +381,7 @@ describe('FluxAggregator', () => {
           await aggregator.reportingRound(),
         )
 
-        for (const oracle of oracleAddresses) {
-          await aggregator.connect(oracle).updateAnswer(nextRound, answer)
-        }
+        await advanceRound(aggregator, oracleAddresses)
 
         matchers.bigNum(ethers.constants.One, await aggregator.reportingRound())
       })
@@ -430,7 +440,16 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .withdrawFunds(personas.Carol.address, deposit)
+          .withdrawFunds(
+            personas.Carol.address,
+            deposit.sub(
+              paymentAmount.mul(oracleAddresses.length).mul(reserveRounds),
+            ),
+          )
+
+        // drain remaining funds
+        await advanceRound(aggregator, oracleAddresses)
+        await advanceRound(aggregator, oracleAddresses)
       })
 
       it('reverts', async () => {
@@ -455,16 +474,13 @@ describe('FluxAggregator', () => {
               rrDelay,
             )
         }
-
-        oracleAddresses = [personas.Nelly, personas.Neil, personas.Nancy]
-        for (let i = 0; i < oracleAddresses.length; i++) {
-          await aggregator
-            .connect(oracleAddresses[i])
-            .updateAnswer(nextRound, answer)
-        }
+        await advanceRound(aggregator, [
+          personas.Nelly,
+          personas.Neil,
+          personas.Nancy,
+        ])
 
         // start the next round
-        nextRound++
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
       })
 
@@ -516,6 +532,12 @@ describe('FluxAggregator', () => {
       const newAmount = h.toWei('50')
 
       it('pays the same amount to all oracles per round', async () => {
+        await link.transfer(
+          aggregator.address,
+          newAmount.mul(oracleAddresses.length).mul(reserveRounds),
+        )
+        await aggregator.updateAvailableFunds()
+
         matchers.bigNum(
           0,
           await aggregator
@@ -654,10 +676,7 @@ describe('FluxAggregator', () => {
             restartDelay: 1,
           })
 
-          for (const oracle of oracleAddresses) {
-            await aggregator.connect(oracle).updateAnswer(nextRound, answer)
-          }
-          nextRound++
+          await advanceRound(aggregator, oracleAddresses)
 
           await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
           await aggregator
@@ -806,8 +825,7 @@ describe('FluxAggregator', () => {
         )
 
       for (let i = 0; i < 10; i++) {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, i)
-        nextRound++
+        await advanceRound(aggregator, [personas.Neil])
       }
     })
 
@@ -1096,6 +1114,12 @@ describe('FluxAggregator', () => {
     const limit = 42
     describe(`when adding more than ${limit} oracles`, () => {
       it('reverts', async () => {
+        await link.transfer(
+          aggregator.address,
+          paymentAmount.mul(limit).mul(reserveRounds),
+        )
+        await aggregator.updateAvailableFunds()
+
         for (let i = 0; i < limit; i++) {
           const minMax = i + 1
           const fakeAddress = h.addHexPrefix(randomBytes(20).toString('hex'))
@@ -1359,58 +1383,93 @@ describe('FluxAggregator', () => {
   })
 
   describe('#withdrawFunds', () => {
-    describe('when called by the owner', () => {
-      it('succeeds', async () => {
+    it('succeeds', async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .withdrawFunds(personas.Carol.address, deposit)
+
+      matchers.bigNum(0, await aggregator.availableFunds())
+      matchers.bigNum(deposit, await link.balanceOf(personas.Carol.address))
+    })
+
+    it('does not let withdrawals happen multiple times', async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .withdrawFunds(personas.Carol.address, deposit)
+
+      await matchers.evmRevert(
+        aggregator
+          .connect(personas.Carol)
+          .withdrawFunds(personas.Carol.address, deposit),
+        'insufficient reserve funds',
+      )
+    })
+
+    describe('with a number higher than the available LINK balance', () => {
+      beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .withdrawFunds(personas.Carol.address, deposit)
-
-        matchers.bigNum(0, await aggregator.availableFunds())
-        matchers.bigNum(deposit, await link.balanceOf(personas.Carol.address))
+          .addOracle(
+            personas.Neil.address,
+            personas.Neil.address,
+            minAns,
+            maxAns,
+            rrDelay,
+          )
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       })
 
-      it('does not let withdrawals happen multiple times', async () => {
-        await aggregator
-          .connect(personas.Carol)
-          .withdrawFunds(personas.Carol.address, deposit)
-
+      it('fails', async () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
             .withdrawFunds(personas.Carol.address, deposit),
-          'insufficient available funds',
+          'insufficient reserve funds',
+        )
+
+        matchers.bigNum(
+          deposit.sub(paymentAmount),
+          await aggregator.availableFunds(),
         )
       })
+    })
 
-      describe('with a number higher than the available LINK balance', () => {
-        beforeEach(async () => {
+    describe('with oracles still present', () => {
+      beforeEach(async () => {
+        oracleAddresses = [personas.Neil, personas.Ned, personas.Nelly]
+        for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
             .addOracle(
-              personas.Neil.address,
-              personas.Neil.address,
-              minAns,
-              maxAns,
+              oracleAddresses[i].address,
+              oracleAddresses[i].address,
+              1,
+              1,
               rrDelay,
             )
-          await aggregator
-            .connect(personas.Neil)
-            .updateAnswer(nextRound, answer)
-        })
+        }
 
-        it('fails', async () => {
-          await matchers.evmRevert(
-            aggregator
-              .connect(personas.Carol)
-              .withdrawFunds(personas.Carol.address, deposit),
-            'insufficient available funds',
-          )
+        matchers.bigNum(deposit, await aggregator.availableFunds())
+      })
 
-          matchers.bigNum(
-            deposit.sub(paymentAmount),
-            await aggregator.availableFunds(),
-          )
-        })
+      it('does not allow withdrawal with less than 2x rounds of payments', async () => {
+        const oracleReserve = paymentAmount
+          .mul(oracleAddresses.length)
+          .mul(reserveRounds)
+        const allowed = deposit.sub(oracleReserve)
+
+        //one more than the allowed amount cannot be withdrawn
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Carol)
+            .withdrawFunds(personas.Carol.address, allowed.add(1)),
+          'insufficient reserve funds',
+        )
+
+        // the allowed amount can be withdrawn
+        await aggregator
+          .connect(personas.Carol)
+          .withdrawFunds(personas.Carol.address, allowed)
       })
     })
 
@@ -1529,6 +1588,25 @@ describe('FluxAggregator', () => {
           }),
           'revert delay cannot exceed total',
         )
+      })
+    })
+
+    describe('when the payment amount does not cover reserve rounds', () => {
+      beforeEach(async () => {})
+
+      it('reverts', async () => {
+        const most = deposit.div(oracleAddresses.length * reserveRounds)
+
+        await matchers.evmRevert(
+          updateFutureRounds(aggregator, {
+            payment: most.add(1),
+          }),
+          'insufficient funds for payment',
+        )
+
+        await updateFutureRounds(aggregator, {
+          payment: most,
+        })
       })
     })
 
@@ -2001,6 +2079,110 @@ describe('FluxAggregator', () => {
           aggregator.connect(personas.Neil).startNewRound(),
           'not authorized requester',
         )
+      })
+    })
+  })
+
+  describe('#roundState', () => {
+    let minMax
+
+    beforeEach(async () => {
+      oracleAddresses = [personas.Neil, personas.Nelly]
+      for (let i = 0; i < oracleAddresses.length; i++) {
+        minMax = i + 1
+        await aggregator
+          .connect(personas.Carol)
+          .addOracle(
+            oracleAddresses[i].address,
+            oracleAddresses[i].address,
+            minMax,
+            minMax,
+            rrDelay,
+          )
+      }
+    })
+
+    it('returns all of the important round information', async () => {
+      const state = await aggregator
+        .connect(personas.Nelly)
+        .roundState(personas.Nelly.address)
+      matchers.bigNum(1, state._reportableRoundId)
+      assert.equal(true, state._eligibleToSubmit)
+      matchers.bigNum(0, state._latestRoundAnswer)
+      matchers.bigNum(0, state._timesOutAt)
+      matchers.bigNum(deposit, state._availableFunds)
+      matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
+      matchers.bigNum(oracleAddresses.length, state._oracleCount) // weird that this is 0
+    })
+
+    describe('after other oracles have reported', () => {
+      beforeEach(async () => {
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      })
+
+      it('keeps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator
+          .connect(personas.Nelly)
+          .roundState(personas.Nelly.address)
+        matchers.bigNum(1, state._reportableRoundId)
+        assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(0, state._latestRoundAnswer)
+        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+        matchers.bigNum(paymentAmount, state._paymentAmount)
+      })
+    })
+
+    describe('after the oracle has reported but the others have not', () => {
+      beforeEach(async () => {
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+      })
+
+      it('keeps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator
+          .connect(personas.Nelly)
+          .roundState(personas.Nelly.address)
+        matchers.bigNum(1, state._reportableRoundId)
+        assert.equal(false, state._eligibleToSubmit)
+        matchers.bigNum(0, state._latestRoundAnswer) // differs from new version
+        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+      })
+
+      describe('and the round has timed out', () => {
+        beforeEach(async () => {
+          await h.increaseTimeBy(timeout + 1, provider)
+          await h.mineBlock(provider)
+        })
+
+        it('bumps the round ID and allows the oracle to submit', async () => {
+          const state = await aggregator
+            .connect(personas.Nelly)
+            .roundState(personas.Nelly.address)
+
+          matchers.bigNum(2, state._reportableRoundId)
+          assert.equal(true, state._eligibleToSubmit)
+          matchers.bigNum(0, state._latestRoundAnswer) // differs from new version
+          matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+        })
+      })
+    })
+
+    describe('when all oracles have reported', () => {
+      beforeEach(async () => {
+        const oracles = [personas.Neil, personas.Nelly]
+        for (let i = 0; i < oracles.length; i++) {
+          await aggregator.connect(oracles[i]).updateAnswer(nextRound, answer)
+        }
+      })
+
+      it('bumps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator
+          .connect(personas.Nelly)
+          .roundState(personas.Nelly.address)
+        matchers.bigNum(2, state._reportableRoundId)
+        assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(answer, state._latestRoundAnswer)
+        const expected = deposit.sub(paymentAmount).sub(paymentAmount)
+        matchers.bigNum(expected, state._availableFunds)
       })
     })
   })
