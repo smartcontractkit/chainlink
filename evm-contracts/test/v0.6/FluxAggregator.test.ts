@@ -98,7 +98,7 @@ describe('FluxAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(fluxAggregatorFactory, [
       'acceptAdmin',
-      'addOracle',
+      'addOracles',
       'allocatedFunds',
       'availableFunds',
       'decimals',
@@ -186,9 +186,9 @@ describe('FluxAggregator', () => {
         minMax = i + 1
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            oracleAddresses[i].address,
-            oracleAddresses[i].address,
+          .addOracles(
+            [oracleAddresses[i].address],
+            [oracleAddresses[i].address],
             minMax,
             minMax,
             rrDelay,
@@ -466,9 +466,9 @@ describe('FluxAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(
-              oracleAddresses[i].address,
-              oracleAddresses[i].address,
+            .addOracles(
+              [oracleAddresses[i].address],
+              [oracleAddresses[i].address],
               3,
               4,
               rrDelay,
@@ -761,9 +761,9 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -787,9 +787,9 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -816,9 +816,9 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -842,14 +842,14 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#addOracle', () => {
+  describe('#addOracless', () => {
     it('increases the oracle count', async () => {
       const pastCount = await aggregator.oracleCount()
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -862,9 +862,9 @@ describe('FluxAggregator', () => {
     it('adds the address in getOracles', async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -875,7 +875,7 @@ describe('FluxAggregator', () => {
     it('updates the round details', async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, personas.Neil.address, 0, 1, 0)
+        .addOracles([personas.Neil.address], [personas.Neil.address], 0, 1, 0)
 
       matchers.bigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
       matchers.bigNum(
@@ -888,9 +888,9 @@ describe('FluxAggregator', () => {
     it('emits a log', async () => {
       const tx = await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Ned.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Ned.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -908,9 +908,9 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Neil.address,
-            personas.Neil.address,
+          .addOracles(
+            [personas.Neil.address],
+            [personas.Neil.address],
             minAns,
             maxAns,
             rrDelay,
@@ -921,9 +921,9 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .addOracle(
-              personas.Neil.address,
-              personas.Neil.address,
+            .addOracles(
+              [personas.Neil.address],
+              [personas.Neil.address],
               minAns,
               maxAns,
               rrDelay,
@@ -938,9 +938,9 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Neil)
-            .addOracle(
-              personas.Neil.address,
-              personas.Neil.address,
+            .addOracles(
+              [personas.Neil.address],
+              [personas.Neil.address],
               minAns,
               maxAns,
               rrDelay,
@@ -956,9 +956,9 @@ describe('FluxAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(
-              oracleAddresses[i].address,
-              oracleAddresses[i].address,
+            .addOracles(
+              [oracleAddresses[i].address],
+              [oracleAddresses[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -969,9 +969,9 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Nelly.address,
-            personas.Nelly.address,
+          .addOracles(
+            [personas.Nelly.address],
+            [personas.Nelly.address],
             3,
             3,
             rrDelay,
@@ -1002,9 +1002,9 @@ describe('FluxAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(
-              oracleAddresses[i].address,
-              oracleAddresses[i].address,
+            .addOracles(
+              [oracleAddresses[i].address],
+              [oracleAddresses[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -1024,9 +1024,9 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Nelly.address,
-            personas.Nelly.address,
+          .addOracles(
+            [personas.Nelly.address],
+            [personas.Nelly.address],
             1,
             1,
             rrDelay,
@@ -1042,9 +1042,9 @@ describe('FluxAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(
-              oracleAddresses[i].address,
-              oracleAddresses[i].address,
+            .addOracles(
+              [oracleAddresses[i].address],
+              [oracleAddresses[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -1064,9 +1064,9 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Nelly.address,
-            personas.Nelly.address,
+          .addOracles(
+            [personas.Nelly.address],
+            [personas.Nelly.address],
             1,
             1,
             rrDelay,
@@ -1082,9 +1082,9 @@ describe('FluxAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(
-              oracleAddresses[i].address,
-              oracleAddresses[i].address,
+            .addOracles(
+              [oracleAddresses[i].address],
+              [oracleAddresses[i].address],
               i + 1,
               i + 1,
               rrDelay,
@@ -1099,9 +1099,9 @@ describe('FluxAggregator', () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .addOracle(
-              personas.Nelly.address,
-              personas.Carol.address,
+            .addOracles(
+              [personas.Nelly.address],
+              [personas.Carol.address],
               1,
               1,
               rrDelay,
@@ -1126,14 +1126,14 @@ describe('FluxAggregator', () => {
 
           await aggregator
             .connect(personas.Carol)
-            .addOracle(fakeAddress, fakeAddress, minMax, minMax, rrDelay)
+            .addOracles([fakeAddress], [fakeAddress], minMax, minMax, rrDelay)
         }
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
-            .addOracle(
-              personas.Neil.address,
-              personas.Neil.address,
+            .addOracles(
+              [personas.Neil.address],
+              [personas.Neil.address],
               limit + 1,
               limit + 1,
               rrDelay,
@@ -1148,18 +1148,18 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Nelly.address,
-          personas.Nelly.address,
+        .addOracles(
+          [personas.Nelly.address],
+          [personas.Nelly.address],
           2,
           2,
           rrDelay,
@@ -1274,9 +1274,9 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Neil.address,
-            personas.Neil.address,
+          .addOracles(
+            [personas.Neil.address],
+            [personas.Neil.address],
             minAns,
             maxAns,
             rrDelay,
@@ -1287,9 +1287,9 @@ describe('FluxAggregator', () => {
       it('returns the addresses of added oracles', async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Ned.address,
-            personas.Ned.address,
+          .addOracles(
+            [personas.Ned.address],
+            [personas.Ned.address],
             minAns,
             maxAns,
             rrDelay,
@@ -1301,9 +1301,9 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Nelly.address,
-            personas.Nelly.address,
+          .addOracles(
+            [personas.Nelly.address],
+            [personas.Nelly.address],
             minAns,
             maxAns,
             rrDelay,
@@ -1319,27 +1319,27 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Neil.address,
-            personas.Neil.address,
+          .addOracles(
+            [personas.Neil.address],
+            [personas.Neil.address],
             minAns,
             maxAns,
             rrDelay,
           )
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Ned.address,
-            personas.Ned.address,
+          .addOracles(
+            [personas.Ned.address],
+            [personas.Ned.address],
             minAns,
             maxAns,
             rrDelay,
           )
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Nelly.address,
-            personas.Nelly.address,
+          .addOracles(
+            [personas.Nelly.address],
+            [personas.Nelly.address],
             minAns,
             maxAns,
             rrDelay,
@@ -1409,9 +1409,9 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            personas.Neil.address,
-            personas.Neil.address,
+          .addOracles(
+            [personas.Neil.address],
+            [personas.Neil.address],
             minAns,
             maxAns,
             rrDelay,
@@ -1440,9 +1440,9 @@ describe('FluxAggregator', () => {
         for (let i = 0; i < oracleAddresses.length; i++) {
           await aggregator
             .connect(personas.Carol)
-            .addOracle(
-              oracleAddresses[i].address,
-              oracleAddresses[i].address,
+            .addOracles(
+              [oracleAddresses[i].address],
+              [oracleAddresses[i].address],
               1,
               1,
               rrDelay,
@@ -1500,9 +1500,9 @@ describe('FluxAggregator', () => {
         const minMax = i + 1
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            oracleAddresses[i].address,
-            oracleAddresses[i].address,
+          .addOracles(
+            [oracleAddresses[i].address],
+            [oracleAddresses[i].address],
             minMax,
             minMax,
             rrDelay,
@@ -1640,9 +1640,9 @@ describe('FluxAggregator', () => {
 
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -1682,9 +1682,9 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -1766,9 +1766,9 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Ned.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Ned.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -1819,9 +1819,9 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Ned.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Ned.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -1883,7 +1883,7 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, personas.Neil.address, 1, 1, 0)
+        .addOracles([personas.Neil.address], [personas.Neil.address], 1, 1, 0)
 
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       nextRound = nextRound + 1
@@ -1965,7 +1965,7 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(personas.Neil.address, personas.Neil.address, 1, 1, 0)
+        .addOracles([personas.Neil.address], [personas.Neil.address], 1, 1, 0)
 
       await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       nextRound = nextRound + 1
@@ -2092,9 +2092,9 @@ describe('FluxAggregator', () => {
         minMax = i + 1
         await aggregator
           .connect(personas.Carol)
-          .addOracle(
-            oracleAddresses[i].address,
-            oracleAddresses[i].address,
+          .addOracles(
+            [oracleAddresses[i].address],
+            [oracleAddresses[i].address],
             minMax,
             minMax,
             rrDelay,
