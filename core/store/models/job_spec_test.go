@@ -143,7 +143,7 @@ func TestNewJobFromRequest(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("* * * * 7")
+	j1 := cltest.NewJobWithSchedule("* * * * 6")
 	require.NoError(t, store.CreateJob(&j1))
 
 	jsr := models.JobSpecRequest{
