@@ -56,7 +56,7 @@ describe('WhitelistedAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
       'acceptAdmin',
-      'addOracle',
+      'addOracles',
       'allocatedFunds',
       'availableFunds',
       'decimals',
@@ -78,7 +78,7 @@ describe('WhitelistedAggregator', () => {
       'onTokenTransfer',
       'oracleCount',
       'paymentAmount',
-      'removeOracle',
+      'removeOracles',
       'reportingRound',
       'reportingRoundStartedAt',
       'restartDelay',
@@ -133,9 +133,9 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -172,9 +172,9 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -213,9 +213,9 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
@@ -250,9 +250,9 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,

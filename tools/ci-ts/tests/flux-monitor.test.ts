@@ -159,7 +159,7 @@ describe('FluxMonitor / FluxAggregator integration with one node', () => {
     await fluxAggregator.updateAvailableFunds().then(t.txWait)
 
     await fluxAggregator
-      .addOracle(node1Address, node1Address, 1, 1, 0)
+      .addOracles([node1Address], [node1Address], 1, 1, 0)
       .then(t.txWait)
 
     expect(await fluxAggregator.getOracles()).toEqual([node1Address])
@@ -204,10 +204,13 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await fluxAggregator.updateAvailableFunds().then(t.txWait)
 
     await fluxAggregator
-      .addOracle(node1Address, node1Address, 1, 1, 0)
-      .then(t.txWait)
-    await fluxAggregator
-      .addOracle(node2Address, node2Address, 2, 2, 0)
+      .addOracles(
+        [node1Address, node2Address],
+        [node1Address, node2Address],
+        2,
+        2,
+        0,
+      )
       .then(t.txWait)
 
     expect(await fluxAggregator.getOracles()).toEqual([

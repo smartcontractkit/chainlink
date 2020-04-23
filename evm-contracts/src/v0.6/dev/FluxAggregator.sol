@@ -159,70 +159,57 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice called by the owner to add a new Oracle and update the round
+   * @notice called by the owner to add new Oracles and update the round
    * related parameters
-   * @param _oracle is the address of the new Oracle being added
-   * @param _admin is the admin address of the new oracle. Only this address
-   * is allowed to access the oracle's funds.
+   * @param _oracles is the list of addresses of the new Oracles being added
+   * @param _admins is the admin addresses of the new respective _oracles list.
+   * Only this address is allowed to access the respective oracle's funds.
    * @param _minAnswers is the new minimum answer count for each round
    * @param _maxAnswers is the new maximum answer count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
-  function addOracle(
-    address _oracle,
-    address _admin,
+  function addOracles(
+    address[] calldata _oracles,
+    address[] calldata _admins,
     uint32 _minAnswers,
     uint32 _maxAnswers,
     uint32 _restartDelay
   )
     external
     onlyOwner()
-    onlyUnenabledAddress(_oracle)
   {
-    require(oracleCount() < 42, "max oracles allowed");
-    require(_admin != address(0), "cannot set admin to 0");
-    require(oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin, "owner cannot overwrite admin");
-    oracles[_oracle].startingRound = getStartingRound(_oracle);
-    oracles[_oracle].endingRound = ROUND_MAX;
-    oracleAddresses.push(_oracle);
-    oracles[_oracle].index = uint16(oracleAddresses.length.sub(1));
-    oracles[_oracle].admin = _admin;
+    require(_oracles.length == _admins.length, "need same oracle and admin count");
+    require(uint256(oracleCount()).add(_oracles.length) <= 42, "max oracles allowed");
 
-    emit OracleAdded(_oracle);
-    emit OracleAdminUpdated(_oracle, _admin);
+    for (uint256 i = 0; i < _oracles.length; i++) {
+      addOracle(_oracles[i], _admins[i]);
+    }
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
 
   /**
-   * @notice called by the owner to remove an Oracle and update the round
+   * @notice called by the owner to remove Oracles and update the round
    * related parameters
-   * @param _oracle is the address of the Oracle being removed
+   * @param _oracles is the address of the Oracles being removed
    * @param _minAnswers is the new minimum answer count for each round
    * @param _maxAnswers is the new maximum answer count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
-  function removeOracle(
-    address _oracle,
+  function removeOracles(
+    address[] calldata _oracles,
     uint32 _minAnswers,
     uint32 _maxAnswers,
     uint32 _restartDelay
   )
     external
     onlyOwner()
-    onlyEnabledAddress(_oracle)
   {
-    oracles[_oracle].endingRound = reportingRoundId;
-    address tail = oracleAddresses[oracleCount().sub(1)];
-    uint16 index = oracles[_oracle].index;
-    oracles[tail].index = index;
-    delete oracles[_oracle].index;
-    oracleAddresses[index] = tail;
-    oracleAddresses.pop();
-
-    emit OracleRemoved(_oracle);
+    for (uint256 i = 0; i < _oracles.length; i++) {
+      removeOracle(_oracles[i]);
+    }
 
     updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
   }
@@ -809,6 +796,43 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (uint256)
   {
     return payment.mul(oracleCount()).mul(RESERVE_ROUNDS);
+  }
+
+  function addOracle(
+    address _oracle,
+    address _admin
+  )
+    private
+    onlyUnenabledAddress(_oracle)
+  {
+    require(_admin != address(0), "cannot set admin to 0");
+    require(oracles[_oracle].admin == address(0) || oracles[_oracle].admin == _admin, "owner cannot overwrite admin");
+
+    oracles[_oracle].startingRound = getStartingRound(_oracle);
+    oracles[_oracle].endingRound = ROUND_MAX;
+    oracles[_oracle].index = uint16(oracleAddresses.length);
+    oracleAddresses.push(_oracle);
+    oracles[_oracle].admin = _admin;
+
+    emit OracleAdded(_oracle);
+    emit OracleAdminUpdated(_oracle, _admin);
+  }
+
+  function removeOracle(
+    address _oracle
+  )
+    private
+    onlyEnabledAddress(_oracle)
+  {
+    oracles[_oracle].endingRound = reportingRoundId;
+    address tail = oracleAddresses[oracleCount().sub(1)];
+    uint16 index = oracles[_oracle].index;
+    oracles[tail].index = index;
+    delete oracles[_oracle].index;
+    oracleAddresses[index] = tail;
+    oracleAddresses.pop();
+
+    emit OracleRemoved(_oracle);
   }
 
   /**
