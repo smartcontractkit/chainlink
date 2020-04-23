@@ -41,6 +41,14 @@ const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
     query = query.where('true = false')
   }
 
+  return query
+}
+
+const pagedSearchBuilder = (
+  params: SearchParams,
+): SelectQueryBuilder<JobRun> => {
+  let query = searchBuilder(params)
+
   if (params.limit != null) {
     query = query.limit(params.limit)
   }
@@ -54,7 +62,7 @@ const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
 }
 
 export const search = async (params: SearchParams): Promise<JobRun[]> => {
-  return searchBuilder(params)
+  return pagedSearchBuilder(params)
     .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
     .orderBy('job_run.createdAt', 'DESC')
     .getMany()
