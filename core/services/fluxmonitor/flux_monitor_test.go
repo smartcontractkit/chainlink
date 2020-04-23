@@ -250,7 +250,8 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
 			}
 
-			checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Second)
+			checker, err := fluxmonitor.NewPollingDeviationChecker(store,
+				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Second))
 			require.NoError(t, err)
 
 			if test.connected {
@@ -270,11 +271,11 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		idleThreshold    time.Duration
+		idleThreshold    models.Duration
 		expectedToSubmit bool
 	}{
-		{"no idleThreshold", 0, false},
-		{"idleThreshold > 0", 10 * time.Millisecond, true},
+		{"no idleThreshold", models.MustMakeDuration(0), false},
+		{"idleThreshold > 0", models.MustMakeDuration(10 * time.Millisecond), true},
 	}
 
 	for _, test := range tests {
@@ -291,8 +292,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.PollingInterval = models.Duration(math.MaxInt64)
-			initr.IdleThreshold = models.Duration(test.idleThreshold)
+			initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+			initr.IdleThreshold = test.idleThreshold
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
@@ -322,7 +323,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				initr,
 				runManager,
 				fetcher,
-				time.Duration(math.MaxInt64),
+				models.MustMakeDuration(time.Duration(math.MaxInt64)),
 			)
 			require.NoError(t, err)
 
@@ -373,8 +374,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.PollingInterval = models.Duration(math.MaxInt64)
-			initr.IdleThreshold = models.Duration(0)
+			initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+			initr.IdleThreshold = models.MustMakeDuration(0)
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
@@ -409,7 +410,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 				initr,
 				runManager,
 				fetcher,
-				time.Duration(math.MaxInt64),
+				models.MustMakeDuration(time.Duration(math.MaxInt64)),
 			)
 			require.NoError(t, err)
 
@@ -690,7 +691,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.InitiatorParams.PollingInterval = models.Duration(1 * time.Hour)
+			initr.InitiatorParams.PollingInterval = models.MustMakeDuration(1 * time.Hour)
 
 			rm := new(mocks.RunManager)
 			fetcher := new(mocks.Fetcher)
@@ -737,7 +738,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 				})).Return(nil, nil)
 			}
 
-			checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Hour)
+			checker, err := fluxmonitor.NewPollingDeviationChecker(store,
+				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Hour))
 			require.NoError(t, err)
 
 			checker.ExportedSetStoredReportableRoundID(test.storedReportableRoundID)

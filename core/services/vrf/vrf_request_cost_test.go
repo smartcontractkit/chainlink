@@ -17,6 +17,6 @@ func TestMeasureRandomnessRequestGasCost(t *testing.T) {
 
 	assert.Greater(t, estimate, uint64(174000),
 		"requestRandomness tx gas cost lower than expected")
-	assert.Less(t, estimate, uint64(175000),
+	assert.Less(t, estimate, uint64(180000),
 		"requestRandomness tx gas cost higher than expected")
 }
