@@ -342,7 +342,8 @@ type PollingDeviationChecker struct {
 	idleThreshold models.Duration
 
 	connected                  *abool.AtomicBool
-	chMaybeLogs                chan maybeLog
+	backlog                    *utils.BoundedPriorityQueue
+	chProcessLogs              chan struct{}
 	reportableRoundID          *big.Int
 	mostRecentSubmittedRoundID uint64
 	pollTicker                 *ResettableTicker
@@ -387,11 +388,20 @@ func NewPollingDeviationChecker(
 		idleTicker:         nil,
 		roundTimeoutTicker: nil,
 		connected:          abool.New(),
-		chMaybeLogs:        make(chan maybeLog, 100),
-		chStop:             make(chan struct{}),
-		waitOnStop:         make(chan struct{}),
+		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
+			priorityNewRoundLog:      3,
+			priorityAnswerUpdatedLog: 1,
+		}),
+		chProcessLogs: make(chan struct{}, 1),
+		chStop:        make(chan struct{}),
+		waitOnStop:    make(chan struct{}),
 	}, nil
 }
+
+const (
+	priorityNewRoundLog      uint = 0
+	priorityAnswerUpdatedLog uint = 1
+)
 
 // Start begins the CSP consumer in a single goroutine to
 // poll the price adapters and listen to NewRound events.
@@ -452,9 +462,21 @@ func (t *ResettableTicker) Reset() {
 }
 
 func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
+	switch log.(type) {
+	case *contracts.LogNewRound:
+		p.backlog.Add(priorityNewRoundLog, maybeLog{log, err})
+
+	case *contracts.LogAnswerUpdated:
+		p.backlog.Add(priorityAnswerUpdatedLog, maybeLog{log, err})
+
+	default:
+		logger.Warnf("unexpected log type %T", log)
+		return
+	}
+
 	select {
-	case p.chMaybeLogs <- maybeLog{log, err}:
-	case <-p.chStop:
+	case p.chProcessLogs <- struct{}{}:
+	default:
 	}
 }
 
@@ -488,12 +510,8 @@ func (p *PollingDeviationChecker) consume() {
 		case <-p.chStop:
 			return
 
-		case maybeLog := <-p.chMaybeLogs:
-			if maybeLog.Err != nil {
-				logger.Errorf("error received from log broadcaster: %v", maybeLog.Err)
-				continue
-			}
-			p.respondToLog(maybeLog.Log)
+		case <-p.chProcessLogs:
+			p.processLogs()
 
 		case <-p.pollTicker.Tick():
 			logger.Debugw("Poll ticker fired",
@@ -566,17 +584,26 @@ func (p *PollingDeviationChecker) determineMostRecentSubmittedRoundID() {
 	)
 }
 
-func (p *PollingDeviationChecker) respondToLog(log interface{}) {
-	switch log := log.(type) {
-	case *contracts.LogNewRound:
-		logger.Debugw("NewRound log", p.loggerFieldsForNewRound(log)...)
-		p.respondToNewRoundLog(log)
+func (p *PollingDeviationChecker) processLogs() {
+	for !p.backlog.Empty() {
+		maybeLog := p.backlog.Take().(maybeLog)
 
-	case *contracts.LogAnswerUpdated:
-		logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
-		p.respondToAnswerUpdatedLog(log)
+		if maybeLog.Err != nil {
+			logger.Errorf("error received from log broadcaster: %v", maybeLog.Err)
+			continue
+		}
 
-	default:
+		switch log := maybeLog.Log.(type) {
+		case *contracts.LogNewRound:
+			logger.Debugw("NewRound log", p.loggerFieldsForNewRound(log)...)
+			p.respondToNewRoundLog(log)
+
+		case *contracts.LogAnswerUpdated:
+			logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
+			p.respondToAnswerUpdatedLog(log)
+
+		default:
+		}
 	}
 }
 
