@@ -19,11 +19,11 @@ const normalizeSearchToken = (id: string): string => {
   return id
 }
 
-const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
+const searchBuilder = (searchQuery?: string): SelectQueryBuilder<JobRun> => {
   let query = getRepository(JobRun).createQueryBuilder('job_run')
 
-  if (params.searchQuery != null) {
-    const searchTokens = params.searchQuery.split(/\s+/)
+  if (searchQuery != null) {
+    const searchTokens = searchQuery.split(/\s+/)
     const normalizedSearchTokens = searchTokens.map(normalizeSearchToken)
     query = query
       .where('job_run.runId IN(:...searchTokens)', { searchTokens })
@@ -41,6 +41,14 @@ const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
     query = query.where('true = false')
   }
 
+  return query
+}
+
+const pagedSearchBuilder = (
+  params: SearchParams,
+): SelectQueryBuilder<JobRun> => {
+  let query = searchBuilder(params.searchQuery)
+
   if (params.limit != null) {
     query = query.limit(params.limit)
   }
@@ -54,14 +62,16 @@ const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
 }
 
 export const search = async (params: SearchParams): Promise<JobRun[]> => {
-  return searchBuilder(params)
+  return pagedSearchBuilder(params)
     .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
     .orderBy('job_run.createdAt', 'DESC')
     .getMany()
 }
 
-export const count = async (params: SearchParams): Promise<number> => {
-  const result = await searchBuilder(params)
+export const count = async (
+  params: Pick<SearchParams, 'searchQuery'>,
+): Promise<number> => {
+  const result = await searchBuilder(params.searchQuery)
     .select('COUNT(*)', 'count')
     .getRawOne()
 
