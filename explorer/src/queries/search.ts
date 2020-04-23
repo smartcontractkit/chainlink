@@ -19,11 +19,11 @@ const normalizeSearchToken = (id: string): string => {
   return id
 }
 
-const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
+const searchBuilder = (searchQuery?: string): SelectQueryBuilder<JobRun> => {
   let query = getRepository(JobRun).createQueryBuilder('job_run')
 
-  if (params.searchQuery != null) {
-    const searchTokens = params.searchQuery.split(/\s+/)
+  if (searchQuery != null) {
+    const searchTokens = searchQuery.split(/\s+/)
     const normalizedSearchTokens = searchTokens.map(normalizeSearchToken)
     query = query
       .where('job_run.runId IN(:...searchTokens)', { searchTokens })
@@ -47,7 +47,7 @@ const searchBuilder = (params: SearchParams): SelectQueryBuilder<JobRun> => {
 const pagedSearchBuilder = (
   params: SearchParams,
 ): SelectQueryBuilder<JobRun> => {
-  let query = searchBuilder(params)
+  let query = searchBuilder(params.searchQuery)
 
   if (params.limit != null) {
     query = query.limit(params.limit)
@@ -69,7 +69,7 @@ export const search = async (params: SearchParams): Promise<JobRun[]> => {
 }
 
 export const count = async (params: SearchParams): Promise<number> => {
-  const result = await searchBuilder(params)
+  const result = await searchBuilder(params.searchQuery)
     .select('COUNT(*)', 'count')
     .getRawOne()
 
