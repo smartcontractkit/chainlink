@@ -33,7 +33,8 @@ const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
 const deposit = h.toWei('1000')
 
 const answerUpdated = fluxAggregatorFactory.interface.events.AnswerUpdated.name
-const oracleAdded = fluxAggregatorFactory.interface.events.OracleAdded.name
+const oracleAdded =
+  fluxAggregatorFactory.interface.events.OraclePermissionsUpdated.name
 const submissionReceived =
   fluxAggregatorFactory.interface.events.SubmissionReceived.name
 const roundDetailsUpdated =
