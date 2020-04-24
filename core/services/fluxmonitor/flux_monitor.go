@@ -98,8 +98,6 @@ func (fm *concreteFluxMonitor) Start() error {
 		return nil
 	}
 
-	fm.logBroadcaster.Start()
-
 	go fm.serveInternalRequests()
 
 	var wg sync.WaitGroup
@@ -114,6 +112,7 @@ func (fm *concreteFluxMonitor) Start() error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
 			err := fm.AddJob(job)
 			if err != nil {
 				logger.Errorf("error adding FluxMonitor job: %v", err)
@@ -123,6 +122,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	}, models.InitiatorFluxMonitor)
 
 	wg.Wait()
+	fm.logBroadcaster.Start()
 
 	return err
 }
@@ -196,6 +196,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"job", job.ID.String(),
 			"initr", initr.ID,
 		)
+
 		timeout := fm.store.Config.DefaultHTTPTimeout()
 		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM,
 			timeout)
@@ -259,6 +260,7 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
+	f.logBroadcaster.AddDependents(1)
 	fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, f.store.TxManager, f.logBroadcaster)
 	if err != nil {
 		return nil, err
@@ -271,6 +273,7 @@ func (f pollingDeviationCheckerFactory) New(
 		runManager,
 		fetcher,
 		initr.InitiatorParams.PollingInterval,
+		func() { f.logBroadcaster.DependentReady() },
 	)
 }
 
@@ -346,8 +349,9 @@ type PollingDeviationChecker struct {
 	idleTicker                 <-chan time.Time
 	roundTimeoutTicker         <-chan time.Time
 
-	chStop     chan struct{}
-	waitOnStop chan struct{}
+	readyForLogs func()
+	chStop       chan struct{}
+	waitOnStop   chan struct{}
 }
 
 // maybeLog is just a tuple that allows us to send either an error or a log over the
@@ -366,8 +370,10 @@ func NewPollingDeviationChecker(
 	runManager RunManager,
 	fetcher Fetcher,
 	pollDelay models.Duration,
+	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
+		readyForLogs:       readyForLogs,
 		store:              store,
 		fluxAggregator:     fluxAggregator,
 		initr:              initr,
@@ -465,6 +471,8 @@ func (p *PollingDeviationChecker) consume() {
 	} else {
 		p.connected.UnSet()
 	}
+
+	p.readyForLogs()
 
 	// Try to do an initial poll
 	p.pollIfEligible(p.threshold)

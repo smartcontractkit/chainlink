@@ -13,6 +13,32 @@ type LogBroadcaster struct {
 	mock.Mock
 }
 
+// AddDependents provides a mock function with given fields: n
+func (_m *LogBroadcaster) AddDependents(n int) {
+	_m.Called(n)
+}
+
+// AwaitDependents provides a mock function with given fields:
+func (_m *LogBroadcaster) AwaitDependents() <-chan struct{} {
+	ret := _m.Called()
+
+	var r0 <-chan struct{}
+	if rf, ok := ret.Get(0).(func() <-chan struct{}); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan struct{})
+		}
+	}
+
+	return r0
+}
+
+// DependentReady provides a mock function with given fields:
+func (_m *LogBroadcaster) DependentReady() {
+	_m.Called()
+}
+
 // Register provides a mock function with given fields: address, listener
 func (_m *LogBroadcaster) Register(address common.Address, listener eth.LogListener) bool {
 	ret := _m.Called(address, listener)

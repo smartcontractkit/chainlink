@@ -251,7 +251,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			}
 
 			checker, err := fluxmonitor.NewPollingDeviationChecker(store,
-				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Second))
+				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Second), func() {})
 			require.NoError(t, err)
 
 			if test.connected {
@@ -324,6 +324,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				runManager,
 				fetcher,
 				models.MustMakeDuration(time.Duration(math.MaxInt64)),
+				func() {},
 			)
 			require.NoError(t, err)
 
@@ -411,6 +412,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 				runManager,
 				fetcher,
 				models.MustMakeDuration(time.Duration(math.MaxInt64)),
+				func() {},
 			)
 			require.NoError(t, err)
 
@@ -739,7 +741,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			checker, err := fluxmonitor.NewPollingDeviationChecker(store,
-				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Hour))
+				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Hour), func() {})
 			require.NoError(t, err)
 
 			checker.ExportedSetStoredReportableRoundID(test.storedReportableRoundID)
