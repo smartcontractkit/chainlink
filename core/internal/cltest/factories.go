@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -677,4 +679,16 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 
 func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+}
+
+func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.PollingDeviationChecker {
+	fluxAggregator := new(mocks.FluxAggregator)
+	initr := models.Initiator{}
+	runManager := new(mocks.RunManager)
+	pollDelay, err := models.MakeDuration(time.Second)
+	require.NoError(t, err)
+	fetcher := new(mocks.Fetcher)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, pollDelay, func() {})
+	require.NoError(t, err)
+	return checker
 }
