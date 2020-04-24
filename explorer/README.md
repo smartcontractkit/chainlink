@@ -45,8 +45,8 @@ dropdb explorer_dev
 ##### Connection
 
 [TypeORM](https://typeorm.io/#/migrations) has been configured to load
-`ormconfig.<env>.json`. Therefore, if in development, it loads `ormconfig.development.json`,
-if production, `ormconfig.production.json`.
+`ormconfig/<env>.json`. Therefore, if in development, it loads `ormconfig/development.json`,
+if production, `ormconfig/production.json`.
 
 ##### Running alongside Chainlink Node (dev)
 
