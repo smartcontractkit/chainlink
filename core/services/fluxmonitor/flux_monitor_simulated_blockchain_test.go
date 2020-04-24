@@ -1,4 +1,4 @@
-package internal_test
+package fluxmonitor_test
 
 import (
 	"encoding/json"
@@ -286,7 +286,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
 	// to FluxAggregator contract initiates a run.)
-	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
