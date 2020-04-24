@@ -666,12 +666,17 @@ func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundStat
 		return ErrNotEligible
 	} else if roundState.AvailableFunds.Cmp(roundState.PaymentAmount) < 0 {
 		return ErrUnderfunded
-	} else if roundState.PaymentAmount.Cmp(p.store.Config.MinimumContractPayment().ToInt()) < 0 {
+	} else if !p.SufficientPayment(roundState.PaymentAmount) {
 		return ErrPaymentTooLow
 	} else if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
 		return ErrAlreadySubmitted
 	}
 	return nil
+}
+
+// Checks if the available payment is enough to submit an answer.
+func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
+	return payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
 }
 
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {

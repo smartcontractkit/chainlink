@@ -854,3 +854,34 @@ func TestExtractFeedURLs(t *testing.T) {
 		})
 	}
 }
+
+func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	fluxAggregator := new(mocks.FluxAggregator)
+	initr := models.Initiator{}
+	runManager := new(mocks.RunManager)
+	pollDelay, err := models.MakeDuration(time.Second)
+	require.NoError(t, err)
+	fetcher := new(mocks.Fetcher)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, runManager, fetcher, pollDelay, func() {})
+	require.NoError(t, err)
+
+	min := store.Config.MinimumContractPayment().ToInt().Int64()
+
+	tests := []struct {
+		name    string
+		payment int64
+		want    bool
+	}{
+		{"above minimum", min + 1, true},
+		{"equal to minimum", min, true},
+		{"below minimum", min - 1, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, checker.SufficientPayment(big.NewInt(test.payment)))
+		})
+	}
+}
