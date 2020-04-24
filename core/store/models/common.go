@@ -247,7 +247,7 @@ func (j JSON) CBOR() ([]byte, error) {
 		return cbor.Marshal(v)
 	default:
 		var b []byte
-		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
+		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
 	}
 }
 

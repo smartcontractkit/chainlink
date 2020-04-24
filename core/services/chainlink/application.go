@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"github.com/vlyl/chainlink/core/store"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -39,7 +39,7 @@ func (c *headTrackableCallback) OnNewHead(*models.Head) {}
 type Application interface {
 	Start() error
 	Stop() error
-	GetStore() *store.Store
+	GetStore() *strpkg.Store
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
@@ -75,7 +75,7 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := store.NewStore(config, shutdownSignal)
+	store := strpkg.NewStore(config, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
 	statsPusher := synchronization.NewStatsPusher(

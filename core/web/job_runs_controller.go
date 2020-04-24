@@ -44,7 +44,7 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 			return
 		}
 
-		runs, count, err = store.JobRunsSortedFor(runID, order, offset, size)
+		runs, count, _ = store.JobRunsSortedFor(runID, order, offset, size)
 	}
 
 	paginatedResponse(c, "JobRuns", size, page, runs, count, err)

@@ -153,7 +153,8 @@ func TestNewJSONAPIResponse(t *testing.T) {
 	t.Parallel()
 
 	var buffer []byte
-	buffer, err := NewJSONAPIResponse(12981)
+	var err error
+	buffer, err = NewJSONAPIResponse(12981)
 	assert.Error(t, err)
 
 	r := DummyResource{ID: "782"}
