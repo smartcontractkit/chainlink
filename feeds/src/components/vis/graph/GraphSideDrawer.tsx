@@ -3,7 +3,7 @@ import { Drawer, Button } from 'antd'
 import { connect } from 'react-redux'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
 import { etherscanAddress, humanizeUnixTimestamp, Networks } from 'utils'
-import { FeedConfig } from 'feeds'
+import { FeedConfig } from 'config'
 import { AppState } from 'state'
 
 interface OwnProps {

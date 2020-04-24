@@ -1,6 +1,6 @@
 import 'isomorphic-unfetch'
 
-export default function(
+export function fetchWithTimeout(
   url: string,
   options: Parameters<typeof fetch>[1],
   timeout = 20000,

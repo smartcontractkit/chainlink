@@ -1,12 +1,93 @@
-import * as actions from './actions'
+import * as jsonapi from '@chainlink/json-api-client'
+import { Dispatch } from 'redux'
 import _ from 'lodash'
 import moment from 'moment'
 import { ethers } from 'ethers'
+import { FeedConfig, OracleNode } from 'config'
+import { Networks } from '../../../utils'
+import * as actions from './actions'
 import AggregatorAbi from '../../../contracts/AggregatorAbi.json'
 import AggregatorAbiV2 from '../../../contracts/AggregatorAbi.v2.json'
 import AggregatorContract from '../../../contracts/AggregatorContract'
 import AggregatorContractV2 from '../../../contracts/AggregatorContractV2'
 
+/**
+ * feed
+ */
+const NETWORK_PATHS: Record<string, Networks> = {
+  ropsten: Networks.ROPSTEN,
+  mainnet: Networks.MAINNET,
+}
+
+export function fetchFeedByPair(pairPath: string, networkPath = 'mainnet') {
+  return async (dispatch: Dispatch) => {
+    dispatch(actions.fetchFeedByPairBegin())
+
+    jsonapi
+      .fetchWithTimeout('/feeds.json', {})
+      .then((r: Response) => r.json())
+      .then((json: FeedConfig[]) => {
+        const networkId = NETWORK_PATHS[networkPath] ?? Networks.MAINNET
+        const feed = json.find(
+          f => f.path === pairPath && f.networkId === networkId,
+        )
+
+        if (feed) {
+          dispatch(actions.fetchFeedByPairSuccess(feed))
+        } else {
+          dispatch(actions.fetchFeedByPairError('Not Found'))
+        }
+      })
+      .catch(e => {
+        dispatch(actions.fetchFeedByPairError(e.toString()))
+      })
+  }
+}
+
+export function fetchFeedByAddress(contractAddress: string) {
+  return async (dispatch: Dispatch) => {
+    dispatch(actions.fetchFeedByAddressBegin())
+
+    jsonapi
+      .fetchWithTimeout('/feeds.json', {})
+      .then((r: Response) => r.json())
+      .then((json: FeedConfig[]) => {
+        const feed = json.find(f => f.contractAddress === contractAddress)
+
+        if (feed) {
+          dispatch(actions.fetchFeedByAddressSuccess(feed))
+        } else {
+          dispatch(actions.fetchFeedByAddressError('Not Found'))
+        }
+      })
+      .catch(e => {
+        dispatch(actions.fetchFeedByAddressError(e.toString()))
+      })
+  }
+}
+
+/**
+ * oracle nodes
+ */
+export function fetchOracleNodes() {
+  return async (dispatch: Dispatch) => {
+    dispatch(actions.fetchOracleNodesBegin())
+
+    jsonapi
+      .fetchWithTimeout('/nodes.json', {})
+      .then((r: Response) => r.json())
+      .then((json: OracleNode[]) => {
+        dispatch(actions.fetchOracleNodesSuccess(json))
+      })
+      .catch(e => {
+        dispatch(actions.fetchFeedByPairError(e.toString()))
+      })
+  }
+}
+
+/**
+ * oracles
+ */
 let contractInstance: any
 
 function fetchOracleList() {
@@ -216,10 +297,8 @@ function initListeners() {
   }
 }
 
-const initContract = (config: any) => {
+const initContract = (config: FeedConfig) => {
   return async (dispatch: any, getState: any) => {
-    dispatch(actions.clearState())
-
     try {
       if (contractInstance) {
         contractInstance.kill()
@@ -234,7 +313,6 @@ const initContract = (config: any) => {
       throw new Error('Wrong contract address')
     }
 
-    dispatch(actions.setConfig(config))
     dispatch(actions.setContractAddress(config.contractAddress))
 
     if (config.contractVersion === 2) {
@@ -304,18 +382,6 @@ const initContract = (config: any) => {
   }
 }
 
-function clearState() {
-  return async (dispatch: any) => {
-    try {
-      contractInstance.kill()
-    } catch {
-      console.error('Could not clear the contract')
-    }
-
-    dispatch(actions.clearState())
-  }
-}
-
 const fetchJobId = (address: any) => {
   return async (_dispatch: any, getState: any) => {
     const { oracleList } = getState().aggregator
@@ -340,4 +406,4 @@ function fetchEthGasPrice() {
   }
 }
 
-export { initContract, clearState, fetchJobId, fetchEthGasPrice }
+export { initContract, fetchJobId, fetchEthGasPrice }
