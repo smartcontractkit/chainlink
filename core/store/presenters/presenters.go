@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/triggerfns"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -379,13 +380,14 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		}{i.Name}, nil
 	case models.InitiatorFluxMonitor:
 		return struct {
-			Address         common.Address  `json:"address"`
-			RequestData     models.JSON     `json:"requestData"`
-			Feeds           models.JSON     `json:"feeds"`
-			Threshold       float32         `json:"threshold"`
-			Precision       int32           `json:"precision"`
-			PollingInterval models.Duration `json:"pollingInterval"`
-		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision, i.PollingInterval}, nil
+			Address         common.Address        `json:"address"`
+			RequestData     models.JSON           `json:"requestData"`
+			Feeds           models.JSON           `json:"feeds"`
+			ValueTriggers   triggerfns.TriggerFns `json:"valueTriggers"`
+			Precision       int32                 `json:"precision"`
+			PollingInterval models.Duration       `json:"pollingInterval"`
+		}{i.Address, i.RequestData, i.Feeds, i.ValueTriggers, i.Precision,
+			i.PollingInterval}, nil
 	case models.InitiatorRandomnessLog:
 		return struct{ Address common.Address }{i.Address}, nil
 	default:

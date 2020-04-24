@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/models/triggerfns"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -219,9 +220,11 @@ type InitiatorParams struct {
 	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
 	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
 	Feeds           Feeds    `json:"feeds,omitempty" gorm:"type:text"`
-	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
 	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
 	PollingInterval Duration `json:"pollingInterval,omitempty"`
+
+	// Rules used to determine whether to report a new value on a fluxmonitor job.
+	ValueTriggers triggerfns.TriggerFns `json:"valueTriggers,omitempty" gorm:"type:text"`
 }
 
 // defaults represents a default value for an initiator parameter. Value should

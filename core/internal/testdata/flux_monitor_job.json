@@ -1,4 +1,12 @@
 {
+  "comment_comments": [
+    "Entries like this are comments, for readability. They are not necessary",
+    "to a functional jobspec, and are ignored during jobspec construction. ",
+    "These comments generally appear below the material they're explaining, ",
+    "and the substring in the key after the underscore also points to what ",
+    "they're explaining."
+  ],
+
   "initiators": [{
     "type": "fluxmonitor",
     "params": {
@@ -8,7 +16,31 @@
       },
       "feeds": [ "https://lambda.staging.devnet.tools/bnc/call" ],
       "idleThreshold": "1h",
-      "threshold": 0.5,
+
+      "valueTriggers": {
+        "comment_valueTriggers": [
+          "valueTriggers is a map of threshold functions to their parameters. ",
+          "It cannot be empty. There can be more than one threshold function, ",
+          "in which case all of them must trigger in order to trigger an update"
+        ],
+
+        "relativeThreshold": 0.59,
+        "comment_relativeThreshold": [
+          "relativeThreshold triggers an update when the deviation between the",
+          "next and current values is greater than the threshold parameter as",
+          "as a percentage times the current value. E.g. current=1, new=1.006",
+          "will trigger if threshold < 0.6, because 0.6% = 0.006 and",
+          "|current-new|/|current|=0.006. If current == 0, new != 0,",
+          "relativeThreshold always triggers. Does not trigger if current=new=0"
+        ],
+
+        "absoluteThreshold": 0.0059,
+        "comment_absoluteThreshold": [
+          "absoluteThreshold triggers an update when the deviation between the",
+          "next and current values is greater than the threshold parameter.",
+          "E.g. current=1, new=1.006 will trigger if threshold < 0.006"
+        ]
+      },
       "precision": 2
     }
   }],

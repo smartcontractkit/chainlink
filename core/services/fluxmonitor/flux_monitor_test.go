@@ -1,6 +1,7 @@
 package fluxmonitor_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -145,55 +146,58 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	tests := []struct {
-		name             string
-		eligible         bool
-		connected        bool
-		funded           bool
-		threshold        float64
-		latestAnswer     int64
-		polledAnswer     int64
-		expectedToPoll   bool
-		expectedToSubmit bool
+		name              string
+		eligible          bool
+		connected         bool
+		funded            bool
+		relativeThreshold float64
+		absoluteThreshold float64
+		latestAnswer      int64
+		polledAnswer      int64
+		expectedToPoll    bool
+		expectedToSubmit  bool
+		reportRegardless  bool
 	}{
-		{"eligible, connected, funded, threshold > 0, answers deviate", true, true, true, 0.1, 1, 100, true, true},
-		{"eligible, connected, funded, threshold > 0, answers do not deviate", true, true, true, 0.1, 100, 100, true, false},
-		{"eligible, connected, funded, threshold == 0, answers deviate", true, true, true, 0, 1, 100, true, true},
-		{"eligible, connected, funded, threshold == 0, answers do not deviate", true, true, true, 0, 1, 100, true, true},
+		{"eligible, connected, funded, answers deviate", true, true, true, 0.1, 1e-10, 1, 100, true, true, false},
+		{"eligible, connected, funded, answers do not deviate", true, true, true, 0.1, 1e-10, 100, 100, true, false, false},
+		{"eligible, connected, funded, report regardless of deviation, answers deviate", true, true, true, 0.1, 1e-10, 1, 100, true, true, true},
+		{"eligible, connected, funded, report regardless of deviation, answers do not deviate", true, true, true, 0.1, 1e-10, 1, 100, true, true, true},
+		{"eligible, connected, funded, absolute but not relative deviation", true, true, true, 5, 1, 100, 102, true, false, false},
 
-		{"eligible, disconnected, funded, threshold > 0, answers deviate", true, false, true, 0.1, 1, 100, false, false},
-		{"eligible, disconnected, funded, threshold > 0, answers do not deviate", true, false, true, 0.1, 100, 100, false, false},
-		{"eligible, disconnected, funded, threshold == 0, answers deviate", true, false, true, 0, 1, 100, false, false},
-		{"eligible, disconnected, funded, threshold == 0, answers do not deviate", true, false, true, 0, 1, 100, false, false},
+		{"eligible, disconnected, funded, answers deviate", true, false, true, 0.1, 1e-10, 1, 100, false, false, false},
+		{"eligible, disconnected, funded, answers do not deviate", true, false, true, 0.1, 1e-10, 100, 100, false, false, false},
+		{"eligible, disconnected, funded, report regardless of deviation, answers deviate", true, false, true, 0.1, 1e-10, 1, 100, false, false, true},
+		{"eligible, disconnected, funded, report regardless of deviation, answers do not deviate", true, false, true, 0.1, 1e-10, 1, 100, false, false, true},
 
-		{"ineligible, connected, funded, threshold > 0, answers deviate", false, true, true, 0.1, 1, 100, false, false},
-		{"ineligible, connected, funded, threshold > 0, answers do not deviate", false, true, true, 0.1, 100, 100, false, false},
-		{"ineligible, connected, funded, threshold == 0, answers deviate", false, true, true, 0, 1, 100, false, false},
-		{"ineligible, connected, funded, threshold == 0, answers do not deviate", false, true, true, 0, 1, 100, false, false},
+		{"ineligible, connected, funded, answers deviate", false, true, true, 0.1, 1e-10, 1, 100, false, false, false},
+		{"ineligible, connected, funded, answers do not deviate", false, true, true, 0.1, 1e-10, 100, 100, false, false, false},
+		{"ineligible, connected, funded, report regardless of deviation, answers deviate", false, true, true, 0.1, 1e-10, 1, 100, false, false, true},
+		{"ineligible, connected, funded, report regardless of deviation, answers do not deviate", false, true, true, 0.1, 1e-10, 1, 100, false, false, true},
 
-		{"ineligible, disconnected, funded, threshold > 0, answers deviate", false, false, true, 0.1, 1, 100, false, false},
-		{"ineligible, disconnected, funded, threshold > 0, answers do not deviate", false, false, true, 0.1, 100, 100, false, false},
-		{"ineligible, disconnected, funded, threshold == 0, answers deviate", false, false, true, 0, 1, 100, false, false},
-		{"ineligible, disconnected, funded, threshold == 0, answers do not deviate", false, false, true, 0, 1, 100, false, false},
+		{"ineligible, disconnected, funded, answers deviate", false, false, true, 0.1, 1e-10, 1, 100, false, false, false},
+		{"ineligible, disconnected, funded, answers do not deviate", false, false, true, 0.1, 1e-10, 100, 100, false, false, false},
+		{"ineligible, disconnected, funded, report regardless of deviation, answers deviate", false, false, true, 0.1, 1e-10, 1, 100, false, false, true},
+		{"ineligible, disconnected, funded, report regardless of deviation, answers do not deviate", false, false, true, 0.1, 1e-10, 1, 100, false, false, true},
 
-		{"eligible, connected, underfunded, threshold > 0, answers deviate", true, true, false, 0.1, 1, 100, false, false},
-		{"eligible, connected, underfunded, threshold > 0, answers do not deviate", true, true, false, 0.1, 100, 100, false, false},
-		{"eligible, connected, underfunded, threshold == 0, answers deviate", true, true, false, 0, 1, 100, false, false},
-		{"eligible, connected, underfunded, threshold == 0, answers do not deviate", true, true, false, 0, 1, 100, false, false},
+		{"eligible, connected, underfunded, answers deviate", true, true, false, 0.1, 1e-10, 1, 100, false, false, false},
+		{"eligible, connected, underfunded, answers do not deviate", true, true, false, 0.1, 1e-10, 100, 100, false, false, false},
+		{"eligible, connected, underfunded, report regardless of deviation, answers deviate", true, true, false, 0.1, 1e-10, 1, 100, false, false, true},
+		{"eligible, connected, underfunded, report regardless of deviation, answers do not deviate", true, true, false, 0.1, 1e-10, 1, 100, false, false, true},
 
-		{"eligible, disconnected, underfunded, threshold > 0, answers deviate", true, false, false, 0.1, 1, 100, false, false},
-		{"eligible, disconnected, underfunded, threshold > 0, answers do not deviate", true, false, false, 0.1, 100, 100, false, false},
-		{"eligible, disconnected, underfunded, threshold == 0, answers deviate", true, false, false, 0, 1, 100, false, false},
-		{"eligible, disconnected, underfunded, threshold == 0, answers do not deviate", true, false, false, 0, 1, 100, false, false},
+		{"eligible, disconnected, underfunded, answers deviate", true, false, false, 0.1, 1e-10, 1, 100, false, false, false},
+		{"eligible, disconnected, underfunded, answers do not deviate", true, false, false, 0.1, 1e-10, 100, 100, false, false, false},
+		{"eligible, disconnected, underfunded, report regardless of deviation, answers deviate", true, false, false, 0.1, 1e-10, 1, 100, false, false, true},
+		{"eligible, disconnected, underfunded, report regardless of deviation, answers do not deviate", true, false, false, 0.1, 1e-10, 1, 100, false, false, true},
 
-		{"ineligible, connected, underfunded, threshold > 0, answers deviate", false, true, false, 0.1, 1, 100, false, false},
-		{"ineligible, connected, underfunded, threshold > 0, answers do not deviate", false, true, false, 0.1, 100, 100, false, false},
-		{"ineligible, connected, underfunded, threshold == 0, answers deviate", false, true, false, 0, 1, 100, false, false},
-		{"ineligible, connected, underfunded, threshold == 0, answers do not deviate", false, true, false, 0, 1, 100, false, false},
+		{"ineligible, connected, underfunded, answers deviate", false, true, false, 0.1, 1e-10, 1, 100, false, false, false},
+		{"ineligible, connected, underfunded, answers do not deviate", false, true, false, 0.1, 1e-10, 100, 100, false, false, false},
+		{"ineligible, connected, underfunded, report regardless of deviation, answers deviate", false, true, false, 0.1, 1e-10, 1, 100, false, false, true},
+		{"ineligible, connected, underfunded, report regardless of deviation, answers do not deviate", false, true, false, 0.1, 1e-10, 1, 100, false, false, true},
 
-		{"ineligible, disconnected, underfunded, threshold > 0, answers deviate", false, false, false, 0.1, 1, 100, false, false},
-		{"ineligible, disconnected, underfunded, threshold > 0, answers do not deviate", false, false, false, 0.1, 100, 100, false, false},
-		{"ineligible, disconnected, underfunded, threshold == 0, answers deviate", false, false, false, 0, 1, 100, false, false},
-		{"ineligible, disconnected, underfunded, threshold == 0, answers do not deviate", false, false, false, 0, 1, 100, false, false},
+		{"ineligible, disconnected, underfunded, answers deviate", false, false, false, 0.1, 1e-10, 1, 100, false, false, false},
+		{"ineligible, disconnected, underfunded, answers do not deviate", false, false, false, 0.1, 1e-10, 100, 100, false, false, false},
+		{"ineligible, disconnected, underfunded, report regardless of deviation, answers deviate", false, false, false, 0.1, 1e-10, 1, 100, false, false, true},
+		{"ineligible, disconnected, underfunded, report regardless of deviation, answers do not deviate", false, false, false, 0.1, 1e-10, 1, 100, false, false, true},
 	}
 
 	store, cleanup := cltest.NewStore(t)
@@ -210,6 +214,11 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
+			initr.ValueTriggers = initr.ValueTriggers[:0]
+			triggerJSON := fmt.Sprintf(`{"absoluteThreshold": %e, "relativeThreshold": %e}`,
+				test.absoluteThreshold, test.relativeThreshold)
+			require.NoError(t, json.Unmarshal([]byte(triggerJSON), &initr.ValueTriggers),
+				"failed to construct trigger functions from %s", triggerJSON)
 
 			const reportableRoundID = 2
 			latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
@@ -261,7 +270,11 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				checker.OnConnect()
 			}
 
-			checker.ExportedPollIfEligible(test.threshold)
+			// If you see panics with complaints about unregistered mocks here, it may
+			// be because something in the table has expectedToSubmit false, but the
+			// fluxmonitor has decided to report the polledAnswer anyway. (TODO:
+			// Recover those panics, and give a more informative error message.)
+			checker.ExportedPollIfEligible()
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
@@ -758,39 +771,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
 			rm.AssertExpectations(t)
-		})
-	}
-}
-
-func TestOutsideDeviation(t *testing.T) {
-	tests := []struct {
-		name                string
-		curPrice, nextPrice decimal.Decimal
-		threshold           float64 // in percentage
-		expectation         bool
-	}{
-		{"0 current price, outside deviation", decimal.NewFromInt(0), decimal.NewFromInt(100), 2, true},
-		{"0 current price, inside deviation", decimal.NewFromInt(0), decimal.NewFromInt(1), 2, true},
-		{"0 current and next price", decimal.NewFromInt(0), decimal.NewFromInt(0), 2, false},
-
-		{"inside deviation", decimal.NewFromInt(100), decimal.NewFromInt(101), 2, false},
-		{"equal to deviation", decimal.NewFromInt(100), decimal.NewFromInt(102), 2, true},
-		{"outside deviation", decimal.NewFromInt(100), decimal.NewFromInt(103), 2, true},
-		{"outside deviation zero", decimal.NewFromInt(100), decimal.NewFromInt(0), 2, true},
-
-		{"inside deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 201, false},
-		{"equal to deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 200, true},
-		{"outside deviation, crosses 0 backwards", decimal.NewFromFloat(0.1), decimal.NewFromFloat(-0.1), 199, true},
-
-		{"inside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 201, false},
-		{"equal to deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 200, true},
-		{"outside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 199, true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			actual := fluxmonitor.OutsideDeviation(test.curPrice, test.nextPrice, test.threshold)
-			assert.Equal(t, test.expectation, actual)
 		})
 	}
 }

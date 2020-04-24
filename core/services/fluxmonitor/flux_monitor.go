@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/triggerfns"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -335,9 +336,12 @@ type PollingDeviationChecker struct {
 	runManager     RunManager
 	fetcher        Fetcher
 
-	initr         models.Initiator
-	requestData   models.JSON
-	threshold     float64
+	initr       models.Initiator
+	requestData models.JSON
+
+	valueTriggers     triggerfns.TriggerFns
+	valueTriggersRepr string
+
 	precision     int32
 	idleThreshold models.Duration
 
@@ -379,7 +383,7 @@ func NewPollingDeviationChecker(
 		initr:              initr,
 		requestData:        initr.InitiatorParams.RequestData,
 		idleThreshold:      initr.InitiatorParams.IdleThreshold,
-		threshold:          float64(initr.InitiatorParams.Threshold),
+		valueTriggers:      initr.InitiatorParams.ValueTriggers,
 		precision:          initr.InitiatorParams.Precision,
 		runManager:         runManager,
 		fetcher:            fetcher,
@@ -475,7 +479,7 @@ func (p *PollingDeviationChecker) consume() {
 	p.readyForLogs()
 
 	// Try to do an initial poll
-	p.pollIfEligible(p.threshold)
+	p.pollIfEligible(reportRegardlessofDeviation{true})
 	p.pollTicker.Reset()
 	defer p.pollTicker.Stop()
 
@@ -503,7 +507,7 @@ func (p *PollingDeviationChecker) consume() {
 				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.InitiatorParams.Address.Hex(),
 			)
-			p.pollIfEligible(p.threshold)
+			p.pollIfEligible()
 
 		case <-p.idleTicker:
 			logger.Debugw("Idle ticker fired",
@@ -513,7 +517,7 @@ func (p *PollingDeviationChecker) consume() {
 				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.InitiatorParams.Address.Hex(),
 			)
-			p.pollIfEligible(0)
+			p.pollIfEligible(reportRegardlessofDeviation{true})
 
 		case <-p.roundTimeoutTicker:
 			logger.Debugw("Round timeout ticker fired",
@@ -523,7 +527,7 @@ func (p *PollingDeviationChecker) consume() {
 				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.InitiatorParams.Address.Hex(),
 			)
-			p.pollIfEligible(p.threshold)
+			p.pollIfEligible()
 		}
 	}
 }
@@ -689,11 +693,22 @@ func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
 	return payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
 }
 
-func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
+type reportRegardlessofDeviation struct{ report bool }
+
+// pollIfEligible decides whether to report a recently observed feed value
+// onchain, if one of the following criteria are met
+// - caller requests report regardless of deviation via reportRegardless
+// - This is the first on-chain round, so everyone is reporting
+// - The onchain and recently observed feed values differ significantly
+//   according to p.valueTriggers
+//
+// If it decides to report onchain, it does so, and returns true
+func (p *PollingDeviationChecker) pollIfEligible(
+	reportRegardless ...reportRegardlessofDeviation) (createdJobRun bool) {
 	loggerFields := []interface{}{
 		"jobID", p.initr.JobSpecID,
 		"address", p.initr.InitiatorParams.Address,
-		"threshold", threshold,
+		"triggers", p.valueTriggersRepr,
 	}
 
 	if p.connected.IsSet() == false {
@@ -707,6 +722,18 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		return false
 	}
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
+
+	// Always report on the first round
+	definitelyReport := (roundState.ReportableRoundID <= 1)
+	switch len(reportRegardless) {
+	case 0:
+	case 1:
+		definitelyReport = definitelyReport || reportRegardless[0].report
+	default:
+		logger.Errorw(fmt.Sprintf("at most one optional parameter, got %+v",
+			reportRegardless), loggerFields)
+		return false
+	}
 
 	err = p.checkEligibilityAndAggregatorFunding(roundState)
 	if errors.Cause(err) == ErrAlreadySubmitted {
@@ -731,15 +758,22 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
 	)
-	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
-		logger.Debugw("deviation < threshold, not submitting", loggerFields...)
+	reportableChange, err := p.valueTriggers.AllTriggered(latestAnswer, polledAnswer)
+	if err != nil {
+		logger.Errorf(err.Error())
+		return false
+	}
+	if !(reportableChange || definitelyReport) {
+		logger.Debugw("recent deviation is insignificant, not submitting", loggerFields...)
 		return false
 	}
 
 	if roundState.ReportableRoundID > 1 {
-		logger.Infow("deviation > threshold, starting new round", loggerFields...)
+		logger.Infow(
+			"significant deviation or idle time out; reporting most recent value onchain",
+			loggerFields...)
 	} else {
-		logger.Infow("starting first round", loggerFields...)
+		logger.Infow("reporting for first onchain round", loggerFields...)
 	}
 
 	err = p.createJobRun(polledAnswer, p.reportableRoundID)
@@ -869,35 +903,4 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log *contracts.Lo
 		"contract", log.Address.Hex(),
 		"job", p.initr.JobSpecID,
 	}
-}
-
-// OutsideDeviation checks whether the next price is outside the threshold.
-func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) bool {
-	loggerFields := []interface{}{
-		"threshold", threshold,
-		"currentAnswer", curAnswer,
-		"nextAnswer", nextAnswer,
-	}
-
-	if curAnswer.IsZero() {
-		if nextAnswer.IsZero() {
-			logger.Debugw("Deviation threshold not met", loggerFields...)
-			return false
-		}
-
-		logger.Infow("Deviation threshold met", loggerFields...)
-		return true
-	}
-
-	diff := curAnswer.Sub(nextAnswer).Abs()
-	percentage := diff.Div(curAnswer.Abs()).Mul(decimal.NewFromInt(100))
-
-	loggerFields = append(loggerFields, "percentage", percentage)
-
-	if percentage.LessThan(decimal.NewFromFloat(threshold)) {
-		logger.Debugw("Deviation threshold not met", loggerFields...)
-		return false
-	}
-	logger.Infow("Deviation threshold met", loggerFields...)
-	return true
 }

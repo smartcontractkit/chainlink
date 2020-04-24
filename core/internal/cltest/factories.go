@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/triggerfns"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -141,6 +143,16 @@ func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	return j
 }
 
+var TriggerJSON = `{"absoluteThreshold": 0.0059, "relativeThreshold": 0.59}`
+
+func ValueTriggers() triggerfns.TriggerFns {
+	rv := triggerfns.TriggerFns{}
+	if err := json.Unmarshal([]byte(TriggerJSON), &rv); err != nil {
+		panic(errors.Wrapf(err, "could not unmarshal JSON trigger map"))
+	}
+	return rv
+}
+
 // NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
 func NewJobWithFluxMonitorInitiator() models.JobSpec {
 	j := NewJob()
@@ -152,7 +164,7 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
 			Feeds:         models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
 			IdleThreshold: models.MustMakeDuration(time.Minute),
-			Threshold:     0.5,
+			ValueTriggers: ValueTriggers(),
 			Precision:     2,
 		},
 	}}
@@ -166,11 +178,11 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
-			Address:     NewAddress(),
-			RequestData: models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:       models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
-			Threshold:   0.5,
-			Precision:   2,
+			Address:       NewAddress(),
+			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:         models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			ValueTriggers: ValueTriggers(),
+			Precision:     2,
 		},
 	}}
 	return j

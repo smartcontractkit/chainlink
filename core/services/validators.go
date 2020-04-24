@@ -131,9 +131,6 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	if !i.IdleThreshold.IsInstant() && i.IdleThreshold.Shorter(i.PollingInterval) {
 		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
 	}
-	if i.Threshold <= 0 {
-		fe.Add("bad threshold")
-	}
 	if i.RequestData.String() == "" {
 		fe.Add("no requestdata")
 	}

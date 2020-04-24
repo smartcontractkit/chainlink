@@ -45,7 +45,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				InitiatorParams: models.InitiatorParams{
 					IdleThreshold: models.MustMakeDuration(5 * time.Second),
 					Precision:     2,
-					Threshold:     5,
+					ValueTriggers: cltest.ValueTriggers(),
 				},
 			},
 			jobSpec: job,
@@ -56,7 +56,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 					IdleThreshold:   models.MustMakeDuration(5 * time.Second),
 					PollingInterval: models.FluxMonitorDefaultInitiatorParams["PollingInterval"].Value.(models.Duration),
 					Precision:       2,
-					Threshold:       5,
+					ValueTriggers:   cltest.ValueTriggers(),
 				},
 			},
 		},
@@ -108,7 +108,7 @@ func TestInitiatorParams(t *testing.T) {
 			RequestData:     json,
 			IdleThreshold:   duration,
 			Feeds:           json,
-			Threshold:       42.42,
+			ValueTriggers:   cltest.ValueTriggers(),
 			Precision:       42,
 			PollingInterval: duration,
 		},
@@ -132,7 +132,6 @@ func TestInitiatorParams(t *testing.T) {
 	assert.Equal(t, json, saved.InitiatorParams.RequestData)
 	assert.Equal(t, duration, saved.InitiatorParams.IdleThreshold)
 	assert.Equal(t, json, saved.InitiatorParams.Feeds)
-	assert.Equal(t, float32(42.42), saved.InitiatorParams.Threshold)
 	assert.Equal(t, int32(42), saved.InitiatorParams.Precision)
 	assert.Equal(t, duration, saved.InitiatorParams.PollingInterval)
 
