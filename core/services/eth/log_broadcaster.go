@@ -218,6 +218,12 @@ func (b *logBroadcaster) startResubscribeLoop() {
 }
 
 func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan eth.Log, abort bool) {
+	if len(b.listeners) == 0 {
+		ch := make(chan eth.Log)
+		close(ch)
+		return ch, false
+	}
+
 	abort = utils.RetryWithBackoff(b.chStop, "backfilling logs", func() error {
 		latestBlock, err := b.ethClient.GetLatestBlock()
 		if err != nil {
