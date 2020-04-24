@@ -1,7 +1,6 @@
 package chainlink
 
 import (
-	"github.com/vlyl/chainlink/core/store"
 	"os"
 	"os/signal"
 	"sync"
@@ -62,7 +61,7 @@ type ChainlinkApplication struct {
 	GasUpdater               services.GasUpdater
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
-	Store                    *store.Store
+	Store                    *strpkg.Store
 	SessionReaper            services.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
@@ -178,7 +177,7 @@ func (app *ChainlinkApplication) Stop() error {
 }
 
 // GetStore returns the pointer to the store for the ChainlinkApplication.
-func (app *ChainlinkApplication) GetStore() *store.Store {
+func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
 }
 
