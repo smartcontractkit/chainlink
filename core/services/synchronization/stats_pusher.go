@@ -89,7 +89,7 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 }
 
 func (sp *statsPusher) GetURL() url.URL {
-	return sp.WSClient.Url()
+	return sp.WSClient.URL()
 }
 
 func (sp *statsPusher) GetStatus() ConnectionStatus {
