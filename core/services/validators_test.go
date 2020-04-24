@@ -517,7 +517,7 @@ func TestValidateLogConsumption_Happy(t *testing.T) {
 	err = store.ORM.CreateJob(&job2)
 	require.NoError(t, err)
 
-	lc := models.NewLogConsumption()
+	lc := models.NewEmptyLogConsumption()
 	lc.BlockHash = cltest.NewHash()
 	lc.LogIndex = 0
 	lc.ConsumerID = job1.ID
@@ -539,7 +539,7 @@ func TestValidateLogConsumption_Happy(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			logConsumption := models.NewLogConsumption()
+			logConsumption := models.NewEmptyLogConsumption()
 			logConsumption.BlockHash = test.BlockHash
 			logConsumption.LogIndex = test.LogIndex
 			logConsumption.ConsumerID = test.ConsumerID
@@ -565,7 +565,7 @@ func TestValidateLogConsumption_Errors(t *testing.T) {
 	err = store.ORM.CreateJob(&job2)
 	require.NoError(t, err)
 
-	lc := models.NewLogConsumption()
+	lc := models.NewEmptyLogConsumption()
 	lc.BlockHash = cltest.NewHash()
 	lc.LogIndex = 0
 	lc.ConsumerID = job1.ID
@@ -587,7 +587,7 @@ func TestValidateLogConsumption_Errors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			logConsumption := models.NewLogConsumption()
+			logConsumption := models.NewEmptyLogConsumption()
 			logConsumption.BlockHash = test.BlockHash
 			logConsumption.LogIndex = test.LogIndex
 			logConsumption.ConsumerID = test.ConsumerID

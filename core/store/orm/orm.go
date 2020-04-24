@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
@@ -1174,12 +1175,18 @@ func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
 	return lc, err
 }
 
-// TODO - RYAN
-// func (orm *ORM) FindLogConsumptionBy...(rawLog eth.Log, listener eth.LogListener) (models.LogConsumption, error) {
-// ...
-// }
+// HasConsumedLog reports whether the given consumer had already consumed the given log
+func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, consumer models.LogConsumer) (bool, error) {
+	lc := models.LogConsumption{
+		BlockHash:    rawLog.GetBlockHash(),
+		LogIndex:     rawLog.GetIndex(),
+		ConsumerType: consumer.Type,
+		ConsumerID:   consumer.ID,
+	}
+	return orm.LogConsumptionExists(&lc)
+}
 
-// LogConsumptionExists ...
+// LogConsumptionExists reports whether a given LogConsumption record already exists
 func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
 	query := "SELECT id FROM log_consumptions " +
 		"WHERE block_hash=$1 " +
@@ -1189,13 +1196,13 @@ func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
 	return orm.rowExists(query, lc.BlockHash, lc.LogIndex, lc.ConsumerType, lc.ConsumerID)
 }
 
-// CreateLogConsumption ...
+// CreateLogConsumption creates a new LogConsumption record
 func (orm *ORM) CreateLogConsumption(lc *models.LogConsumption) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Create(lc).Error
 }
 
-// FindLogConsumer ...
+// FindLogConsumer finds the consumer of a particular LogConsumption record
 func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (interface{}, error) {
 	orm.MustEnsureAdvisoryLock()
 

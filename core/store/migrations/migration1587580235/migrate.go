@@ -11,14 +11,12 @@ import (
 
 type logConsumption struct {
 	ID           *models.ID  `gorm:"primary_key"`
-	BlockHash    common.Hash `gorm:"index;not null"`
-	ConsumerType string      `gorm:"index;not null"`
-	ConsumerID   *models.ID  `gorm:"index;not null"`
-	LogIndex     uint        `gorm:"index;not null"`
+	BlockHash    common.Hash `gorm:"not null;unique_index:idx_unique_log_consumption"`
+	ConsumerType string      `gorm:"not null;unique_index:idx_unique_log_consumption"`
+	ConsumerID   *models.ID  `gorm:"not null;unique_index:idx_unique_log_consumption"`
+	LogIndex     uint        `gorm:"not null;unique_index:idx_unique_log_consumption"`
 	CreatedAt    time.Time
 }
-
-// TODO - RYAN add uniqueness constraint on all 4 columns
 
 // Migrate adds the LogConsumption table
 func Migrate(tx *gorm.DB) error {

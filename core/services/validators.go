@@ -320,7 +320,7 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	return fe.CoerceEmptyToNil()
 }
 
-// ValidateLogConsumption ...
+// ValidateLogConsumption validates a LogConsumption record
 func ValidateLogConsumption(lc models.LogConsumption, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 

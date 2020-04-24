@@ -54,6 +54,23 @@ type Log struct {
 	Removed bool `json:"removed"`
 }
 
+// GetBlockHash returns the log's blockhash
+func (l Log) GetBlockHash() common.Hash {
+	return l.BlockHash
+}
+
+// GetIndex returns the log's index in the block
+func (l Log) GetIndex() uint {
+	return l.Index
+}
+
+// The RawLog interface provides a consistent interface for
+// different log types around the app
+type RawLog interface {
+	GetBlockHash() common.Hash
+	GetIndex() uint
+}
+
 // GetTopic returns the hash for the topic at the passed index, or error.
 func (log Log) GetTopic(idx uint) (common.Hash, error) {
 	if len(log.Topics) <= int(idx) {

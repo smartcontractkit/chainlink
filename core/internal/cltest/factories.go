@@ -338,6 +338,16 @@ func NewBridgeType(t testing.TB, info ...string) (*models.BridgeTypeAuthenticati
 	return bta, bt
 }
 
+func NewLogConsumer(t testing.TB, store *strpkg.Store) models.LogConsumer {
+	job := NewJob()
+	err := store.ORM.CreateJob(&job)
+	require.NoError(t, err)
+	return models.LogConsumer{
+		Type: models.LogConsumerTypeJob,
+		ID:   job.ID,
+	}
+}
+
 // WebURL parses a url into a models.WebURL
 func WebURL(t testing.TB, unparsed string) models.WebURL {
 	parsed, err := url.Parse(unparsed)
