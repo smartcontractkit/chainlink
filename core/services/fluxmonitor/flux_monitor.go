@@ -600,7 +600,7 @@ func (p *PollingDeviationChecker) processLogs() {
 //
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAnswerUpdated) {
-	if p.reportableRoundID != nil && log.RoundId.Cmp(p.reportableRoundID) < 0 {
+	if p.reportableRoundID != nil && log.RoundID.Cmp(p.reportableRoundID) < 0 {
 		logger.Debugw("Received stale AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
 	}
 }
