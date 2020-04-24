@@ -220,6 +220,8 @@ jobs:
             yarn-${{ env.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
+      - name: Run setup
+        run: yarn workspace @chainlink/explorer setup
       - name: Run Yarn migrations
         run: yarn workspace @chainlink/explorer test:migration:run
       - name: Run Server Tests
