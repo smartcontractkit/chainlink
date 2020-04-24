@@ -18,7 +18,7 @@ if [ -d "$hooks_dir" ]; then
 
   for hook in "$hooks_dir"/*; do
     # echo "Running hook $hook_name/$hook"
-    echo "$stdin" | $hook "$@"
+    printf '%s' "$stdin" | $hook "$@"
 
     exit_code=$?
 
