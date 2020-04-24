@@ -3,7 +3,6 @@ package store_test
 import (
 	"encoding/hex"
 	"errors"
-	"github.com/vlyl/chainlink/core/store"
 	"math/big"
 	"testing"
 
