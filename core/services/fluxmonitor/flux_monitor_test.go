@@ -270,6 +270,100 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	}
 }
 
+func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	nodeAddr := ensureAccount(t, store)
+
+	const (
+		fetchedValue = 100
+	)
+
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+	initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+	initr.IdleThreshold = models.MustMakeDuration(math.MaxInt64)
+
+	// Test helpers
+	var (
+		makeRoundStateForRoundID = func(roundID uint32) contracts.FluxAggregatorRoundState {
+			return contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				EligibleToSubmit:  true,
+				LatestAnswer:      big.NewInt(100 * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
+				AvailableFunds:    store.Config.MinimumContractPayment().ToInt(),
+				PaymentAmount:     store.Config.MinimumContractPayment().ToInt(),
+			}
+		}
+
+		matchRunRequestForRoundID = func(roundID uint32) interface{} {
+			data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+                "result": "%d",
+                "address": "%s",
+                "functionSelector": "0x%x",
+                "dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
+            }`, fetchedValue, initr.InitiatorParams.Address.Hex(), updateAnswerSelector, roundID)))
+			require.NoError(t, err)
+
+			return mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+				return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
+			})
+		}
+	)
+
+	chBlock := make(chan struct{})
+	chSafeToAssert := make(chan struct{})
+
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
+	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+	fluxAggregator.On("RoundState", nodeAddr).
+		Return(makeRoundStateForRoundID(1), nil).
+		Run(func(mock.Arguments) { <-chBlock }).
+		Once()
+	fluxAggregator.On("RoundState", nodeAddr).Return(makeRoundStateForRoundID(3), nil).Once()
+	fluxAggregator.On("RoundState", nodeAddr).Return(makeRoundStateForRoundID(4), nil).Once()
+
+	fetcher := new(mocks.Fetcher)
+	fetcher.On("Fetch").Return(decimal.NewFromInt(fetchedValue), nil)
+
+	rm := new(mocks.RunManager)
+	run := cltest.NewJobRun(job)
+
+	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(1)).Return(&run, nil).Once()
+	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(3)).Return(&run, nil).Once()
+	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(4)).Return(&run, nil).Once().
+		Run(func(mock.Arguments) { close(chSafeToAssert) })
+
+	checker, err := fluxmonitor.NewPollingDeviationChecker(
+		store,
+		fluxAggregator,
+		initr,
+		rm,
+		fetcher,
+		models.MustMakeDuration(time.Second),
+		func() {},
+	)
+	require.NoError(t, err)
+
+	checker.OnConnect()
+	checker.Start()
+
+	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(1)}, nil) // Get the checker to start processing a log so we can freeze it
+	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(2)}, nil) // This log is evicted from the priority queue
+	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(3)}, nil)
+	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(4)}, nil)
+
+	close(chBlock)
+	<-chSafeToAssert
+
+	fluxAggregator.AssertExpectations(t)
+	fetcher.AssertExpectations(t)
+	rm.AssertExpectations(t)
+}
+
 func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 	tests := []struct {
