@@ -571,7 +571,7 @@ func (p *PollingDeviationChecker) respondToLog(log interface{}) {
 //
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAnswerUpdated) {
-	if p.reportableRoundID != nil && log.RoundId.Cmp(p.reportableRoundID) < 0 {
+	if p.reportableRoundID != nil && log.RoundID.Cmp(p.reportableRoundID) < 0 {
 		// Ignore old rounds
 		logger.Debugw("Ignoring stale AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
 		return
@@ -590,7 +590,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
-	promSetBigInt(promFMSeenRound.WithLabelValues(jobSpecID), log.RoundId)
+	promSetBigInt(promFMSeenRound.WithLabelValues(jobSpecID), log.RoundID)
 
 	// Ignore rounds we started
 	acct, err := p.store.KeyStore.GetFirstAccount()
@@ -621,10 +621,10 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 	}
 
 	// Ignore old rounds
-	if log.RoundId.Cmp(p.reportableRoundID) < 0 {
+	if log.RoundID.Cmp(p.reportableRoundID) < 0 {
 		logger.Infow("Ignoring new round request: new < current", p.loggerFieldsForNewRound(log)...)
 		return
-	} else if log.RoundId.Uint64() <= p.mostRecentSubmittedRoundID {
+	} else if log.RoundID.Uint64() <= p.mostRecentSubmittedRoundID {
 		logger.Infow("Ignoring new round request: already submitted for this round", p.loggerFieldsForNewRound(log)...)
 		return
 	}
@@ -825,7 +825,7 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 func (p *PollingDeviationChecker) loggerFieldsForNewRound(log *contracts.LogNewRound) []interface{} {
 	return []interface{}{
 		"reportableRound", p.reportableRoundID,
-		"round", log.RoundId,
+		"round", log.RoundID,
 		"startedBy", log.StartedBy.Hex(),
 		"startedAt", log.StartedAt.String(),
 		"contract", log.Address.Hex(),
@@ -835,7 +835,7 @@ func (p *PollingDeviationChecker) loggerFieldsForNewRound(log *contracts.LogNewR
 
 func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log *contracts.LogAnswerUpdated) []interface{} {
 	return []interface{}{
-		"round", log.RoundId,
+		"round", log.RoundID,
 		"answer", log.Current.String(),
 		"timestamp", log.Timestamp.String(),
 		"contract", log.Address.Hex(),

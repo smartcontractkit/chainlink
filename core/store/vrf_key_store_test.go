@@ -103,7 +103,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	require.NoError(t, ks.Import(keyjson, phrase),
 		"failed to import encrypted key to database")
 	err = ks.Import(keyjson, phrase)
-	require.Equal(t, strpkg.MatchingVRFKeyError, err,
+	require.Equal(t, strpkg.ErrMatchingVRFKey, err,
 		"should be prevented from importing a key with a public key already present in the DB")
 	_, err = ks.GenerateProof(key, big.NewInt(10))
 	require.NoError(t, err, "should be able to generate proof with unlocked key")

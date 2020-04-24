@@ -302,7 +302,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 			if test.expectedToSubmit {
 				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
-				deviationChecker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(int64(roundState1.ReportableRoundID))}, nil)
+				deviationChecker.HandleLog(&contracts.LogNewRound{RoundID: big.NewInt(int64(roundState1.ReportableRoundID))}, nil)
 				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
 			}
 
@@ -718,7 +718,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			if test.startedBySelf {
 				startedBy = nodeAddr
 			}
-			checker.ExportedRespondToLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+			checker.ExportedRespondToLog(&contracts.LogNewRound{RoundID: big.NewInt(test.logRoundID), StartedBy: startedBy})
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)

@@ -47,7 +47,7 @@ const NoRegisterGetBlockNumber = "no_register_get_block_number"
 
 // MockCallerSubscriberClient create new EthMock Client
 func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock {
-	if ta.ChainlinkApplication.HeadTracker.Connected() {
+	if ta.CLApplication.HeadTracker.Connected() {
 		logger.Panic("Cannot mock eth client after being connected")
 	}
 	return MockEthOnStore(ta.t, ta.Store, flags...)

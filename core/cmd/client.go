@@ -80,7 +80,7 @@ type ChainlinkRunner struct{}
 // for input and return data.
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
 	gin.SetMode(app.GetStore().Config.LogLevel().ForGin())
-	handler := web.Router(app.(*chainlink.ChainlinkApplication))
+	handler := web.Router(app.(*chainlink.CLApplication))
 	config := app.GetStore().Config
 	var g errgroup.Group
 

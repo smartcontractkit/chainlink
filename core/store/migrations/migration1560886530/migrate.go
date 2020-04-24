@@ -35,7 +35,7 @@ DROP TABLE heads_archive;`).Error
 		// SQLite doesn't support decoding at the SQL level
 		err = orm.Batch(1000, func(offset, limit uint) (uint, error) {
 			var heads []migration0.Head
-			err := tx.
+			var err = tx.
 				Table("heads_archive").
 				Limit(limit).
 				Offset(offset).

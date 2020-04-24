@@ -660,7 +660,7 @@ func CreateServiceAgreementViaWeb(
 	client := app.NewHTTPClient()
 
 	agreementWithoutOracle := MustJSONSet(t, string(MustReadFile(t, path)), "endAt", utils.ISO8601UTC(endAt))
-	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
+	from := GetAccountAddress(t, app.CLApplication.GetStore())
 	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
 
 	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
