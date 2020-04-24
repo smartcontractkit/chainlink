@@ -84,7 +84,7 @@ func TestFluxAggregatorClient_DecodesLogs(t *testing.T) {
 	var newRoundLog contracts.LogNewRound
 	err = fa.UnpackLog(&newRoundLog, "NewRound", newRoundLogRaw)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), newRoundLog.RoundId.Int64())
+	require.Equal(t, int64(1), newRoundLog.RoundID.Int64())
 	require.Equal(t, common.HexToAddress("f17f52151ebef6c7334fad080c5704d77216b732"), newRoundLog.StartedBy)
 	require.Equal(t, int64(15), newRoundLog.StartedAt.Int64())
 
@@ -102,7 +102,7 @@ func TestFluxAggregatorClient_DecodesLogs(t *testing.T) {
 	err = fa.UnpackLog(&answerUpdatedLog, "AnswerUpdated", answerUpdatedLogRaw)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), answerUpdatedLog.Current.Int64())
-	require.Equal(t, int64(2), answerUpdatedLog.RoundId.Int64())
+	require.Equal(t, int64(2), answerUpdatedLog.RoundID.Int64())
 	require.Equal(t, int64(3), answerUpdatedLog.Timestamp.Int64())
 
 	type BadLogAnswerUpdated struct {
