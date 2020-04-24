@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
@@ -40,9 +41,10 @@ const LenientEthMock = "lenient"
 // and returns the store.config.ChainID
 const EthMockRegisterChainID = "eth_mock_register_chain_id"
 
-// EnableFluxMonitor enables the Flux Monitor.  Otherwise, the test application uses a no-op mock.
-// Generally, you should not use this flag unless specifically testing Flux Monitor behavior.
-const EnableFluxMonitor = "enable_flux_monitor"
+// NoRegisterGetBlockNumber prevents the EthMock from expecting to have eth_blockNumber
+// called by the LogBroadcaster at application startup.  Most of our tests should expect
+// this, so this flag should not be used frequently.
+const NoRegisterGetBlockNumber = "no_register_get_block_number"
 
 // MockCallerSubscriberClient create new EthMock Client
 func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock {
@@ -55,14 +57,19 @@ func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock 
 // MockEthOnStore given store return new EthMock Client
 func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	mock := &EthMock{t: t, strict: true}
+	registerGetBlockNumber := true
 	for _, flag := range flags {
 		if flag == LenientEthMock {
 			mock.strict = false
 		} else if flag == EthMockRegisterChainID {
 			mock.Register("eth_chainId", s.Config.ChainID())
+		} else if flag == NoRegisterGetBlockNumber {
+			registerGetBlockNumber = false
 		}
 	}
-
+	if registerGetBlockNumber {
+		mock.Register("eth_getBlockByNumber", eth.Block{Number: hexutil.Uint64(1)})
+	}
 	eth := &eth.CallerSubscriberClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
 		txm.Client = eth
