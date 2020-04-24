@@ -134,7 +134,6 @@ type Transaction struct {
 type Block struct {
 	Number       hexutil.Uint64 `json:"number"`
 	Transactions []Transaction  `json:"transactions"`
-	Difficulty   hexutil.Uint64 `json:"difficulty"`
 }
 
 var emptyHash = common.Hash{}
