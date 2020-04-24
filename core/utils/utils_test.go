@@ -370,3 +370,44 @@ func TestDependentAwaiter(t *testing.T) {
 		<-da.AwaitDependents()
 	}, 5*time.Second)
 }
+
+func TestBoundedQueue(t *testing.T) {
+	t.Parallel()
+
+	q := utils.NewBoundedQueue(3)
+	require.True(t, q.Empty())
+	require.False(t, q.Full())
+
+	q.Add(1)
+	require.False(t, q.Empty())
+	require.False(t, q.Full())
+
+	x := q.Take().(int)
+	require.Equal(t, 1, x)
+
+	iface := q.Take()
+	require.Nil(t, iface)
+	require.True(t, q.Empty())
+	require.False(t, q.Full())
+
+	q.Add(1)
+	q.Add(2)
+	q.Add(3)
+	q.Add(4)
+	require.True(t, q.Full())
+
+	x = q.Take().(int)
+	require.Equal(t, 2, x)
+	require.False(t, q.Empty())
+	require.False(t, q.Full())
+
+	x = q.Take().(int)
+	require.Equal(t, 3, x)
+	require.False(t, q.Empty())
+	require.False(t, q.Full())
+
+	x = q.Take().(int)
+	require.Equal(t, 4, x)
+	require.True(t, q.Empty())
+	require.False(t, q.Full())
+}
