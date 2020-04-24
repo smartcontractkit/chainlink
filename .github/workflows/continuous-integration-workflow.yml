@@ -74,6 +74,11 @@ jobs:
         uses: actions/checkout@v2
       - name: Run tests
         run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+      - name: Store logs artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./tools/docker/logs
 
   parity-postgres:
     name: Parity Postgres
@@ -85,6 +90,11 @@ jobs:
         uses: actions/checkout@v2
       - name: Run tests
         run: cd ./tools/docker && timeout --foreground 1200s ./compose test
+      - name: Store logs artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./tools/docker/logs
 
   solidity:
     name: Solidity
@@ -113,6 +123,11 @@ jobs:
         run: pip3 install -r requirements.txt
       - name: Run tests
         run: ./tools/ci/solidity_test
+      - name: Store logs artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./integration/logs
 
   styleguide:
     name: Styleguide
@@ -170,6 +185,11 @@ jobs:
         run: make yarndep
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
+      - name: Store logs artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./integration/logs
 
   explorer:
     name: Explorer
@@ -208,6 +228,11 @@ jobs:
         run: yarn workspace @chainlink/explorer-client setup
       - name: Run Client tests
         run: yarn workspace @chainlink/explorer-client test:ci
+      - name: Store logs artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./integration/logs
 
   feeds:
     name: Feeds
