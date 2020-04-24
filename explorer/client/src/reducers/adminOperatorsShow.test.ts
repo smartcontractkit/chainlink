@@ -1,9 +1,9 @@
 import reducer, {
   INITIAL_STATE as initialRootState,
   AppState,
-} from '../../reducers'
-import { OperatorShowData } from '../../reducers/adminOperatorsShow'
-import { FetchAdminOperatorSucceededAction } from '../../reducers/actions'
+} from '../reducers'
+import { OperatorShowData } from '../reducers/adminOperatorsShow'
+import { FetchAdminOperatorSucceededAction } from '../reducers/actions'
 
 const INITIAL_STATE: AppState = {
   ...initialRootState,

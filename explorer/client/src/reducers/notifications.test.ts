@@ -1,7 +1,7 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import { partialAsFull } from '@chainlink/ts-helpers'
-import reducer, { INITIAL_STATE } from '../../reducers'
-import { FetchAdminSigninErrorAction } from '../../reducers/actions'
+import reducer, { INITIAL_STATE } from '../reducers'
+import { FetchAdminSigninErrorAction } from '../reducers/actions'
 
 describe('reducers/jobRuns', () => {
   describe('FETCH_ADMIN_SIGNIN_ERROR', () => {
