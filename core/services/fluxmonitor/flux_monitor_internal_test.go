@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func (fm *ConcreteFluxMonitor) MockLogBroadcaster() *mockLogBroadcaster {
+func (fm *concreteFluxMonitor) MockLogBroadcaster() *mockLogBroadcaster {
 	mock := mockLogBroadcaster{}
 	fm.logBroadcaster = &mock
 	return &mock
