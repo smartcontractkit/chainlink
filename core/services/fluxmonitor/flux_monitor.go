@@ -389,7 +389,9 @@ func NewPollingDeviationChecker(
 		roundTimeoutTicker: nil,
 		connected:          abool.New(),
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
-			priorityNewRoundLog:      3,
+			// We want reconnecting nodes to be able to submit to a round
+			// that hasn't hit maxAnswers yet, as well as the newest round.
+			priorityNewRoundLog:      2,
 			priorityAnswerUpdatedLog: 1,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
