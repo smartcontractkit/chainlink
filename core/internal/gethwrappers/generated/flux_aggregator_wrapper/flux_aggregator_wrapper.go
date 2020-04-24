@@ -28,10 +28,10 @@ var (
 )
 
 // FluxAggregatorABI is the input ABI used to generate the binding from.
-const FluxAggregatorABI = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_link\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"_paymentAmount\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"_timeout\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"_decimals\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"_description\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"int256\",\"name\":\"current\",\"type\":\"int256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"AnswerUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"AvailableFundsUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"startedBy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"}],\"name\":\"NewRound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"}],\"name\":\"OracleAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"OracleAdminUpdateRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"OracleAdminUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"}],\"name\":\"OracleRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransfered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"requester\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"allowed\",\"type\":\"bool\"}],\"name\":\"RequesterAuthorizationSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint128\",\"name\":\"paymentAmount\",\"type\":\"uint128\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"minAnswerCount\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"maxAnswerCount\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"restartDelay\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"timeout\",\"type\":\"uint32\"}],\"name\":\"RoundDetailsUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"round\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"}],\"name\":\"SubmissionReceived\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"VERSION\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"acceptAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_admin\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"_minAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_maxAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_restartDelay\",\"type\":\"uint32\"}],\"name\":\"addOracle\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"allocatedFunds\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"availableFunds\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"getAdmin\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOracles\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getOriginatingRoundOfAnswer\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getRoundStartedAt\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getTimedOutStatus\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getTimestamp\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"latestSubmission\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestTimestamp\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"linkToken\",\"outputs\":[{\"internalType\":\"contractLinkTokenInterface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxAnswerCount\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minAnswerCount\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"oracleCount\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paymentAmount\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"_minAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_maxAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_restartDelay\",\"type\":\"uint32\"}],\"name\":\"removeOracle\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reportingRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reportingRoundStartedAt\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"restartDelay\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"roundState\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"_reportableRoundId\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"_eligibleToSubmit\",\"type\":\"bool\"},{\"internalType\":\"int256\",\"name\":\"_latestRoundAnswer\",\"type\":\"int256\"},{\"internalType\":\"uint64\",\"name\":\"_timesOutAt\",\"type\":\"uint64\"},{\"internalType\":\"uint128\",\"name\":\"_availableFunds\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"_paymentAmount\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_requester\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_allowed\",\"type\":\"bool\"}],\"name\":\"setAuthorization\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"startNewRound\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"timeout\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_newAdmin\",\"type\":\"address\"}],\"name\":\"transferAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"internalType\":\"int256\",\"name\":\"_answer\",\"type\":\"int256\"}],\"name\":\"updateAnswer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"updateAvailableFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint128\",\"name\":\"_newPaymentAmount\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"_minAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_maxAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_restartDelay\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_timeout\",\"type\":\"uint32\"}],\"name\":\"updateFutureRounds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"withdrawablePayment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
+const FluxAggregatorABI = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_link\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"_paymentAmount\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"_timeout\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"_decimals\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"_description\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"int256\",\"name\":\"current\",\"type\":\"int256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"AnswerUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"AvailableFundsUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"startedBy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"}],\"name\":\"NewRound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"OracleAdminUpdateRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newAdmin\",\"type\":\"address\"}],\"name\":\"OracleAdminUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"whitelisted\",\"type\":\"bool\"}],\"name\":\"OraclePermissionsUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransfered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"requester\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"authorized\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"delay\",\"type\":\"uint32\"}],\"name\":\"RequesterPermissionsSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint128\",\"name\":\"paymentAmount\",\"type\":\"uint128\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"minAnswerCount\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"maxAnswerCount\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"restartDelay\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"timeout\",\"type\":\"uint32\"}],\"name\":\"RoundDetailsUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"round\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"}],\"name\":\"SubmissionReceived\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"VERSION\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"acceptAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_oracles\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_admins\",\"type\":\"address[]\"},{\"internalType\":\"uint32\",\"name\":\"_minAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_maxAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_restartDelay\",\"type\":\"uint32\"}],\"name\":\"addOracles\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"allocatedFunds\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"availableFunds\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"getAdmin\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOracles\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getOriginatingRoundOfAnswer\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getRoundStartedAt\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getTimedOutStatus\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_roundId\",\"type\":\"uint256\"}],\"name\":\"getTimestamp\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"latestSubmission\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestTimestamp\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"linkToken\",\"outputs\":[{\"internalType\":\"contractLinkTokenInterface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxAnswerCount\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minAnswerCount\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"oracleCount\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paymentAmount\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_oracles\",\"type\":\"address[]\"},{\"internalType\":\"uint32\",\"name\":\"_minAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_maxAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_restartDelay\",\"type\":\"uint32\"}],\"name\":\"removeOracles\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reportingRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reportingRoundStartedAt\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"restartDelay\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"roundState\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"_reportableRoundId\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"_eligibleToSubmit\",\"type\":\"bool\"},{\"internalType\":\"int256\",\"name\":\"_latestRoundAnswer\",\"type\":\"int256\"},{\"internalType\":\"uint64\",\"name\":\"_timesOutAt\",\"type\":\"uint64\"},{\"internalType\":\"uint128\",\"name\":\"_availableFunds\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"_paymentAmount\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"_oracleCount\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_requester\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_authorized\",\"type\":\"bool\"},{\"internalType\":\"uint32\",\"name\":\"_delay\",\"type\":\"uint32\"}],\"name\":\"setRequesterPermissions\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"startNewRound\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"timeout\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_newAdmin\",\"type\":\"address\"}],\"name\":\"transferAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"internalType\":\"int256\",\"name\":\"_answer\",\"type\":\"int256\"}],\"name\":\"updateAnswer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"updateAvailableFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint128\",\"name\":\"_paymentAmount\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"_minAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_maxAnswers\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_restartDelay\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_timeout\",\"type\":\"uint32\"}],\"name\":\"updateFutureRounds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"withdrawablePayment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
 
 // FluxAggregatorBin is the compiled bytecode used for deploying new contracts.
-var FluxAggregatorBin = "0x60806040523480156200001157600080fd5b50604051620055e7380380620055e7833981810160405260a08110156200003757600080fd5b810190808051906020019092919080519060200190929190805190602001909291908051906020019092919080519060200190929190505050336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555084600660086101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555083600360006101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff160217905550826003601c6101000a81548163ffffffff021916908363ffffffff16021790555081600460006101000a81548160ff021916908360ff1602179055508060058190555062000185428463ffffffff16620001d260201b60201c565b600860008063ffffffff16815260200190815260200160002060010160086101000a81548167ffffffffffffffff021916908367ffffffffffffffff16021790555050505050506200025c565b6000828211156200024b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f536166654d6174683a207375627472616374696f6e206f766572666c6f77000081525060200191505060405180910390fd5b600082840390508091505092915050565b61537b806200026c6000396000f3fe608060405234801561001057600080fd5b506004361061025e5760003560e01c80638205bf6a11610146578063c410579e116100c3578063e2e4031711610087578063e2e4031714610c69578063e6330cf714610cc1578063e9ee6eeb14610cf9578063eecea00014610d5d578063f2fde38b14610dad578063ffa1ad7414610df15761025e565b8063c410579e14610ace578063ca04f8f014610bb5578063d002988c14610bd3578063d4cc54e414610bfd578063e052cb0414610c3f5761025e565b8063b633620c1161010a578063b633620c14610993578063bb07bacd146109d5578063bd85948c14610a34578063c107532914610a3e578063c35905c614610a8c5761025e565b80638205bf6a146107905780638da5cb5b146107ae578063a4c0ed36146107f8578063a4ce9a27146108dd578063b5ab58dc146109515761025e565b806350d25bcd116101df578063668a0f02116101a3578063668a0f02146106c05780636fb4bb4e146106de57806370dea79a146106fc5780637284e4161461072657806379b38bbb1461074457806379ba5097146107865761025e565b806350d25bcd1461056657806357970e9314610584578063613d8fcc146105ce578063628806ef146105f857806364efb22b1461063c5761025e565b806338aa4c721161022657806338aa4c72146103cd5780633d3d77141461044d57806340884c52146104bb57806346fcff4c1461051a5780634f8fc3b51461055c5761025e565b806309e24ae01461026357806325b6ae00146102a55780632f2f4767146102eb578063313ce5671461037f578063357ebb02146103a3575b600080fd5b61028f6004803603602081101561027957600080fd5b8101908080359060200190929190505050610e0f565b6040518082815260200191505060405180910390f35b6102d1600480360360208110156102bb57600080fd5b8101908080359060200190929190505050610e51565b604051808215151515815260200191505060405180910390f35b61037d600480360360a081101561030157600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190803573ffffffffffffffffffffffffffffffffffffffff169060200190929190803563ffffffff169060200190929190803563ffffffff169060200190929190803563ffffffff169060200190929190505050610eb9565b005b61038761146d565b604051808260ff1660ff16815260200191505060405180910390f35b6103ab611480565b604051808263ffffffff1663ffffffff16815260200191505060405180910390f35b61044b600480360360a08110156103e357600080fd5b8101908080356fffffffffffffffffffffffffffffffff169060200190929190803563ffffffff169060200190929190803563ffffffff169060200190929190803563ffffffff169060200190929190803563ffffffff169060200190929190505050611496565b005b6104b96004803603606081101561046357600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190803573ffffffffffffffffffffffffffffffffffffffff16906020019092919080359060200190929190505050611720565b005b6104c3611a80565b6040518080602001828103825283818151815260200191508051906020019060200280838360005b838110156105065780820151818401526020810190506104eb565b505050509050019250505060405180910390f35b610522611b0e565b60405180826fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b610564611b30565b005b61056e611cee565b6040518082815260200191505060405180910390f35b61058c611cfd565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6105d6611d23565b604051808263ffffffff1663ffffffff16815260200191505060405180910390f35b61063a6004803603602081101561060e57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050611d30565b005b61067e6004803603602081101561065257600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050611f2a565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6106c8611f96565b6040518082815260200191505060405180910390f35b6106e6611fb6565b6040518082815260200191505060405180910390f35b610704611fd6565b604051808263ffffffff1663ffffffff16815260200191505060405180910390f35b61072e611fec565b6040518082815260200191505060405180910390f35b6107706004803603602081101561075a57600080fd5b8101908080359060200190929190505050611ff2565b6040518082815260200191505060405180910390f35b61078e61203c565b005b610798612204565b6040518082815260200191505060405180910390f35b6107b6612213565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6108db6004803603606081101561080e57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190803590602001909291908035906020019064010000000081111561085557600080fd5b82018360208201111561086757600080fd5b8035906020019184600183028401116401000000008311171561088957600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600081840152601f19601f820116905080830192505050505050509192919290505050612238565b005b61094f600480360360808110156108f357600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190803563ffffffff169060200190929190803563ffffffff169060200190929190803563ffffffff169060200190929190505050612245565b005b61097d6004803603602081101561096757600080fd5b8101908080359060200190929190505050612660565b6040518082815260200191505060405180910390f35b6109bf600480360360208110156109a957600080fd5b8101908080359060200190929190505050612672565b6040518082815260200191505060405180910390f35b610a17600480360360208110156109eb57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050612684565b604051808381526020018281526020019250505060405180910390f35b610a3c61272f565b005b610a8a60048036036040811015610a5457600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919080359060200190929190505050612817565b005b610a94612a0f565b60405180826fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b610b1060048036036020811015610ae457600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050612a31565b604051808763ffffffff1663ffffffff168152602001861515151581526020018581526020018467ffffffffffffffff1667ffffffffffffffff168152602001836fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff168152602001826fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff168152602001965050505050505060405180910390f35b610bbd612c93565b6040518082815260200191505060405180910390f35b610bdb612ced565b604051808263ffffffff1663ffffffff16815260200191505060405180910390f35b610c05612d03565b60405180826fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b610c47612d25565b604051808263ffffffff1663ffffffff16815260200191505060405180910390f35b610cab60048036036020811015610c7f57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050612d3b565b6040518082815260200191505060405180910390f35b610cf760048036036040811015610cd757600080fd5b810190808035906020019092919080359060200190929190505050612db5565b005b610d5b60048036036040811015610d0f57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050612ff6565b005b610dab60048036036040811015610d7357600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291908035151590602001909291905050506131c3565b005b610def60048036036020811015610dc357600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050613390565b005b610df9613511565b6040518082815260200191505060405180910390f35b6000600860008363ffffffff1663ffffffff16815260200190815260200160002060010160109054906101000a900463ffffffff1663ffffffff169050919050565b6000808290506000600860008363ffffffff1663ffffffff16815260200190815260200160002060010160109054906101000a900463ffffffff16905060008163ffffffff16118015610eb057508163ffffffff168163ffffffff1614155b92505050919050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610f7b576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000081525060200191505060405180910390fd5b8463ffffffff8016600760008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160149054906101000a900463ffffffff1663ffffffff161415610fe757600080fd5b602a610ff1611d23565b63ffffffff161061100157600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168573ffffffffffffffffffffffffffffffffffffffff16141561103b57600080fd5b600073ffffffffffffffffffffffffffffffffffffffff16600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160029054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16148061116557508473ffffffffffffffffffffffffffffffffffffffff16600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160029054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16145b61116e57600080fd5b61117786613516565b600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160106101000a81548163ffffffff021916908363ffffffff16021790555063ffffffff600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160146101000a81548163ffffffff021916908363ffffffff160217905550600a869080600181540180825580915050600190039060005260206000200160009091909190916101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055506112af600a8054905060016135cc565b600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160006101000a81548161ffff021916908361ffff16021790555084600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160026101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508573ffffffffffffffffffffffffffffffffffffffff167e47706786c922d17b39285dc59d696bafea72c0b003d3841ae1202076f4c2e460405160405180910390a28473ffffffffffffffffffffffffffffffffffffffff168673ffffffffffffffffffffffffffffffffffffffff167f0c5055390645c15a4be9a21b3f8d019153dcb4a0c125685da6eb84048e2fe90460405160405180910390a3611465600360009054906101000a90046fffffffffffffffffffffffffffffffff168585856003601c9054906101000a900463ffffffff16611496565b505050505050565b600460009054906101000a900460ff1681565b600360189054906101000a900463ffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614611558576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000081525060200191505060405180910390fd5b8383836000611565611d23565b90508263ffffffff168163ffffffff16101561158057600080fd5b8363ffffffff168363ffffffff16101561159957600080fd5b60008163ffffffff1614806115b957508163ffffffff168163ffffffff16115b6115c257600080fd5b88600360006101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff16021790555087600360146101000a81548163ffffffff021916908363ffffffff16021790555086600360106101000a81548163ffffffff021916908363ffffffff16021790555085600360186101000a81548163ffffffff021916908363ffffffff160217905550846003601c6101000a81548163ffffffff021916908363ffffffff1602179055508663ffffffff168863ffffffff16600360009054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff167f56800c9d1ed723511246614d15e58cfcde15b6a33c245b5c961b689c1890fd8f8989604051808363ffffffff1663ffffffff1681526020018263ffffffff1663ffffffff1681526020019250505060405180910390a4505050505050505050565b3373ffffffffffffffffffffffffffffffffffffffff16600760008573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160029054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16146117ba57600080fd5b60008190506000600760008673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160009054906101000a90046fffffffffffffffffffffffffffffffff169050816fffffffffffffffffffffffffffffffff16816fffffffffffffffffffffffffffffffff16101561185357600080fd5b611881816fffffffffffffffffffffffffffffffff16836fffffffffffffffffffffffffffffffff166135cc565b600760008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160006101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff160217905550611945600260009054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16836fffffffffffffffffffffffffffffffff166135cc565b600260006101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff160217905550600660089054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663a9059cbb85846fffffffffffffffffffffffffffffffff166040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050602060405180830381600087803b158015611a3857600080fd5b505af1158015611a4c573d6000803e3d6000fd5b505050506040513d6020811015611a6257600080fd5b8101908080519060200190929190505050611a7957fe5b5050505050565b6060600a805480602002602001604051908101604052809291908181526020018280548015611b0457602002820191906000526020600020905b8160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019060010190808311611aba575b5050505050905090565b600260109054906101000a90046fffffffffffffffffffffffffffffffff1681565b6000600260109054906101000a90046fffffffffffffffffffffffffffffffff1690506000611c68600660089054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff166370a08231306040518263ffffffff1660e01b8152600401808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060206040518083038186803b158015611bf757600080fd5b505afa158015611c0b573d6000803e3d6000fd5b505050506040513d6020811015611c2157600080fd5b8101908080519060200190929190505050600260009054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff166135cc565b905080600260106101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff16021790555080826fffffffffffffffffffffffffffffffff1614611cea57807ffe25c73e3b9089fac37d55c4c7efcba6f04af04cebd2fc4d6d7dbb07e1e5234f60405160405180910390a25b5050565b6000611cf8613655565b905090565b600660089054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000600a80549050905090565b3373ffffffffffffffffffffffffffffffffffffffff16600760008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060030160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1614611dca57600080fd5b6000600760008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060030160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555033600760008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160026101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055503373ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff167f0c5055390645c15a4be9a21b3f8d019153dcb4a0c125685da6eb84048e2fe90460405160405180910390a350565b6000600760008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160029054906101000a900473ffffffffffffffffffffffffffffffffffffffff169050919050565b6000600660049054906101000a900463ffffffff1663ffffffff16905090565b6000600660009054906101000a900463ffffffff1663ffffffff16905090565b6003601c9054906101000a900463ffffffff1681565b60055481565b6000600860008363ffffffff1663ffffffff16815260200190815260200160002060010160009054906101000a900467ffffffffffffffff1667ffffffffffffffff169050919050565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146120ff576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f4d7573742062652070726f706f736564206f776e65720000000000000000000081525060200191505060405180910390fd5b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff169050336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055506000600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055503373ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff167f0d18b5fd22306e373229b9439188228edca81207d1667f604daf6cef8aa3ee6760405160405180910390a350565b600061220e613691565b905090565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b612240611b30565b505050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614612307576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000081525060200191505060405180910390fd5b8363ffffffff8016600760008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160149054906101000a900463ffffffff1663ffffffff161461237257600080fd5b600660009054906101000a900463ffffffff16600760008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160146101000a81548163ffffffff021916908363ffffffff1602179055506000600a6124016123f4611d23565b63ffffffff1660016135cc565b8154811061240b57fe5b9060005260206000200160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1690506000600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160009054906101000a900461ffff16905080600760008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160006101000a81548161ffff021916908361ffff160217905550600760008873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160006101000a81549061ffff021916905581600a8261ffff168154811061254f57fe5b9060005260206000200160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550600a8054806125a257fe5b6001900381819060005260206000200160006101000a81549073ffffffffffffffffffffffffffffffffffffffff021916905590558673ffffffffffffffffffffffffffffffffffffffff167f9c8e7d83025bef8a04c664b2f753f64b8814bdb7e27291d7e50935f18cc3c71260405160405180910390a2612657600360009054906101000a90046fffffffffffffffffffffffffffffffff168787876003601c9054906101000a900463ffffffff16611496565b50505050505050565b600061266b826136eb565b9050919050565b600061267d82613717565b9050919050565b600080600760008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060010154600760008573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160189054906101000a900463ffffffff168063ffffffff16905091509150915091565b600960003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060009054906101000a900460ff1661278557600080fd5b6000600660009054906101000a900463ffffffff1690506000600860008363ffffffff1663ffffffff16815260200190815260200160002060010160089054906101000a900467ffffffffffffffff1667ffffffffffffffff1611806127f057506127ef81613761565b5b6127f957600080fd5b61281461280f8263ffffffff1660016020613826565b6138bd565b50565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146128d9576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000081525060200191505060405180910390fd5b80600260109054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16101561291657600080fd5b600660089054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663a9059cbb83836040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200192505050602060405180830381600087803b1580156129bf57600080fd5b505af11580156129d3573d6000803e3d6000fd5b505050506040513d60208110156129e957600080fd5b8101908080519060200190929190505050612a0357600080fd5b612a0b611b30565b5050565b600360009054906101000a90046fffffffffffffffffffffffffffffffff1681565b600080600080600080600060086000600660009054906101000a900463ffffffff1663ffffffff1663ffffffff16815260200190815260200160002060020160010160009054906101000a900463ffffffff1663ffffffff1660086000600660009054906101000a900463ffffffff1663ffffffff1663ffffffff16815260200190815260200160002060020160000180549050101580612ae95750612ae8600660009054906101000a900463ffffffff16613761565b5b905080612b0857600660009054906101000a900463ffffffff16612b2e565b612b2d600660009054906101000a900463ffffffff1663ffffffff1660016020613826565b5b965086612b3c898984613c7e565b60086000600660049054906101000a900463ffffffff1663ffffffff1663ffffffff1681526020019081526020016000206000015483612bef57600860008b63ffffffff1663ffffffff16815260200190815260200160002060020160010160089054906101000a900463ffffffff1663ffffffff16600860008c63ffffffff1663ffffffff16815260200190815260200160002060010160009054906101000a900467ffffffffffffffff1601612bf2565b60005b600260109054906101000a90046fffffffffffffffffffffffffffffffff1685612c5d57600860008d63ffffffff1663ffffffff168152602001908152602001600020600201600101600c9054906101000a90046fffffffffffffffffffffffffffffffff16612c7d565b600360009054906101000a90046fffffffffffffffffffffffffffffffff165b9650965096509650965096505091939550919395565b600060086000600660009054906101000a900463ffffffff1663ffffffff1663ffffffff16815260200190815260200160002060010160009054906101000a900467ffffffffffffffff1667ffffffffffffffff16905090565b600360149054906101000a900463ffffffff1681565b600260009054906101000a90046fffffffffffffffffffffffffffffffff1681565b600360109054906101000a900463ffffffff1681565b6000600760008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160009054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff169050919050565b81600660009054906101000a900463ffffffff1663ffffffff168163ffffffff161480612e0b5750612e02600660009054906101000a900463ffffffff1663ffffffff1660016020613826565b8163ffffffff16145b612e1457600080fd5b60018163ffffffff161480612e3e5750612e3d612e388263ffffffff1660016135cc565b613f1d565b5b80612e5e5750612e5d612e588263ffffffff1660016135cc565b613761565b5b612e6757600080fd5b826000600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160109054906101000a900463ffffffff16905060008163ffffffff161415612ed357600080fd5b8163ffffffff168163ffffffff161115612eec57600080fd5b8163ffffffff16600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160149054906101000a900463ffffffff1663ffffffff161015612f5757600080fd5b8163ffffffff16600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160189054906101000a900463ffffffff1663ffffffff1610612fc157600080fd5b612fca856138bd565b612fd48486613f69565b612fdd856140f7565b612fe6856142f9565b612fef85614598565b5050505050565b3373ffffffffffffffffffffffffffffffffffffffff16600760008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060020160029054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff161461309057600080fd5b80600760008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060030160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508173ffffffffffffffffffffffffffffffffffffffff167fb79bf2e89c2d70dde91d2991fb1ea69b7e478061ad7c04ed5b02b96bc52b81043383604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019250505060405180910390a25050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614613285576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000081525060200191505060405180910390fd5b801515600960008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060009054906101000a900460ff16151514156132e25761338c565b80600960008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060006101000a81548160ff0219169083151502179055508173ffffffffffffffffffffffffffffffffffffffff167f270d0c10dfbbdb6bb7206de0d1854b34e71664636d27af06feda4326a8d2437982604051808215151515815260200191505060405180910390a25b5050565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614613452576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000081525060200191505060405180910390fd5b80600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae127860405160405180910390a350565b600281565b600080600660009054906101000a900463ffffffff16905060008163ffffffff16141580156135a25750600760008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160149054906101000a900463ffffffff1663ffffffff168163ffffffff16145b156135b057809150506135c7565b6135c38163ffffffff1660016020613826565b9150505b919050565b600082821115613644576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601e8152602001807f536166654d6174683a207375627472616374696f6e206f766572666c6f77000081525060200191505060405180910390fd5b600082840390508091505092915050565b600060086000600660049054906101000a900463ffffffff1663ffffffff1663ffffffff16815260200190815260200160002060000154905090565b600060086000600660049054906101000a900463ffffffff1663ffffffff1663ffffffff16815260200190815260200160002060010160089054906101000a900467ffffffffffffffff1667ffffffffffffffff16905090565b6000600860008363ffffffff1663ffffffff168152602001908152602001600020600001549050919050565b6000600860008363ffffffff1663ffffffff16815260200190815260200160002060010160089054906101000a900467ffffffffffffffff1667ffffffffffffffff169050919050565b600080600860008463ffffffff1663ffffffff16815260200190815260200160002060010160009054906101000a900467ffffffffffffffff1690506000600860008563ffffffff1663ffffffff16815260200190815260200160002060020160010160089054906101000a900463ffffffff16905060008267ffffffffffffffff161180156137f7575060008163ffffffff16115b801561381d57504261381b8367ffffffffffffffff168363ffffffff166040613826565b105b92505050919050565b600080838501905084811015801561384057508260020a81105b6138b2576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252601b8152602001807f536166654d6174683a206164646974696f6e206f766572666c6f77000000000081525060200191505060405180910390fd5b809150509392505050565b806138e3600660009054906101000a900463ffffffff1663ffffffff1660016020613826565b8163ffffffff161415613c7a57816000600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600001601c9054906101000a900463ffffffff1663ffffffff169050600360189054906101000a900463ffffffff1663ffffffff1681018263ffffffff16118061397c5750600081145b15613c775761399a6139958563ffffffff1660016135cc565b6146a6565b83600660006101000a81548163ffffffff021916908363ffffffff160217905550600360109054906101000a900463ffffffff16600860008663ffffffff1663ffffffff16815260200190815260200160002060020160010160006101000a81548163ffffffff021916908363ffffffff160217905550600360149054906101000a900463ffffffff16600860008663ffffffff1663ffffffff16815260200190815260200160002060020160010160046101000a81548163ffffffff021916908363ffffffff160217905550600360009054906101000a90046fffffffffffffffffffffffffffffffff16600860008663ffffffff1663ffffffff168152602001908152602001600020600201600101600c6101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff1602179055506003601c9054906101000a900463ffffffff16600860008663ffffffff1663ffffffff16815260200190815260200160002060020160010160086101000a81548163ffffffff021916908363ffffffff16021790555042600860008663ffffffff1663ffffffff16815260200190815260200160002060010160006101000a81548167ffffffffffffffff021916908367ffffffffffffffff16021790555083600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600001601c6101000a81548163ffffffff021916908363ffffffff1602179055503373ffffffffffffffffffffffffffffffffffffffff168463ffffffff167f0109fc6f55cf40689f02fbaad7af7fe7bbac8a3d2186600afc7d3e10cac60271600860008863ffffffff1663ffffffff16815260200190815260200160002060010160009054906101000a900467ffffffffffffffff16604051808267ffffffffffffffff16815260200191505060405180910390a35b50505b5050565b600080600760008673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160109054906101000a900463ffffffff16905060008163ffffffff161415613cef576000915050613f16565b8363ffffffff168163ffffffff161115613d0d576000915050613f16565b8363ffffffff16600760008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160149054906101000a900463ffffffff1663ffffffff161015613d7d576000915050613f16565b8363ffffffff16600760008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160189054906101000a900463ffffffff1663ffffffff1610613dec576000915050613f16565b8215613ec1576000600760008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600001601c9054906101000a900463ffffffff169050600360189054906101000a900463ffffffff16810163ffffffff168563ffffffff1611158015613e7f575060008163ffffffff16115b15613e8f57600092505050613f16565b6000600360109054906101000a900463ffffffff1663ffffffff161415613ebb57600092505050613f16565b50613f10565b6000600860008663ffffffff1663ffffffff16815260200190815260200160002060020160010160009054906101000a900463ffffffff1663ffffffff161415613f0f576000915050613f16565b5b60019150505b9392505050565b600080600860008463ffffffff1663ffffffff16815260200190815260200160002060010160089054906101000a900467ffffffffffffffff1667ffffffffffffffff16119050919050565b806000600860008363ffffffff1663ffffffff16815260200190815260200160002060020160010160009054906101000a900463ffffffff1663ffffffff161415613fb357600080fd5b600860008363ffffffff1663ffffffff16815260200190815260200160002060020160000183908060018154018082558091505060019003906000526020600020016000909190919091505581600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160186101000a81548163ffffffff021916908363ffffffff16021790555082600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600101819055503373ffffffffffffffffffffffffffffffffffffffff168263ffffffff16847f92e98423f8adac6e64d0608e519fd1cefb861498385c6dee70d58fc926ddc68c60405160405180910390a4505050565b80600860008263ffffffff1663ffffffff16815260200190815260200160002060020160010160049054906101000a900463ffffffff1663ffffffff16600860008363ffffffff1663ffffffff16815260200190815260200160002060020160000180549050106142f55760006141e0600860008563ffffffff1663ffffffff1681526020019081526020016000206002016000018054806020026020016040519081016040528092919081815260200182805480156141d657602002820191906000526020600020905b8154815260200190600101908083116141c2575b50505050506148d2565b905080600860008563ffffffff1663ffffffff1681526020019081526020016000206000018190555042600860008563ffffffff1663ffffffff16815260200190815260200160002060010160086101000a81548167ffffffffffffffff021916908367ffffffffffffffff16021790555082600860008563ffffffff1663ffffffff16815260200190815260200160002060010160106101000a81548163ffffffff021916908363ffffffff16021790555082600660046101000a81548163ffffffff021916908363ffffffff1602179055508263ffffffff16817f0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f426040518082815260200191505060405180910390a3505b5050565b6000600860008363ffffffff1663ffffffff168152602001908152602001600020600201600101600c9054906101000a90046fffffffffffffffffffffffffffffffff169050600061438d600260109054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16836fffffffffffffffffffffffffffffffff166135cc565b905080600260106101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff160217905550614416600260009054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16836fffffffffffffffffffffffffffffffff166080613826565b600260006101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff1602179055506144dc600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160009054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff16836fffffffffffffffffffffffffffffffff166080613826565b600760003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060000160006101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff160217905550806fffffffffffffffffffffffffffffffff167ffe25c73e3b9089fac37d55c4c7efcba6f04af04cebd2fc4d6d7dbb07e1e5234f60405160405180910390a2505050565b80600860008263ffffffff1663ffffffff16815260200190815260200160002060020160010160009054906101000a900463ffffffff1663ffffffff16600860008363ffffffff1663ffffffff1681526020019081526020016000206002016000018054905014156146a257600860008363ffffffff1663ffffffff1681526020019081526020016000206002016000808201600061463791906152de565b6001820160006101000a81549063ffffffff02191690556001820160046101000a81549063ffffffff02191690556001820160086101000a81549063ffffffff021916905560018201600c6101000a8154906fffffffffffffffffffffffffffffffff021916905550505b5050565b806146b081613761565b156148ce57816000600860006146cd8463ffffffff1660016135cc565b63ffffffff1663ffffffff16815260200190815260200160002060010160089054906101000a900467ffffffffffffffff1667ffffffffffffffff16141561471457600080fd5b60006147278463ffffffff1660016135cc565b9050600860008263ffffffff1663ffffffff16815260200190815260200160002060000154600860008663ffffffff1663ffffffff16815260200190815260200160002060000181905550600860008263ffffffff1663ffffffff16815260200190815260200160002060010160109054906101000a900463ffffffff16600860008663ffffffff1663ffffffff16815260200190815260200160002060010160106101000a81548163ffffffff021916908363ffffffff16021790555042600860008663ffffffff1663ffffffff16815260200190815260200160002060010160086101000a81548167ffffffffffffffff021916908367ffffffffffffffff160217905550600860008563ffffffff1663ffffffff1681526020019081526020016000206002016000808201600061486191906152de565b6001820160006101000a81549063ffffffff02191690556001820160046101000a81549063ffffffff02191690556001820160086101000a81549063ffffffff021916905560018201600c6101000a8154906fffffffffffffffffffffffffffffffff0219169055505050505b5050565b6000815160001061494b576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260168152602001807f6c697374206d757374206e6f7420626520656d7074790000000000000000000081525060200191505060405180910390fd5b60008251905060006002828161495d57fe5b04905060006002838161496c57fe5b0614156149a75760008061498a8660006001870360018703876149c1565b809250819350505061499c8282614aae565b9450505050506149bc565b6149b78460006001850384614b4b565b925050505b919050565b6000808284106149d057600080fd5b8386111580156149e05750848411155b6149e957600080fd5b8286111580156149f95750848311155b614a0257600080fd5b5b600115614aa35760078686031015614a2b57614a228787878787614be5565b91509150614aa4565b6000614a38888888615159565b9050808411614a4957809550614a9d565b84811015614a5c57600181019650614a9c565b808511158015614a6b57508381105b614a7157fe5b614a7d88888388614b4b565b9250614a8e88600183018887614b4b565b915082829250925050614aa4565b5b50614a03565b5b9550959350505050565b60008083128015614abf5750600082135b80614ad65750600083138015614ad55750600082125b5b15614af6576002614ae78484615250565b81614aee57fe5b059050614b45565b60006002808481614b0357fe5b0760028681614b0e57fe5b070181614b1757fe5b059050614b41614b3b60028681614b2a57fe5b0560028681614b3557fe5b05615250565b82615250565b9150505b92915050565b600081841115614b5a57600080fd5b82821115614b6757600080fd5b5b82841015614bc65760078484031015614b9b576000614b8a8686868687614be5565b809250819350505081915050614bdd565b6000614ba8868686615159565b9050808311614bb957809350614bc0565b6001810194505b50614b68565b848481518110614bd257fe5b602002602001015190505b949350505050565b600080600086600187010390506000886000890181518110614c0357fe5b60200260200101519050600082600110614c3d577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614c55565b8960018a0181518110614c4c57fe5b60200260200101515b9050600083600210614c87577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614c9f565b8a60028b0181518110614c9657fe5b60200260200101515b9050600084600310614cd1577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614ce9565b8b60038c0181518110614ce057fe5b60200260200101515b9050600085600410614d1b577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614d33565b8c60048d0181518110614d2a57fe5b60200260200101515b9050600086600510614d65577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614d7d565b8d60058e0181518110614d7457fe5b60200260200101515b9050600087600610614daf577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614dc7565b8e60068f0181518110614dbe57fe5b60200260200101515b905085871315614ddc57858780975081985050505b83851315614def57838580955081965050505b81831315614e0257818380935081945050505b84871315614e1557848780965081985050505b83861315614e2857838680955081975050505b80831315614e3b57808380925081945050505b84861315614e4e57848680965081975050505b80821315614e6157808280925081935050505b82871315614e7457828780945081985050505b81861315614e8757818680935081975050505b80851315614e9a57808580925081965050505b82861315614ead57828680945081975050505b80841315614ec057808480925081955050505b82851315614ed357828580945081965050505b81841315614ee657818480935081955050505b82841315614ef957828480945081955050505b60008e8d0390506000811415614f1157879a50614feb565b6001811415614f2257869a50614fea565b6002811415614f3357859a50614fe9565b6003811415614f4457849a50614fe8565b6004811415614f5557839a50614fe7565b6005811415614f6657829a50614fe6565b6006811415614f7757819a50614fe5565b6040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260108152602001807f6b31206f7574206f6620626f756e64730000000000000000000000000000000081525060200191505060405180910390fd5b5b5b5b5b5b5b60008f8d0390508c8e141561500f578b8c9b509b505050505050505050505061514f565b600081141561502d578b899b509b505050505050505050505061514f565b600181141561504b578b889b509b505050505050505050505061514f565b6002811415615069578b879b509b505050505050505050505061514f565b6003811415615087578b869b509b505050505050505050505061514f565b60048114156150a5578b859b509b505050505050505050505061514f565b60058114156150c3578b849b509b505050505050505050505061514f565b60068114156150e1578b839b509b505050505050505050505061514f565b6040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260108152602001807f6b32206f7574206f6620626f756e64730000000000000000000000000000000081525060200191505060405180910390fd5b9550959350505050565b6000808460028486018161516957fe5b048151811061517457fe5b602002602001015190506001840393506001830192505b600115615247575b600184019350808585815181106151a657fe5b602002602001015112615193575b600183039250808584815181106151c757fe5b6020026020010151136151b45782841015615239578483815181106151e857fe5b60200260200101518585815181106151fc57fe5b602002602001015186868151811061521057fe5b6020026020010187868151811061522357fe5b6020026020010182815250828152505050615242565b82915050615249565b61518b565b505b9392505050565b6000808284019050600083121580156152695750838112155b8061527f575060008312801561527e57508381125b5b6152d4576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260218152602001806153256021913960400191505060405180910390fd5b8091505092915050565b50805460008255906000526020600020908101906152fc91906152ff565b50565b61532191905b8082111561531d576000816000905550600101615305565b5090565b9056fe5369676e6564536166654d6174683a206164646974696f6e206f766572666c6f77a2646970667358220000000000000000000000000000000000000000000000000000000000000000000064736f6c63430000000033"
+var FluxAggregatorBin = "0x60806040523480156200001157600080fd5b5060405162004edb38038062004edb833981810160405260a08110156200003757600080fd5b5080516020808301516040840151606085015160809095015160008054336001600160a01b031991821617909155600280549091166001600160a01b038716179055600480546001600160801b0319166001600160801b038516176001600160e01b0316600160e01b63ffffffff8516908102919091179091556005805460ff191660ff891617905560068290559495929491939091620000e49142919062000148811b62002a2517901c565b6000805260096020527fec8156718a8372b1db44bb411437d0870f3e3790d4a08526d024ce1b0b668f6c80546001600160401b03929092166801000000000000000002600160401b600160801b031990921691909117905550620001a69350505050565b600082821115620001a0576040805162461bcd60e51b815260206004820152601e60248201527f536166654d6174683a207375627472616374696f6e206f766572666c6f770000604482015290519081900360640190fd5b50900390565b614d2580620001b66000396000f3fe608060405234801561001057600080fd5b50600436106102de5760003560e01c80638205bf6a11610186578063c410579e116100e3578063e2e4031711610097578063ebf8571c11610071578063ebf8571c146109a0578063f2fde38b14610a28578063ffa1ad7414610a5b576102de565b8063e2e403171461090f578063e6330cf714610942578063e9ee6eeb14610965576102de565b8063d002988c116100c8578063d002988c146108f7578063d4cc54e4146108ff578063e052cb0414610907576102de565b8063c410579e1461085b578063ca04f8f0146108ef576102de565b8063bb07bacd1161013a578063bd85948c1161011f578063bd85948c14610812578063c10753291461081a578063c35905c614610853576102de565b8063bb07bacd146106ec578063bbf0b7e914610738576102de565b8063a4c0ed361161016b578063a4c0ed36146105ea578063b5ab58dc146106b2578063b633620c146106cf576102de565b80638205bf6a146105da5780638da5cb5b146105e2576102de565b806350d25bcd1161023f578063668a0f02116101f35780637284e416116101cd5780637284e416146105ad57806379b38bbb146105b557806379ba5097146105d2576102de565b8063668a0f02146105955780636fb4bb4e1461059d57806370dea79a146105a5576102de565b8063613d8fcc11610224578063613d8fcc14610527578063628806ef1461052f57806364efb22b14610562576102de565b806350d25bcd146104ee57806357970e93146104f6576102de565b806338aa4c721161029657806340884c521161027b57806340884c521461046157806346fcff4c146104b95780634f8fc3b5146104e6576102de565b806338aa4c72146103cb5780633d3d77141461041e576102de565b806325b6ae00116102c757806325b6ae001461035b578063313ce5671461038c578063357ebb02146103aa576102de565b806309e24ae0146102e357806320ed027514610312575b600080fd5b610300600480360360208110156102f957600080fd5b5035610a63565b60408051918252519081900360200190f35b6103596004803603606081101561032857600080fd5b50803573ffffffffffffffffffffffffffffffffffffffff169060208101351515906040013563ffffffff16610a98565b005b6103786004803603602081101561037157600080fd5b5035610c88565b604080519115158252519081900360200190f35b610394610cde565b6040805160ff9092168252519081900360200190f35b6103b2610ce7565b6040805163ffffffff9092168252519081900360200190f35b610359600480360360a08110156103e157600080fd5b506fffffffffffffffffffffffffffffffff8135169063ffffffff6020820135811691604081013582169160608201358116916080013516610d0f565b6103596004803603606081101561043457600080fd5b5073ffffffffffffffffffffffffffffffffffffffff813581169160208101359091169060400135611132565b610469611401565b60408051602080825283518183015283519192839290830191858101910280838360005b838110156104a557818101518382015260200161048d565b505050509050019250505060405180910390f35b6104c1611471565b604080516fffffffffffffffffffffffffffffffff9092168252519081900360200190f35b61035961149d565b6103006115e9565b6104fe6115f8565b6040805173ffffffffffffffffffffffffffffffffffffffff9092168252519081900360200190f35b6103b2611614565b6103596004803603602081101561054557600080fd5b503573ffffffffffffffffffffffffffffffffffffffff1661161a565b6104fe6004803603602081101561057857600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16611762565b610300611796565b6103006117aa565b6103b26117b6565b6103006117e2565b610300600480360360208110156105cb57600080fd5b50356117e8565b61035961180d565b61030061190f565b6104fe611919565b6103596004803603606081101561060057600080fd5b73ffffffffffffffffffffffffffffffffffffffff8235169160208101359181019060608101604082013564010000000081111561063d57600080fd5b82018360208201111561064f57600080fd5b8035906020019184600183028401116401000000008311171561067157600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550611935945050505050565b610300600480360360208110156106c857600080fd5b503561193d565b610300600480360360208110156106e557600080fd5b503561194e565b61071f6004803603602081101561070257600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16611959565b6040805192835260208301919091528051918290030190f35b610359600480360360a081101561074e57600080fd5b81019060208101813564010000000081111561076957600080fd5b82018360208201111561077b57600080fd5b8035906020019184602083028401116401000000008311171561079d57600080fd5b9193909290916020810190356401000000008111156107bb57600080fd5b8201836020820111156107cd57600080fd5b803590602001918460208302840111640100000000831117156107ef57600080fd5b919350915063ffffffff81358116916020810135821691604090910135166119ac565b610359611bf2565b6103596004803603604081101561083057600080fd5b5073ffffffffffffffffffffffffffffffffffffffff8135169060200135611d3d565b6104c1611f9e565b61088e6004803603602081101561087157600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16611fb6565b6040805163ffffffff988916815296151560208801528681019590955267ffffffffffffffff90931660608601526fffffffffffffffffffffffffffffffff91821660808601521660a084015290921660c082015290519081900360e00190f35b61030061214f565b6103b2612177565b6104c161219b565b6103b26121b3565b6103006004803603602081101561092557600080fd5b503573ffffffffffffffffffffffffffffffffffffffff166121d3565b6103596004803603604081101561095857600080fd5b508035906020013561220d565b6103596004803603604081101561097b57600080fd5b5073ffffffffffffffffffffffffffffffffffffffff81358116916020013516612609565b610359600480360360808110156109b657600080fd5b8101906020810181356401000000008111156109d157600080fd5b8201836020820111156109e357600080fd5b80359060200191846020830284011164010000000083111715610a0557600080fd5b919350915063ffffffff813581169160208101358216916040909101351661273f565b61035960048036036020811015610a3e57600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16612856565b610300612952565b63ffffffff8082166000908152600960205260409020600101547001000000000000000000000000000000009004165b919050565b60005473ffffffffffffffffffffffffffffffffffffffff163314610b1e57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff83166000908152600a602052604090205460ff1615158215151415610b5757610c83565b8115610bdf5773ffffffffffffffffffffffffffffffffffffffff83166000908152600a6020526040902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016831515177fffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000ff1661010063ffffffff841602179055610c2b565b73ffffffffffffffffffffffffffffffffffffffff83166000908152600a6020526040902080547fffffffffffffffffffffffffffffffffffffffffffffff0000000000000000001690555b60408051831515815263ffffffff83166020820152815173ffffffffffffffffffffffffffffffffffffffff8616927fc3df5a754e002718f2e10804b99e6605e7c701d95cec9552c7680ca2b6f2820a928290030190a25b505050565b63ffffffff808216600090815260096020526040812060010154909183917001000000000000000000000000000000009004168015801590610cd657508163ffffffff168163ffffffff1614155b949350505050565b60055460ff1681565b6004547801000000000000000000000000000000000000000000000000900463ffffffff1681565b60005473ffffffffffffffffffffffffffffffffffffffff163314610d9557604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015290519081900360640190fd5b8383836000610da2611614565b90508263ffffffff168163ffffffff161015610e1f57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f6d61782063616e6e6f742065786365656420746f74616c000000000000000000604482015290519081900360640190fd5b8363ffffffff168363ffffffff161015610e9a57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601960248201527f6d6178206d75737420657175616c2f657863656564206d696e00000000000000604482015290519081900360640190fd5b63ffffffff81161580610eb857508163ffffffff168163ffffffff16115b610f2357604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601960248201527f64656c61792063616e6e6f742065786365656420746f74616c00000000000000604482015290519081900360640190fd5b610f3e896fffffffffffffffffffffffffffffffff16612957565b60035470010000000000000000000000000000000090046fffffffffffffffffffffffffffffffff161015610fd457604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601e60248201527f696e73756666696369656e742066756e647320666f72207061796d656e740000604482015290519081900360640190fd5b88600460006101000a8154816fffffffffffffffffffffffffffffffff02191690836fffffffffffffffffffffffffffffffff16021790555087600460146101000a81548163ffffffff021916908363ffffffff16021790555086600460106101000a81548163ffffffff021916908363ffffffff16021790555085600460186101000a81548163ffffffff021916908363ffffffff160217905550846004601c6101000a81548163ffffffff021916908363ffffffff1602179055508663ffffffff168863ffffffff16600460009054906101000a90046fffffffffffffffffffffffffffffffff166fffffffffffffffffffffffffffffffff167f56800c9d1ed723511246614d15e58cfcde15b6a33c245b5c961b689c1890fd8f8989604051808363ffffffff1663ffffffff1681526020018263ffffffff1663ffffffff1681526020019250505060405180910390a4505050505050505050565b73ffffffffffffffffffffffffffffffffffffffff8381166000908152600860205260409020600201546201000090041633146111d057604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f6f6e6c792063616c6c61626c652062792061646d696e00000000000000000000604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff831660009081526008602052604090205481906fffffffffffffffffffffffffffffffff90811690821681101561127d57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f696e73756666696369656e7420776974686472617761626c652066756e647300604482015290519081900360640190fd5b61129f6fffffffffffffffffffffffffffffffff82168363ffffffff61298a16565b73ffffffffffffffffffffffffffffffffffffffff8616600090815260086020526040902080547fffffffffffffffffffffffffffffffff00000000000000000000000000000000166fffffffffffffffffffffffffffffffff92831617905560035461130d91168361298a565b600380547fffffffffffffffffffffffffffffffff00000000000000000000000000000000166fffffffffffffffffffffffffffffffff928316179055600254604080517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff888116600483015293861660248201529051929091169163a9059cbb916044808201926020929091908290030181600087803b1580156113c857600080fd5b505af11580156113dc573d6000803e3d6000fd5b505050506040513d60208110156113f257600080fd5b50516113fa57fe5b5050505050565b6060600b80548060200260200160405190810160405280929190818152602001828054801561146657602002820191906000526020600020905b815473ffffffffffffffffffffffffffffffffffffffff16815260019091019060200180831161143b575b505050505090505b90565b60035470010000000000000000000000000000000090046fffffffffffffffffffffffffffffffff1681565b600354600254604080517f70a0823100000000000000000000000000000000000000000000000000000000815230600482015290516fffffffffffffffffffffffffffffffff700100000000000000000000000000000000850481169460009461157c94929091169273ffffffffffffffffffffffffffffffffffffffff909116916370a08231916024808301926020929190829003018186803b15801561154457600080fd5b505afa158015611558573d6000803e3d6000fd5b505050506040513d602081101561156e57600080fd5b50519063ffffffff612a2516565b600380546fffffffffffffffffffffffffffffffff9081167001000000000000000000000000000000008483160217909155909150821681146115e55760405181907ffe25c73e3b9089fac37d55c4c7efcba6f04af04cebd2fc4d6d7dbb07e1e5234f90600090a25b5050565b60006115f3612a96565b905090565b60025473ffffffffffffffffffffffffffffffffffffffff1681565b600b5490565b73ffffffffffffffffffffffffffffffffffffffff8181166000908152600860205260409020600301541633146116b257604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601e60248201527f6f6e6c792063616c6c61626c652062792070656e64696e672061646d696e0000604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff81166000818152600860205260408082206003810180547fffffffffffffffffffffffff000000000000000000000000000000000000000016905560020180547fffffffffffffffffffff0000000000000000000000000000000000000000ffff16336201000081029190911790915590519092917f0c5055390645c15a4be9a21b3f8d019153dcb4a0c125685da6eb84048e2fe90491a350565b73ffffffffffffffffffffffffffffffffffffffff9081166000908152600860205260409020600201546201000090041690565b600754640100000000900463ffffffff1690565b60075463ffffffff1690565b6004547c0100000000000000000000000000000000000000000000000000000000900463ffffffff1681565b60065481565b63ffffffff1660009081526009602052604090206001015467ffffffffffffffff1690565b60015473ffffffffffffffffffffffffffffffffffffffff16331461189357604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e657200000000000000000000604482015290519081900360640190fd5b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f0d18b5fd22306e373229b9439188228edca81207d1667f604daf6cef8aa3ee6791a350565b60006115f3612ab9565b60005473ffffffffffffffffffffffffffffffffffffffff1681565b610c8361149d565b600061194882612af5565b92915050565b600061194882612b0d565b73ffffffffffffffffffffffffffffffffffffffff166000908152600860205260409020600181015490549091780100000000000000000000000000000000000000000000000090910463ffffffff1690565b60005473ffffffffffffffffffffffffffffffffffffffff163314611a3257604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015290519081900360640190fd5b858414611aa057604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f6e6565642073616d65206f7261636c6520616e642061646d696e20636f756e74604482015290519081900360640190fd5b602a611ac287611aae611614565b63ffffffff16612b3e90919063ffffffff16565b1115611b2f57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601360248201527f6d6178206f7261636c657320616c6c6f77656400000000000000000000000000604482015290519081900360640190fd5b60005b86811015611b9c57611b94888883818110611b4957fe5b9050602002013573ffffffffffffffffffffffffffffffffffffffff16878784818110611b7257fe5b9050602002013573ffffffffffffffffffffffffffffffffffffffff16612bb9565b600101611b32565b50600454611be9906fffffffffffffffffffffffffffffffff8116908590859085907c0100000000000000000000000000000000000000000000000000000000900463ffffffff16610d0f565b50505050505050565b336000908152600a602052604090205460ff16611c7057604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601860248201527f6e6f7420617574686f72697a6564207265717565737465720000000000000000604482015290519081900360640190fd5b60075463ffffffff1660008181526009602052604090206001015468010000000000000000900467ffffffffffffffff16151580611cb25750611cb281612fce565b611d1d57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f7072657620726f756e64206d75737420626520737570657273656461626c6500604482015290519081900360640190fd5b611d3a611d3563ffffffff8084169060019061305816565b6130d5565b50565b60005473ffffffffffffffffffffffffffffffffffffffff163314611dc357604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015290519081900360640190fd5b6004548190611e1690611de7906fffffffffffffffffffffffffffffffff16612957565b60035470010000000000000000000000000000000090046fffffffffffffffffffffffffffffffff1690612a25565b1015611e8357604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f696e73756666696369656e7420726573657276652066756e6473000000000000604482015290519081900360640190fd5b600254604080517fa9059cbb00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff8581166004830152602482018590529151919092169163a9059cbb9160448083019260209291908290030181600087803b158015611eff57600080fd5b505af1158015611f13573d6000803e3d6000fd5b505050506040513d6020811015611f2957600080fd5b5051611f9657604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601560248201527f746f6b656e207472616e73666572206661696c65640000000000000000000000604482015290519081900360640190fd5b6115e561149d565b6004546fffffffffffffffffffffffffffffffff1681565b60075463ffffffff9081166000908152600960205260408120600381015460029091015491928392839283928392839283928392911611158061200657506007546120069063ffffffff16612fce565b90508061201b5760075463ffffffff16612034565b6007546120349063ffffffff9081169060019061305816565b9750876120428a8a846131fd565b600754640100000000900463ffffffff16600090815260096020526040902054836120a85763ffffffff808c166000908152600960205260409020600381015460019091015467ffffffffffffffff1668010000000000000000909104909116016120ab565b60005b60035470010000000000000000000000000000000090046fffffffffffffffffffffffffffffffff16856121195763ffffffff8d166000908152600960205260409020600301546c0100000000000000000000000090046fffffffffffffffffffffffffffffffff1661212f565b6004546fffffffffffffffffffffffffffffffff165b612137611614565b959f949e50929c50909a509850965090945092505050565b60075463ffffffff1660009081526009602052604090206001015467ffffffffffffffff1690565b60045474010000000000000000000000000000000000000000900463ffffffff1681565b6003546fffffffffffffffffffffffffffffffff1681565b600454700100000000000000000000000000000000900463ffffffff1681565b73ffffffffffffffffffffffffffffffffffffffff166000908152600860205260409020546fffffffffffffffffffffffffffffffff1690565b600754829063ffffffff908116908216811480612249575061223a63ffffffff8083169060019061305816565b63ffffffff168263ffffffff16145b8061225957506122598282613425565b6122c457604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f696e76616c696420726f756e6420746f207265706f7274000000000000000000604482015290519081900360640190fd5b8163ffffffff16600114806122f157506122f16122ec63ffffffff8085169060019061348b16565b613508565b80612314575061231461230f63ffffffff8085169060019061348b16565b612fce565b61237f57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f70726576696f757320726f756e64206e6f7420737570657273656461626c6500604482015290519081900360640190fd5b336000908152600860205260409020548490700100000000000000000000000000000000900463ffffffff168061241757604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601260248201527f6e6f7420656e61626c6564206f7261636c650000000000000000000000000000604482015290519081900360640190fd5b8163ffffffff168163ffffffff16111561249257604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f6e6f742079657420656e61626c6564206f7261636c6500000000000000000000604482015290519081900360640190fd5b3360009081526008602052604090205463ffffffff8084167401000000000000000000000000000000000000000090920416101561253157604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601860248201527f6e6f206c6f6e67657220616c6c6f776564206f7261636c650000000000000000604482015290519081900360640190fd5b3360009081526008602052604090205463ffffffff808416780100000000000000000000000000000000000000000000000090920416106125d357604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f63616e6e6f74207265706f7274206f6e2070726576696f757320726f756e6473604482015290519081900360640190fd5b6125dc8661353b565b6125e68587613641565b6125ef86613779565b6125f88661391d565b61260186613a97565b505050505050565b73ffffffffffffffffffffffffffffffffffffffff8281166000908152600860205260409020600201546201000090041633146126a757604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f6f6e6c792063616c6c61626c652062792061646d696e00000000000000000000604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff82811660008181526008602090815260409182902060030180547fffffffffffffffffffffffff0000000000000000000000000000000000000000169486169485179055815133815290810193909352805191927fb79bf2e89c2d70dde91d2991fb1ea69b7e478061ad7c04ed5b02b96bc52b8104929081900390910190a25050565b60005473ffffffffffffffffffffffffffffffffffffffff1633146127c557604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015290519081900360640190fd5b60005b84811015612809576128018686838181106127df57fe5b9050602002013573ffffffffffffffffffffffffffffffffffffffff16613b15565b6001016127c8565b506004546113fa906fffffffffffffffffffffffffffffffff8116908590859085907c0100000000000000000000000000000000000000000000000000000000900463ffffffff16610d0f565b60005473ffffffffffffffffffffffffffffffffffffffff1633146128dc57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015290519081900360640190fd5b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b600281565b6000611948600261297e612969611614565b63ffffffff1685613df890919063ffffffff16565b9063ffffffff613df816565b6000826fffffffffffffffffffffffffffffffff16826fffffffffffffffffffffffffffffffff161115612a1f57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601e60248201527f536166654d6174683a207375627472616374696f6e206f766572666c6f770000604482015290519081900360640190fd5b50900390565b600082821115612a1f57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601e60248201527f536166654d6174683a207375627472616374696f6e206f766572666c6f770000604482015290519081900360640190fd5b600754640100000000900463ffffffff1660009081526009602052604090205490565b600754640100000000900463ffffffff1660009081526009602052604090206001015468010000000000000000900467ffffffffffffffff1690565b63ffffffff1660009081526009602052604090205490565b63ffffffff1660009081526009602052604090206001015468010000000000000000900467ffffffffffffffff1690565b600082820183811015612bb257604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b9392505050565b73ffffffffffffffffffffffffffffffffffffffff8216600090815260086020526040902054829074010000000000000000000000000000000000000000900463ffffffff9081161415612c6e57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f6f7261636c6520616c726561647920656e61626c656400000000000000000000604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff8216612cf057604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601560248201527f63616e6e6f74207365742061646d696e20746f20300000000000000000000000604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff838116600090815260086020526040902060020154620100009004161580612d5f575073ffffffffffffffffffffffffffffffffffffffff8381166000908152600860205260409020600201546201000090048116908316145b612dca57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601c60248201527f6f776e65722063616e6e6f74206f76657277726974652061646d696e00000000604482015290519081900360640190fd5b612dd383613e6b565b73ffffffffffffffffffffffffffffffffffffffff80851660008181526008602052604080822080547fffffffffffffffff00000000ffffffffffffffffffffffffffffffffffffffff63ffffffff97909716700100000000000000000000000000000000027fffffffffffffffffffffffff00000000ffffffffffffffffffffffffffffffff909116179590951677ffffffff0000000000000000000000000000000000000000178555600b80546002909601805461ffff9097167fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000909716969096178655805460018181019092557f0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01db90180547fffffffffffffffffffffffff00000000000000000000000000000000000000001685179055838352855494881662010000027fffffffffffffffffffff0000000000000000000000000000000000000000ffff909516949094179094559251919290917f18dd09695e4fbdae8d1a5edb11221eb04564269c29a089b9753a6535c54ba92e9190a38173ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff167f0c5055390645c15a4be9a21b3f8d019153dcb4a0c125685da6eb84048e2fe90460405160405180910390a3505050565b63ffffffff80821660009081526009602052604081206001810154600390910154919267ffffffffffffffff90911691680100000000000000009004168115801590613020575060008163ffffffff16115b8015610cd657504261304567ffffffffffffffff841663ffffffff80851690613eec16565b67ffffffffffffffff1610949350505050565b600082820163ffffffff8085169082161015612bb257604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b60075481906130f09063ffffffff9081169060019061305816565b63ffffffff168163ffffffff1614156115e557336000908152600a6020526040902054829063ffffffff650100000000008204811691610100900481168201908316118061313c575080155b6131a757604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601360248201527f6d7573742064656c617920726571756573747300000000000000000000000000604482015290519081900360640190fd5b6131b084613f6d565b5050336000908152600a60205260409020805463ffffffff841665010000000000027fffffffffffffffffffffffffffffffffffffffffffffff00000000ffffffffff9091161790555050565b73ffffffffffffffffffffffffffffffffffffffff8316600090815260086020526040812054700100000000000000000000000000000000900463ffffffff168061324c576000915050612bb2565b8363ffffffff168163ffffffff16111561326a576000915050612bb2565b73ffffffffffffffffffffffffffffffffffffffff851660009081526008602052604090205463ffffffff808616740100000000000000000000000000000000000000009092041610156132c2576000915050612bb2565b73ffffffffffffffffffffffffffffffffffffffff851660009081526008602052604090205463ffffffff8086167801000000000000000000000000000000000000000000000000909204161061331d576000915050612bb2565b82156133f15773ffffffffffffffffffffffffffffffffffffffff851660009081526008602052604090205460045463ffffffff7c01000000000000000000000000000000000000000000000000000000009092048216917801000000000000000000000000000000000000000000000000909104811682018116908616118015906133af575060008163ffffffff16115b156133bf57600092505050612bb2565b600454700100000000000000000000000000000000900463ffffffff166133eb57600092505050612bb2565b5061341a565b63ffffffff8085166000908152600960205260409020600301541661341a576000915050612bb2565b506001949350505050565b60008163ffffffff1661344860018563ffffffff1661305890919063ffffffff16565b63ffffffff16148015612bb257505063ffffffff1660009081526009602052604090206001015468010000000000000000900467ffffffffffffffff1615919050565b60008263ffffffff168263ffffffff161115612a1f57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601e60248201527f536166654d6174683a207375627472616374696f6e206f766572666c6f770000604482015290519081900360640190fd5b63ffffffff1660009081526009602052604090206001015468010000000000000000900467ffffffffffffffff16151590565b60075481906135569063ffffffff9081169060019061305816565b63ffffffff168163ffffffff1614156115e55733600090815260086020526040902054600454839163ffffffff7c0100000000000000000000000000000000000000000000000000000000909104811691780100000000000000000000000000000000000000000000000090048116820190831611806135d4575080155b1561363b576135e284613f6d565b33600090815260086020526040902080547bffffffffffffffffffffffffffffffffffffffffffffffffffffffff167c010000000000000000000000000000000000000000000000000000000063ffffffff8716021790555b50505050565b63ffffffff8082166000908152600960205260409020600301548291166136c957604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f726f756e64206e6f7420616363657074696e6720616e77657273000000000000604482015290519081900360640190fd5b63ffffffff821660008181526009602090815260408083206002018054600180820183559185528385200188905533808552600890935281842080547fffffffff00000000ffffffffffffffffffffffffffffffffffffffffffffffff1678010000000000000000000000000000000000000000000000008702178155018790555190929186917f92e98423f8adac6e64d0608e519fd1cefb861498385c6dee70d58fc926ddc68c9190a4505050565b63ffffffff808216600090815260096020526040902060038101546002909101548392640100000000909204909116116115e55763ffffffff8216600090815260096020908152604080832060020180548251818502810185019093528083526138169383018282801561380c57602002820191906000526020600020905b8154815260200190600101908083116137f8575b505050505061416a565b63ffffffff841660008181526009602090815260409182902084815560010180547fffffffffffffffffffffffffffffffff0000000000000000ffffffffffffffff16680100000000000000004267ffffffffffffffff811691909102919091177fffffffffffffffffffffffff00000000ffffffffffffffffffffffffffffffff16700100000000000000000000000000000000860217909155600780547fffffffffffffffffffffffffffffffffffffffffffffffff00000000ffffffff16640100000000860217905582519081529151939450919284927f0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f928290030190a3505050565b63ffffffff808216600090815260096020526040812060039081015490546fffffffffffffffffffffffffffffffff6c010000000000000000000000009092048216936139859270010000000000000000000000000000000090920490911690849061298a16565b600380546fffffffffffffffffffffffffffffffff9081167001000000000000000000000000000000008483160217918290559192506139c6911683614234565b600380547fffffffffffffffffffffffffffffffff00000000000000000000000000000000166fffffffffffffffffffffffffffffffff92831617905533600090815260086020526040902054613a1e911683614234565b3360009081526008602052604080822080547fffffffffffffffffffffffffffffffff00000000000000000000000000000000166fffffffffffffffffffffffffffffffff94851617905551918316917ffe25c73e3b9089fac37d55c4c7efcba6f04af04cebd2fc4d6d7dbb07e1e5234f9190a2505050565b63ffffffff8082166000908152600960205260409020600381015460029091015483929190911614156115e55763ffffffff8216600090815260096020526040812060020190613ae78282614c76565b5060010180547fffffffff000000000000000000000000000000000000000000000000000000001690555050565b73ffffffffffffffffffffffffffffffffffffffff8116600090815260086020526040902054819074010000000000000000000000000000000000000000900463ffffffff90811614613bc957604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601260248201527f6f7261636c65206e6f7420656e61626c65640000000000000000000000000000604482015290519081900360640190fd5b60075473ffffffffffffffffffffffffffffffffffffffff8316600090815260086020526040812080547fffffffffffffffff00000000ffffffffffffffffffffffffffffffffffffffff1663ffffffff909316740100000000000000000000000000000000000000000292909217909155600b613c5e6001613c4a611614565b63ffffffff1661348b90919063ffffffff16565b63ffffffff1681548110613c6e57fe5b60009182526020808320919091015473ffffffffffffffffffffffffffffffffffffffff86811680855260089093526040808520600290810180549390941680875291862001805461ffff9093167fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00009384168117909155939094528154169055600b8054929350909183919083908110613d0457fe5b9060005260206000200160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550600b805480613d5757fe5b60008281526020812082017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff90810180547fffffffffffffffffffffffff000000000000000000000000000000000000000016905590910190915560405173ffffffffffffffffffffffffffffffffffffffff8616907f18dd09695e4fbdae8d1a5edb11221eb04564269c29a089b9753a6535c54ba92e908390a350505050565b600082613e0757506000611948565b82820282848281613e1457fe5b0414612bb2576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401808060200182810382526021815260200180614ccf6021913960400191505060405180910390fd5b60075460009063ffffffff168015801590613ecb575073ffffffffffffffffffffffffffffffffffffffff831660009081526008602052604090205463ffffffff8281167401000000000000000000000000000000000000000090920416145b15613ed7579050610a93565b612bb263ffffffff8083169060019061305816565b600082820167ffffffffffffffff8085169082161015612bb257604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b613f8a613f8563ffffffff8084169060019061348b16565b6142bd565b600780547fffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000090811663ffffffff848116918217909355600480546000838152600960209081526040918290206003810180547001000000000000000000000000000000009095048916949097169390931780875584547fffffffffffffffffffffffffffffffffffffffffffffffff00000000ffffffff909116740100000000000000000000000000000000000000009091048816640100000000021780875584547fffffffff00000000000000000000000000000000ffffffffffffffffffffffff9091166fffffffffffffffffffffffffffffffff9091166c01000000000000000000000000021780875593547fffffffffffffffffffffffffffffffffffffffff00000000ffffffffffffffff9094167c010000000000000000000000000000000000000000000000000000000090940490961668010000000000000000029290921790935560019290920180547fffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000164267ffffffffffffffff90811691909117918290558351911681529151339391927f0109fc6f55cf40689f02fbaad7af7fe7bbac8a3d2186600afc7d3e10cac6027192908290030190a350565b600081516000106141dc57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f6c697374206d757374206e6f7420626520656d70747900000000000000000000604482015290519081900360640190fd5b8151600281046001821661421b57600080614201866000600187036001870387614486565b90925090506142108282614564565b945050505050610a93565b61422b84600060018503846145d2565b92505050610a93565b60008282016fffffffffffffffffffffffffffffffff8085169082161015612bb257604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b806142c781612fce565b156115e55781600960006142e663ffffffff8085169060019061348b16565b63ffffffff16815260208101919091526040016000206001015468010000000000000000900467ffffffffffffffff1661438157604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601960248201527f70726576696f757320726f756e6420756e616e73776572656400000000000000604482015290519081900360640190fd5b600061439863ffffffff8086169060019061348b16565b63ffffffff8181166000908152600960205260408082208054898516845291832091825560019081015490820180547fffffffffffffffffffffffff00000000ffffffffffffffffffffffffffffffff1670010000000000000000000000000000000092839004909516909102939093177fffffffffffffffffffffffffffffffff0000000000000000ffffffffffffffff16680100000000000000004267ffffffffffffffff160217909255919250600201906144568282614c76565b5060010180547fffffffff0000000000000000000000000000000000000000000000000000000016905550505050565b60008082841061449557600080fd5b8386111580156144a55750848411155b6144ae57600080fd5b8286111580156144be5750848311155b6144c757600080fd5b600786860310156144e8576144df8787878787614663565b9150915061455a565b60006144f5888888614b1a565b905080841161450657809550614554565b8481101561451957806001019650614554565b80851115801561452857508381105b61452e57fe5b61453a888883886145d2565b925061454b888260010188876145d2565b915061455a9050565b506144c7565b9550959350505050565b600080831280156145755750600082135b8061458b575060008313801561458b5750600082125b156145ab57600261459c8484614bf7565b816145a357fe5b059050611948565b6000600280850781850701059050610cd66145cc6002860560028605614bf7565b82614bf7565b6000818411156145e157600080fd5b828211156145ee57600080fd5b82841015614645576007848403101561461a5760006146108686868687614663565b509150610cd69050565b6000614627868686614b1a565b90508083116146385780935061463f565b8060010194505b506145ee565b84848151811061465157fe5b60200260200101519050949350505050565b60008060008686600101039050600088886000018151811061468157fe5b602002602001015190506000826001106146bb577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6146d3565b8989600101815181106146ca57fe5b60200260200101515b9050600083600210614705577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff61471d565b8a8a6002018151811061471457fe5b60200260200101515b905060008460031061474f577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614767565b8b8b6003018151811061475e57fe5b60200260200101515b9050600085600410614799577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6147b1565b8c8c600401815181106147a857fe5b60200260200101515b90506000866005106147e3577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6147fb565b8d8d600501815181106147f257fe5b60200260200101515b905060008760061061482d577f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff614845565b8e8e6006018151811061483c57fe5b60200260200101515b905085871315614853579495945b8385131561485f579293925b8183131561486b579091905b84871315614877579395935b83861315614883579294925b8083131561488d57915b84861315614899579394935b808213156148a357905b828713156148af579195915b818613156148bb579094905b808513156148c557935b828613156148d1579194915b808413156148db57925b828513156148e7579193915b818413156148f3579092905b828413156148ff579192915b8d8c038061490f57879a506149dc565b806001141561492057869a506149dc565b806002141561493157859a506149dc565b806003141561494257849a506149dc565b806004141561495357839a506149dc565b806005141561496457829a506149dc565b806006141561497557819a506149dc565b604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601060248201527f6b31206f7574206f6620626f756e647300000000000000000000000000000000604482015290519081900360640190fd5b8e8c038d8d14156149fa57508a995061455a98505050505050505050565b80614a11575096985061455a975050505050505050565b8060011415614a2c575095985061455a975050505050505050565b8060021415614a47575094985061455a975050505050505050565b8060031415614a62575093985061455a975050505050505050565b8060041415614a7d575092985061455a975050505050505050565b8060051415614a98575091985061455a975050505050505050565b8060061415614ab3575090985061455a975050505050505050565b604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601060248201527f6b32206f7574206f6620626f756e647300000000000000000000000000000000604482015290519081900360640190fd5b6000808460028585010481518110614b2e57fe5b602002602001015190506001840393506001830192505b60018401935080858581518110614b5857fe5b602002602001015112614b45575b60018303925080858481518110614b7957fe5b602002602001015113614b665782841015614be957848381518110614b9a57fe5b6020026020010151858581518110614bae57fe5b6020026020010151868681518110614bc257fe5b60200260200101878681518110614bd557fe5b602090810291909101019190915252614bf2565b82915050612bb2565b614b45565b6000828201818312801590614c0c5750838112155b80614c215750600083128015614c2157508381125b612bb2576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401808060200182810382526021815260200180614cae6021913960400191505060405180910390fd5b5080546000825590600052602060002090810190611d3a919061146e91905b80821115614ca95760008155600101614c95565b509056fe5369676e6564536166654d6174683a206164646974696f6e206f766572666c6f77536166654d6174683a206d756c7469706c69636174696f6e206f766572666c6f77a2646970667358220000000000000000000000000000000000000000000000000000000000000000000064736f6c63430000000033"
 
 // DeployFluxAggregator deploys a new Ethereum contract, binding an instance of FluxAggregator to it.
 func DeployFluxAggregator(auth *bind.TransactOpts, backend bind.ContractBackend, _link common.Address, _paymentAmount *big.Int, _timeout uint32, _decimals uint8, _description [32]byte) (common.Address, *types.Transaction, *FluxAggregator, error) {
@@ -191,7 +191,7 @@ func (_FluxAggregator *FluxAggregatorTransactorRaw) Transact(opts *bind.Transact
 
 // VERSION is a free data retrieval call binding the contract method 0xffa1ad74.
 //
-// Solidity: function VERSION() constant returns(uint256)
+// Solidity: function VERSION() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) VERSION(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -203,21 +203,21 @@ func (_FluxAggregator *FluxAggregatorCaller) VERSION(opts *bind.CallOpts) (*big.
 
 // VERSION is a free data retrieval call binding the contract method 0xffa1ad74.
 //
-// Solidity: function VERSION() constant returns(uint256)
+// Solidity: function VERSION() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) VERSION() (*big.Int, error) {
 	return _FluxAggregator.Contract.VERSION(&_FluxAggregator.CallOpts)
 }
 
 // VERSION is a free data retrieval call binding the contract method 0xffa1ad74.
 //
-// Solidity: function VERSION() constant returns(uint256)
+// Solidity: function VERSION() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) VERSION() (*big.Int, error) {
 	return _FluxAggregator.Contract.VERSION(&_FluxAggregator.CallOpts)
 }
 
 // AllocatedFunds is a free data retrieval call binding the contract method 0xd4cc54e4.
 //
-// Solidity: function allocatedFunds() constant returns(uint128)
+// Solidity: function allocatedFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCaller) AllocatedFunds(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -229,21 +229,21 @@ func (_FluxAggregator *FluxAggregatorCaller) AllocatedFunds(opts *bind.CallOpts)
 
 // AllocatedFunds is a free data retrieval call binding the contract method 0xd4cc54e4.
 //
-// Solidity: function allocatedFunds() constant returns(uint128)
+// Solidity: function allocatedFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorSession) AllocatedFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AllocatedFunds(&_FluxAggregator.CallOpts)
 }
 
 // AllocatedFunds is a free data retrieval call binding the contract method 0xd4cc54e4.
 //
-// Solidity: function allocatedFunds() constant returns(uint128)
+// Solidity: function allocatedFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCallerSession) AllocatedFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AllocatedFunds(&_FluxAggregator.CallOpts)
 }
 
 // AvailableFunds is a free data retrieval call binding the contract method 0x46fcff4c.
 //
-// Solidity: function availableFunds() constant returns(uint128)
+// Solidity: function availableFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCaller) AvailableFunds(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -255,21 +255,21 @@ func (_FluxAggregator *FluxAggregatorCaller) AvailableFunds(opts *bind.CallOpts)
 
 // AvailableFunds is a free data retrieval call binding the contract method 0x46fcff4c.
 //
-// Solidity: function availableFunds() constant returns(uint128)
+// Solidity: function availableFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorSession) AvailableFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AvailableFunds(&_FluxAggregator.CallOpts)
 }
 
 // AvailableFunds is a free data retrieval call binding the contract method 0x46fcff4c.
 //
-// Solidity: function availableFunds() constant returns(uint128)
+// Solidity: function availableFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCallerSession) AvailableFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AvailableFunds(&_FluxAggregator.CallOpts)
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_FluxAggregator *FluxAggregatorCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var (
 		ret0 = new(uint8)
@@ -281,21 +281,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Decimals(opts *bind.CallOpts) (uint
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_FluxAggregator *FluxAggregatorSession) Decimals() (uint8, error) {
 	return _FluxAggregator.Contract.Decimals(&_FluxAggregator.CallOpts)
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_FluxAggregator *FluxAggregatorCallerSession) Decimals() (uint8, error) {
 	return _FluxAggregator.Contract.Decimals(&_FluxAggregator.CallOpts)
 }
 
 // Description is a free data retrieval call binding the contract method 0x7284e416.
 //
-// Solidity: function description() constant returns(bytes32)
+// Solidity: function description() view returns(bytes32)
 func (_FluxAggregator *FluxAggregatorCaller) Description(opts *bind.CallOpts) ([32]byte, error) {
 	var (
 		ret0 = new([32]byte)
@@ -307,21 +307,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Description(opts *bind.CallOpts) ([
 
 // Description is a free data retrieval call binding the contract method 0x7284e416.
 //
-// Solidity: function description() constant returns(bytes32)
+// Solidity: function description() view returns(bytes32)
 func (_FluxAggregator *FluxAggregatorSession) Description() ([32]byte, error) {
 	return _FluxAggregator.Contract.Description(&_FluxAggregator.CallOpts)
 }
 
 // Description is a free data retrieval call binding the contract method 0x7284e416.
 //
-// Solidity: function description() constant returns(bytes32)
+// Solidity: function description() view returns(bytes32)
 func (_FluxAggregator *FluxAggregatorCallerSession) Description() ([32]byte, error) {
 	return _FluxAggregator.Contract.Description(&_FluxAggregator.CallOpts)
 }
 
 // GetAdmin is a free data retrieval call binding the contract method 0x64efb22b.
 //
-// Solidity: function getAdmin(address _oracle) constant returns(address)
+// Solidity: function getAdmin(address _oracle) view returns(address)
 func (_FluxAggregator *FluxAggregatorCaller) GetAdmin(opts *bind.CallOpts, _oracle common.Address) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
@@ -333,21 +333,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetAdmin(opts *bind.CallOpts, _orac
 
 // GetAdmin is a free data retrieval call binding the contract method 0x64efb22b.
 //
-// Solidity: function getAdmin(address _oracle) constant returns(address)
+// Solidity: function getAdmin(address _oracle) view returns(address)
 func (_FluxAggregator *FluxAggregatorSession) GetAdmin(_oracle common.Address) (common.Address, error) {
 	return _FluxAggregator.Contract.GetAdmin(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // GetAdmin is a free data retrieval call binding the contract method 0x64efb22b.
 //
-// Solidity: function getAdmin(address _oracle) constant returns(address)
+// Solidity: function getAdmin(address _oracle) view returns(address)
 func (_FluxAggregator *FluxAggregatorCallerSession) GetAdmin(_oracle common.Address) (common.Address, error) {
 	return _FluxAggregator.Contract.GetAdmin(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // GetAnswer is a free data retrieval call binding the contract method 0xb5ab58dc.
 //
-// Solidity: function getAnswer(uint256 _roundId) constant returns(int256)
+// Solidity: function getAnswer(uint256 _roundId) view returns(int256)
 func (_FluxAggregator *FluxAggregatorCaller) GetAnswer(opts *bind.CallOpts, _roundId *big.Int) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -359,21 +359,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetAnswer(opts *bind.CallOpts, _rou
 
 // GetAnswer is a free data retrieval call binding the contract method 0xb5ab58dc.
 //
-// Solidity: function getAnswer(uint256 _roundId) constant returns(int256)
+// Solidity: function getAnswer(uint256 _roundId) view returns(int256)
 func (_FluxAggregator *FluxAggregatorSession) GetAnswer(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetAnswer(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetAnswer is a free data retrieval call binding the contract method 0xb5ab58dc.
 //
-// Solidity: function getAnswer(uint256 _roundId) constant returns(int256)
+// Solidity: function getAnswer(uint256 _roundId) view returns(int256)
 func (_FluxAggregator *FluxAggregatorCallerSession) GetAnswer(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetAnswer(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetOracles is a free data retrieval call binding the contract method 0x40884c52.
 //
-// Solidity: function getOracles() constant returns(address[])
+// Solidity: function getOracles() view returns(address[])
 func (_FluxAggregator *FluxAggregatorCaller) GetOracles(opts *bind.CallOpts) ([]common.Address, error) {
 	var (
 		ret0 = new([]common.Address)
@@ -385,21 +385,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetOracles(opts *bind.CallOpts) ([]
 
 // GetOracles is a free data retrieval call binding the contract method 0x40884c52.
 //
-// Solidity: function getOracles() constant returns(address[])
+// Solidity: function getOracles() view returns(address[])
 func (_FluxAggregator *FluxAggregatorSession) GetOracles() ([]common.Address, error) {
 	return _FluxAggregator.Contract.GetOracles(&_FluxAggregator.CallOpts)
 }
 
 // GetOracles is a free data retrieval call binding the contract method 0x40884c52.
 //
-// Solidity: function getOracles() constant returns(address[])
+// Solidity: function getOracles() view returns(address[])
 func (_FluxAggregator *FluxAggregatorCallerSession) GetOracles() ([]common.Address, error) {
 	return _FluxAggregator.Contract.GetOracles(&_FluxAggregator.CallOpts)
 }
 
 // GetOriginatingRoundOfAnswer is a free data retrieval call binding the contract method 0x09e24ae0.
 //
-// Solidity: function getOriginatingRoundOfAnswer(uint256 _roundId) constant returns(uint256)
+// Solidity: function getOriginatingRoundOfAnswer(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) GetOriginatingRoundOfAnswer(opts *bind.CallOpts, _roundId *big.Int) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -411,21 +411,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetOriginatingRoundOfAnswer(opts *b
 
 // GetOriginatingRoundOfAnswer is a free data retrieval call binding the contract method 0x09e24ae0.
 //
-// Solidity: function getOriginatingRoundOfAnswer(uint256 _roundId) constant returns(uint256)
+// Solidity: function getOriginatingRoundOfAnswer(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) GetOriginatingRoundOfAnswer(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetOriginatingRoundOfAnswer(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetOriginatingRoundOfAnswer is a free data retrieval call binding the contract method 0x09e24ae0.
 //
-// Solidity: function getOriginatingRoundOfAnswer(uint256 _roundId) constant returns(uint256)
+// Solidity: function getOriginatingRoundOfAnswer(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) GetOriginatingRoundOfAnswer(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetOriginatingRoundOfAnswer(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetRoundStartedAt is a free data retrieval call binding the contract method 0x79b38bbb.
 //
-// Solidity: function getRoundStartedAt(uint256 _roundId) constant returns(uint256)
+// Solidity: function getRoundStartedAt(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) GetRoundStartedAt(opts *bind.CallOpts, _roundId *big.Int) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -437,21 +437,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetRoundStartedAt(opts *bind.CallOp
 
 // GetRoundStartedAt is a free data retrieval call binding the contract method 0x79b38bbb.
 //
-// Solidity: function getRoundStartedAt(uint256 _roundId) constant returns(uint256)
+// Solidity: function getRoundStartedAt(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) GetRoundStartedAt(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetRoundStartedAt(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetRoundStartedAt is a free data retrieval call binding the contract method 0x79b38bbb.
 //
-// Solidity: function getRoundStartedAt(uint256 _roundId) constant returns(uint256)
+// Solidity: function getRoundStartedAt(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) GetRoundStartedAt(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetRoundStartedAt(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetTimedOutStatus is a free data retrieval call binding the contract method 0x25b6ae00.
 //
-// Solidity: function getTimedOutStatus(uint256 _roundId) constant returns(bool)
+// Solidity: function getTimedOutStatus(uint256 _roundId) view returns(bool)
 func (_FluxAggregator *FluxAggregatorCaller) GetTimedOutStatus(opts *bind.CallOpts, _roundId *big.Int) (bool, error) {
 	var (
 		ret0 = new(bool)
@@ -463,21 +463,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetTimedOutStatus(opts *bind.CallOp
 
 // GetTimedOutStatus is a free data retrieval call binding the contract method 0x25b6ae00.
 //
-// Solidity: function getTimedOutStatus(uint256 _roundId) constant returns(bool)
+// Solidity: function getTimedOutStatus(uint256 _roundId) view returns(bool)
 func (_FluxAggregator *FluxAggregatorSession) GetTimedOutStatus(_roundId *big.Int) (bool, error) {
 	return _FluxAggregator.Contract.GetTimedOutStatus(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetTimedOutStatus is a free data retrieval call binding the contract method 0x25b6ae00.
 //
-// Solidity: function getTimedOutStatus(uint256 _roundId) constant returns(bool)
+// Solidity: function getTimedOutStatus(uint256 _roundId) view returns(bool)
 func (_FluxAggregator *FluxAggregatorCallerSession) GetTimedOutStatus(_roundId *big.Int) (bool, error) {
 	return _FluxAggregator.Contract.GetTimedOutStatus(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetTimestamp is a free data retrieval call binding the contract method 0xb633620c.
 //
-// Solidity: function getTimestamp(uint256 _roundId) constant returns(uint256)
+// Solidity: function getTimestamp(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) GetTimestamp(opts *bind.CallOpts, _roundId *big.Int) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -489,21 +489,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetTimestamp(opts *bind.CallOpts, _
 
 // GetTimestamp is a free data retrieval call binding the contract method 0xb633620c.
 //
-// Solidity: function getTimestamp(uint256 _roundId) constant returns(uint256)
+// Solidity: function getTimestamp(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) GetTimestamp(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetTimestamp(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // GetTimestamp is a free data retrieval call binding the contract method 0xb633620c.
 //
-// Solidity: function getTimestamp(uint256 _roundId) constant returns(uint256)
+// Solidity: function getTimestamp(uint256 _roundId) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) GetTimestamp(_roundId *big.Int) (*big.Int, error) {
 	return _FluxAggregator.Contract.GetTimestamp(&_FluxAggregator.CallOpts, _roundId)
 }
 
 // LatestAnswer is a free data retrieval call binding the contract method 0x50d25bcd.
 //
-// Solidity: function latestAnswer() constant returns(int256)
+// Solidity: function latestAnswer() view returns(int256)
 func (_FluxAggregator *FluxAggregatorCaller) LatestAnswer(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -515,21 +515,21 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestAnswer(opts *bind.CallOpts) (
 
 // LatestAnswer is a free data retrieval call binding the contract method 0x50d25bcd.
 //
-// Solidity: function latestAnswer() constant returns(int256)
+// Solidity: function latestAnswer() view returns(int256)
 func (_FluxAggregator *FluxAggregatorSession) LatestAnswer() (*big.Int, error) {
 	return _FluxAggregator.Contract.LatestAnswer(&_FluxAggregator.CallOpts)
 }
 
 // LatestAnswer is a free data retrieval call binding the contract method 0x50d25bcd.
 //
-// Solidity: function latestAnswer() constant returns(int256)
+// Solidity: function latestAnswer() view returns(int256)
 func (_FluxAggregator *FluxAggregatorCallerSession) LatestAnswer() (*big.Int, error) {
 	return _FluxAggregator.Contract.LatestAnswer(&_FluxAggregator.CallOpts)
 }
 
 // LatestRound is a free data retrieval call binding the contract method 0x668a0f02.
 //
-// Solidity: function latestRound() constant returns(uint256)
+// Solidity: function latestRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) LatestRound(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -541,21 +541,21 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestRound(opts *bind.CallOpts) (*
 
 // LatestRound is a free data retrieval call binding the contract method 0x668a0f02.
 //
-// Solidity: function latestRound() constant returns(uint256)
+// Solidity: function latestRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) LatestRound() (*big.Int, error) {
 	return _FluxAggregator.Contract.LatestRound(&_FluxAggregator.CallOpts)
 }
 
 // LatestRound is a free data retrieval call binding the contract method 0x668a0f02.
 //
-// Solidity: function latestRound() constant returns(uint256)
+// Solidity: function latestRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) LatestRound() (*big.Int, error) {
 	return _FluxAggregator.Contract.LatestRound(&_FluxAggregator.CallOpts)
 }
 
 // LatestSubmission is a free data retrieval call binding the contract method 0xbb07bacd.
 //
-// Solidity: function latestSubmission(address _oracle) constant returns(int256, uint256)
+// Solidity: function latestSubmission(address _oracle) view returns(int256, uint256)
 func (_FluxAggregator *FluxAggregatorCaller) LatestSubmission(opts *bind.CallOpts, _oracle common.Address) (*big.Int, *big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -571,21 +571,21 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestSubmission(opts *bind.CallOpt
 
 // LatestSubmission is a free data retrieval call binding the contract method 0xbb07bacd.
 //
-// Solidity: function latestSubmission(address _oracle) constant returns(int256, uint256)
+// Solidity: function latestSubmission(address _oracle) view returns(int256, uint256)
 func (_FluxAggregator *FluxAggregatorSession) LatestSubmission(_oracle common.Address) (*big.Int, *big.Int, error) {
 	return _FluxAggregator.Contract.LatestSubmission(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // LatestSubmission is a free data retrieval call binding the contract method 0xbb07bacd.
 //
-// Solidity: function latestSubmission(address _oracle) constant returns(int256, uint256)
+// Solidity: function latestSubmission(address _oracle) view returns(int256, uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) LatestSubmission(_oracle common.Address) (*big.Int, *big.Int, error) {
 	return _FluxAggregator.Contract.LatestSubmission(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // LatestTimestamp is a free data retrieval call binding the contract method 0x8205bf6a.
 //
-// Solidity: function latestTimestamp() constant returns(uint256)
+// Solidity: function latestTimestamp() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) LatestTimestamp(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -597,21 +597,21 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestTimestamp(opts *bind.CallOpts
 
 // LatestTimestamp is a free data retrieval call binding the contract method 0x8205bf6a.
 //
-// Solidity: function latestTimestamp() constant returns(uint256)
+// Solidity: function latestTimestamp() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) LatestTimestamp() (*big.Int, error) {
 	return _FluxAggregator.Contract.LatestTimestamp(&_FluxAggregator.CallOpts)
 }
 
 // LatestTimestamp is a free data retrieval call binding the contract method 0x8205bf6a.
 //
-// Solidity: function latestTimestamp() constant returns(uint256)
+// Solidity: function latestTimestamp() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) LatestTimestamp() (*big.Int, error) {
 	return _FluxAggregator.Contract.LatestTimestamp(&_FluxAggregator.CallOpts)
 }
 
 // LinkToken is a free data retrieval call binding the contract method 0x57970e93.
 //
-// Solidity: function linkToken() constant returns(address)
+// Solidity: function linkToken() view returns(address)
 func (_FluxAggregator *FluxAggregatorCaller) LinkToken(opts *bind.CallOpts) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
@@ -623,21 +623,21 @@ func (_FluxAggregator *FluxAggregatorCaller) LinkToken(opts *bind.CallOpts) (com
 
 // LinkToken is a free data retrieval call binding the contract method 0x57970e93.
 //
-// Solidity: function linkToken() constant returns(address)
+// Solidity: function linkToken() view returns(address)
 func (_FluxAggregator *FluxAggregatorSession) LinkToken() (common.Address, error) {
 	return _FluxAggregator.Contract.LinkToken(&_FluxAggregator.CallOpts)
 }
 
 // LinkToken is a free data retrieval call binding the contract method 0x57970e93.
 //
-// Solidity: function linkToken() constant returns(address)
+// Solidity: function linkToken() view returns(address)
 func (_FluxAggregator *FluxAggregatorCallerSession) LinkToken() (common.Address, error) {
 	return _FluxAggregator.Contract.LinkToken(&_FluxAggregator.CallOpts)
 }
 
 // MaxAnswerCount is a free data retrieval call binding the contract method 0xe052cb04.
 //
-// Solidity: function maxAnswerCount() constant returns(uint32)
+// Solidity: function maxAnswerCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) MaxAnswerCount(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -649,21 +649,21 @@ func (_FluxAggregator *FluxAggregatorCaller) MaxAnswerCount(opts *bind.CallOpts)
 
 // MaxAnswerCount is a free data retrieval call binding the contract method 0xe052cb04.
 //
-// Solidity: function maxAnswerCount() constant returns(uint32)
+// Solidity: function maxAnswerCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) MaxAnswerCount() (uint32, error) {
 	return _FluxAggregator.Contract.MaxAnswerCount(&_FluxAggregator.CallOpts)
 }
 
 // MaxAnswerCount is a free data retrieval call binding the contract method 0xe052cb04.
 //
-// Solidity: function maxAnswerCount() constant returns(uint32)
+// Solidity: function maxAnswerCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) MaxAnswerCount() (uint32, error) {
 	return _FluxAggregator.Contract.MaxAnswerCount(&_FluxAggregator.CallOpts)
 }
 
 // MinAnswerCount is a free data retrieval call binding the contract method 0xd002988c.
 //
-// Solidity: function minAnswerCount() constant returns(uint32)
+// Solidity: function minAnswerCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) MinAnswerCount(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -675,21 +675,21 @@ func (_FluxAggregator *FluxAggregatorCaller) MinAnswerCount(opts *bind.CallOpts)
 
 // MinAnswerCount is a free data retrieval call binding the contract method 0xd002988c.
 //
-// Solidity: function minAnswerCount() constant returns(uint32)
+// Solidity: function minAnswerCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) MinAnswerCount() (uint32, error) {
 	return _FluxAggregator.Contract.MinAnswerCount(&_FluxAggregator.CallOpts)
 }
 
 // MinAnswerCount is a free data retrieval call binding the contract method 0xd002988c.
 //
-// Solidity: function minAnswerCount() constant returns(uint32)
+// Solidity: function minAnswerCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) MinAnswerCount() (uint32, error) {
 	return _FluxAggregator.Contract.MinAnswerCount(&_FluxAggregator.CallOpts)
 }
 
 // OracleCount is a free data retrieval call binding the contract method 0x613d8fcc.
 //
-// Solidity: function oracleCount() constant returns(uint32)
+// Solidity: function oracleCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) OracleCount(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -701,21 +701,21 @@ func (_FluxAggregator *FluxAggregatorCaller) OracleCount(opts *bind.CallOpts) (u
 
 // OracleCount is a free data retrieval call binding the contract method 0x613d8fcc.
 //
-// Solidity: function oracleCount() constant returns(uint32)
+// Solidity: function oracleCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) OracleCount() (uint32, error) {
 	return _FluxAggregator.Contract.OracleCount(&_FluxAggregator.CallOpts)
 }
 
 // OracleCount is a free data retrieval call binding the contract method 0x613d8fcc.
 //
-// Solidity: function oracleCount() constant returns(uint32)
+// Solidity: function oracleCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) OracleCount() (uint32, error) {
 	return _FluxAggregator.Contract.OracleCount(&_FluxAggregator.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function owner() constant returns(address)
+// Solidity: function owner() view returns(address)
 func (_FluxAggregator *FluxAggregatorCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
@@ -727,21 +727,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Owner(opts *bind.CallOpts) (common.
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function owner() constant returns(address)
+// Solidity: function owner() view returns(address)
 func (_FluxAggregator *FluxAggregatorSession) Owner() (common.Address, error) {
 	return _FluxAggregator.Contract.Owner(&_FluxAggregator.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function owner() constant returns(address)
+// Solidity: function owner() view returns(address)
 func (_FluxAggregator *FluxAggregatorCallerSession) Owner() (common.Address, error) {
 	return _FluxAggregator.Contract.Owner(&_FluxAggregator.CallOpts)
 }
 
 // PaymentAmount is a free data retrieval call binding the contract method 0xc35905c6.
 //
-// Solidity: function paymentAmount() constant returns(uint128)
+// Solidity: function paymentAmount() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCaller) PaymentAmount(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -753,21 +753,21 @@ func (_FluxAggregator *FluxAggregatorCaller) PaymentAmount(opts *bind.CallOpts) 
 
 // PaymentAmount is a free data retrieval call binding the contract method 0xc35905c6.
 //
-// Solidity: function paymentAmount() constant returns(uint128)
+// Solidity: function paymentAmount() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorSession) PaymentAmount() (*big.Int, error) {
 	return _FluxAggregator.Contract.PaymentAmount(&_FluxAggregator.CallOpts)
 }
 
 // PaymentAmount is a free data retrieval call binding the contract method 0xc35905c6.
 //
-// Solidity: function paymentAmount() constant returns(uint128)
+// Solidity: function paymentAmount() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCallerSession) PaymentAmount() (*big.Int, error) {
 	return _FluxAggregator.Contract.PaymentAmount(&_FluxAggregator.CallOpts)
 }
 
 // ReportingRound is a free data retrieval call binding the contract method 0x6fb4bb4e.
 //
-// Solidity: function reportingRound() constant returns(uint256)
+// Solidity: function reportingRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) ReportingRound(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -779,21 +779,21 @@ func (_FluxAggregator *FluxAggregatorCaller) ReportingRound(opts *bind.CallOpts)
 
 // ReportingRound is a free data retrieval call binding the contract method 0x6fb4bb4e.
 //
-// Solidity: function reportingRound() constant returns(uint256)
+// Solidity: function reportingRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) ReportingRound() (*big.Int, error) {
 	return _FluxAggregator.Contract.ReportingRound(&_FluxAggregator.CallOpts)
 }
 
 // ReportingRound is a free data retrieval call binding the contract method 0x6fb4bb4e.
 //
-// Solidity: function reportingRound() constant returns(uint256)
+// Solidity: function reportingRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) ReportingRound() (*big.Int, error) {
 	return _FluxAggregator.Contract.ReportingRound(&_FluxAggregator.CallOpts)
 }
 
 // ReportingRoundStartedAt is a free data retrieval call binding the contract method 0xca04f8f0.
 //
-// Solidity: function reportingRoundStartedAt() constant returns(uint256)
+// Solidity: function reportingRoundStartedAt() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) ReportingRoundStartedAt(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -805,21 +805,21 @@ func (_FluxAggregator *FluxAggregatorCaller) ReportingRoundStartedAt(opts *bind.
 
 // ReportingRoundStartedAt is a free data retrieval call binding the contract method 0xca04f8f0.
 //
-// Solidity: function reportingRoundStartedAt() constant returns(uint256)
+// Solidity: function reportingRoundStartedAt() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) ReportingRoundStartedAt() (*big.Int, error) {
 	return _FluxAggregator.Contract.ReportingRoundStartedAt(&_FluxAggregator.CallOpts)
 }
 
 // ReportingRoundStartedAt is a free data retrieval call binding the contract method 0xca04f8f0.
 //
-// Solidity: function reportingRoundStartedAt() constant returns(uint256)
+// Solidity: function reportingRoundStartedAt() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) ReportingRoundStartedAt() (*big.Int, error) {
 	return _FluxAggregator.Contract.ReportingRoundStartedAt(&_FluxAggregator.CallOpts)
 }
 
 // RestartDelay is a free data retrieval call binding the contract method 0x357ebb02.
 //
-// Solidity: function restartDelay() constant returns(uint32)
+// Solidity: function restartDelay() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) RestartDelay(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -831,21 +831,21 @@ func (_FluxAggregator *FluxAggregatorCaller) RestartDelay(opts *bind.CallOpts) (
 
 // RestartDelay is a free data retrieval call binding the contract method 0x357ebb02.
 //
-// Solidity: function restartDelay() constant returns(uint32)
+// Solidity: function restartDelay() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) RestartDelay() (uint32, error) {
 	return _FluxAggregator.Contract.RestartDelay(&_FluxAggregator.CallOpts)
 }
 
 // RestartDelay is a free data retrieval call binding the contract method 0x357ebb02.
 //
-// Solidity: function restartDelay() constant returns(uint32)
+// Solidity: function restartDelay() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) RestartDelay() (uint32, error) {
 	return _FluxAggregator.Contract.RestartDelay(&_FluxAggregator.CallOpts)
 }
 
 // RoundState is a free data retrieval call binding the contract method 0xc410579e.
 //
-// Solidity: function roundState(address _oracle) constant returns(uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt, uint128 _availableFunds, uint128 _paymentAmount)
+// Solidity: function roundState(address _oracle) view returns(uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt, uint128 _availableFunds, uint128 _paymentAmount, uint32 _oracleCount)
 func (_FluxAggregator *FluxAggregatorCaller) RoundState(opts *bind.CallOpts, _oracle common.Address) (struct {
 	ReportableRoundId uint32
 	EligibleToSubmit  bool
@@ -853,6 +853,7 @@ func (_FluxAggregator *FluxAggregatorCaller) RoundState(opts *bind.CallOpts, _or
 	TimesOutAt        uint64
 	AvailableFunds    *big.Int
 	PaymentAmount     *big.Int
+	OracleCount       uint32
 }, error) {
 	ret := new(struct {
 		ReportableRoundId uint32
@@ -861,6 +862,7 @@ func (_FluxAggregator *FluxAggregatorCaller) RoundState(opts *bind.CallOpts, _or
 		TimesOutAt        uint64
 		AvailableFunds    *big.Int
 		PaymentAmount     *big.Int
+		OracleCount       uint32
 	})
 	out := ret
 	err := _FluxAggregator.contract.Call(opts, out, "roundState", _oracle)
@@ -869,7 +871,7 @@ func (_FluxAggregator *FluxAggregatorCaller) RoundState(opts *bind.CallOpts, _or
 
 // RoundState is a free data retrieval call binding the contract method 0xc410579e.
 //
-// Solidity: function roundState(address _oracle) constant returns(uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt, uint128 _availableFunds, uint128 _paymentAmount)
+// Solidity: function roundState(address _oracle) view returns(uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt, uint128 _availableFunds, uint128 _paymentAmount, uint32 _oracleCount)
 func (_FluxAggregator *FluxAggregatorSession) RoundState(_oracle common.Address) (struct {
 	ReportableRoundId uint32
 	EligibleToSubmit  bool
@@ -877,13 +879,14 @@ func (_FluxAggregator *FluxAggregatorSession) RoundState(_oracle common.Address)
 	TimesOutAt        uint64
 	AvailableFunds    *big.Int
 	PaymentAmount     *big.Int
+	OracleCount       uint32
 }, error) {
 	return _FluxAggregator.Contract.RoundState(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // RoundState is a free data retrieval call binding the contract method 0xc410579e.
 //
-// Solidity: function roundState(address _oracle) constant returns(uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt, uint128 _availableFunds, uint128 _paymentAmount)
+// Solidity: function roundState(address _oracle) view returns(uint32 _reportableRoundId, bool _eligibleToSubmit, int256 _latestRoundAnswer, uint64 _timesOutAt, uint128 _availableFunds, uint128 _paymentAmount, uint32 _oracleCount)
 func (_FluxAggregator *FluxAggregatorCallerSession) RoundState(_oracle common.Address) (struct {
 	ReportableRoundId uint32
 	EligibleToSubmit  bool
@@ -891,13 +894,14 @@ func (_FluxAggregator *FluxAggregatorCallerSession) RoundState(_oracle common.Ad
 	TimesOutAt        uint64
 	AvailableFunds    *big.Int
 	PaymentAmount     *big.Int
+	OracleCount       uint32
 }, error) {
 	return _FluxAggregator.Contract.RoundState(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // Timeout is a free data retrieval call binding the contract method 0x70dea79a.
 //
-// Solidity: function timeout() constant returns(uint32)
+// Solidity: function timeout() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) Timeout(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -909,21 +913,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Timeout(opts *bind.CallOpts) (uint3
 
 // Timeout is a free data retrieval call binding the contract method 0x70dea79a.
 //
-// Solidity: function timeout() constant returns(uint32)
+// Solidity: function timeout() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) Timeout() (uint32, error) {
 	return _FluxAggregator.Contract.Timeout(&_FluxAggregator.CallOpts)
 }
 
 // Timeout is a free data retrieval call binding the contract method 0x70dea79a.
 //
-// Solidity: function timeout() constant returns(uint32)
+// Solidity: function timeout() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) Timeout() (uint32, error) {
 	return _FluxAggregator.Contract.Timeout(&_FluxAggregator.CallOpts)
 }
 
 // WithdrawablePayment is a free data retrieval call binding the contract method 0xe2e40317.
 //
-// Solidity: function withdrawablePayment(address _oracle) constant returns(uint256)
+// Solidity: function withdrawablePayment(address _oracle) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) WithdrawablePayment(opts *bind.CallOpts, _oracle common.Address) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -935,14 +939,14 @@ func (_FluxAggregator *FluxAggregatorCaller) WithdrawablePayment(opts *bind.Call
 
 // WithdrawablePayment is a free data retrieval call binding the contract method 0xe2e40317.
 //
-// Solidity: function withdrawablePayment(address _oracle) constant returns(uint256)
+// Solidity: function withdrawablePayment(address _oracle) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) WithdrawablePayment(_oracle common.Address) (*big.Int, error) {
 	return _FluxAggregator.Contract.WithdrawablePayment(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // WithdrawablePayment is a free data retrieval call binding the contract method 0xe2e40317.
 //
-// Solidity: function withdrawablePayment(address _oracle) constant returns(uint256)
+// Solidity: function withdrawablePayment(address _oracle) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) WithdrawablePayment(_oracle common.Address) (*big.Int, error) {
 	return _FluxAggregator.Contract.WithdrawablePayment(&_FluxAggregator.CallOpts, _oracle)
 }
@@ -989,25 +993,25 @@ func (_FluxAggregator *FluxAggregatorTransactorSession) AcceptOwnership() (*type
 	return _FluxAggregator.Contract.AcceptOwnership(&_FluxAggregator.TransactOpts)
 }
 
-// AddOracle is a paid mutator transaction binding the contract method 0x2f2f4767.
+// AddOracles is a paid mutator transaction binding the contract method 0xbbf0b7e9.
 //
-// Solidity: function addOracle(address _oracle, address _admin, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
-func (_FluxAggregator *FluxAggregatorTransactor) AddOracle(opts *bind.TransactOpts, _oracle common.Address, _admin common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
-	return _FluxAggregator.contract.Transact(opts, "addOracle", _oracle, _admin, _minAnswers, _maxAnswers, _restartDelay)
+// Solidity: function addOracles(address[] _oracles, address[] _admins, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
+func (_FluxAggregator *FluxAggregatorTransactor) AddOracles(opts *bind.TransactOpts, _oracles []common.Address, _admins []common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.contract.Transact(opts, "addOracles", _oracles, _admins, _minAnswers, _maxAnswers, _restartDelay)
 }
 
-// AddOracle is a paid mutator transaction binding the contract method 0x2f2f4767.
+// AddOracles is a paid mutator transaction binding the contract method 0xbbf0b7e9.
 //
-// Solidity: function addOracle(address _oracle, address _admin, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
-func (_FluxAggregator *FluxAggregatorSession) AddOracle(_oracle common.Address, _admin common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.AddOracle(&_FluxAggregator.TransactOpts, _oracle, _admin, _minAnswers, _maxAnswers, _restartDelay)
+// Solidity: function addOracles(address[] _oracles, address[] _admins, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
+func (_FluxAggregator *FluxAggregatorSession) AddOracles(_oracles []common.Address, _admins []common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.AddOracles(&_FluxAggregator.TransactOpts, _oracles, _admins, _minAnswers, _maxAnswers, _restartDelay)
 }
 
-// AddOracle is a paid mutator transaction binding the contract method 0x2f2f4767.
+// AddOracles is a paid mutator transaction binding the contract method 0xbbf0b7e9.
 //
-// Solidity: function addOracle(address _oracle, address _admin, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
-func (_FluxAggregator *FluxAggregatorTransactorSession) AddOracle(_oracle common.Address, _admin common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.AddOracle(&_FluxAggregator.TransactOpts, _oracle, _admin, _minAnswers, _maxAnswers, _restartDelay)
+// Solidity: function addOracles(address[] _oracles, address[] _admins, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
+func (_FluxAggregator *FluxAggregatorTransactorSession) AddOracles(_oracles []common.Address, _admins []common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.AddOracles(&_FluxAggregator.TransactOpts, _oracles, _admins, _minAnswers, _maxAnswers, _restartDelay)
 }
 
 // OnTokenTransfer is a paid mutator transaction binding the contract method 0xa4c0ed36.
@@ -1031,46 +1035,46 @@ func (_FluxAggregator *FluxAggregatorTransactorSession) OnTokenTransfer(arg0 com
 	return _FluxAggregator.Contract.OnTokenTransfer(&_FluxAggregator.TransactOpts, arg0, arg1, arg2)
 }
 
-// RemoveOracle is a paid mutator transaction binding the contract method 0xa4ce9a27.
+// RemoveOracles is a paid mutator transaction binding the contract method 0xebf8571c.
 //
-// Solidity: function removeOracle(address _oracle, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
-func (_FluxAggregator *FluxAggregatorTransactor) RemoveOracle(opts *bind.TransactOpts, _oracle common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
-	return _FluxAggregator.contract.Transact(opts, "removeOracle", _oracle, _minAnswers, _maxAnswers, _restartDelay)
+// Solidity: function removeOracles(address[] _oracles, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
+func (_FluxAggregator *FluxAggregatorTransactor) RemoveOracles(opts *bind.TransactOpts, _oracles []common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.contract.Transact(opts, "removeOracles", _oracles, _minAnswers, _maxAnswers, _restartDelay)
 }
 
-// RemoveOracle is a paid mutator transaction binding the contract method 0xa4ce9a27.
+// RemoveOracles is a paid mutator transaction binding the contract method 0xebf8571c.
 //
-// Solidity: function removeOracle(address _oracle, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
-func (_FluxAggregator *FluxAggregatorSession) RemoveOracle(_oracle common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.RemoveOracle(&_FluxAggregator.TransactOpts, _oracle, _minAnswers, _maxAnswers, _restartDelay)
+// Solidity: function removeOracles(address[] _oracles, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
+func (_FluxAggregator *FluxAggregatorSession) RemoveOracles(_oracles []common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.RemoveOracles(&_FluxAggregator.TransactOpts, _oracles, _minAnswers, _maxAnswers, _restartDelay)
 }
 
-// RemoveOracle is a paid mutator transaction binding the contract method 0xa4ce9a27.
+// RemoveOracles is a paid mutator transaction binding the contract method 0xebf8571c.
 //
-// Solidity: function removeOracle(address _oracle, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
-func (_FluxAggregator *FluxAggregatorTransactorSession) RemoveOracle(_oracle common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.RemoveOracle(&_FluxAggregator.TransactOpts, _oracle, _minAnswers, _maxAnswers, _restartDelay)
+// Solidity: function removeOracles(address[] _oracles, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay) returns()
+func (_FluxAggregator *FluxAggregatorTransactorSession) RemoveOracles(_oracles []common.Address, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.RemoveOracles(&_FluxAggregator.TransactOpts, _oracles, _minAnswers, _maxAnswers, _restartDelay)
 }
 
-// SetAuthorization is a paid mutator transaction binding the contract method 0xeecea000.
+// SetRequesterPermissions is a paid mutator transaction binding the contract method 0x20ed0275.
 //
-// Solidity: function setAuthorization(address _requester, bool _allowed) returns()
-func (_FluxAggregator *FluxAggregatorTransactor) SetAuthorization(opts *bind.TransactOpts, _requester common.Address, _allowed bool) (*types.Transaction, error) {
-	return _FluxAggregator.contract.Transact(opts, "setAuthorization", _requester, _allowed)
+// Solidity: function setRequesterPermissions(address _requester, bool _authorized, uint32 _delay) returns()
+func (_FluxAggregator *FluxAggregatorTransactor) SetRequesterPermissions(opts *bind.TransactOpts, _requester common.Address, _authorized bool, _delay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.contract.Transact(opts, "setRequesterPermissions", _requester, _authorized, _delay)
 }
 
-// SetAuthorization is a paid mutator transaction binding the contract method 0xeecea000.
+// SetRequesterPermissions is a paid mutator transaction binding the contract method 0x20ed0275.
 //
-// Solidity: function setAuthorization(address _requester, bool _allowed) returns()
-func (_FluxAggregator *FluxAggregatorSession) SetAuthorization(_requester common.Address, _allowed bool) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.SetAuthorization(&_FluxAggregator.TransactOpts, _requester, _allowed)
+// Solidity: function setRequesterPermissions(address _requester, bool _authorized, uint32 _delay) returns()
+func (_FluxAggregator *FluxAggregatorSession) SetRequesterPermissions(_requester common.Address, _authorized bool, _delay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.SetRequesterPermissions(&_FluxAggregator.TransactOpts, _requester, _authorized, _delay)
 }
 
-// SetAuthorization is a paid mutator transaction binding the contract method 0xeecea000.
+// SetRequesterPermissions is a paid mutator transaction binding the contract method 0x20ed0275.
 //
-// Solidity: function setAuthorization(address _requester, bool _allowed) returns()
-func (_FluxAggregator *FluxAggregatorTransactorSession) SetAuthorization(_requester common.Address, _allowed bool) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.SetAuthorization(&_FluxAggregator.TransactOpts, _requester, _allowed)
+// Solidity: function setRequesterPermissions(address _requester, bool _authorized, uint32 _delay) returns()
+func (_FluxAggregator *FluxAggregatorTransactorSession) SetRequesterPermissions(_requester common.Address, _authorized bool, _delay uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.SetRequesterPermissions(&_FluxAggregator.TransactOpts, _requester, _authorized, _delay)
 }
 
 // StartNewRound is a paid mutator transaction binding the contract method 0xbd85948c.
@@ -1180,23 +1184,23 @@ func (_FluxAggregator *FluxAggregatorTransactorSession) UpdateAvailableFunds() (
 
 // UpdateFutureRounds is a paid mutator transaction binding the contract method 0x38aa4c72.
 //
-// Solidity: function updateFutureRounds(uint128 _newPaymentAmount, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay, uint32 _timeout) returns()
-func (_FluxAggregator *FluxAggregatorTransactor) UpdateFutureRounds(opts *bind.TransactOpts, _newPaymentAmount *big.Int, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32, _timeout uint32) (*types.Transaction, error) {
-	return _FluxAggregator.contract.Transact(opts, "updateFutureRounds", _newPaymentAmount, _minAnswers, _maxAnswers, _restartDelay, _timeout)
+// Solidity: function updateFutureRounds(uint128 _paymentAmount, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay, uint32 _timeout) returns()
+func (_FluxAggregator *FluxAggregatorTransactor) UpdateFutureRounds(opts *bind.TransactOpts, _paymentAmount *big.Int, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32, _timeout uint32) (*types.Transaction, error) {
+	return _FluxAggregator.contract.Transact(opts, "updateFutureRounds", _paymentAmount, _minAnswers, _maxAnswers, _restartDelay, _timeout)
 }
 
 // UpdateFutureRounds is a paid mutator transaction binding the contract method 0x38aa4c72.
 //
-// Solidity: function updateFutureRounds(uint128 _newPaymentAmount, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay, uint32 _timeout) returns()
-func (_FluxAggregator *FluxAggregatorSession) UpdateFutureRounds(_newPaymentAmount *big.Int, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32, _timeout uint32) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.UpdateFutureRounds(&_FluxAggregator.TransactOpts, _newPaymentAmount, _minAnswers, _maxAnswers, _restartDelay, _timeout)
+// Solidity: function updateFutureRounds(uint128 _paymentAmount, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay, uint32 _timeout) returns()
+func (_FluxAggregator *FluxAggregatorSession) UpdateFutureRounds(_paymentAmount *big.Int, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32, _timeout uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.UpdateFutureRounds(&_FluxAggregator.TransactOpts, _paymentAmount, _minAnswers, _maxAnswers, _restartDelay, _timeout)
 }
 
 // UpdateFutureRounds is a paid mutator transaction binding the contract method 0x38aa4c72.
 //
-// Solidity: function updateFutureRounds(uint128 _newPaymentAmount, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay, uint32 _timeout) returns()
-func (_FluxAggregator *FluxAggregatorTransactorSession) UpdateFutureRounds(_newPaymentAmount *big.Int, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32, _timeout uint32) (*types.Transaction, error) {
-	return _FluxAggregator.Contract.UpdateFutureRounds(&_FluxAggregator.TransactOpts, _newPaymentAmount, _minAnswers, _maxAnswers, _restartDelay, _timeout)
+// Solidity: function updateFutureRounds(uint128 _paymentAmount, uint32 _minAnswers, uint32 _maxAnswers, uint32 _restartDelay, uint32 _timeout) returns()
+func (_FluxAggregator *FluxAggregatorTransactorSession) UpdateFutureRounds(_paymentAmount *big.Int, _minAnswers uint32, _maxAnswers uint32, _restartDelay uint32, _timeout uint32) (*types.Transaction, error) {
+	return _FluxAggregator.Contract.UpdateFutureRounds(&_FluxAggregator.TransactOpts, _paymentAmount, _minAnswers, _maxAnswers, _restartDelay, _timeout)
 }
 
 // WithdrawFunds is a paid mutator transaction binding the contract method 0xc1075329.
@@ -1690,149 +1694,6 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseNewRound(log types.Log) (*Fl
 	return event, nil
 }
 
-// FluxAggregatorOracleAddedIterator is returned from FilterOracleAdded and is used to iterate over the raw logs and unpacked data for OracleAdded events raised by the FluxAggregator contract.
-type FluxAggregatorOracleAddedIterator struct {
-	Event *FluxAggregatorOracleAdded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *FluxAggregatorOracleAddedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(FluxAggregatorOracleAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(FluxAggregatorOracleAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *FluxAggregatorOracleAddedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *FluxAggregatorOracleAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// FluxAggregatorOracleAdded represents a OracleAdded event raised by the FluxAggregator contract.
-type FluxAggregatorOracleAdded struct {
-	Oracle common.Address
-	Raw    types.Log // Blockchain specific contextual infos
-}
-
-// FilterOracleAdded is a free log retrieval operation binding the contract event 0x0047706786c922d17b39285dc59d696bafea72c0b003d3841ae1202076f4c2e4.
-//
-// Solidity: event OracleAdded(address indexed oracle)
-func (_FluxAggregator *FluxAggregatorFilterer) FilterOracleAdded(opts *bind.FilterOpts, oracle []common.Address) (*FluxAggregatorOracleAddedIterator, error) {
-
-	var oracleRule []interface{}
-	for _, oracleItem := range oracle {
-		oracleRule = append(oracleRule, oracleItem)
-	}
-
-	logs, sub, err := _FluxAggregator.contract.FilterLogs(opts, "OracleAdded", oracleRule)
-	if err != nil {
-		return nil, err
-	}
-	return &FluxAggregatorOracleAddedIterator{contract: _FluxAggregator.contract, event: "OracleAdded", logs: logs, sub: sub}, nil
-}
-
-// WatchOracleAdded is a free log subscription operation binding the contract event 0x0047706786c922d17b39285dc59d696bafea72c0b003d3841ae1202076f4c2e4.
-//
-// Solidity: event OracleAdded(address indexed oracle)
-func (_FluxAggregator *FluxAggregatorFilterer) WatchOracleAdded(opts *bind.WatchOpts, sink chan<- *FluxAggregatorOracleAdded, oracle []common.Address) (event.Subscription, error) {
-
-	var oracleRule []interface{}
-	for _, oracleItem := range oracle {
-		oracleRule = append(oracleRule, oracleItem)
-	}
-
-	logs, sub, err := _FluxAggregator.contract.WatchLogs(opts, "OracleAdded", oracleRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(FluxAggregatorOracleAdded)
-				if err := _FluxAggregator.contract.UnpackLog(event, "OracleAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseOracleAdded is a log parse operation binding the contract event 0x0047706786c922d17b39285dc59d696bafea72c0b003d3841ae1202076f4c2e4.
-//
-// Solidity: event OracleAdded(address indexed oracle)
-func (_FluxAggregator *FluxAggregatorFilterer) ParseOracleAdded(log types.Log) (*FluxAggregatorOracleAdded, error) {
-	event := new(FluxAggregatorOracleAdded)
-	if err := _FluxAggregator.contract.UnpackLog(event, "OracleAdded", log); err != nil {
-		return nil, err
-	}
-	return event, nil
-}
-
 // FluxAggregatorOracleAdminUpdateRequestedIterator is returned from FilterOracleAdminUpdateRequested and is used to iterate over the raw logs and unpacked data for OracleAdminUpdateRequested events raised by the FluxAggregator contract.
 type FluxAggregatorOracleAdminUpdateRequestedIterator struct {
 	Event *FluxAggregatorOracleAdminUpdateRequested // Event containing the contract specifics and raw log
@@ -2130,9 +1991,9 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseOracleAdminUpdated(log types
 	return event, nil
 }
 
-// FluxAggregatorOracleRemovedIterator is returned from FilterOracleRemoved and is used to iterate over the raw logs and unpacked data for OracleRemoved events raised by the FluxAggregator contract.
-type FluxAggregatorOracleRemovedIterator struct {
-	Event *FluxAggregatorOracleRemoved // Event containing the contract specifics and raw log
+// FluxAggregatorOraclePermissionsUpdatedIterator is returned from FilterOraclePermissionsUpdated and is used to iterate over the raw logs and unpacked data for OraclePermissionsUpdated events raised by the FluxAggregator contract.
+type FluxAggregatorOraclePermissionsUpdatedIterator struct {
+	Event *FluxAggregatorOraclePermissionsUpdated // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -2146,7 +2007,7 @@ type FluxAggregatorOracleRemovedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *FluxAggregatorOracleRemovedIterator) Next() bool {
+func (it *FluxAggregatorOraclePermissionsUpdatedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -2155,7 +2016,7 @@ func (it *FluxAggregatorOracleRemovedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(FluxAggregatorOracleRemoved)
+			it.Event = new(FluxAggregatorOraclePermissionsUpdated)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2170,7 +2031,7 @@ func (it *FluxAggregatorOracleRemovedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(FluxAggregatorOracleRemoved)
+		it.Event = new(FluxAggregatorOraclePermissionsUpdated)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2186,51 +2047,60 @@ func (it *FluxAggregatorOracleRemovedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *FluxAggregatorOracleRemovedIterator) Error() error {
+func (it *FluxAggregatorOraclePermissionsUpdatedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *FluxAggregatorOracleRemovedIterator) Close() error {
+func (it *FluxAggregatorOraclePermissionsUpdatedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// FluxAggregatorOracleRemoved represents a OracleRemoved event raised by the FluxAggregator contract.
-type FluxAggregatorOracleRemoved struct {
-	Oracle common.Address
-	Raw    types.Log // Blockchain specific contextual infos
+// FluxAggregatorOraclePermissionsUpdated represents a OraclePermissionsUpdated event raised by the FluxAggregator contract.
+type FluxAggregatorOraclePermissionsUpdated struct {
+	Oracle      common.Address
+	Whitelisted bool
+	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterOracleRemoved is a free log retrieval operation binding the contract event 0x9c8e7d83025bef8a04c664b2f753f64b8814bdb7e27291d7e50935f18cc3c712.
+// FilterOraclePermissionsUpdated is a free log retrieval operation binding the contract event 0x18dd09695e4fbdae8d1a5edb11221eb04564269c29a089b9753a6535c54ba92e.
 //
-// Solidity: event OracleRemoved(address indexed oracle)
-func (_FluxAggregator *FluxAggregatorFilterer) FilterOracleRemoved(opts *bind.FilterOpts, oracle []common.Address) (*FluxAggregatorOracleRemovedIterator, error) {
+// Solidity: event OraclePermissionsUpdated(address indexed oracle, bool indexed whitelisted)
+func (_FluxAggregator *FluxAggregatorFilterer) FilterOraclePermissionsUpdated(opts *bind.FilterOpts, oracle []common.Address, whitelisted []bool) (*FluxAggregatorOraclePermissionsUpdatedIterator, error) {
 
 	var oracleRule []interface{}
 	for _, oracleItem := range oracle {
 		oracleRule = append(oracleRule, oracleItem)
 	}
+	var whitelistedRule []interface{}
+	for _, whitelistedItem := range whitelisted {
+		whitelistedRule = append(whitelistedRule, whitelistedItem)
+	}
 
-	logs, sub, err := _FluxAggregator.contract.FilterLogs(opts, "OracleRemoved", oracleRule)
+	logs, sub, err := _FluxAggregator.contract.FilterLogs(opts, "OraclePermissionsUpdated", oracleRule, whitelistedRule)
 	if err != nil {
 		return nil, err
 	}
-	return &FluxAggregatorOracleRemovedIterator{contract: _FluxAggregator.contract, event: "OracleRemoved", logs: logs, sub: sub}, nil
+	return &FluxAggregatorOraclePermissionsUpdatedIterator{contract: _FluxAggregator.contract, event: "OraclePermissionsUpdated", logs: logs, sub: sub}, nil
 }
 
-// WatchOracleRemoved is a free log subscription operation binding the contract event 0x9c8e7d83025bef8a04c664b2f753f64b8814bdb7e27291d7e50935f18cc3c712.
+// WatchOraclePermissionsUpdated is a free log subscription operation binding the contract event 0x18dd09695e4fbdae8d1a5edb11221eb04564269c29a089b9753a6535c54ba92e.
 //
-// Solidity: event OracleRemoved(address indexed oracle)
-func (_FluxAggregator *FluxAggregatorFilterer) WatchOracleRemoved(opts *bind.WatchOpts, sink chan<- *FluxAggregatorOracleRemoved, oracle []common.Address) (event.Subscription, error) {
+// Solidity: event OraclePermissionsUpdated(address indexed oracle, bool indexed whitelisted)
+func (_FluxAggregator *FluxAggregatorFilterer) WatchOraclePermissionsUpdated(opts *bind.WatchOpts, sink chan<- *FluxAggregatorOraclePermissionsUpdated, oracle []common.Address, whitelisted []bool) (event.Subscription, error) {
 
 	var oracleRule []interface{}
 	for _, oracleItem := range oracle {
 		oracleRule = append(oracleRule, oracleItem)
 	}
+	var whitelistedRule []interface{}
+	for _, whitelistedItem := range whitelisted {
+		whitelistedRule = append(whitelistedRule, whitelistedItem)
+	}
 
-	logs, sub, err := _FluxAggregator.contract.WatchLogs(opts, "OracleRemoved", oracleRule)
+	logs, sub, err := _FluxAggregator.contract.WatchLogs(opts, "OraclePermissionsUpdated", oracleRule, whitelistedRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2240,8 +2110,8 @@ func (_FluxAggregator *FluxAggregatorFilterer) WatchOracleRemoved(opts *bind.Wat
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(FluxAggregatorOracleRemoved)
-				if err := _FluxAggregator.contract.UnpackLog(event, "OracleRemoved", log); err != nil {
+				event := new(FluxAggregatorOraclePermissionsUpdated)
+				if err := _FluxAggregator.contract.UnpackLog(event, "OraclePermissionsUpdated", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2262,12 +2132,12 @@ func (_FluxAggregator *FluxAggregatorFilterer) WatchOracleRemoved(opts *bind.Wat
 	}), nil
 }
 
-// ParseOracleRemoved is a log parse operation binding the contract event 0x9c8e7d83025bef8a04c664b2f753f64b8814bdb7e27291d7e50935f18cc3c712.
+// ParseOraclePermissionsUpdated is a log parse operation binding the contract event 0x18dd09695e4fbdae8d1a5edb11221eb04564269c29a089b9753a6535c54ba92e.
 //
-// Solidity: event OracleRemoved(address indexed oracle)
-func (_FluxAggregator *FluxAggregatorFilterer) ParseOracleRemoved(log types.Log) (*FluxAggregatorOracleRemoved, error) {
-	event := new(FluxAggregatorOracleRemoved)
-	if err := _FluxAggregator.contract.UnpackLog(event, "OracleRemoved", log); err != nil {
+// Solidity: event OraclePermissionsUpdated(address indexed oracle, bool indexed whitelisted)
+func (_FluxAggregator *FluxAggregatorFilterer) ParseOraclePermissionsUpdated(log types.Log) (*FluxAggregatorOraclePermissionsUpdated, error) {
+	event := new(FluxAggregatorOraclePermissionsUpdated)
+	if err := _FluxAggregator.contract.UnpackLog(event, "OraclePermissionsUpdated", log); err != nil {
 		return nil, err
 	}
 	return event, nil
@@ -2577,9 +2447,9 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseOwnershipTransfered(log type
 	return event, nil
 }
 
-// FluxAggregatorRequesterAuthorizationSetIterator is returned from FilterRequesterAuthorizationSet and is used to iterate over the raw logs and unpacked data for RequesterAuthorizationSet events raised by the FluxAggregator contract.
-type FluxAggregatorRequesterAuthorizationSetIterator struct {
-	Event *FluxAggregatorRequesterAuthorizationSet // Event containing the contract specifics and raw log
+// FluxAggregatorRequesterPermissionsSetIterator is returned from FilterRequesterPermissionsSet and is used to iterate over the raw logs and unpacked data for RequesterPermissionsSet events raised by the FluxAggregator contract.
+type FluxAggregatorRequesterPermissionsSetIterator struct {
+	Event *FluxAggregatorRequesterPermissionsSet // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -2593,7 +2463,7 @@ type FluxAggregatorRequesterAuthorizationSetIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *FluxAggregatorRequesterAuthorizationSetIterator) Next() bool {
+func (it *FluxAggregatorRequesterPermissionsSetIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -2602,7 +2472,7 @@ func (it *FluxAggregatorRequesterAuthorizationSetIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(FluxAggregatorRequesterAuthorizationSet)
+			it.Event = new(FluxAggregatorRequesterPermissionsSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2617,7 +2487,7 @@ func (it *FluxAggregatorRequesterAuthorizationSetIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(FluxAggregatorRequesterAuthorizationSet)
+		it.Event = new(FluxAggregatorRequesterPermissionsSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2633,52 +2503,53 @@ func (it *FluxAggregatorRequesterAuthorizationSetIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *FluxAggregatorRequesterAuthorizationSetIterator) Error() error {
+func (it *FluxAggregatorRequesterPermissionsSetIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *FluxAggregatorRequesterAuthorizationSetIterator) Close() error {
+func (it *FluxAggregatorRequesterPermissionsSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// FluxAggregatorRequesterAuthorizationSet represents a RequesterAuthorizationSet event raised by the FluxAggregator contract.
-type FluxAggregatorRequesterAuthorizationSet struct {
-	Requester common.Address
-	Allowed   bool
-	Raw       types.Log // Blockchain specific contextual infos
+// FluxAggregatorRequesterPermissionsSet represents a RequesterPermissionsSet event raised by the FluxAggregator contract.
+type FluxAggregatorRequesterPermissionsSet struct {
+	Requester  common.Address
+	Authorized bool
+	Delay      uint32
+	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterRequesterAuthorizationSet is a free log retrieval operation binding the contract event 0x270d0c10dfbbdb6bb7206de0d1854b34e71664636d27af06feda4326a8d24379.
+// FilterRequesterPermissionsSet is a free log retrieval operation binding the contract event 0xc3df5a754e002718f2e10804b99e6605e7c701d95cec9552c7680ca2b6f2820a.
 //
-// Solidity: event RequesterAuthorizationSet(address indexed requester, bool allowed)
-func (_FluxAggregator *FluxAggregatorFilterer) FilterRequesterAuthorizationSet(opts *bind.FilterOpts, requester []common.Address) (*FluxAggregatorRequesterAuthorizationSetIterator, error) {
+// Solidity: event RequesterPermissionsSet(address indexed requester, bool authorized, uint32 delay)
+func (_FluxAggregator *FluxAggregatorFilterer) FilterRequesterPermissionsSet(opts *bind.FilterOpts, requester []common.Address) (*FluxAggregatorRequesterPermissionsSetIterator, error) {
 
 	var requesterRule []interface{}
 	for _, requesterItem := range requester {
 		requesterRule = append(requesterRule, requesterItem)
 	}
 
-	logs, sub, err := _FluxAggregator.contract.FilterLogs(opts, "RequesterAuthorizationSet", requesterRule)
+	logs, sub, err := _FluxAggregator.contract.FilterLogs(opts, "RequesterPermissionsSet", requesterRule)
 	if err != nil {
 		return nil, err
 	}
-	return &FluxAggregatorRequesterAuthorizationSetIterator{contract: _FluxAggregator.contract, event: "RequesterAuthorizationSet", logs: logs, sub: sub}, nil
+	return &FluxAggregatorRequesterPermissionsSetIterator{contract: _FluxAggregator.contract, event: "RequesterPermissionsSet", logs: logs, sub: sub}, nil
 }
 
-// WatchRequesterAuthorizationSet is a free log subscription operation binding the contract event 0x270d0c10dfbbdb6bb7206de0d1854b34e71664636d27af06feda4326a8d24379.
+// WatchRequesterPermissionsSet is a free log subscription operation binding the contract event 0xc3df5a754e002718f2e10804b99e6605e7c701d95cec9552c7680ca2b6f2820a.
 //
-// Solidity: event RequesterAuthorizationSet(address indexed requester, bool allowed)
-func (_FluxAggregator *FluxAggregatorFilterer) WatchRequesterAuthorizationSet(opts *bind.WatchOpts, sink chan<- *FluxAggregatorRequesterAuthorizationSet, requester []common.Address) (event.Subscription, error) {
+// Solidity: event RequesterPermissionsSet(address indexed requester, bool authorized, uint32 delay)
+func (_FluxAggregator *FluxAggregatorFilterer) WatchRequesterPermissionsSet(opts *bind.WatchOpts, sink chan<- *FluxAggregatorRequesterPermissionsSet, requester []common.Address) (event.Subscription, error) {
 
 	var requesterRule []interface{}
 	for _, requesterItem := range requester {
 		requesterRule = append(requesterRule, requesterItem)
 	}
 
-	logs, sub, err := _FluxAggregator.contract.WatchLogs(opts, "RequesterAuthorizationSet", requesterRule)
+	logs, sub, err := _FluxAggregator.contract.WatchLogs(opts, "RequesterPermissionsSet", requesterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2688,8 +2559,8 @@ func (_FluxAggregator *FluxAggregatorFilterer) WatchRequesterAuthorizationSet(op
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(FluxAggregatorRequesterAuthorizationSet)
-				if err := _FluxAggregator.contract.UnpackLog(event, "RequesterAuthorizationSet", log); err != nil {
+				event := new(FluxAggregatorRequesterPermissionsSet)
+				if err := _FluxAggregator.contract.UnpackLog(event, "RequesterPermissionsSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2710,12 +2581,12 @@ func (_FluxAggregator *FluxAggregatorFilterer) WatchRequesterAuthorizationSet(op
 	}), nil
 }
 
-// ParseRequesterAuthorizationSet is a log parse operation binding the contract event 0x270d0c10dfbbdb6bb7206de0d1854b34e71664636d27af06feda4326a8d24379.
+// ParseRequesterPermissionsSet is a log parse operation binding the contract event 0xc3df5a754e002718f2e10804b99e6605e7c701d95cec9552c7680ca2b6f2820a.
 //
-// Solidity: event RequesterAuthorizationSet(address indexed requester, bool allowed)
-func (_FluxAggregator *FluxAggregatorFilterer) ParseRequesterAuthorizationSet(log types.Log) (*FluxAggregatorRequesterAuthorizationSet, error) {
-	event := new(FluxAggregatorRequesterAuthorizationSet)
-	if err := _FluxAggregator.contract.UnpackLog(event, "RequesterAuthorizationSet", log); err != nil {
+// Solidity: event RequesterPermissionsSet(address indexed requester, bool authorized, uint32 delay)
+func (_FluxAggregator *FluxAggregatorFilterer) ParseRequesterPermissionsSet(log types.Log) (*FluxAggregatorRequesterPermissionsSet, error) {
+	event := new(FluxAggregatorRequesterPermissionsSet)
+	if err := _FluxAggregator.contract.UnpackLog(event, "RequesterPermissionsSet", log); err != nil {
 		return nil, err
 	}
 	return event, nil

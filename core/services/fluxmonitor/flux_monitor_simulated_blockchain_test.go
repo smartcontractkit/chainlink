@@ -113,14 +113,12 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	// Add the participating oracles. Ends up with minAnswers=restartDelay=2,
 	// maxAnswers=3
 	oracleList := []common.Address{f.neil.From, f.ned.From, f.nallory.From}
-	for numOracles, o := range oracleList {
-		n := uint32(numOracles)
-		_, err = f.aggregatorContract.AddOracle(f.sergey, o, o, n, n+1, n)
-		require.NoError(t, err, "failed to update oracles list")
-	}
+	_, err = f.aggregatorContract.AddOracles(
+		f.sergey, oracleList, oracleList, 2, 3, 2)
 	f.backend.Commit()
-	iaddedLogs, err := f.aggregatorContract.FilterOracleAdded(nil, oracleList)
-	require.NoError(t, err, "failed to gather OracleAdded logs")
+	iaddedLogs, err := f.aggregatorContract.FilterOraclePermissionsUpdated(
+		nil, oracleList, []bool{true})
+	require.NoError(t, err, "failed to gather OraclePermissionsUpdated logs")
 	addedLogs := cltest.GetLogs(t, nil, iaddedLogs)
 	require.Len(t, addedLogs, len(oracleList), "should have log for each oracle")
 	iadminLogs, err := f.aggregatorContract.FilterOracleAdminUpdated(nil,
@@ -130,7 +128,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	require.Len(t, adminLogs, len(oracleList), "should have log for each oracle")
 	for oracleIdx, oracle := range oracleList {
 		require.Equal(t, oracle,
-			addedLogs[oracleIdx].(*faw.FluxAggregatorOracleAdded).Oracle,
+			addedLogs[oracleIdx].(*faw.FluxAggregatorOraclePermissionsUpdated).Oracle,
 			"log for wrong oracle emitted")
 		require.Equal(t, oracle,
 			adminLogs[oracleIdx].(*faw.FluxAggregatorOracleAdminUpdated).Oracle,

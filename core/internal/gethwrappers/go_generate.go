@@ -1,4 +1,4 @@
-package contracts
+package gethwrappers
 
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
