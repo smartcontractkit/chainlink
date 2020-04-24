@@ -13,7 +13,6 @@ import (
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/zap/zapcore"
 
@@ -231,6 +230,11 @@ func updateAnswer(t *testing.T, p answerParams) {
 	checkUpdateAnswer(t, p, cb.Int64(), 0)
 }
 
+type maliciousFluxMonitor interface {
+	XXXTestingOnlyCreateJob(t *testing.T, jobSpecId *models.ID,
+		polledAnswer decimal.Decimal, nextRound *big.Int) error
+}
+
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
 
@@ -334,9 +338,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	processedAnswer = 100 * reportPrice
 	precision := job.Initiators[0].InitiatorParams.Precision
 	// FORCE node to try to start a new round
-	err = app.FluxMonitor.(*fluxmonitor.ConcreteFluxMonitor).
-		XXXTestingOnlyCreateJob(t, j.ID,
-			decimal.New(processedAnswer, precision), big.NewInt(newRound))
+	err = app.FluxMonitor.(maliciousFluxMonitor).XXXTestingOnlyCreateJob(t, j.ID,
+		decimal.New(processedAnswer, precision), big.NewInt(newRound))
 	require.NoError(t, err)
 	select {
 	case <-submissionReceived:
