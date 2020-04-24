@@ -863,7 +863,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 }
 
 func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.EnableFluxMonitor)
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 
@@ -874,9 +874,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
-		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
-		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
-		eth.Register("eth_getLogs", []ethpkg.Log{})
 	})
 	require.NoError(t, app.StartAndConnect())
 	eth.EventuallyAllCalled(t)
@@ -943,7 +940,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.EnableFluxMonitor)
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 
@@ -952,9 +949,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	eth.Context("app.StartAndConnect()", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
-		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
-		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
-		eth.Register("eth_getLogs", []ethpkg.Log{})
 	})
 	require.NoError(t, app.StartAndConnect())
 	eth.EventuallyAllCalled(t)
@@ -1017,7 +1011,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 }
 
 func TestIntegration_RandomnessRequest(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.NoRegisterGetBlockNumber)
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient()
 	logs := make(chan ethpkg.Log, 1)

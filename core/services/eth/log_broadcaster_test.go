@@ -45,9 +45,10 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(mock.Arguments) { chSubscribe <- struct{}{} })
-	ethClient.On("GetBlockHeight").Return(blockHeight, nil)
+	ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+	ethClient.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil)
 
-	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM)
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM, 10)
 	lb.AddDependents(2)
 	lb.Start()
 
@@ -537,10 +538,8 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				Return(sub, nil).
 				Twice()
 
-			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight1)}, nil).Times(3)
-			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
-			ethClient.On("GetLogs", mock.Anything).Return(nil, nil).Twice()
-			ethClient.On("GetLogs", mock.Anything).Return(test.backfillableLogs, nil).Once()
+			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight1)}, nil).Twice()
+			ethClient.On("GetLogs", mock.Anything).Return(nil, nil).Once()
 
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
@@ -564,6 +563,8 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				require.Equal(t, test.batch1[i], log)
 			}
 
+			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
+			ethClient.On("GetLogs", mock.Anything).Return(test.backfillableLogs, nil).Once()
 			// Trigger resubscription
 			lb.Register(common.Address{1}, &funcLogListener{})
 			chRawLogs2 := <-chchRawLogs
