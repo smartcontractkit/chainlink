@@ -306,7 +306,8 @@ jobs:
       - explorer
     steps:
       - name: Issue repository dispatch
-        uses: peter-evans/repository-dispatch@v1
+        # Pin to v1.0.0
+        uses: peter-evans/repository-dispatch@0ae1c4b014bff102f1063cd67a53fc4a91311d1b
         with:
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
           event-type: build-publish-explorer
