@@ -68,7 +68,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 		}
 	}
 	if registerGetBlockNumber {
-		mock.Register("eth_blockNumber", hexutil.Uint64(1))
+		mock.Register("eth_getBlockByNumber", eth.Block{Number: hexutil.Uint64(1)})
 	}
 	eth := &eth.CallerSubscriberClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
@@ -225,7 +225,17 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 // assignResult attempts to mimick more closely how go-ethereum actually does
 // Call, falling back to reflection if the values dont support the required
 // encoding interfaces
-func assignResult(result, response interface{}) error {
+func assignResult(result, response interface{}) (err error) {
+	defer func() {
+		if perr := recover(); perr != nil {
+			switch perr := perr.(type) {
+			case string:
+				err = errors.New(perr)
+			case error:
+				err = perr
+			}
+		}
+	}()
 	if unmarshaler, ok := result.(encoding.TextUnmarshaler); ok {
 		switch resp := response.(type) {
 		case encoding.TextMarshaler:
