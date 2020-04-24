@@ -28,6 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const oracleCount uint32 = 17
+
 var (
 	updateAnswerHash     = utils.MustHash("updateAnswer(uint256,int256)")
 	updateAnswerSelector = updateAnswerHash[:4]
@@ -212,15 +214,12 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			const reportableRoundID = 2
 			latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
 
+			paymentAmount := store.Config.MinimumContractPayment().ToInt()
 			var availableFunds *big.Int
-			var paymentAmount *big.Int
-			minPayment := store.Config.MinimumContractPayment().ToInt()
 			if test.funded {
-				availableFunds = minPayment
-				paymentAmount = minPayment
+				availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 			} else {
 				availableFunds = big.NewInt(1)
-				paymentAmount = minPayment
 			}
 
 			roundState := contracts.FluxAggregatorRoundState{
@@ -229,6 +228,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
 				AvailableFunds:    availableFunds,
 				PaymentAmount:     paymentAmount,
+				OracleCount:       oracleCount,
 			}
 			fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
 
@@ -702,15 +702,12 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
 
+			paymentAmount := store.Config.MinimumContractPayment().ToInt()
 			var availableFunds *big.Int
-			var paymentAmount *big.Int
-			minPayment := store.Config.MinimumContractPayment().ToInt()
 			if test.funded {
-				availableFunds = minPayment
-				paymentAmount = minPayment
+				availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 			} else {
 				availableFunds = big.NewInt(1)
-				paymentAmount = minPayment
 			}
 
 			if expectedToFetchRoundState {
@@ -720,6 +717,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 					EligibleToSubmit:  test.eligible,
 					AvailableFunds:    availableFunds,
 					PaymentAmount:     paymentAmount,
+					OracleCount:       oracleCount,
 				}, nil).Once()
 			}
 
@@ -858,14 +856,7 @@ func TestExtractFeedURLs(t *testing.T) {
 func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	fluxAggregator := new(mocks.FluxAggregator)
-	initr := models.Initiator{}
-	runManager := new(mocks.RunManager)
-	pollDelay, err := models.MakeDuration(time.Second)
-	require.NoError(t, err)
-	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, runManager, fetcher, pollDelay, func() {})
-	require.NoError(t, err)
+	checker := cltest.NewPollingDeviationChecker(t, store)
 
 	min := store.Config.MinimumContractPayment().ToInt().Int64()
 
@@ -882,6 +873,39 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assert.Equal(t, test.want, checker.SufficientPayment(big.NewInt(test.payment)))
+		})
+	}
+}
+
+func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	checker := cltest.NewPollingDeviationChecker(t, store)
+
+	payment := 100
+	rounds := 3
+	oracleCount := 21
+	min := payment * rounds * oracleCount
+
+	tests := []struct {
+		name  string
+		funds int
+		want  bool
+	}{
+		{"above minimum", min + 1, true},
+		{"equal to minimum", min, true},
+		{"below minimum", min - 1, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			state := contracts.FluxAggregatorRoundState{
+				AvailableFunds: big.NewInt(int64(test.funds)),
+				PaymentAmount:  big.NewInt(int64(payment)),
+				OracleCount:    uint32(oracleCount),
+			}
+			assert.Equal(t, test.want, checker.SufficientFunds(state))
 		})
 	}
 }
