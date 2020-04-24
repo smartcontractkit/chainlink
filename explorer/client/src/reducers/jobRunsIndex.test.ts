@@ -2,21 +2,24 @@ import { partialAsFull } from '@chainlink/ts-helpers'
 import reducer, {
   INITIAL_STATE as initialRootState,
   AppState,
-} from '../../reducers'
+} from '../reducers'
 import {
   FetchJobRunsSucceededAction,
   FetchJobRunSucceededAction,
   JobRunNormalizedData,
-} from '../../reducers/actions'
+} from '../reducers/actions'
 
 const INITIAL_STATE: AppState = {
   ...initialRootState,
-  jobRunsIndex: { items: ['replace-me'] },
+  jobRunsIndex: {
+    items: ['replace-me'],
+    count: 1,
+  },
 }
 
 describe('reducers/jobRunsIndex', () => {
   describe('FETCH_JOB_RUNS_SUCCEEDED', () => {
-    it('can replace items', () => {
+    it('replaces items', () => {
       const jobRuns = [{ id: '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e' }]
       const action: FetchJobRunsSucceededAction = {
         type: 'FETCH_JOB_RUNS_SUCCEEDED',
@@ -34,10 +37,10 @@ describe('reducers/jobRunsIndex', () => {
 
       const state = reducer(INITIAL_STATE, action)
 
-      expect(state.jobRunsIndex).toEqual({
-        items: ['9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e'],
-        count: 100,
-      })
+      expect(state.jobRunsIndex.items).toEqual([
+        '9b7d791a-9a1f-4c55-a6be-b4231cf9fd4e',
+      ])
+      expect(state.jobRunsIndex.count).toEqual(100)
     })
   })
 
@@ -55,9 +58,8 @@ describe('reducers/jobRunsIndex', () => {
       }
       const state = reducer(INITIAL_STATE, action)
 
-      expect(state.jobRunsIndex).toEqual({
-        items: undefined,
-      })
+      expect(state.jobRunsIndex.items).toBeUndefined()
+      expect(state.jobRunsIndex.count).toBeUndefined()
     })
   })
 })

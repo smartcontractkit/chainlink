@@ -36,6 +36,14 @@ export interface FetchAdminSignoutSucceededAction {
 }
 
 /**
+ * FETCH_ADMIN_OPERATORS_BEGIN
+ */
+
+export type FetchAdminOperatorsBeginAction = {
+  type: 'FETCH_ADMIN_OPERATORS_BEGIN'
+}
+
+/**
  * FETCH_ADMIN_OPERATORS_SUCCEEDED
  */
 
@@ -68,6 +76,14 @@ export type FetchAdminOperatorsErrorAction = {
 }
 
 /**
+ * FETCH_ADMIN_OPERATOR_BEGIN
+ */
+
+export type FetchAdminOperatorBeginAction = {
+  type: 'FETCH_ADMIN_OPERATOR_BEGIN'
+}
+
+/**
  * FETCH_ADMIN_OPERATOR_SUCCEEDED
  */
 
@@ -85,6 +101,23 @@ export interface AdminOperatorNormalizedData {
 export type FetchAdminOperatorSucceededAction = {
   type: 'FETCH_ADMIN_OPERATOR_SUCCEEDED'
   data: AdminOperatorNormalizedData
+}
+
+/**
+ * FETCH_ADMIN_OPERATOR_ERROR
+ */
+
+export type FetchAdminOperatorErrorAction = {
+  type: 'FETCH_ADMIN_OPERATOR_ERROR'
+  error: Error
+}
+
+/**
+ * FETCH_ADMIN_HEADS_BEGIN
+ */
+
+export type FetchAdminHeadsBeginAction = {
+  type: 'FETCH_ADMIN_HEADS_BEGIN'
 }
 
 /**
@@ -120,6 +153,14 @@ export type FetchAdminHeadsErrorAction = {
 }
 
 /**
+ * FETCH_ADMIN_HEAD_BEGIN
+ */
+
+export type FetchAdminHeadBeginAction = {
+  type: 'FETCH_ADMIN_HEAD_BEGIN'
+}
+
+/**
  * FETCH_ADMIN_HEAD_SUCCEEDED
  */
 
@@ -149,6 +190,14 @@ export type FetchAdminHeadErrorAction = {
 }
 
 /**
+ * FETCH_JOB_RUNS_BEGIN
+ */
+
+export type FetchJobRunsBeginAction = {
+  type: 'FETCH_JOB_RUNS_BEGIN'
+}
+
+/**
  * FETCH_JOB_RUNS_SUCCEEDED
  */
 
@@ -173,6 +222,23 @@ export type FetchJobRunsSucceededAction = {
 }
 
 /**
+ * FETCH_JOB_RUNS_ERROR
+ */
+
+export type FetchJobRunsErrorAction = {
+  type: 'FETCH_JOB_RUNS_ERROR'
+  error: Error
+}
+
+/**
+ * FETCH_JOB_RUN_BEGIN
+ */
+
+export type FetchJobRunBeginAction = {
+  type: 'FETCH_JOB_RUN_BEGIN'
+}
+
+/**
  * FETCH_JOB_RUN_SUCCEEDED
  */
 
@@ -192,6 +258,19 @@ export interface FetchJobRunSucceededAction {
   data: JobRunNormalizedData
 }
 
+/**
+ * FETCH_JOB_RUN_ERROR
+ */
+
+export type FetchJobRunErrorAction = {
+  type: 'FETCH_JOB_RUN_ERROR'
+  error: Error
+}
+
+/**
+ * QUERY_UPDATED
+ */
+
 export interface UpdateQueryAction {
   type: 'QUERY_UPDATED'
   data?: string
@@ -202,13 +281,22 @@ export type Actions =
   | FetchAdminSigninSucceededAction
   | FetchAdminSigninErrorAction
   | FetchAdminSignoutSucceededAction
+  | FetchAdminOperatorsBeginAction
   | FetchAdminOperatorsSucceededAction
   | FetchAdminOperatorsErrorAction
+  | FetchAdminOperatorBeginAction
   | FetchAdminOperatorSucceededAction
+  | FetchAdminOperatorErrorAction
+  | FetchAdminHeadsBeginAction
   | FetchAdminHeadsSucceededAction
   | FetchAdminHeadsErrorAction
+  | FetchAdminHeadBeginAction
   | FetchAdminHeadSucceededAction
   | FetchAdminHeadErrorAction
+  | FetchJobRunsBeginAction
   | FetchJobRunsSucceededAction
+  | FetchJobRunsErrorAction
+  | FetchJobRunBeginAction
   | FetchJobRunSucceededAction
+  | FetchJobRunErrorAction
   | UpdateQueryAction

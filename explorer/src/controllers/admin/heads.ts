@@ -21,9 +21,8 @@ router.get('/heads', async (req, res) => {
 
 router.get('/heads/:headId', async (req, res) => {
   const ethereumHeadRepository = getRepository(Head)
-
-  const { id } = req.params
-  const head = await ethereumHeadRepository.findOne(id)
+  const headId = req.params.headId
+  const head = await ethereumHeadRepository.findOne(headId)
 
   const json = headSerializer(head)
   return res.send(json)
