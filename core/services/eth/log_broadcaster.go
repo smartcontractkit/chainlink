@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,6 +25,7 @@ import (
 // to all of the relevant contracts over a single connection and forwards the logs to the
 // relevant subscribers.
 type LogBroadcaster interface {
+	utils.DependentAwaiter
 	Start()
 	Register(address common.Address, listener LogListener) (connected bool)
 	Unregister(address common.Address, listener LogListener)
@@ -46,6 +48,7 @@ type logBroadcaster struct {
 	chAddListener    chan registration
 	chRemoveListener chan registration
 
+	utils.DependentAwaiter
 	chStop chan struct{}
 	chDone chan struct{}
 }
@@ -88,6 +91,7 @@ func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM) LogBroadcaster {
 		chRemoveListener: make(chan registration),
 		chStop:           make(chan struct{}),
 		chDone:           make(chan struct{}),
+		DependentAwaiter: utils.NewDependentAwaiter(),
 	}
 }
 
@@ -111,6 +115,25 @@ func (b *logBroadcaster) Start() {
 	// no cursor), start from that block height.
 	if currentHeight > cursor.BlockIndex {
 		b.updateLogCursor(currentHeight, 0)
+	}
+
+	go b.awaitInitialSubscribers()
+}
+
+func (b *logBroadcaster) awaitInitialSubscribers() {
+Outer:
+	for {
+		select {
+		case r := <-b.chAddListener:
+			b.onAddListener(r)
+
+		case <-b.DependentAwaiter.AwaitDependents():
+			break Outer
+
+		case <-b.chStop:
+			close(b.chDone)
+			return
+		}
 	}
 
 	go b.startResubscribeLoop()

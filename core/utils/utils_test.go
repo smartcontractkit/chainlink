@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -308,4 +309,64 @@ func TestMinUint(t *testing.T) {
 			assert.Equal(t, test.expectation, actual)
 		})
 	}
+}
+
+func TestWaitGroupChan(t *testing.T) {
+	t.Parallel()
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	ch := utils.WaitGroupChan(wg)
+
+	select {
+	case <-ch:
+		t.Fatal("should not fire immediately")
+	default:
+	}
+
+	wg.Done()
+
+	select {
+	case <-ch:
+		t.Fatal("should not fire until finished")
+	default:
+	}
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		wg.Done()
+	}()
+
+	cltest.CallbackOrTimeout(t, "WaitGroupChan fires", func() {
+		<-ch
+	}, 5*time.Second)
+}
+
+func TestDependentAwaiter(t *testing.T) {
+	da := utils.NewDependentAwaiter()
+	da.AddDependents(2)
+
+	select {
+	case <-da.AwaitDependents():
+		t.Fatal("should not fire immediately")
+	default:
+	}
+
+	da.DependentReady()
+
+	select {
+	case <-da.AwaitDependents():
+		t.Fatal("should not fire until finished")
+	default:
+	}
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		da.DependentReady()
+	}()
+
+	cltest.CallbackOrTimeout(t, "dependents are now ready", func() {
+		<-da.AwaitDependents()
+	}, 5*time.Second)
 }
