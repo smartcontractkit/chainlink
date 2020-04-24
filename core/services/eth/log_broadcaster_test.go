@@ -400,7 +400,7 @@ func TestDecodingLogListener(t *testing.T) {
 	require.NoError(t, err)
 	newRoundLog := decodedLog.(*LogNewRound)
 	require.Equal(t, newRoundLog.Log, rawLog)
-	require.True(t, newRoundLog.RoundId.Cmp(big.NewInt(1)) == 0)
+	require.True(t, newRoundLog.RoundID.Cmp(big.NewInt(1)) == 0)
 	require.Equal(t, newRoundLog.StartedBy, common.HexToAddress("f17f52151ebef6c7334fad080c5704d77216b732"))
 	require.True(t, newRoundLog.StartedAt.Cmp(big.NewInt(15)) == 0)
 

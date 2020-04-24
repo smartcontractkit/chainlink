@@ -221,7 +221,7 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	// Restore the previous updated at to simulate a conflict
 	jr.UpdatedAt = updatedAt
 	jr.SetStatus(models.RunStatusInProgress)
-	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
+	assert.Equal(t, orm.ErrOptimisticUpdateConflict, store.SaveJobRun(&jr))
 }
 
 func TestORM_JobRunsFor(t *testing.T) {

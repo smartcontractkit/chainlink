@@ -555,5 +555,5 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
-	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+	assert.Equal(t, 0, len(app.CLApplication.JobSubscriber.Jobs()))
 }

@@ -111,7 +111,7 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 		return err
 	}
 	if err := vRFKeyStore(cli).Import(keyjson, string(password)); err != nil {
-		if err == store.MatchingVRFKeyError {
+		if err == store.ErrMatchingVRFKey {
 			fmt.Println(`The database already has an entry for that public key.`)
 			var key struct{ PublicKey string }
 			if e := json.Unmarshal(keyjson, &key); e != nil {
@@ -184,7 +184,7 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 		return err
 	}
 	if err := vRFKeyStore(cli).Delete(publicKey); err != nil {
-		if err == store.AttemptToDeleteNonExistentKeyFromDB {
+		if err == store.ErrAttemptToDeleteNonExistentKeyFromDB {
 			fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 		}
 		return err
