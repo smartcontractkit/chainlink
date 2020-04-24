@@ -132,7 +132,8 @@ type Transaction struct {
 // Block represents a full block
 // See: https://github.com/ethereum/go-ethereum/blob/0e6ea9199ca701ee4c96220e873884327c8d18ff/core/types/block.go#L147
 type Block struct {
-	Transactions []Transaction `json:"transactions"`
+	Number       hexutil.Uint64 `json:"number"`
+	Transactions []Transaction  `json:"transactions"`
 }
 
 var emptyHash = common.Hash{}

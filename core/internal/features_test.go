@@ -969,6 +969,11 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	newRounds := make(chan ethpkg.Log)
 	eth.RegisterSubscription("logs", newRounds)
 
+	eth.Context("Log Broadcaster backfills logs", func(mock *cltest.EthMock) {
+		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
+		eth.Register("eth_getLogs", []ethpkg.Log{})
+	})
+
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
 	var job models.JobSpec

@@ -254,6 +254,25 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
+func RetryWithBackoff(chCancel <-chan struct{}, errPrefix string, fn func() error) (aborted bool) {
+	sleeper := NewBackoffSleeper()
+	sleeper.Reset()
+	for {
+		err := fn()
+		if err == nil {
+			return false
+		}
+
+		logger.Errorf("%v: %v", errPrefix, err)
+		select {
+		case <-chCancel:
+			return true
+		case <-time.After(sleeper.After()):
+			continue
+		}
+	}
+}
+
 // MinBigs finds the minimum value of a list of big.Ints.
 func MinBigs(first *big.Int, bigs ...*big.Int) *big.Int {
 	min := first
