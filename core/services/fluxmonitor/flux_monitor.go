@@ -679,7 +679,18 @@ func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundStat
 	return nil
 }
 
+// pollIfEligible checks whether the node is eligible to submit a round, and if
+// it is and threshold > 0, checks its feed for a new value which deviates
+// sufficiently from the last, on-chain answer. If it finds sufficient
+// deviation, it sends the new value to the fluxAggregator. If threshold == 0,
+// it *always* sends in the new value. threshold < 0 is forbidden.
+//
+// The return value is true if the new value is reported on-chain.
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
+	if threshold < 0 {
+		logger.Errorf("deviation threshold must be positive or 0, got %f", threshold)
+		return false
+	}
 	loggerFields := []interface{}{
 		"jobID", p.initr.JobSpecID,
 		"address", p.initr.InitiatorParams.Address,
@@ -721,20 +732,23 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
 	)
-	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
+	shouldReport := threshold == 0 || // Magic input meaning report regardless of deviation
+		roundState.ReportableRoundID <= 1 || // Always report on first on-chain reporting round
+		OutsideDeviation(latestAnswer, polledAnswer, threshold) // Value has changed sufficiently to merit new report
+	if !shouldReport {
 		logger.Debugw("deviation < threshold, not submitting", loggerFields...)
 		return false
 	}
 
 	if roundState.ReportableRoundID > 1 {
-		logger.Infow("deviation > threshold, starting new round", loggerFields...)
+		logger.Infow("deviation > threshold, reporting new value on-chain", loggerFields...)
 	} else {
-		logger.Infow("starting first round", loggerFields...)
+		logger.Infow("reporting value for first on-chain round", loggerFields...)
 	}
 
 	err = p.createJobRun(polledAnswer, p.reportableRoundID)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("can't create job run: %v", err), loggerFields...)
+		logger.Errorw(fmt.Sprintf("can't report value on-chain: %v", err), loggerFields...)
 		return false
 	}
 
