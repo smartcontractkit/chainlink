@@ -46,7 +46,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorCron, initr.Type)
-	assert.Equal(t, "* * * * * *", string(initr.Schedule), "Wrong cron schedule saved")
+	assert.Equal(t, "CRON_TZ=UTC * * * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
 func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
