@@ -139,10 +139,10 @@ describe('FluxAggregator', () => {
       'removeOracles',
       'reportingRound',
       'reportingRoundStartedAt',
+      'requestRateUpdate',
       'restartDelay',
       'roundState',
       'setRequesterPermissions',
-      'startNewRound',
       'timeout',
       'transferAdmin',
       'updateAnswer',
@@ -1671,7 +1671,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#startNewRound', () => {
+  describe('#requestRateUpdate', () => {
     beforeEach(async () => {
       await addOracles(aggregator, [personas.Neil], 1, 1, 0)
 
@@ -1682,7 +1682,7 @@ describe('FluxAggregator', () => {
     })
 
     it('announces a new round via log event', async () => {
-      const tx = await aggregator.startNewRound()
+      const tx = await aggregator.requestRateUpdate()
       const receipt = await tx.wait()
       const event = matchers.eventExists(
         receipt,
@@ -1694,12 +1694,12 @@ describe('FluxAggregator', () => {
 
     describe('when there is a round in progress', () => {
       beforeEach(async () => {
-        await aggregator.startNewRound()
+        await aggregator.requestRateUpdate()
       })
 
       it('reverts', async () => {
         await matchers.evmRevert(
-          aggregator.startNewRound(),
+          aggregator.requestRateUpdate(),
           'prev round must be supersedable',
         )
       })
@@ -1711,7 +1711,7 @@ describe('FluxAggregator', () => {
         })
 
         it('starts a new round', async () => {
-          const tx = await aggregator.startNewRound()
+          const tx = await aggregator.requestRateUpdate()
           const receipt = await tx.wait()
           const event = matchers.eventExists(
             receipt,
@@ -1728,25 +1728,25 @@ describe('FluxAggregator', () => {
       })
 
       it('reverts if a round is started before the delay', async () => {
-        await aggregator.connect(personas.Eddy).startNewRound()
+        await aggregator.connect(personas.Eddy).requestRateUpdate()
 
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
         nextRound = nextRound + 1
 
         // Eddy can't start because of the delay
         await matchers.evmRevert(
-          aggregator.connect(personas.Eddy).startNewRound(),
+          aggregator.connect(personas.Eddy).requestRateUpdate(),
           'must delay requests',
         )
         // Carol starts a new round instead
-        await aggregator.connect(personas.Carol).startNewRound()
+        await aggregator.connect(personas.Carol).requestRateUpdate()
 
         // round completes
         await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
         nextRound = nextRound + 1
 
         // now Eddy can start again
-        await aggregator.connect(personas.Eddy).startNewRound()
+        await aggregator.connect(personas.Eddy).requestRateUpdate()
       })
     })
 
@@ -1758,7 +1758,7 @@ describe('FluxAggregator', () => {
 
         // advance a few rounds
         for (let i = 0; i < 7; i++) {
-          await aggregator.startNewRound()
+          await aggregator.requestRateUpdate()
           nextRound = nextRound + 1
           await h.increaseTimeBy(timeout + 1, provider)
           await h.mineBlock(provider)
@@ -1782,7 +1782,7 @@ describe('FluxAggregator', () => {
       it('allows the specified address to start new rounds', async () => {
         await aggregator.setRequesterPermissions(personas.Neil.address, true, 0)
 
-        await aggregator.connect(personas.Neil).startNewRound()
+        await aggregator.connect(personas.Neil).requestRateUpdate()
       })
 
       it('emits a log announcing the update', async () => {
@@ -1839,7 +1839,7 @@ describe('FluxAggregator', () => {
           )
 
           await matchers.evmRevert(
-            aggregator.connect(personas.Neil).startNewRound(),
+            aggregator.connect(personas.Neil).requestRateUpdate(),
             'not authorized requester',
           )
         })
@@ -1883,7 +1883,7 @@ describe('FluxAggregator', () => {
         )
 
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).startNewRound(),
+          aggregator.connect(personas.Neil).requestRateUpdate(),
           'not authorized requester',
         )
       })
