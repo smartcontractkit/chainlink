@@ -753,7 +753,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   function oracleRoundState()
-    public
+    external
     view
     returns (
       bool _eligibleToSubmit,
