@@ -153,7 +153,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @param _roundId is the ID of the round this submission pertains to
    * @param _submission is the updated data that the oracle is submitting
    */
-  function updateAnswer(uint256 _roundId, int256 _submission)
+  function submit(uint256 _roundId, int256 _submission)
     external
   {
     bytes memory error = validateOracleRound(msg.sender, uint32(_roundId));
@@ -698,7 +698,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function recordSubmission(int256 _submission, uint32 _roundId)
     private
   {
-    require(acceptingSubmissions(_roundId), "round not accepting anwers");
+    require(acceptingSubmissions(_roundId), "round not accepting submissions");
 
     rounds[_roundId].details.submissions.push(_submission);
     oracles[msg.sender].lastReportedRound = _roundId;

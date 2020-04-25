@@ -31,8 +31,8 @@ import (
 const oracleCount uint32 = 17
 
 var (
-	updateAnswerHash     = utils.MustHash("updateAnswer(uint256,int256)")
-	updateAnswerSelector = updateAnswerHash[:4]
+	submitHash     = utils.MustHash("submit(uint256,int256)")
+	submitSelector = submitHash[:4]
 )
 
 func ensureAccount(t *testing.T, store *store.Store) common.Address {
@@ -243,14 +243,14 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 					"address": "%s",
 					"functionSelector": "0x%x",
 					"dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
-				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), updateAnswerSelector, reportableRoundID)))
+				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), submitSelector, reportableRoundID)))
 				require.NoError(t, err)
 
 				rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
 					return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
 				})).Return(&run, nil)
 
-				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+				fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
 			}
 
 			checker, err := fluxmonitor.NewPollingDeviationChecker(store,
@@ -726,12 +726,12 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToSubmit {
-				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+				fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
 
 				data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
 					"result": "%d",
 					"address": "%s",
-					"functionSelector": "0xe6330cf7",
+					"functionSelector": "0x202ee0ed",
 					"dataPrefix": "0x%0x"
 				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), utils.EVMWordUint64(uint64(test.fetchedReportableRoundID)))))
 				require.NoError(t, err)
