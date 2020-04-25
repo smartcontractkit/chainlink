@@ -752,12 +752,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return _roundId.add(1) == _rrId && rounds[_rrId].updatedAt == 0;
   }
 
-  function roundState()
+  function oracleRoundState()
     public
     view
     returns (
       bool _eligibleToSubmit,
-      uint32 _reportableRoundId,
+      uint32 _roundId,
       int256 _latestRoundAnswer,
       uint64 _timesOutAt,
       uint128 _availableFunds,
@@ -766,23 +766,23 @@ contract FluxAggregator is AggregatorInterface, Owned {
     )
   {
     bool supersedable = supersedable(reportingRoundId);
-    _reportableRoundId = supersedable ? reportingRoundId.add(1) : reportingRoundId;
+    _roundId = supersedable ? reportingRoundId.add(1) : reportingRoundId;
 
 
-    if (validateOracleRound(_reportableRoundId).length != 0) {
+    if (validateOracleRound(_roundId).length != 0) {
       _eligibleToSubmit = false;
     } else {
-      _eligibleToSubmit = supersedable ? delayed(_reportableRoundId) : acceptingSubmissions(_reportableRoundId);
+      _eligibleToSubmit = supersedable ? delayed(_roundId) : acceptingSubmissions(_roundId);
     }
 
     return (
       _eligibleToSubmit,
-      _reportableRoundId,
+      _roundId,
       oracles[msg.sender].latestAnswer,
-      rounds[_reportableRoundId].startedAt + rounds[_reportableRoundId].details.timeout,
+      rounds[_roundId].startedAt + rounds[_roundId].details.timeout,
       availableFunds,
       oracleCount(),
-      supersedable ? paymentAmount : rounds[_reportableRoundId].details.paymentAmount
+      supersedable ? paymentAmount : rounds[_roundId].details.paymentAmount
     );
   }
 

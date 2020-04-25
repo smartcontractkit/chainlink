@@ -20,7 +20,7 @@ import (
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
 
-	rsHash := utils.MustHash("roundState()")
+	rsHash := utils.MustHash("oracleRoundState()")
 	nodeAddr := cltest.NewAddress()
 	expectedCallArgs := eth.CallArgs{
 		To:   aggregatorAddress,
