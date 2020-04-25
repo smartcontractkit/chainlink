@@ -11,9 +11,12 @@ export default {
           },
         },
         feeds: [''], // set before use
-        threshold: 5,
         pollingInterval: '5s',
         precision: 2,
+        valueTriggers: {
+          relativeThreshold: 5,
+          absoluteThreshold: 0.0000000001,
+        },
       },
     },
   ],

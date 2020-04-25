@@ -8,7 +8,11 @@
       },
       "feeds": [ "https://lambda.staging.devnet.tools/bnc/call", { "bridge": "testbridge" } ],
       "threshold": 0.5,
-      "precision": 2
+      "precision": 2,
+      "valueTriggers": {
+        "relativeThreshold": 0.59,
+        "absoluteThreshold": 0.0059
+      }
     }
   }],
   "tasks": [

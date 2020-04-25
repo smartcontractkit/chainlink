@@ -16,7 +16,6 @@
       },
       "feeds": [ "https://lambda.staging.devnet.tools/bnc/call" ],
       "idleThreshold": "1h",
-
       "valueTriggers": {
         "relativeThreshold": 0.59,
         "absoluteThreshold": 0.0059
