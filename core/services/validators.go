@@ -128,6 +128,9 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
+	if len(i.ValueTriggers) == 0 {
+		fe.Add("must have at least one value trigger")
+	}
 	if !i.IdleThreshold.IsInstant() && i.IdleThreshold.Shorter(i.PollingInterval) {
 		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
 	}

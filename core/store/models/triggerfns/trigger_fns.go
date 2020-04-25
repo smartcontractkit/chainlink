@@ -100,9 +100,6 @@ func getParameters(b []byte) (map[string]interface{}, error) {
 		return nil, errors.Wrapf(err, `while parsing "%s" as trigger function`,
 			string(b))
 	}
-	if len(rawParameters) == 0 {
-		return nil, errors.Errorf("must have at least one trigger function")
-	}
 	return rawParameters, nil
 }
 
@@ -125,9 +122,7 @@ func makeTriggerFn(triggerFunctionName string, params interface{}) (TriggerFn, e
 
 // UnmarshalJSON implements the json.Unmarshaler interface
 func (f *TriggerFns) UnmarshalJSON(b []byte) error {
-	if len(*f) != 0 {
-		return errors.Errorf("must unmarshal trigger map into empty list")
-	}
+	// Length could be zero, since not all initiators require valueTriggers param
 	rawParameters, err := getParameters(b)
 	if err != nil {
 		return err
@@ -144,9 +139,7 @@ func (f *TriggerFns) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface
 func (f TriggerFns) MarshalJSON() ([]byte, error) {
-	if len(f) == 0 {
-		return nil, errors.Errorf("Must have at least one trigger function")
-	}
+	// The length of f could be zero, here, since the initiator might not be a fluxmonitor
 	rv := []string{"{"}
 	for _, tfn := range f {
 		params, err := json.Marshal(tfn.Parameters())
@@ -157,7 +150,7 @@ func (f TriggerFns) MarshalJSON() ([]byte, error) {
 		}
 		rv = append(rv, fmt.Sprintf(`"%s":%s`, tfn.Factory(), string(params)), ",")
 	}
-	rv = append(rv[:len(rv)-1], "}") // Strip last comma, close object braces
+	rv = append(rv, "}")
 	return []byte(strings.Join(rv, "")), nil
 
 }
