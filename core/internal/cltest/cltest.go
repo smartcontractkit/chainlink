@@ -1192,16 +1192,16 @@ func MakeRoundStateReturnData(
 	answer, timesOutAt, availableFunds, paymentAmount, oracleCount uint64,
 ) string {
 	var data []byte
-	data = append(data, utils.EVMWordUint64(roundID)...)
 	if eligible {
 		data = append(data, utils.EVMWordUint64(1)...)
 	} else {
 		data = append(data, utils.EVMWordUint64(0)...)
 	}
+	data = append(data, utils.EVMWordUint64(roundID)...)
 	data = append(data, utils.EVMWordUint64(answer)...)
 	data = append(data, utils.EVMWordUint64(timesOutAt)...)
 	data = append(data, utils.EVMWordUint64(availableFunds)...)
-	data = append(data, utils.EVMWordUint64(paymentAmount)...)
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
+	data = append(data, utils.EVMWordUint64(paymentAmount)...)
 	return hexutil.Encode(data)
 }

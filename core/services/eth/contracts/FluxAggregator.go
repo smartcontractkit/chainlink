@@ -14,7 +14,7 @@ import (
 
 type FluxAggregator interface {
 	ethsvc.ConnectedContract
-	RoundState(oracle common.Address) (FluxAggregatorRoundState, error)
+	RoundState() (FluxAggregatorRoundState, error)
 }
 
 const (
@@ -57,12 +57,17 @@ var fluxAggregatorLogTypes = map[common.Hash]interface{}{
 	AggregatorAnswerUpdatedLogTopic20191220: LogAnswerUpdated{},
 }
 
-func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster ethsvc.LogBroadcaster) (FluxAggregator, error) {
+func NewFluxAggregator(
+	address common.Address,
+	ethClient eth.Client,
+	logBroadcaster ethsvc.LogBroadcaster,
+	caller common.Address,
+) (FluxAggregator, error) {
 	codec, err := eth.GetV6ContractCodec(FluxAggregatorName)
 	if err != nil {
 		return nil, err
 	}
-	connectedContract := ethsvc.NewConnectedContract(codec, address, ethClient, logBroadcaster)
+	connectedContract := ethsvc.NewConnectedContract(codec, address, ethClient, logBroadcaster, caller)
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
@@ -82,9 +87,9 @@ type FluxAggregatorRoundState struct {
 	OracleCount       uint32   `abi:"_oracleCount"`
 }
 
-func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
+func (fa *fluxAggregator) RoundState() (FluxAggregatorRoundState, error) {
 	var result FluxAggregatorRoundState
-	err := fa.Call(&result, "roundState", oracle)
+	err := fa.Call(&result, "roundState")
 	if err != nil {
 		return FluxAggregatorRoundState{}, errors.Wrap(err, "unable to encode message call")
 	}

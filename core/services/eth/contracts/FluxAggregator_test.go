@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -19,18 +20,15 @@ import (
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
 
-	const aggregatorRoundState = "c410579e"
-	aggregatorRoundStateSelector := eth.HexToFunctionSelector(aggregatorRoundState)
-
-	selector := make([]byte, 16)
-	copy(selector, aggregatorRoundStateSelector.Bytes())
+	rsHash := utils.MustHash("roundState()")
 	nodeAddr := cltest.NewAddress()
 	expectedCallArgs := eth.CallArgs{
 		To:   aggregatorAddress,
-		Data: append(selector, nodeAddr[:]...),
+		Data: rsHash.Bytes()[:4],
+		From: nodeAddr,
 	}
 
-	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000011`
+	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`
 
 	tests := []struct {
 		name                   string
@@ -60,10 +58,10 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 					require.NoError(t, err)
 				})
 
-			fa, err := contracts.NewFluxAggregator(aggregatorAddress, ethClient, nil)
+			fa, err := contracts.NewFluxAggregator(aggregatorAddress, ethClient, nil, nodeAddr)
 			require.NoError(t, err)
 
-			roundState, err := fa.RoundState(nodeAddr)
+			roundState, err := fa.RoundState()
 			require.NoError(t, err)
 			assert.Equal(t, test.expectedRoundID, roundState.ReportableRoundID)
 			assert.Equal(t, test.expectedEligible, roundState.EligibleToSubmit)
@@ -77,7 +75,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 }
 
 func TestFluxAggregatorClient_DecodesLogs(t *testing.T) {
-	fa, err := contracts.NewFluxAggregator(common.Address{}, nil, nil)
+	fa, err := contracts.NewFluxAggregator(common.Address{}, nil, nil, cltest.NewAddress())
 	require.NoError(t, err)
 
 	newRoundLogRaw := cltest.LogFromFixture(t, "../../testdata/new_round_log.json")

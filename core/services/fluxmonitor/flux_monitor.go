@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
@@ -198,8 +199,17 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 		)
 
 		timeout := fm.store.Config.DefaultHTTPTimeout()
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM,
-			timeout)
+		acct, err := fm.store.KeyStore.GetFirstAccount()
+		if err != nil {
+			return err
+		}
+		checker, err := fm.checkerFactory.New(
+			initr,
+			fm.runManager,
+			fm.store.ORM,
+			timeout,
+			acct.Address,
+		)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -226,7 +236,13 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM, models.Duration) (DeviationChecker, error)
+	New(
+		models.Initiator,
+		RunManager,
+		*orm.ORM,
+		models.Duration,
+		common.Address,
+	) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -239,6 +255,7 @@ func (f pollingDeviationCheckerFactory) New(
 	runManager RunManager,
 	orm *orm.ORM,
 	timeout models.Duration,
+	caller common.Address,
 ) (DeviationChecker, error) {
 	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
 
@@ -261,7 +278,7 @@ func (f pollingDeviationCheckerFactory) New(
 	}
 
 	f.logBroadcaster.AddDependents(1)
-	fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, f.store.TxManager, f.logBroadcaster)
+	fluxAggregator, err := contracts.NewFluxAggregator(initr.InitiatorParams.Address, f.store.TxManager, f.logBroadcaster, caller)
 	if err != nil {
 		return nil, err
 	}
@@ -754,11 +771,7 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 }
 
 func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundState, error) {
-	acct, err := p.store.KeyStore.GetFirstAccount()
-	if err != nil {
-		return contracts.FluxAggregatorRoundState{}, err
-	}
-	roundState, err := p.fluxAggregator.RoundState(acct.Address)
+	roundState, err := p.fluxAggregator.RoundState()
 	if err != nil {
 		return contracts.FluxAggregatorRoundState{}, err
 	}
