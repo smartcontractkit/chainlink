@@ -933,7 +933,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		t,
 		"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", // from testdata/flux_monitor_job.json
 		requestParams.Get("address").String())
-	assert.Equal(t, "0xe6330cf7", requestParams.Get("functionSelector").String())
+	assert.Equal(t, "0x202ee0ed", requestParams.Get("functionSelector").String())
 	assert.Equal(
 		t,
 		"0x0000000000000000000000000000000000000000000000000000000000000002",

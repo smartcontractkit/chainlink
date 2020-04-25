@@ -17,7 +17,7 @@ require (
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/elastic/gosigar v0.10.4 // indirect
-	github.com/ethereum/go-ethereum v1.9.13
+	github.com/ethereum/go-ethereum v1.9.12
 	github.com/fatih/color v1.9.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/garyburd/redigo v1.6.0 // indirect
@@ -41,14 +41,13 @@ require (
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-sqlite3 v1.13.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mrwonko/cron v0.0.0-20180828170130-e0ddd0f7e7db
 	github.com/olekukonko/tablewriter v0.0.4
+	github.com/onsi/ginkgo v1.10.3 // indirect
 	github.com/onsi/gomega v1.9.0
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.5.1
 	github.com/rjeczalik/notify v0.9.2 // indirect
-	github.com/robfig/cron v1.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
