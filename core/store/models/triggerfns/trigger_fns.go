@@ -148,6 +148,9 @@ func (f TriggerFns) MarshalJSON() ([]byte, error) {
 		}
 		rv = append(rv, fmt.Sprintf(`"%s":%s`, tfn.Factory(), string(params)), ",")
 	}
+	if rv[len(rv)-1] == "," {
+		rv = rv[:len(rv)-1]
+	}
 	rv = append(rv, "}")
 	return []byte(strings.Join(rv, "")), nil
 
