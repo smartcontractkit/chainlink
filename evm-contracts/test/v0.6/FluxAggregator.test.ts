@@ -8,11 +8,13 @@ import { assert } from 'chai'
 import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
+import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const fluxAggregatorFactory = new FluxAggregatorFactory()
+const testHelperFactory = new FluxAggregatorTestHelperFactory()
 
 beforeAll(async () => {
   personas = await setup.users(provider).then(x => x.personas)
@@ -32,6 +34,7 @@ describe('FluxAggregator', () => {
 
   let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
+  let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
@@ -1976,6 +1979,17 @@ describe('FluxAggregator', () => {
         const expected = deposit.sub(paymentAmount).sub(paymentAmount)
         matchers.bigNum(expected, state._availableFunds)
       })
+    })
+
+    it('reverts if called by a contract', async () => {
+      testHelper = await testHelperFactory.connect(personas.Carol).deploy()
+      await matchers.evmRevert(
+        testHelper.readOracleRoundState(
+          aggregator.address,
+          personas.Neil.address,
+        ),
+        'off-chain reading only',
+      )
     })
   })
 })

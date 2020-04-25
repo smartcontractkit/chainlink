@@ -765,6 +765,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
       uint128 _paymentAmount
     )
   {
+    require(msg.sender == tx.origin, "off-chain reading only");
+
     bool supersedable = supersedable(reportingRoundId);
     _roundId = supersedable ? reportingRoundId.add(1) : reportingRoundId;
 
