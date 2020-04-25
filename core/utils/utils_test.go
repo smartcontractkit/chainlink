@@ -411,3 +411,58 @@ func TestBoundedQueue(t *testing.T) {
 	require.True(t, q.Empty())
 	require.False(t, q.Full())
 }
+
+func TestBoundedPriorityQueue(t *testing.T) {
+	t.Parallel()
+
+	q := utils.NewBoundedPriorityQueue(map[uint]uint{
+		1: 3,
+		2: 1,
+	})
+	require.True(t, q.Empty())
+
+	q.Add(1, 1)
+	require.False(t, q.Empty())
+
+	x := q.Take().(int)
+	require.Equal(t, 1, x)
+	require.True(t, q.Empty())
+
+	iface := q.Take()
+	require.Nil(t, iface)
+	require.True(t, q.Empty())
+
+	q.Add(2, 1)
+	q.Add(1, 2)
+	q.Add(1, 3)
+	q.Add(1, 4)
+
+	x = q.Take().(int)
+	require.Equal(t, 2, x)
+	require.False(t, q.Empty())
+
+	x = q.Take().(int)
+	require.Equal(t, 3, x)
+	require.False(t, q.Empty())
+
+	x = q.Take().(int)
+	require.Equal(t, 4, x)
+	require.False(t, q.Empty())
+
+	x = q.Take().(int)
+	require.Equal(t, 1, x)
+	require.True(t, q.Empty())
+
+	iface = q.Take()
+	require.Nil(t, iface)
+
+	q.Add(2, 1)
+	q.Add(2, 2)
+
+	x = q.Take().(int)
+	require.Equal(t, 2, x)
+	require.True(t, q.Empty())
+
+	iface = q.Take()
+	require.Nil(t, iface)
+}
