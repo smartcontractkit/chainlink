@@ -391,20 +391,20 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt()),
+					StartedAt:         uint64(test.timesOutAt()),
 				}, nil).Once()
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        0,
+					StartedAt:         0,
 				}, nil).Once()
 			} else {
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt()),
+					StartedAt:         uint64(test.timesOutAt()),
 				}, nil).Once()
 			}
 

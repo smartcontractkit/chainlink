@@ -76,10 +76,15 @@ type FluxAggregatorRoundState struct {
 	ReportableRoundID uint32   `abi:"_roundId"`
 	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
 	LatestAnswer      *big.Int `abi:"_latestSubmission"`
-	TimesOutAt        uint64   `abi:"_timesOutAt"`
+	Timeout           uint64   `abi:"_timeout"`
+	StartedAt         uint64   `abi:"_startedAt"`
 	AvailableFunds    *big.Int `abi:"_availableFunds"`
 	PaymentAmount     *big.Int `abi:"_paymentAmount"`
 	OracleCount       uint32   `abi:"_oracleCount"`
+}
+
+func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
+	return rs.Timeout + rs.StartedAt
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
