@@ -80,8 +80,6 @@ func (t TriggerFns) AllTriggered(onchain, recent decimal.Decimal) (bool, error) 
 	trigger := true
 	for _, tfn := range t {
 		doesTrigger, err := tfn.Triggering(onchain, recent)
-		fmt.Printf("triggering predicate %s %+v, %s -> %s %s\n",
-			tfn.Factory(), tfn.Parameters(), onchain, recent, doesTrigger)
 		if err != nil {
 			return false, errors.Wrapf(err, "could not determine whether feed change "+
 				"%s -> %s merits onchain report according to %s trigger function with "+
