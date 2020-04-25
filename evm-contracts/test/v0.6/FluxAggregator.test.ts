@@ -87,7 +87,7 @@ describe('FluxAggregator', () => {
     oracles: ethers.Wallet[],
   ): Promise<number> {
     for (const oracle of oracles) {
-      await aggregator.connect(oracle).updateAnswer(nextRound, answer)
+      await aggregator.connect(oracle).submit(nextRound, answer)
     }
     nextRound++
     return nextRound
@@ -134,8 +134,8 @@ describe('FluxAggregator', () => {
       'latestSubmission',
       'latestTimestamp',
       'linkToken',
-      'maxAnswerCount',
-      'minAnswerCount',
+      'maxSubmissionCount',
+      'minSubmissionCount',
       'onTokenTransfer',
       'oracleCount',
       'oracleRoundState',
@@ -146,9 +146,9 @@ describe('FluxAggregator', () => {
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
+      'submit',
       'timeout',
       'transferAdmin',
-      'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
       'withdrawFunds',
@@ -196,7 +196,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#updateAnswer', () => {
+  describe('#submit', () => {
     let minMax
 
     beforeEach(async () => {
@@ -210,7 +210,7 @@ describe('FluxAggregator', () => {
 
       const tx = await aggregator
         .connect(personas.Neil)
-        .updateAnswer(nextRound, answer)
+        .submit(nextRound, answer)
       const receipt = await tx.wait()
 
       matchers.bigNum(paymentAmount, await aggregator.allocatedFunds())
@@ -228,7 +228,7 @@ describe('FluxAggregator', () => {
       assert.equal(0, latest[1].toNumber())
 
       const newAnswer = 427
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, newAnswer)
+      await aggregator.connect(personas.Neil).submit(nextRound, newAnswer)
 
       latest = await aggregator.latestSubmission(personas.Neil.address)
       assert.equal(newAnswer, latest[0].toNumber())
@@ -238,11 +238,11 @@ describe('FluxAggregator', () => {
     it('emits a log event announcing submission details', async () => {
       const tx = await aggregator
         .connect(personas.Nelly)
-        .updateAnswer(nextRound, answer)
+        .submit(nextRound, answer)
       const receipt = await tx.wait()
       const round = h.eventArgs(receipt.events?.[1])
 
-      assert.equal(answer, round.answer)
+      assert.equal(answer, round.submission)
       assert.equal(nextRound, round.round)
       assert.equal(personas.Nelly.address, round.oracle)
     })
@@ -256,7 +256,7 @@ describe('FluxAggregator', () => {
             .withdrawablePayment(personas.Neil.address),
         )
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
         matchers.bigNum(
           paymentAmount,
@@ -281,9 +281,9 @@ describe('FluxAggregator', () => {
       it('does not update the answer', async () => {
         matchers.bigNum(ethers.constants.Zero, await aggregator.latestAnswer())
 
-        // Not updated because of changes by the owner setting minAnswerCount to 3
-        await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        // Not updated because of changes by the owner setting minSubmissionCount to 3
+        await aggregator.connect(personas.Ned).submit(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
         matchers.bigNum(ethers.constants.Zero, await aggregator.latestAnswer())
       })
@@ -292,12 +292,12 @@ describe('FluxAggregator', () => {
     describe('when an oracle prematurely bumps the round', () => {
       beforeEach(async () => {
         await updateFutureRounds(aggregator, { minAnswers: 2, maxAnswers: 3 })
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
 
       it('reverts', async () => {
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).updateAnswer(nextRound + 1, answer),
+          aggregator.connect(personas.Neil).submit(nextRound + 1, answer),
           'previous round not supersedable',
         )
       })
@@ -306,16 +306,16 @@ describe('FluxAggregator', () => {
     describe('when the minimum number of oracles have reported', () => {
       beforeEach(async () => {
         await updateFutureRounds(aggregator, { minAnswers: 2, maxAnswers: 3 })
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
 
       it('updates the answer with the median', async () => {
         matchers.bigNum(0, await aggregator.latestAnswer())
 
-        await aggregator.connect(personas.Ned).updateAnswer(nextRound, 99)
+        await aggregator.connect(personas.Ned).submit(nextRound, 99)
         matchers.bigNum(99, await aggregator.latestAnswer()) // ((100+99) / 2).to_i
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, 101)
+        await aggregator.connect(personas.Nelly).submit(nextRound, 101)
 
         matchers.bigNum(100, await aggregator.latestAnswer())
       })
@@ -324,7 +324,7 @@ describe('FluxAggregator', () => {
         const originalTimestamp = await aggregator.latestTimestamp()
         assert.isAbove(originalTimestamp.toNumber(), 0)
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
         const currentTimestamp = await aggregator.latestTimestamp()
         assert.isAbove(
@@ -336,7 +336,7 @@ describe('FluxAggregator', () => {
       it('announces the new answer with a log event', async () => {
         const tx = await aggregator
           .connect(personas.Nelly)
-          .updateAnswer(nextRound, answer)
+          .submit(nextRound, answer)
         const receipt = await tx.wait()
 
         const newAnswer = ethers.utils.bigNumberify(
@@ -349,7 +349,7 @@ describe('FluxAggregator', () => {
       it('does not set the timedout flag', async () => {
         assert.isFalse(await aggregator.getTimedOutStatus(nextRound))
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
         assert.equal(
           nextRound,
@@ -360,10 +360,10 @@ describe('FluxAggregator', () => {
 
     describe('when an oracle submits for a round twice', () => {
       it('reverts', async () => {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Neil).submit(nextRound, answer),
           'cannot report on previous rounds',
         )
       })
@@ -372,13 +372,13 @@ describe('FluxAggregator', () => {
     describe('when updated after the max answers submitted', () => {
       beforeEach(async () => {
         await updateFutureRounds(aggregator)
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
 
       it('reverts', async () => {
         await matchers.evmRevert(
-          aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
-          'round not accepting anwers',
+          aggregator.connect(personas.Ned).submit(nextRound, answer),
+          'round not accepting submissions',
         )
       })
     })
@@ -401,7 +401,7 @@ describe('FluxAggregator', () => {
           await aggregator.reportingRoundStartedAt(),
         )
 
-        await aggregator.connect(oracles[0]).updateAnswer(nextRound, answer)
+        await aggregator.connect(oracles[0]).submit(nextRound, answer)
 
         const startedAt = (
           await aggregator.reportingRoundStartedAt()
@@ -413,7 +413,7 @@ describe('FluxAggregator', () => {
       it('announces a new round by emitting a log', async () => {
         const tx = await aggregator
           .connect(personas.Neil)
-          .updateAnswer(nextRound, answer)
+          .submit(nextRound, answer)
         const receipt = await tx.wait()
 
         const topics = receipt.logs?.[0].topics ?? []
@@ -428,7 +428,7 @@ describe('FluxAggregator', () => {
     describe('when a round is passed in higher than expected', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).updateAnswer(nextRound + 1, answer),
+          aggregator.connect(personas.Neil).submit(nextRound + 1, answer),
           'invalid round to report',
         )
       })
@@ -437,7 +437,7 @@ describe('FluxAggregator', () => {
     describe('when called by a non-oracle', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
-          aggregator.connect(personas.Carol).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Carol).submit(nextRound, answer),
           'not enabled oracle',
         )
       })
@@ -459,7 +459,7 @@ describe('FluxAggregator', () => {
 
       it('reverts', async () => {
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Neil).submit(nextRound, answer),
           'SafeMath: subtraction overflow',
         )
       })
@@ -476,28 +476,24 @@ describe('FluxAggregator', () => {
         ])
 
         // start the next round
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
 
       it('still allows the previous round to be answered', async () => {
-        await aggregator
-          .connect(personas.Ned)
-          .updateAnswer(nextRound - 1, answer)
+        await aggregator.connect(personas.Ned).submit(nextRound - 1, answer)
       })
 
       describe('once the current round is answered', () => {
         beforeEach(async () => {
           oracles = [personas.Neil, personas.Nancy]
           for (let i = 0; i < oracles.length; i++) {
-            await aggregator.connect(oracles[i]).updateAnswer(nextRound, answer)
+            await aggregator.connect(oracles[i]).submit(nextRound, answer)
           }
         })
 
         it('does not allow reports for the previous round', async () => {
           await matchers.evmRevert(
-            aggregator
-              .connect(personas.Ned)
-              .updateAnswer(nextRound - 1, answer),
+            aggregator.connect(personas.Ned).submit(nextRound - 1, answer),
             'invalid round to report',
           )
         })
@@ -507,15 +503,13 @@ describe('FluxAggregator', () => {
         beforeEach(async () => {
           await aggregator
             .connect(personas.Norbert)
-            .updateAnswer(nextRound - 1, answer)
+            .submit(nextRound - 1, answer)
         })
 
         it('does not allow reports for the previous round', async () => {
           await matchers.evmRevert(
-            aggregator
-              .connect(personas.Ned)
-              .updateAnswer(nextRound - 1, answer),
-            'round not accepting anwers',
+            aggregator.connect(personas.Ned).submit(nextRound - 1, answer),
+            'round not accepting submissions',
           )
         })
       })
@@ -544,11 +538,11 @@ describe('FluxAggregator', () => {
             .withdrawablePayment(personas.Nelly.address),
         )
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
         await updateFutureRounds(aggregator, { payment: newAmount })
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
         matchers.bigNum(
           paymentAmount,
@@ -579,16 +573,16 @@ describe('FluxAggregator', () => {
         // indication that an oracle hasn't responded, this test guards against
         // the situation where we don't check that and no one can start a round.
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
 
       it('does revert before the delay', async () => {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
         nextRound++
 
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Neil).submit(nextRound, answer),
           'previous round not supersedable',
         )
       })
@@ -603,7 +597,7 @@ describe('FluxAggregator', () => {
 
         oracles = [personas.Neil, personas.Ned, personas.Nelly]
         for (let i = 0; i < oracles.length; i++) {
-          await aggregator.connect(oracles[i]).updateAnswer(nextRound, answer)
+          await aggregator.connect(oracles[i]).submit(nextRound, answer)
           nextRound++
         }
 
@@ -619,22 +613,20 @@ describe('FluxAggregator', () => {
 
       describe('when called by an oracle who has not answered recently', () => {
         it('does not revert', async () => {
-          await aggregator
-            .connect(personas.Neil)
-            .updateAnswer(nextRound, answer)
+          await aggregator.connect(personas.Neil).submit(nextRound, answer)
         })
       })
 
       describe('when called by an oracle who answered recently', () => {
         it('reverts', async () => {
           await matchers.evmRevert(
-            aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
-            'round not accepting anwers',
+            aggregator.connect(personas.Ned).submit(nextRound, answer),
+            'round not accepting submissions',
           )
 
           await matchers.evmRevert(
-            aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
-            'round not accepting anwers',
+            aggregator.connect(personas.Nelly).submit(nextRound, answer),
+            'round not accepting submissions',
           )
         })
       })
@@ -649,12 +641,12 @@ describe('FluxAggregator', () => {
         })
 
         for (const oracle of oracles) {
-          await aggregator.connect(oracle).updateAnswer(nextRound, answer)
+          await aggregator.connect(oracle).submit(nextRound, answer)
         }
         nextRound++
 
-        await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Ned).submit(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
         assert.equal(nextRound, (await aggregator.reportingRound()).toNumber())
 
         await h.increaseTimeBy(timeout + 1, provider)
@@ -662,7 +654,7 @@ describe('FluxAggregator', () => {
       })
 
       it('allows a new round to be started', async () => {
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
 
       it('sets the info for the previous round', async () => {
@@ -674,7 +666,7 @@ describe('FluxAggregator', () => {
 
         const tx = await aggregator
           .connect(personas.Nelly)
-          .updateAnswer(nextRound, answer)
+          .submit(nextRound, answer)
         const receipt = await tx.wait()
 
         const block = await provider.getBlock(receipt.blockHash ?? '')
@@ -689,7 +681,7 @@ describe('FluxAggregator', () => {
         const previousRound = nextRound - 1
         assert.isFalse(await aggregator.getTimedOutStatus(previousRound))
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
         assert.isTrue(await aggregator.getTimedOutStatus(previousRound))
         assert.equal(
@@ -703,7 +695,7 @@ describe('FluxAggregator', () => {
       it('still respects the delay restriction', async () => {
         // expected to revert because the sender started the last round
         await matchers.evmRevert(
-          aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Ned).submit(nextRound, answer),
         )
       })
 
@@ -712,7 +704,7 @@ describe('FluxAggregator', () => {
           timeout: timeout + 100000,
         })
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
     })
   })
@@ -724,7 +716,7 @@ describe('FluxAggregator', () => {
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
 
       for (const answer of answers) {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
         nextRound++
       }
     })
@@ -742,7 +734,7 @@ describe('FluxAggregator', () => {
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
 
       for (let i = 0; i < 10; i++) {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, i)
+        await aggregator.connect(personas.Neil).submit(nextRound, i)
         nextRound++
       }
     })
@@ -797,10 +789,13 @@ describe('FluxAggregator', () => {
     it('updates the round details', async () => {
       await addOracles(aggregator, [personas.Neil], 0, 1, 0)
 
-      matchers.bigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
+      matchers.bigNum(
+        ethers.constants.Zero,
+        await aggregator.minSubmissionCount(),
+      )
       matchers.bigNum(
         ethers.utils.bigNumberify(1),
-        await aggregator.maxAnswerCount(),
+        await aggregator.maxSubmissionCount(),
       )
       matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
     })
@@ -860,7 +855,7 @@ describe('FluxAggregator', () => {
           rrDelay,
         )
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
         await addOracles(
           aggregator,
@@ -873,19 +868,17 @@ describe('FluxAggregator', () => {
 
       it('does not allow the oracle to update the round', async () => {
         await matchers.evmRevert(
-          aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Nelly).submit(nextRound, answer),
           'not yet enabled oracle',
         )
       })
 
       it('does allow the oracle to update future rounds', async () => {
         // complete round
-        await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Ned).submit(nextRound, answer)
 
         // now can participate in new rounds
-        await aggregator
-          .connect(personas.Nelly)
-          .updateAnswer(nextRound + 1, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound + 1, answer)
       })
     })
 
@@ -900,20 +893,20 @@ describe('FluxAggregator', () => {
           rrDelay,
         )
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
         nextRound++
 
         await aggregator
           .connect(personas.Carol)
           .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
         nextRound++
 
         await addOracles(aggregator, [personas.Nelly], 1, 1, rrDelay)
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
     })
 
@@ -927,20 +920,20 @@ describe('FluxAggregator', () => {
           rrDelay,
         )
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
         nextRound++
 
         await aggregator
           .connect(personas.Carol)
           .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
         nextRound++
 
         await addOracles(aggregator, [personas.Nelly], 1, 1, rrDelay)
 
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
     })
 
@@ -954,7 +947,7 @@ describe('FluxAggregator', () => {
           rrDelay,
         )
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
         await aggregator
           .connect(personas.Carol)
@@ -1016,13 +1009,13 @@ describe('FluxAggregator', () => {
 
       it('reverts all oracle answers', async () => {
         await matchers.evmRevert(
-          aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Ned).submit(nextRound, answer),
         )
         await matchers.evmRevert(
-          aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Nelly).submit(nextRound, answer),
         )
         await matchers.evmRevert(
-          aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Neil).submit(nextRound, answer),
         )
       })
     })
@@ -1055,10 +1048,13 @@ describe('FluxAggregator', () => {
         .connect(personas.Carol)
         .removeOracles([personas.Neil.address], 0, 1, 0)
 
-      matchers.bigNum(ethers.constants.Zero, await aggregator.minAnswerCount())
+      matchers.bigNum(
+        ethers.constants.Zero,
+        await aggregator.minSubmissionCount(),
+      )
       matchers.bigNum(
         ethers.utils.bigNumberify(1),
-        await aggregator.maxAnswerCount(),
+        await aggregator.maxSubmissionCount(),
       )
       matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
     })
@@ -1123,7 +1119,7 @@ describe('FluxAggregator', () => {
 
     describe('when an oracle gets removed mid-round', () => {
       beforeEach(async () => {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
         await aggregator
           .connect(personas.Carol)
@@ -1131,12 +1127,12 @@ describe('FluxAggregator', () => {
       })
 
       it('is allowed to finish that round', async () => {
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
         nextRound++
 
         // cannot participate in future rounds
         await matchers.evmRevert(
-          aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+          aggregator.connect(personas.Nelly).submit(nextRound, answer),
           'no longer allowed oracle',
         )
       })
@@ -1242,7 +1238,7 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
 
       it('fails', async () => {
@@ -1304,7 +1300,7 @@ describe('FluxAggregator', () => {
   })
 
   describe('#updateFutureRounds', () => {
-    let minAnswerCount, maxAnswerCount
+    let minSubmissionCount, maxSubmissionCount
     const newPaymentAmount = h.toWei('2')
     const newMin = 1
     const newMax = 3
@@ -1312,19 +1308,19 @@ describe('FluxAggregator', () => {
 
     beforeEach(async () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
-      minAnswerCount = oracles.length
-      maxAnswerCount = oracles.length
+      minSubmissionCount = oracles.length
+      maxSubmissionCount = oracles.length
       await addOracles(
         aggregator,
         oracles,
-        minAnswerCount,
-        maxAnswerCount,
+        minSubmissionCount,
+        maxSubmissionCount,
         rrDelay,
       )
 
       matchers.bigNum(paymentAmount, await aggregator.paymentAmount())
-      assert.equal(minAnswerCount, await aggregator.minAnswerCount())
-      assert.equal(maxAnswerCount, await aggregator.maxAnswerCount())
+      assert.equal(minSubmissionCount, await aggregator.minSubmissionCount())
+      assert.equal(maxSubmissionCount, await aggregator.maxSubmissionCount())
     })
 
     it('updates the min and max answer counts', async () => {
@@ -1338,11 +1334,11 @@ describe('FluxAggregator', () => {
       matchers.bigNum(newPaymentAmount, await aggregator.paymentAmount())
       matchers.bigNum(
         ethers.utils.bigNumberify(newMin),
-        await aggregator.minAnswerCount(),
+        await aggregator.minSubmissionCount(),
       )
       matchers.bigNum(
         ethers.utils.bigNumberify(newMax),
-        await aggregator.maxAnswerCount(),
+        await aggregator.maxSubmissionCount(),
       )
       matchers.bigNum(
         ethers.utils.bigNumberify(newDelay),
@@ -1362,8 +1358,8 @@ describe('FluxAggregator', () => {
       const round = h.eventArgs(receipt.events?.[0])
 
       matchers.bigNum(newPaymentAmount, round.paymentAmount)
-      assert.equal(newMin, round.minAnswerCount)
-      assert.equal(newMax, round.maxAnswerCount)
+      assert.equal(newMin, round.minSubmissionCount)
+      assert.equal(newMax, round.maxSubmissionCount)
       assert.equal(newDelay, round.restartDelay)
       assert.equal(timeout + 1, round.timeout)
     })
@@ -1450,7 +1446,7 @@ describe('FluxAggregator', () => {
       const originalBalance = await aggregator.availableFunds()
 
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
       await link.transfer(aggregator.address, deposit)
       await aggregator.updateAvailableFunds()
 
@@ -1484,7 +1480,7 @@ describe('FluxAggregator', () => {
   describe('#withdrawPayment', () => {
     beforeEach(async () => {
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     it('transfers LINK to the recipient', async () => {
@@ -1683,7 +1679,7 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await addOracles(aggregator, [personas.Neil], 1, 1, 0)
 
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
       nextRound = nextRound + 1
 
       await aggregator.setRequesterPermissions(personas.Carol.address, true, 0)
@@ -1738,7 +1734,7 @@ describe('FluxAggregator', () => {
       it('reverts if a round is started before the delay', async () => {
         await aggregator.connect(personas.Eddy).requestNewRound()
 
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
         nextRound = nextRound + 1
 
         // Eddy can't start because of the delay
@@ -1750,7 +1746,7 @@ describe('FluxAggregator', () => {
         await aggregator.connect(personas.Carol).requestNewRound()
 
         // round completes
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
         nextRound = nextRound + 1
 
         // now Eddy can start again
@@ -1773,7 +1769,7 @@ describe('FluxAggregator', () => {
         }
 
         await addOracles(aggregator, [personas.Neil], 1, 1, 0)
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
     })
   })
@@ -1782,7 +1778,7 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await addOracles(aggregator, [personas.Neil], 1, 1, 0)
 
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
       nextRound = nextRound + 1
     })
 
@@ -1914,7 +1910,7 @@ describe('FluxAggregator', () => {
       const state = await aggregator.oracleRoundState(personas.Nelly.address)
       matchers.bigNum(1, state._roundId)
       assert.equal(true, state._eligibleToSubmit)
-      matchers.bigNum(0, state._latestRoundAnswer)
+      matchers.bigNum(0, state._latestSubmission)
       matchers.bigNum(0, state._timesOutAt)
       matchers.bigNum(deposit, state._availableFunds)
       matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
@@ -1923,14 +1919,14 @@ describe('FluxAggregator', () => {
 
     describe('after other oracles have reported', () => {
       beforeEach(async () => {
-        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
 
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
         matchers.bigNum(1, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(0, state._latestRoundAnswer)
+        matchers.bigNum(0, state._latestSubmission)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
         matchers.bigNum(paymentAmount, state._paymentAmount)
       })
@@ -1938,14 +1934,14 @@ describe('FluxAggregator', () => {
 
     describe('after the oracle has reported but the others have not', () => {
       beforeEach(async () => {
-        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
 
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
         matchers.bigNum(1, state._roundId)
         assert.equal(false, state._eligibleToSubmit)
-        matchers.bigNum(answer, state._latestRoundAnswer)
+        matchers.bigNum(answer, state._latestSubmission)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
       })
 
@@ -1962,7 +1958,7 @@ describe('FluxAggregator', () => {
 
           matchers.bigNum(2, state._roundId)
           assert.equal(true, state._eligibleToSubmit)
-          matchers.bigNum(answer, state._latestRoundAnswer)
+          matchers.bigNum(answer, state._latestSubmission)
           matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
         })
       })
@@ -1972,7 +1968,7 @@ describe('FluxAggregator', () => {
       beforeEach(async () => {
         const oracles = [personas.Neil, personas.Nelly]
         for (let i = 0; i < oracles.length; i++) {
-          await aggregator.connect(oracles[i]).updateAnswer(nextRound, answer)
+          await aggregator.connect(oracles[i]).submit(nextRound, answer)
         }
       })
 
@@ -1980,7 +1976,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
         matchers.bigNum(2, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(answer, state._latestRoundAnswer)
+        matchers.bigNum(answer, state._latestSubmission)
         const expected = deposit.sub(paymentAmount).sub(paymentAmount)
         matchers.bigNum(expected, state._availableFunds)
       })

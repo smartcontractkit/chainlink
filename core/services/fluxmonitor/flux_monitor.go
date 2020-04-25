@@ -815,7 +815,7 @@ type jobRunRequest struct {
 }
 
 func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nextRound *big.Int) error {
-	methodID, err := p.fluxAggregator.GetMethodID("updateAnswer")
+	methodID, err := p.fluxAggregator.GetMethodID("submit")
 	if err != nil {
 		return err
 	}

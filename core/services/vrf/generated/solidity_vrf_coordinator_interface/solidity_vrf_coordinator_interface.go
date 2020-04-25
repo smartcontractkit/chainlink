@@ -191,7 +191,7 @@ func (_VRFCoordinator *VRFCoordinatorTransactorRaw) Transact(opts *bind.Transact
 
 // Callbacks is a free data retrieval call binding the contract method 0x21f36509.
 //
-// Solidity: function callbacks(bytes32 ) view returns(address callbackContract, uint256 randomnessFee, uint256 seed)
+// Solidity: function callbacks(bytes32 ) constant returns(address callbackContract, uint256 randomnessFee, uint256 seed)
 func (_VRFCoordinator *VRFCoordinatorCaller) Callbacks(opts *bind.CallOpts, arg0 [32]byte) (struct {
 	CallbackContract common.Address
 	RandomnessFee    *big.Int
@@ -209,7 +209,7 @@ func (_VRFCoordinator *VRFCoordinatorCaller) Callbacks(opts *bind.CallOpts, arg0
 
 // Callbacks is a free data retrieval call binding the contract method 0x21f36509.
 //
-// Solidity: function callbacks(bytes32 ) view returns(address callbackContract, uint256 randomnessFee, uint256 seed)
+// Solidity: function callbacks(bytes32 ) constant returns(address callbackContract, uint256 randomnessFee, uint256 seed)
 func (_VRFCoordinator *VRFCoordinatorSession) Callbacks(arg0 [32]byte) (struct {
 	CallbackContract common.Address
 	RandomnessFee    *big.Int
@@ -220,7 +220,7 @@ func (_VRFCoordinator *VRFCoordinatorSession) Callbacks(arg0 [32]byte) (struct {
 
 // Callbacks is a free data retrieval call binding the contract method 0x21f36509.
 //
-// Solidity: function callbacks(bytes32 ) view returns(address callbackContract, uint256 randomnessFee, uint256 seed)
+// Solidity: function callbacks(bytes32 ) constant returns(address callbackContract, uint256 randomnessFee, uint256 seed)
 func (_VRFCoordinator *VRFCoordinatorCallerSession) Callbacks(arg0 [32]byte) (struct {
 	CallbackContract common.Address
 	RandomnessFee    *big.Int
@@ -231,7 +231,7 @@ func (_VRFCoordinator *VRFCoordinatorCallerSession) Callbacks(arg0 [32]byte) (st
 
 // HashOfKey is a free data retrieval call binding the contract method 0xcaf70c4a.
 //
-// Solidity: function hashOfKey(uint256[2] _publicKey) pure returns(bytes32)
+// Solidity: function hashOfKey(uint256[2] _publicKey) constant returns(bytes32)
 func (_VRFCoordinator *VRFCoordinatorCaller) HashOfKey(opts *bind.CallOpts, _publicKey [2]*big.Int) ([32]byte, error) {
 	var (
 		ret0 = new([32]byte)
@@ -243,21 +243,21 @@ func (_VRFCoordinator *VRFCoordinatorCaller) HashOfKey(opts *bind.CallOpts, _pub
 
 // HashOfKey is a free data retrieval call binding the contract method 0xcaf70c4a.
 //
-// Solidity: function hashOfKey(uint256[2] _publicKey) pure returns(bytes32)
+// Solidity: function hashOfKey(uint256[2] _publicKey) constant returns(bytes32)
 func (_VRFCoordinator *VRFCoordinatorSession) HashOfKey(_publicKey [2]*big.Int) ([32]byte, error) {
 	return _VRFCoordinator.Contract.HashOfKey(&_VRFCoordinator.CallOpts, _publicKey)
 }
 
 // HashOfKey is a free data retrieval call binding the contract method 0xcaf70c4a.
 //
-// Solidity: function hashOfKey(uint256[2] _publicKey) pure returns(bytes32)
+// Solidity: function hashOfKey(uint256[2] _publicKey) constant returns(bytes32)
 func (_VRFCoordinator *VRFCoordinatorCallerSession) HashOfKey(_publicKey [2]*big.Int) ([32]byte, error) {
 	return _VRFCoordinator.Contract.HashOfKey(&_VRFCoordinator.CallOpts, _publicKey)
 }
 
 // ServiceAgreements is a free data retrieval call binding the contract method 0x75d35070.
 //
-// Solidity: function serviceAgreements(bytes32 ) view returns(address vRFOracle, bytes32 jobID, uint256 fee)
+// Solidity: function serviceAgreements(bytes32 ) constant returns(address vRFOracle, bytes32 jobID, uint256 fee)
 func (_VRFCoordinator *VRFCoordinatorCaller) ServiceAgreements(opts *bind.CallOpts, arg0 [32]byte) (struct {
 	VRFOracle common.Address
 	JobID     [32]byte
@@ -275,7 +275,7 @@ func (_VRFCoordinator *VRFCoordinatorCaller) ServiceAgreements(opts *bind.CallOp
 
 // ServiceAgreements is a free data retrieval call binding the contract method 0x75d35070.
 //
-// Solidity: function serviceAgreements(bytes32 ) view returns(address vRFOracle, bytes32 jobID, uint256 fee)
+// Solidity: function serviceAgreements(bytes32 ) constant returns(address vRFOracle, bytes32 jobID, uint256 fee)
 func (_VRFCoordinator *VRFCoordinatorSession) ServiceAgreements(arg0 [32]byte) (struct {
 	VRFOracle common.Address
 	JobID     [32]byte
@@ -286,7 +286,7 @@ func (_VRFCoordinator *VRFCoordinatorSession) ServiceAgreements(arg0 [32]byte) (
 
 // ServiceAgreements is a free data retrieval call binding the contract method 0x75d35070.
 //
-// Solidity: function serviceAgreements(bytes32 ) view returns(address vRFOracle, bytes32 jobID, uint256 fee)
+// Solidity: function serviceAgreements(bytes32 ) constant returns(address vRFOracle, bytes32 jobID, uint256 fee)
 func (_VRFCoordinator *VRFCoordinatorCallerSession) ServiceAgreements(arg0 [32]byte) (struct {
 	VRFOracle common.Address
 	JobID     [32]byte
@@ -297,7 +297,7 @@ func (_VRFCoordinator *VRFCoordinatorCallerSession) ServiceAgreements(arg0 [32]b
 
 // WithdrawableTokens is a free data retrieval call binding the contract method 0x006f6ad0.
 //
-// Solidity: function withdrawableTokens(address ) view returns(uint256)
+// Solidity: function withdrawableTokens(address ) constant returns(uint256)
 func (_VRFCoordinator *VRFCoordinatorCaller) WithdrawableTokens(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -309,14 +309,14 @@ func (_VRFCoordinator *VRFCoordinatorCaller) WithdrawableTokens(opts *bind.CallO
 
 // WithdrawableTokens is a free data retrieval call binding the contract method 0x006f6ad0.
 //
-// Solidity: function withdrawableTokens(address ) view returns(uint256)
+// Solidity: function withdrawableTokens(address ) constant returns(uint256)
 func (_VRFCoordinator *VRFCoordinatorSession) WithdrawableTokens(arg0 common.Address) (*big.Int, error) {
 	return _VRFCoordinator.Contract.WithdrawableTokens(&_VRFCoordinator.CallOpts, arg0)
 }
 
 // WithdrawableTokens is a free data retrieval call binding the contract method 0x006f6ad0.
 //
-// Solidity: function withdrawableTokens(address ) view returns(uint256)
+// Solidity: function withdrawableTokens(address ) constant returns(uint256)
 func (_VRFCoordinator *VRFCoordinatorCallerSession) WithdrawableTokens(arg0 common.Address) (*big.Int, error) {
 	return _VRFCoordinator.Contract.WithdrawableTokens(&_VRFCoordinator.CallOpts, arg0)
 }
