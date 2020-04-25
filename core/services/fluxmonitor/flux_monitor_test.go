@@ -343,7 +343,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		initr,
 		rm,
 		fetcher,
-		models.MustMakeDuration(time.Second),
+		models.MustMakeDuration(math.MaxInt64),
 		func() {},
 	)
 	require.NoError(t, err)
@@ -778,6 +778,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		}
 
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
