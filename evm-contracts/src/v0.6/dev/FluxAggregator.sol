@@ -760,7 +760,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
       bool _eligibleToSubmit,
       uint32 _roundId,
       int256 _latestSubmission,
-      uint64 _timesOutAt,
+      uint64 _startedAt,
+      uint64 _timeout,
       uint128 _availableFunds,
       uint32 _oracleCount,
       uint128 _paymentAmount
@@ -768,24 +769,29 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(msg.sender == tx.origin, "off-chain reading only");
 
-    bool supersedable = supersedable(reportingRoundId);
-    _roundId = supersedable ? reportingRoundId.add(1) : reportingRoundId;
-
+    if (supersedable(reportingRoundId)) {
+      _roundId = reportingRoundId.add(1);
+      _paymentAmount = paymentAmount;
+      _eligibleToSubmit = delayed(_oracle, _roundId);
+    } else {
+      _roundId = reportingRoundId;
+      _paymentAmount = rounds[_roundId].details.paymentAmount;
+      _eligibleToSubmit = acceptingSubmissions(_roundId);
+    }
 
     if (validateOracleRound(_oracle, _roundId).length != 0) {
       _eligibleToSubmit = false;
-    } else {
-      _eligibleToSubmit = supersedable ? delayed(_oracle, _roundId) : acceptingSubmissions(_roundId);
     }
 
     return (
       _eligibleToSubmit,
       _roundId,
       oracles[_oracle].latestSubmission,
-      rounds[_roundId].startedAt + rounds[_roundId].details.timeout,
+      rounds[_roundId].startedAt,
+      rounds[_roundId].details.timeout,
       availableFunds,
       oracleCount(),
-      supersedable ? paymentAmount : rounds[_roundId].details.paymentAmount
+      _paymentAmount
     );
   }
 
