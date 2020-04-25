@@ -469,7 +469,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
 	jr := cltest.NewJobRun(j)
