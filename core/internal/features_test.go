@@ -961,9 +961,9 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		mock.Register("eth_call", hex)
 	})
 
-	// Have price adapter server respond with 100 for price on initialization,
+	// Have price adapter server respond with 100.05 for price on initialization,
 	// NOT enough for deviation.
-	priceResponse := `{"data":{"result": 100}}`
+	priceResponse := `{"data":{"result": 100.05}}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse)
 	defer assertCalled()
 

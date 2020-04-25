@@ -25,6 +25,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 // triggerFnFactories maps the names of the trigger functions used in a JSON job
@@ -85,7 +86,14 @@ func (t TriggerFns) AllTriggered(onchain, recent decimal.Decimal) (bool, error) 
 				"%s -> %s merits onchain report according to %s trigger function with "+
 				"parameters %+v", onchain, recent, tfn.Factory(), tfn.Parameters())
 		}
+		if doesTrigger {
+			logger.Debug(fmt.Sprintf("%s with parameters %+v triggered on %s -> %s",
+				tfn.Factory(), tfn.Parameters(), onchain, recent))
+		}
 		trigger = trigger && doesTrigger
+	}
+	if trigger {
+		logger.Debug("all triggers on %+v triggered on %s -> %s", t, onchain, recent)
 	}
 	return trigger, nil
 }

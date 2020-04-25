@@ -479,7 +479,7 @@ func (p *PollingDeviationChecker) consume() {
 	p.readyForLogs()
 
 	// Try to do an initial poll
-	p.pollIfEligible(reportRegardlessofDeviation{true})
+	p.pollIfEligible()
 	p.pollTicker.Reset()
 	defer p.pollTicker.Stop()
 
@@ -767,6 +767,9 @@ func (p *PollingDeviationChecker) pollIfEligible(
 		logger.Debugw("recent deviation is insignificant, not submitting", loggerFields...)
 		return false
 	}
+
+	loggerFields = append(loggerFields, "reportableChange", reportableChange,
+		"definitelyReport", definitelyReport)
 
 	if roundState.ReportableRoundID > 1 {
 		logger.Infow(
