@@ -134,8 +134,8 @@ describe('FluxAggregator', () => {
       'latestSubmission',
       'latestTimestamp',
       'linkToken',
-      'maxResponseCount',
-      'minResponseCount',
+      'maxSubmissionCount',
+      'minSubmissionCount',
       'onTokenTransfer',
       'oracleCount',
       'oracleRoundState',
@@ -242,7 +242,7 @@ describe('FluxAggregator', () => {
       const receipt = await tx.wait()
       const round = h.eventArgs(receipt.events?.[1])
 
-      assert.equal(answer, round.response)
+      assert.equal(answer, round.submission)
       assert.equal(nextRound, round.round)
       assert.equal(personas.Nelly.address, round.oracle)
     })
@@ -281,7 +281,7 @@ describe('FluxAggregator', () => {
       it('does not update the answer', async () => {
         matchers.bigNum(ethers.constants.Zero, await aggregator.latestAnswer())
 
-        // Not updated because of changes by the owner setting minResponseCount to 3
+        // Not updated because of changes by the owner setting minSubmissionCount to 3
         await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
         await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
 
@@ -799,11 +799,11 @@ describe('FluxAggregator', () => {
 
       matchers.bigNum(
         ethers.constants.Zero,
-        await aggregator.minResponseCount(),
+        await aggregator.minSubmissionCount(),
       )
       matchers.bigNum(
         ethers.utils.bigNumberify(1),
-        await aggregator.maxResponseCount(),
+        await aggregator.maxSubmissionCount(),
       )
       matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
     })
@@ -1060,11 +1060,11 @@ describe('FluxAggregator', () => {
 
       matchers.bigNum(
         ethers.constants.Zero,
-        await aggregator.minResponseCount(),
+        await aggregator.minSubmissionCount(),
       )
       matchers.bigNum(
         ethers.utils.bigNumberify(1),
-        await aggregator.maxResponseCount(),
+        await aggregator.maxSubmissionCount(),
       )
       matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
     })
@@ -1310,7 +1310,7 @@ describe('FluxAggregator', () => {
   })
 
   describe('#updateFutureRounds', () => {
-    let minResponseCount, maxResponseCount
+    let minSubmissionCount, maxSubmissionCount
     const newPaymentAmount = h.toWei('2')
     const newMin = 1
     const newMax = 3
@@ -1318,19 +1318,19 @@ describe('FluxAggregator', () => {
 
     beforeEach(async () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly]
-      minResponseCount = oracles.length
-      maxResponseCount = oracles.length
+      minSubmissionCount = oracles.length
+      maxSubmissionCount = oracles.length
       await addOracles(
         aggregator,
         oracles,
-        minResponseCount,
-        maxResponseCount,
+        minSubmissionCount,
+        maxSubmissionCount,
         rrDelay,
       )
 
       matchers.bigNum(paymentAmount, await aggregator.paymentAmount())
-      assert.equal(minResponseCount, await aggregator.minResponseCount())
-      assert.equal(maxResponseCount, await aggregator.maxResponseCount())
+      assert.equal(minSubmissionCount, await aggregator.minSubmissionCount())
+      assert.equal(maxSubmissionCount, await aggregator.maxSubmissionCount())
     })
 
     it('updates the min and max answer counts', async () => {
@@ -1344,11 +1344,11 @@ describe('FluxAggregator', () => {
       matchers.bigNum(newPaymentAmount, await aggregator.paymentAmount())
       matchers.bigNum(
         ethers.utils.bigNumberify(newMin),
-        await aggregator.minResponseCount(),
+        await aggregator.minSubmissionCount(),
       )
       matchers.bigNum(
         ethers.utils.bigNumberify(newMax),
-        await aggregator.maxResponseCount(),
+        await aggregator.maxSubmissionCount(),
       )
       matchers.bigNum(
         ethers.utils.bigNumberify(newDelay),
@@ -1368,8 +1368,8 @@ describe('FluxAggregator', () => {
       const round = h.eventArgs(receipt.events?.[0])
 
       matchers.bigNum(newPaymentAmount, round.paymentAmount)
-      assert.equal(newMin, round.minResponseCount)
-      assert.equal(newMax, round.maxResponseCount)
+      assert.equal(newMin, round.minSubmissionCount)
+      assert.equal(newMax, round.maxSubmissionCount)
       assert.equal(newDelay, round.restartDelay)
       assert.equal(timeout + 1, round.timeout)
     })
@@ -1920,7 +1920,7 @@ describe('FluxAggregator', () => {
       const state = await aggregator.oracleRoundState(personas.Nelly.address)
       matchers.bigNum(1, state._roundId)
       assert.equal(true, state._eligibleToSubmit)
-      matchers.bigNum(0, state._latestResponse)
+      matchers.bigNum(0, state._latestSubmission)
       matchers.bigNum(0, state._timesOutAt)
       matchers.bigNum(deposit, state._availableFunds)
       matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
@@ -1936,7 +1936,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
         matchers.bigNum(1, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(0, state._latestResponse)
+        matchers.bigNum(0, state._latestSubmission)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
         matchers.bigNum(paymentAmount, state._paymentAmount)
       })
@@ -1951,7 +1951,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
         matchers.bigNum(1, state._roundId)
         assert.equal(false, state._eligibleToSubmit)
-        matchers.bigNum(answer, state._latestResponse)
+        matchers.bigNum(answer, state._latestSubmission)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
       })
 
@@ -1968,7 +1968,7 @@ describe('FluxAggregator', () => {
 
           matchers.bigNum(2, state._roundId)
           assert.equal(true, state._eligibleToSubmit)
-          matchers.bigNum(answer, state._latestResponse)
+          matchers.bigNum(answer, state._latestSubmission)
           matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
         })
       })
@@ -1986,7 +1986,7 @@ describe('FluxAggregator', () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
         matchers.bigNum(2, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(answer, state._latestResponse)
+        matchers.bigNum(answer, state._latestSubmission)
         const expected = deposit.sub(paymentAmount).sub(paymentAmount)
         matchers.bigNum(expected, state._availableFunds)
       })
