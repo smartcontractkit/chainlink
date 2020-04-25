@@ -15,6 +15,7 @@ import (
 func init() {
 	triggerfns.RegisterTriggerFunctionFactory("relativeThreshold", floatThresholdFactory)
 	triggerfns.RegisterTriggerFunctionFactory("absoluteThreshold", floatThresholdFactory)
+	triggerfns.RegisterTriggerFunctionFactory("always", alwaysTriggerFactory)
 }
 
 type floatTriggerFn struct {
@@ -107,4 +108,22 @@ func floatThresholdFactory(name string, params interface{}) (triggerfns.TriggerF
 	rv := floatTriggerFn{factory: name, parameters: threshold, triggering: tf}
 	fns[threshold] = rv
 	return rv, nil
+}
+
+type alwaysTriggerFn struct {
+	triggering func(onchain, recent decimal.Decimal, extraData ...interface{}) (bool, error)
+}
+
+var _ triggerfns.TriggerFn = alwaysTriggerFn{}
+
+func (t alwaysTriggerFn) Triggering(_, _ decimal.Decimal, _ ...interface{}) (bool, error) {
+	return true, nil
+}
+
+func (t alwaysTriggerFn) Parameters() interface{}            { return "" }
+func (t alwaysTriggerFn) Factory() string                    { return "always" }
+func (t alwaysTriggerFn) Equal(ot triggerfns.TriggerFn) bool { return true }
+
+func alwaysTriggerFactory(name string, _ interface{}) (triggerfns.TriggerFn, error) {
+	return alwaysTriggerFn{}, nil
 }

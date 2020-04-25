@@ -18,7 +18,8 @@
       "idleThreshold": "1h",
       "valueTriggers": {
         "relativeThreshold": 0.59,
-        "absoluteThreshold": 0.0059
+        "absoluteThreshold": 0.0059,
+        "always": ""
       },
       "comment_valueTriggers": [
         "valueTriggers is a map of threshold functions to their parameters. ",
