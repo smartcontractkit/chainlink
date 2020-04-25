@@ -191,7 +191,7 @@ func (_VRFConsumer *VRFConsumerTransactorRaw) Transact(opts *bind.TransactOpts, 
 
 // Nonces is a free data retrieval call binding the contract method 0x9e317f12.
 //
-// Solidity: function nonces(bytes32 ) constant returns(uint256)
+// Solidity: function nonces(bytes32 ) view returns(uint256)
 func (_VRFConsumer *VRFConsumerCaller) Nonces(opts *bind.CallOpts, arg0 [32]byte) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -203,21 +203,21 @@ func (_VRFConsumer *VRFConsumerCaller) Nonces(opts *bind.CallOpts, arg0 [32]byte
 
 // Nonces is a free data retrieval call binding the contract method 0x9e317f12.
 //
-// Solidity: function nonces(bytes32 ) constant returns(uint256)
+// Solidity: function nonces(bytes32 ) view returns(uint256)
 func (_VRFConsumer *VRFConsumerSession) Nonces(arg0 [32]byte) (*big.Int, error) {
 	return _VRFConsumer.Contract.Nonces(&_VRFConsumer.CallOpts, arg0)
 }
 
 // Nonces is a free data retrieval call binding the contract method 0x9e317f12.
 //
-// Solidity: function nonces(bytes32 ) constant returns(uint256)
+// Solidity: function nonces(bytes32 ) view returns(uint256)
 func (_VRFConsumer *VRFConsumerCallerSession) Nonces(arg0 [32]byte) (*big.Int, error) {
 	return _VRFConsumer.Contract.Nonces(&_VRFConsumer.CallOpts, arg0)
 }
 
 // RandomnessOutput is a free data retrieval call binding the contract method 0x2f47fd86.
 //
-// Solidity: function randomnessOutput() constant returns(uint256)
+// Solidity: function randomnessOutput() view returns(uint256)
 func (_VRFConsumer *VRFConsumerCaller) RandomnessOutput(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -229,21 +229,21 @@ func (_VRFConsumer *VRFConsumerCaller) RandomnessOutput(opts *bind.CallOpts) (*b
 
 // RandomnessOutput is a free data retrieval call binding the contract method 0x2f47fd86.
 //
-// Solidity: function randomnessOutput() constant returns(uint256)
+// Solidity: function randomnessOutput() view returns(uint256)
 func (_VRFConsumer *VRFConsumerSession) RandomnessOutput() (*big.Int, error) {
 	return _VRFConsumer.Contract.RandomnessOutput(&_VRFConsumer.CallOpts)
 }
 
 // RandomnessOutput is a free data retrieval call binding the contract method 0x2f47fd86.
 //
-// Solidity: function randomnessOutput() constant returns(uint256)
+// Solidity: function randomnessOutput() view returns(uint256)
 func (_VRFConsumer *VRFConsumerCallerSession) RandomnessOutput() (*big.Int, error) {
 	return _VRFConsumer.Contract.RandomnessOutput(&_VRFConsumer.CallOpts)
 }
 
 // RequestId is a free data retrieval call binding the contract method 0x006d6cae.
 //
-// Solidity: function requestId() constant returns(bytes32)
+// Solidity: function requestId() view returns(bytes32)
 func (_VRFConsumer *VRFConsumerCaller) RequestId(opts *bind.CallOpts) ([32]byte, error) {
 	var (
 		ret0 = new([32]byte)
@@ -255,14 +255,14 @@ func (_VRFConsumer *VRFConsumerCaller) RequestId(opts *bind.CallOpts) ([32]byte,
 
 // RequestId is a free data retrieval call binding the contract method 0x006d6cae.
 //
-// Solidity: function requestId() constant returns(bytes32)
+// Solidity: function requestId() view returns(bytes32)
 func (_VRFConsumer *VRFConsumerSession) RequestId() ([32]byte, error) {
 	return _VRFConsumer.Contract.RequestId(&_VRFConsumer.CallOpts)
 }
 
 // RequestId is a free data retrieval call binding the contract method 0x006d6cae.
 //
-// Solidity: function requestId() constant returns(bytes32)
+// Solidity: function requestId() view returns(bytes32)
 func (_VRFConsumer *VRFConsumerCallerSession) RequestId() ([32]byte, error) {
 	return _VRFConsumer.Contract.RequestId(&_VRFConsumer.CallOpts)
 }
