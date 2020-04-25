@@ -383,7 +383,8 @@ const validInitiator = `{
 		"idleThreshold": "1m",
 		"threshold": 0.5,
 		"precision": 2,
-		"pollingInterval": "1m"
+		"pollingInterval": "1m",
+    "valueTriggers": {"absoluteThreshold": 0.0059, "relativeThreshold": 0.59}
 	}
 }`
 
@@ -413,8 +414,7 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 	}{
 		{"address", cltest.MustJSONDel(t, validInitiator, "params.address")},
 		{"feeds", cltest.MustJSONSet(t, validInitiator, "params.feeds", []string{})},
-		{"threshold", cltest.MustJSONDel(t, validInitiator, "params.threshold")},
-		{"threshold", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
+		{"value trigger", cltest.MustJSONDel(t, validInitiator, "params.valueTriggers")},
 		{"requestdata", cltest.MustJSONDel(t, validInitiator, "params.requestdata")},
 		{"pollingInterval", cltest.MustJSONDel(t, validInitiator, "params.pollingInterval")},
 		{"pollingInterval", cltest.MustJSONSet(t, validInitiator, "params.pollingInterval", "1s")},
