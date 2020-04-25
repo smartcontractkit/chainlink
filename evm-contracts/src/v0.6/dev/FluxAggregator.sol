@@ -76,7 +76,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice To ensure owner isn't withdrawing required funds as oracles are
    * submitting updates, we enforce that the contract maintains a minimum
-   * reserve of RESERVE_ROUND * oracleCount() LINK earmarked for payment to
+   * reserve of RESERVE_ROUNDS * oracleCount() LINK earmarked for payment to
    * oracles. (Of course, this doesn't prevent the contract from running out of
    * funds without the owner's intervention.)
    */
@@ -150,20 +150,20 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice called by oracles when they have witnessed a need to update
-   * @param _round is the ID of the round this answer pertains to
+   * @param _roundId is the ID of the round this answer pertains to
    * @param _answer is the updated data that the oracle is submitting
    */
-  function updateAnswer(uint256 _round, int256 _answer)
+  function updateAnswer(uint256 _roundId, int256 _answer)
     external
   {
-    bytes memory error = validateOracleRound(uint32(_round));
+    bytes memory error = validateOracleRound(uint32(_roundId));
     require(error.length == 0, string(error));
 
-    oracleInitializeNewRound(uint32(_round));
-    recordSubmission(_answer, uint32(_round));
-    updateRoundAnswer(uint32(_round));
-    payOracle(uint32(_round));
-    deleteRoundDetails(uint32(_round));
+    oracleInitializeNewRound(uint32(_roundId));
+    recordSubmission(_answer, uint32(_roundId));
+    updateRoundAnswer(uint32(_roundId));
+    payOracle(uint32(_roundId));
+    deleteRoundDetails(uint32(_roundId));
   }
 
   /**
@@ -615,76 +615,76 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * Private
    */
 
-  function initializeNewRound(uint32 _id)
+  function initializeNewRound(uint32 _roundId)
     private
   {
-    updateTimedOutRoundInfo(_id.sub(1));
+    updateTimedOutRoundInfo(_roundId.sub(1));
 
-    reportingRoundId = _id;
-    rounds[_id].details.maxAnswers = maxAnswerCount;
-    rounds[_id].details.minAnswers = minAnswerCount;
-    rounds[_id].details.paymentAmount = paymentAmount;
-    rounds[_id].details.timeout = timeout;
-    rounds[_id].startedAt = uint64(block.timestamp);
+    reportingRoundId = _roundId;
+    rounds[_roundId].details.maxAnswers = maxAnswerCount;
+    rounds[_roundId].details.minAnswers = minAnswerCount;
+    rounds[_roundId].details.paymentAmount = paymentAmount;
+    rounds[_roundId].details.timeout = timeout;
+    rounds[_roundId].startedAt = uint64(block.timestamp);
 
-    emit NewRound(_id, msg.sender, rounds[_id].startedAt);
+    emit NewRound(_roundId, msg.sender, rounds[_roundId].startedAt);
   }
 
-  function oracleInitializeNewRound(uint32 _id)
+  function oracleInitializeNewRound(uint32 _roundId)
     private
   {
-    if (!newRound(_id)) return;
+    if (!newRound(_roundId)) return;
     uint256 lastStarted = oracles[msg.sender].lastStartedRound; // cache storage reads
-    if (_id <= lastStarted + restartDelay && lastStarted != 0) return;
+    if (_roundId <= lastStarted + restartDelay && lastStarted != 0) return;
 
-    initializeNewRound(_id);
+    initializeNewRound(_roundId);
 
-    oracles[msg.sender].lastStartedRound = _id;
+    oracles[msg.sender].lastStartedRound = _roundId;
   }
 
-  function requesterInitializeNewRound(uint32 _id)
+  function requesterInitializeNewRound(uint32 _roundId)
     private
   {
-    if (!newRound(_id)) return;
+    if (!newRound(_roundId)) return;
     uint256 lastStarted = requesters[msg.sender].lastStartedRound; // cache storage reads
-    require(_id > lastStarted + requesters[msg.sender].delay || lastStarted == 0, "must delay requests");
+    require(_roundId > lastStarted + requesters[msg.sender].delay || lastStarted == 0, "must delay requests");
 
-    initializeNewRound(_id);
+    initializeNewRound(_roundId);
 
-    requesters[msg.sender].lastStartedRound = _id;
+    requesters[msg.sender].lastStartedRound = _roundId;
   }
 
-  function updateTimedOutRoundInfo(uint32 _id)
+  function updateTimedOutRoundInfo(uint32 _roundId)
     private
   {
-    if (!timedOut(_id)) return;
+    if (!timedOut(_roundId)) return;
 
-    uint32 prevId = _id.sub(1);
-    rounds[_id].answer = rounds[prevId].answer;
-    rounds[_id].answeredInRound = rounds[prevId].answeredInRound;
-    rounds[_id].updatedAt = uint64(block.timestamp);
+    uint32 prevId = _roundId.sub(1);
+    rounds[_roundId].answer = rounds[prevId].answer;
+    rounds[_roundId].answeredInRound = rounds[prevId].answeredInRound;
+    rounds[_roundId].updatedAt = uint64(block.timestamp);
 
-    delete rounds[_id].details;
+    delete rounds[_roundId].details;
   }
 
-  function updateRoundAnswer(uint32 _id)
+  function updateRoundAnswer(uint32 _roundId)
     private
   {
-    if (rounds[_id].details.answers.length < rounds[_id].details.minAnswers) return;
+    if (rounds[_roundId].details.answers.length < rounds[_roundId].details.minAnswers) return;
 
-    int256 newAnswer = Median.calculateInplace(rounds[_id].details.answers);
-    rounds[_id].answer = newAnswer;
-    rounds[_id].updatedAt = uint64(block.timestamp);
-    rounds[_id].answeredInRound = _id;
-    latestRoundId = _id;
+    int256 newAnswer = Median.calculateInplace(rounds[_roundId].details.answers);
+    rounds[_roundId].answer = newAnswer;
+    rounds[_roundId].updatedAt = uint64(block.timestamp);
+    rounds[_roundId].answeredInRound = _roundId;
+    latestRoundId = _roundId;
 
-    emit AnswerUpdated(newAnswer, _id, now);
+    emit AnswerUpdated(newAnswer, _roundId, now);
   }
 
-  function payOracle(uint32 _id)
+  function payOracle(uint32 _roundId)
     private
   {
-    uint128 payment = rounds[_id].details.paymentAmount;
+    uint128 payment = rounds[_roundId].details.paymentAmount;
     uint128 available = availableFunds.sub(payment);
 
     availableFunds = available;
@@ -694,42 +694,42 @@ contract FluxAggregator is AggregatorInterface, Owned {
     emit AvailableFundsUpdated(available);
   }
 
-  function recordSubmission(int256 _answer, uint32 _id)
+  function recordSubmission(int256 _answer, uint32 _roundId)
     private
   {
-    require(acceptingSubmissions(_id), "round not accepting anwers");
+    require(acceptingSubmissions(_roundId), "round not accepting anwers");
 
-    rounds[_id].details.answers.push(_answer);
-    oracles[msg.sender].lastReportedRound = _id;
+    rounds[_roundId].details.answers.push(_answer);
+    oracles[msg.sender].lastReportedRound = _roundId;
     oracles[msg.sender].latestAnswer = _answer;
 
-    emit SubmissionReceived(_answer, _id, msg.sender);
+    emit SubmissionReceived(_answer, _roundId, msg.sender);
   }
 
-  function deleteRoundDetails(uint32 _id)
+  function deleteRoundDetails(uint32 _roundId)
     private
   {
-    if (rounds[_id].details.answers.length < rounds[_id].details.maxAnswers) return;
+    if (rounds[_roundId].details.answers.length < rounds[_roundId].details.maxAnswers) return;
 
-    delete rounds[_id].details;
+    delete rounds[_roundId].details;
   }
 
-  function timedOut(uint32 _id)
+  function timedOut(uint32 _roundId)
     private
     view
     returns (bool)
   {
-    uint64 startedAt = rounds[_id].startedAt;
-    uint32 roundTimeout = rounds[_id].details.timeout;
+    uint64 startedAt = rounds[_roundId].startedAt;
+    uint32 roundTimeout = rounds[_roundId].details.timeout;
     return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
   }
 
-  function finished(uint32 _id)
+  function finished(uint32 _roundId)
     private
     view
     returns (bool)
   {
-    return rounds[_id].updatedAt > 0;
+    return rounds[_roundId].updatedAt > 0;
   }
 
   function getStartingRound(address _oracle)
@@ -744,12 +744,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return currentRound.add(1);
   }
 
-  function previousAndCurrentUnanswered(uint32 _id, uint32 _rrId)
+  function previousAndCurrentUnanswered(uint32 _roundId, uint32 _rrId)
     private
     view
     returns (bool)
   {
-    return _id.add(1) == _rrId && rounds[_rrId].updatedAt == 0;
+    return _roundId.add(1) == _rrId && rounds[_rrId].updatedAt == 0;
   }
 
   function roundState()
