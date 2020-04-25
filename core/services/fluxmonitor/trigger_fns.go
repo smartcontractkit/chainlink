@@ -33,6 +33,15 @@ func (t floatTriggerFn) Triggering(onchain, recent decimal.Decimal,
 func (t floatTriggerFn) Parameters() interface{} { return t.parameters }
 func (t floatTriggerFn) Factory() string         { return t.factory }
 
+func (t floatTriggerFn) Equal(g triggerfns.TriggerFn) bool {
+	switch og := g.(type) {
+	case floatTriggerFn:
+		return t.factory == og.factory && t.parameters == og.parameters
+	default:
+		return false
+	}
+}
+
 type thresholdTrigger func(onchain, recent decimal.Decimal,
 	extraData ...interface{}) (bool, error)
 

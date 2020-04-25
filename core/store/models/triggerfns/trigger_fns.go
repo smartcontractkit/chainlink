@@ -21,6 +21,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -58,6 +59,8 @@ type TriggerFn interface {
 	Parameters() interface{}
 	// Factory returns the name of the factory function which created this trigger
 	Factory() string
+	// Equal returns true if it's equal to the other TriggerFn
+	Equal(TriggerFn) bool
 }
 
 // TriggerFns is a collection of ThresholdFn's with convenient serialization.
@@ -183,4 +186,29 @@ func (f TriggerFns) Scan(value interface{}) error {
 // Value implements the driver.Valuer interface
 func (f TriggerFns) Value() (driver.Value, error) {
 	return f.MarshalJSON()
+}
+
+// EqualTestingOnly returns true if f and g represent the same triggering
+// conditions. It is inefficient, and should only be used for testing.
+func (f TriggerFns) EqualTestingOnly(g TriggerFns) bool {
+	indices := []int{}
+	for _, tfn := range f {
+		for j, otfn := range g {
+			if tfn.Equal(otfn) {
+				indices = append(indices, j)
+				break
+			}
+		}
+	}
+	if len(indices) != len(f) {
+		return false
+	}
+	// check that indices is a permutation
+	sort.Sort(sort.IntSlice(indices))
+	for i, shouldBeI := range indices {
+		if i != shouldBeI {
+			return false
+		}
+	}
+	return true
 }

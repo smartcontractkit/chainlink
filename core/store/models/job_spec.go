@@ -387,3 +387,16 @@ func (t *TaskType) Scan(value interface{}) error {
 	*t = TaskType(temp)
 	return nil
 }
+
+// EqualTestingOnly returns true if i and j represent the same Initiator. It is
+// inefficient, and should only be used for testing.
+func (i Initiator) EqualTestingOnly(j Initiator) bool {
+	k, l := i, j // copy initiators
+	// Compare ignoring value triggers
+	k.ValueTriggers = k.ValueTriggers[:0]
+	l.ValueTriggers = l.ValueTriggers[:0]
+	if !reflect.DeepEqual(k, l) {
+		return false
+	}
+	return i.ValueTriggers.EqualTestingOnly(j.ValueTriggers)
+}

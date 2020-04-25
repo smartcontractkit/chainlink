@@ -68,7 +68,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				test.initrReq,
 				test.jobSpec,
 			)
-			assert.Equal(t, test.want, res)
+			assert.True(t, test.want.EqualTestingOnly(res))
 		})
 	}
 }
