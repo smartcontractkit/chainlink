@@ -593,7 +593,10 @@ describe('FluxAggregator', () => {
 
     describe('when an oracle starts a round before the restart delay is over', () => {
       beforeEach(async () => {
-        await updateFutureRounds(aggregator.connect(personas.Carol))
+        await updateFutureRounds(aggregator.connect(personas.Carol), {
+          minAnswers: 1,
+          maxAnswers: 1,
+        })
 
         oracles = [personas.Neil, personas.Ned, personas.Nelly]
         for (let i = 0; i < oracles.length; i++) {
@@ -635,110 +638,78 @@ describe('FluxAggregator', () => {
     })
 
     describe('when the price is not updated for a round', () => {
-      describe('before the third round', () => {
-        beforeEach(async () => {
-          await aggregator
-            .connect(personas.Neil)
-            .updateAnswer(nextRound, answer)
-          await h.increaseTimeBy(timeout + 1, provider)
-          nextRound++
+      beforeEach(async () => {
+        await updateFutureRounds(aggregator, {
+          minAnswers: oracles.length,
+          maxAnswers: oracles.length,
+          restartDelay: 1,
         })
 
-        it('allows a new round to be started', async () => {
-          await aggregator
-            .connect(personas.Nelly)
-            .updateAnswer(nextRound, answer)
-        })
+        for (const oracle of oracles) {
+          await aggregator.connect(oracle).updateAnswer(nextRound, answer)
+        }
+        nextRound++
+
+        await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+        assert.equal(nextRound, (await aggregator.reportingRound()).toNumber())
+
+        await h.increaseTimeBy(timeout + 1, provider)
+        nextRound++
       })
 
-      // For a round to timeout, it needs a previous round to pull an answer
-      // from, so the second round is the earliest round that can timeout,
-      // pulling its answer from the first. The start of the third round is
-      // the trigger that timesout the second round, so the start of the
-      // third round is the earliest we can test a timeout.
-      describe('on the third round or later', () => {
-        beforeEach(async () => {
-          await updateFutureRounds(aggregator, {
-            minAnswers: oracles.length,
-            maxAnswers: oracles.length,
-            restartDelay: 1,
-          })
+      it('allows a new round to be started', async () => {
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+      })
 
-          await advanceRound(aggregator, oracles)
+      it('sets the info for the previous round', async () => {
+        const previousRound = nextRound - 1
+        let updated = await aggregator.getTimestamp(previousRound)
+        let ans = await aggregator.getAnswer(previousRound)
+        assert.equal(0, updated.toNumber())
+        assert.equal(0, ans.toNumber())
 
-          await aggregator.connect(personas.Ned).updateAnswer(nextRound, answer)
-          await aggregator
-            .connect(personas.Nelly)
-            .updateAnswer(nextRound, answer)
-          assert.equal(
-            nextRound,
-            (await aggregator.reportingRound()).toNumber(),
-          )
+        const tx = await aggregator
+          .connect(personas.Nelly)
+          .updateAnswer(nextRound, answer)
+        const receipt = await tx.wait()
 
-          await h.increaseTimeBy(timeout + 1, provider)
-          nextRound++
+        const block = await provider.getBlock(receipt.blockHash ?? '')
+
+        updated = await aggregator.getTimestamp(previousRound)
+        ans = await aggregator.getAnswer(previousRound)
+        matchers.bigNum(ethers.utils.bigNumberify(block.timestamp), updated)
+        assert.equal(answer, ans.toNumber())
+      })
+
+      it('sets the previous round as timed out', async () => {
+        const previousRound = nextRound - 1
+        assert.isFalse(await aggregator.getTimedOutStatus(previousRound))
+
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
+
+        assert.isTrue(await aggregator.getTimedOutStatus(previousRound))
+        assert.equal(
+          previousRound - 1,
+          (
+            await aggregator.getOriginatingRoundOfAnswer(previousRound)
+          ).toNumber(),
+        )
+      })
+
+      it('still respects the delay restriction', async () => {
+        // expected to revert because the sender started the last round
+        await matchers.evmRevert(
+          aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+        )
+      })
+
+      it('uses the timeout set at the beginning of the round', async () => {
+        await updateFutureRounds(aggregator, {
+          timeout: timeout + 100000,
         })
 
-        it('allows a new round to be started', async () => {
-          await aggregator
-            .connect(personas.Nelly)
-            .updateAnswer(nextRound, answer)
-        })
-
-        it('sets the info for the previous round', async () => {
-          const previousRound = nextRound - 1
-          let updated = await aggregator.getTimestamp(previousRound)
-          let ans = await aggregator.getAnswer(previousRound)
-          assert.equal(0, updated.toNumber())
-          assert.equal(0, ans.toNumber())
-
-          const tx = await aggregator
-            .connect(personas.Nelly)
-            .updateAnswer(nextRound, answer)
-          const receipt = await tx.wait()
-
-          const block = await provider.getBlock(receipt.blockHash ?? '')
-
-          updated = await aggregator.getTimestamp(previousRound)
-          ans = await aggregator.getAnswer(previousRound)
-          matchers.bigNum(ethers.utils.bigNumberify(block.timestamp), updated)
-          assert.equal(answer, ans.toNumber())
-        })
-
-        it('sets the previous round as timed out', async () => {
-          const previousRound = nextRound - 1
-          assert.isFalse(await aggregator.getTimedOutStatus(previousRound))
-
-          await aggregator
-            .connect(personas.Nelly)
-            .updateAnswer(nextRound, answer)
-
-          assert.isTrue(await aggregator.getTimedOutStatus(previousRound))
-          assert.equal(
-            previousRound - 1,
-            (
-              await aggregator.getOriginatingRoundOfAnswer(previousRound)
-            ).toNumber(),
-          )
-        })
-
-        it('still respects the delay restriction', async () => {
-          // expected to revert because the sender started the last round
-          await matchers.evmRevert(
-            aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
-            'round not accepting anwers',
-          )
-        })
-
-        it('uses the timeout set at the beginning of the round', async () => {
-          await updateFutureRounds(aggregator, {
-            timeout: timeout + 100000,
-          })
-
-          await aggregator
-            .connect(personas.Nelly)
-            .updateAnswer(nextRound, answer)
-        })
+        await aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer)
       })
     })
   })
@@ -806,7 +777,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#addOracless', () => {
+  describe('#addOracles', () => {
     it('increases the oracle count', async () => {
       const pastCount = await aggregator.oracleCount()
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
@@ -1029,6 +1000,26 @@ describe('FluxAggregator', () => {
               rrDelay,
             ),
           'max oracles allowed',
+        )
+      })
+    })
+
+    describe('when configured to have 0 max answers', () => {
+      beforeEach(async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .updateFutureRounds(paymentAmount, 0, 0, 0, 0)
+      })
+
+      it('reverts all oracle answers', async () => {
+        await matchers.evmRevert(
+          aggregator.connect(personas.Ned).updateAnswer(nextRound, answer),
+        )
+        await matchers.evmRevert(
+          aggregator.connect(personas.Nelly).updateAnswer(nextRound, answer),
+        )
+        await matchers.evmRevert(
+          aggregator.connect(personas.Neil).updateAnswer(nextRound, answer),
         )
       })
     })
@@ -1756,6 +1747,25 @@ describe('FluxAggregator', () => {
 
         // now Eddy can start again
         await aggregator.connect(personas.Eddy).startNewRound()
+      })
+    })
+
+    describe('when all oracles have been removed and then re-added', () => {
+      it('does not get stuck', async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .removeOracles([personas.Neil.address], 0, 0, 0)
+
+        // advance a few rounds
+        for (let i = 0; i < 7; i++) {
+          await aggregator.startNewRound()
+          nextRound = nextRound + 1
+          await h.increaseTimeBy(timeout + 1, provider)
+          await h.mineBlock(provider)
+        }
+
+        await addOracles(aggregator, [personas.Neil], 1, 1, 0)
+        await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
       })
     })
   })
