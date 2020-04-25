@@ -82,7 +82,7 @@ describe('WhitelistedAggregator', () => {
       'removeOracles',
       'reportingRound',
       'reportingRoundStartedAt',
-      'requestRateUpdate',
+      'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
       'timeout',
