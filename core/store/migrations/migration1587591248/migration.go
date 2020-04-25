@@ -7,7 +7,7 @@ import (
 
 func Migrate(tx *gorm.DB) error {
 	err := tx.Exec(`
-ALTER TABLE initiators ADD COLUMN "value_triggers" text;
+ALTER TABLE initiators ADD COLUMN "value_triggers" jsonb;
 ALTER TABLE initiators DROP COLUMN "threshold"
 	`).Error
 	return errors.Wrapf(err, "while migrating initiators to include "+

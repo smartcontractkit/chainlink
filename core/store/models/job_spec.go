@@ -224,7 +224,7 @@ type InitiatorParams struct {
 	PollingInterval Duration `json:"pollingInterval,omitempty"`
 
 	// Rules used to determine whether to report a new value on a fluxmonitor job.
-	ValueTriggers triggerfns.TriggerFns `json:"valueTriggers,omitempty" gorm:"type:text"`
+	ValueTriggers triggerfns.TriggerFns `json:"valueTriggers,omitempty" gorm:"type:jsonb"`
 }
 
 // defaults represents a default value for an initiator parameter. Value should
