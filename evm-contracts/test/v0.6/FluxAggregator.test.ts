@@ -1665,12 +1665,17 @@ describe('FluxAggregator', () => {
 
       matchers.bigNum(originalBalance, await aggregator.availableFunds())
 
-      await link.transferAndCall(aggregator.address, deposit, '0x', {
-        value: 0,
-      })
+      await link.transferAndCall(aggregator.address, deposit, '0x')
 
       const newBalance = await aggregator.availableFunds()
       matchers.bigNum(originalBalance.add(deposit), newBalance)
+    })
+
+    it('reverts given calldata', async () => {
+      await matchers.evmRevert(
+        // error message is not bubbled up by link token
+        link.transferAndCall(aggregator.address, deposit, '0x12345678'),
+      )
     })
   })
 
