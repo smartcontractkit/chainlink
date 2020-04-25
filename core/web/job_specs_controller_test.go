@@ -148,7 +148,7 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 }
 
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, error) {
-	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j1 := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	j1.CreatedAt = time.Now().AddDate(0, 0, -1)
 	err := app.Store.CreateJob(&j1)
 	if err != nil {
@@ -491,7 +491,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 }
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
 	jr1 := cltest.NewJobRun(j)

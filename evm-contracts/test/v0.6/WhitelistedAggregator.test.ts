@@ -73,8 +73,8 @@ describe('WhitelistedAggregator', () => {
       'latestSubmission',
       'latestTimestamp',
       'linkToken',
-      'maxAnswerCount',
-      'minAnswerCount',
+      'maxSubmissionCount',
+      'minSubmissionCount',
       'onTokenTransfer',
       'oracleCount',
       'oracleRoundState',
@@ -85,9 +85,9 @@ describe('WhitelistedAggregator', () => {
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
+      'submit',
       'timeout',
       'transferAdmin',
-      'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
       'withdrawFunds',
@@ -140,7 +140,7 @@ describe('WhitelistedAggregator', () => {
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -179,7 +179,7 @@ describe('WhitelistedAggregator', () => {
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -220,7 +220,7 @@ describe('WhitelistedAggregator', () => {
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -257,7 +257,7 @@ describe('WhitelistedAggregator', () => {
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {

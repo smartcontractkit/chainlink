@@ -32,9 +32,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   struct RoundDetails {
-    int256[] answers;
-    uint32 maxAnswers;
-    uint32 minAnswers;
+    int256[] submissions;
+    uint32 maxSubmissions;
+    uint32 minSubmissions;
     uint32 timeout;
     uint128 paymentAmount;
   }
@@ -45,7 +45,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint32 endingRound;
     uint32 lastReportedRound;
     uint32 lastStartedRound;
-    int256 latestAnswer;
+    int256 latestSubmission;
     uint16 index;
     address admin;
     address pendingAdmin;
@@ -65,8 +65,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   // Round related params
   uint128 public paymentAmount;
-  uint32 public maxAnswerCount;
-  uint32 public minAnswerCount;
+  uint32 public maxSubmissionCount;
+  uint32 public minSubmissionCount;
   uint32 public restartDelay;
   uint32 public timeout;
   uint8 public override decimals;
@@ -94,8 +94,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
   );
   event RoundDetailsUpdated(
     uint128 indexed paymentAmount,
-    uint32 indexed minAnswerCount,
-    uint32 indexed maxAnswerCount,
+    uint32 indexed minSubmissionCount,
+    uint32 indexed maxSubmissionCount,
     uint32 restartDelay,
     uint32 timeout // measured in seconds
   );
@@ -113,7 +113,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     address newAdmin
   );
   event SubmissionReceived(
-    int256 indexed answer,
+    int256 indexed submission,
     uint32 indexed round,
     address indexed oracle
   );
@@ -129,7 +129,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @notice Deploy with the address of the LINK token and initial payment amount
    * @dev Sets the LinkToken address and amount of LINK paid
    * @param _link The address of the LINK token
-   * @param _paymentAmount The amount paid of LINK paid to each oracle per response
+   * @param _paymentAmount The amount paid of LINK paid to each oracle per submission
    * @param _timeout is the number of seconds after the previous round that are
    * allowed to lapse before allowing an oracle to skip an unfinished round
    */
@@ -150,17 +150,17 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice called by oracles when they have witnessed a need to update
-   * @param _roundId is the ID of the round this answer pertains to
-   * @param _answer is the updated data that the oracle is submitting
+   * @param _roundId is the ID of the round this submission pertains to
+   * @param _submission is the updated data that the oracle is submitting
    */
-  function updateAnswer(uint256 _roundId, int256 _answer)
+  function submit(uint256 _roundId, int256 _submission)
     external
   {
     bytes memory error = validateOracleRound(msg.sender, uint32(_roundId));
     require(error.length == 0, string(error));
 
     oracleInitializeNewRound(uint32(_roundId));
-    recordSubmission(_answer, uint32(_roundId));
+    recordSubmission(_submission, uint32(_roundId));
     updateRoundAnswer(uint32(_roundId));
     payOracle(uint32(_roundId));
     deleteRoundDetails(uint32(_roundId));
@@ -172,16 +172,16 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @param _oracles is the list of addresses of the new Oracles being added
    * @param _admins is the admin addresses of the new respective _oracles list.
    * Only this address is allowed to access the respective oracle's funds.
-   * @param _minAnswers is the new minimum answer count for each round
-   * @param _maxAnswers is the new maximum answer count for each round
+   * @param _minSubmissions is the new minimum submission count for each round
+   * @param _maxSubmissions is the new maximum submission count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
   function addOracles(
     address[] calldata _oracles,
     address[] calldata _admins,
-    uint32 _minAnswers,
-    uint32 _maxAnswers,
+    uint32 _minSubmissions,
+    uint32 _maxSubmissions,
     uint32 _restartDelay
   )
     external
@@ -194,22 +194,22 @@ contract FluxAggregator is AggregatorInterface, Owned {
       addOracle(_oracles[i], _admins[i]);
     }
 
-    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
+    updateFutureRounds(paymentAmount, _minSubmissions, _maxSubmissions, _restartDelay, timeout);
   }
 
   /**
    * @notice called by the owner to remove Oracles and update the round
    * related parameters
    * @param _oracles is the address of the Oracles being removed
-   * @param _minAnswers is the new minimum answer count for each round
-   * @param _maxAnswers is the new maximum answer count for each round
+   * @param _minSubmissions is the new minimum submission count for each round
+   * @param _maxSubmissions is the new maximum submission count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
   function removeOracles(
     address[] calldata _oracles,
-    uint32 _minAnswers,
-    uint32 _maxAnswers,
+    uint32 _minSubmissions,
+    uint32 _maxSubmissions,
     uint32 _restartDelay
   )
     external
@@ -219,22 +219,22 @@ contract FluxAggregator is AggregatorInterface, Owned {
       removeOracle(_oracles[i]);
     }
 
-    updateFutureRounds(paymentAmount, _minAnswers, _maxAnswers, _restartDelay, timeout);
+    updateFutureRounds(paymentAmount, _minSubmissions, _maxSubmissions, _restartDelay, timeout);
   }
 
   /**
    * @notice update the round and payment related parameters for subsequent
    * rounds
    * @param _paymentAmount is the payment amount for subsequent rounds
-   * @param _minAnswers is the new minimum answer count for each round
-   * @param _maxAnswers is the new maximum answer count for each round
+   * @param _minSubmissions is the new minimum submission count for each round
+   * @param _maxSubmissions is the new maximum submission count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
   function updateFutureRounds(
     uint128 _paymentAmount,
-    uint32 _minAnswers,
-    uint32 _maxAnswers,
+    uint32 _minSubmissions,
+    uint32 _maxSubmissions,
     uint32 _restartDelay,
     uint32 _timeout
   )
@@ -242,21 +242,21 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
   {
     uint32 oracleNum = oracleCount(); // Save on storage reads
-    require(_maxAnswers >= _minAnswers, "max must equal/exceed min");
-    require(oracleNum >= _maxAnswers, "max cannot exceed total");
+    require(_maxSubmissions >= _minSubmissions, "max must equal/exceed min");
+    require(oracleNum >= _maxSubmissions, "max cannot exceed total");
     require(oracleNum == 0 || oracleNum > _restartDelay, "delay cannot exceed total");
     require(availableFunds >= requiredReserve(_paymentAmount), "insufficient funds for payment");
 
     paymentAmount = _paymentAmount;
-    minAnswerCount = _minAnswers;
-    maxAnswerCount = _maxAnswers;
+    minSubmissionCount = _minSubmissions;
+    maxSubmissionCount = _maxSubmissions;
     restartDelay = _restartDelay;
     timeout = _timeout;
 
     emit RoundDetailsUpdated(
       paymentAmount,
-      _minAnswers,
-      _maxAnswers,
+      _minSubmissions,
+      _maxSubmissions,
       _restartDelay,
       _timeout
     );
@@ -474,7 +474,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     view
     returns (int256, uint256)
   {
-    return (oracles[_oracle].latestAnswer, oracles[_oracle].lastReportedRound);
+    return (oracles[_oracle].latestSubmission, oracles[_oracle].lastReportedRound);
   }
 
   /**
@@ -622,8 +622,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     updateTimedOutRoundInfo(_roundId.sub(1));
 
     reportingRoundId = _roundId;
-    rounds[_roundId].details.maxAnswers = maxAnswerCount;
-    rounds[_roundId].details.minAnswers = minAnswerCount;
+    rounds[_roundId].details.maxSubmissions = maxSubmissionCount;
+    rounds[_roundId].details.minSubmissions = minSubmissionCount;
     rounds[_roundId].details.paymentAmount = paymentAmount;
     rounds[_roundId].details.timeout = timeout;
     rounds[_roundId].startedAt = uint64(block.timestamp);
@@ -671,9 +671,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function updateRoundAnswer(uint32 _roundId)
     private
   {
-    if (rounds[_roundId].details.answers.length < rounds[_roundId].details.minAnswers) return;
+    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.minSubmissions) return;
 
-    int256 newAnswer = Median.calculateInplace(rounds[_roundId].details.answers);
+    int256 newAnswer = Median.calculateInplace(rounds[_roundId].details.submissions);
     rounds[_roundId].answer = newAnswer;
     rounds[_roundId].updatedAt = uint64(block.timestamp);
     rounds[_roundId].answeredInRound = _roundId;
@@ -695,22 +695,22 @@ contract FluxAggregator is AggregatorInterface, Owned {
     emit AvailableFundsUpdated(available);
   }
 
-  function recordSubmission(int256 _answer, uint32 _roundId)
+  function recordSubmission(int256 _submission, uint32 _roundId)
     private
   {
-    require(acceptingSubmissions(_roundId), "round not accepting anwers");
+    require(acceptingSubmissions(_roundId), "round not accepting submissions");
 
-    rounds[_roundId].details.answers.push(_answer);
+    rounds[_roundId].details.submissions.push(_submission);
     oracles[msg.sender].lastReportedRound = _roundId;
-    oracles[msg.sender].latestAnswer = _answer;
+    oracles[msg.sender].latestSubmission = _submission;
 
-    emit SubmissionReceived(_answer, _roundId, msg.sender);
+    emit SubmissionReceived(_submission, _roundId, msg.sender);
   }
 
   function deleteRoundDetails(uint32 _roundId)
     private
   {
-    if (rounds[_roundId].details.answers.length < rounds[_roundId].details.maxAnswers) return;
+    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.maxSubmissions) return;
 
     delete rounds[_roundId].details;
   }
@@ -759,7 +759,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (
       bool _eligibleToSubmit,
       uint32 _roundId,
-      int256 _latestRoundAnswer,
+      int256 _latestSubmission,
       uint64 _timesOutAt,
       uint128 _availableFunds,
       uint32 _oracleCount,
@@ -781,7 +781,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return (
       _eligibleToSubmit,
       _roundId,
-      oracles[_oracle].latestAnswer,
+      oracles[_oracle].latestSubmission,
       rounds[_roundId].startedAt + rounds[_roundId].details.timeout,
       availableFunds,
       oracleCount(),
@@ -874,7 +874,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     view
     returns (bool)
   {
-    return rounds[_roundId].details.maxAnswers != 0;
+    return rounds[_roundId].details.maxSubmissions != 0;
   }
 
   function delayed(address _oracle, uint32 _roundId)

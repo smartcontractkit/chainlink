@@ -420,6 +420,10 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
+	if !strings.HasPrefix(s, "CRON_TZ=") {
+		return errors.New("Cron: specs must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *'")
+	}
+
 	_, err = CronParser.Parse(s)
 	if err != nil {
 		return fmt.Errorf("Cron: %v", err)
