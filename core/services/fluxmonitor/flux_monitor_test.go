@@ -304,7 +304,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
                 "address": "%s",
                 "functionSelector": "0x%x",
                 "dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
-            }`, fetchedValue, initr.InitiatorParams.Address.Hex(), updateAnswerSelector, roundID)))
+            }`, fetchedValue, initr.InitiatorParams.Address.Hex(), submitSelector, roundID)))
 			require.NoError(t, err)
 
 			return mock.MatchedBy(func(runRequest *models.RunRequest) bool {
@@ -318,7 +318,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	fluxAggregator := new(mocks.FluxAggregator)
 	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
-	fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+	fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
 	fluxAggregator.On("RoundState", nodeAddr).
 		Return(makeRoundStateForRoundID(1), nil).
 		Run(func(mock.Arguments) { <-chBlock }).
