@@ -19,7 +19,6 @@ type connectedContract struct {
 	address        common.Address
 	ethClient      eth.Client
 	logBroadcaster LogBroadcaster
-	caller         common.Address
 }
 
 type UnsubscribeFunc func()
@@ -29,9 +28,8 @@ func NewConnectedContract(
 	address common.Address,
 	ethClient eth.Client,
 	logBroadcaster LogBroadcaster,
-	caller common.Address,
 ) ConnectedContract {
-	return &connectedContract{codec, address, ethClient, logBroadcaster, caller}
+	return &connectedContract{codec, address, ethClient, logBroadcaster}
 }
 
 func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) error {
@@ -41,7 +39,7 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 	}
 
 	var rawResult hexutil.Bytes
-	callArgs := eth.CallArgs{To: contract.address, Data: data, From: contract.caller}
+	callArgs := eth.CallArgs{To: contract.address, Data: data}
 	err = contract.ethClient.Call(&rawResult, "eth_call", callArgs, "latest")
 	if err != nil {
 		return errors.Wrap(err, "unable to call client")

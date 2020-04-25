@@ -156,7 +156,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function updateAnswer(uint256 _roundId, int256 _answer)
     external
   {
-    bytes memory error = validateOracleRound(uint32(_roundId));
+    bytes memory error = validateOracleRound(msg.sender, uint32(_roundId));
     require(error.length == 0, string(error));
 
     oracleInitializeNewRound(uint32(_roundId));
@@ -752,7 +752,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return _roundId.add(1) == _rrId && rounds[_rrId].updatedAt == 0;
   }
 
-  function oracleRoundState()
+  function oracleRoundState(address _oracle)
     external
     view
     returns (
@@ -769,16 +769,16 @@ contract FluxAggregator is AggregatorInterface, Owned {
     _roundId = supersedable ? reportingRoundId.add(1) : reportingRoundId;
 
 
-    if (validateOracleRound(_roundId).length != 0) {
+    if (validateOracleRound(_oracle, _roundId).length != 0) {
       _eligibleToSubmit = false;
     } else {
-      _eligibleToSubmit = supersedable ? delayed(_roundId) : acceptingSubmissions(_roundId);
+      _eligibleToSubmit = supersedable ? delayed(_oracle, _roundId) : acceptingSubmissions(_roundId);
     }
 
     return (
       _eligibleToSubmit,
       _roundId,
-      oracles[msg.sender].latestAnswer,
+      oracles[_oracle].latestAnswer,
       rounds[_roundId].startedAt + rounds[_roundId].details.timeout,
       availableFunds,
       oracleCount(),
@@ -833,19 +833,19 @@ contract FluxAggregator is AggregatorInterface, Owned {
     emit OraclePermissionsUpdated(_oracle, false);
   }
 
-  function validateOracleRound(uint32 _roundId)
+  function validateOracleRound(address _oracle, uint32 _roundId)
     private
     view
     returns (bytes memory)
   {
     // cache storage reads
-    uint32 startingRound = oracles[msg.sender].startingRound;
+    uint32 startingRound = oracles[_oracle].startingRound;
     uint32 rrId = reportingRoundId;
 
     if (startingRound == 0) return "not enabled oracle";
     if (startingRound > _roundId) return "not yet enabled oracle";
-    if (oracles[msg.sender].endingRound < _roundId) return "no longer allowed oracle";
-    if (oracles[msg.sender].lastReportedRound >= _roundId) return "cannot report on previous rounds";
+    if (oracles[_oracle].endingRound < _roundId) return "no longer allowed oracle";
+    if (oracles[_oracle].lastReportedRound >= _roundId) return "cannot report on previous rounds";
     if (_roundId != rrId && _roundId != rrId.add(1) && !previousAndCurrentUnanswered(_roundId, rrId)) return "invalid round to report";
     if (_roundId != 1 && !supersedable(_roundId.sub(1))) return "previous round not supersedable";
   }
@@ -874,12 +874,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return rounds[_roundId].details.maxAnswers != 0;
   }
 
-  function delayed(uint32 _roundId)
+  function delayed(address _oracle, uint32 _roundId)
     private
     view
     returns (bool)
   {
-    uint256 lastStarted = oracles[msg.sender].lastStartedRound;
+    uint256 lastStarted = oracles[_oracle].lastStartedRound;
     return _roundId > lastStarted + restartDelay || lastStarted == 0;
   }
 

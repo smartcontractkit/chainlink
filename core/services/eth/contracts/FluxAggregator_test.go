@@ -20,12 +20,13 @@ import (
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
 
-	rsHash := utils.MustHash("oracleRoundState()")
 	nodeAddr := cltest.NewAddress()
+	selector := make([]byte, 16)
+	rsHash := utils.MustHash("oracleRoundState(address)")
+	copy(selector, rsHash.Bytes()[:4])
 	expectedCallArgs := eth.CallArgs{
 		To:   aggregatorAddress,
-		Data: rsHash.Bytes()[:4],
-		From: nodeAddr,
+		Data: append(selector, nodeAddr[:]...),
 	}
 
 	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`
@@ -58,10 +59,10 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 					require.NoError(t, err)
 				})
 
-			fa, err := contracts.NewFluxAggregator(aggregatorAddress, ethClient, nil, nodeAddr)
+			fa, err := contracts.NewFluxAggregator(aggregatorAddress, ethClient, nil)
 			require.NoError(t, err)
 
-			roundState, err := fa.RoundState()
+			roundState, err := fa.RoundState(nodeAddr)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectedRoundID, roundState.ReportableRoundID)
 			assert.Equal(t, test.expectedEligible, roundState.EligibleToSubmit)
@@ -75,7 +76,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 }
 
 func TestFluxAggregatorClient_DecodesLogs(t *testing.T) {
-	fa, err := contracts.NewFluxAggregator(common.Address{}, nil, nil, cltest.NewAddress())
+	fa, err := contracts.NewFluxAggregator(common.Address{}, nil, nil)
 	require.NoError(t, err)
 
 	newRoundLogRaw := cltest.LogFromFixture(t, "../../testdata/new_round_log.json")
