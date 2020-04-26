@@ -881,7 +881,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 0, availableFunds, minPayment, 1)
+		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		mock.Register("eth_call", hex)
 	})
 
@@ -957,7 +957,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
-		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 0, availableFunds, minPayment, 1)
+		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		mock.Register("eth_call", hex)
 	})
 
@@ -1003,7 +1003,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 	})
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
-		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 0, availableFunds, minPayment, 1)
+		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		mock.Register("eth_call", hex)
 	})
 	newRounds <- log
