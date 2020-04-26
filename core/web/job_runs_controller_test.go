@@ -550,8 +550,8 @@ func TestJobRunsController_Cancel(t *testing.T) {
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-		run, err := app.Store.FindJobRun(run.ID)
+		r, err := app.Store.FindJobRun(run.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, models.RunStatusCancelled, run.GetStatus())
+		assert.Equal(t, models.RunStatusCancelled, r.GetStatus())
 	})
 }
