@@ -1896,11 +1896,11 @@ describe('FluxAggregator', () => {
 
   describe('#oracleRoundState', () => {
     beforeEach(async () => {
-      oracles = [personas.Neil, personas.Nelly]
+      oracles = [personas.Neil, personas.Ned, personas.Nelly]
       await addOracles(
         aggregator,
         oracles,
-        oracles.length,
+        oracles.length - 1,
         oracles.length,
         rrDelay,
       )
@@ -1918,7 +1918,7 @@ describe('FluxAggregator', () => {
       matchers.bigNum(oracles.length, state._oracleCount) // weird that this is 0
     })
 
-    describe('after other oracles have reported', () => {
+    describe('after less than the min oracles have reported', () => {
       beforeEach(async () => {
         await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
@@ -1935,7 +1935,28 @@ describe('FluxAggregator', () => {
       })
     })
 
-    describe('after the oracle has reported but the others have not', () => {
+    describe('after min oracles have reported', () => {
+      beforeEach(async () => {
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
+        await aggregator.connect(personas.Ned).submit(nextRound, answer)
+      })
+
+      it('keeps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator.oracleRoundState(personas.Nelly.address)
+        matchers.bigNum(1, state._roundId)
+        assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(0, state._latestSubmission)
+        matchers.bigNum(
+          deposit.sub(paymentAmount.mul(2)),
+          state._availableFunds,
+        )
+        matchers.bigNum(paymentAmount, state._paymentAmount)
+        assert.isAbove(state._startedAt.toNumber(), 0)
+        matchers.bigNum(timeout, state._timeout)
+      })
+    })
+
+    describe('after the oracle has reported but min have not', () => {
       beforeEach(async () => {
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
@@ -1969,9 +1990,49 @@ describe('FluxAggregator', () => {
       })
     })
 
+    describe('after the oracle has reported and min have but not all', () => {
+      beforeEach(async () => {
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+        await aggregator.connect(personas.Neil).submit(nextRound, answer)
+      })
+
+      it('keeps the round ID and allows the oracle to submit', async () => {
+        const state = await aggregator.oracleRoundState(personas.Nelly.address)
+        matchers.bigNum(2, state._roundId)
+        assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(answer, state._latestSubmission)
+        matchers.bigNum(
+          deposit.sub(paymentAmount.mul(2)),
+          state._availableFunds,
+        )
+        matchers.bigNum(0, state._startedAt.toNumber())
+        matchers.bigNum(0, state._timeout)
+      })
+
+      describe('and the round has timed out', () => {
+        beforeEach(async () => {
+          await h.increaseTimeBy(timeout + 1, provider)
+          await h.mineBlock(provider)
+        })
+
+        it('bumps the round ID and allows the oracle to submit', async () => {
+          const state = await aggregator.oracleRoundState(
+            personas.Nelly.address,
+          )
+
+          matchers.bigNum(2, state._roundId)
+          assert.equal(true, state._eligibleToSubmit)
+          matchers.bigNum(answer, state._latestSubmission)
+          matchers.bigNum(
+            deposit.sub(paymentAmount.mul(2)),
+            state._availableFunds,
+          )
+        })
+      })
+    })
+
     describe('when all oracles have reported', () => {
       beforeEach(async () => {
-        const oracles = [personas.Neil, personas.Nelly]
         for (let i = 0; i < oracles.length; i++) {
           await aggregator.connect(oracles[i]).submit(nextRound, answer)
         }
@@ -1982,7 +2043,7 @@ describe('FluxAggregator', () => {
         matchers.bigNum(2, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
         matchers.bigNum(answer, state._latestSubmission)
-        const expected = deposit.sub(paymentAmount).sub(paymentAmount)
+        const expected = deposit.sub(paymentAmount.mul(3))
         matchers.bigNum(expected, state._availableFunds)
       })
     })
