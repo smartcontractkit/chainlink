@@ -440,6 +440,7 @@ func (c Cron) String() string {
 // Duration is a non-negative time duration.
 type Duration struct{ d time.Duration }
 
+// MakeDuration returns Duration
 func MakeDuration(d time.Duration) (Duration, error) {
 	if d < time.Duration(0) {
 		return Duration{}, fmt.Errorf("cannot make negative time duration: %s", d)
@@ -447,6 +448,7 @@ func MakeDuration(d time.Duration) (Duration, error) {
 	return Duration{d: d}, nil
 }
 
+// MustMakeDuration returns Duration, returns nil if error happened
 func MustMakeDuration(d time.Duration) Duration {
 	rv, err := MakeDuration(d)
 	if err != nil {
@@ -502,6 +504,7 @@ func (d *Duration) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+// Scan duration
 func (d *Duration) Scan(v interface{}) (err error) {
 	switch tv := v.(type) {
 	case int64:
@@ -513,6 +516,7 @@ func (d *Duration) Scan(v interface{}) (err error) {
 	}
 }
 
+// Value return duration value
 func (d Duration) Value() (driver.Value, error) {
 	return int64(d.d), nil
 }

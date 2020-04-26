@@ -89,7 +89,7 @@ type FluxAggregatorRoundState struct {
 	OracleCount       uint32   `abi:"_oracleCount"`
 }
 
-// TimesOutAt
+// TimesOutAt timeout time
 func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
 	return rs.Timeout + rs.StartedAt
 }

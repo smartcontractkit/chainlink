@@ -246,10 +246,10 @@ var FluxMonitorDefaultInitiatorParams = map[string]defaults{
 func (i *InitiatorParams) SetDefaultValues(typ string) {
 	if typ == InitiatorFluxMonitor {
 		r := reflect.ValueOf(i)
-		for name, default_ := range FluxMonitorDefaultInitiatorParams {
+		for name, defaultVal := range FluxMonitorDefaultInitiatorParams {
 			field := reflect.Indirect(r).FieldByName(name)
-			if default_.isZero(field.Interface()) {
-				field.Set(reflect.ValueOf(default_.Value))
+			if defaultVal.isZero(field.Interface()) {
+				field.Set(reflect.ValueOf(defaultVal.Value))
 			}
 		}
 	}
