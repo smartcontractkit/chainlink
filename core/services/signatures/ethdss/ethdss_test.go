@@ -130,8 +130,8 @@ func TestDSSPartialSigs(t *testing.T) {
 	// enough partial sigs ?
 	for i := 2; i < nbParticipants; i++ {
 		dss := getDSS(i)
-		ps, err := dss.PartialSig()
-		require.Nil(t, err)
+		ps, e := dss.PartialSig()
+		require.Nil(t, e)
 		require.Nil(t, dss1.ProcessPartialSig(ps))
 	}
 	assert.True(t, dss1.EnoughPartialSig())
