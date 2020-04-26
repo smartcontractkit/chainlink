@@ -700,6 +700,7 @@ func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) mo
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }
 
+// NewPollingDeviationChecker returns new PollingDeviationChecker
 func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.PollingDeviationChecker {
 	fluxAggregator := new(mocks.FluxAggregator)
 	initr := models.Initiator{}

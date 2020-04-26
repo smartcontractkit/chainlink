@@ -1221,6 +1221,7 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	return result.String()
 }
 
+//MakeRoundStateReturnData make round state data
 func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,

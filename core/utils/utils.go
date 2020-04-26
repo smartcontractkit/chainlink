@@ -255,6 +255,7 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
+// RetryWithBackoff retry fn
 func RetryWithBackoff(chCancel <-chan struct{}, errPrefix string, fn func() error) (aborted bool) {
 	sleeper := NewBackoffSleeper()
 	sleeper.Reset()
@@ -543,6 +544,7 @@ func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
 	return decimal.NewFromBigInt(i, -precision)
 }
 
+// WaitGroupChan returns wg chan
 func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	chAwait := make(chan struct{})
 	go func() {
@@ -552,6 +554,7 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	return chAwait
 }
 
+// DependentAwaiter interface
 type DependentAwaiter interface {
 	AwaitDependents() <-chan struct{}
 	AddDependents(n int)
@@ -563,12 +566,14 @@ type dependentAwaiter struct {
 	ch <-chan struct{}
 }
 
+// NewDependentAwaiter returns new DependentAwaiter
 func NewDependentAwaiter() DependentAwaiter {
 	return &dependentAwaiter{
 		wg: &sync.WaitGroup{},
 	}
 }
 
+// AwaitDependents as the name said
 func (da *dependentAwaiter) AwaitDependents() <-chan struct{} {
 	if da.ch == nil {
 		da.ch = WaitGroupChan(da.wg)
@@ -576,21 +581,24 @@ func (da *dependentAwaiter) AwaitDependents() <-chan struct{} {
 	return da.ch
 }
 
+// AddDependents as the name said
 func (da *dependentAwaiter) AddDependents(n int) {
 	da.wg.Add(n)
 }
 
+// DependentReady as the name said
 func (da *dependentAwaiter) DependentReady() {
 	da.wg.Done()
 }
 
-// FIFO queue that discards older items when it reaches its capacity.
+// BoundedQueue FIFO queue that discards older items when it reaches its capacity.
 type BoundedQueue struct {
 	capacity uint
 	items    []interface{}
 	mu       *sync.RWMutex
 }
 
+// NewBoundedQueue returns new BoundedQueue
 func NewBoundedQueue(capacity uint) *BoundedQueue {
 	return &BoundedQueue{
 		capacity: capacity,
@@ -598,6 +606,7 @@ func NewBoundedQueue(capacity uint) *BoundedQueue {
 	}
 }
 
+// Add method of BoundedQueue
 func (q *BoundedQueue) Add(x interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -608,6 +617,7 @@ func (q *BoundedQueue) Add(x interface{}) {
 	}
 }
 
+// Take method of BoundedQueue
 func (q *BoundedQueue) Take() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -619,18 +629,21 @@ func (q *BoundedQueue) Take() interface{} {
 	return x
 }
 
+// Empty method of BoundedQueue
 func (q *BoundedQueue) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return len(q.items) == 0
 }
 
+// Full method of BoundedQueue
 func (q *BoundedQueue) Full() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return uint(len(q.items)) >= q.capacity
 }
 
+// BoundedPriorityQueue struct
 type BoundedPriorityQueue struct {
 	queues     map[uint]*BoundedQueue
 	priorities []uint
@@ -638,6 +651,7 @@ type BoundedPriorityQueue struct {
 	mu         *sync.RWMutex
 }
 
+// NewBoundedPriorityQueue make a new BoundedPriorityQueue with given capacities
 func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
 	queues := make(map[uint]*BoundedQueue)
 	var priorities []uint
@@ -654,6 +668,7 @@ func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
 	}
 }
 
+// Add method of BoundedPriorityQueue
 func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -666,6 +681,7 @@ func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 	subqueue.Add(x)
 }
 
+// Take method of BoundedPriorityQueue
 func (q *BoundedPriorityQueue) Take() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -680,6 +696,7 @@ func (q *BoundedPriorityQueue) Take() interface{} {
 	return nil
 }
 
+// Empty method of BoundedPriorityQueue
 func (q *BoundedPriorityQueue) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()

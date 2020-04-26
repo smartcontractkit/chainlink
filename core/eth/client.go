@@ -135,6 +135,7 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 	return uint64(height), err
 }
 
+// GetLatestBlock returns latest block
 func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
 	var block Block
 	err := client.Call(&block, "eth_getBlockByNumber", "latest", true)
