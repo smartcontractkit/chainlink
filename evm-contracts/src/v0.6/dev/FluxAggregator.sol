@@ -556,11 +556,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice called through LINK's transferAndCall to update available funds
    * in the same transaction as the funds were transfered to the aggregator
+   * @param _data is mostly ignored. It is checked for length, to be sure
+   * nothing strange is passed in.
    */
-  function onTokenTransfer(address, uint256, bytes memory data)
-    public
+  function onTokenTransfer(address, uint256, bytes calldata _data)
+    external
   {
-    require(data.length == 0, "transfer doesn't accept calldata");
+    require(_data.length == 0, "transfer doesn't accept calldata");
     updateAvailableFunds();
   }
 
