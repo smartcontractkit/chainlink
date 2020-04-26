@@ -184,7 +184,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			"initr", initr.ID,
 		)
 		timeout := fm.store.Config.DefaultHTTPTimeout()
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout)
+		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM, timeout.Duration())
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -228,7 +228,7 @@ func (f pollingDeviationCheckerFactory) New(
 ) (DeviationChecker, error) {
 	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
 
-	if initr.InitiatorParams.PollingInterval < minimumPollingInterval {
+	if initr.InitiatorParams.PollingInterval.Duration() < minimumPollingInterval.Duration() {
 		return nil, fmt.Errorf("pollingInterval must be equal or greater than %s", minimumPollingInterval)
 	}
 
@@ -238,7 +238,7 @@ func (f pollingDeviationCheckerFactory) New(
 	}
 
 	fetcher, err := newMedianFetcherFromURLs(
-		timeout,
+		models.MustMakeDuration(timeout),
 		initr.InitiatorParams.RequestData.String(),
 		urls)
 	if err != nil {
