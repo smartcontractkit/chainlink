@@ -94,8 +94,8 @@ describe('FluxAggregator', () => {
     return nextRound
   }
 
-  const ShouldBeUpdated = 'expects it to be different'
-  const ShouldNotBeUpdated = 'expects it to equal'
+  const ShouldBeSet = 'expects it to be different'
+  const ShouldNotBeSet = 'expects it to equal'
   let startingState: any
 
   async function checkOracleRoundState(
@@ -111,21 +111,54 @@ describe('FluxAggregator', () => {
       paymentAmount: ethers.utils.BigNumberish
     },
   ) {
-    assert.equal(want.eligibleToSubmit, state._eligibleToSubmit)
-    matchers.bigNum(want.roundId, state._roundId)
-    matchers.bigNum(want.latestSubmission, state._latestSubmission)
-    if (want.startedAt === ShouldBeUpdated) {
+    assert.equal(
+      want.eligibleToSubmit,
+      state._eligibleToSubmit,
+      'round state: unexecpted eligibility',
+    )
+    matchers.bigNum(
+      want.roundId,
+      state._roundId,
+      'round state: unexpected Round ID',
+    )
+    matchers.bigNum(
+      want.latestSubmission,
+      state._latestSubmission,
+      'round state: unexpected latest submission',
+    )
+    if (want.startedAt === ShouldBeSet) {
       assert.isAbove(
         state._startedAt.toNumber(),
         startingState._startedAt.toNumber(),
+        'round state: expected the started at to be the same as previous',
       )
     } else {
-      matchers.bigNum(0, state._startedAt)
+      matchers.bigNum(
+        0,
+        state._startedAt,
+        'round state: expected the started at not to be updated',
+      )
     }
-    matchers.bigNum(want.timeout, state._timeout.toNumber())
-    matchers.bigNum(want.availableFunds, state._availableFunds)
-    matchers.bigNum(want.oracleCount, state._oracleCount)
-    matchers.bigNum(want.paymentAmount, state._paymentAmount)
+    matchers.bigNum(
+      want.timeout,
+      state._timeout.toNumber(),
+      'round state: unexepcted timeout',
+    )
+    matchers.bigNum(
+      want.availableFunds,
+      state._availableFunds,
+      'round state: unexepected funds',
+    )
+    matchers.bigNum(
+      want.oracleCount,
+      state._oracleCount,
+      'round state: unexpected oracle count',
+    )
+    matchers.bigNum(
+      want.paymentAmount,
+      state._paymentAmount,
+      'round state: unexpected paymentamount',
+    )
   }
 
   const deployment = setup.snapshot(provider, async () => {
@@ -1961,7 +1994,7 @@ describe('FluxAggregator', () => {
         eligibleToSubmit: true,
         roundId: 2,
         latestSubmission: previousSubmission,
-        startedAt: ShouldNotBeUpdated,
+        startedAt: ShouldNotBeSet,
         timeout: 0,
         availableFunds: baseFunds,
         oracleCount: oracles.length,
@@ -2003,7 +2036,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: true,
             roundId: 2,
             latestSubmission: previousSubmission,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldBeSet,
             timeout,
             availableFunds: baseFunds.sub(paymentAmount),
             oracleCount: oracles.length,
@@ -2026,7 +2059,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: false,
             roundId: 2,
             latestSubmission: answer,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldBeSet,
             timeout,
             availableFunds: baseFunds.sub(paymentAmount),
             oracleCount: oracles.length,
@@ -2049,7 +2082,7 @@ describe('FluxAggregator', () => {
               eligibleToSubmit: true,
               roundId: 3,
               latestSubmission: answer,
-              startedAt: ShouldNotBeUpdated,
+              startedAt: ShouldNotBeSet,
               timeout: 0,
               availableFunds: baseFunds.sub(paymentAmount),
               oracleCount: oracles.length,
@@ -2077,7 +2110,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: true,
             roundId: 2,
             latestSubmission: previousSubmission,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldBeSet,
             timeout,
             availableFunds: baseFunds.sub(paymentAmount.mul(3)),
             oracleCount: oracles.length,
@@ -2104,7 +2137,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: true,
             roundId: 3,
             latestSubmission: answer,
-            startedAt: ShouldNotBeUpdated,
+            startedAt: ShouldNotBeSet,
             timeout: 0,
             availableFunds: baseFunds.sub(paymentAmount.mul(3)),
             oracleCount: oracles.length,
@@ -2127,7 +2160,7 @@ describe('FluxAggregator', () => {
               eligibleToSubmit: true,
               roundId: 3,
               latestSubmission: answer,
-              startedAt: ShouldNotBeUpdated,
+              startedAt: ShouldNotBeSet,
               timeout: 0,
               availableFunds: baseFunds.sub(paymentAmount.mul(3)),
               oracleCount: oracles.length,
@@ -2162,7 +2195,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: true,
             roundId: 3,
             latestSubmission: previousSubmission,
-            startedAt: ShouldNotBeUpdated,
+            startedAt: ShouldNotBeSet,
             timeout: 0,
             availableFunds: baseFunds.sub(paymentAmount.mul(4)),
             oracleCount: oracles.length,
@@ -2196,7 +2229,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: true,
             roundId: 3,
             latestSubmission: answer,
-            startedAt: ShouldNotBeUpdated,
+            startedAt: ShouldNotBeSet,
             timeout: 0,
             availableFunds: baseFunds.sub(paymentAmount.mul(4)),
             oracleCount: oracles.length,
@@ -2229,7 +2262,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: true,
             roundId: 2,
             latestSubmission: previousSubmission,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldBeSet,
             timeout,
             availableFunds: baseFunds.sub(paymentAmount.mul(2)),
             oracleCount: oracles.length,
@@ -2252,7 +2285,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: false,
             roundId: 2,
             latestSubmission: answer,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldBeSet,
             timeout,
             availableFunds: baseFunds.sub(paymentAmount.mul(2)),
             oracleCount: oracles.length,
@@ -2275,7 +2308,7 @@ describe('FluxAggregator', () => {
               eligibleToSubmit: false,
               roundId: 3,
               latestSubmission: answer,
-              startedAt: ShouldNotBeUpdated,
+              startedAt: ShouldNotBeSet,
               timeout: 0,
               availableFunds: baseFunds.sub(paymentAmount.mul(2)),
               oracleCount: oracles.length,
@@ -2303,7 +2336,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: true,
             roundId: 2,
             latestSubmission: previousSubmission,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldBeSet,
             timeout,
             availableFunds: baseFunds.sub(paymentAmount.mul(3)),
             oracleCount: oracles.length,
@@ -2330,7 +2363,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: false,
             roundId: 3,
             latestSubmission: answer,
-            startedAt: ShouldNotBeUpdated,
+            startedAt: ShouldNotBeSet,
             timeout: 0,
             availableFunds: baseFunds.sub(paymentAmount.mul(3)),
             oracleCount: oracles.length,
@@ -2353,7 +2386,7 @@ describe('FluxAggregator', () => {
               eligibleToSubmit: false, // restart delay enforced
               roundId: 3,
               latestSubmission: answer,
-              startedAt: ShouldNotBeUpdated,
+              startedAt: ShouldNotBeSet,
               timeout: 0,
               availableFunds: baseFunds.sub(paymentAmount.mul(3)),
               oracleCount: oracles.length,
@@ -2388,7 +2421,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: false,
             roundId: 3,
             latestSubmission: previousSubmission,
-            startedAt: ShouldNotBeUpdated,
+            startedAt: ShouldNotBeSet,
             timeout: 0, // details have been deleted
             availableFunds: baseFunds.sub(paymentAmount.mul(4)),
             oracleCount: oracles.length,
@@ -2422,7 +2455,7 @@ describe('FluxAggregator', () => {
             eligibleToSubmit: false,
             roundId: 3,
             latestSubmission: answer,
-            startedAt: ShouldNotBeUpdated,
+            startedAt: ShouldNotBeSet,
             timeout: 0,
             availableFunds: baseFunds.sub(paymentAmount.mul(4)),
             oracleCount: oracles.length,
