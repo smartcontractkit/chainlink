@@ -102,6 +102,7 @@ func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{
 		return nil, err
 	}
 
+	_ = ctx
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	wrapper.limiter.Wait(ctx)

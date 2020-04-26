@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
