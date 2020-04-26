@@ -934,11 +934,17 @@ func (p *PollingDeviationChecker) Consumer() models.LogConsumer {
 }
 
 // OutsideDeviation checks whether the next price is outside the threshold.
+// If the threshold is zero, always returns true.
 func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) bool {
 	loggerFields := []interface{}{
 		"threshold", threshold,
 		"currentAnswer", curAnswer,
 		"nextAnswer", nextAnswer,
+	}
+
+	if threshold == 0 {
+		logger.Debugw("Deviation threshold always met at 0", loggerFields...)
+		return true
 	}
 
 	if curAnswer.IsZero() {
