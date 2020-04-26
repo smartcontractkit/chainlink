@@ -29,7 +29,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		Data: append(selector, nodeAddr[:]...),
 	}
 
-	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`
+	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`
 
 	tests := []struct {
 		name                   string
@@ -41,11 +41,11 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		expectedAvailableFunds uint64
 		expectedPaymentAmount  uint64
 	}{
-		{"zero, false", cltest.MakeRoundStateReturnData(0, false, 0, 0, 0, 0, 17), 0, false, big.NewInt(0), 0, 0, 0},
-		{"non-zero, false", cltest.MakeRoundStateReturnData(1, false, 23, 1234, 36, 72, 17), 1, false, big.NewInt(23), 1234, 36, 72},
-		{"zero, true", cltest.MakeRoundStateReturnData(0, true, 0, 0, 0, 0, 17), 0, true, big.NewInt(0), 0, 0, 0},
-		{"non-zero true", cltest.MakeRoundStateReturnData(12, true, 91, 9876, 45, 999, 17), 12, true, big.NewInt(91), 9876, 45, 999},
-		{"real call data", rawReturnData, 3, true, big.NewInt(15), 14, 10, 256},
+		{"zero, false", cltest.MakeRoundStateReturnData(0, false, 0, 0, 0, 0, 0, 17), 0, false, big.NewInt(0), 0, 0, 0},
+		{"non-zero, false", cltest.MakeRoundStateReturnData(1, false, 23, 1230, 4, 36, 72, 17), 1, false, big.NewInt(23), 1234, 36, 72},
+		{"zero, true", cltest.MakeRoundStateReturnData(0, true, 0, 0, 0, 0, 0, 17), 0, true, big.NewInt(0), 0, 0, 0},
+		{"non-zero true", cltest.MakeRoundStateReturnData(12, true, 91, 9870, 6, 45, 999, 17), 12, true, big.NewInt(91), 9876, 45, 999},
+		{"real call data", rawReturnData, 3, true, big.NewInt(15), (22 + 15), 10, 256},
 	}
 
 	for _, test := range tests {
@@ -67,7 +67,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			assert.Equal(t, test.expectedRoundID, roundState.ReportableRoundID)
 			assert.Equal(t, test.expectedEligible, roundState.EligibleToSubmit)
 			assert.True(t, test.expectedAnswer.Cmp(roundState.LatestAnswer) == 0)
-			assert.Equal(t, test.expectedTimesOutAt, roundState.TimesOutAt)
+			assert.Equal(t, test.expectedTimesOutAt, roundState.TimesOutAt())
 			assert.Equal(t, test.expectedAvailableFunds, roundState.AvailableFunds.Uint64())
 			assert.Equal(t, test.expectedPaymentAmount, roundState.PaymentAmount.Uint64())
 			ethClient.AssertExpectations(t)

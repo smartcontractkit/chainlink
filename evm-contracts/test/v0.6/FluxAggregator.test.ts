@@ -1911,7 +1911,8 @@ describe('FluxAggregator', () => {
       matchers.bigNum(1, state._roundId)
       assert.equal(true, state._eligibleToSubmit)
       matchers.bigNum(0, state._latestSubmission)
-      matchers.bigNum(0, state._timesOutAt)
+      matchers.bigNum(0, state._startedAt)
+      matchers.bigNum(0, state._timeout)
       matchers.bigNum(deposit, state._availableFunds)
       matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
       matchers.bigNum(oracles.length, state._oracleCount) // weird that this is 0
@@ -1929,6 +1930,8 @@ describe('FluxAggregator', () => {
         matchers.bigNum(0, state._latestSubmission)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
         matchers.bigNum(paymentAmount, state._paymentAmount)
+        assert.isAbove(state._startedAt.toNumber(), 0)
+        matchers.bigNum(timeout, state._timeout)
       })
     })
 
@@ -1943,6 +1946,8 @@ describe('FluxAggregator', () => {
         assert.equal(false, state._eligibleToSubmit)
         matchers.bigNum(answer, state._latestSubmission)
         matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+        assert.isAbove(state._startedAt.toNumber(), 0)
+        matchers.bigNum(timeout, state._timeout)
       })
 
       describe('and the round has timed out', () => {

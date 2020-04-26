@@ -1189,7 +1189,7 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,
-	answer, timesOutAt, availableFunds, paymentAmount, oracleCount uint64,
+	answer, startAt, timeout, availableFunds, paymentAmount, oracleCount uint64,
 ) string {
 	var data []byte
 	if eligible {
@@ -1199,7 +1199,8 @@ func MakeRoundStateReturnData(
 	}
 	data = append(data, utils.EVMWordUint64(roundID)...)
 	data = append(data, utils.EVMWordUint64(answer)...)
-	data = append(data, utils.EVMWordUint64(timesOutAt)...)
+	data = append(data, utils.EVMWordUint64(startAt)...)
+	data = append(data, utils.EVMWordUint64(timeout)...)
 	data = append(data, utils.EVMWordUint64(availableFunds)...)
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
