@@ -769,7 +769,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(msg.sender == tx.origin, "off-chain reading only");
 
-    if (supersedable(reportingRoundId)) {
+    bool current = oracles[_oracle].lastReportedRound == reportingRoundId;
+    if (supersedable(reportingRoundId) && current) {
       _roundId = reportingRoundId.add(1);
       _paymentAmount = paymentAmount;
       _eligibleToSubmit = delayed(_oracle, _roundId);
