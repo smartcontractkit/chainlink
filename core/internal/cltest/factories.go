@@ -708,7 +708,7 @@ func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.Polli
 	pollDelay, err := models.MakeDuration(time.Second)
 	require.NoError(t, err)
 	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, pollDelay, func() {})
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, pollDelay.Duration())
 	require.NoError(t, err)
 	return checker
 }
