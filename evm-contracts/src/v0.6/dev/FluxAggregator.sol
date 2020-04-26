@@ -565,6 +565,54 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
+   * @notice a method to provide all current info oracles need. Intended only
+   * only to be callable by oracles. Not for use by contracts to read state.
+   * @param _oracle the address to look up information for.
+   */
+  function oracleRoundState(address _oracle)
+    external
+    view
+    returns (
+      bool _eligibleToSubmit,
+      uint32 _roundId,
+      int256 _latestSubmission,
+      uint64 _startedAt,
+      uint64 _timeout,
+      uint128 _availableFunds,
+      uint32 _oracleCount,
+      uint128 _paymentAmount
+    )
+  {
+    require(msg.sender == tx.origin, "off-chain reading only");
+
+    bool current = oracles[_oracle].lastReportedRound == reportingRoundId;
+    if (supersedable(reportingRoundId) && current) {
+      _roundId = reportingRoundId.add(1);
+      _paymentAmount = paymentAmount;
+      _eligibleToSubmit = delayed(_oracle, _roundId);
+    } else {
+      _roundId = reportingRoundId;
+      _paymentAmount = rounds[_roundId].details.paymentAmount;
+      _eligibleToSubmit = acceptingSubmissions(_roundId);
+    }
+
+    if (validateOracleRound(_oracle, _roundId).length != 0) {
+      _eligibleToSubmit = false;
+    }
+
+    return (
+      _eligibleToSubmit,
+      _roundId,
+      oracles[_oracle].latestSubmission,
+      rounds[_roundId].startedAt,
+      rounds[_roundId].details.timeout,
+      availableFunds,
+      oracleCount(),
+      _paymentAmount
+    );
+  }
+
+  /**
    * Internal
    */
 
@@ -751,49 +799,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (bool)
   {
     return _roundId.add(1) == _rrId && rounds[_rrId].updatedAt == 0;
-  }
-
-  function oracleRoundState(address _oracle)
-    external
-    view
-    returns (
-      bool _eligibleToSubmit,
-      uint32 _roundId,
-      int256 _latestSubmission,
-      uint64 _startedAt,
-      uint64 _timeout,
-      uint128 _availableFunds,
-      uint32 _oracleCount,
-      uint128 _paymentAmount
-    )
-  {
-    require(msg.sender == tx.origin, "off-chain reading only");
-
-    bool current = oracles[_oracle].lastReportedRound == reportingRoundId;
-    if (supersedable(reportingRoundId) && current) {
-      _roundId = reportingRoundId.add(1);
-      _paymentAmount = paymentAmount;
-      _eligibleToSubmit = delayed(_oracle, _roundId);
-    } else {
-      _roundId = reportingRoundId;
-      _paymentAmount = rounds[_roundId].details.paymentAmount;
-      _eligibleToSubmit = acceptingSubmissions(_roundId);
-    }
-
-    if (validateOracleRound(_oracle, _roundId).length != 0) {
-      _eligibleToSubmit = false;
-    }
-
-    return (
-      _eligibleToSubmit,
-      _roundId,
-      oracles[_oracle].latestSubmission,
-      rounds[_roundId].startedAt,
-      rounds[_roundId].details.timeout,
-      availableFunds,
-      oracleCount(),
-      _paymentAmount
-    );
   }
 
   function requiredReserve(uint256 payment)
