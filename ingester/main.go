@@ -5,8 +5,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/ingester/logger"
-	"github.com/smartcontractkit/chainlink/ingester/service"
+	"ingester/logger"
+	"ingester/service"
 
 	"github.com/spf13/cobra"
 )
