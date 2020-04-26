@@ -373,6 +373,10 @@ func NewPollingDeviationChecker(
 	pollDelay models.Duration,
 	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
+	// If the threshold is zero, we disable pollTicker
+	if initr.InitiatorParams.Threshold == 0 {
+		pollDelay = models.Duration{}
+	}
 	return &PollingDeviationChecker{
 		readyForLogs:       readyForLogs,
 		store:              store,
@@ -440,6 +444,8 @@ type ResettableTicker struct {
 	d models.Duration
 }
 
+// NewResettableTicker creates a new ResettableTicker. If d is zero,
+// the ticker never ticks.
 func NewResettableTicker(d models.Duration) *ResettableTicker {
 	return &ResettableTicker{nil, d}
 }
@@ -460,7 +466,9 @@ func (t *ResettableTicker) Stop() {
 
 func (t *ResettableTicker) Reset() {
 	t.Stop()
-	t.Ticker = time.NewTicker(t.d.Duration())
+	if !t.d.IsInstant() {
+		t.Ticker = time.NewTicker(t.d.Duration())
+	}
 }
 
 func (p *PollingDeviationChecker) HandleLog(lb eth.LogBroadcast, err error) {
