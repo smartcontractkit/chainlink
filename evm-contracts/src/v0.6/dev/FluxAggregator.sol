@@ -81,6 +81,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * funds without the owner's intervention.)
    */
   uint256 constant private RESERVE_ROUNDS = 2;
+  uint256 constant private MAX_ORACLE_COUNT = 42;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
@@ -188,7 +189,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
   {
     require(_oracles.length == _admins.length, "need same oracle and admin count");
-    require(uint256(oracleCount()).add(_oracles.length) <= 42, "max oracles allowed");
+    require(uint256(oracleCount()).add(_oracles.length) <= MAX_ORACLE_COUNT, "max oracles allowed");
 
     for (uint256 i = 0; i < _oracles.length; i++) {
       addOracle(_oracles[i], _admins[i]);
