@@ -373,10 +373,18 @@ func NewPollingDeviationChecker(
 	pollDelay models.Duration,
 	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
-	// If the threshold is zero, we disable pollTicker
+	// If the threshold is zero, disable pollTicker
 	if initr.InitiatorParams.Threshold == 0 {
+		if !pollDelay.IsInstant() {
+			logger.Infow("NewPollingDeviationChecker: disabling pollTicker (pollDelay is forced to 0) since deviation threshold is 0",
+				"initr", initr.ID,
+				"threshold", initr.InitiatorParams.Threshold,
+				"pollDelay", pollDelay,
+			)
+		}
 		pollDelay = models.Duration{}
 	}
+
 	return &PollingDeviationChecker{
 		readyForLogs:       readyForLogs,
 		store:              store,
