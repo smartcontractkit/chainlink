@@ -1,8 +1,9 @@
 package store
 
 import (
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/stretchr/testify/require"
 )
