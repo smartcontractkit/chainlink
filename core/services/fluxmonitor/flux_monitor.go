@@ -373,6 +373,18 @@ func NewPollingDeviationChecker(
 	pollDelay models.Duration,
 	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
+	// If the threshold is zero, disable pollTicker
+	if initr.InitiatorParams.Threshold == 0 {
+		if !pollDelay.IsInstant() {
+			logger.Infow("NewPollingDeviationChecker: disabling pollTicker (pollDelay is forced to 0) since deviation threshold is 0",
+				"initr", initr.ID,
+				"threshold", initr.InitiatorParams.Threshold,
+				"pollDelay", pollDelay,
+			)
+		}
+		pollDelay = models.Duration{}
+	}
+
 	return &PollingDeviationChecker{
 		readyForLogs:       readyForLogs,
 		store:              store,
@@ -440,6 +452,8 @@ type ResettableTicker struct {
 	d models.Duration
 }
 
+// NewResettableTicker creates a new ResettableTicker. If d is zero,
+// the ticker never ticks.
 func NewResettableTicker(d models.Duration) *ResettableTicker {
 	return &ResettableTicker{nil, d}
 }
@@ -460,7 +474,9 @@ func (t *ResettableTicker) Stop() {
 
 func (t *ResettableTicker) Reset() {
 	t.Stop()
-	t.Ticker = time.NewTicker(t.d.Duration())
+	if !t.d.IsInstant() {
+		t.Ticker = time.NewTicker(t.d.Duration())
+	}
 }
 
 func (p *PollingDeviationChecker) HandleLog(lb eth.LogBroadcast, err error) {
@@ -934,11 +950,17 @@ func (p *PollingDeviationChecker) Consumer() models.LogConsumer {
 }
 
 // OutsideDeviation checks whether the next price is outside the threshold.
+// If the threshold is zero, always returns true.
 func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) bool {
 	loggerFields := []interface{}{
 		"threshold", threshold,
 		"currentAnswer", curAnswer,
 		"nextAnswer", nextAnswer,
+	}
+
+	if threshold == 0 {
+		logger.Debugw("Deviation threshold always met at 0", loggerFields...)
+		return true
 	}
 
 	if curAnswer.IsZero() {
