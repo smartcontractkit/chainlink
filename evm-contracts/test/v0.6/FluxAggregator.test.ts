@@ -1908,14 +1908,14 @@ describe('FluxAggregator', () => {
 
     it('returns all of the important round information', async () => {
       const state = await aggregator.oracleRoundState(personas.Nelly.address)
-      matchers.bigNum(1, state._roundId)
+
       assert.equal(true, state._eligibleToSubmit)
+      matchers.bigNum(1, state._roundId)
       matchers.bigNum(0, state._latestSubmission)
       matchers.bigNum(0, state._startedAt)
       matchers.bigNum(0, state._timeout)
       matchers.bigNum(deposit, state._availableFunds)
-      matchers.bigNum(paymentAmount, state._paymentAmount) // weird that this is 0
-      matchers.bigNum(oracles.length, state._oracleCount) // weird that this is 0
+      matchers.bigNum(oracles.length, state._oracleCount)
     })
 
     describe('after less than the min oracles have reported', () => {
@@ -1925,13 +1925,15 @@ describe('FluxAggregator', () => {
 
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
-        matchers.bigNum(1, state._roundId)
+
         assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(1, state._roundId)
         matchers.bigNum(0, state._latestSubmission)
-        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
-        matchers.bigNum(paymentAmount, state._paymentAmount)
         assert.isAbove(state._startedAt.toNumber(), 0)
         matchers.bigNum(timeout, state._timeout)
+        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+        matchers.bigNum(oracles.length, state._oracleCount)
+        matchers.bigNum(paymentAmount, state._paymentAmount)
       })
     })
 
@@ -1943,32 +1945,42 @@ describe('FluxAggregator', () => {
 
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
-        matchers.bigNum(1, state._roundId)
+
         assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(1, state._roundId)
         matchers.bigNum(0, state._latestSubmission)
+        assert.isAbove(state._startedAt.toNumber(), 0)
+        matchers.bigNum(timeout, state._timeout)
         matchers.bigNum(
           deposit.sub(paymentAmount.mul(2)),
           state._availableFunds,
         )
+        matchers.bigNum(oracles.length, state._oracleCount)
         matchers.bigNum(paymentAmount, state._paymentAmount)
-        assert.isAbove(state._startedAt.toNumber(), 0)
-        matchers.bigNum(timeout, state._timeout)
       })
     })
 
     describe('after the oracle has reported but min have not', () => {
       beforeEach(async () => {
+        await updateFutureRounds(aggregator, {
+          minAnswers: oracles.length - 1,
+          maxAnswers: oracles.length,
+          restartDelay: 0,
+        })
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
 
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
-        matchers.bigNum(1, state._roundId)
+
         assert.equal(false, state._eligibleToSubmit)
+        matchers.bigNum(1, state._roundId)
         matchers.bigNum(answer, state._latestSubmission)
-        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
         assert.isAbove(state._startedAt.toNumber(), 0)
         matchers.bigNum(timeout, state._timeout)
+        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+        matchers.bigNum(oracles.length, state._oracleCount)
+        matchers.bigNum(paymentAmount, state._paymentAmount)
       })
 
       describe('and the round has timed out', () => {
@@ -1982,10 +1994,14 @@ describe('FluxAggregator', () => {
             personas.Nelly.address,
           )
 
-          matchers.bigNum(2, state._roundId)
           assert.equal(true, state._eligibleToSubmit)
+          matchers.bigNum(2, state._roundId)
           matchers.bigNum(answer, state._latestSubmission)
+          matchers.bigNum(0, state._startedAt.toNumber()) // FIXME
+          matchers.bigNum(0, state._timeout) // FIXME
           matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
+          matchers.bigNum(oracles.length, state._oracleCount)
+          matchers.bigNum(paymentAmount, state._paymentAmount)
         })
       })
     })
@@ -1998,15 +2014,17 @@ describe('FluxAggregator', () => {
 
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
-        matchers.bigNum(2, state._roundId)
         assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(2, state._roundId)
         matchers.bigNum(answer, state._latestSubmission)
+        matchers.bigNum(0, state._startedAt.toNumber())
+        matchers.bigNum(0, state._timeout)
         matchers.bigNum(
           deposit.sub(paymentAmount.mul(2)),
           state._availableFunds,
         )
-        matchers.bigNum(0, state._startedAt.toNumber())
-        matchers.bigNum(0, state._timeout)
+        matchers.bigNum(oracles.length, state._oracleCount)
+        matchers.bigNum(paymentAmount, state._paymentAmount)
       })
 
       describe('and the round has timed out', () => {
@@ -2020,13 +2038,17 @@ describe('FluxAggregator', () => {
             personas.Nelly.address,
           )
 
-          matchers.bigNum(2, state._roundId)
           assert.equal(true, state._eligibleToSubmit)
+          matchers.bigNum(2, state._roundId)
           matchers.bigNum(answer, state._latestSubmission)
+          matchers.bigNum(0, state._startedAt.toNumber())
+          matchers.bigNum(0, state._timeout)
           matchers.bigNum(
             deposit.sub(paymentAmount.mul(2)),
             state._availableFunds,
           )
+          matchers.bigNum(oracles.length, state._oracleCount)
+          matchers.bigNum(paymentAmount, state._paymentAmount)
         })
       })
     })
@@ -2040,11 +2062,18 @@ describe('FluxAggregator', () => {
 
       it('bumps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
-        matchers.bigNum(2, state._roundId)
+
         assert.equal(true, state._eligibleToSubmit)
+        matchers.bigNum(2, state._roundId)
         matchers.bigNum(answer, state._latestSubmission)
-        const expected = deposit.sub(paymentAmount.mul(3))
-        matchers.bigNum(expected, state._availableFunds)
+        matchers.bigNum(0, state._startedAt.toNumber())
+        matchers.bigNum(0, state._timeout)
+        matchers.bigNum(
+          deposit.sub(paymentAmount.mul(3)),
+          state._availableFunds,
+        )
+        matchers.bigNum(oracles.length, state._oracleCount)
+        matchers.bigNum(paymentAmount, state._paymentAmount)
       })
     })
 
