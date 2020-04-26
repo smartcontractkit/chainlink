@@ -81,6 +81,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * funds without the owner's intervention.)
    */
   uint256 constant private RESERVE_ROUNDS = 2;
+  uint256 constant private MAX_ORACLE_COUNT = 42;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
@@ -188,7 +189,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     onlyOwner()
   {
     require(_oracles.length == _admins.length, "need same oracle and admin count");
-    require(uint256(oracleCount()).add(_oracles.length) <= 42, "max oracles allowed");
+    require(uint256(oracleCount()).add(_oracles.length) <= MAX_ORACLE_COUNT, "max oracles allowed");
 
     for (uint256 i = 0; i < _oracles.length; i++) {
       addOracle(_oracles[i], _admins[i]);
@@ -556,11 +557,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice called through LINK's transferAndCall to update available funds
    * in the same transaction as the funds were transfered to the aggregator
+   * @param _data is mostly ignored. It is checked for length, to be sure
+   * nothing strange is passed in.
    */
-  function onTokenTransfer(address, uint256, bytes memory data)
-    public
+  function onTokenTransfer(address, uint256, bytes calldata _data)
+    external
   {
-    require(data.length == 0, "transfer doesn't accept calldata");
+    require(_data.length == 0, "transfer doesn't accept calldata");
     updateAvailableFunds();
   }
 

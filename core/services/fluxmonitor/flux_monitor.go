@@ -615,11 +615,8 @@ func (p *PollingDeviationChecker) processLogs() {
 // Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log *contracts.LogAnswerUpdated) {
 	if p.reportableRoundID != nil && log.RoundId.Cmp(p.reportableRoundID) < 0 {
-		// Ignore old rounds
-		logger.Debugw("Ignoring stale AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
-		return
+		logger.Debugw("Received stale AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
 	}
-	p.pollTicker.Reset()
 }
 
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
