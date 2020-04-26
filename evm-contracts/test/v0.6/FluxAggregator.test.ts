@@ -2159,14 +2159,14 @@ describe('FluxAggregator', () => {
           )
 
           await checkOracleRoundState(state, {
-            eligibleToSubmit: false, // FIXME
-            roundId: 2,
+            eligibleToSubmit: true,
+            roundId: 3,
             latestSubmission: previousSubmission,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldNotBeUpdated,
             timeout: 0,
             availableFunds: baseFunds.sub(paymentAmount.mul(4)),
             oracleCount: oracles.length,
-            paymentAmount: 0,
+            paymentAmount,
           })
         })
       })
@@ -2386,13 +2386,13 @@ describe('FluxAggregator', () => {
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: false,
-            roundId: 2,
+            roundId: 3,
             latestSubmission: previousSubmission,
-            startedAt: ShouldBeUpdated,
+            startedAt: ShouldNotBeUpdated,
             timeout: 0, // details have been deleted
             availableFunds: baseFunds.sub(paymentAmount.mul(4)),
             oracleCount: oracles.length,
-            paymentAmount: 0, // deltails have been deleted
+            paymentAmount,
           })
         })
       })
