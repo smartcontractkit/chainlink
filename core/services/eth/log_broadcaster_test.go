@@ -1,23 +1,50 @@
 package eth_test
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func createJob(t *testing.T, store *store.Store) models.JobSpec {
+	job := cltest.NewJob()
+	err := store.ORM.CreateJob(&job)
+	require.NoError(t, err)
+	return job
+}
+
+func requireLogConsumptionCount(t *testing.T, store *store.Store, expectedCount int) {
+	comparisonFunc := func() bool {
+		observedCount, err := store.ORM.CountOf(&models.LogConsumption{})
+		require.NoError(t, err)
+		return observedCount == expectedCount
+	}
+
+	require.Eventually(t, comparisonFunc, 5*time.Second, 10*time.Millisecond)
+}
+
+func handleLogBroadcast(t *testing.T, lb ethsvc.LogBroadcast) {
+	consumed, err := lb.WasAlreadyConsumed()
+	require.NoError(t, err)
+	require.False(t, consumed)
+	err = lb.MarkConsumed()
+	require.NoError(t, err)
+}
 
 func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -134,15 +161,22 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	sub.AssertExpectations(t)
 }
 
-type funcLogListener struct {
-	fn func(log interface{}, err error)
+type simpleLogListner struct {
+	handler func(lb ethsvc.LogBroadcast, err error)
+	id      models.ID
 }
 
-func (fn funcLogListener) HandleLog(log interface{}, err error) {
-	fn.fn(log, err)
+func (listner simpleLogListner) HandleLog(lb ethsvc.LogBroadcast, err error) {
+	listner.handler(lb, err)
 }
-func (fn funcLogListener) OnConnect()    {}
-func (fn funcLogListener) OnDisconnect() {}
+func (listner simpleLogListner) OnConnect()    {}
+func (listner simpleLogListner) OnDisconnect() {}
+func (listner simpleLogListner) Consumer() models.LogConsumer {
+	return models.LogConsumer{
+		Type: models.LogConsumerTypeJob,
+		ID:   &listner.id,
+	}
+}
 
 func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	t.Parallel()
@@ -178,33 +212,56 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	addr1 := cltest.NewAddress()
 	addr2 := cltest.NewAddress()
 	addr1SentLogs := []eth.Log{
-		{Address: addr1, BlockNumber: 1},
-		{Address: addr1, BlockNumber: 2},
-		{Address: addr1, BlockNumber: 3},
+		{Address: addr1, BlockNumber: 1, BlockHash: cltest.NewHash()},
+		{Address: addr1, BlockNumber: 2, BlockHash: cltest.NewHash()},
+		{Address: addr1, BlockNumber: 3, BlockHash: cltest.NewHash()},
 	}
 	addr2SentLogs := []eth.Log{
-		{Address: addr2, BlockNumber: 4},
-		{Address: addr2, BlockNumber: 5},
-		{Address: addr2, BlockNumber: 6},
+		{Address: addr2, BlockNumber: 4, BlockHash: cltest.NewHash()},
+		{Address: addr2, BlockNumber: 5, BlockHash: cltest.NewHash()},
+		{Address: addr2, BlockNumber: 6, BlockHash: cltest.NewHash()},
 	}
 
 	var addr1Logs1, addr1Logs2, addr2Logs1, addr2Logs2 []interface{}
-	lb.Register(addr1, &funcLogListener{func(log interface{}, err error) {
-		require.NoError(t, err)
-		addr1Logs1 = append(addr1Logs1, log)
-	}})
-	lb.Register(addr1, &funcLogListener{func(log interface{}, err error) {
-		require.NoError(t, err)
-		addr1Logs2 = append(addr1Logs2, log)
-	}})
-	lb.Register(addr2, &funcLogListener{func(log interface{}, err error) {
-		require.NoError(t, err)
-		addr2Logs1 = append(addr2Logs1, log)
-	}})
-	lb.Register(addr2, &funcLogListener{func(log interface{}, err error) {
-		require.NoError(t, err)
-		addr2Logs2 = append(addr2Logs2, log)
-	}})
+
+	listener1 := simpleLogListner{
+		func(lb ethsvc.LogBroadcast, err error) {
+			require.NoError(t, err)
+			addr1Logs1 = append(addr1Logs1, lb.Log())
+			handleLogBroadcast(t, lb)
+		},
+		*createJob(t, store).ID,
+	}
+	listener2 := simpleLogListner{
+		func(lb ethsvc.LogBroadcast, err error) {
+			require.NoError(t, err)
+			addr1Logs2 = append(addr1Logs2, lb.Log())
+			handleLogBroadcast(t, lb)
+		},
+		*createJob(t, store).ID,
+	}
+	listener3 := simpleLogListner{
+		func(lb ethsvc.LogBroadcast, err error) {
+			require.NoError(t, err)
+			addr2Logs1 = append(addr2Logs1, lb.Log())
+			handleLogBroadcast(t, lb)
+		},
+		*createJob(t, store).ID,
+	}
+	listener4 := simpleLogListner{
+		func(lb ethsvc.LogBroadcast, err error) {
+			require.NoError(t, err)
+			addr2Logs2 = append(addr2Logs2, lb.Log())
+			handleLogBroadcast(t, lb)
+		},
+		*createJob(t, store).ID,
+	}
+
+	lb.Register(addr1, &listener1)
+	lb.Register(addr1, &listener2)
+	lb.Register(addr2, &listener3)
+	lb.Register(addr2, &listener4)
+
 	chRawLogs := <-chchRawLogs
 
 	for _, log := range addr1SentLogs {
@@ -218,92 +275,21 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	require.Eventually(t, func() bool { return len(addr1Logs2) == len(addr1SentLogs) }, time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool { return len(addr2Logs1) == len(addr2SentLogs) }, time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool { return len(addr2Logs2) == len(addr2SentLogs) }, time.Second, 10*time.Millisecond)
+	requireLogConsumptionCount(t, store, 12)
 
 	lb.Stop()
 
 	for i := range addr1SentLogs {
-		require.Equal(t, addr1SentLogs[i], addr1Logs1[i])
-		require.Equal(t, addr1SentLogs[i], addr1Logs2[i])
+		require.Equal(t, &addr1SentLogs[i], addr1Logs1[i])
+		require.Equal(t, &addr1SentLogs[i], addr1Logs2[i])
 	}
 	for i := range addr2SentLogs {
-		require.Equal(t, addr2SentLogs[i], addr2Logs1[i])
-		require.Equal(t, addr2SentLogs[i], addr2Logs2[i])
+		require.Equal(t, &addr2SentLogs[i], addr2Logs1[i])
+		require.Equal(t, &addr2SentLogs[i], addr2Logs2[i])
 	}
 
 	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
-}
-
-func TestLogBroadcaster_SkipsOldLogs(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	const blockHeight = 0
-
-	ethClient := new(mocks.Client)
-	sub := new(mocks.Subscription)
-
-	chchRawLogs := make(chan chan<- eth.Log, 1)
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- eth.Log) }).
-		Return(sub, nil).
-		Once()
-	ethClient.On("GetLatestBlock").
-		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	ethClient.On("GetLogs", mock.Anything).
-		Return(nil, nil)
-
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
-
-	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM, 10)
-	lb.Start()
-
-	addr := cltest.NewAddress()
-	logs := []eth.Log{
-		{Address: addr, BlockNumber: 1, Index: 0},
-		{Address: addr, BlockNumber: 1, Index: 1},
-		{Address: addr, BlockNumber: 1, Index: 2},
-		{Address: addr, BlockNumber: 1, Index: 0}, // old log
-		{Address: addr, BlockNumber: 2, Index: 0},
-		{Address: addr, BlockNumber: 2, Index: 1},
-		{Address: addr, BlockNumber: 2, Index: 1}, // old log
-		{Address: addr, BlockNumber: 2, Index: 2},
-		{Address: addr, BlockNumber: 3, Index: 0},
-		{Address: addr, BlockNumber: 2, Index: 2}, // old log
-		{Address: addr, BlockNumber: 3, Index: 1},
-		{Address: addr, BlockNumber: 3, Index: 2},
-	}
-
-	var recvd []eth.Log
-
-	lb.Register(addr, &funcLogListener{func(log interface{}, err error) {
-		require.NoError(t, err)
-		ethLog := log.(eth.Log)
-		recvd = append(recvd, ethLog)
-	}})
-
-	chRawLogs := <-chchRawLogs
-
-	for i := 0; i < len(logs); i++ {
-		chRawLogs <- logs[i]
-	}
-
-	require.Eventually(t, func() bool { return len(recvd) == 9 }, 5*time.Second, 10*time.Millisecond)
-
-	// check that all 9 received logs are unique
-	recvdIdx := 0
-	for blockNum := 1; blockNum <= 3; blockNum++ {
-		for index := 0; index < 3; index++ {
-			require.Equal(t, recvd[recvdIdx].BlockNumber, uint64(blockNum))
-			require.Equal(t, recvd[recvdIdx].Index, uint(index))
-			recvdIdx++
-		}
-	}
-
-	ethClient.AssertExpectations(t)
 }
 
 func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
@@ -374,7 +360,8 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 }
 
 func TestDecodingLogListener(t *testing.T) {
-	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
 
 	contract, err := eth.GetV6ContractCodec("FluxAggregator")
 	require.NoError(t, err)
@@ -391,129 +378,98 @@ func TestDecodingLogListener(t *testing.T) {
 	}
 
 	var decodedLog interface{}
-	listener := ethsvc.NewDecodingLogListener(contract, logTypes, &funcLogListener{func(decoded interface{}, innerErr error) {
-		err = innerErr
-		decodedLog = decoded
-	}})
+
+	job := createJob(t, store)
+	listener := simpleLogListner{
+		func(lb ethsvc.LogBroadcast, innerErr error) {
+			err = innerErr
+			decodedLog = lb.Log()
+		},
+		*job.ID,
+	}
+
+	decodingListener := ethsvc.NewDecodingLogListener(contract, logTypes, &listener)
 	rawLog := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
-	listener.HandleLog(rawLog, nil)
+	logBroadcast := new(mocks.LogBroadcast)
+
+	logBroadcast.On("Log").Return(&rawLog).Once()
+	logBroadcast.On("UpdateLog", mock.Anything).Run(func(args mock.Arguments) {
+		logBroadcast.On("Log").Return(args.Get(0))
+	})
+
+	decodingListener.HandleLog(logBroadcast, nil)
 	require.NoError(t, err)
 	newRoundLog := decodedLog.(*LogNewRound)
+
 	require.Equal(t, newRoundLog.Log, rawLog)
 	require.True(t, newRoundLog.RoundId.Cmp(big.NewInt(1)) == 0)
 	require.Equal(t, newRoundLog.StartedBy, common.HexToAddress("f17f52151ebef6c7334fad080c5704d77216b732"))
 	require.True(t, newRoundLog.StartedAt.Cmp(big.NewInt(15)) == 0)
 
 	expectedErr := errors.New("oh no!")
-	listener.HandleLog(nil, expectedErr)
+	nilLb := new(mocks.LogBroadcast)
+
+	logBroadcast.On("Log").Return(nil).Once()
+	decodingListener.HandleLog(nilLb, expectedErr)
 	require.Equal(t, err, expectedErr)
 }
 
 func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	t.Parallel()
 
+	logs := make(map[uint]eth.Log)
+	for n := 1; n < 18; n++ {
+		logs[uint(n)] = eth.Log{
+			BlockNumber: uint64(n),
+			BlockHash:   cltest.NewHash(),
+			Index:       0,
+		}
+	}
+
 	tests := []struct {
 		name             string
 		blockHeight1     uint64
 		blockHeight2     uint64
-		batch1           []eth.Log
-		backfillableLogs []eth.Log
-		batch2           []eth.Log
-		expectedFinal    []eth.Log
+		batch1           []uint
+		backfillableLogs []uint
+		batch2           []uint
+		expectedFinal    []uint
 	}{
 		{
-			name:         "no backfilled logs, no overlap",
-			blockHeight1: 0,
-			blockHeight2: 2,
-			batch1: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 2, Index: 0},
-			},
+			name:             "no backfilled logs, no overlap",
+			blockHeight1:     0,
+			blockHeight2:     2,
+			batch1:           []uint{1, 2},
 			backfillableLogs: nil,
-			batch2: []eth.Log{
-				eth.Log{BlockNumber: 4, Index: 0},
-				eth.Log{BlockNumber: 5, Index: 0},
-			},
-			expectedFinal: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 2, Index: 0},
-				eth.Log{BlockNumber: 4, Index: 0},
-				eth.Log{BlockNumber: 5, Index: 0},
-			},
+			batch2:           []uint{3, 4},
+			expectedFinal:    []uint{1, 2, 3, 4},
 		},
 		{
-			name:         "no backfilled logs, overlap",
-			blockHeight1: 0,
-			blockHeight2: 2,
-			batch1: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 2, Index: 0},
-			},
+			name:             "no backfilled logs, overlap",
+			blockHeight1:     0,
+			blockHeight2:     2,
+			batch1:           []uint{1, 2},
 			backfillableLogs: nil,
-			batch2: []eth.Log{
-				eth.Log{BlockNumber: 2, Index: 0},
-				eth.Log{BlockNumber: 3, Index: 0},
-			},
-			expectedFinal: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 2, Index: 0},
-				eth.Log{BlockNumber: 3, Index: 0},
-			},
+			batch2:           []uint{2, 3},
+			expectedFinal:    []uint{1, 2, 3},
 		},
 		{
-			name:         "backfilled logs, no overlap",
-			blockHeight1: 0,
-			blockHeight2: 15,
-			batch1: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 2, Index: 0},
-			},
-			backfillableLogs: []eth.Log{
-				eth.Log{BlockNumber: 6, Index: 0},
-				eth.Log{BlockNumber: 7, Index: 2},
-				eth.Log{BlockNumber: 12, Index: 11},
-				eth.Log{BlockNumber: 15, Index: 0},
-			},
-			batch2: []eth.Log{
-				eth.Log{BlockNumber: 16, Index: 0},
-				eth.Log{BlockNumber: 17, Index: 0},
-			},
-			expectedFinal: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 2, Index: 0},
-				eth.Log{BlockNumber: 6, Index: 0},
-				eth.Log{BlockNumber: 7, Index: 2},
-				eth.Log{BlockNumber: 12, Index: 11},
-				eth.Log{BlockNumber: 15, Index: 0},
-				eth.Log{BlockNumber: 16, Index: 0},
-				eth.Log{BlockNumber: 17, Index: 0},
-			},
+			name:             "backfilled logs, no overlap",
+			blockHeight1:     0,
+			blockHeight2:     15,
+			batch1:           []uint{1, 2},
+			backfillableLogs: []uint{6, 7, 12, 15},
+			batch2:           []uint{16, 17},
+			expectedFinal:    []uint{1, 2, 6, 7, 12, 15, 16, 17},
 		},
 		{
-			name:         "backfilled logs, overlap",
-			blockHeight1: 0,
-			blockHeight2: 15,
-			batch1: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 9, Index: 0},
-			},
-			backfillableLogs: []eth.Log{
-				eth.Log{BlockNumber: 9, Index: 0},
-				eth.Log{BlockNumber: 12, Index: 11},
-				eth.Log{BlockNumber: 15, Index: 0},
-			},
-			batch2: []eth.Log{
-				eth.Log{BlockNumber: 16, Index: 0},
-				eth.Log{BlockNumber: 17, Index: 0},
-			},
-			expectedFinal: []eth.Log{
-				eth.Log{BlockNumber: 1, Index: 0},
-				eth.Log{BlockNumber: 9, Index: 0},
-				eth.Log{BlockNumber: 12, Index: 11},
-				eth.Log{BlockNumber: 15, Index: 0},
-				eth.Log{BlockNumber: 16, Index: 0},
-				eth.Log{BlockNumber: 17, Index: 0},
-			},
+			name:             "backfilled logs, overlap",
+			blockHeight1:     0,
+			blockHeight2:     15,
+			batch1:           []uint{1, 9},
+			backfillableLogs: []uint{9, 12, 15},
+			batch2:           []uint{16, 17},
+			expectedFinal:    []uint{1, 9, 12, 15, 16, 17},
 		},
 	}
 
@@ -547,33 +503,51 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM, 10)
 			lb.Start()
 
-			var recvd []eth.Log
-			logListener := &funcLogListener{
-				fn: func(log interface{}, err error) { recvd = append(recvd, log.(eth.Log)) },
+			var recvd []*eth.Log
+
+			handleLog := func(lb ethsvc.LogBroadcast, err error) {
+				consumed, err := lb.WasAlreadyConsumed()
+				require.NoError(t, err)
+				if !consumed {
+					recvd = append(recvd, lb.Log().(*eth.Log))
+					err = lb.MarkConsumed()
+					require.NoError(t, err)
+				}
+			}
+
+			logListener := &simpleLogListner{
+				handler: handleLog,
 			}
 
 			// Send initial logs
 			lb.Register(common.Address{0}, logListener)
 			chRawLogs1 := <-chchRawLogs
-			for _, log := range test.batch1 {
-				chRawLogs1 <- log
+			for _, logNum := range test.batch1 {
+				chRawLogs1 <- logs[logNum]
 			}
 			require.Eventually(t, func() bool { return len(recvd) == len(test.batch1) }, 5*time.Second, 10*time.Millisecond)
-			for i, log := range test.batch1 {
-				require.Equal(t, test.batch1[i], log)
+			requireLogConsumptionCount(t, store, len(test.batch1))
+			for i, logNum := range test.batch1 {
+				require.Equal(t, *recvd[i], logs[logNum])
 			}
 
-			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
-			ethClient.On("GetLogs", mock.Anything).Return(test.backfillableLogs, nil).Once()
-			// Trigger resubscription
-			lb.Register(common.Address{1}, &funcLogListener{})
-			chRawLogs2 := <-chchRawLogs
-			for _, log := range test.batch2 {
-				chRawLogs2 <- log
+			var backfillableLogs []eth.Log
+			for _, logNum := range test.backfillableLogs {
+				backfillableLogs = append(backfillableLogs, logs[logNum])
 			}
+			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
+			ethClient.On("GetLogs", mock.Anything).Return(backfillableLogs, nil).Once()
+			// Trigger resubscription
+			lb.Register(common.Address{1}, &simpleLogListner{})
+			chRawLogs2 := <-chchRawLogs
+			for _, logNum := range test.batch2 {
+				chRawLogs2 <- logs[logNum]
+			}
+
 			require.Eventually(t, func() bool { return len(recvd) == len(test.expectedFinal) }, 5*time.Second, 10*time.Millisecond)
-			for i, log := range test.expectedFinal {
-				require.Equal(t, test.expectedFinal[i], log)
+			requireLogConsumptionCount(t, store, len(test.expectedFinal))
+			for i, logNum := range test.expectedFinal {
+				require.Equal(t, *recvd[i], logs[logNum])
 			}
 
 			lb.Stop()
@@ -642,4 +616,130 @@ func TestAppendLogChannel(t *testing.T) {
 		require.Equal(t, expected[i], log)
 		i++
 	}
+}
+
+func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	const blockHeight uint64 = 0
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+
+	chchRawLogs := make(chan chan<- eth.Log, 1)
+
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			chRawLogs := args.Get(1).(chan<- eth.Log)
+			chchRawLogs <- chRawLogs
+		}).
+		Return(sub, nil).
+		Once()
+
+	ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+	ethClient.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil).Once()
+
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return()
+
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM, 10)
+	lb.Start()
+
+	listenerCount := 0
+
+	job := createJob(t, store)
+	logListener := simpleLogListner{
+		func(lb ethsvc.LogBroadcast, err error) {
+			consumed, err := lb.WasAlreadyConsumed()
+			require.NoError(t, err)
+			require.False(t, consumed)
+			err = lb.MarkConsumed()
+			require.NoError(t, err)
+			consumed, err = lb.WasAlreadyConsumed()
+			require.NoError(t, err)
+			require.True(t, consumed)
+			listenerCount++
+		},
+		*job.ID,
+	}
+	addr := common.Address{1}
+
+	lb.Register(addr, &logListener)
+
+	chRawLogs := <-chchRawLogs
+	chRawLogs <- eth.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
+	chRawLogs <- eth.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
+
+	require.Eventually(t, func() bool { return listenerCount == 2 }, 5*time.Second, 10*time.Millisecond)
+	requireLogConsumptionCount(t, store, 2)
+}
+
+func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+
+	const blockHeight uint64 = 0
+
+	chchRawLogs := make(chan chan<- eth.Log, 1)
+	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- eth.Log) }).
+		Return(sub, nil).
+		Once()
+	ethClient.On("GetLatestBlock").
+		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+	ethClient.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil).Once()
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
+
+	lb := ethsvc.NewLogBroadcaster(ethClient, store.ORM, 10)
+	lb.Start()
+
+	blockHash0 := cltest.NewHash()
+	blockHash1 := cltest.NewHash()
+	blockHash2 := cltest.NewHash()
+	blockHash1R := cltest.NewHash()
+	blockHash2R := cltest.NewHash()
+
+	addr := cltest.NewAddress()
+	logs := []eth.Log{
+		{Address: addr, BlockHash: blockHash0, BlockNumber: 0, Index: 0},
+		{Address: addr, BlockHash: blockHash1, BlockNumber: 1, Index: 0},
+		{Address: addr, BlockHash: blockHash2, BlockNumber: 2, Index: 0},
+		{Address: addr, BlockHash: blockHash1R, BlockNumber: 1, Index: 0},
+		{Address: addr, BlockHash: blockHash2R, BlockNumber: 2, Index: 0},
+	}
+
+	var recvd []*eth.Log
+
+	job := createJob(t, store)
+	listener := simpleLogListner{
+		func(lb ethsvc.LogBroadcast, err error) {
+			require.NoError(t, err)
+			ethLog := lb.Log().(*eth.Log)
+			recvd = append(recvd, ethLog)
+			handleLogBroadcast(t, lb)
+		},
+		*job.ID,
+	}
+
+	lb.Register(addr, &listener)
+
+	chRawLogs := <-chchRawLogs
+
+	for i := 0; i < len(logs); i++ {
+		chRawLogs <- logs[i]
+	}
+
+	require.Eventually(t, func() bool { return len(recvd) == 5 }, 5*time.Second, 10*time.Millisecond)
+	requireLogConsumptionCount(t, store, 5)
+
+	for idx, receivedLog := range recvd {
+		require.Equal(t, receivedLog, &logs[idx])
+	}
+
+	ethClient.AssertExpectations(t)
 }

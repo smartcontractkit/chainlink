@@ -359,8 +359,8 @@ type PollingDeviationChecker struct {
 // logs channel.  This is preferable to using two separate channels, as it ensures
 // that we don't drop valid (but unprocessed) logs if we receive an error.
 type maybeLog struct {
-	Log interface{}
-	Err error
+	LogBroadcast eth.LogBroadcast
+	Err          error
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -463,13 +463,13 @@ func (t *ResettableTicker) Reset() {
 	t.Ticker = time.NewTicker(t.d.Duration())
 }
 
-func (p *PollingDeviationChecker) HandleLog(log interface{}, err error) {
-	switch log.(type) {
+func (p *PollingDeviationChecker) HandleLog(lb eth.LogBroadcast, err error) {
+	switch log := lb.Log().(type) {
 	case *contracts.LogNewRound:
-		p.backlog.Add(priorityNewRoundLog, maybeLog{log, err})
+		p.backlog.Add(priorityNewRoundLog, maybeLog{lb, err})
 
 	case *contracts.LogAnswerUpdated:
-		p.backlog.Add(priorityAnswerUpdatedLog, maybeLog{log, err})
+		p.backlog.Add(priorityAnswerUpdatedLog, maybeLog{lb, err})
 
 	default:
 		logger.Warnf("unexpected log type %T", log)
@@ -595,19 +595,48 @@ func (p *PollingDeviationChecker) processLogs() {
 			continue
 		}
 
-		switch log := maybeLog.Log.(type) {
+		switch log := maybeLog.LogBroadcast.Log().(type) {
 		case *contracts.LogNewRound:
 			logger.Debugw("NewRound log", p.loggerFieldsForNewRound(log)...)
-			p.respondToNewRoundLog(log)
+			// maybeLog.LogBroadcast.Consume(func() { p.respondToNewRoundLog(log) })
+			// p.respondToNewRoundLog(log)
+			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToNewRoundLog(log) })
 
 		case *contracts.LogAnswerUpdated:
 			logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
-			p.respondToAnswerUpdatedLog(log)
+			// maybeLog.LogBroadcast.Consume(func() { p.respondToAnswerUpdatedLog(log) })
+			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToAnswerUpdatedLog(log) })
+
+			// p.respondToAnswerUpdatedLog(log)
 
 		default:
 		}
 	}
 }
+
+func consumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
+	consumed, err := lb.WasAlreadyConsumed()
+	if err != nil {
+		logger.Errorf("Error determining if log was already consumed: %v", err)
+	} else if consumed {
+		return
+	}
+	callback()
+	if err = lb.MarkConsumed(); err != nil {
+		logger.Errorf("Error marking log as consumed: %v", err)
+	}
+}
+
+// consumed, err := lb.WasAlreadyConsumed()
+// if err != nil {
+// 	logger.Errorf("Error determining if log was already consumed: %v", err)
+// } else if consumed {
+// 	return
+// }
+
+// if err = lb.MarkConsumed(); err != nil {
+// 	logger.Errorf("Error marking log as consumed: %v", err)
+// }
 
 // The AnswerUpdated log tells us that round has successfully close with a new
 // answer.  This tells us that we need to reset our poll ticker.
@@ -894,6 +923,13 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log *contracts.Lo
 		"timestamp", log.Timestamp.String(),
 		"contract", log.Address.Hex(),
 		"job", p.initr.JobSpecID,
+	}
+}
+
+func (p *PollingDeviationChecker) Consumer() models.LogConsumer {
+	return models.LogConsumer{
+		Type: models.LogConsumerTypeJob,
+		ID:   p.initr.JobSpecID,
 	}
 }
 
