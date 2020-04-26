@@ -907,6 +907,10 @@ func TestOutsideDeviation(t *testing.T) {
 		{"inside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 201, false},
 		{"equal to deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 200, true},
 		{"outside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 199, true},
+
+		{"threshold=0, deviation", decimal.NewFromInt(0), decimal.NewFromInt(100), 0, true},
+		{"threshold=0, no deviation", decimal.NewFromInt(100), decimal.NewFromInt(100), 0, true},
+		{"threshold=0, all zeros", decimal.NewFromInt(0), decimal.NewFromInt(0), 0, true},
 	}
 
 	for _, test := range tests {
