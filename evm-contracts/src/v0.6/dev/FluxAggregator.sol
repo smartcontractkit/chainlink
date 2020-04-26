@@ -588,8 +588,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(msg.sender == tx.origin, "off-chain reading only");
 
-    bool current = oracles[_oracle].lastReportedRound == reportingRoundId;
-    if (supersedable(reportingRoundId) && current) {
+    bool shouldSupersede = oracles[_oracle].lastReportedRound == reportingRoundId ||
+      !acceptingSubmissions(reportingRoundId);
+    // Instead of nudging oracles to submit to the next round, the inclusion of
+    // the shouldSupersede bool in the if condition pushes them towards
+    // submitting in a currently open round.
+    if (supersedable(reportingRoundId) && shouldSupersede) {
       _roundId = reportingRoundId.add(1);
       _paymentAmount = paymentAmount;
       _eligibleToSubmit = delayed(_oracle, _roundId);
