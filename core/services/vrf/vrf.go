@@ -297,8 +297,8 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
 	// (m - c*secretKey) % GroupOrder
 	s := mod(sub(nonce, mul(c, secretKey)), secp256k1.GroupOrder)
-	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
-		return nil, err
+	if e := checkCGammaNotEqualToSHash(c, gamma, s, h); e != nil {
+		return nil, e
 	}
 	outputHash := utils.MustHash(string(append(vrfRandomOutputHashPrefix,
 		secp256k1.LongMarshal(gamma)...)))
