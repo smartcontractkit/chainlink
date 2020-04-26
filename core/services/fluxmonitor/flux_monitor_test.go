@@ -351,10 +351,20 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	checker.OnConnect()
 	checker.Start()
 
-	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(1)}, nil) // Get the checker to start processing a log so we can freeze it
-	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(2)}, nil) // This log is evicted from the priority queue
-	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(3)}, nil)
-	checker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(4)}, nil)
+	var logBroadcasts []*mocks.LogBroadcast
+
+	for i := 0; i < 4; i++ {
+		logBroadcast := new(mocks.LogBroadcast)
+		logBroadcast.On("Log").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i) + 1)})
+		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
+		logBroadcast.On("MarkConsumed").Return(nil)
+		logBroadcasts = append(logBroadcasts, logBroadcast)
+	}
+
+	checker.HandleLog(logBroadcasts[0], nil) // Get the checker to start processing a log so we can freeze it
+	checker.HandleLog(logBroadcasts[1], nil) // This log is evicted from the priority queue
+	checker.HandleLog(logBroadcasts[2], nil)
+	checker.HandleLog(logBroadcasts[3], nil)
 
 	close(chBlock)
 	<-chSafeToAssert
@@ -385,6 +395,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			runManager := new(mocks.RunManager)
 			fluxAggregator := new(mocks.FluxAggregator)
+			logBroadcast := new(mocks.LogBroadcast)
 
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
@@ -429,9 +440,15 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			deviationChecker.Start()
 			require.Len(t, idleThresholdOccured, 0, "no Job Runs created")
 
+			decodedLog := contracts.LogNewRound{RoundId: big.NewInt(int64(roundState1.ReportableRoundID))}
+
+			logBroadcast.On("Log").Return(&decodedLog)
+			logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
+			logBroadcast.On("MarkConsumed").Return(nil).Once()
+
 			if test.expectedToSubmit {
 				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
-				deviationChecker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(int64(roundState1.ReportableRoundID))}, nil)
+				deviationChecker.HandleLog(logBroadcast, nil)
 				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
 			}
 
@@ -797,6 +814,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			rm := new(mocks.RunManager)
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
+			// logBroadcast := new(mocks.LogBroadcast)
 
 			paymentAmount := store.Config.MinimumContractPayment().ToInt()
 			var availableFunds *big.Int
@@ -850,6 +868,14 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 				startedBy = nodeAddr
 			}
 			checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+
+			// decodedLog := contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy}
+
+			// logBroadcast.On("Log").Return(&decodedLog).Once()
+			// logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
+			// logBroadcast.On("MarkConsumed").Return(nil).Once()
+
+			// checker.ExportedRespondToLogBroadcast(logBroadcast)
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
