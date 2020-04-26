@@ -93,6 +93,40 @@ describe('FluxAggregator', () => {
     return nextRound
   }
 
+  const ShouldBeSet = 'expects it to be greater than 0'
+  const ShouldNotBeSet = 'expects it to equal 0'
+
+  async function checkOracleRoundState(
+    state: any,
+    want: {
+      eligibleToSubmit: boolean
+      roundId: ethers.utils.BigNumberish
+      latestSubmission: ethers.utils.BigNumberish
+      startedAt: string
+      timeout: string
+      availableFunds: ethers.utils.BigNumberish
+      oracleCount: ethers.utils.BigNumberish
+      paymentAmount: ethers.utils.BigNumberish
+    },
+  ) {
+    assert.equal(want.eligibleToSubmit, state._eligibleToSubmit)
+    matchers.bigNum(want.roundId, state._roundId)
+    matchers.bigNum(want.latestSubmission, state._latestSubmission)
+    if (want.startedAt === ShouldBeSet) {
+      assert.isAbove(state._startedAt.toNumber(), 0)
+    } else {
+      matchers.bigNum(0, state._startedAt.toNumber())
+    }
+    if (want.timeout === ShouldBeSet) {
+      assert.isAbove(state._timeout.toNumber(), 0)
+    } else {
+      matchers.bigNum(0, state._timeout.toNumber())
+    }
+    matchers.bigNum(want.availableFunds, state._availableFunds)
+    matchers.bigNum(want.oracleCount, state._oracleCount)
+    matchers.bigNum(want.paymentAmount, state._paymentAmount)
+  }
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
     aggregator = await fluxAggregatorFactory
@@ -1909,16 +1943,19 @@ describe('FluxAggregator', () => {
     it('returns all of the important round information', async () => {
       const state = await aggregator.oracleRoundState(personas.Nelly.address)
 
-      assert.equal(true, state._eligibleToSubmit)
-      matchers.bigNum(1, state._roundId)
-      matchers.bigNum(0, state._latestSubmission)
-      matchers.bigNum(0, state._startedAt)
-      matchers.bigNum(0, state._timeout)
-      matchers.bigNum(deposit, state._availableFunds)
-      matchers.bigNum(oracles.length, state._oracleCount)
+      await checkOracleRoundState(state, {
+        eligibleToSubmit: true,
+        roundId: 1,
+        latestSubmission: 0,
+        startedAt: ShouldNotBeSet,
+        timeout: ShouldNotBeSet,
+        availableFunds: deposit,
+        oracleCount: oracles.length,
+        paymentAmount,
+      })
     })
 
-    describe('after less than the min oracles have reported', () => {
+    describe('after less than the min oracles have reported and not the checked oracle', () => {
       beforeEach(async () => {
         await aggregator.connect(personas.Neil).submit(nextRound, answer)
       })
@@ -1926,18 +1963,20 @@ describe('FluxAggregator', () => {
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
 
-        assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(1, state._roundId)
-        matchers.bigNum(0, state._latestSubmission)
-        assert.isAbove(state._startedAt.toNumber(), 0)
-        matchers.bigNum(timeout, state._timeout)
-        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
-        matchers.bigNum(oracles.length, state._oracleCount)
-        matchers.bigNum(paymentAmount, state._paymentAmount)
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: true,
+          roundId: 1,
+          latestSubmission: 0,
+          startedAt: ShouldBeSet,
+          timeout: ShouldBeSet,
+          availableFunds: deposit.sub(paymentAmount),
+          oracleCount: oracles.length,
+          paymentAmount,
+        })
       })
     })
 
-    describe('after min oracles have reported', () => {
+    describe('after min oracles have reported but not the checked oracle', () => {
       beforeEach(async () => {
         await aggregator.connect(personas.Neil).submit(nextRound, answer)
         await aggregator.connect(personas.Ned).submit(nextRound, answer)
@@ -1946,17 +1985,16 @@ describe('FluxAggregator', () => {
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
 
-        assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(1, state._roundId)
-        matchers.bigNum(0, state._latestSubmission)
-        assert.isAbove(state._startedAt.toNumber(), 0)
-        matchers.bigNum(timeout, state._timeout)
-        matchers.bigNum(
-          deposit.sub(paymentAmount.mul(2)),
-          state._availableFunds,
-        )
-        matchers.bigNum(oracles.length, state._oracleCount)
-        matchers.bigNum(paymentAmount, state._paymentAmount)
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: true,
+          roundId: 1,
+          latestSubmission: 0,
+          startedAt: ShouldBeSet,
+          timeout: ShouldBeSet,
+          availableFunds: deposit.sub(paymentAmount.mul(2)),
+          oracleCount: oracles.length,
+          paymentAmount,
+        })
       })
     })
 
@@ -1973,14 +2011,16 @@ describe('FluxAggregator', () => {
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
 
-        assert.equal(false, state._eligibleToSubmit)
-        matchers.bigNum(1, state._roundId)
-        matchers.bigNum(answer, state._latestSubmission)
-        assert.isAbove(state._startedAt.toNumber(), 0)
-        matchers.bigNum(timeout, state._timeout)
-        matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
-        matchers.bigNum(oracles.length, state._oracleCount)
-        matchers.bigNum(paymentAmount, state._paymentAmount)
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: false,
+          roundId: 1,
+          latestSubmission: answer,
+          startedAt: ShouldBeSet,
+          timeout: ShouldBeSet,
+          availableFunds: deposit.sub(paymentAmount),
+          oracleCount: oracles.length,
+          paymentAmount,
+        })
       })
 
       describe('and the round has timed out', () => {
@@ -1994,14 +2034,16 @@ describe('FluxAggregator', () => {
             personas.Nelly.address,
           )
 
-          assert.equal(true, state._eligibleToSubmit)
-          matchers.bigNum(2, state._roundId)
-          matchers.bigNum(answer, state._latestSubmission)
-          matchers.bigNum(0, state._startedAt.toNumber()) // FIXME
-          matchers.bigNum(0, state._timeout) // FIXME
-          matchers.bigNum(deposit.sub(paymentAmount), state._availableFunds)
-          matchers.bigNum(oracles.length, state._oracleCount)
-          matchers.bigNum(paymentAmount, state._paymentAmount)
+          await checkOracleRoundState(state, {
+            eligibleToSubmit: true,
+            roundId: 2,
+            latestSubmission: answer,
+            startedAt: ShouldNotBeSet, // FIXME
+            timeout: ShouldNotBeSet, // FIXME
+            availableFunds: deposit.sub(paymentAmount),
+            oracleCount: oracles.length,
+            paymentAmount,
+          })
         })
       })
     })
@@ -2014,17 +2056,17 @@ describe('FluxAggregator', () => {
 
       it('keeps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
-        assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(2, state._roundId)
-        matchers.bigNum(answer, state._latestSubmission)
-        matchers.bigNum(0, state._startedAt.toNumber())
-        matchers.bigNum(0, state._timeout)
-        matchers.bigNum(
-          deposit.sub(paymentAmount.mul(2)),
-          state._availableFunds,
-        )
-        matchers.bigNum(oracles.length, state._oracleCount)
-        matchers.bigNum(paymentAmount, state._paymentAmount)
+
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: true,
+          roundId: 2,
+          latestSubmission: answer,
+          startedAt: ShouldNotBeSet,
+          timeout: ShouldNotBeSet,
+          availableFunds: deposit.sub(paymentAmount.mul(2)),
+          oracleCount: oracles.length,
+          paymentAmount,
+        })
       })
 
       describe('and the round has timed out', () => {
@@ -2038,17 +2080,16 @@ describe('FluxAggregator', () => {
             personas.Nelly.address,
           )
 
-          assert.equal(true, state._eligibleToSubmit)
-          matchers.bigNum(2, state._roundId)
-          matchers.bigNum(answer, state._latestSubmission)
-          matchers.bigNum(0, state._startedAt.toNumber())
-          matchers.bigNum(0, state._timeout)
-          matchers.bigNum(
-            deposit.sub(paymentAmount.mul(2)),
-            state._availableFunds,
-          )
-          matchers.bigNum(oracles.length, state._oracleCount)
-          matchers.bigNum(paymentAmount, state._paymentAmount)
+          await checkOracleRoundState(state, {
+            eligibleToSubmit: true,
+            roundId: 2,
+            latestSubmission: answer,
+            startedAt: ShouldNotBeSet,
+            timeout: ShouldNotBeSet,
+            availableFunds: deposit.sub(paymentAmount.mul(2)),
+            oracleCount: oracles.length,
+            paymentAmount,
+          })
         })
       })
     })
@@ -2063,17 +2104,16 @@ describe('FluxAggregator', () => {
       it('bumps the round ID and allows the oracle to submit', async () => {
         const state = await aggregator.oracleRoundState(personas.Nelly.address)
 
-        assert.equal(true, state._eligibleToSubmit)
-        matchers.bigNum(2, state._roundId)
-        matchers.bigNum(answer, state._latestSubmission)
-        matchers.bigNum(0, state._startedAt.toNumber())
-        matchers.bigNum(0, state._timeout)
-        matchers.bigNum(
-          deposit.sub(paymentAmount.mul(3)),
-          state._availableFunds,
-        )
-        matchers.bigNum(oracles.length, state._oracleCount)
-        matchers.bigNum(paymentAmount, state._paymentAmount)
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: true,
+          roundId: 2,
+          latestSubmission: answer,
+          startedAt: ShouldNotBeSet,
+          timeout: ShouldNotBeSet,
+          availableFunds: deposit.sub(paymentAmount.mul(3)),
+          oracleCount: oracles.length,
+          paymentAmount,
+        })
       })
     })
 
