@@ -23,20 +23,12 @@ const searchBuilder = (searchQuery?: string): SelectQueryBuilder<JobRun> => {
   let query = getRepository(JobRun).createQueryBuilder('job_run')
 
   if (searchQuery != null) {
-    const searchTokens = searchQuery.split(/\s+/)
-    const normalizedSearchTokens = searchTokens.map(normalizeSearchToken)
+    let searchTokens = searchQuery.split(/\s+/)
+    searchTokens = searchTokens.concat(searchTokens.map(normalizeSearchToken))
     query = query
-      .where('job_run.runId IN(:...searchTokens)', { searchTokens })
-      .orWhere('job_run.jobId IN(:...searchTokens)', { searchTokens })
-      .orWhere('job_run.requester IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens,
-      })
-      .orWhere('job_run.requestId IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens,
-      })
-      .orWhere('job_run.txHash IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens,
-      })
+      .where(`
+        ARRAY["job_run"."runId", "job_run"."jobId", "job_run"."requestId", "job_run"."requester", "job_run"."txHash"] && ARRAY[:...searchTokens]::citext[]
+      `, { searchTokens })
   } else {
     query = query.where('true = false')
   }
