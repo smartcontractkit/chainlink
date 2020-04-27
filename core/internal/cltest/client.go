@@ -320,5 +320,9 @@ func (c *SimulatedBackendClient) SubscribeToNewHeads(ctx context.Context,
 // GetLatestBlock returns the last committed block of the best blockchain the
 // blockchain node is aware of.
 func (client *SimulatedBackendClient) GetLatestBlock() (eth.Block, error) {
-	return eth.GetLatestBlock(client)
+	height, err := client.GetBlockHeight()
+	if err != nil {
+		return eth.Block{}, errors.Wrap(err, "while getting latest block")
+	}
+	return client.GetBlockByNumber(common.BigToHash(big.NewInt(int64(height))).Hex())
 }
