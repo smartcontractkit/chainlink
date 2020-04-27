@@ -784,7 +784,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock := app.EthMock
 			ethMock.ShouldCall(test.mockSetup).During(func() {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
-				ethMock.Register("eth_getBlockByNumber", eth.Block{Number: hexutil.Uint64(1)})
 				ethMock.Register("eth_chainId", store.Config.ChainID())
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
