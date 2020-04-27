@@ -116,8 +116,6 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		Return(sub, nil).
 		Run(func(args mock.Arguments) {
 			subscribeCalls++
-			q := args.Get(2).(ethereum.FilterQuery)
-			require.Equal(t, int64(blockHeight), q.FromBlock.Int64())
 		})
 	ethClient.On("GetLatestBlock").
 		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
@@ -192,9 +190,6 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	chchRawLogs := make(chan chan<- eth.Log, 1)
 	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			q := args.Get(2).(ethereum.FilterQuery)
-			require.Equal(t, int64(blockHeight), q.FromBlock.Int64())
-
 			chchRawLogs <- args.Get(1).(chan<- eth.Log)
 		}).
 		Return(sub, nil).
@@ -299,8 +294,8 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	defer cleanup()
 
 	const (
-		blockHeight   = 0
-		expectedBlock = 3
+		blockHeight   = 15
+		expectedBlock = 5
 	)
 
 	ethClient := new(mocks.Client)
@@ -315,23 +310,29 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 			chchRawLogs <- args.Get(1).(chan<- eth.Log)
 		}).
 		Return(sub, nil).
-		Once()
-	ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			query := args.Get(2).(ethereum.FilterQuery)
-			require.Equal(t, big.NewInt(expectedBlock), query.FromBlock)
-			require.Contains(t, query.Addresses, addr1)
-			require.Contains(t, query.Addresses, addr2)
-			require.Len(t, query.Addresses, 2)
-			chchRawLogs <- args.Get(1).(chan<- eth.Log)
-		}).
-		Return(sub, nil).
-		Once()
+		Twice()
 
 	ethClient.On("GetLatestBlock").
 		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
 	ethClient.On("GetLogs", mock.Anything).
-		Return(nil, nil)
+		Run(func(args mock.Arguments) {
+			query := args.Get(0).(ethereum.FilterQuery)
+			require.Equal(t, big.NewInt(expectedBlock), query.FromBlock)
+			require.Contains(t, query.Addresses, addr1)
+			require.Len(t, query.Addresses, 1)
+		}).
+		Return(nil, nil).
+		Once()
+	ethClient.On("GetLogs", mock.Anything).
+		Run(func(args mock.Arguments) {
+			query := args.Get(0).(ethereum.FilterQuery)
+			require.Equal(t, big.NewInt(expectedBlock), query.FromBlock)
+			require.Contains(t, query.Addresses, addr1)
+			require.Contains(t, query.Addresses, addr2)
+			require.Len(t, query.Addresses, 2)
+		}).
+		Return(nil, nil).
+		Once()
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
