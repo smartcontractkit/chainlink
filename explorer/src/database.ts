@@ -11,7 +11,9 @@ const getEnv = (): string => {
 
 // Loads the following ENV vars, giving them precedence.
 // i.e. TYPEORM_PORT will replace "port" in ormconfig.json.
-const mergeOptions = (loadedOptions: PostgresConnectionOptions): PostgresConnectionOptions => {
+const mergeOptions = (
+  loadedOptions: PostgresConnectionOptions,
+): PostgresConnectionOptions => {
   const envOptions: Record<string, string> = {}
   for (const v of overridableKeys) {
     const envVar = process.env[`TYPEORM_${v.toUpperCase()}`]
