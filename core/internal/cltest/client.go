@@ -293,8 +293,8 @@ func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block,
 		txs = append(txs, eth.Transaction{
 			GasPrice: hexutil.Uint64(tx.GasPrice().Uint64())})
 	}
-	difficulty := hexutil.Uint64(b.Difficulty().Uint64())
-	return eth.Block{Transactions: txs, Difficulty: difficulty}, nil
+	return eth.Block{Number: hexutil.Uint64(blockNumber.Uint64()),
+		Transactions: txs}, nil
 }
 
 // GetChainID returns the ethereum ChainID.
@@ -324,4 +324,10 @@ func (c *SimulatedBackendClient) SubscribeToNewHeads(ctx context.Context,
 		}
 	}()
 	return c.b.SubscribeNewHead(context.Background(), ch)
+}
+
+// GetLatestBlock returns the last committed block of the best blockchain the
+// blockchain node is aware of.
+func (client *SimulatedBackendClient) GetLatestBlock() (eth.Block, error) {
+	return eth.GetLatestBlock(client)
 }
