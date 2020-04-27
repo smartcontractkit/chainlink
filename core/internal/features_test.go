@@ -901,6 +901,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	eth.Context("ethTx.Perform() for initial send", func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", attemptHash)         // Initial tx attempt sent
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
+		eth.Register("eth_getLogs", []ethpkg.Log{})
 	})
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
@@ -1013,7 +1015,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 }
 
 func TestIntegration_RandomnessRequest(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.NoRegisterGetBlockNumber)
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient()
 	logs := make(chan ethpkg.Log, 1)

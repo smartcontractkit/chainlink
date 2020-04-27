@@ -771,7 +771,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.NoRegisterGetBlockNumber)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 			defer cleanup()
 
 			store := app.Store
