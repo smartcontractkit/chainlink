@@ -855,23 +855,22 @@ describe('FluxAggregator', () => {
     })
 
     it('updates the round details', async () => {
-      await addOracles(aggregator, [personas.Neil], 0, 1, 0)
-
-      matchers.bigNum(
-        ethers.constants.Zero,
-        await aggregator.minSubmissionCount(),
+      await addOracles(
+        aggregator,
+        [personas.Neil, personas.Ned, personas.Nelly],
+        1,
+        3,
+        2,
       )
-      matchers.bigNum(
-        ethers.utils.bigNumberify(1),
-        await aggregator.maxSubmissionCount(),
-      )
-      matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
+      matchers.bigNum(1, await aggregator.minSubmissionCount())
+      matchers.bigNum(3, await aggregator.maxSubmissionCount())
+      matchers.bigNum(2, await aggregator.restartDelay())
     })
 
     it('emits a log', async () => {
       const tx = await aggregator
         .connect(personas.Carol)
-        .addOracles([personas.Ned.address], [personas.Neil.address], 0, 1, 0)
+        .addOracles([personas.Ned.address], [personas.Neil.address], 1, 1, 0)
       const receipt = await tx.wait()
 
       const oracleAddedEvent = h.eventArgs(receipt.events?.[0])
@@ -1068,24 +1067,11 @@ describe('FluxAggregator', () => {
       })
     })
 
-    describe('when configured to have 0 max answers', () => {
-      beforeEach(async () => {
-        await aggregator
-          .connect(personas.Carol)
-          .updateFutureRounds(paymentAmount, 0, 0, 0, 0)
-      })
-
-      it('reverts all oracle answers', async () => {
-        await matchers.evmRevert(
-          aggregator.connect(personas.Ned).submit(nextRound, answer),
-        )
-        await matchers.evmRevert(
-          aggregator.connect(personas.Nelly).submit(nextRound, answer),
-        )
-        await matchers.evmRevert(
-          aggregator.connect(personas.Neil).submit(nextRound, answer),
-        )
-      })
+    it('reverts when minSubmissions is set to 0', async () => {
+      await matchers.evmRevert(
+        addOracles(aggregator, [personas.Neil], 0, 0, 0),
+        'min must be greater than 0',
+      )
     })
   })
 
@@ -1114,16 +1100,10 @@ describe('FluxAggregator', () => {
     it('updates the round details', async () => {
       await aggregator
         .connect(personas.Carol)
-        .removeOracles([personas.Neil.address], 0, 1, 0)
+        .removeOracles([personas.Neil.address], 1, 1, 0)
 
-      matchers.bigNum(
-        ethers.constants.Zero,
-        await aggregator.minSubmissionCount(),
-      )
-      matchers.bigNum(
-        ethers.utils.bigNumberify(1),
-        await aggregator.maxSubmissionCount(),
-      )
+      matchers.bigNum(1, await aggregator.minSubmissionCount())
+      matchers.bigNum(1, await aggregator.maxSubmissionCount())
       matchers.bigNum(ethers.constants.Zero, await aggregator.restartDelay())
     })
 
@@ -1226,6 +1206,15 @@ describe('FluxAggregator', () => {
           'no longer allowed oracle',
         )
       })
+    })
+
+    it('reverts when minSubmissions is set to 0', async () => {
+      await matchers.evmRevert(
+        aggregator
+          .connect(personas.Carol)
+          .removeOracles([personas.Nelly.address], 0, 0, 0),
+        'min must be greater than 0',
+      )
     })
   })
 
@@ -1504,6 +1493,15 @@ describe('FluxAggregator', () => {
         await updateFutureRounds(aggregator, {
           payment: most,
         })
+      })
+    })
+
+    describe('min oracles is set to 0', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator.updateFutureRounds(paymentAmount, 0, 0, rrDelay, timeout),
+          'min must be greater than 0',
+        )
       })
     })
 

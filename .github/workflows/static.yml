@@ -2,16 +2,6 @@ name: golang/static
 on: pull_request
 
 jobs:
-  fmt: 
-    name: fmt
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - name: fmt
-      uses: grandcolline/golang-github-actions@v1.1.0
-      with:
-        run: fmt
-        comment: false
 
   vet:
     name: vet
