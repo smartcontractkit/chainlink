@@ -1185,6 +1185,27 @@ describe('FluxAggregator', () => {
       })
     })
 
+    describe('when an oracle gets removed', () => {
+      beforeEach(async () => {
+        await aggregator
+          .connect(personas.Carol)
+          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
+      })
+
+      it('is allowed to report on one more round', async () => {
+        // next round
+        await advanceRound(aggregator, [personas.Nelly])
+        // finish round
+        await advanceRound(aggregator, [personas.Neil])
+
+        // cannot participate in future rounds
+        await matchers.evmRevert(
+          aggregator.connect(personas.Nelly).submit(nextRound, answer),
+          'no longer allowed oracle',
+        )
+      })
+    })
+
     describe('when an oracle gets removed mid-round', () => {
       beforeEach(async () => {
         await aggregator.connect(personas.Neil).submit(nextRound, answer)
@@ -1194,9 +1215,10 @@ describe('FluxAggregator', () => {
           .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
       })
 
-      it('is allowed to finish that round', async () => {
-        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
-        nextRound++
+      it('is allowed to finish that round and one more round', async () => {
+        await advanceRound(aggregator, [personas.Nelly]) // finish round
+
+        await advanceRound(aggregator, [personas.Nelly]) // next round
 
         // cannot participate in future rounds
         await matchers.evmRevert(
