@@ -1146,3 +1146,30 @@ func TestFluxMonitor_MakeIdleTimer_RoundStartedAtIsInFuture(t *testing.T) {
 
 	clock.AssertExpectations(t)
 }
+
+func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	p := cltest.NewPollingDeviationChecker(t, store)
+
+	logBroadcast := new(mocks.LogBroadcast)
+	var logNewRound *contracts.LogNewRound
+	var logAnswerUpdated *contracts.LogAnswerUpdated
+	var randomType interface{}
+
+	logBroadcast.On("Log").Return(logNewRound).Once()
+	assert.NotPanics(t, func() {
+		p.HandleLog(logBroadcast, nil)
+	})
+
+	logBroadcast.On("Log").Return(logAnswerUpdated).Once()
+	assert.NotPanics(t, func() {
+		p.HandleLog(logBroadcast, nil)
+	})
+
+	logBroadcast.On("Log").Return(randomType).Once()
+	assert.NotPanics(t, func() {
+		p.HandleLog(logBroadcast, nil)
+	})
+}
