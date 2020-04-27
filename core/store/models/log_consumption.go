@@ -19,7 +19,6 @@ var LogConsumerTypes = [1]string{LogConsumerTypeJob}
 type LogConsumption struct {
 	ID           *ID
 	BlockHash    common.Hash
-	BlockHeight  uint64
 	LogIndex     uint
 	ConsumerType string
 	ConsumerID   *ID
