@@ -191,7 +191,7 @@ func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperTransactorRaw) Tran
 
 // MakeRequestId is a free data retrieval call binding the contract method 0xbda087ae.
 //
-// Solidity: function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) pure returns(bytes32)
+// Solidity: function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) constant returns(bytes32)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCaller) MakeRequestId(opts *bind.CallOpts, _keyHash [32]byte, _vRFInputSeed *big.Int) ([32]byte, error) {
 	var (
 		ret0 = new([32]byte)
@@ -203,21 +203,21 @@ func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCaller) MakeRequest
 
 // MakeRequestId is a free data retrieval call binding the contract method 0xbda087ae.
 //
-// Solidity: function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) pure returns(bytes32)
+// Solidity: function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) constant returns(bytes32)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperSession) MakeRequestId(_keyHash [32]byte, _vRFInputSeed *big.Int) ([32]byte, error) {
 	return _VRFRequestIDBaseTestHelper.Contract.MakeRequestId(&_VRFRequestIDBaseTestHelper.CallOpts, _keyHash, _vRFInputSeed)
 }
 
 // MakeRequestId is a free data retrieval call binding the contract method 0xbda087ae.
 //
-// Solidity: function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) pure returns(bytes32)
+// Solidity: function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) constant returns(bytes32)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCallerSession) MakeRequestId(_keyHash [32]byte, _vRFInputSeed *big.Int) ([32]byte, error) {
 	return _VRFRequestIDBaseTestHelper.Contract.MakeRequestId(&_VRFRequestIDBaseTestHelper.CallOpts, _keyHash, _vRFInputSeed)
 }
 
 // MakeVRFInputSeed is a free data retrieval call binding the contract method 0x37ab429a.
 //
-// Solidity: function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed, address _requester, uint256 _nonce) pure returns(uint256)
+// Solidity: function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed, address _requester, uint256 _nonce) constant returns(uint256)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCaller) MakeVRFInputSeed(opts *bind.CallOpts, _keyHash [32]byte, _userSeed *big.Int, _requester common.Address, _nonce *big.Int) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -229,14 +229,14 @@ func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCaller) MakeVRFInpu
 
 // MakeVRFInputSeed is a free data retrieval call binding the contract method 0x37ab429a.
 //
-// Solidity: function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed, address _requester, uint256 _nonce) pure returns(uint256)
+// Solidity: function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed, address _requester, uint256 _nonce) constant returns(uint256)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperSession) MakeVRFInputSeed(_keyHash [32]byte, _userSeed *big.Int, _requester common.Address, _nonce *big.Int) (*big.Int, error) {
 	return _VRFRequestIDBaseTestHelper.Contract.MakeVRFInputSeed(&_VRFRequestIDBaseTestHelper.CallOpts, _keyHash, _userSeed, _requester, _nonce)
 }
 
 // MakeVRFInputSeed is a free data retrieval call binding the contract method 0x37ab429a.
 //
-// Solidity: function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed, address _requester, uint256 _nonce) pure returns(uint256)
+// Solidity: function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed, address _requester, uint256 _nonce) constant returns(uint256)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCallerSession) MakeVRFInputSeed(_keyHash [32]byte, _userSeed *big.Int, _requester common.Address, _nonce *big.Int) (*big.Int, error) {
 	return _VRFRequestIDBaseTestHelper.Contract.MakeVRFInputSeed(&_VRFRequestIDBaseTestHelper.CallOpts, _keyHash, _userSeed, _requester, _nonce)
 }
