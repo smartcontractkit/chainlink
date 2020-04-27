@@ -1,1 +1,1 @@
-yarn && myarn workspace @chainlink/contracts belt compile solc
+yarn && yarn workspace @chainlink/contracts belt compile solc
