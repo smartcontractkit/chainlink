@@ -643,17 +643,6 @@ func consumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
 	}
 }
 
-// consumed, err := lb.WasAlreadyConsumed()
-// if err != nil {
-// 	logger.Errorf("Error determining if log was already consumed: %v", err)
-// } else if consumed {
-// 	return
-// }
-
-// if err = lb.MarkConsumed(); err != nil {
-// 	logger.Errorf("Error marking log as consumed: %v", err)
-// }
-
 // The AnswerUpdated log tells us that round has successfully close with a new
 // answer.  This tells us that we need to reset our poll ticker.
 //
