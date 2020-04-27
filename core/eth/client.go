@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -46,6 +47,20 @@ type LogSubscriber interface {
 type Subscription interface {
 	Err() <-chan error
 	Unsubscribe()
+}
+
+// GetLatestBlock implements the GetLatestBlock Client method in terms of other
+// methods, to reduce burden on implementors.
+//
+// It would be possible to explicitly share the method as a method across
+// implementors using the method described here, but it is not worth the effort,
+// at this stage: https://gophers.slack.com/archives/C029RQSEE/p1588017540061600
+func GetLatestBlock(c Client) (Block, error) {
+	height, err := c.GetBlockHeight()
+	if err != nil {
+		return Block{}, errors.Wrap(err, "while getting latest block")
+	}
+	return c.GetBlockByNumber(common.BigToHash(big.NewInt(int64(height))).Hex())
 }
 
 // CallerSubscriberClient implements the ethereum Client interface using a
@@ -134,10 +149,10 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 	return uint64(height), err
 }
 
+// GetLatestBlock returns the last committed block of the best blockchain the
+// blockchain node is aware of.
 func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
-	var block Block
-	err := client.Call(&block, "eth_getBlockByNumber", "latest", true)
-	return block, err
+	return GetLatestBlock(client)
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
