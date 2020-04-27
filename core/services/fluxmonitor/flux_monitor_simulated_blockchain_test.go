@@ -162,8 +162,6 @@ func checkUpdateAnswer(t *testing.T, p answerParams,
 	_ = cltest.GetLogs(t, &srlogs, ilogs)
 	assert.Len(t, srlogs, 1,
 		"FluxAggregator did not emit correct SubmissionReceived log")
-	assert.True(t, srlogs[0].Answer.Cmp(big.NewInt(p.answer)) == 0,
-		"SubmissionReceived log has wrong answer")
 	assert.Equal(t, uint32(p.roundId), srlogs[0].Round,
 		"SubmissionReceived log has wrong round")
 	assert.Equal(t, p.from.From, srlogs[0].Oracle,
@@ -221,7 +219,7 @@ func currentBalance(t *testing.T, fa *fluxAggregatorUniverse) *big.Int {
 // contract are correct
 func updateAnswer(t *testing.T, p answerParams) {
 	cb := currentBalance(t, p.fa)
-	_, err := p.fa.aggregatorContract.UpdateAnswer(p.from, big.NewInt(p.roundId),
+	_, err := p.fa.aggregatorContract.Submit(p.from, big.NewInt(p.roundId),
 		big.NewInt(p.answer))
 	require.NoError(t, err, "failed to initialize first flux aggregation round:")
 	p.fa.backend.Commit()
@@ -345,7 +343,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(5 * timeout):
 	}
 	// Try to start a new round directly, should fail
-	_, err = fa.aggregatorContract.StartNewRound(fa.nallory)
+	_, err = fa.aggregatorContract.RequestNewRound(fa.nallory)
 	assert.Error(t, err, "FA allowed chainlink node to start a new round early")
 
 	//- finally, ensure it can start a legitimate round after roundDelay is reached
