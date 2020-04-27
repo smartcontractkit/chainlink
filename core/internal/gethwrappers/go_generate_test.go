@@ -228,7 +228,7 @@ func stripWhitespaceOutsideQuotes(s string) string {
 	return string(rv)
 }
 
-func ExampleStripWhitespaceOutsideQuotes() {
+func ExamplestripWhitespaceOutsideQuotes() {
 	fmt.Print(stripWhitespaceOutsideQuotes(
 		`The rain in spain stays mainly on "the plain"`))
 	// Output:Theraininspainstaysmainlyon"the plain"
