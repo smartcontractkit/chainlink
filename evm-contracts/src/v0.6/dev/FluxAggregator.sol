@@ -247,6 +247,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
     require(oracleNum >= _maxSubmissions, "max cannot exceed total");
     require(oracleNum == 0 || oracleNum > _restartDelay, "delay cannot exceed total");
     require(availableFunds >= requiredReserve(_paymentAmount), "insufficient funds for payment");
+    if (oracleCount() > 0) {
+      require(_minSubmissions > 0, "min must be greater than 0");
+    }
 
     paymentAmount = _paymentAmount;
     minSubmissionCount = _minSubmissions;
