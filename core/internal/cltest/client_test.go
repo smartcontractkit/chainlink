@@ -38,7 +38,7 @@ func TestGetTxReceiptGetsAllFields(t *testing.T) {
 func TestGetBlockByNumberGetsAllFields(t *testing.T) {
 	fields := []string{"GasPrice"}
 	assertFieldsMatch(t, fields, &eth.Transaction{}, "GetBlockByNumber")
-	ofields := []string{"Transactions", "Difficulty"}
+	ofields := []string{"Number", "Transactions"}
 	assertFieldsMatch(t, ofields, &eth.Block{}, "GetBlockByNumber")
 }
 
