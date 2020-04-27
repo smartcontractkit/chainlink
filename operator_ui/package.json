@@ -98,7 +98,7 @@
     "react-static-plugin-typescript": "^7.0.0",
     "redux-devtools-extension": "^2.13.8",
     "redux-mock-store": "^1.5.3",
-    "rimraf": "^3.0.1",
+    "rimraf": "^3.0.2",
     "serve": "^11.2.0",
     "ts-jest": "^24.1.0",
     "typescript": "^3.7.4",
