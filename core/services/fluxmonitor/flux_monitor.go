@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"reflect"
 	"sync"
 	"time"
 
@@ -480,7 +481,13 @@ func (t *ResettableTicker) Reset() {
 }
 
 func (p *PollingDeviationChecker) HandleLog(lb eth.LogBroadcast, err error) {
-	switch log := lb.Log().(type) {
+	rawLog := lb.Log()
+	if rawLog == nil || reflect.ValueOf(rawLog).IsNil() {
+		logger.Error("HandleLog: ignoring nil value")
+		return
+	}
+
+	switch log := rawLog.(type) {
 	case *contracts.LogNewRound:
 		p.backlog.Add(priorityNewRoundLog, maybeLog{lb, err})
 
