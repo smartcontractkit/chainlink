@@ -103,15 +103,6 @@ func (c *SimulatedBackendClient) Subscribe(ctx context.Context, namespace interf
 	panic("unimplemented")
 }
 
-// XXX: Move these to utils.
-// chainlinkEthLogFromGethLog returns a copy of l as an eth.Log. (They have
-// identical fields, but the field tags differ, and the types differ slightly.)
-func chainlinkEthLogFromGethLog(l types.Log) eth.Log {
-	return eth.Log{Address: l.Address, Topics: l.Topics, Data: l.Data,
-		BlockNumber: l.BlockNumber, TxHash: l.TxHash, TxIndex: l.TxIndex,
-		BlockHash: l.BlockHash, Index: l.Index, Removed: l.Removed}
-}
-
 // GetLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []eth.Log,
 	err error) {
@@ -120,7 +111,7 @@ func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []eth.Log
 		return nil, errors.Wrapf(err, "while querying for logs with %s", q)
 	}
 	for _, rawLog := range rawLogs {
-		logs = append(logs, chainlinkEthLogFromGethLog(rawLog))
+		logs = append(logs, eth.ChainlinkEthLogFromGethLog(rawLog))
 	}
 	return logs, nil
 }
@@ -132,7 +123,7 @@ func (c *SimulatedBackendClient) SubscribeToLogs(ctx context.Context, channel ch
 	ch := make(chan types.Log)
 	go func() {
 		for l := range ch {
-			channel <- chainlinkEthLogFromGethLog(l)
+			channel <- eth.ChainlinkEthLogFromGethLog(l)
 		}
 	}()
 	return c.b.SubscribeFilterLogs(ctx, q, ch)
@@ -235,7 +226,7 @@ func (c *SimulatedBackendClient) GetTxReceipt(
 	}
 	logs := []eth.Log{}
 	for _, log := range rawReceipt.Logs {
-		logs = append(logs, chainlinkEthLogFromGethLog(*log))
+		logs = append(logs, eth.ChainlinkEthLogFromGethLog(*log))
 	}
 	return &eth.TxReceipt{BlockNumber: (*utils.Big)(rawReceipt.BlockNumber),
 		BlockHash: &rawReceipt.BlockHash, Hash: receipt, Logs: logs}, nil

@@ -290,3 +290,13 @@ func (ary UntrustedBytes) SafeByteSlice(start int, end int) ([]byte, error) {
 	}
 	return ary[start:end], nil
 }
+
+// ChainlinkEthLogFromGethLog returns a copy of l as an eth.Log. (They have
+// identical fields, but the field tags differ, and the types differ slightly.)
+//
+// A better place for this might be utils, but that creates an import cycle
+func ChainlinkEthLogFromGethLog(l types.Log) Log {
+	return Log{Address: l.Address, Topics: l.Topics, Data: l.Data,
+		BlockNumber: l.BlockNumber, TxHash: l.TxHash, TxIndex: l.TxIndex,
+		BlockHash: l.BlockHash, Index: l.Index, Removed: l.Removed}
+}
