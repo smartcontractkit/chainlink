@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -47,7 +46,6 @@ type logBroadcaster struct {
 	ethClient     eth.Client
 	orm           *orm.ORM
 	backfillDepth uint64
-	cursor        models.LogCursor
 	connected     bool
 
 	listeners        map[common.Address]map[LogListener]struct{}
@@ -141,50 +139,24 @@ func (sub managedSubscription) Unsubscribe() {
 const logBroadcasterCursorName = "logBroadcaster"
 
 func (b *logBroadcaster) Start() {
-	var latestBlock eth.Block
-	abort := utils.RetryWithBackoff(b.chStop, "getting latest block", func() (err error) {
-		latestBlock, err = b.ethClient.GetLatestBlock()
-		return
-	})
-	if abort {
-		close(b.chDone)
-		return
-	}
-	currentHeight := uint64(latestBlock.Number)
-
-	// Grab the cursor from the DB
-	cursor, err := b.orm.FindLogCursor(logBroadcasterCursorName)
-	if err != nil && !gorm.IsRecordNotFoundError(err) {
-		logger.Errorf("error fetching log cursor: %v", err)
-	}
-	b.cursor = cursor
-
-	// If the latest block is newer than the one in the cursor (or if we have
-	// no cursor), start from that block height.
-	if currentHeight > cursor.BlockIndex {
-		b.updateLogCursor(currentHeight, 0)
-	}
-
 	go b.awaitInitialSubscribers()
 }
 
 func (b *logBroadcaster) awaitInitialSubscribers() {
-Outer:
 	for {
 		select {
 		case r := <-b.chAddListener:
 			b.onAddListener(r)
 
 		case <-b.DependentAwaiter.AwaitDependents():
-			break Outer
+			go b.startResubscribeLoop()
+			return
 
 		case <-b.chStop:
 			close(b.chDone)
 			return
 		}
 	}
-
-	go b.startResubscribeLoop()
 }
 
 func (b *logBroadcaster) addresses() []common.Address {
@@ -240,6 +212,10 @@ func (b *logBroadcaster) startResubscribeLoop() {
 			return
 		}
 
+		// Each time this loop runs, chRawLogs is reconstituted as:
+		//     remaining logs from last subscription <= backfilled logs <= logs from new subscription
+		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
+		// to account for this using the helpers on the LogBroadcast type.
 		chRawLogs = appendLogChannel(chRawLogs, chBackfilledLogs)
 		chRawLogs = appendLogChannel(chRawLogs, newSubscription.Logs())
 		subscription.Unsubscribe()
@@ -272,14 +248,15 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan eth.Log, abort bo
 		}
 		currentHeight := uint64(latestBlock.Number)
 
-		// Start at the block we saw last, but go no further back than `currentHeight - backfillDepth`
-		startBlock := b.cursor.BlockIndex
-		if startBlock < currentHeight-b.backfillDepth {
-			startBlock = currentHeight - b.backfillDepth
+		// Backfill from `backfillDepth` blocks ago.  It's up to the subscribers to
+		// filter out logs they've already dealt with.
+		fromBlock := currentHeight - b.backfillDepth
+		if fromBlock > currentHeight {
+			fromBlock = 0 // Overflow protection
 		}
 
 		q := ethereum.FilterQuery{
-			FromBlock: big.NewInt(int64(startBlock)),
+			FromBlock: big.NewInt(int64(fromBlock)),
 			Addresses: b.addresses(),
 		}
 
@@ -325,18 +302,6 @@ func (b *logBroadcaster) notifyDisconnect() {
 	}
 }
 
-func (b *logBroadcaster) updateLogCursor(blockIdx, logIdx uint64) {
-	b.cursor.Initialized = true
-	b.cursor.Name = logBroadcasterCursorName
-	b.cursor.BlockIndex = blockIdx
-	b.cursor.LogIndex = logIdx
-
-	err := b.orm.SaveLogCursor(&b.cursor)
-	if err != nil {
-		logger.Error("can't save log cursor to DB:", err)
-	}
-}
-
 func (b *logBroadcaster) process(subscription eth.Subscription, chRawLogs <-chan eth.Log) (shouldResubscribe bool, _ error) {
 	// We debounce requests to subscribe and unsubscribe to avoid making too many
 	// RPC calls to the Ethereum node, particularly on startup.
@@ -371,11 +336,15 @@ func (b *logBroadcaster) process(subscription eth.Subscription, chRawLogs <-chan
 
 func (b *logBroadcaster) onRawLog(rawLog eth.Log) {
 	for listener := range b.listeners[rawLog.Address] {
+		// Ignore duplicate logs sent back due to reorgs
+		if rawLog.Removed {
+			continue
+		}
+
 		rawLogCopy := rawLog.Copy()
 		lb := logBroadcast{b.orm, &rawLogCopy, listener.Consumer()}
 		listener.HandleLog(&lb, nil)
 	}
-	b.updateLogCursor(rawLog.BlockNumber, uint64(rawLog.Index))
 }
 
 func (b *logBroadcaster) onAddListener(r registration) (needsResubscribe bool) {
@@ -406,6 +375,9 @@ func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool
 	return false
 }
 
+// createSubscription creates a new log subscription starting at the current block.  If previous logs
+// are needed, they must be obtained through backfilling, as subscriptions can only be started from
+// the current head.
 func (b *logBroadcaster) createSubscription() (sub ManagedSubscription, abort bool) {
 	if len(b.listeners) == 0 {
 		return newNoopSubscription(), false
@@ -413,7 +385,6 @@ func (b *logBroadcaster) createSubscription() (sub ManagedSubscription, abort bo
 
 	abort = utils.RetryWithBackoff(b.chStop, "creating subscription to Ethereum node", func() error {
 		filterQuery := ethereum.FilterQuery{
-			FromBlock: big.NewInt(int64(b.cursor.BlockIndex)),
 			Addresses: b.addresses(),
 		}
 		chRawLogs := make(chan eth.Log)

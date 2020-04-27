@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1579700934"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1580904019"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1581240419"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1584377646"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1585908150"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1585918589"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586163842"
@@ -42,7 +41,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586939705"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587027516"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587580235"
-
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587975059"
+	
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	gormigrate "gopkg.in/gormigrate.v1"
@@ -181,10 +181,6 @@ func MigrateTo(db *gorm.DB, migrationID string) error {
 			Migrate: migration1581240419.Migrate,
 		},
 		{
-			ID:      "1584377646",
-			Migrate: migration1584377646.Migrate,
-		},
-		{
 			ID:      "1585908150",
 			Migrate: migration1585908150.Migrate,
 		},
@@ -214,6 +210,10 @@ func MigrateTo(db *gorm.DB, migrationID string) error {
 		{
 			ID:      "1587580235",
 			Migrate: migration1587580235.Migrate,
+		},
+		{
+			ID: "1587975059",
+			Migrate: migration1587975059.Migrate,
 		},
 	}
 
