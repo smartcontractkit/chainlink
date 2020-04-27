@@ -146,7 +146,7 @@ type answerParams struct {
 
 // checkUpdateAnswer verifies all the logs emitted by fa's FluxAggregator
 // contract after an updateAnswer with the given values.
-func checkUpdateAnswer(t *testing.T, p answerParams,
+func checkSubmission(t *testing.T, p answerParams,
 	currentBalance int64, receiptBlock uint64) {
 	if receiptBlock == 0 {
 		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number().Uint64()
@@ -217,13 +217,13 @@ func currentBalance(t *testing.T, fa *fluxAggregatorUniverse) *big.Int {
 // updateAnswer simulates a call to fa's FluxAggregator contract from from, with
 // the given roundId and answer, and checks that all the logs emitted by the
 // contract are correct
-func updateAnswer(t *testing.T, p answerParams) {
+func submitAnswer(t *testing.T, p answerParams) {
 	cb := currentBalance(t, p.fa)
 	_, err := p.fa.aggregatorContract.Submit(p.from, big.NewInt(p.roundId),
 		big.NewInt(p.answer))
 	require.NoError(t, err, "failed to initialize first flux aggregation round:")
 	p.fa.backend.Commit()
-	checkUpdateAnswer(t, p, cb.Int64(), 0)
+	checkSubmission(t, p, cb.Int64(), 0)
 }
 
 type maliciousFluxMonitor interface {
@@ -258,7 +258,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	//- have one of the fake nodes start a round.
 	roundId := int64(1)
 	processedAnswer := answer * 100 /* job has multiply times 100 */
-	updateAnswer(t, answerParams{fa: &fa, roundId: roundId,
+	submitAnswer(t, answerParams{fa: &fa, roundId: roundId,
 		answer: processedAnswer, from: fa.neil, isNewRound: true,
 		completesAnswer: false})
 
@@ -303,7 +303,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(timeout):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
-	checkUpdateAnswer(t, answerParams{fa: &fa, roundId: roundId,
+	checkSubmission(t, answerParams{fa: &fa, roundId: roundId,
 		answer: processedAnswer, from: fa.nallory, isNewRound: false,
 		completesAnswer: true}, initialBalance, receiptBlock)
 
@@ -319,11 +319,11 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	}
 	newRound := roundId + 1
 	processedAnswer = 100 * reportPrice
-	checkUpdateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+	checkSubmission(t, answerParams{fa: &fa, roundId: newRound,
 		answer: processedAnswer, from: fa.nallory, isNewRound: true,
 		completesAnswer: false}, nextRoundBalance, receiptBlock)
 	//- successfully close the round through the submissions of the other nodes
-	updateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+	submitAnswer(t, answerParams{fa: &fa, roundId: newRound,
 		answer: processedAnswer, from: fa.neil, isNewRound: false,
 		completesAnswer: true})
 
@@ -348,10 +348,10 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	//- finally, ensure it can start a legitimate round after roundDelay is reached
 	// start an intervening round
-	updateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+	submitAnswer(t, answerParams{fa: &fa, roundId: newRound,
 		answer: processedAnswer, from: fa.ned, isNewRound: true,
 		completesAnswer: false})
-	updateAnswer(t, answerParams{fa: &fa, roundId: newRound,
+	submitAnswer(t, answerParams{fa: &fa, roundId: newRound,
 		answer: processedAnswer, from: fa.neil, isNewRound: false,
 		completesAnswer: true})
 	// start a legitimate new round
