@@ -70,7 +70,7 @@
     "cross-env": "^7.0.2",
     "jest": "^24.9.0",
     "redux-mock-store": "^1.5.4",
-    "rimraf": "^3.0.1",
+    "rimraf": "^3.0.2",
     "ts-jest": "^24.1.0"
   }
 }

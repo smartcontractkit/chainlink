@@ -82,7 +82,7 @@
     "jest": "^24.7.0",
     "node-fetch": "^2.6.0",
     "pino-pretty": "^3.6.1",
-    "rimraf": "^3.0.1",
+    "rimraf": "^3.0.2",
     "simple-git": "^1.132.0",
     "supertest": "^4.0.2",
     "ts-jest": "^24.0.0",
