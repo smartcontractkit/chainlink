@@ -711,7 +711,11 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log *contracts.LogNewRoun
 		return
 	}
 
-	p.createJobRun(polledAnswer, p.reportableRoundID)
+	err = p.createJobRun(polledAnswer, p.reportableRoundID)
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("unable to create job run: %v", err), p.loggerFieldsForNewRound(log)...)
+		return
+	}
 }
 
 var (
