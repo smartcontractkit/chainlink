@@ -50,7 +50,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: yarndep
 yarndep: ## Ensure all yarn dependencies are installed
 	yarn install --frozen-lockfile
-	yarn setup
+	yarn setup:chainlink
 
 .PHONY: gen-builder-cache
 gen-builder-cache: gomod yarndep # generate a cache for the builder image
@@ -64,14 +64,10 @@ chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: operator-ui
-operator-ui: ws-setup ## Build the static frontend UI.
+operator-ui: ## Build the static frontend UI.
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
-.PHONY: ws-setup
-ws-setup:
-	yarn setup:chainlink
-	
 .PHONY: docker
 docker: ## Build the docker image.
 	docker build \
