@@ -147,6 +147,8 @@ jobs:
             yarn-${{ env.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
+      - name: Restore solc cache
+        run: ./tools/bin/restore-solc-cache
       - name: Cache Python dependencies
         uses: actions/cache@v1
         with:
@@ -246,6 +248,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
