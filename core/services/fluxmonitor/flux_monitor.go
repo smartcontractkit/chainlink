@@ -938,11 +938,8 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log contracts.Log
 	}
 }
 
-func (p *PollingDeviationChecker) Consumer() models.LogConsumer {
-	return models.LogConsumer{
-		Type: models.LogConsumerTypeJob,
-		ID:   p.initr.JobSpecID,
-	}
+func (p *PollingDeviationChecker) JobID() *models.ID {
+	return p.initr.JobSpecID
 }
 
 // OutsideDeviation checks whether the next price is outside the threshold.

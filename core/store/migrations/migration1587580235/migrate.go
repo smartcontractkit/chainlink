@@ -1,27 +1,22 @@
 package migration1587580235
 
 import (
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type logConsumption struct {
-	ID           *models.ID  `gorm:"primary_key"`
-	BlockHash    common.Hash `gorm:"not null;unique_index:idx_unique_log_consumption"`
-	ConsumerType string      `gorm:"not null;unique_index:idx_unique_log_consumption"`
-	ConsumerID   *models.ID  `gorm:"not null;unique_index:idx_unique_log_consumption"`
-	LogIndex     uint        `gorm:"not null;unique_index:idx_unique_log_consumption"`
-	CreatedAt    time.Time
-}
-
-// Migrate adds the LogConsumption table
+// Migrate adds the LogConsumption table and adds a uniqueness constraint on the
+// combination of block_hash / log_index / job_id
 func Migrate(tx *gorm.DB) error {
-	if err := tx.AutoMigrate(&logConsumption{}).Error; err != nil {
-		return errors.Wrap(err, "could not add log_consumption table")
-	}
-	return nil
+	return tx.Exec(`
+	CREATE TABLE "log_consumptions" (
+		"id" bigserial primary key NOT NULL,
+		"block_hash" bytea NOT NULL,
+		"log_index" integer NOT NULL,
+		"job_id" uuid REFERENCES job_specs(id) ON DELETE CASCADE NOT NULL,
+		"created_at" timestamp without time zone NOT NULL
+	);
+
+	CREATE UNIQUE INDEX log_consumptions_block_hash_log_index_consumer_id_idx ON log_consumptions ("job_id", "block_hash", "log_index");
+	CREATE INDEX log_consumptions_created_at_idx ON log_consumptions USING brin (created_at);
+	`).Error
 }
