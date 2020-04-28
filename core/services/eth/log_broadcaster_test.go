@@ -159,21 +159,18 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	sub.AssertExpectations(t)
 }
 
-type simpleLogListner struct {
-	handler func(lb ethsvc.LogBroadcast, err error)
-	id      models.ID
+type simpleLogListener struct {
+	handler    func(lb ethsvc.LogBroadcast, err error)
+	consumerID *models.ID
 }
 
-func (listner simpleLogListner) HandleLog(lb ethsvc.LogBroadcast, err error) {
-	listner.handler(lb, err)
+func (listener simpleLogListener) HandleLog(lb ethsvc.LogBroadcast, err error) {
+	listener.handler(lb, err)
 }
-func (listner simpleLogListner) OnConnect()    {}
-func (listner simpleLogListner) OnDisconnect() {}
-func (listner simpleLogListner) Consumer() models.LogConsumer {
-	return models.LogConsumer{
-		Type: models.LogConsumerTypeJob,
-		ID:   &listner.id,
-	}
+func (listener simpleLogListener) OnConnect()    {}
+func (listener simpleLogListener) OnDisconnect() {}
+func (listener simpleLogListener) JobID() *models.ID {
+	return listener.consumerID
 }
 
 func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
@@ -219,37 +216,37 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 	var addr1Logs1, addr1Logs2, addr2Logs1, addr2Logs2 []interface{}
 
-	listener1 := simpleLogListner{
+	listener1 := simpleLogListener{
 		func(lb ethsvc.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr1Logs1 = append(addr1Logs1, lb.Log())
 			handleLogBroadcast(t, lb)
 		},
-		*createJob(t, store).ID,
+		createJob(t, store).ID,
 	}
-	listener2 := simpleLogListner{
+	listener2 := simpleLogListener{
 		func(lb ethsvc.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr1Logs2 = append(addr1Logs2, lb.Log())
 			handleLogBroadcast(t, lb)
 		},
-		*createJob(t, store).ID,
+		createJob(t, store).ID,
 	}
-	listener3 := simpleLogListner{
+	listener3 := simpleLogListener{
 		func(lb ethsvc.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr2Logs1 = append(addr2Logs1, lb.Log())
 			handleLogBroadcast(t, lb)
 		},
-		*createJob(t, store).ID,
+		createJob(t, store).ID,
 	}
-	listener4 := simpleLogListner{
+	listener4 := simpleLogListener{
 		func(lb ethsvc.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr2Logs2 = append(addr2Logs2, lb.Log())
 			handleLogBroadcast(t, lb)
 		},
-		*createJob(t, store).ID,
+		createJob(t, store).ID,
 	}
 
 	lb.Register(addr1, &listener1)
@@ -380,13 +377,12 @@ func TestDecodingLogListener(t *testing.T) {
 
 	var decodedLog interface{}
 
-	job := createJob(t, store)
-	listener := simpleLogListner{
+	listener := simpleLogListener{
 		func(lb ethsvc.LogBroadcast, innerErr error) {
 			err = innerErr
 			decodedLog = lb.Log()
 		},
-		*job.ID,
+		createJob(t, store).ID,
 	}
 
 	decodingListener := ethsvc.NewDecodingLogListener(contract, logTypes, &listener)
@@ -516,8 +512,9 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				}
 			}
 
-			logListener := &simpleLogListner{
-				handler: handleLog,
+			logListener := &simpleLogListener{
+				handleLog,
+				createJob(t, store).ID,
 			}
 
 			// Send initial logs
@@ -539,7 +536,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
 			ethClient.On("GetLogs", mock.Anything).Return(backfillableLogs, nil).Once()
 			// Trigger resubscription
-			lb.Register(common.Address{1}, &simpleLogListner{})
+			lb.Register(common.Address{1}, &simpleLogListener{})
 			chRawLogs2 := <-chchRawLogs
 			for _, logNum := range test.batch2 {
 				chRawLogs2 <- logs[logNum]
@@ -650,7 +647,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	listenerCount := 0
 
 	job := createJob(t, store)
-	logListener := simpleLogListner{
+	logListener := simpleLogListener{
 		func(lb ethsvc.LogBroadcast, err error) {
 			consumed, err := lb.WasAlreadyConsumed()
 			require.NoError(t, err)
@@ -662,7 +659,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 			require.True(t, consumed)
 			listenerCount++
 		},
-		*job.ID,
+		job.ID,
 	}
 	addr := common.Address{1}
 
@@ -717,14 +714,14 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	var recvd []*eth.Log
 
 	job := createJob(t, store)
-	listener := simpleLogListner{
+	listener := simpleLogListener{
 		func(lb ethsvc.LogBroadcast, err error) {
 			require.NoError(t, err)
 			ethLog := lb.Log().(*eth.Log)
 			recvd = append(recvd, ethLog)
 			handleLogBroadcast(t, lb)
 		},
-		*job.ID,
+		job.ID,
 	}
 
 	lb.Register(addr, &listener)

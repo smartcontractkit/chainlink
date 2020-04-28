@@ -1176,24 +1176,31 @@ func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
 }
 
 // HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, consumer models.LogConsumer) (bool, error) {
+func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, JobID *models.ID) (bool, error) {
 	lc := models.LogConsumption{
-		BlockHash:    rawLog.GetBlockHash(),
-		LogIndex:     rawLog.GetIndex(),
-		ConsumerType: consumer.Type,
-		ConsumerID:   consumer.ID,
+		BlockHash: rawLog.GetBlockHash(),
+		LogIndex:  rawLog.GetIndex(),
+		JobID:     JobID,
 	}
 	return orm.LogConsumptionExists(&lc)
 }
 
 // LogConsumptionExists reports whether a given LogConsumption record already exists
 func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
-	query := "SELECT id FROM log_consumptions " +
+	subQuery := "SELECT id FROM log_consumptions " +
 		"WHERE block_hash=$1 " +
 		"AND log_index=$2 " +
-		"AND consumer_type=$3 " +
-		"AND consumer_id=$4"
-	return orm.rowExists(query, lc.BlockHash, lc.LogIndex, lc.ConsumerType, lc.ConsumerID)
+		"AND job_id=$3"
+	query := "SELECT exists (" + subQuery + ")"
+
+	var exists bool
+	err := orm.db.DB().
+		QueryRow(query, lc.BlockHash, lc.LogIndex, lc.JobID).
+		Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return exists, nil
 }
 
 // CreateLogConsumption creates a new LogConsumption record
@@ -1202,15 +1209,10 @@ func (orm *ORM) CreateLogConsumption(lc *models.LogConsumption) error {
 	return orm.db.Create(lc).Error
 }
 
-// FindLogConsumer finds the consumer of a particular LogConsumption record
-func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (interface{}, error) {
+// FindLogConsumer finds the consuming job of a particular LogConsumption record
+func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, error) {
 	orm.MustEnsureAdvisoryLock()
-
-	if lc.ConsumerType == models.LogConsumerTypeJob {
-		return orm.FindJob(lc.ConsumerID)
-	}
-
-	return nil, errors.Errorf("Consumer type %s does  not exist", lc.ConsumerType)
+	return orm.FindJob(lc.JobID)
 }
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to

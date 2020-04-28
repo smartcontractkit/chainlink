@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -499,101 +498,6 @@ func TestValidateInitiator_FeedsErrors(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(validInitiator), &initr))
 			initr.Feeds = cltest.JSONFromString(t, test.FeedsJSON)
 			err := services.ValidateInitiator(initr, job, store)
-			require.Error(t, err)
-		})
-	}
-}
-
-func TestValidateLogConsumption_Happy(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job1 := cltest.NewJob()
-	err := store.ORM.CreateJob(&job1)
-	require.NoError(t, err)
-	job2 := cltest.NewJob()
-	err = store.ORM.CreateJob(&job2)
-	require.NoError(t, err)
-
-	lc := models.NewEmptyLogConsumption()
-	lc.BlockHash = cltest.NewHash()
-	lc.LogIndex = 0
-	lc.ConsumerID = job1.ID
-	lc.ConsumerType = "job"
-
-	err = store.ORM.CreateLogConsumption(&lc)
-	require.NoError(t, err)
-
-	tests := []struct {
-		description  string
-		BlockHash    common.Hash
-		LogIndex     uint
-		ConsumerID   *models.ID
-		ConsumerType string
-	}{
-		{"different blockhash", cltest.NewHash(), lc.LogIndex, lc.ConsumerID, lc.ConsumerType},
-		{"different log", lc.BlockHash, 1, lc.ConsumerID, lc.ConsumerType},
-		{"different consumer", lc.BlockHash, lc.LogIndex, job2.ID, lc.ConsumerType},
-	}
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			logConsumption := models.NewEmptyLogConsumption()
-			logConsumption.BlockHash = test.BlockHash
-			logConsumption.LogIndex = test.LogIndex
-			logConsumption.ConsumerID = test.ConsumerID
-			logConsumption.ConsumerType = test.ConsumerType
-
-			err = services.ValidateLogConsumption(logConsumption, store)
-			require.NoError(t, err)
-		})
-	}
-
-}
-
-func TestValidateLogConsumption_Errors(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	job1 := cltest.NewJob()
-	err := store.ORM.CreateJob(&job1)
-	require.NoError(t, err)
-	job2 := cltest.NewJob()
-	err = store.ORM.CreateJob(&job2)
-	require.NoError(t, err)
-
-	lc := models.NewEmptyLogConsumption()
-	lc.BlockHash = cltest.NewHash()
-	lc.LogIndex = 0
-	lc.ConsumerID = job1.ID
-	lc.ConsumerType = "job"
-
-	err = store.ORM.CreateLogConsumption(&lc)
-	require.NoError(t, err)
-
-	tests := []struct {
-		description  string
-		BlockHash    common.Hash
-		LogIndex     uint
-		ConsumerID   *models.ID
-		ConsumerType string
-	}{
-		{"non existant job", cltest.NewHash(), 0, models.NewID(), "job"},
-		{"unsupported consumer type", cltest.NewHash(), 0, job1.ID, "unsupported"},
-		{"duplicate record", lc.BlockHash, lc.LogIndex, lc.ConsumerID, lc.ConsumerType},
-	}
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			logConsumption := models.NewEmptyLogConsumption()
-			logConsumption.BlockHash = test.BlockHash
-			logConsumption.LogIndex = test.LogIndex
-			logConsumption.ConsumerID = test.ConsumerID
-			logConsumption.ConsumerType = test.ConsumerType
-
-			err = services.ValidateLogConsumption(logConsumption, store)
 			require.Error(t, err)
 		})
 	}

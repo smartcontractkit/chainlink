@@ -14,23 +14,25 @@ type LogListener struct {
 	mock.Mock
 }
 
-// Consumer provides a mock function with given fields:
-func (_m *LogListener) Consumer() models.LogConsumer {
-	ret := _m.Called()
-
-	var r0 models.LogConsumer
-	if rf, ok := ret.Get(0).(func() models.LogConsumer); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.LogConsumer)
-	}
-
-	return r0
-}
-
 // HandleLog provides a mock function with given fields: lb, err
 func (_m *LogListener) HandleLog(lb eth.LogBroadcast, err error) {
 	_m.Called(lb, err)
+}
+
+// JobID provides a mock function with given fields:
+func (_m *LogListener) JobID() *models.ID {
+	ret := _m.Called()
+
+	var r0 *models.ID
+	if rf, ok := ret.Get(0).(func() *models.ID); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.ID)
+		}
+	}
+
+	return r0
 }
 
 // OnConnect provides a mock function with given fields:
