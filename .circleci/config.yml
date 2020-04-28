@@ -124,7 +124,6 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
-      - run: pip3 install -r requirements.txt
       - run: ./tools/ci/solidity_test
       - store_artifacts:
           path: ./integration/logs
