@@ -149,15 +149,6 @@ jobs:
         run: make yarndep
       - name: Restore solc cache
         run: ./tools/bin/restore-solc-cache
-      - name: Cache Python dependencies
-        uses: actions/cache@v1
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ env.CACHE_VERSION }}-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            pip-${{ env.CACHE_VERSION }}
-      - name: Install python packages
-        run: pip3 install -r requirements.txt
       - name: Run tests
         run: ./tools/ci/solidity_test
       - name: Store logs artifacts
