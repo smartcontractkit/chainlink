@@ -30,7 +30,7 @@ func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *bi
 }
 
 func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
-	p.respondToNewRoundLog(log)
+	p.respondToNewRoundLog(*log)
 }
 
 func mustReadFile(t testing.TB, file string) string {
