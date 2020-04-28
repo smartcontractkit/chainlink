@@ -94,7 +94,7 @@ func (jr *JobRun) SetStatus(status RunStatus) {
 	} else if jr.Status.Finished() {
 		jr.FinishedAt = null.TimeFrom(time.Now())
 	}
-	promTotalRunUpdates.WithLabelValues(jr.JobSpecID.String(), string(oldStatus), string(status))
+	promTotalRunUpdates.WithLabelValues(jr.JobSpecID.String(), string(oldStatus), string(status)).Inc()
 }
 
 // GetStatus returns the JobRun's RunStatus
