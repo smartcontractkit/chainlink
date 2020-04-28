@@ -327,21 +327,21 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		kdir += src[strings.LastIndex(src, "/"):]
 	}
 
-	if err := copyFile(src, kdir); err != nil {
+	if err := copyFile(src, kdir, 0600); err != nil {
 		return cli.errorOut(err)
 	}
 
 	return app.GetStore().SyncDiskKeyStoreToDB()
 }
 
-func copyFile(src, dst string) error {
+func copyFile(src, dst string, perms os.FileMode) error {
 	from, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer from.Close()
 
-	to, err := os.Create(dst)
+	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}
