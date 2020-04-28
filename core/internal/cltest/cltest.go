@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -33,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/DATA-DOG/go-txdb"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -56,16 +60,14 @@ import (
 const (
 	// RootDir the root directory for cltest
 	RootDir = "/tmp/chainlink_test"
-	// APIEmail of the API user
-	APIEmail = "email@test.net"
-	// APIKey of the API user
+	// APIKey of the fixture API user
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
-	// APISecret of the API user.
+	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
-	// Password the password
+	// Email of the fixture API user
+	APIEmail = "apiuser@chainlink.test"
+	// Password just a password we use everywhere for testing
 	Password = "password"
-	// APISessionID ID for API user
-	APISessionID = "session"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 )
@@ -79,6 +81,27 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
 	logger.SetLogger(CreateTestLogger(lvl))
+	// Register txdb as dialect wrapping postgres
+	// See: DialectTransactionWrappedPostgres
+	config := orm.NewConfig()
+	if config.DatabaseURL() == "" {
+		panic("You must set DATABASE_URL env var to point to your test database. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+	}
+	// Disable SavePoints because they cause random errors for reasons I cannot fathom
+	// Perhaps txdb's built-in transaction emulation is broken in some subtle way?
+	// NOTE: That this will cause transaction BEGIN/ROLLBACK to effectively be
+	// a no-op, this should have no negative impact on normal test operation.
+	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
+	// store to use the raw DialectPostgres dialect and setup a one-use database.
+	// See `postgres.go`, specifically the `DropAndCreateThrowawayTestDB` function.
+	// You might also check out the migrations tests for an example on how to do this.
+	txdb.Register("cloudsqlpostgres", "postgres", config.DatabaseURL(), txdb.SavePointOption(nil))
+
+	// Seed the random number generator, otherwise separate modules will take
+	// the same advisory locks when tested with `go test -p N` for N > 1
+	seed := time.Now().UTC().UnixNano()
+	logger.Debugf("Using seed: %v", seed)
+	rand.Seed(seed)
 }
 
 func logLevelFromEnv() zapcore.Level {
@@ -104,20 +127,36 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	return NewConfigWithWSServer(t, wsserver), cleanup
 }
 
+func NewRandomInt64() int64 {
+	id := rand.Int63()
+	return id
+}
+
 // NewTestConfig returns a test configuration
-func NewTestConfig(t testing.TB) *TestConfig {
+func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := orm.NewConfig()
+
+	rawConfig.Dialect = orm.DialectTransactionWrappedPostgres
+	for _, opt := range options {
+		switch v := opt.(type) {
+		case orm.DialectName:
+			rawConfig.Dialect = v
+		}
+	}
+
+	uniqueRandomID := NewRandomInt64()
+	// Unique advisory lock is required otherwise all tests will block each other
+	rawConfig.AdvisoryLockID = uniqueRandomID
+
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("LOG_LEVEL", orm.LogLevel{Level: zapcore.DebugLevel})
-	rawConfig.Set("LOG_SQL", false)
-	rawConfig.Set("LOG_SQL_MIGRATIONS", false)
+	rawConfig.Set("MIGRATE_DATABASE", false)
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
@@ -192,11 +231,17 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
+// It mocks the keystore with no keys or accounts by default
 func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
 	t.Helper()
 
 	c, cfgCleanup := NewConfig(t)
+
 	app, cleanup := NewApplicationWithConfig(t, c, flags...)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("Accounts").Return([]accounts.Account{})
+	app.Store.KeyStore = kst
+
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -204,6 +249,7 @@ func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
+// It uses the native keystore and will load any keys that are in the database
 func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, func()) {
 	t.Helper()
 
@@ -221,7 +267,8 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...strin
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flags...)
-	app.ImportKey(key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
+	app.Store.KeyStore.Unlock(Password)
+
 	return app, cleanup
 }
 
@@ -229,15 +276,12 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...strin
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
 	t.Helper()
 
-	cleanupDB := PrepareTestDB(tc)
-
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := chainlink.NewApplication(tc.Config, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
 	ta.EthMock = MockEthOnStore(t, app.Store, flags...)
-
 	server := newServer(ta)
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
@@ -247,7 +291,6 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 	ta.wsServer = tc.wsServer
 	return ta, func() {
 		require.NoError(t, ta.Stop())
-		cleanupDB()
 		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
 }
@@ -332,22 +375,10 @@ func (ta *TestApplication) Stop() error {
 	return nil
 }
 
-func (ta *TestApplication) MustSeedUserSession() models.User {
-	mockUser := MustUser(APIEmail, Password)
-	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
-	session := NewSession(APISessionID)
+func (ta *TestApplication) MustSeedNewSession() string {
+	session := NewSession()
 	require.NoError(ta.t, ta.Store.SaveSession(&session))
-	return mockUser
-}
-
-// MustSeedUserAPIKey creates and returns a User with their API Token Key and
-// Secret generated.
-func (ta *TestApplication) MustSeedUserAPIKey() models.User {
-	mockUser := MustUser(APIEmail, Password)
-	apiToken := auth.Token{AccessKey: APIKey, Secret: APISecret}
-	require.NoError(ta.t, mockUser.SetAuthToken(&apiToken))
-	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
-	return mockUser
+	return session.ID
 }
 
 // ImportKey adds private key to the application disk keystore, not database.
@@ -366,16 +397,17 @@ func (ta *TestApplication) AddUnlockedKey() {
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 	ta.t.Helper()
 
-	ta.MustSeedUserSession()
+	sessionID := ta.MustSeedNewSession()
+
 	return HTTPClientCleaner{
-		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config),
+		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
 		t:          ta.t,
 	}
 }
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
-	ta.MustSeedUserSession()
+	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
 		Renderer:                       r,
@@ -384,7 +416,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config),
+		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
 		CookieAuthenticator:            MockCookieAuthenticator{},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
@@ -394,7 +426,6 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 }
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
-	ta.MustSeedUserSession()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config.Config, &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
@@ -431,11 +462,9 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	cleanupDB := PrepareTestDB(config)
 	s := strpkg.NewInsecureStore(config.Config, gracefulpanic.NewSignal())
 	return s, func() {
 		cleanUpStore(config.t, s)
-		cleanupDB()
 	}
 }
 
@@ -755,6 +784,12 @@ func CreateExternalInitiatorViaWeb(
 	return ei
 }
 
+const (
+	DBWaitTimeout = 3 * time.Second
+	// DBPollingInterval can't be too short to avoid DOSing the test database
+	DBPollingInterval = 100 * time.Millisecond
+)
+
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
 func WaitForJobRunToComplete(
 	t testing.TB,
@@ -802,7 +837,7 @@ func WaitForJobRunStatus(
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		return jr.GetStatus()
-	}).Should(gomega.Equal(status))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
 	return jr
 }
 
@@ -826,7 +861,7 @@ func JobRunStays(
 		jr, err = store.FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		return jr.GetStatus()
-	}, duration).Should(gomega.Equal(status))
+	}, duration, DBPollingInterval).Should(gomega.Equal(status))
 	return jr
 }
 
@@ -853,13 +888,13 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 			jrs, err = store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			return jrs
-		}).Should(gomega.HaveLen(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobRun {
 			jrs, err = store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			return jrs
-		}).Should(gomega.HaveLen(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	}
 	return jrs
 }
@@ -876,7 +911,7 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 			jrs, err := store.JobRunsFor(j.ID)
 			require.NoError(t, err)
 			return len(jrs)
-		}).Should(gomega.BeNumerically(">=", want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">=", want))
 	}
 }
 
@@ -892,13 +927,13 @@ func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models
 			tas, count, err = store.TxAttempts(0, 1000)
 			assert.NoError(t, err)
 			return count
-		}).Should(gomega.Equal(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 	} else {
 		g.Eventually(func() int {
 			tas, count, err = store.TxAttempts(0, 1000)
 			assert.NoError(t, err)
 			return count
-		}).Should(gomega.Equal(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 	}
 	return tas
 }
@@ -915,7 +950,7 @@ func WaitForSyncEventCount(
 		count, err := orm.CountOf(&models.SyncEvent{})
 		assert.NoError(t, err)
 		return count
-	}).Should(gomega.Equal(want))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // AssertSyncEventCountStays ensures that the event sync count stays consistent
@@ -930,7 +965,7 @@ func AssertSyncEventCountStays(
 		count, err := orm.CountOf(&models.SyncEvent{})
 		assert.NoError(t, err)
 		return count
-	}).Should(gomega.Equal(want))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it

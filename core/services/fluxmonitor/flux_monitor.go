@@ -58,6 +58,7 @@ type concreteFluxMonitor struct {
 	chStop         chan struct{}
 	chDone         chan struct{}
 	disabled       bool
+	started        bool
 }
 
 type addEntry struct {
@@ -100,6 +101,7 @@ func (fm *concreteFluxMonitor) Start() error {
 	}
 
 	go fm.serveInternalRequests()
+	fm.started = true
 
 	var wg sync.WaitGroup
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
@@ -137,7 +139,10 @@ func (fm *concreteFluxMonitor) Stop() {
 
 	fm.logBroadcaster.Stop()
 	close(fm.chStop)
-	<-fm.chDone
+	if fm.started {
+		fm.started = false
+		<-fm.chDone
+	}
 }
 
 // serveInternalRequests handles internal requests for state change via
