@@ -56,8 +56,8 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 	body := cltest.ParseResponseBody(t, resp)
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, metaCount)
+	require.NoError(t, err)
+	require.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
 	jobs := []models.JobSpec{}
@@ -79,7 +79,7 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
 
-	assert.Len(t, jobs, 1)
+	require.Len(t, jobs, 1)
 	assert.Equal(t, models.InitiatorWeb, jobs[0].Initiators[0].Type, "should have the same type")
 	assert.NotEqual(t, true, jobs[0].Initiators[0].Ran, "should ignore fields for other initiators")
 }

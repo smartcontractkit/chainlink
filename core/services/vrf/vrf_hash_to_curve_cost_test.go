@@ -64,7 +64,7 @@ func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
 		method, args)
 	callMsg := ethereum.CallMsg{From: from, To: &to, Data: rawData}
 	estimate, err := backend.EstimateGas(context.TODO(), callMsg)
-	require.NoError(t, err, "failed ot estimate gas from %s call with args %s",
+	require.NoError(t, err, "failed to estimate gas from %s call with args %s",
 		method, args)
 	return estimate
 }

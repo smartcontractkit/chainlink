@@ -29,7 +29,7 @@ func TestNewLockingStrategy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(string(test.name), func(t *testing.T) {
-			rval, err := orm.NewLockingStrategy(test.dialectName, test.path)
+			rval, err := orm.NewLockingStrategy(test.dialectName, test.path, 42)
 			require.NoError(t, err)
 			rtype := reflect.ValueOf(rval).Type()
 			require.Equal(t, test.expect, rtype)
@@ -37,27 +37,23 @@ func TestNewLockingStrategy(t *testing.T) {
 	}
 }
 
+func setupConfig(t *testing.T) *cltest.TestConfig {
+	tc := cltest.NewTestConfig(t)
+	return tc
+}
+
 func TestPostgresLockingStrategy_Lock(t *testing.T) {
-	tc, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
-	cleanupDB := cltest.PrepareTestDB(tc)
-	defer cleanupDB()
-
+	tc := setupConfig(t)
 	c := tc.Config
-
-	if c.DatabaseURL() == "" {
-		t.Skip("No postgres DatabaseURL set.")
-	}
 
 	delay := c.DatabaseTimeout()
 
-	ls, err := orm.NewPostgresLockingStrategy(c.DatabaseURL())
+	ls, err := orm.NewPostgresLockingStrategy(c.DatabaseURL(), c.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
 	require.NoError(t, ls.Lock(delay), "relocking on same instance is reentrant")
 
-	ls2, err := orm.NewPostgresLockingStrategy(c.DatabaseURL())
+	ls2, err := orm.NewPostgresLockingStrategy(c.DatabaseURL(), c.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
 	require.Error(t, ls2.Lock(delay), "should not get 2nd exclusive lock")
 
@@ -68,12 +64,9 @@ func TestPostgresLockingStrategy_Lock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	tc := setupConfig(t)
+	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
-
-	if store.Config.DatabaseURL() == "" {
-		t.Skip("No postgres DatabaseURL set.")
-	}
 
 	delay := store.Config.DatabaseTimeout()
 
@@ -86,7 +79,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lock2, err := orm.NewLockingStrategy("postgres", store.Config.DatabaseURL())
+	lock2, err := orm.NewLockingStrategy("postgres", store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
 	err = lock2.Lock(delay)
 	require.Equal(t, errors.Cause(err), orm.ErrNoAdvisoryLock)
@@ -94,19 +87,16 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	tc := setupConfig(t)
+	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
-
-	if store.Config.DatabaseURL() == "" {
-		panic("No postgres DatabaseURL set.")
-	}
 
 	connErr, dbErr := store.ORM.LockingStrategyHelperSimulateDisconnect()
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
 	orm2ShutdownSignal := gracefulpanic.NewSignal()
-	orm2, err := orm.NewORM(store.Config.DatabaseURL(), store.Config.DatabaseTimeout(), orm2ShutdownSignal)
+	orm2, err := orm.NewORM(store.Config.DatabaseURL(), store.Config.DatabaseTimeout(), orm2ShutdownSignal, orm.DialectTransactionWrappedPostgres, tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
 	defer orm2.Close()
 
@@ -120,12 +110,9 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 }
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
+	tc := setupConfig(t)
+	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
-
-	if store.Config.DatabaseURL() == "" {
-		t.Skip("No postgres DatabaseURL set.")
-	}
 
 	delay := store.Config.DatabaseTimeout()
 
@@ -133,7 +120,7 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
-	lock, err := orm.NewLockingStrategy("postgres", store.Config.DatabaseURL())
+	lock, err := orm.NewLockingStrategy("postgres", store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
 	defer lock.Unlock(delay)
 

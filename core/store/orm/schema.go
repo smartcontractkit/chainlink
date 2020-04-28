@@ -50,6 +50,7 @@ type ConfigSchema struct {
 	LogSQLStatements                bool            `env:"LOG_SQL" default:"false"`
 	LogSQLMigrations                bool            `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	DefaultMaxHTTPAttempts          uint            `env:"MAX_HTTP_ATTEMPTS" default:"5"`
+	MigrateDatabase                 bool            `env:"MIGRATE_DATABASE" default:"true"`
 	MinIncomingConfirmations        uint32          `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
 	MinOutgoingConfirmations        uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment          assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`

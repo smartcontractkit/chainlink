@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587027516"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587580235"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587975059"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588088353"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588293486"
 
 	"github.com/jinzhu/gorm"
@@ -52,18 +53,10 @@ import (
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
-// Migrate iterates through available migrations, running and tracking
-// migrations that have not been run.
-func Migrate(db *gorm.DB) error {
-	return MigrateTo(db, "")
-}
+var migrations []*gormigrate.Migration
 
-// MigrateTo runs all migrations up to and including the specified migration ID
-func MigrateTo(db *gorm.DB, migrationID string) error {
-	options := *gormigrate.DefaultOptions
-	options.UseTransaction = true
-
-	migrations := []*gormigrate.Migration{
+func init() {
+	migrations = []*gormigrate.Migration{
 		{
 			ID:      "0",
 			Migrate: migration0.Migrate,
@@ -235,7 +228,34 @@ func MigrateTo(db *gorm.DB, migrationID string) error {
 			ID:      "1586949323",
 			Migrate: migration1586949323.Migrate,
 		},
+		{
+			ID:      "1588088353",
+			Migrate: migration1588088353.Migrate,
+		},
 	}
+}
+
+// GORMMigrate calls through to gorm's native migrate function with minimal
+// extra logic
+// Useful if the migrations table doesn't exist yet but we don't care
+func GORMMigrate(db *gorm.DB) error {
+	options := *gormigrate.DefaultOptions
+	options.UseTransaction = true
+
+	m := gormigrate.New(db, &options, migrations)
+	return m.Migrate()
+}
+
+// Migrate iterates through available migrations, running and tracking
+// migrations that have not been run.
+func Migrate(db *gorm.DB) error {
+	return MigrateTo(db, "")
+}
+
+// MigrateTo runs all migrations up to and including the specified migration ID
+func MigrateTo(db *gorm.DB, migrationID string) error {
+	options := *gormigrate.DefaultOptions
+	options.UseTransaction = true
 
 	m := gormigrate.New(db, &options, migrations)
 

@@ -89,7 +89,7 @@ type TxManager interface {
 // the local Config for the application, and the database.
 type EthTxManager struct {
 	eth.Client
-	keyStore            *KeyStore
+	keyStore            KeyStoreInterface
 	config              orm.ConfigReader
 	orm                 *orm.ORM
 	registeredAccounts  []accounts.Account
@@ -102,7 +102,7 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore KeyStoreInterface, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
 		Client:        client,
 		config:        config,

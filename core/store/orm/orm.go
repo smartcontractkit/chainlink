@@ -45,6 +45,20 @@ type DialectName string
 const (
 	// DialectPostgres represents the postgres dialect.
 	DialectPostgres DialectName = "postgres"
+	// DialectTransactionWrappedPostgres is useful for tests.
+	// When the connection is opened, it starts a transaction and all
+	// operations performed on the DB will be within that transaction.
+	//
+	// HACK: This must be the string 'cloudsqlpostgres' because of an absolutely
+	// horrible design in gorm. We need gorm to enable postgres-specific
+	// features for the txdb driver, but it can only do that if the dialect is
+	// called "postgres" or "cloudsqlpostgres".
+	//
+	// Since "postgres" is already taken, "cloudsqlpostgres" is our only
+	// remaining option
+	//
+	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
+	DialectTransactionWrappedPostgres DialectName = "cloudsqlpostgres"
 )
 
 // ORM contains the database object used by Chainlink.
@@ -63,13 +77,23 @@ var (
 )
 
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
-	dialect, err := DeduceDialect(uri)
-	if err != nil {
-		return nil, err
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
+	if dialect == "" {
+		return nil, errors.New("dialect is required")
+	}
+	// Locking strategy for transaction wrapped postgres must use original URI
+	lockingStrategy, err := NewLockingStrategy(dialect, uri, advisoryLockID)
+	if dialect == DialectTransactionWrappedPostgres {
+		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
+		// should be encapsulated in it's own transaction, and thus needs its own
+		// unique id.
+		//
+		// We can happily throw away the original uri here because if we are using
+		// txdb it should have already been set at the point where we called
+		// txdb.Register
+		uri = models.NewID().String()
 	}
 
-	lockingStrategy, err := NewLockingStrategy(dialect, uri)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create ORM lock")
 	}
@@ -85,8 +109,18 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 	orm.MustEnsureAdvisoryLock()
 
 	db, err := initializeDatabase(string(dialect), uri)
+
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to init DB")
+	}
+
+	// FIXME: Is it desirable to set this mode in production as well?
+	if dialect == DialectTransactionWrappedPostgres {
+		// Required to prevent phantom reads in overlapping tests
+		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	orm.db = db
@@ -95,9 +129,6 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 }
 
 func (orm *ORM) MustEnsureAdvisoryLock() {
-	if orm.dialectName != DialectPostgres {
-		return
-	}
 	err := orm.lockingStrategy.Lock(orm.advisoryLockTimeout)
 	if err != nil {
 		logger.Errorf("unable to lock ORM: %v", err)
@@ -175,12 +206,6 @@ func (orm *ORM) Unscoped() *ORM {
 		db:              orm.db.Unscoped(),
 		lockingStrategy: orm.lockingStrategy,
 	}
-}
-
-// Where fetches multiple objects with "Find".
-func (orm *ORM) Where(field string, value interface{}, instance interface{}) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.db.Where(fmt.Sprintf("%v = ?", field), value).Find(instance).Error
 }
 
 // FindBridge looks up a Bridge by its Name.
@@ -1123,11 +1148,14 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	})
 }
 
-// Keys returns all keys stored in the orm.
 func (orm *ORM) Keys() ([]*models.Key, error) {
 	orm.MustEnsureAdvisoryLock()
 	var keys []*models.Key
 	return keys, orm.db.Find(&keys).Order("created_at ASC").Error
+}
+
+func (orm *ORM) DeleteKey(address string) error {
+	return orm.db.Exec("DELETE FROM keys WHERE address = ?", address).Error
 }
 
 // FirstOrCreateKey returns the first key found or creates a new one in the orm.

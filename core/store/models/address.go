@@ -73,12 +73,14 @@ func (a EIP55Address) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (a *EIP55Address) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
+	switch v := value.(type) {
+	case string:
+		*a = EIP55Address(v)
+	case []byte:
+		*a = EIP55Address(string(v))
+	default:
 		return fmt.Errorf("Unable to convert %v of %T to EIP55Address", value, value)
 	}
-
-	*a = EIP55Address(temp)
 	return nil
 }
 
