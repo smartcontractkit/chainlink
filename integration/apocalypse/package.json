@@ -1,0 +1,16 @@
+{
+  "name": "apocalypse",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@chainlink/test-helpers": "0.0.2",
+    "ethereumjs-wallet": "^0.6.3",
+    "lodash": "^4.17.15"
+  }
+}
