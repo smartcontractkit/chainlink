@@ -9,7 +9,7 @@ jobs:
   core:
     name: Core Tests
     runs-on: self-hosted
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     services:
       postgres:
         image: postgres
@@ -55,7 +55,7 @@ jobs:
     name: Rust
     runs-on: ubuntu-latest
     container:
-      image: smartcontract/builder:1.0.33
+      image: smartcontract/builder:1.0.34
       env:
         CARGO_HOME: /root/.cargo
         RUSTUP_HOME: /root/.rustup
@@ -134,7 +134,7 @@ jobs:
   solidity:
     name: Solidity
     runs-on: self-hosted
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -160,7 +160,7 @@ jobs:
   styleguide:
     name: Styleguide
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -179,7 +179,7 @@ jobs:
   json-api-client:
     name: JSON API client
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -198,7 +198,7 @@ jobs:
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -222,7 +222,7 @@ jobs:
   explorer:
     name: Explorer
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     services:
       postgres:
         image: postgres
@@ -269,7 +269,7 @@ jobs:
   feeds:
     name: Feeds
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -292,7 +292,7 @@ jobs:
   reportcoverage:
     name: Report test coverage
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     needs: [core, solidity, operator-ui, rust, explorer]
     steps:
       - name: Checkout the repo
@@ -319,7 +319,7 @@ jobs:
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -338,7 +338,7 @@ jobs:
   prepublish_npm:
     name: Prepublish NPM
     runs-on: self-hosted
-    container: smartcontract/builder:1.0.33
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
