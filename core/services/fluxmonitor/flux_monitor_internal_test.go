@@ -1,9 +1,10 @@
 package fluxmonitor
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func (fm *concreteFluxMonitor) MockLogBroadcaster() *mockLogBroadcaster {
