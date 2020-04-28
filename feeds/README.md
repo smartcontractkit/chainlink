@@ -33,7 +33,22 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 
 Launches the expressjs server that serve the `/build` folder
 
-## Deploy to Heroku
+## Staging Deploy
+
+This repo is configured to automatically create a draft staging environment 
+on Netlify when a PR is opened. You can access the URL by viewing the PR checks
+
+![](./docs/pr-checks-deploy-url.png)
+
+## Production Deploy
+
+This repo is configured to automatically deploy to production when there is a 
+new push to the `feeds-master` branch.
+
+https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlify/#step-2-link-to-your-github
+
+
+## Deploy to Heroku [DEPRECATED]
 
 [Official heroku docker documentation](https://devcenter.heroku.com/articles/container-registry-and-runtime)
 
