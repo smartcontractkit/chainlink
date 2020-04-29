@@ -33,8 +33,6 @@ jobs:
             yarn-${{ env.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
-      - name: Restore solc cache
-        run: ./tools/bin/restore-solc-cache
       - name: Cache Go vendor packages
         uses: actions/cache@v1
         with:
@@ -147,8 +145,6 @@ jobs:
             yarn-${{ env.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
-      - name: Restore solc cache
-        run: ./tools/bin/restore-solc-cache
       - name: Run tests
         run: ./tools/ci/solidity_test
       - name: Store logs artifacts
@@ -351,8 +347,6 @@ jobs:
             yarn-${{ env.CACHE_VERSION }}
       - name: Install Yarn dependencies
         run: make yarndep
-      - name: Restore solc cache
-        run: ./tools/bin/restore-solc-cache
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
 
