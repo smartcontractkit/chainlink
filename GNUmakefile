@@ -50,6 +50,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: yarndep
 yarndep: ## Ensure all yarn dependencies are installed
 	yarn install --frozen-lockfile
+	./tools/bin/restore-solc-cache
 	yarn setup:chainlink
 
 .PHONY: gen-builder-cache
