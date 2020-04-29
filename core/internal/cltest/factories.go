@@ -148,12 +148,17 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
-			Address:       NewAddress(),
-			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:         models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
-			IdleThreshold: models.MustMakeDuration(time.Minute),
-			Threshold:     0.5,
-			Precision:     2,
+			Address:     NewAddress(),
+			RequestData: models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
+			Threshold:   0.5,
+			IdleTimer: models.IdleTimerConfig{
+				Duration: models.MustMakeDuration(time.Minute),
+			},
+			PollTimer: models.PollTimerConfig{
+				Frequency: models.MustMakeDuration(time.Minute),
+			},
+			Precision: 2,
 		},
 	}}
 	return j
@@ -683,12 +688,16 @@ func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) mo
 
 func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.PollingDeviationChecker {
 	fluxAggregator := new(mocks.FluxAggregator)
-	initr := models.Initiator{}
 	runManager := new(mocks.RunManager)
-	pollDelay, err := models.MakeDuration(time.Second)
-	require.NoError(t, err)
 	fetcher := new(mocks.Fetcher)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, pollDelay, func() {})
+	initr := models.Initiator{
+		InitiatorParams: models.InitiatorParams{
+			PollTimer: models.PollTimerConfig{
+				Frequency: models.MustMakeDuration(time.Second),
+			},
+		},
+	}
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, func() {})
 	require.NoError(t, err)
 	return checker
 }

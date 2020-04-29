@@ -11,9 +11,16 @@ export default {
           },
         },
         feeds: [''], // set before use
-        threshold: 5,
-        pollingInterval: '5s',
         precision: 2,
+        threshold: 5,
+        idleTimer: {
+          disabled: true,
+        },
+        pollTimer: {
+          frequency: '5s'
+        }
+
+
       },
     },
   ],
