@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -218,43 +217,22 @@ type InitiatorParams struct {
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty"`
 
-	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
-	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
-	Feeds           Feeds    `json:"feeds,omitempty" gorm:"type:text"`
-	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
-	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
-	PollingInterval Duration `json:"pollingInterval,omitempty"`
+	RequestData JSON            `json:"requestData,omitempty" gorm:"type:text"`
+	Feeds       Feeds           `json:"feeds,omitempty" gorm:"type:text"`
+	Precision   int32           `json:"precision,omitempty" gorm:"type:smallint"`
+	Threshold   float32         `json:"threshold,omitempty"`
+	PollTimer   PollTimerConfig `json:"pollTimer,omitempty" gorm:"type:jsonb"`
+	IdleTimer   IdleTimerConfig `json:"idleTimer,omitempty" gorm:"type:jsonb"`
 }
 
-// defaults represents a default value for an initiator parameter. Value should
-// be the default value, and isZero should be a predicate which returns true if
-// the value of an initiator passed to SetDefaultValues should be overwritten
-// with the default value. See FluxMonitorDefaultInitiatorParams.
-type defaults struct {
-	Value  interface{}
-	isZero func(interface{}) bool
+type PollTimerConfig struct {
+	Disabled  bool     `json:"disabled,omitempty"`
+	Frequency Duration `json:"frequency,omitempty"`
 }
 
-// FluxMonitorDefaultInitiatorParams are the default parameters for Flux
-// Monitor Job Specs.
-var FluxMonitorDefaultInitiatorParams = map[string]defaults{
-	"PollingInterval": {Value: MustMakeDuration(time.Minute),
-		isZero: func(v interface{}) bool { return v.(Duration).IsInstant() },
-	},
-}
-
-// SetDefaultValues returns a InitiatorParams with empty fields set to their
-// default value.
-func (i *InitiatorParams) SetDefaultValues(typ string) {
-	if typ == InitiatorFluxMonitor {
-		r := reflect.ValueOf(i)
-		for name, default_ := range FluxMonitorDefaultInitiatorParams {
-			field := reflect.Indirect(r).FieldByName(name)
-			if default_.isZero(field.Interface()) {
-				field.Set(reflect.ValueOf(default_.Value))
-			}
-		}
-	}
+type IdleTimerConfig struct {
+	Disabled bool     `json:"disabled,omitempty"`
+	Duration Duration `json:"duration,omitempty"`
 }
 
 // Topics handle the serialization of ethereum log topics to and from the data store.
@@ -299,7 +277,6 @@ func NewInitiatorFromRequest(
 		Type:            strings.ToLower(initr.Type),
 		InitiatorParams: initr.InitiatorParams,
 	}
-	ret.InitiatorParams.SetDefaultValues(ret.Type)
 	return ret
 }
 
