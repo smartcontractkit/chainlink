@@ -7,14 +7,15 @@ import { FeedConfig } from 'config'
 import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps } from 'react-redux'
 import { fluxAggregatorOperations } from 'state/ducks/aggregator'
-import { DispatchBinding } from '@chainlink/ts-helpers'
+/* import { DispatchBinding } from '@chainlink/ts-helpers' */
 
 interface OwnProps {
   config: FeedConfig
 }
 
 interface DispatchProps {
-  initContract: DispatchBinding<typeof fluxAggregatorOperations.initContract>
+  /* initContract: DispatchBinding<typeof fluxAggregatorOperations.initContract> */
+  initContract: any
 }
 
 interface Props extends OwnProps, DispatchProps {}
