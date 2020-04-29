@@ -65,6 +65,11 @@ export function getConfig(): ExplorerConfig {
     cookieExpirationMs: 86_400_000, // 1 day in ms
   }
 
+  if (appEnv === Environment.DEV && !conf.cookieSecret) {
+    conf.cookieSecret =
+      'secret-sauce-secret-sauce-secret-sauce-secret-sauce-secret-sauce'
+  }
+
   validateCookieSecret(conf.cookieSecret)
 
   for (const [k, v] of Object.entries(conf)) {
