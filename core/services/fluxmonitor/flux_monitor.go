@@ -963,7 +963,6 @@ func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) 
 // If system time is not accurate (compared to the cluster) then you should
 // expect poor behaviour here.
 func MakeIdleTimer(log contracts.LogNewRound, idleThreshold models.Duration, clock utils.AfterNower) <-chan time.Time {
-	fmt.Println("log.StartedAt", log.StartedAt)
 	timeNow := clock.Now()
 	if log.StartedAt == nil {
 		return defaultIdleTimer(idleThreshold, clock)
