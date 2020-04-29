@@ -111,7 +111,7 @@ func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []eth.Log
 		return nil, errors.Wrapf(err, "while querying for logs with %s", q)
 	}
 	for _, rawLog := range rawLogs {
-		logs = append(logs, eth.ChainlinkEthLogFromGethLog(rawLog))
+		logs = append(logs, ChainlinkEthLogFromGethLog(rawLog))
 	}
 	return logs, nil
 }
@@ -123,7 +123,7 @@ func (c *SimulatedBackendClient) SubscribeToLogs(ctx context.Context, channel ch
 	ch := make(chan types.Log)
 	go func() {
 		for l := range ch {
-			channel <- eth.ChainlinkEthLogFromGethLog(l)
+			channel <- ChainlinkEthLogFromGethLog(l)
 		}
 	}()
 	return c.b.SubscribeFilterLogs(ctx, q, ch)
@@ -226,7 +226,7 @@ func (c *SimulatedBackendClient) GetTxReceipt(
 	}
 	logs := []eth.Log{}
 	for _, log := range rawReceipt.Logs {
-		logs = append(logs, eth.ChainlinkEthLogFromGethLog(*log))
+		logs = append(logs, ChainlinkEthLogFromGethLog(*log))
 	}
 	return &eth.TxReceipt{BlockNumber: (*utils.Big)(rawReceipt.BlockNumber),
 		BlockHash: &rawReceipt.BlockHash, Hash: receipt, Logs: logs}, nil
