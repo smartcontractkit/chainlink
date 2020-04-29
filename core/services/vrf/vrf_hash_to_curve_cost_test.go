@@ -1,4 +1,4 @@
-package vrf
+package vrf_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -32,13 +33,13 @@ type contract struct {
 // deployVRFContract returns a deployed VRF contract, with some extra attributes
 // which are useful for gas measurements.
 func deployVRFContract(t *testing.T) (contract, common.Address) {
-	x, y := secp256k1.Coordinates(Generator)
+	x, y := secp256k1.Coordinates(vrf.Generator)
 	key := ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{Curve: crypto.S256(), X: x, Y: y},
 		D:         big.NewInt(1),
 	}
 	auth := bind.NewKeyedTransactor(&key)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: bi(1000000000)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	parsed, err := abi.JSON(strings.NewReader(
@@ -71,10 +72,10 @@ func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
 func measureHashToCurveGasCost(t *testing.T, contract contract,
 	owner common.Address, input int64) (gasCost, numOrdinates uint64) {
 	estimate := estimateGas(t, contract.backend, owner, contract.address,
-		contract.abi, "hashToCurve_", pair(secp256k1.Coordinates(Generator)),
+		contract.abi, "hashToCurve_", pair(secp256k1.Coordinates(vrf.Generator)),
 		big.NewInt(input))
 
-	_, err := HashToCurve(Generator, big.NewInt(input),
+	_, err := vrf.HashToCurve(vrf.Generator, big.NewInt(input),
 		func(*big.Int) { numOrdinates += 1 })
 	require.NoError(t, err, "corresponding golang HashToCurve calculation failed")
 	return estimate, numOrdinates

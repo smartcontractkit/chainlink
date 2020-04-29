@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
@@ -1264,4 +1265,20 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 		irv = append(irv, log.Interface())
 	}
 	return irv
+}
+
+// ChainlinkEthLogFromGethLog returns a copy of l as an eth.Log. (They have
+// identical fields, but the field tags differ, and the types differ slightly.)
+func ChainlinkEthLogFromGethLog(l types.Log) eth.Log {
+	return eth.Log{
+		Address:     l.Address,
+		Topics:      l.Topics,
+		Data:        eth.UntrustedBytes(l.Data),
+		BlockNumber: l.BlockNumber,
+		TxHash:      l.TxHash,
+		TxIndex:     l.TxIndex,
+		BlockHash:   l.BlockHash,
+		Index:       l.Index,
+		Removed:     l.Removed,
+	}
 }
