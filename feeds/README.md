@@ -35,18 +35,17 @@ Launches the expressjs server that serve the `/build` folder
 
 ## Staging Deploy
 
-This repo is configured to automatically create a draft staging environment 
+This repo is configured to automatically create a draft staging environment
 on Netlify when a PR is opened. You can access the URL by viewing the PR checks
 
 ![](./docs/pr-checks-deploy-url.png)
 
 ## Production Deploy
 
-This repo is configured to automatically deploy to production when there is a 
+This repo is configured to automatically deploy to production when there is a
 new push to the `master-feeds` branch.
 
 https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlify/#step-2-link-to-your-github
-
 
 ## Deploy to Heroku [DEPRECATED]
 
