@@ -33,13 +33,12 @@ type LogBroadcaster interface {
 }
 
 // The LogListener responds to log events through HandleLog, and contains setup/tear-down
-// callbacks in the On* functions. The Consumer function returns an instance of the LogConsumer, which
-// uniquely identifies the listener
+// callbacks in the On* functions.
 type LogListener interface {
 	OnConnect()
 	OnDisconnect()
 	HandleLog(lb LogBroadcast, err error)
-	Consumer() models.LogConsumer
+	JobID() *models.ID
 }
 
 type logBroadcaster struct {
@@ -83,9 +82,9 @@ type LogBroadcast interface {
 }
 
 type logBroadcast struct {
-	orm      *orm.ORM
-	log      eth.RawLog
-	consumer models.LogConsumer
+	orm        *orm.ORM
+	log        eth.RawLog
+	consumerID *models.ID
 }
 
 func (lb *logBroadcast) Log() interface{} {
@@ -97,11 +96,11 @@ func (lb *logBroadcast) UpdateLog(newLog eth.RawLog) {
 }
 
 func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
-	return lb.orm.HasConsumedLog(lb.log, lb.consumer)
+	return lb.orm.HasConsumedLog(lb.log, lb.consumerID)
 }
 
 func (lb *logBroadcast) MarkConsumed() error {
-	lc := models.NewLogConsumption(lb.log, lb.consumer)
+	lc := models.NewLogConsumption(lb.log, lb.consumerID)
 	return lb.orm.CreateLogConsumption(&lc)
 }
 
@@ -342,7 +341,7 @@ func (b *logBroadcaster) onRawLog(rawLog eth.Log) {
 		}
 
 		rawLogCopy := rawLog.Copy()
-		lb := logBroadcast{b.orm, &rawLogCopy, listener.Consumer()}
+		lb := logBroadcast{b.orm, &rawLogCopy, listener.JobID()}
 		listener.HandleLog(&lb, nil)
 	}
 }
