@@ -144,10 +144,11 @@ type answerParams struct {
 	isNewRound, completesAnswer bool
 }
 
-// checkUpdateAnswer verifies all the logs emitted by fa's FluxAggregator
+// checkSubmission verifies all the logs emitted by fa's FluxAggregator
 // contract after an updateAnswer with the given values.
 func checkSubmission(t *testing.T, p answerParams,
 	currentBalance int64, receiptBlock uint64) {
+	t.Helper()
 	if receiptBlock == 0 {
 		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number().Uint64()
 	}
