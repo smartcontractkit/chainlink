@@ -53,7 +53,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 	blockNumber, err := c.blockNumber(args[1])
 	if err != nil || blockNumber.Cmp(c.currentBlockNumber()) != 0 {
 		return nil, nil, fmt.Errorf("fourth arg to SimulatedBackendClient.Call "+
-			"must the string \"latest\", or a *big.Int equal to current "+
+			"must be the string \"latest\", or a *big.Int equal to current "+
 			"blocknumber, got %#+v", args[1])
 	}
 	return &callArgs, blockNumber, nil
