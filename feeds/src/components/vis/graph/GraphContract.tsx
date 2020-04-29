@@ -1,7 +1,6 @@
 import { FeedConfig } from 'config'
 import React from 'react'
 import { connect } from 'react-redux'
-import { FeedConfig } from 'config'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
 import { Position } from './Graph'
 
