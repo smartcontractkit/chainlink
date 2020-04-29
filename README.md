@@ -27,11 +27,12 @@ Examples of how to utilize and integrate Chainlinks can be found in the [Chainli
 
 ## Install
 
-1. [Install Go 1.13+](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.14](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
-3. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
-4. Build and install Chainlink: `make install`
-5. Run the node: `chainlink help`
+3. Install [Postgres 11](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
+4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
+5. Build and install Chainlink: `make install`
+6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
 
