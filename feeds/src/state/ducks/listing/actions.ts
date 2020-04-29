@@ -1,5 +1,4 @@
 import { FeedConfig } from 'config'
-import { HealthPrice, ListingAnswer } from './reducers'
 
 /**
  * listing/FETCH_FEEDS_BEGIN
@@ -71,9 +70,13 @@ export function fetchAnswerSuccess(
 /**
  * listing/FETCH_HEALTH_PRICE_SUCCESS
  */
+export interface HealthPrice {
+  price: number
+}
+
 export interface FetchHealthPriceSuccessAction {
   type: 'listing/FETCH_HEALTH_PRICE_SUCCESS'
-  payload: any
+  payload: HealthPrice
 }
 
 export function fetchHealthPriceSuccess(
