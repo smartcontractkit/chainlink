@@ -1,6 +1,6 @@
-// package vrf_test verifies correct and up-to-date generation of golang wrappers
+// package gethwrappers_test verifies correct and up-to-date generation of golang wrappers
 // for solidity contracts. See go_generate.go for the actual generation.
-package gethwrappers
+package gethwrappers_test
 
 import (
 	"bufio"
@@ -91,8 +91,8 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 		binPath = "bytecode"
 	}
 	// Normalize the whitespace in the ABI JSON
-	abiBytes := stripWhitespaceOutsideQuotes(
-		gjson.GetBytes(compilerJSON, abiPath).String())
+	abiBytes, err := utils.NormalizedJSON(
+		[]byte(gjson.GetBytes(compilerJSON, abiPath).String()))
 	binBytes := gjson.GetBytes(compilerJSON, binPath).String()
 	if !isLINKCompilerOutput {
 		// Remove the varying contract metadata, as in ./generation/generate.sh
@@ -205,34 +205,7 @@ func init() {
 	}
 }
 
-var (
-	stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
-	whitespace         = regexp.MustCompile(`\s`).Match
-	quote              = []byte(`"`)[0]
-)
-
-// stripWhitespaceOutsideQuotes removes all whitespace outside " " quotes. Used
-// to normalize JSON for comparison in a hash. Fortunately, no quoted quotes
-// occur in the input
-func stripWhitespaceOutsideQuotes(s string) string {
-	inQuotes := false
-	var rv []byte
-	for _, c := range []byte(s) {
-		if c == quote {
-			inQuotes = !inQuotes
-		}
-		if !whitespace([]byte{c}) || inQuotes {
-			rv = append(rv, c)
-		}
-	}
-	return string(rv)
-}
-
-func ExamplestripWhitespaceOutsideQuotes() {
-	fmt.Print(stripWhitespaceOutsideQuotes(
-		`The rain in spain stays mainly on "the plain"`))
-	// Output:Theraininspainstaysmainlyon"the plain"
-}
+var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 
 // compileCommand() is a shell command which compiles chainlink's solidity
 // contracts.
