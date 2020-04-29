@@ -19,24 +19,23 @@ const normalizeSearchToken = (id: string): string => {
   return id
 }
 
+const buildSearchTokens = (searchQuery: string): string[] => {
+  let searchTokens = searchQuery.split(/\s+/)
+  searchTokens = searchTokens.concat(searchTokens.map(normalizeSearchToken))
+  return searchTokens
+}
+
 const searchBuilder = (searchQuery?: string): SelectQueryBuilder<JobRun> => {
   let query = getRepository(JobRun).createQueryBuilder('job_run')
 
   if (searchQuery != null) {
-    const searchTokens = searchQuery.split(/\s+/)
-    const normalizedSearchTokens = searchTokens.map(normalizeSearchToken)
-    query = query
-      .where('job_run.runId IN(:...searchTokens)', { searchTokens })
-      .orWhere('job_run.jobId IN(:...searchTokens)', { searchTokens })
-      .orWhere('job_run.requester IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens,
-      })
-      .orWhere('job_run.requestId IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens,
-      })
-      .orWhere('job_run.txHash IN(:...normalizedSearchTokens)', {
-        normalizedSearchTokens,
-      })
+    const searchTokens = buildSearchTokens(searchQuery)
+    query = query.addSelect('COUNT(*) OVER() AS "totalRecords"').where(
+      `
+        ARRAY["job_run"."runId", "job_run"."jobId", "job_run"."requestId", "job_run"."requester", "job_run"."txHash"] && ARRAY[:...searchTokens]::citext[]
+      `,
+      { searchTokens },
+    )
   } else {
     query = query.where('true = false')
   }
@@ -61,19 +60,25 @@ const pagedSearchBuilder = (
   return query
 }
 
-export const search = async (params: SearchParams): Promise<JobRun[]> => {
-  return pagedSearchBuilder(params)
-    .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
-    .orderBy('job_run.createdAt', 'DESC')
-    .getMany()
+export class JobRunSearch {
+  public results: JobRun[]
+  public totalRecords: number
+  private query: SelectQueryBuilder<JobRun>
+
+  constructor(params: SearchParams) {
+    this.query = pagedSearchBuilder(params)
+      .leftJoinAndSelect('job_run.chainlinkNode', 'chainlink_node')
+      .orderBy('job_run.createdAt', 'DESC')
+  }
+
+  async execute(): Promise<JobRunSearch> {
+    const query = await this.query.getRawAndEntities()
+    this.results = query.entities
+    this.totalRecords = parseInt(query.raw[0]?.totalRecords, 10) || 0
+    return this
+  }
 }
 
-export const count = async (
-  params: Pick<SearchParams, 'searchQuery'>,
-): Promise<number> => {
-  const result = await searchBuilder(params.searchQuery)
-    .select('COUNT(*)', 'count')
-    .getRawOne()
-
-  return parseInt(result['count'], 10)
+export const search = async (params: SearchParams): Promise<JobRunSearch> => {
+  return new JobRunSearch(params).execute()
 }

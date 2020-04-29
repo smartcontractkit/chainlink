@@ -2,9 +2,9 @@ import { getRepository } from 'typeorm'
 import fixture from '../fixtures/JobRun.fixture.json'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun, fromString } from '../../entity/JobRun'
-import { search, count } from '../../queries/search'
+import { search, JobRunSearch } from '../../queries/search'
 
-describe('search and count', () => {
+describe('search', () => {
   beforeEach(async () => {
     const [chainlinkNode] = await createChainlinkNode(
       'job-run-search-chainlink-node',
@@ -55,90 +55,105 @@ describe('search and count', () => {
   })
 
   it('returns no results when no query is supplied', async () => {
-    let results
-    results = await search({ searchQuery: undefined })
-    expect(results).toHaveLength(0)
-    results = await search({ searchQuery: null })
-    expect(results).toHaveLength(0)
+    let result: JobRunSearch
+    result = await search({ searchQuery: undefined })
+    expect(result.results).toHaveLength(0)
+    expect(result.totalRecords).toEqual(0)
+
+    result = await search({ searchQuery: null })
+    expect(result.results).toHaveLength(0)
+    expect(result.totalRecords).toEqual(0)
   })
 
   it('returns results in descending order by createdAt', async () => {
-    const results = await search({ searchQuery: 'jobB' })
-    expect(results.length).toEqual(2)
-    expect(results[0].runId).toEqual('runC')
-    expect(results[1].runId).toEqual('runB')
+    const result = await search({ searchQuery: 'jobB' })
+    expect(result.results.length).toEqual(2)
+    expect(result.results[0].runId).toEqual('runC')
+    expect(result.results[1].runId).toEqual('runB')
   })
 
   it('can set a limit', async () => {
-    const results = await search({ searchQuery: 'jobB', limit: 1 })
+    const { results, totalRecords } = await search({
+      searchQuery: 'jobB',
+      limit: 1,
+    })
     expect(results).toHaveLength(1)
     expect(results[0].runId).toEqual('runC')
+    expect(totalRecords).toEqual(2)
   })
 
   it('can set a page with a 1 based index', async () => {
-    let results
+    let result: JobRunSearch
 
-    results = await search({
+    result = await search({
       limit: 1,
       page: 1,
       searchQuery: 'jobB',
     })
-    expect(results[0].runId).toEqual('runC')
+    expect(result.results[0].runId).toEqual('runC')
 
-    results = await search({
+    result = await search({
       limit: 1,
       page: 2,
       searchQuery: 'jobB',
     })
-    expect(results[0].runId).toEqual('runB')
+    expect(result.results[0].runId).toEqual('runB')
   })
 
   it('returns no results for blank search', async () => {
-    const results = await search({ searchQuery: '' })
+    const { results, totalRecords } = await search({ searchQuery: '' })
     expect(results).toHaveLength(0)
+    expect(totalRecords).toEqual(0)
   })
 
   it('returns one result for an exact match on jobId', async () => {
-    const results = await search({
+    const { results, totalRecords } = await search({
       searchQuery: 'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa',
     })
     expect(results).toHaveLength(1)
+    expect(totalRecords).toEqual(1)
   })
 
   it('returns one result for an exact match on jobId and runId', async () => {
-    const results = await search({
+    const { results, totalRecords } = await search({
       searchQuery: `${'f1xtureAaaaaaaaaaaaaaaaaaaaaaaaa'} aeb2861d306645b1ba012079aeb2e53a`,
     })
     expect(results).toHaveLength(1)
+    expect(totalRecords).toEqual(1)
   })
 
   it('returns two results when two matching runIds are supplied', async () => {
-    const results = await search({ searchQuery: 'runB runC' })
+    const { results, totalRecords } = await search({ searchQuery: 'runB runC' })
     expect(results).toHaveLength(2)
+    expect(totalRecords).toEqual(2)
   })
 
   it('returns one result for an exact match on requester', async () => {
     const requester = 'fixtureBRequester'
-    const results = await search({ searchQuery: requester })
+    const { results, totalRecords } = await search({ searchQuery: requester })
     expect(results).toHaveLength(1)
+    expect(totalRecords).toEqual(1)
   })
 
   it('returns one result for a case insensitive match on requester', async () => {
     const requester = 'FIXTUREBREQUESTER'
-    const results = await search({ searchQuery: requester })
+    const { results, totalRecords } = await search({ searchQuery: requester })
     expect(results).toHaveLength(1)
+    expect(totalRecords).toEqual(1)
   })
 
   it('returns one result for an exact match on requestId', async () => {
     const requestId = 'fixtureBRequestID'
-    const results = await search({ searchQuery: requestId })
+    const { results, totalRecords } = await search({ searchQuery: requestId })
     expect(results).toHaveLength(1)
+    expect(totalRecords).toEqual(1)
   })
 
   it('returns one result for an exact match on txHash', async () => {
     const txHash = 'fixtureBTxHash'
-    const results = await search({ searchQuery: txHash })
+    const { results, totalRecords } = await search({ searchQuery: txHash })
     expect(results).toHaveLength(1)
+    expect(totalRecords).toEqual(1)
   })
 
   it('finds matches for search tokens with or without 0x prefixes', async () => {
@@ -150,9 +165,9 @@ describe('search and count', () => {
     const resultsTxHash = await search({ searchQuery: txHash })
     const resultsRequester = await search({ searchQuery: requester })
     const resultsRequestId = await search({ searchQuery: requestId })
-    expect(resultsTxHash).toHaveLength(1)
-    expect(resultsRequester).toHaveLength(1)
-    expect(resultsRequestId).toHaveLength(1)
+    expect(resultsTxHash.results).toHaveLength(1)
+    expect(resultsRequester.results).toHaveLength(1)
+    expect(resultsRequestId.results).toHaveLength(1)
     const resultsPrefixedTxHash = await search({
       searchQuery: '0x' + txHash,
     })
@@ -162,13 +177,13 @@ describe('search and count', () => {
     const resultsPrefixedRequestId = await search({
       searchQuery: '0x' + requestId,
     })
-    expect(resultsPrefixedTxHash).toHaveLength(1)
-    expect(resultsPrefixedRequester).toHaveLength(1)
-    expect(resultsPrefixedRequestId).toHaveLength(1)
+    expect(resultsPrefixedTxHash.results).toHaveLength(1)
+    expect(resultsPrefixedRequester.results).toHaveLength(1)
+    expect(resultsPrefixedRequestId.results).toHaveLength(1)
   })
 
   it('returns the number of results matching the search query', async () => {
-    const countResult = await count({ searchQuery: 'runB runC' })
-    expect(countResult).toEqual(2)
+    const { totalRecords } = await search({ searchQuery: 'runB runC' })
+    expect(totalRecords).toEqual(2)
   })
 })
