@@ -43,7 +43,7 @@ on Netlify when a PR is opened. You can access the URL by viewing the PR checks
 ## Production Deploy
 
 This repo is configured to automatically deploy to production when there is a 
-new push to the `feeds-master` branch.
+new push to the `master-feeds` branch.
 
 https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlify/#step-2-link-to-your-github
 
