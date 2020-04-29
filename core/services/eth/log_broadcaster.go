@@ -34,7 +34,6 @@ type LogBroadcaster interface {
 
 // The LogListener responds to log events through HandleLog, and contains setup/tear-down
 // callbacks in the On* functions.
-// that consumes this log type
 type LogListener interface {
 	OnConnect()
 	OnDisconnect()

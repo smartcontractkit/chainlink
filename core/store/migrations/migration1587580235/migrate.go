@@ -11,12 +11,12 @@ func Migrate(tx *gorm.DB) error {
 	CREATE TABLE "log_consumptions" (
 		"id" bigserial primary key NOT NULL,
 		"block_hash" bytea NOT NULL,
-		"log_index" integer NOT NULL,
+		"log_index" bigint NOT NULL,
 		"job_id" uuid REFERENCES job_specs(id) ON DELETE CASCADE NOT NULL,
 		"created_at" timestamp without time zone NOT NULL
 	);
 
-	CREATE UNIQUE INDEX log_consumptions_block_hash_log_index_consumer_id_idx ON log_consumptions ("job_id", "block_hash", "log_index");
+	CREATE UNIQUE INDEX log_consumptions_unique_idx ON log_consumptions ("job_id", "block_hash", "log_index");
 	CREATE INDEX log_consumptions_created_at_idx ON log_consumptions USING brin (created_at);
 	`).Error
 }
