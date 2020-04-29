@@ -104,21 +104,6 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	return NewConfigWithWSServer(t, wsserver), cleanup
 }
 
-var testConfigConstants map[string]interface{} = map[string]interface{}{
-	"BRIDGE_RESPONSE_URL":        "http://localhost:6688",
-	"ETH_CHAIN_ID":               3,
-	"CHAINLINK_DEV":              true,
-	"ETH_GAS_BUMP_THRESHOLD":     3,
-	"LOG_LEVEL":                  orm.LogLevel{Level: zapcore.DebugLevel},
-	"LOG_SQL":                    false,
-	"LOG_SQL_MIGRATIONS":         false,
-	"MINIMUM_SERVICE_DURATION":   "24h",
-	"MIN_INCOMING_CONFIRMATIONS": 1,
-	"MIN_OUTGOING_CONFIRMATIONS": 6,
-	"MINIMUM_CONTRACT_PAYMENT":   minimumContractPayment.Text(10),
-	"SESSION_TIMEOUT":            "2m",
-}
-
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB) *TestConfig {
 	t.Helper()
@@ -126,10 +111,19 @@ func NewTestConfig(t testing.TB) *TestConfig {
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := orm.NewConfig()
-	for k, v := range testConfigConstants {
-		rawConfig.Set(k, v)
-	}
+	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
+	rawConfig.Set("ETH_CHAIN_ID", 3)
+	rawConfig.Set("CHAINLINK_DEV", true)
+	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
+	rawConfig.Set("LOG_LEVEL", orm.LogLevel{Level: zapcore.DebugLevel})
+	rawConfig.Set("LOG_SQL", false)
+	rawConfig.Set("LOG_SQL_MIGRATIONS", false)
+	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
+	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
+	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
+	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
 	rawConfig.Set("ROOT", rootdir)
+	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
