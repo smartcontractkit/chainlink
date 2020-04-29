@@ -37,6 +37,7 @@ const Page = () => {
             Oracle Network listed below. You can easily use these oracle
             networks to quickly and securely launch, add more capabilities to
             and/or just greatly improve the security of your smart contracts.
+            Testing.
           </p>
         </section>
         <section>
