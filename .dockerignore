@@ -2,6 +2,8 @@
 .DS_Store
 .envrc
 *.log
+*.test.ts
+*.test.js
 
 node_modules/
 **/node_modules/
