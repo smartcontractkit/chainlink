@@ -3,6 +3,7 @@ package models
 import (
 	"crypto/subtle"
 	"fmt"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -70,6 +71,8 @@ type BridgeType struct {
 	Salt                   string       `json:"-"`
 	OutgoingToken          string       `json:"outgoingToken"`
 	MinimumContractPayment *assets.Link `json:"minimumContractPayment" gorm:"type:varchar(255)"`
+	CreatedAt              time.Time    `json:"-"`
+	UpdatedAt              time.Time    `json:"-"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

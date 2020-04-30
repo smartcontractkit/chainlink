@@ -249,6 +249,7 @@ type TaskRun struct {
 	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 	Confirmations        clnull.Uint32 `json:"confirmations"`
 	CreatedAt            time.Time     `json:"-"`
+	UpdatedAt            time.Time     `json:"-"`
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
@@ -287,4 +288,6 @@ type RunResult struct {
 	ID           uint32      `json:"-" gorm:"primary_key;auto_increment"`
 	Data         JSON        `json:"data" gorm:"type:text"`
 	ErrorMessage null.String `json:"error"`
+	CreatedAt    time.Time   `json:"-"`
+	UpdatedAt    time.Time   `json:"-"`
 }

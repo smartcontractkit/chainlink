@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"io/ioutil"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tidwall/gjson"
@@ -16,8 +17,10 @@ import (
 //
 // By default, a key is assumed to represent an ethereum account.
 type Key struct {
-	Address EIP55Address `gorm:"primary_key;type:varchar(64)"`
-	JSON    JSON         `gorm:"type:text"`
+	Address   EIP55Address `gorm:"primary_key;type:varchar(64)"`
+	JSON      JSON         `gorm:"type:text"`
+	CreatedAt time.Time    `json:"-"`
+	UpdatedAt time.Time    `json:"-"`
 }
 
 type EncryptedSecretVRFKey = vrfkey.EncryptedSecretKey

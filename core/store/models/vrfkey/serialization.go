@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
@@ -18,6 +19,8 @@ import (
 type EncryptedSecretKey struct {
 	PublicKey PublicKey     `gorm:"primary_key;type:varchar(68)"`
 	VRFKey    gethKeyStruct `json:"vrf_key" gorm:"type:text"`
+	CreatedAt time.Time     `json:"-"`
+	UpdatedAt time.Time     `json:"-"`
 }
 
 // passwordPrefix is added to the beginning of the passwords for
