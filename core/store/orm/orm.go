@@ -59,6 +59,9 @@ const (
 	//
 	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
 	DialectTransactionWrappedPostgres DialectName = "cloudsqlpostgres"
+	// DialectPostgresWithoutLock represents the postgres dialect but it does not
+	// wait for a lock to connect. Intended to be used for read only access.
+	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
 )
 
 // ORM contains the database object used by Chainlink.
