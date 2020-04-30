@@ -17,7 +17,9 @@ import (
 func NewLockingStrategy(dialect DialectName, dbpath string, advisoryLockID int64) (LockingStrategy, error) {
 	switch dialect {
 	case DialectPostgres, DialectTransactionWrappedPostgres:
-		return NewPostgresLockingStrategy(dbpath, advisoryLockID)
+		return NewPostgresLockingStrategy(true, dbpath, advisoryLockID)
+	case DialectPostgresWithoutLock:
+		return NewPostgresLockingStrategy(false, dbpath, advisoryLockID)
 	}
 
 	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", dialect, dbpath)
@@ -45,14 +47,16 @@ type PostgresLockingStrategy struct {
 	path           string
 	m              *sync.Mutex
 	advisoryLockID int64
+	acquireLock    bool
 }
 
 // NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
-func NewPostgresLockingStrategy(path string, advisoryLockID int64) (LockingStrategy, error) {
+func NewPostgresLockingStrategy(acquireLock bool, path string, advisoryLockID int64) (LockingStrategy, error) {
 	return &PostgresLockingStrategy{
 		m:              &sync.Mutex{},
 		path:           path,
 		advisoryLockID: advisoryLockID,
+		acquireLock:    acquireLock,
 	}, nil
 }
 
@@ -85,9 +89,11 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 		s.conn = conn
 	}
 
-	_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", s.advisoryLockID)
-	if err != nil {
-		return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.advisoryLockID)
+	if s.acquireLock {
+		_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", s.advisoryLockID)
+		if err != nil {
+			return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.advisoryLockID)
+		}
 	}
 	return nil
 }

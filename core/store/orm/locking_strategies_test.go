@@ -42,20 +42,47 @@ func setupConfig(t *testing.T) *cltest.TestConfig {
 	return tc
 }
 
-func TestPostgresLockingStrategy_Lock(t *testing.T) {
-	tc := setupConfig(t)
-	c := tc.Config
+func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
+	tc, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	delay := tc.DatabaseTimeout()
+	if tc.DatabaseURL() == "" {
+		t.Skip("No postgres DatabaseURL set.")
+	}
 
-	delay := c.DatabaseTimeout()
-
-	ls, err := orm.NewPostgresLockingStrategy(c.DatabaseURL(), c.GetAdvisoryLockIDConfiguredOrDefault())
+	ls, err := orm.NewPostgresLockingStrategy(true, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
 	require.NoError(t, ls.Lock(delay), "relocking on same instance is reentrant")
 
-	ls2, err := orm.NewPostgresLockingStrategy(c.DatabaseURL(), c.GetAdvisoryLockIDConfiguredOrDefault())
+	ls2, err := orm.NewPostgresLockingStrategy(true, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
 	require.Error(t, ls2.Lock(delay), "should not get 2nd exclusive lock")
+
+	require.NoError(t, ls.Unlock(delay))
+	require.NoError(t, ls.Unlock(delay))
+	require.NoError(t, ls2.Lock(delay), "should get exclusive lock")
+	require.NoError(t, ls2.Unlock(delay))
+}
+
+func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
+	tc, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	delay := tc.DatabaseTimeout()
+	if tc.DatabaseURL() == "" {
+		t.Skip("No postgres DatabaseURL set.")
+	}
+
+	// with lock
+	ls, err := orm.NewPostgresLockingStrategy(true, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
+	require.NoError(t, ls.Lock(delay), "relocking on same instance is reentrant")
+
+	// without lock
+	ls2, err := orm.NewPostgresLockingStrategy(false, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	require.NoError(t, ls2.Lock(delay), "should not wait for lock")
 
 	require.NoError(t, ls.Unlock(delay))
 	require.NoError(t, ls.Unlock(delay))
