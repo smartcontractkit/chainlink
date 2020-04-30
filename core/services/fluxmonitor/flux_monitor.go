@@ -152,8 +152,8 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 		select {
 		case entry := <-fm.chAdd:
 			if _, ok := jobMap[entry.jobID]; ok {
-				logger.Errorf("job '%s' has already been added to flux monitor", entry.jobID)
-				return
+				logger.Errorf("job '%s' has already been added to flux monitor", entry.jobID.String())
+				continue
 			}
 			for _, checker := range entry.checkers {
 				checker.Start()
@@ -163,8 +163,8 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 		case jobID := <-fm.chRemove:
 			checkers, ok := jobMap[jobID]
 			if !ok {
-				logger.Errorf("job '%s' is missing from the flux monitor", jobID)
-				return
+				logger.Debugf("job '%s' is missing from the flux monitor", jobID.String())
+				continue
 			}
 			for _, checker := range checkers {
 				checker.Stop()
