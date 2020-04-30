@@ -92,9 +92,12 @@ describe('reducers/adminOperators', () => {
       expect(state.adminOperators.loading).toEqual(false)
     })
 
-    it('sets error to true', () => {
-      const state = reducer(INITIAL_STATE, action)
+    it('sets error to true & resets it to false when a new fetch starts', () => {
+      let state = reducer(INITIAL_STATE, action)
       expect(state.adminOperators.error).toEqual(true)
+
+      state = reducer(state, fetchAdminOperatorsBeginAction)
+      expect(state.adminOperators.error).toEqual(false)
     })
   })
 })

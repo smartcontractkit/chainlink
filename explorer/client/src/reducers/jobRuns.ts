@@ -22,6 +22,7 @@ export const jobRunsReducer: Reducer<State, Actions> = (
       return {
         ...state,
         loading: true,
+        error: false,
       }
 
     case 'FETCH_JOB_RUNS_SUCCEEDED':
