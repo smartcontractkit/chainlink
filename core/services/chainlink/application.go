@@ -162,15 +162,19 @@ func (app *ChainlinkApplication) Start() error {
 func (app *ChainlinkApplication) Stop() error {
 	var merr error
 	app.shutdownOnce.Do(func() {
-		defer logger.Sync()
+		defer func() {
+			if err := logger.Sync(); err != nil {
+				merr = multierr.Append(merr, err)
+			}
+		}()
 		logger.Info("Gracefully exiting...")
 
 		app.Scheduler.Stop()
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
-		app.JobSubscriber.Stop()
+		logger.ErrorIf(app.JobSubscriber.Stop())
 		app.FluxMonitor.Stop()
 		app.RunQueue.Stop()
-		app.StatsPusher.Close()
+		logger.ErrorIf(app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		merr = multierr.Append(merr, app.Store.Close())
 	})

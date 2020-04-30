@@ -48,9 +48,9 @@ func TestClient_IndexJobSpecs(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	j1 := cltest.NewJob()
-	app.Store.CreateJob(&j1)
+	assert.NoError(t, app.Store.CreateJob(&j1))
 	j2 := cltest.NewJob()
-	app.Store.CreateJob(&j2)
+	assert.NoError(t, app.Store.CreateJob(&j2))
 
 	client, r := app.NewClientAndRenderer()
 
@@ -75,7 +75,7 @@ func TestClient_ShowJobRun_Exists(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{jr.ID.String()})
+	assert.NoError(t, set.Parse([]string{jr.ID.String()}))
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowJobRun(c))
 	assert.Equal(t, 1, len(r.Renders))
@@ -92,7 +92,7 @@ func TestClient_ShowJobRun_NotFound(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{"bogus-ID"})
+	assert.NoError(t, set.Parse([]string{"bogus-ID"}))
 	c := cli.NewContext(nil, set, nil)
 	assert.Error(t, client.ShowJobRun(c))
 	assert.Empty(t, r.Renders)
@@ -134,12 +134,12 @@ func TestClient_ShowJobSpec_Exists(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	job := cltest.NewJob()
-	app.Store.CreateJob(&job)
+	assert.NoError(t, app.Store.CreateJob(&job))
 
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{job.ID.String()})
+	assert.NoError(t, set.Parse([]string{job.ID.String()}))
 	c := cli.NewContext(nil, set, nil)
 	require.Nil(t, client.ShowJobSpec(c))
 	require.Equal(t, 1, len(r.Renders))
@@ -156,7 +156,7 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{"bogus-ID"})
+	assert.NoError(t, set.Parse([]string{"bogus-ID"}))
 	c := cli.NewContext(nil, set, nil)
 	assert.Error(t, client.ShowJobSpec(c))
 	assert.Empty(t, r.Renders)
@@ -178,8 +178,9 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 	sa = strings.Replace(sa, "2019-10-19T22:17:19Z", endAtISO8601, 1)
 	tmpFile, err := ioutil.TempFile("", "sa.*.json")
 	require.NoError(t, err, "while opening temp file for modified service agreement")
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(sa)
+	defer assert.NoError(t, os.Remove(tmpFile.Name()))
+	_, err = tmpFile.WriteString(sa)
+	assert.NoError(t, err)
 
 	tests := []struct {
 		name        string
@@ -305,7 +306,7 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{exi.Name})
+	assert.NoError(t, set.Parse([]string{exi.Name}))
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.DeleteExternalInitiator(c))
 	assert.Empty(t, r.Renders)
@@ -321,7 +322,7 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{"bogus-ID"})
+	assert.NoError(t, set.Parse([]string{"bogus-ID"}))
 	c := cli.NewContext(nil, set, nil)
 	assert.Error(t, client.DeleteExternalInitiator(c))
 	assert.Empty(t, r.Renders)
@@ -350,7 +351,7 @@ func TestClient_CreateJobSpec(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("create", 0)
-			set.Parse([]string{test.input})
+			assert.NoError(t, set.Parse([]string{test.input}))
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.CreateJobSpec(c)
@@ -375,7 +376,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("archive", 0)
-	set.Parse([]string{job.ID.String()})
+	assert.NoError(t, set.Parse([]string{job.ID.String()}))
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.ArchiveJobSpec(c))
@@ -394,7 +395,7 @@ func TestClient_CreateJobSpec_JSONAPIErrors(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("create", 0)
-	set.Parse([]string{`{"initiators":[{"type":"runAt"}],"tasks":[{"type":"NoOp"}]}`})
+	assert.NoError(t, set.Parse([]string{`{"initiators":[{"type":"runAt"}],"tasks":[{"type":"NoOp"}]}`}))
 	c := cli.NewContext(nil, set, nil)
 
 	err := client.CreateJobSpec(c)
@@ -440,7 +441,7 @@ func TestClient_CreateJobRun(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("run", 0)
-			set.Parse(args)
+			assert.NoError(t, set.Parse(args))
 			c := cli.NewContext(nil, set, nil)
 			if test.errored {
 				assert.Error(t, client.CreateJobRun(c))
@@ -478,7 +479,7 @@ func TestClient_CreateBridge(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 
 			set := flag.NewFlagSet("bridge", 0)
-			set.Parse([]string{test.param})
+			assert.NoError(t, set.Parse([]string{test.param}))
 			c := cli.NewContext(nil, set, nil)
 			if test.errored {
 				assert.Error(t, client.CreateBridge(c))
@@ -537,7 +538,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
+	assert.NoError(t, set.Parse([]string{bt.Name.String()}))
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ShowBridge(c))
 	require.Len(t, r.Renders, 1)
@@ -562,7 +563,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
+	assert.NoError(t, set.Parse([]string{bt.Name.String()}))
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.RemoveBridge(c))
 	require.Len(t, r.Renders, 1)
@@ -616,7 +617,7 @@ func TestClient_WithdrawSuccess(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("admin withdraw", 0)
-	set.Parse([]string{"0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C", "1"})
+	assert.NoError(t, set.Parse([]string{"0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C", "1"}))
 
 	c := cli.NewContext(nil, set, nil)
 
@@ -637,7 +638,7 @@ func TestClient_WithdrawNoArgs(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("admin withdraw", 0)
-	set.Parse([]string{})
+	assert.NoError(t, set.Parse([]string{}))
 
 	c := cli.NewContext(nil, set, nil)
 
@@ -695,7 +696,7 @@ func TestClient_SendEther(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("sendether", 0)
-	set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"})
+	assert.NoError(t, set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"}))
 
 	c := cli.NewContext(nil, set, nil)
 
@@ -716,7 +717,7 @@ func TestClient_SendEther_From(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("sendether", 0)
 	set.String("from", app.Store.TxManager.NextActiveAccount().Address.String(), "")
-	set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"})
+	assert.NoError(t, set.Parse([]string{"100", "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"}))
 
 	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
@@ -814,7 +815,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test get tx", 0)
-	set.Parse([]string{tx.Hash.Hex()})
+	assert.NoError(t, set.Parse([]string{tx.Hash.Hex()}))
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowTransaction(c))
 
@@ -886,7 +887,7 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("setgasprice", 0)
-	set.Parse([]string{"8616460799"})
+	assert.NoError(t, set.Parse([]string{"8616460799"}))
 
 	c := cli.NewContext(nil, set, nil)
 
@@ -898,7 +899,7 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 	set = flag.NewFlagSet("setgasprice", 0)
 	set.String("amount", "861.6460799", "")
 	set.Bool("gwei", true, "")
-	set.Parse([]string{"-gwei", "861.6460799"})
+	assert.NoError(t, set.Parse([]string{"-gwei", "861.6460799"}))
 
 	c = cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.SetMinimumGasPrice(c))
@@ -945,7 +946,7 @@ func TestClient_CancelJobRun(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("cancel", 0)
-	set.Parse([]string{run.ID.String()})
+	assert.NoError(t, set.Parse([]string{run.ID.String()}))
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.CancelJobRun(c))

@@ -39,7 +39,7 @@ func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
 	return orm, func() {
 		assert.NoError(t, orm.Close())
 		cleanup()
-		os.RemoveAll(config.RootDir())
+		assert.NoError(t, os.RemoveAll(config.RootDir()))
 		cleanupDB()
 	}
 }

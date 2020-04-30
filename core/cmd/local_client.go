@@ -206,7 +206,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
+	defer logger.ErrorIfCalling(app.Stop)
 
 	store := app.GetStore()
 
@@ -293,7 +293,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 func (cli *Client) DeleteUser(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
+	defer logger.ErrorIfCalling(app.Stop)
 	store := app.GetStore()
 	user, err := store.DeleteUser()
 	if err == nil {
@@ -339,13 +339,13 @@ func copyFile(src, dst string, perms os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer from.Close()
+	defer logger.ErrorIfCalling(from.Close)
 
 	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}
-	defer to.Close()
+	defer logger.ErrorIfCalling(to.Close)
 
 	_, err = io.Copy(to, from)
 

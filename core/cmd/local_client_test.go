@@ -61,7 +61,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 		t.Fatal("Timed out waiting for runner")
 	}
 
-	logger.Sync()
+	require.NoError(t, logger.Sync())
 	logs, err := cltest.ReadLogs(store.Config)
 	require.NoError(t, err)
 
@@ -216,7 +216,7 @@ func TestClient_ImportKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("import", 0)
-	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
+	require.NoError(t, set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"}))
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ImportKey(c))
 
@@ -248,7 +248,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			config.Set("CHAINLINK_DEV", true)
 			config.Set("LOG_TO_DISK", tt.logToDiskValue)
 			require.NoError(t, os.MkdirAll(config.KeysDir(), os.FileMode(0700)))
-			defer os.RemoveAll(config.RootDir())
+			defer require.NoError(t, os.RemoveAll(config.RootDir()))
 
 			previousLogger := logger.GetLogger().Desugar()
 			logger.SetLogger(config.CreateProductionLogger())

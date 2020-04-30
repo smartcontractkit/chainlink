@@ -237,7 +237,8 @@ func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Sco
 		presenter := SyncJobRunPresenter{run}
 		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
-			scope.Err(errors.Wrap(err, "createSyncEvent#json.Marshal failed"))
+			scopeErr := scope.Err(errors.Wrap(err, "createSyncEvent#json.Marshal failed"))
+			logger.ErrorIf(scopeErr)
 			return
 		}
 
@@ -246,7 +247,8 @@ func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Sco
 		}
 		err = scope.DB().Create(&event).Error
 		if err != nil {
-			scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
+			scopeErr := scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
+			logger.ErrorIf(scopeErr)
 			return
 		}
 	}

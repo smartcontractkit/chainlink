@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -138,7 +139,7 @@ func (ba *Bridge) postToExternalAdapter(input models.RunInput, meta *models.JSON
 	if err != nil {
 		return nil, fmt.Errorf("POST request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer logger.ErrorIfCalling(resp.Body.Close)
 
 	if resp.StatusCode >= 400 {
 		b, _ := ioutil.ReadAll(resp.Body)
