@@ -58,7 +58,7 @@ export function getConfig(): ExplorerConfig {
   }
 
   const conf: ExplorerConfig = {
-    port: parseInt(env.EXPLORER_SERVER_PORT) || 8080,
+    port: parseInt(env.EXPLORER_SERVER_PORT, 10) || 8080,
     env: appEnv,
     clientOrigin: env.EXPLORER_CLIENT_ORIGIN ?? '',
     cookieSecret: env.EXPLORER_COOKIE_SECRET,
