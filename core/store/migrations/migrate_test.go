@@ -2,7 +2,6 @@ package migrations_test
 
 import (
 	"fmt"
-	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1570675883"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -73,42 +71,6 @@ func TestMigrate_Migrations(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMigrate_Migration1560791143(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	err := orm.RawDB(func(db *gorm.DB) error {
-		require.NoError(t, migrations.MigrateTo(db, "0"))
-
-		tx := migration0.Tx{
-			ID:       1337,
-			Data:     make([]byte, 10),
-			Value:    utils.NewBig(big.NewInt(1)),
-			GasPrice: utils.NewBig(big.NewInt(127)),
-		}
-		require.NoError(t, db.Create(&tx).Error)
-
-		require.NoError(t, migrations.MigrateTo(db, "1559081901"))
-		txFound := models.Tx{}
-		require.NoError(t, db.Where("id = ?", tx.ID).Find(&txFound).Error)
-
-		require.NoError(t, migrations.MigrateTo(db, "1560791143"))
-
-		txNoID := models.Tx{
-			Data:     make([]byte, 10),
-			Value:    utils.NewBig(big.NewInt(2)),
-			GasPrice: utils.NewBig(big.NewInt(119)),
-		}
-		require.NoError(t, db.Create(&txNoID).Error)
-		assert.Equal(t, uint64(1338), txNoID.ID)
-
-		noIDTxFound := models.Tx{}
-		require.NoError(t, db.Where("id = ?", tx.ID).Find(&noIDTxFound).Error)
-		return nil
-	})
-	require.NoError(t, err)
-}
-
 func TestMigrate_Migration1560881855(t *testing.T) {
 	orm, cleanup := bootstrapORM(t)
 	defer cleanup()
@@ -161,31 +123,6 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 		require.NoError(t, db.Where("id = (SELECT MAX(id) FROM heads)").Find(&headFound).Error)
 		assert.Equal(t, "0xdad0000000000000000000000000000000000000000000000000000000000b0d", headFound.Hash.Hex())
 		assert.Equal(t, int64(8616460799), headFound.Number)
-		return nil
-	})
-	require.NoError(t, err)
-}
-
-func TestMigrate_Migration1565139192(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	err := orm.RawDB(func(db *gorm.DB) error {
-		require.NoError(t, migrations.MigrateTo(db, "1565139192"))
-
-		specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
-		specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
-			MinPayment: assets.NewLink(5),
-		})
-		specOneFound := models.JobSpec{}
-		specTwoFound := models.JobSpec{}
-
-		require.NoError(t, db.Create(&specWithPayment).Error)
-		require.NoError(t, db.Create(&specNoPayment).Error)
-		require.NoError(t, db.Where("id = ?", specNoPayment.ID).Find(&specOneFound).Error)
-		require.Nil(t, specNoPayment.MinPayment)
-		require.NoError(t, db.Where("id = ?", specWithPayment.ID).Find(&specTwoFound).Error)
-		require.Equal(t, assets.NewLink(5), specWithPayment.MinPayment)
 		return nil
 	})
 	require.NoError(t, err)
@@ -272,43 +209,6 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 		require.NoError(t, db.Where("id = ?", exi.ID).Find(&exiFound).Error)
 		assert.Equal(t, "access_key", exiFound.Name)
 		assert.Equal(t, "https://unset.url", exiFound.URL.String())
-		return nil
-	})
-	require.NoError(t, err)
-}
-
-func TestMigrate_Migration1570675883(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	err := orm.RawDB(func(db *gorm.DB) error {
-		require.NoError(t, migrations.MigrateTo(db, "0"))
-
-		overrides := models.RunResult{
-			Data: cltest.JSONFromString(t, `{"a": "b"}`),
-		}
-		require.NoError(t, db.Create(&overrides).Error)
-
-		jobSpec := migration0.JobSpec{
-			ID:        utils.NewBytes32ID(),
-			CreatedAt: time.Now(),
-		}
-		require.NoError(t, db.Create(&jobSpec).Error)
-		jobRun := migration0.JobRun{
-			ID:             utils.NewBytes32ID(),
-			JobSpecID:      jobSpec.ID,
-			OverridesID:    uint(overrides.ID),
-			CreationHeight: "0",
-			ObservedHeight: "0",
-		}
-		require.NoError(t, db.Create(&jobRun).Error)
-
-		require.NoError(t, migrations.MigrateTo(db, "1570675883"))
-
-		jobRunFound := migration1570675883.JobRun{}
-		require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
-		assert.Equal(t, `{"a": "b"}`, jobRunFound.Overrides.String())
-		require.Error(t, db.Where("id = ?", overrides.ID).Find(&overrides).Error)
 		return nil
 	})
 	require.NoError(t, err)
