@@ -22,6 +22,7 @@ export const adminOperators: Reducer<State, Actions> = (
       return {
         ...state,
         loading: true,
+        error: false,
       }
 
     case 'FETCH_ADMIN_OPERATORS_SUCCEEDED':
