@@ -81,9 +81,6 @@ services:
     environment:
       - EXPLORER_COOKIE_SECRET
       - EXPLORER_SERVER_PORT
-      - TYPEORM_DATABASE
-      - TYPEORM_USERNAME
-      - TYPEORM_HOST
       - PGPASSWORD=$EXPLORER_PGPASSWORD
 
   explorer-db:
@@ -112,7 +109,7 @@ services:
       - DB_HOST=$INGESTER_DB_HOST
       - DB_NAME=$EXPLORER_DB_NAME
       - DB_PORT=$EXPLORER_DB_PORT
-      - DB_USERNAME=$TYPEORM_USERNAME
+      - DB_USERNAME=$INGESTER_DB_USERNAME
       - DB_PASSWORD=$EXPLORER_PGPASSWORD
 # TODO
 # - replace clroot with secrets
