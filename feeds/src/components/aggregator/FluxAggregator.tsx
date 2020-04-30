@@ -1,49 +1,51 @@
 import { FluxAggregatorVis } from 'components/aggregatorVis'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
-import { Header } from 'components/header'
 import { OracleTable } from 'components/oracleTable'
 import { FeedConfig } from 'config'
 import React, { useEffect } from 'react'
 import { connect, MapDispatchToProps } from 'react-redux'
 import { fluxAggregatorOperations } from 'state/ducks/aggregator'
-/* import { DispatchBinding } from '@chainlink/ts-helpers' */
+import { DispatchBinding } from '@chainlink/ts-helpers'
 
 interface OwnProps {
   config: FeedConfig
 }
 
 interface DispatchProps {
-  /* initContract: DispatchBinding<typeof fluxAggregatorOperations.initContract> */
-  initContract: any
+  initContract: DispatchBinding<typeof fluxAggregatorOperations.initContract>
+  clearContract: DispatchBinding<typeof fluxAggregatorOperations.clearContract>
 }
 
 interface Props extends OwnProps, DispatchProps {}
 
-const Page: React.FC<Props> = ({ initContract, config }) => {
+const Page: React.FC<Props> = ({ initContract, config, clearContract }) => {
   useEffect(() => {
-    initContract(config).catch((error: Error) => {
+    try {
+      initContract(config)
+    } catch (error) {
       console.error('Could not initiate contract:', error)
-    })
-  }, [initContract, config])
+    }
+    return clearContract
+  }, [initContract, clearContract, config])
+
+  const history = config.history && [
+    <AnswerHistory key="answerHistory" config={config} />,
+    <DeviationHistory key="deviationHistory" config={config} />,
+  ]
 
   return (
     <>
-      <div className="page-container-full-width">
-        <Header />
-      </div>
-      <div className="page-wrapper network-page">
-        <FluxAggregatorVis config={config} />
-        {config.history && <AnswerHistory config={config} />}
-        {config.history && <DeviationHistory config={config} />}
-        <OracleTable />
-      </div>
+      <FluxAggregatorVis config={config} />
+      {history}
+      <OracleTable />
     </>
   )
 }
 
 const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   initContract: fluxAggregatorOperations.initContract,
+  clearContract: fluxAggregatorOperations.clearContract,
 }
 
 export default connect(null, mapDispatchToProps)(Page)

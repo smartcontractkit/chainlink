@@ -6,6 +6,7 @@ import {
   FetchHealthPriceSuccessAction,
 } from './ducks/listing/actions'
 import {
+  ClearStateAction,
   FetchFeedByPairBeginAction,
   FetchFeedByPairSuccessAction,
   FetchFeedByPairErrorAction,
@@ -36,6 +37,7 @@ export interface InitialStateAction {
 
 export type Actions =
   | InitialStateAction
+  | ClearStateAction
   | FetchFeedsBeginAction
   | FetchFeedsSuccessAction
   | FetchFeedsErrorAction

@@ -33,12 +33,20 @@ export function fetchFeeds() {
  */
 export function fetchAnswer(config: FeedConfig) {
   return async (dispatch: Dispatch) => {
-    const provider = createInfuraProvider()
-    const payload = await latestAnswer(config, provider)
-    const answer = formatAnswer(payload, config.multiply, config.decimalPlaces)
-    const listingAnswer: actions.ListingAnswer = { answer, config }
+    try {
+      const provider = createInfuraProvider()
+      const payload = await latestAnswer(config, provider)
+      const answer = formatAnswer(
+        payload,
+        config.multiply,
+        config.decimalPlaces,
+      )
+      const listingAnswer: actions.ListingAnswer = { answer, config }
 
-    dispatch(actions.fetchAnswerSuccess(listingAnswer))
+      dispatch(actions.fetchAnswerSuccess(listingAnswer))
+    } catch {
+      console.error('Could not fetch answer')
+    }
   }
 }
 
@@ -84,10 +92,6 @@ function answerContract(contractAddress: string, provider: JsonRpcProvider) {
 /**
  * health checks
  */
-interface HealthPrice {
-  config: any
-  price: number
-}
 
 export function fetchHealthStatus(feed: FeedConfig) {
   return async (dispatch: Dispatch) => {
@@ -99,7 +103,9 @@ export function fetchHealthStatus(feed: FeedConfig) {
   }
 }
 
-async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
+async function fetchHealthPrice(
+  config: any,
+): Promise<actions.HealthPrice | undefined> {
   if (!config.healthPrice) return
 
   const json = await fetch(config.healthPrice).then(r => r.json())

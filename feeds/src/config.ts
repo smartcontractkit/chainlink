@@ -16,7 +16,7 @@ export interface FeedConfig {
   multiply?: string
   sponsored?: string[]
   decimalPlaces?: number
-  contractVersion?: 1 | 2 | 3
+  contractVersion: 1 | 2 | 3
 }
 
 export interface OracleNode {
