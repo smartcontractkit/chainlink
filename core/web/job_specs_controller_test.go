@@ -557,3 +557,28 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }
+
+func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+	job1 := cltest.NewJobWithLogInitiator()
+	job2 := cltest.NewJobWithLogInitiator()
+	require.NoError(t, app.Store.CreateJob(&job1))
+	require.NoError(t, app.Store.CreateJob(&job2))
+
+	resp, cleanup := client.Delete("/v2/specs/" + job1.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJob(job1.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+
+	resp, cleanup = client.Delete("/v2/specs/" + job2.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJob(job2.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+}
