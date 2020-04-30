@@ -72,6 +72,7 @@ export function fetchAnswerSuccess(
  */
 export interface HealthPrice {
   price: number
+  config: FeedConfig
 }
 
 export interface FetchHealthPriceSuccessAction {

@@ -392,4 +392,15 @@ function fetchEthGasPrice() {
   }
 }
 
-export { initContract, fetchJobId, fetchEthGasPrice }
+function clearContract() {
+  return async (dispatch: any) => {
+    try {
+      dispatch(actions.clearState())
+      contractInstance?.kill()
+    } catch {
+      console.error('Could not close the contract instance')
+    }
+  }
+}
+
+export { initContract, fetchJobId, fetchEthGasPrice, clearContract }
