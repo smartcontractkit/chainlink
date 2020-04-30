@@ -53,6 +53,7 @@ type JobSpec struct {
 	StartAt    null.Time    `json:"startAt" gorm:"index"`
 	EndAt      null.Time    `json:"endAt" gorm:"index"`
 	DeletedAt  null.Time    `json:"-" gorm:"index"`
+	UpdatedAt  time.Time    `json:"-"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -200,6 +201,7 @@ type Initiator struct {
 	CreatedAt       time.Time `json:"createdAt" gorm:"index"`
 	InitiatorParams `json:"params,omitempty"`
 	DeletedAt       null.Time `json:"-" gorm:"index"`
+	UpdatedAt       time.Time `json:"-"`
 }
 
 // InitiatorParams is a collection of the possible parameters that different
