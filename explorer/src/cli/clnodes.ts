@@ -4,11 +4,11 @@ import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
 } from '../utils/constants'
+import { Config } from '../config'
 
-const EXPLORER_BASE_URL =
-  process.env.EXPLORER_BASE_URL || 'http://localhost:8080'
-const EXPLORER_ADMIN_USERNAME = process.env.EXPLORER_ADMIN_USERNAME
-const EXPLORER_ADMIN_PASSWORD = process.env.EXPLORER_ADMIN_PASSWORD
+const EXPLORER_BASE_URL = Config.baseUrl()
+const EXPLORER_ADMIN_USERNAME = Config.adminUsername()
+const EXPLORER_ADMIN_PASSWORD = Config.adminPassword()
 
 interface CreateChainlinkNode {
   name: string
