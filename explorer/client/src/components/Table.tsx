@@ -1,10 +1,12 @@
-import React from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import {
   createStyles,
   Theme,
   withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
+import { CSSProperties } from '@material-ui/core/styles/withStyles'
+import RootRef from '@material-ui/core/RootRef'
 import MuiTable from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableHead from '@material-ui/core/TableHead'
@@ -26,7 +28,7 @@ const styles = (theme: Theme) =>
       backgroundColor: theme.palette.grey['50'],
     },
     table: {
-      minHeight: 550,
+      minHeight: 150,
       whiteSpace: 'nowrap',
     },
     root: {
@@ -63,29 +65,45 @@ const Table: React.FC<Props> = ({
   errorMsg,
   classes,
 }) => {
+  const tableRef = useRef<HTMLElement>(null)
+  const [lastLoadedTableHeight, setLastLoadedTableHeight] = useState<
+    number | undefined
+  >(undefined)
+  useEffect(() => {
+    if (tableRef.current !== null && !loading) {
+      setLastLoadedTableHeight(tableRef.current.offsetHeight)
+    }
+  }, [loading, setLastLoadedTableHeight, tableRef])
+
+  const heightCss: CSSProperties = { height: lastLoadedTableHeight }
+
   return (
     <Paper className={classes.root}>
-      <MuiTable className={classes.table}>
-        <TableHead>
-          <TableRow className={classes.header}>
-            {headers.map((h: string) => (
-              <MuiTableCell key={h}>{h}</MuiTableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          <Rows
-            loading={loading}
-            error={error}
-            headers={headers}
-            rows={rows}
-            count={count}
-            loadingMsg={loadingMsg}
-            emptyMsg={emptyMsg}
-            errorMsg={errorMsg}
-          />
-        </TableBody>
-      </MuiTable>
+      <RootRef rootRef={tableRef}>
+        <div style={heightCss}>
+          <MuiTable className={classes.table}>
+            <TableHead>
+              <TableRow className={classes.header}>
+                {headers.map((h: string) => (
+                  <MuiTableCell key={h}>{h}</MuiTableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <Rows
+                loading={loading}
+                error={error}
+                headers={headers}
+                rows={rows}
+                count={count}
+                loadingMsg={loadingMsg}
+                emptyMsg={emptyMsg}
+                errorMsg={errorMsg}
+              />
+            </TableBody>
+          </MuiTable>
+        </div>
+      </RootRef>
       <TablePagination
         component="div"
         count={count ?? 0}
