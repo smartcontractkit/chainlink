@@ -1,13 +1,13 @@
 import jayson from 'jayson'
 import WebSocket from 'ws'
 import { ACCESS_KEY_HEADER, SECRET_HEADER } from '../utils/constants'
-import { DEFAULT_TEST_PORT } from './server'
+import { Config } from '../config'
 
 export const newChainlinkNode = (
   accessKey: string,
   secret: string,
 ): Promise<WebSocket> => {
-  const ws = new WebSocket(`ws://localhost:${DEFAULT_TEST_PORT}`, {
+  const ws = new WebSocket(`ws://localhost:${Config.testPort()}`, {
     headers: {
       [ACCESS_KEY_HEADER]: accessKey,
       [SECRET_HEADER]: secret,
