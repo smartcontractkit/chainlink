@@ -21,7 +21,10 @@ import (
 func BenchmarkJobRunsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication(b, cltest.LenientEthMock)
 	defer cleanup()
-	app.Start()
+	err := app.Start()
+	if err != nil {
+		b.Fail()
+	}
 	run1, _, _ := setupJobRunsControllerIndex(b, app)
 	client := app.NewHTTPClient()
 
@@ -37,7 +40,7 @@ func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -125,7 +128,7 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 func TestJobRunsController_Create_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -140,7 +143,7 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	eir_url := cltest.WebURL(t, "http://localhost:8888")
@@ -181,7 +184,7 @@ func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	url := cltest.WebURL(t, "http://localhost:8888")
@@ -209,7 +212,7 @@ func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 func TestJobRunsController_Create_Archived(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -225,7 +228,7 @@ func TestJobRunsController_Create_Archived(t *testing.T) {
 func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -238,7 +241,7 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -253,7 +256,7 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -268,7 +271,7 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -280,7 +283,7 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 func TestJobRunsController_Create_InvalidID(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -293,7 +296,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	tests := []struct {
@@ -340,7 +343,7 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -365,7 +368,7 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 func TestJobRunsController_Update_NotPending(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -387,7 +390,7 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 func TestJobRunsController_Update_WithError(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -416,7 +419,7 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 func TestJobRunsController_Update_BadInput(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -440,7 +443,7 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 func TestJobRunsController_Update_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -465,12 +468,12 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	assert.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
-	app.Store.CreateJob(&j)
+	assert.NoError(t, app.Store.CreateJob(&j))
 
 	jr := cltest.NewJobRun(j)
 	assert.NoError(t, app.Store.CreateJobRun(&jr))
@@ -488,7 +491,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 func TestJobRunsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -500,7 +503,7 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 func TestJobRunsController_Show_InvalidID(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 	client := app.NewHTTPClient()
 
@@ -512,7 +515,7 @@ func TestJobRunsController_Show_InvalidID(t *testing.T) {
 func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	resp, err := http.Get(app.Server.URL + "/v2/runs/notauthorized")
@@ -523,7 +526,7 @@ func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 func TestJobRunsController_Cancel(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	require.NoError(t, app.Start())
 	defer cleanup()
 
 	client := app.NewHTTPClient()

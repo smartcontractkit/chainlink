@@ -86,8 +86,8 @@ func TestHeadTracker_Get(t *testing.T) {
 			}
 
 			ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
-			ht.Start()
-			defer ht.Stop()
+			require.NoError(t, ht.Start())
+			defer require.NoError(t, ht.Stop())
 
 			err := ht.Save(test.toSave)
 			if test.wantError {
@@ -108,7 +108,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	defer cleanup()
 	eth := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
-	defer ht.Stop()
+	defer require.NoError(t, ht.Stop())
 
 	eth.RegisterSubscription("newHeads")
 
@@ -141,7 +141,7 @@ func TestHeadTracker_HeadTrackableCallbacks(t *testing.T) {
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 
-	ht.Stop()
+	assert.NoError(t, ht.Stop())
 	assert.Equal(t, int32(1), checker.DisconnectedCount())
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, int32(1), checker.OnNewHeadCount())

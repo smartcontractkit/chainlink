@@ -122,6 +122,6 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 
 	normalizedInput := cltest.NormalizedJSON(t, input)
 	parsed := presenters.ServiceAgreement{}
-	cltest.ParseJSONAPIResponse(t, resp, &parsed)
+	assert.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &parsed))
 	assert.Equal(t, normalizedInput, parsed.RequestBody)
 }

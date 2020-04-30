@@ -57,7 +57,7 @@ func TestWebSocketClient_Send(t *testing.T) {
 
 	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
-	defer wsclient.Close()
+	defer require.NoError(t, wsclient.Close())
 
 	expectation := `{"hello": "world"}`
 	wsclient.Send([]byte(expectation))
@@ -78,7 +78,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 	url.Scheme = "ws"
 	wsclient := synchronization.NewWebSocketClient(url, "accessKey", "secret")
 	require.NoError(t, wsclient.Start())
-	defer wsclient.Close()
+	defer require.NoError(t, wsclient.Close())
 
 	cltest.CallbackOrTimeout(t, "receive authentication headers", func() {
 		headers := <-headerChannel
@@ -93,7 +93,7 @@ func TestWebSocketClient_SendWithAck(t *testing.T) {
 
 	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
-	defer wsclient.Close()
+	defer require.NoError(t, wsclient.Close())
 
 	expectation := `{"hello": "world"}`
 	wsclient.Send([]byte(expectation))
@@ -116,7 +116,7 @@ func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
 
 	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
-	defer wsclient.Close()
+	defer require.NoError(t, wsclient.Close())
 
 	expectation := `{"hello": "world"}`
 	wsclient.Send([]byte(expectation))
@@ -136,7 +136,7 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	defer cleanup()
 
 	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
-	defer wsclient.Close()
+	defer require.NoError(t, wsclient.Close())
 	assert.Equal(t, synchronization.ConnectionStatusDisconnected, wsclient.Status())
 
 	require.NoError(t, wsclient.Start())

@@ -20,7 +20,10 @@ import (
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication(b, cltest.LenientEthMock)
 	defer cleanup()
-	setupJobSpecsControllerIndex(app)
+	_, err := setupJobSpecsControllerIndex(app)
+	if err != nil {
+		b.Fail()
+	}
 	client := app.NewHTTPClient()
 
 	b.ResetTimer()

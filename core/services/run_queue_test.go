@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -21,7 +22,7 @@ func TestRunQueue(t *testing.T) {
 
 	executeJobChannel := make(chan struct{})
 
-	runQueue.Start()
+	require.NoError(t, runQueue.Start())
 	defer runQueue.Stop()
 
 	runExecutor.On("Execute", mock.Anything).
@@ -56,7 +57,7 @@ func TestRunQueue_OneWorkerPerRun(t *testing.T) {
 
 	executeJobChannel := make(chan struct{})
 
-	runQueue.Start()
+	require.NoError(t, runQueue.Start())
 	defer runQueue.Stop()
 
 	runExecutor.On("Execute", mock.Anything).
@@ -93,7 +94,7 @@ func TestRunQueue_OneWorkerForSameRunTriggeredMultipleTimes(t *testing.T) {
 
 	executeJobChannel := make(chan struct{})
 
-	runQueue.Start()
+	require.NoError(t, runQueue.Start())
 	defer runQueue.Stop()
 
 	runExecutor.On("Execute", mock.Anything).

@@ -58,7 +58,8 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		item := schemaT.FieldByIndex([]int{index})
 		name := item.Tag.Get("env")
 		v.SetDefault(name, item.Tag.Get("default"))
-		v.BindEnv(name, name)
+		err := v.BindEnv(name, name)
+		logger.ErrorIf(err)
 	}
 
 	config := &Config{

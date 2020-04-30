@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"net/http"
 	"strings"
 	"testing"
@@ -61,7 +62,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	client := http.Client{}
 	resp, err := client.Do(request)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer logger.ErrorIfCalling(resp.Body.Close)
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := string(cltest.ParseResponseBody(t, resp))

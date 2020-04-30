@@ -318,7 +318,8 @@ func NewAddress() common.Address {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	rand.Read(b)
+	_, err := rand.Read(b)
+	logger.ErrorIf(err)
 	return b
 }
 

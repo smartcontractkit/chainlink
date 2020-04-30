@@ -25,7 +25,10 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication(b)
 	defer cleanup()
 	client := app.NewHTTPClient()
-	setupJobSpecsControllerIndex(app)
+	_, err := setupJobSpecsControllerIndex(app)
+	if err != nil {
+		b.Fail()
+	}
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
@@ -221,7 +224,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
-	app.Start()
+	require.NoError(t, app.Start())
 
 	url := cltest.WebURL(t, eiMockServer.URL)
 	eir := models.ExternalInitiatorRequest{
@@ -492,7 +495,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
-	app.Store.CreateJob(&j)
+	assert.NoError(t, app.Store.CreateJob(&j))
 
 	jr1 := cltest.NewJobRun(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))

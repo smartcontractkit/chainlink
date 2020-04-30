@@ -21,8 +21,8 @@ func TestStatsPusher(t *testing.T) {
 	defer wscleanup()
 
 	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "")
-	pusher.Start()
-	defer pusher.Close()
+	require.NoError(t, pusher.Start())
+	defer require.NoError(t, pusher.Close())
 
 	require.NoError(t, store.ORM.RawDB(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
 	pusher.PushNow()
@@ -45,8 +45,8 @@ func TestStatsPusher_ClockTrigger(t *testing.T) {
 
 	clock := cltest.NewTriggerClock(t)
 	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "", clock)
-	pusher.Start()
-	defer pusher.Close()
+	require.NoError(t, pusher.Start())
+	defer require.NoError(t, pusher.Close())
 
 	err := store.ORM.RawDB(func(db *gorm.DB) error {
 		return db.Save(&models.SyncEvent{Body: string("")}).Error
@@ -70,8 +70,8 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 	defer wscleanup()
 
 	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "")
-	pusher.Start()
-	defer pusher.Close()
+	require.NoError(t, pusher.Start())
+	defer require.NoError(t, pusher.Close())
 
 	require.NoError(t, store.ORM.RawDB(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
 	pusher.PushNow()
@@ -92,8 +92,8 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 
 	clock := cltest.NewTriggerClock(t)
 	pusher := synchronization.NewStatsPusher(store.ORM, wsserver.URL, "", "", clock)
-	pusher.Start()
-	defer pusher.Close()
+	require.NoError(t, pusher.Start())
+	defer require.NoError(t, pusher.Close())
 
 	require.NoError(t, store.ORM.RawDB(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
 

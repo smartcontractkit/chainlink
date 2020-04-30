@@ -79,7 +79,8 @@ func withTerminalResetter(f func()) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		terminal.Restore(osSafeStdin, initialTermState)
+		err := terminal.Restore(osSafeStdin, initialTermState)
+		logger.ErrorIf(err)
 		os.Exit(1)
 	}()
 
