@@ -22,6 +22,7 @@ export const adminHeads: Reducer<State, Actions> = (
       return {
         ...state,
         loading: true,
+        error: false,
       }
 
     case 'FETCH_ADMIN_HEADS_SUCCEEDED':

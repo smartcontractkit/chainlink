@@ -94,9 +94,12 @@ describe('reducers/jobRuns', () => {
       expect(state.jobRuns.loading).toEqual(false)
     })
 
-    it('sets error to true', () => {
-      const state = reducer(INITIAL_STATE, action)
+    it('sets error to true & resets it to false when a new fetch starts', () => {
+      let state = reducer(INITIAL_STATE, action)
       expect(state.jobRuns.error).toEqual(true)
+
+      state = reducer(state, fetchJobRunsBeginAction)
+      expect(state.jobRuns.error).toEqual(false)
     })
   })
 
@@ -157,9 +160,12 @@ describe('reducers/jobRuns', () => {
       expect(state.jobRuns.loading).toEqual(false)
     })
 
-    it('sets error to true', () => {
-      const state = reducer(INITIAL_STATE, action)
+    it('sets error to true & resets it to false when a new fetch starts', () => {
+      let state = reducer(INITIAL_STATE, action)
       expect(state.jobRuns.error).toEqual(true)
+
+      state = reducer(state, fetchJobRunsBeginAction)
+      expect(state.jobRuns.error).toEqual(false)
     })
   })
 })
