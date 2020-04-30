@@ -190,6 +190,17 @@ export default class FluxOperations {
     }
   }
 
+  static clearContract() {
+    return async (dispatch: Dispatch) => {
+      try {
+        dispatch(actions.clearState())
+        FluxOperations.contractInstance?.kill()
+      } catch {
+        console.error('Could not close the contract instance')
+      }
+    }
+  }
+
   /**
    * Initialise aggregator contract and fill the store with all necessery data for a visualisation page.
    * @param config FeedsConfig
@@ -265,18 +276,6 @@ export default class FluxOperations {
 
       if (config.history) {
         FluxOperations.fetchAnswerHistory(fromBlock)(dispatch, getState)
-      }
-    }
-  }
-
-  static fetchJobId(address: any) {
-    return async (_dispatch: any, getState: any) => {
-      const { oracleList } = getState().aggregator
-      try {
-        const index = oracleList.indexOf(address)
-        return FluxOperations.contractInstance.jobId(index)
-      } catch {
-        console.error('Could not fetch a job id')
       }
     }
   }

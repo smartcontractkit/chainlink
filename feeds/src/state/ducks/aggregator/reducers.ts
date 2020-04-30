@@ -44,6 +44,12 @@ export const INITIAL_STATE: State = {
 
 const reducer = (state: State = INITIAL_STATE, action: Actions) => {
   switch (action.type) {
+    case 'aggregator/CLEAR_STATE': {
+      return {
+        ...INITIAL_STATE,
+      }
+    }
+
     case 'aggregator/FETCH_FEED_BY_PAIR_BEGIN': {
       return {
         ...INITIAL_STATE,
