@@ -87,7 +87,7 @@ func getBalance(store *store.Store, account accounts.Account, balanceType reques
 	case linkRequest:
 		return store.TxManager.GetLINKBalance(account.Address)
 	}
-	return nil, fmt.Errorf("Impossible to get balance for %T with value %v", balanceType, balanceType)
+	return nil, fmt.Errorf("impossible to get balance for %T with value %v", balanceType, balanceType)
 }
 
 type balanceable interface {
@@ -391,7 +391,7 @@ func initiatorParams(i Initiator) (interface{}, error) {
 	case models.InitiatorRandomnessLog:
 		return struct{ Address common.Address }{i.Address}, nil
 	default:
-		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
+		return nil, fmt.Errorf("cannot marshal unsupported initiator type '%v'", i.Type)
 	}
 }
 

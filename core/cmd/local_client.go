@@ -160,11 +160,7 @@ func logIfNonceOutOfSync(store *strpkg.Store) {
 }
 
 func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
-	if lastNonce+1 < nonce {
-		return true
-	}
-
-	return false
+	return lastNonce+1 < nonce
 }
 
 func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {

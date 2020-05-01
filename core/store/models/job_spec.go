@@ -255,7 +255,7 @@ func (ptc *PollTimerConfig) Scan(value interface{}) error {
 	}
 	b, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Invalid Scan Source")
+		return fmt.Errorf("invalid Scan Source")
 	}
 	return json.Unmarshal(b, ptc)
 }
@@ -286,7 +286,7 @@ func (itc *IdleTimerConfig) Scan(value interface{}) error {
 	}
 	b, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Invalid Scan Source")
+		return fmt.Errorf("invalid Scan Source")
 	}
 	return json.Unmarshal(b, itc)
 }
@@ -305,7 +305,7 @@ func (t *Topics) Scan(value interface{}) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Topics", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Topics", value, value)
 	}
 }
 
@@ -368,7 +368,7 @@ type TaskType string
 func NewTaskType(val string) (TaskType, error) {
 	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
 	if !re.MatchString(val) {
-		return TaskType(""), fmt.Errorf("Task Type validation: name %v contains invalid characters", val)
+		return TaskType(""), fmt.Errorf("task type validation: name %v contains invalid characters", val)
 	}
 
 	return TaskType(strings.ToLower(val)), nil
@@ -413,7 +413,7 @@ func (t TaskType) Value() (driver.Value, error) {
 func (t *TaskType) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to TaskType", value, value)
+		return fmt.Errorf("unable to convert %v of %T to TaskType", value, value)
 	}
 
 	*t = TaskType(temp)

@@ -127,7 +127,7 @@ func ValidateRun(run *models.JobRun, contractCost *assets.Link) {
 			run.ForLogger("required_payment", contractCost.String())...)
 
 		err := fmt.Errorf(
-			"Rejecting job %s with payment %s below minimum threshold (%s)",
+			"rejecting job %s with payment %s below minimum threshold (%s)",
 			run.JobSpecID,
 			run.Payment.Text(10),
 			contractCost.Text(10))
@@ -303,7 +303,7 @@ func (rm *runManager) ResumePendingBridge(
 	logger.Debugw("External adapter resuming run", run.ForLogger("input_data", input.Data)...)
 
 	if !run.GetStatus().PendingBridge() {
-		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
+		return fmt.Errorf("attempting to resume non pending run %s", run.ID)
 	}
 
 	currentTaskRun := run.NextTaskRun()
@@ -345,7 +345,7 @@ func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 
 	logger.Debugw("Cancelling run", run.ForLogger()...)
 	if run.GetStatus().Finished() {
-		return nil, fmt.Errorf("Cannot cancel a run that has already finished")
+		return nil, fmt.Errorf("cannot cancel a run that has already finished")
 	}
 
 	run.Cancel()

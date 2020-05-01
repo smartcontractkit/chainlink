@@ -216,8 +216,6 @@ func TestClient_ImportKey(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	keys, err := app.GetStore().Keys()
-	require.NoError(t, err)
 
 	client, _ := app.NewClientAndRenderer()
 
@@ -226,7 +224,7 @@ func TestClient_ImportKey(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ImportKey(c))
 
-	keys, err = app.GetStore().Keys()
+	keys, err := app.GetStore().Keys()
 	require.NoError(t, err)
 	addresses := []string{}
 	for _, k := range keys {

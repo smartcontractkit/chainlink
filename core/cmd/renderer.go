@@ -78,7 +78,7 @@ func (rt RendererTable) Render(v interface{}) error {
 	case *presenters.ConfigWhitelist:
 		return rt.renderConfiguration(*typed)
 	default:
-		return fmt.Errorf("Unable to render object of type %T: %v", typed, typed)
+		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
 	}
 }
 

@@ -579,13 +579,13 @@ func parseAddress(str string) (interface{}, error) {
 		val := common.BigToAddress(i)
 		return &val, nil
 	}
-	return nil, fmt.Errorf("Unable to parse '%s' into EIP55-compliant address", str)
+	return nil, fmt.Errorf("unable to parse '%s' into EIP55-compliant address", str)
 }
 
 func parseLink(str string) (interface{}, error) {
 	i, ok := new(assets.Link).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse '%v' into *assets.Link(base 10)", str)
+		return i, fmt.Errorf("unable to parse '%v' into *assets.Link(base 10)", str)
 	}
 	return i, nil
 }
@@ -608,7 +608,7 @@ func parseURL(s string) (interface{}, error) {
 func parseBigInt(str string) (interface{}, error) {
 	i, ok := new(big.Int).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse %v into *big.Int(base 10)", str)
+		return i, fmt.Errorf("unable to parse %v into *big.Int(base 10)", str)
 	}
 	return i, nil
 }

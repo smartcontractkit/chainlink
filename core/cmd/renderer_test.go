@@ -44,6 +44,7 @@ func TestRendererTable_RenderConfiguration(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/config")
+	defer cleanup()
 	cwl := presenters.ConfigWhitelist{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
 
@@ -94,7 +95,7 @@ type testWriter struct {
 }
 
 func (w *testWriter) Write(actual []byte) (int, error) {
-	if bytes.Index(actual, []byte(w.expected)) != -1 {
+	if bytes.Contains(actual, []byte(w.expected)) {
 		w.found = true
 	}
 	return len(actual), nil
