@@ -230,9 +230,61 @@ type PollTimerConfig struct {
 	Frequency Duration `json:"frequency,omitempty"`
 }
 
+// Value is defined so that we can store PollTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (ptc PollTimerConfig) Value() (driver.Value, error) {
+	b, err := json.Marshal(ptc)
+	if err != nil {
+		return nil, err
+	}
+	return b, err
+}
+
+// Scan is defined so that we can read PollTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (ptc *PollTimerConfig) Scan(value interface{}) error {
+	if value == nil {
+		*ptc = PollTimerConfig{}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Invalid Scan Source")
+	}
+	return json.Unmarshal(b, ptc)
+}
+
 type IdleTimerConfig struct {
 	Disabled bool     `json:"disabled,omitempty"`
 	Duration Duration `json:"duration,omitempty"`
+}
+
+// Value is defined so that we can store IdleTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (itc IdleTimerConfig) Value() (driver.Value, error) {
+	b, err := json.Marshal(itc)
+	if err != nil {
+		return nil, err
+	}
+	return b, err
+}
+
+// Scan is defined so that we can read IdleTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (itc *IdleTimerConfig) Scan(value interface{}) error {
+	if value == nil {
+		*itc = IdleTimerConfig{}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Invalid Scan Source")
+	}
+	return json.Unmarshal(b, itc)
 }
 
 // Topics handle the serialization of ethereum log topics to and from the data store.

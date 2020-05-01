@@ -380,10 +380,14 @@ const validInitiator = `{
 			"https://lambda.staging.devnet.tools/cc/call",
 			"https://lambda.staging.devnet.tools/cmc/call"
 		],
-		"idleThreshold": "1m",
+		"idleTimer": {
+			"duration": "1m"
+		},
+		"pollTimer": {
+			"frequency": "1m"
+		},
 		"threshold": 0.5,
-		"precision": 2,
-		"pollingInterval": "1m"
+		"precision": 2
 	}
 }`
 
@@ -414,11 +418,11 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 		{"address", cltest.MustJSONDel(t, validInitiator, "params.address")},
 		{"feeds", cltest.MustJSONSet(t, validInitiator, "params.feeds", []string{})},
 		{"threshold", cltest.MustJSONDel(t, validInitiator, "params.threshold")},
-		{"threshold", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
+		{"threshold must be >= 0", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
 		{"requestdata", cltest.MustJSONDel(t, validInitiator, "params.requestdata")},
-		{"pollingInterval", cltest.MustJSONDel(t, validInitiator, "params.pollingInterval")},
-		{"pollingInterval", cltest.MustJSONSet(t, validInitiator, "params.pollingInterval", "1s")},
-		{"idleThreshold", cltest.MustJSONSet(t, validInitiator, "params.idleThreshold", "30s")},
+		{"pollTimer enabled, but no frequency specified", cltest.MustJSONDel(t, validInitiator, "params.pollTimer.frequency")},
+		{"frequency must be equal or greater than 15s", cltest.MustJSONSet(t, validInitiator, "params.pollTimer.frequency", "1s")},
+		{"idleTimer.duration must be >= than pollTimer.frequency", cltest.MustJSONSet(t, validInitiator, "params.idleTimer.duration", "30s")},
 	}
 	for _, test := range tests {
 		t.Run("bad "+test.Field, func(t *testing.T) {

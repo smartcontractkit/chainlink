@@ -130,7 +130,7 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	if i.RequestData.String() == "" {
 		fe.Add("no requestdata")
 	}
-	if i.Threshold < 0 {
+	if i.Threshold <= 0 {
 		fe.Add("threshold must be >= 0")
 	}
 
