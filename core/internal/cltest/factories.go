@@ -156,7 +156,7 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 				Duration: models.MustMakeDuration(time.Minute),
 			},
 			PollTimer: models.PollTimerConfig{
-				Frequency: models.MustMakeDuration(time.Minute),
+				Period: models.MustMakeDuration(time.Minute),
 			},
 			Precision: 2,
 		},
@@ -693,7 +693,7 @@ func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.Polli
 	initr := models.Initiator{
 		InitiatorParams: models.InitiatorParams{
 			PollTimer: models.PollTimerConfig{
-				Frequency: models.MustMakeDuration(time.Second),
+				Period: models.MustMakeDuration(time.Second),
 			},
 		},
 	}

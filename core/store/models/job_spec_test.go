@@ -47,7 +47,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 						Duration: models.MustMakeDuration(5 * time.Second),
 					},
 					PollTimer: models.PollTimerConfig{
-						Frequency: models.MustMakeDuration(1 * time.Minute),
+						Period: models.MustMakeDuration(1 * time.Minute),
 					},
 					Precision: 2,
 					Threshold: 5,
@@ -62,7 +62,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 						Duration: models.MustMakeDuration(5 * time.Second),
 					},
 					PollTimer: models.PollTimerConfig{
-						Frequency: models.MustMakeDuration(1 * time.Minute),
+						Period: models.MustMakeDuration(1 * time.Minute),
 					},
 					Precision: 2,
 					Threshold: 5,
@@ -122,7 +122,7 @@ func TestInitiatorParams(t *testing.T) {
 				Duration: duration,
 			},
 			PollTimer: models.PollTimerConfig{
-				Frequency: duration,
+				Period: duration,
 			},
 		},
 	}
@@ -147,7 +147,7 @@ func TestInitiatorParams(t *testing.T) {
 	assert.Equal(t, json, saved.InitiatorParams.Feeds)
 	assert.Equal(t, float32(42.42), saved.InitiatorParams.Threshold)
 	assert.Equal(t, int32(42), saved.InitiatorParams.Precision)
-	assert.Equal(t, duration, saved.InitiatorParams.PollTimer.Frequency)
+	assert.Equal(t, duration, saved.InitiatorParams.PollTimer.Period)
 
 }
 

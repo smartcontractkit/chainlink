@@ -384,7 +384,7 @@ const validInitiator = `{
 			"duration": "1m"
 		},
 		"pollTimer": {
-			"frequency": "1m"
+			"period": "1m"
 		},
 		"threshold": 0.5,
 		"precision": 2
@@ -420,9 +420,9 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 		{"threshold", cltest.MustJSONDel(t, validInitiator, "params.threshold")},
 		{"threshold must be >= 0", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
 		{"requestdata", cltest.MustJSONDel(t, validInitiator, "params.requestdata")},
-		{"pollTimer enabled, but no frequency specified", cltest.MustJSONDel(t, validInitiator, "params.pollTimer.frequency")},
-		{"frequency must be equal or greater than 15s", cltest.MustJSONSet(t, validInitiator, "params.pollTimer.frequency", "1s")},
-		{"idleTimer.duration must be >= than pollTimer.frequency", cltest.MustJSONSet(t, validInitiator, "params.idleTimer.duration", "30s")},
+		{"pollTimer enabled, but no period specified", cltest.MustJSONDel(t, validInitiator, "params.pollTimer.period")},
+		{"period must be equal or greater than 15s", cltest.MustJSONSet(t, validInitiator, "params.pollTimer.period", "1s")},
+		{"idleTimer.duration must be >= than pollTimer.period", cltest.MustJSONSet(t, validInitiator, "params.idleTimer.duration", "30s")},
 	}
 	for _, test := range tests {
 		t.Run("bad "+test.Field, func(t *testing.T) {

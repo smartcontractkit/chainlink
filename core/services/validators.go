@@ -139,16 +139,16 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	}
 
 	if i.PollTimer.Disabled {
-		if !i.PollTimer.Frequency.IsInstant() {
-			fe.Add("pollTimer disabled, frequency must be 0")
+		if !i.PollTimer.Period.IsInstant() {
+			fe.Add("pollTimer disabled, period must be 0")
 		}
 	} else {
-		minimumPollFrequency := models.Duration(store.Config.DefaultHTTPTimeout())
+		minimumPollPeriod := models.Duration(store.Config.DefaultHTTPTimeout())
 
-		if i.PollTimer.Frequency.IsInstant() {
-			fe.Add("pollTimer enabled, but no frequency specified")
-		} else if i.PollTimer.Frequency.Shorter(minimumPollFrequency) {
-			fe.Add("pollTimer enabled, frequency must be equal or greater than " + minimumPollFrequency.String())
+		if i.PollTimer.Period.IsInstant() {
+			fe.Add("pollTimer enabled, but no period specified")
+		} else if i.PollTimer.Period.Shorter(minimumPollPeriod) {
+			fe.Add("pollTimer enabled, period must be equal or greater than " + minimumPollPeriod.String())
 		}
 	}
 
@@ -159,8 +159,8 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	} else {
 		if i.IdleTimer.Duration.IsInstant() {
 			fe.Add("idleTimer enabled, duration must be > 0")
-		} else if !i.PollTimer.Disabled && i.IdleTimer.Duration.Shorter(i.PollTimer.Frequency) {
-			fe.Add("idleTimer and pollTimer enabled, idleTimer.duration must be >= than pollTimer.frequency")
+		} else if !i.PollTimer.Disabled && i.IdleTimer.Duration.Shorter(i.PollTimer.Period) {
+			fe.Add("idleTimer and pollTimer enabled, idleTimer.duration must be >= than pollTimer.period")
 		}
 	}
 
