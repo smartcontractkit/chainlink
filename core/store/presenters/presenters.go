@@ -385,7 +385,7 @@ func initiatorParams(i Initiator) (interface{}, error) {
 			Threshold       float32         `json:"threshold"`
 			Precision       int32           `json:"precision"`
 			PollingInterval models.Duration `json:"pollingInterval"`
-		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision, i.PollTimer.Frequency}, nil
+		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.Precision, i.PollTimer.Period}, nil
 	case models.InitiatorRandomnessLog:
 		return struct{ Address common.Address }{i.Address}, nil
 	default:

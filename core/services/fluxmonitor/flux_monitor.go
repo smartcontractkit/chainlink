@@ -244,8 +244,8 @@ func (f pollingDeviationCheckerFactory) New(
 	minimumPollingInterval := models.Duration(f.store.Config.DefaultHTTPTimeout())
 
 	if !initr.PollTimer.Disabled &&
-		initr.PollTimer.Frequency.Shorter(minimumPollingInterval) {
-		return nil, fmt.Errorf("pollTimer.frequency must be equal or greater than %s", minimumPollingInterval)
+		initr.PollTimer.Period.Shorter(minimumPollingInterval) {
+		return nil, fmt.Errorf("pollTimer.period must be equal or greater than %s", minimumPollingInterval)
 	}
 
 	urls, err := ExtractFeedURLs(initr.Feeds, orm)
@@ -475,7 +475,7 @@ func (p *PollingDeviationChecker) consume() {
 		// Try to do an initial poll
 		p.pollIfEligible(float64(p.initr.Threshold))
 
-		ticker := time.NewTicker(p.initr.PollTimer.Frequency.Duration())
+		ticker := time.NewTicker(p.initr.PollTimer.Period.Duration())
 		defer ticker.Stop()
 		p.pollTicker = ticker.C
 	}
@@ -493,7 +493,7 @@ func (p *PollingDeviationChecker) consume() {
 
 		case <-p.pollTicker:
 			logger.Debugw("Poll ticker fired",
-				"pollFrequency", p.initr.PollTimer.Frequency,
+				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
 				"reportableRoundID", p.reportableRoundID,
@@ -503,7 +503,7 @@ func (p *PollingDeviationChecker) consume() {
 
 		case <-p.idleTimer:
 			logger.Debugw("Idle ticker fired",
-				"pollFrequency", p.initr.PollTimer.Frequency,
+				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
 				"reportableRoundID", p.reportableRoundID,
@@ -513,7 +513,7 @@ func (p *PollingDeviationChecker) consume() {
 
 		case <-p.roundTimer:
 			logger.Debugw("Round timeout ticker fired",
-				"pollFrequency", p.initr.PollTimer.Frequency,
+				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
 				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
 				"reportableRoundID", p.reportableRoundID,
@@ -796,7 +796,7 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 func (p *PollingDeviationChecker) resetRoundTimeoutTicker(roundState contracts.FluxAggregatorRoundState) {
 	loggerFields := []interface{}{
 		"timesOutAt", roundState.TimesOutAt(),
-		"pollFrequency", p.initr.PollTimer.Frequency,
+		"pollPeriod", p.initr.PollTimer.Period,
 		"idleDuration", p.initr.IdleTimer.Duration,
 		"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
 		"reportableRoundID", p.reportableRoundID,
@@ -838,7 +838,7 @@ func (p *PollingDeviationChecker) resetIdleTicker(roundStartedAtUTC uint64) {
 
 	loggerFields := []interface{}{
 		"startedAt", roundStartedAtUTC,
-		"pollFrequency", p.initr.PollTimer.Frequency,
+		"pollPeriod", p.initr.PollTimer.Period,
 		"idleDuration", p.initr.IdleTimer.Duration,
 		"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
 		"reportableRoundID", p.reportableRoundID,

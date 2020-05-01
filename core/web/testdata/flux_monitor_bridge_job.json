@@ -13,7 +13,7 @@
         "disabled": true
       },
       "pollTimer": {
-        "frequency": "1m"
+        "period": "1m"
       }
     }
   }],

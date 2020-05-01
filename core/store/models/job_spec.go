@@ -226,8 +226,8 @@ type InitiatorParams struct {
 }
 
 type PollTimerConfig struct {
-	Disabled  bool     `json:"disabled,omitempty"`
-	Frequency Duration `json:"frequency,omitempty"`
+	Disabled bool     `json:"disabled,omitempty"`
+	Period   Duration `json:"period,omitempty"`
 }
 
 // Value is defined so that we can store PollTimerConfig as JSONB, because
