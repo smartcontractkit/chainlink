@@ -814,7 +814,7 @@ func (p *PollingDeviationChecker) resetRoundTimeoutTicker(roundState contracts.F
 
 		if timeUntilTimeout <= 0 {
 			p.roundTimer = nil
-			logger.Debugw("disabling roundTimer, negative duration", loggerFields...)
+			logger.Debugw("roundTimer has run down; disabling", loggerFields...)
 		} else {
 			p.roundTimer = time.After(timeUntilTimeout)
 			loggerFields = append(loggerFields, "value", roundState.TimesOutAt())
