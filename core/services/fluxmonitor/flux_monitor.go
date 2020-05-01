@@ -710,11 +710,7 @@ func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
 }
 
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
-	loggerFields := []interface{}{
-		"jobID", p.initr.JobSpecID,
-		"address", p.initr.Address,
-		"threshold", threshold,
-	}
+	loggerFields := p.loggerFields("threshold", threshold)
 
 	if p.connected.IsSet() == false {
 		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
@@ -794,15 +790,7 @@ func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundSta
 }
 
 func (p *PollingDeviationChecker) resetRoundTimeoutTicker(roundState contracts.FluxAggregatorRoundState) {
-	loggerFields := []interface{}{
-		"timesOutAt", roundState.TimesOutAt(),
-		"pollPeriod", p.initr.PollTimer.Period,
-		"idleDuration", p.initr.IdleTimer.Duration,
-		"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
-		"reportableRoundID", p.reportableRoundID,
-		"contract", p.initr.Address.Hex(),
-		"jobID", p.initr.JobSpecID.String(),
-	}
+	loggerFields := p.loggerFields("timesOutAt", roundState.TimesOutAt())
 
 	if roundState.TimesOutAt() == 0 {
 		p.roundTimer = nil
@@ -835,17 +823,11 @@ func (p *PollingDeviationChecker) resetIdleTicker(roundStartedAtUTC uint64) {
 	startedAt := time.Unix(int64(roundStartedAtUTC), 0)
 	idleDeadline := startedAt.Add(p.initr.IdleTimer.Duration.Duration())
 	timeUntilIdleDeadline := time.Until(idleDeadline)
-
-	loggerFields := []interface{}{
+	loggerFields := p.loggerFields(
 		"startedAt", roundStartedAtUTC,
-		"pollPeriod", p.initr.PollTimer.Period,
-		"idleDuration", p.initr.IdleTimer.Duration,
-		"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
-		"reportableRoundID", p.reportableRoundID,
-		"contract", p.initr.Address.Hex(),
-		"jobID", p.initr.JobSpecID.String(),
 		"timeUntilIdleDeadline", timeUntilIdleDeadline,
-	}
+	)
+
 	if timeUntilIdleDeadline <= 0 {
 		logger.Debugw("not resetting idleTimer, negative duration", loggerFields...)
 		return
@@ -896,6 +878,17 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 	p.mostRecentSubmittedRoundID = nextRound.Uint64()
 
 	return nil
+}
+
+func (p *PollingDeviationChecker) loggerFields(added ...interface{}) []interface{} {
+	return append(added, []interface{}{
+		"pollFrequency", p.initr.PollTimer.Period,
+		"idleDuration", p.initr.IdleTimer.Duration,
+		"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
+		"reportableRoundID", p.reportableRoundID,
+		"contract", p.initr.Address.Hex(),
+		"jobID", p.initr.JobSpecID.String(),
+	}...)
 }
 
 func (p *PollingDeviationChecker) loggerFieldsForNewRound(log contracts.LogNewRound) []interface{} {
