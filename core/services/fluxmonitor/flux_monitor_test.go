@@ -370,7 +370,6 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		logBroadcasts = append(logBroadcasts, logBroadcast)
 	}
 
-	time.Sleep(1 * time.Second)
 	checker.HandleLog(logBroadcasts[0], nil) // Get the checker to start processing a log so we can freeze it
 	<-chSafeToFillQueue
 	checker.HandleLog(logBroadcasts[1], nil) // This log is evicted from the priority queue
