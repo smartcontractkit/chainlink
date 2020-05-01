@@ -64,7 +64,6 @@ let linkToken: contract.Instance<contract.LinkTokenFactory>
 let fluxAggregator: contract.Instance<FluxAggregatorFactory>
 let node1Address: string
 let node2Address: string
-let txInterval: number | undefined
 
 async function assertAggregatorValues(
   latestAnswer: number,
@@ -110,14 +109,6 @@ beforeAll(async () => {
   linkToken = await linkTokenFactory.deploy()
   await linkToken.deployed()
 
-  // FIXME: force parity to "mine" block every 2 seconds
-  // www.pivotaltracker.com/story/show/172321994
-  if (!process.env.GETH_MODE) {
-    const miner = ethers.Wallet.createRandom().connect(provider)
-    await t.fundAddress(miner.address)
-    txInterval = t.setRecurringTx(miner)
-  }
-
   console.log(`Chainlink Node 1 address: ${node1Address}`)
   console.log(`Chainlink Node 2 address: ${node2Address}`)
   console.log(`Contract creator's address: ${carol.address}`)
@@ -148,10 +139,6 @@ afterEach(async () => {
     t.changePriceFeed(EXTERNAL_ADAPTER_2_URL, 100),
   ])
   fluxAggregator.removeAllListeners('*')
-})
-
-afterAll(() => {
-  clearInterval(txInterval)
 })
 
 describe('FluxMonitor / FluxAggregator integration with one node', () => {
