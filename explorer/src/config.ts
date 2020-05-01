@@ -9,7 +9,7 @@ export enum Environment {
 
 export class Config {
   static port(env = process.env): number {
-    return parseInt(env.EXPLORER_SERVER_PORT) || 8080
+    return parseInt(env.EXPLORER_SERVER_PORT, 10) || 8080
   }
 
   static testPort(env = process.env): number {
@@ -17,20 +17,14 @@ export class Config {
   }
 
   static env(env = process.env): Environment {
-    let appEnv: Environment = Environment.DEV
-    switch (env.NODE_ENV) {
+    switch (this.nodeEnv(env)) {
       case 'production':
-        appEnv = Environment.PROD
-        break
+        return Environment.PROD
       case 'test':
-        appEnv = Environment.TEST
-        break
+        return Environment.TEST
       default:
-        appEnv = Environment.DEV
-        break
+        return Environment.DEV
     }
-
-    return appEnv
   }
 
   static nodeEnv(env = process.env): string | undefined {
