@@ -85,7 +85,7 @@ type FluxAggregatorRoundState struct {
 }
 
 func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
-	return rs.Timeout + rs.StartedAt
+	return rs.StartedAt + rs.Timeout
 }
 
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {

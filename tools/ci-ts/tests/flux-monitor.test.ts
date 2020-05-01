@@ -258,7 +258,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await assertAggregatorValues(14000, 4, 4, 4, 2, 'fourth round')
   })
 
-  it('respects the idleThreshold', async () => {
+  it('respects the idle timer duration', async () => {
     await fluxAggregator.updateFutureRounds(
       MINIMUM_CONTRACT_PAYMENT,
       2,
@@ -270,7 +270,8 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     const node1InitialRunCount = clClient1.getJobRuns().length
     const node2InitialRunCount = clClient2.getJobRuns().length
 
-    fluxMonitorJob.initiators[0].params.idleThreshold = '15s'
+    fluxMonitorJob.initiators[0].params.idleTimer.duration = '15s'
+    fluxMonitorJob.initiators[0].params.idleTimer.disabled = false
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
     clClient1.createJob(JSON.stringify(fluxMonitorJob))
