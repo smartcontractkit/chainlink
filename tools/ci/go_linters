@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -e
+
+pushd /tmp > /dev/null
+go get golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
+go get golang.org/x/tools/cmd/goimports
+popd > /dev/null
+
+go mod download > /dev/null # Prevent this output during `go vet`
+
+echo "Checking for shadowed variables in golang files."
+echo "You can run this command locally with the following commands:"
+echo "  (cd /tmp; go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow)"
+# shellcheck disable=SC2016
+echo '  go vet -vettool="$(which shadow)" ./core/...'
+go vet -vettool="$(which shadow)" ./core/...
+echo "Success: No shadowed variables reported."
+
+echo
+# shellcheck disable=SC2016
+echo 'Linting golang files with `go vet ./core/...`'
+go vet ./core/...
+# shellcheck disable=SC2016
+echo 'Success: No complaints from `go vet ./core/...`'
+
+echo
+# shellcheck disable=SC2016
+echo 'Checking for malformatted code/import inconsistencies with `goimports -l ./core`'
+malformed_files="$(goimports -l ./core)"
+if [ -n "$malformed_files" ]; then
+    echo "goimports reported issues with the following files:"
+    echo
+    echo "$malformed_files"
+    echo
+    # shellcheck disable=SC2016
+    echo 'Please run `goimports -w .` locally, and incorporate the resulting '
+    echo "changes into your branch."
+    echo
+    echo "You may need to install goimports locally with the command"
+    # shellcheck disable=SC2016
+    echo '`go get golang.org/x/tools/cmd/goimports`'
+    exit 1
+fi
+echo "Success: No complaints from goimports"
+echo

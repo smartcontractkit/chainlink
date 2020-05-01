@@ -329,6 +329,7 @@ jobs:
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
+      - run: ./tools/ci/go_linters
       - restore_cache:
           name: Restore Yarn Package Cache
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
