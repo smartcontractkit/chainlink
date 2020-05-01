@@ -56,18 +56,30 @@ export class Config {
     return env.REACT_APP_GA_ID
   }
 
+  static hostnameWhitelist(env = process.env): string[] {
+    return (env.REACT_APP_HOSTNAME_WHITELIST ?? '')
+      .split(',')
+      .map(s => s.trim())
+  }
+
   static feedsJson(env = process.env, location = window.location): string {
-    const urlFeedsJson = UrlConfig.feedsJson(location)
-    if (urlFeedsJson) {
-      return urlFeedsJson
+    const queryOverride = UrlConfig.feedsJson(location)
+    if (queryOverride) {
+      const overrideUrl = new URL(queryOverride)
+      if (Config.hostnameWhitelist().includes(overrideUrl.hostname)) {
+        return queryOverride
+      }
     }
     return env.REACT_APP_FEEDS_JSON ?? '/feeds.json'
   }
 
   static nodesJson(env = process.env, location = window.location): string {
-    const urlNodesJson = UrlConfig.nodesJson(location)
-    if (urlNodesJson) {
-      return urlNodesJson
+    const queryOverride = UrlConfig.nodesJson(location)
+    if (queryOverride) {
+      const overrideUrl = new URL(queryOverride)
+      if (Config.hostnameWhitelist().includes(overrideUrl.hostname)) {
+        return queryOverride
+      }
     }
     return env.REACT_APP_NODES_JSON ?? '/nodes.json'
   }
