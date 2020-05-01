@@ -7,5 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Added Changelog
+- Added common environment configuration to explorer server and client
 
 ## [0.8.2] - 2020-04-22

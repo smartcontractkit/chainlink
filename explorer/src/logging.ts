@@ -2,6 +2,7 @@ import express from 'express'
 import PinoHttp from 'express-pino-logger'
 import pino from 'pino'
 import { Logger } from 'typeorm'
+import { Config, Environment } from './config'
 
 const options: Parameters<typeof pino>[0] = {
   name: 'Explorer',
@@ -11,10 +12,10 @@ const options: Parameters<typeof pino>[0] = {
   },
 }
 
-switch (process.env.NODE_ENV) {
-  case 'production':
+switch (Config.env()) {
+  case Environment.PROD:
     break
-  case 'test':
+  case Environment.TEST:
     options.level = 'silent'
     break
   default:
