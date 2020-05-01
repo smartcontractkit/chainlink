@@ -111,7 +111,6 @@ func deployCoordinator(t *testing.T) coordinator {
 
 func TestRequestIDMatches(t *testing.T) {
 	keyHash := common.HexToHash("0x01")
-	seed := big.NewInt(1)
 	baseContract := deployCoordinator(t).requestIDBase
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err, "failed to calculate VRF requestID on simulated ethereum blockchain")
