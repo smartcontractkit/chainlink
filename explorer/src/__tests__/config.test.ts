@@ -6,6 +6,9 @@ describe('config', () => {
   beforeEach(() => {
     process.env = originalEnv
   })
+  afterAll(() => {
+    process.env = originalEnv
+  })
 
   it('returns port key from the process env', () => {
     process.env.EXPLORER_SERVER_PORT = '3000'
@@ -51,6 +54,14 @@ describe('config', () => {
     const secret = randomBytes(32).toString('hex')
     process.env.EXPLORER_COOKIE_SECRET = secret
     expect(Config.cookieSecret()).toEqual(secret)
+  })
+
+  it('returns default dev cookieSecret key from the process env', () => {
+    process.env.EXPLORER_COOKIE_SECRET = undefined
+    process.env.NODE_ENV = 'development'
+    expect(Config.cookieSecret()).toEqual(
+      'secret-sauce-secret-sauce-secret-sauce-secret-sauce-secret-sauce',
+    )
   })
 
   it('returns cookieExpirationMs', () => {
