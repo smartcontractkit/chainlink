@@ -56,7 +56,7 @@ func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (eth.CallerSubsc
 		return nil, err
 	}
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, fmt.Errorf("Ethereum url scheme must be websocket: %s", parsed.String())
+		return nil, fmt.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 	return &lazyRPCWrapper{
 		url:         parsed,

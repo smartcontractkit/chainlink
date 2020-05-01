@@ -40,7 +40,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	require.Equal(t, http.StatusConflict, resp.StatusCode)
 	assert.Len(t, errors.Errors, 1)
-	assert.Equal(t, "Old password does not match", errors.Errors[0].Detail)
+	assert.Equal(t, "old password does not match", errors.Errors[0].Detail)
 
 	// Success
 	resp, cleanup = client.Patch(

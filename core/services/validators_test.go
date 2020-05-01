@@ -123,7 +123,7 @@ func TestValidateBridgeType(t *testing.T) {
 				Name: "invalid/adapter",
 				URL:  cltest.WebURL(t, "https://denergy.eth"),
 			},
-			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
+			models.NewJSONAPIErrorsWith("task type validation: name invalid/adapter contains invalid characters"),
 		},
 		{
 			"invalid with blank url",

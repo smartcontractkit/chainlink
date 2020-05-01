@@ -307,7 +307,7 @@ func verifyEthereumChainID(ht *HeadTracker) error {
 
 	if ethereumChainID.Cmp(ht.store.Config.ChainID()) != 0 {
 		return fmt.Errorf(
-			"Ethereum ChainID doesn't match chainlink config.ChainID: config ID=%d, eth RPC ID=%d",
+			"ethereum ChainID doesn't match chainlink config.ChainID: config ID=%d, eth RPC ID=%d",
 			ht.store.Config.ChainID(),
 			ethereumChainID,
 		)

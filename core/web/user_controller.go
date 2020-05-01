@@ -35,7 +35,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
-		jsonAPIError(ctx, http.StatusConflict, errors.New("Old password does not match"))
+		jsonAPIError(ctx, http.StatusConflict, errors.New("old password does not match"))
 		return
 	}
 	if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
@@ -160,7 +160,7 @@ func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts
 	txm := store.TxManager
 	ethBalance, err := txm.GetEthBalance(account.Address)
 	if err != nil {
-		err = fmt.Errorf("Error calling getEthBalance on Ethereum node: %v", err)
+		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
 		return presenters.AccountBalance{}
@@ -168,7 +168,7 @@ func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts
 
 	linkBalance, err := txm.GetLINKBalance(account.Address)
 	if err != nil {
-		err = fmt.Errorf("Error calling getLINKBalance on Ethereum node: %v", err)
+		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
 		return presenters.AccountBalance{}
