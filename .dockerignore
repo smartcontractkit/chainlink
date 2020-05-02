@@ -2,10 +2,7 @@
 .DS_Store
 .envrc
 *.log
-**/*.test.ts
-**/*.test.tsx
-**/*.test.js
-**/*.test.jsx
+**/*.test.*
 
 node_modules/
 **/node_modules/
