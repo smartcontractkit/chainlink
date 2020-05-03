@@ -434,7 +434,7 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 			logger.Warn("unable to clear test store:", err)
 		}
 	}()
-	require.NoError(t, logger.Sync())
+	_ = logger.Sync()
 	require.NoError(t, store.Close())
 }
 

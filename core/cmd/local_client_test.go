@@ -61,7 +61,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 		t.Fatal("Timed out waiting for runner")
 	}
 
-	require.NoError(t, logger.Sync())
+	_ = logger.Sync()
 	logs, err := cltest.ReadLogs(store.Config)
 	require.NoError(t, err)
 
