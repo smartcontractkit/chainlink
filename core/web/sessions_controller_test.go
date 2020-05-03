@@ -3,11 +3,12 @@ package web_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"

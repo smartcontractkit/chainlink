@@ -3,9 +3,10 @@ package models
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"math/big"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 

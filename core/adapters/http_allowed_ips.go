@@ -3,9 +3,10 @@ package adapters
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"net"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 var privateIPBlocks []*net.IPNet

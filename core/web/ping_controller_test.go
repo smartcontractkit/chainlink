@@ -1,10 +1,11 @@
 package web_test
 
 import (
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"

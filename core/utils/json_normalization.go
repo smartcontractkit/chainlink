@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"golang.org/x/text/unicode/norm"
 )

@@ -3,11 +3,12 @@ package cltest
 import (
 	"database/sql"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"net/url"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
