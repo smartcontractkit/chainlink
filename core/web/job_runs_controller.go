@@ -108,7 +108,7 @@ func getAuthenticatedInitiator(c *gin.Context, js models.JobSpec) (*models.Initi
 	if ei, ok := authenticatedEI(c); ok {
 		initiator := js.InitiatorExternal(ei.Name)
 		if initiator == nil {
-			return nil, fmt.Errorf("Job not available via External Initiator '%s'", ei.Name)
+			return nil, fmt.Errorf("job not available via External Initiator '%s'", ei.Name)
 		}
 		return initiator, nil
 	}

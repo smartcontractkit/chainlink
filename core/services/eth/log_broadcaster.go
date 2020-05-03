@@ -360,11 +360,8 @@ func (b *logBroadcaster) onAddListener(r registration) (needsResubscribe bool) {
 	}
 	b.listeners[r.address][r.listener] = struct{}{}
 
-	if !knownAddress {
-		// Recreate the subscription with the new contract address
-		return true
-	}
-	return false
+	// Recreate the subscription with the new contract address
+	return !knownAddress
 }
 
 func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool) {

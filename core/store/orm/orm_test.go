@@ -1426,7 +1426,6 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 }
 
 func TestORM_FindAllTxsInNonceRange(t *testing.T) {
-	var createdTxs []models.Tx
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -1435,7 +1434,6 @@ func TestORM_FindAllTxsInNonceRange(t *testing.T) {
 		tx.SurrogateID = null.StringFrom(fmt.Sprintf("nonce-%v", nonce))
 		tx, err := store.CreateTx(tx)
 		require.NoError(t, err)
-		createdTxs = append(createdTxs, *tx)
 	}
 
 	txs, err := store.FindAllTxsInNonceRange(2, 3)
@@ -1511,12 +1509,10 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	archivedJob.DeletedAt = cltest.NullableTime(time.Now())
 	require.NoError(t, store.CreateJob(&archivedJob))
 
-	jobs := []models.JobSpec{}
 	jobNumber := orm.BatchSize*2 + 1
 	for i := 0; i < jobNumber; i++ {
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		require.NoError(t, store.CreateJob(&job))
-		jobs = append(jobs, job)
 	}
 
 	counter := 0
