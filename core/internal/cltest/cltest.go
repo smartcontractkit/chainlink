@@ -434,7 +434,7 @@ func cleanUpStore(t testing.TB, store *strpkg.Store) {
 			logger.Warn("unable to clear test store:", err)
 		}
 	}()
-	_ = logger.Sync()
+	require.NoError(t, logger.Sync())
 	require.NoError(t, store.Close())
 }
 
@@ -499,7 +499,7 @@ func bodyCleaner(t testing.TB, resp *http.Response, err error) (*http.Response, 
 	t.Helper()
 
 	require.NoError(t, err)
-	return resp, func() { require.NoError(t, resp.Body.Close()) }
+	return resp, func() { logger.ErrorIfCalling(resp.Body.Close) }
 }
 
 // ParseResponseBody will parse the given response into a byte slice
@@ -1071,7 +1071,7 @@ func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[s
 	}
 	resp, err := client.Do(request)
 	require.NoError(t, err)
-	return resp, func() { require.NoError(t, resp.Body.Close()) }
+	return resp, func() { logger.ErrorIfCalling(resp.Body.Close) }
 }
 
 func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
@@ -1086,7 +1086,7 @@ func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[
 	}
 	resp, err := client.Do(request)
 	require.NoError(t, err)
-	return resp, func() { require.NoError(t, resp.Body.Close()) }
+	return resp, func() { logger.ErrorIfCalling(resp.Body.Close) }
 }
 
 func MustParseDuration(t testing.TB, durationStr string) time.Duration {
