@@ -49,16 +49,17 @@ jobs:
   #       run: lint
   #       comment: false
 
-  # staticcheck:
-  #   name: StaticCheck
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: staticcheck
-  #       comment: false
+  staticcheck:
+    name: StaticCheck
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: check
+      uses: grandcolline/golang-github-actions@v1.1.0
+      with:
+        run: staticcheck
+        flags: "-checks=\"inherit\",\"-SA4006\",\"-U1000\",\"-SA4009\""
+        comment: false
 
   # errcheck:
   #   name: Errcheck

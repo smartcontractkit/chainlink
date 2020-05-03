@@ -712,7 +712,7 @@ func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
 func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
 	loggerFields := p.loggerFields("threshold", threshold)
 
-	if p.connected.IsSet() == false {
+	if !p.connected.IsSet() {
 		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
 		return false
 	}

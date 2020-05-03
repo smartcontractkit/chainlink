@@ -48,7 +48,7 @@ func (r RunStatusCollection) Value() (driver.Value, error) {
 func (r *RunStatusCollection) Scan(value interface{}) error {
 	str, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to RunStatusCollection", value, value)
+		return fmt.Errorf("unable to convert %v of %T to RunStatusCollection", value, value)
 	}
 
 	if len(str) == 0 {

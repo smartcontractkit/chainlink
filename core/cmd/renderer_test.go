@@ -94,7 +94,7 @@ type testWriter struct {
 }
 
 func (w *testWriter) Write(actual []byte) (int, error) {
-	if bytes.Index(actual, []byte(w.expected)) != -1 {
+	if bytes.Contains(actual, []byte(w.expected)) {
 		w.found = true
 	}
 	return len(actual), nil
