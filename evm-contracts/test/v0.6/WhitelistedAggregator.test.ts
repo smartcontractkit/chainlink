@@ -26,8 +26,8 @@ describe('WhitelistedAggregator', () => {
   const decimals = 18
   const description = 'LINK/USD'
 
-  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
+  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
   let nextRound: number
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
@@ -41,7 +41,7 @@ describe('WhitelistedAggregator', () => {
         h.toBytes32String(description),
         // Remove when this PR gets merged:
         // https://github.com/ethereum-ts/TypeChain/pull/218
-        { gasLimit: 5_500_000 },
+        { gasLimit: 8_000_000 },
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
@@ -56,7 +56,7 @@ describe('WhitelistedAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
       'acceptAdmin',
-      'addOracle',
+      'addOracles',
       'allocatedFunds',
       'availableFunds',
       'decimals',
@@ -72,21 +72,22 @@ describe('WhitelistedAggregator', () => {
       'latestRound',
       'latestSubmission',
       'latestTimestamp',
-      'maxAnswerCount',
-      'minAnswerCount',
+      'linkToken',
+      'maxSubmissionCount',
+      'minSubmissionCount',
       'onTokenTransfer',
       'oracleCount',
+      'oracleRoundState',
       'paymentAmount',
-      'removeOracle',
+      'removeOracles',
       'reportingRound',
       'reportingRoundStartedAt',
+      'requestNewRound',
       'restartDelay',
-      'roundState',
-      'setAuthorization',
-      'startNewRound',
+      'setRequesterPermissions',
+      'submit',
       'timeout',
       'transferAdmin',
-      'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
       'withdrawFunds',
@@ -132,14 +133,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -171,14 +172,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -212,14 +213,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -249,14 +250,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {

@@ -43,7 +43,7 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 			initrReq: models.InitiatorRequest{
 				Type: models.InitiatorFluxMonitor,
 				InitiatorParams: models.InitiatorParams{
-					IdleThreshold: models.Duration(5 * time.Second),
+					IdleThreshold: models.MustMakeDuration(5 * time.Second),
 					Precision:     2,
 					Threshold:     5,
 				},
@@ -53,8 +53,8 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				Type:      models.InitiatorFluxMonitor,
 				JobSpecID: job.ID,
 				InitiatorParams: models.InitiatorParams{
-					IdleThreshold:   models.Duration(5 * time.Second),
-					PollingInterval: models.FluxMonitorDefaultInitiatorParams.PollingInterval,
+					IdleThreshold:   models.MustMakeDuration(5 * time.Second),
+					PollingInterval: models.FluxMonitorDefaultInitiatorParams["PollingInterval"].Value.(models.Duration),
 					Precision:       2,
 					Threshold:       5,
 				},
@@ -86,7 +86,7 @@ func TestInitiatorParams(t *testing.T) {
 		models.TopicsForInitiatorsWhichRequireJobSpecIDTopic[models.InitiatorRunLog],
 	})
 	json := cltest.JSONFromString(t, `{"foo":42}`)
-	duration := models.Duration(42 * time.Second)
+	duration := models.MustMakeDuration(42 * time.Second)
 	time := models.NewAnyTime(time.Now())
 
 	j := cltest.NewJob()
@@ -125,7 +125,7 @@ func TestInitiatorParams(t *testing.T) {
 	assert.Equal(t, address, saved.InitiatorParams.Address)
 	assert.Equal(t, requesters, saved.InitiatorParams.Requesters)
 	assert.Equal(t, "foo", saved.InitiatorParams.Name)
-	assert.Equal(t, json, *saved.InitiatorParams.Body)
+	assert.JSONEq(t, json.String(), saved.InitiatorParams.Body.String())
 	assert.Equal(t, big, saved.InitiatorParams.FromBlock)
 	assert.Equal(t, big, saved.InitiatorParams.ToBlock)
 	assert.Equal(t, topics, saved.InitiatorParams.Topics)
@@ -143,7 +143,7 @@ func TestNewJobFromRequest(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("* * * * 7")
+	j1 := cltest.NewJobWithSchedule("CRON_TZ=UTC * * * * 6")
 	require.NoError(t, store.CreateJob(&j1))
 
 	jsr := models.JobSpecRequest{
@@ -296,4 +296,18 @@ func TestNewTaskType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetDefaultValues(t *testing.T) {
+	p := models.InitiatorParams{}
+	p.SetDefaultValues(models.InitiatorFluxMonitor)
+	assert.Equal(t,
+		models.FluxMonitorDefaultInitiatorParams["PollingInterval"].Value,
+		p.PollingInterval,
+		"failed to set default initiator parameter PollingInterval")
+	initialValue := models.MustMakeDuration(2 * time.Second)
+	p.PollingInterval = initialValue
+	p.SetDefaultValues(models.InitiatorFluxMonitor)
+	assert.Equal(t, initialValue, p.PollingInterval,
+		"altered explicitly set initiator parameter PollingInterval")
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -31,24 +32,31 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, StatusCodeForError(err), err)
 		return
 	}
-	if err := services.ValidateBridgeType(btr, btc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+	if e := services.ValidateBridgeType(btr, btc.App.GetStore()); e != nil {
+		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
-	if err := services.ValidateBridgeTypeNotExist(btr, btc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+	if e := services.ValidateBridgeTypeNotExist(btr, btc.App.GetStore()); e != nil {
+		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
-	if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if e := btc.App.GetStore().CreateBridgeType(bt); e != nil {
+		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
-	if errors.Cause(err) == orm.ErrorConflict {
-		jsonAPIError(c, http.StatusConflict, fmt.Errorf("Bridge Type %v conflict", bt.Name))
+	switch err.(type) {
+	case *pq.Error:
+		var apiErr error
+		if err.(pq.Error).Constraint == "external_initiators_name_key" {
+			apiErr = fmt.Errorf("Bridge Type %v conflict", bt.Name)
+		} else {
+			apiErr = err
+		}
+		jsonAPIError(c, http.StatusConflict, apiErr)
 		return
+	default:
+		jsonAPIResponse(c, bta, "bridge")
 	}
-
-	jsonAPIResponse(c, bta, "bridge")
 }
 
 // Index lists Bridges, one page at a time.

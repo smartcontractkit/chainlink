@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -130,7 +129,7 @@ type Whitelist struct {
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  *big.Int        `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
-	DatabaseTimeout          time.Duration   `json:"databaseTimeout"`
+	DatabaseTimeout          models.Duration `json:"databaseTimeout"`
 	Dev                      bool            `json:"chainlinkDev"`
 	EthereumURL              string          `json:"ethUrl"`
 	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
@@ -150,10 +149,10 @@ type Whitelist struct {
 	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
 	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
 	Port                     uint16          `json:"chainlinkPort"`
-	ReaperExpiration         time.Duration   `json:"reaperExpiration"`
+	ReaperExpiration         models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock          int64           `json:"replayFromBlock"`
 	RootDir                  string          `json:"root"`
-	SessionTimeout           time.Duration   `json:"sessionTimeout"`
+	SessionTimeout           models.Duration `json:"sessionTimeout"`
 	TLSHost                  string          `json:"chainlinkTLSHost"`
 	TLSPort                  uint16          `json:"chainlinkTLSPort"`
 	TLSRedirect              bool            `json:"chainlinkTLSRedirect"`
@@ -586,7 +585,7 @@ func NewTx(tx *models.Tx) Tx {
 		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
 		GasPrice:  tx.GasPrice.String(),
 		Hash:      tx.Hash,
-		Hex:       tx.SignedRawTx,
+		Hex:       hexutil.Encode(tx.SignedRawTx),
 		Nonce:     strconv.FormatUint(tx.Nonce, 10),
 		SentAt:    strconv.FormatUint(tx.SentAt, 10),
 		To:        &tx.To,

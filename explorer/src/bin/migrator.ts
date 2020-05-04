@@ -1,7 +1,7 @@
 import yargs from 'yargs'
 import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../database'
 import { ChainlinkNode } from '../entity/ChainlinkNode'
+import { bootstrap } from '../cli/bootstrap'
 
 const migrate = async () => {
   return bootstrap(async (db: Connection) => {
@@ -34,18 +34,6 @@ const revert = async () => {
   return bootstrap(async (db: Connection) => {
     await db.undoLastMigration()
   })
-}
-
-async function bootstrap(cb: any) {
-  const db = await getDb()
-  try {
-    await cb(db)
-  } catch (err) {
-    console.error(err)
-    process.exit(1)
-  } finally {
-    await closeDbConnection()
-  }
 }
 
 yargs

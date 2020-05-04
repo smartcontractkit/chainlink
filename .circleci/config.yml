@@ -3,7 +3,7 @@ jobs:
   go-postgres:
     resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -17,6 +17,7 @@ jobs:
           name: Restore Yarn Package Cache
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
       - run: make yarndep
+      - run: ./tools/bin/restore-solc-cache
       - save_cache:
           name: Save Yarn Package Cache
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
@@ -35,7 +36,7 @@ jobs:
       - run: go test -v -p 3 -parallel 2 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: ./tools/ci/rust_test
@@ -110,7 +111,7 @@ jobs:
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -123,13 +124,12 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
-      - run: pip3 install -r requirements.txt
       - run: ./tools/ci/solidity_test
       - store_artifacts:
           path: ./integration/logs
   styleguide:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -145,7 +145,7 @@ jobs:
       - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -162,7 +162,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -221,7 +221,7 @@ jobs:
           path: ./integration/logs
   feeds:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -309,7 +309,7 @@ jobs:
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -326,7 +326,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -343,7 +343,9 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
+    environment:
+      NODE_OPTIONS: --max_old_space_size=512
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -365,7 +367,9 @@ workflows:
       - check_if_rebase_needed:
           filters:
             tags:
-              ignore: /^v.*/
+              ignore:
+                - /^v.*/
+                - /^explorer-v.*/
             branches:
               ignore:
                 - develop
@@ -399,11 +403,15 @@ workflows:
       - styleguide:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - json-api-client:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - operator-ui:
           filters:
             tags:
@@ -419,15 +427,21 @@ workflows:
       - feeds:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - lint:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - prepublish_npm:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - build-publish-explorer:
           requires:
             - styleguide
@@ -435,7 +449,7 @@ workflows:
             - explorer
           filters:
             tags:
-              only: /^v.*/
+              only: /^explorer-v.*/
       - build-chainlink-sgx:
           filters:
             tags:
@@ -460,3 +474,14 @@ workflows:
             - operator-ui
             - rust
             - explorer
+          filters:
+            tags:
+              ignore:
+                - /^v.*/
+                - /^explorer-v.*/
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
+                - /^hotfix\/.*/

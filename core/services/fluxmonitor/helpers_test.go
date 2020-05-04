@@ -12,6 +12,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 )
 
 func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
@@ -27,8 +29,8 @@ func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *bi
 	p.reportableRoundID = roundID
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToLog(log interface{}) {
-	p.respondToLog(log)
+func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
+	p.respondToNewRoundLog(*log)
 }
 
 func mustReadFile(t testing.TB, file string) string {

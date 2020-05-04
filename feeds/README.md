@@ -33,7 +33,22 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 
 Launches the expressjs server that serve the `/build` folder
 
-## Deploy to Heroku
+## Staging Deploy
+
+This repo is configured to automatically create a draft staging environment 
+on Netlify when a PR is opened. You can access the URL by viewing the PR checks
+
+![](./docs/pr-checks-deploy-url.png)
+
+## Production Deploy
+
+This repo is configured to automatically deploy to production when there is a 
+new push to the `master-feeds` branch.
+
+https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlify/#step-2-link-to-your-github
+
+
+## Deploy to Heroku [DEPRECATED]
 
 [Official heroku docker documentation](https://devcenter.heroku.com/articles/container-registry-and-runtime)
 
@@ -54,10 +69,10 @@ $ heroku container:login
 Build and push a new image from the root of the monorepo
 
 ```
-$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=abc123,REACT_APP_GA_ID=abc123 -a the-app-name
+$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=abc123,REACT_APP_GA_ID=abc123 REACT_APP_FEEDS_JSON=https://feeds.chain.link/feeds.json REACT_APP_NODES_JSON=https://feeds.chain.link/nodes.json -a the-app-name
 
 # If the config vars are stored in Heroku, you can capture the output in a subshell
-$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=$(heroku config:get REACT_APP_INFURA_KEY -a the-app-name),REACT_APP_GA_ID=$(heroku config:get REACT_APP_GA_ID -a the-app-name) -a the-app-name
+$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=$(heroku config:get REACT_APP_INFURA_KEY -a the-app-name),REACT_APP_GA_ID=$(heroku config:get REACT_APP_GA_ID -a the-app-name),REACT_APP_FEEDS_JSON=$(heroku config:get REACT_APP_FEEDS_JSON -a the-app-name,REACT_APP_NODES_JSON=$(heroku config:get REACT_APP_NODES_JSON -a the-app-name) -a the-app-name
 ```
 
 Deploy the newly built image by releasing the container from the root of the monorepo
@@ -86,6 +101,22 @@ On the landing page you can enable live health checks with:
 https://feeds.chain.link?health=true
 ```
 
+### Override feeds & nodes JSON endpoints
+
+Override the urls with a URI encoded query param
+
+```
+https://feeds.chain.link?feeds-json=https%3A%2F%2Fweiwatchers.com%2Ffeeds.json
+https://feeds.chain.link?nodes-json=https%3A%2F%2Fweiwatchers.com%2Fnodes.json
+```
+
+You can use the browser console to encode your URI:
+
+```javascript
+> encodeURIComponent('https://weiwatchers.com/feeds.json')
+"https%3A%2F%2Fweiwatchers.com%2Ffeeds.json"
+```
+
 ![reference-contract-health](./docs/reference-contract-health.png)
 
 #### Checks
@@ -98,3 +129,12 @@ Color Codes
 - Red: A check has failed (hover for tooltip that includes failed checks)
 - Yellow: Unknown status (when the price health check is not configured)
 - Green: Ok
+
+## Available env vars
+
+```
+REACT_APP_INFURA_KEY    - infura key
+REACT_APP_GA_ID         - google analytics key
+REACT_APP_FEEDS_JSON    - URL to load reference contract feeds
+REACT_APP_NODES_JSON    - URL to load oracle nodes
+```

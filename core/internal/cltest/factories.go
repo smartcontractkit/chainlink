@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -147,9 +149,9 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
 			Address:       NewAddress(),
-			RequestData:   models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:         models.JSON{gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
-			IdleThreshold: models.Duration(time.Minute),
+			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:         models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
+			IdleThreshold: models.MustMakeDuration(time.Minute),
 			Threshold:     0.5,
 			Precision:     2,
 		},
@@ -165,8 +167,8 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
 			Address:     NewAddress(),
-			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:       models.JSON{gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			RequestData: models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:       models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
 			Threshold:   0.5,
 			Precision:   2,
 		},
@@ -212,7 +214,7 @@ func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw",
+		SignedRawTx: hexutil.MustDecode("0xcafe11"),
 	}
 }
 
@@ -262,7 +264,7 @@ func CreateTxWithNonceGasPriceAndRecipient(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw-attempt 1",
+		SignedRawTx: hexutil.MustDecode("0xcafe22"),
 	}
 
 	tx, err := store.CreateTx(tx)
@@ -291,7 +293,7 @@ func AddTxAttempt(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: fmt.Sprintf("signed-raw-attempt %d", len(tx.Attempts)+1),
+		SignedRawTx: []byte{byte(len(tx.Attempts))},
 	}
 
 	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
@@ -677,4 +679,16 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 
 func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+}
+
+func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.PollingDeviationChecker {
+	fluxAggregator := new(mocks.FluxAggregator)
+	initr := models.Initiator{}
+	runManager := new(mocks.RunManager)
+	pollDelay, err := models.MakeDuration(time.Second)
+	require.NoError(t, err)
+	fetcher := new(mocks.Fetcher)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, pollDelay, func() {})
+	require.NoError(t, err)
+	return checker
 }

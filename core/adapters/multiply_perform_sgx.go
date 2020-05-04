@@ -10,11 +10,12 @@ package adapters
 import "C"
 
 import (
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"encoding/json"
 	"fmt"
 	"unsafe"
+
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 )

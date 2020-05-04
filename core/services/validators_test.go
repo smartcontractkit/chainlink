@@ -291,7 +291,8 @@ func TestValidateInitiator(t *testing.T) {
 		{"runat w/o time", `{"type":"runat"}`, true},
 		{"runat w time before start at", fmt.Sprintf(`{"type":"runat","params": {"time":"%v"}}`, startAt.Add(-1*time.Second).Unix()), true},
 		{"runat w time after end at", fmt.Sprintf(`{"type":"runat","params": {"time":"%v"}}`, endAt.Add(time.Second).Unix()), true},
-		{"cron", `{"type":"cron","params": {"schedule":"* * * * * *"}}`, false},
+		{"cron standard", `{"type":"cron","params": {"schedule":"CRON_TZ=UTC * * * * *"}}`, false},
+		{"cron with 6 fields", `{"type":"cron","params": {"schedule":"CRON_TZ=UTC * * * * * *"}}`, false},
 		{"cron w/o schedule", `{"type":"cron"}`, true},
 		{"external w/o name", `{"type":"external"}`, true},
 		{"non-existent initiator", `{"type":"doesntExist"}`, true},
@@ -428,6 +429,22 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 			assert.Contains(t, err.Error(), test.Field)
 		})
 	}
+}
+
+func TestValidateInitiator_FluxMonitor_EthereumDisabled(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Config.Set("ETH_DISABLED", true)
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	job := cltest.NewJob()
+	var initr models.Initiator
+	require.NoError(t, json.Unmarshal([]byte(validInitiator), &initr))
+	err := services.ValidateInitiator(initr, job, store)
+	require.Error(t, err)
 }
 
 func TestValidateInitiator_FeedsHappy(t *testing.T) {

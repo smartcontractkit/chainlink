@@ -33,7 +33,8 @@ const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
 const deposit = h.toWei('1000')
 
 const answerUpdated = fluxAggregatorFactory.interface.events.AnswerUpdated.name
-const oracleAdded = fluxAggregatorFactory.interface.events.OracleAdded.name
+const oracleAdded =
+  fluxAggregatorFactory.interface.events.OraclePermissionsUpdated.name
 const submissionReceived =
   fluxAggregatorFactory.interface.events.SubmissionReceived.name
 const roundDetailsUpdated =
@@ -63,6 +64,7 @@ let linkToken: contract.Instance<contract.LinkTokenFactory>
 let fluxAggregator: contract.Instance<FluxAggregatorFactory>
 let node1Address: string
 let node2Address: string
+let txInterval: number | undefined
 
 async function assertAggregatorValues(
   latestAnswer: number,
@@ -108,6 +110,14 @@ beforeAll(async () => {
   linkToken = await linkTokenFactory.deploy()
   await linkToken.deployed()
 
+  // FIXME: force parity to "mine" block every 2 seconds
+  // www.pivotaltracker.com/story/show/172321994
+  if (!process.env.GETH_MODE) {
+    const miner = ethers.Wallet.createRandom().connect(provider)
+    await t.fundAddress(miner.address)
+    txInterval = t.setRecurringTx(miner)
+  }
+
   console.log(`Chainlink Node 1 address: ${node1Address}`)
   console.log(`Chainlink Node 2 address: ${node2Address}`)
   console.log(`Contract creator's address: ${carol.address}`)
@@ -140,13 +150,18 @@ afterEach(async () => {
   fluxAggregator.removeAllListeners('*')
 })
 
+afterAll(() => {
+  clearInterval(txInterval)
+})
+
 describe('FluxMonitor / FluxAggregator integration with one node', () => {
   it('updates the price', async () => {
-    await fluxAggregator
-      .addOracle(node1Address, node1Address, 1, 1, 0)
-      .then(t.txWait)
     await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
     await fluxAggregator.updateAvailableFunds().then(t.txWait)
+
+    await fluxAggregator
+      .addOracles([node1Address], [node1Address], 1, 1, 0)
+      .then(t.txWait)
 
     expect(await fluxAggregator.getOracles()).toEqual([node1Address])
     matchers.bigNum(
@@ -186,14 +201,18 @@ describe('FluxMonitor / FluxAggregator integration with one node', () => {
 
 describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
   beforeEach(async () => {
-    await fluxAggregator
-      .addOracle(node1Address, node1Address, 1, 1, 0)
-      .then(t.txWait)
-    await fluxAggregator
-      .addOracle(node2Address, node2Address, 2, 2, 0)
-      .then(t.txWait)
     await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
     await fluxAggregator.updateAvailableFunds().then(t.txWait)
+
+    await fluxAggregator
+      .addOracles(
+        [node1Address, node2Address],
+        [node1Address, node2Address],
+        2,
+        2,
+        0,
+      )
+      .then(t.txWait)
 
     expect(await fluxAggregator.getOracles()).toEqual([
       node1Address,
@@ -246,19 +265,10 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await t.assertJobRun(clClient1, node1InitialRunCount + 3, 'third update')
     await assertAggregatorValues(13000, 3, 3, 3, 2, 'third round')
 
-    // FIXME: force parity to "mine" block every 2 seconds
-    // www.pivotaltracker.com/story/show/172321994
-    let interval: number | undefined
-    if (!process.env.GETH_MODE) {
-      interval = t.setRecurringTx(carol)
-    }
-
     // node should continue to start new rounds alone
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 140)
     await t.assertJobRun(clClient1, node1InitialRunCount + 4, 'fourth update')
     await assertAggregatorValues(14000, 4, 4, 4, 2, 'fourth round')
-
-    clearInterval(interval)
   })
 
   it('respects the idleThreshold', async () => {

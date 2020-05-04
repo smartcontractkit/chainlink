@@ -1,11 +1,12 @@
 package assets
 
 import (
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/pad"

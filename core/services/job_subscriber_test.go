@@ -140,7 +140,7 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	defer jobSubscriber.Stop()
 
-	eth := cltest.MockEthOnStore(t, store, cltest.NoRegisterGetBlockNumber)
+	eth := cltest.MockEthOnStore(t, store)
 	eth.Register("eth_getLogs", []ethpkg.Log{})
 	eth.Register("eth_getLogs", []ethpkg.Log{})
 

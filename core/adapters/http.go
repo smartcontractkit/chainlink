@@ -202,9 +202,9 @@ func withRetry(
 
 			start := time.Now()
 
-			r, err := client.Do(requestWithTimeout)
-			if err != nil {
-				return err
+			r, e := client.Do(requestWithTimeout)
+			if e != nil {
+				return e
 			}
 			defer r.Body.Close()
 			statusCode = r.StatusCode
@@ -212,10 +212,10 @@ func withRetry(
 			logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
 			source := newMaxBytesReader(r.Body, config.sizeLimit)
-			bytes, err := ioutil.ReadAll(source)
-			if err != nil {
-				logger.Errorf("http adapter error reading body: %v", err.Error())
-				return err
+			bytes, e := ioutil.ReadAll(source)
+			if e != nil {
+				logger.Errorf("http adapter error reading body: %v", e.Error())
+				return e
 			}
 			elapsed = time.Since(start)
 			logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
@@ -338,8 +338,8 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 	// input is a string like "someKey0=someVal0&someKey1=someVal1"
 	if utils.IsQuoted(input) {
 		var decoded string
-		err := json.Unmarshal(input, &decoded)
-		if err != nil {
+		unmErr := json.Unmarshal(input, &decoded)
+		if unmErr != nil {
 			return fmt.Errorf("unable to unmarshal query parameters: %s", input)
 		}
 		strs = strings.FieldsFunc(trimQuestion(decoded), splitQueryString)
@@ -397,7 +397,7 @@ func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
 
 func defaultHTTPConfig(store *store.Store) HTTPRequestConfig {
 	return HTTPRequestConfig{
-		store.Config.DefaultHTTPTimeout(),
+		store.Config.DefaultHTTPTimeout().Duration(),
 		store.Config.DefaultMaxHTTPAttempts(),
 		store.Config.DefaultHTTPLimit(),
 		false,

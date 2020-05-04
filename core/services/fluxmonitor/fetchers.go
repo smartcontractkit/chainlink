@@ -1,14 +1,15 @@
 package fluxmonitor
 
 import (
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
-	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/guregu/null"
 	"github.com/pkg/errors"
@@ -33,11 +34,11 @@ type httpFetcher struct {
 }
 
 func newHTTPFetcher(
-	timeout time.Duration,
+	timeout models.Duration,
 	requestData string,
 	url *url.URL,
 ) Fetcher {
-	client := &http.Client{Timeout: timeout, Transport: http.DefaultTransport}
+	client := &http.Client{Timeout: timeout.Duration(), Transport: http.DefaultTransport}
 	client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
 	client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
 
@@ -109,7 +110,7 @@ type medianFetcher struct {
 // newMedianFetcherFromURLs creates a median fetcher that retrieves a price
 // from all passed URLs using httpFetcher, and returns the median.
 func newMedianFetcherFromURLs(
-	timeout time.Duration,
+	timeout models.Duration,
 	requestData string,
 	priceURLs []*url.URL,
 ) (Fetcher, error) {
@@ -139,13 +140,32 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
 	prices := []decimal.Decimal{}
 	fetchErrors := []error{}
+
+	type result struct {
+		price decimal.Decimal
+		err   error
+	}
+
+	chResults := make(chan result)
 	for _, fetcher := range m.fetchers {
-		price, err := fetcher.Fetch()
-		if err != nil {
-			logger.Error(err)
-			fetchErrors = append(fetchErrors, err)
+		fetcher := fetcher
+		go func() {
+			price, err := fetcher.Fetch()
+			if err != nil {
+				logger.Error(err)
+				chResults <- result{err: err}
+			} else {
+				chResults <- result{price: price}
+			}
+		}()
+	}
+
+	for i := 0; i < len(m.fetchers); i++ {
+		r := <-chResults
+		if r.err != nil {
+			fetchErrors = append(fetchErrors, r.err)
 		} else {
-			prices = append(prices, price)
+			prices = append(prices, r.price)
 		}
 	}
 

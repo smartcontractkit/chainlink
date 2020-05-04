@@ -1,7 +1,6 @@
 import http from 'http'
 import { logger } from '../logging'
 import WebSocket from 'ws'
-import { getDb } from '../database'
 import { authenticate } from '../sessions'
 import { closeSession, Session } from '../entity/Session'
 import { handleMessage } from './handleMessage'
@@ -12,7 +11,6 @@ import {
 } from '../utils/constants'
 
 export const bootstrapRealtime = async (server: http.Server) => {
-  const db = await getDb()
   let clnodeCount = 0
   const sessions = new Map<string, Session>()
   const connections = new Map<string, WebSocket>()
@@ -46,7 +44,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
-      authenticate(db, accessKey, secret).then((session: Session | null) => {
+      authenticate(accessKey, secret).then((session: Session | null) => {
         if (session === null) {
           logger.info({
             msg: 'client rejected, failed authentication',
@@ -107,7 +105,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
       const existingConnection = connections.get(accessKey)
 
       if (session != null) {
-        closeSession(db, session)
+        closeSession(session)
         sessions.delete(accessKey)
       }
       if (ws === existingConnection) {

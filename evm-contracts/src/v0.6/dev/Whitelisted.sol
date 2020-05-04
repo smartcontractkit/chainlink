@@ -53,7 +53,7 @@ contract Whitelisted is Owned {
   }
 
   /**
-   * @notice makes the whitelist check enforced
+   * @notice makes the whitelist check unenforced
    */
   function disableWhitelist()
     external

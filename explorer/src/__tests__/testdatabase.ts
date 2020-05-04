@@ -1,4 +1,4 @@
-import { getDb } from '../database'
+import { getConnection } from 'typeorm'
 
 if (process.env.NODE_ENV !== 'test') {
   throw Error(
@@ -14,8 +14,7 @@ const TRUNCATE_TABLES: string[] = [
 ]
 
 export const clearDb = async () => {
-  const db = await getDb()
-  if (db) {
-    await db.query(`TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`)
-  }
+  return getConnection().query(
+    `TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`,
+  )
 }

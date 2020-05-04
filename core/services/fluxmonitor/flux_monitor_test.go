@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -20,15 +21,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
+const oracleCount uint32 = 17
+
 var (
-	updateAnswerHash     = utils.MustHash("updateAnswer(uint256,int256)")
-	updateAnswerSelector = updateAnswerHash[:4]
+	submitHash     = utils.MustHash("submit(uint256,int256)")
+	submitSelector = submitHash[:4]
 )
 
 func ensureAccount(t *testing.T, store *store.Store) common.Address {
@@ -42,13 +46,44 @@ func ensureAccount(t *testing.T, store *store.Store) common.Address {
 	return acct.Address
 }
 
+func TestConcreteFluxMonitor_Start_withEthereumDisabled(t *testing.T) {
+	tests := []struct {
+		name        string
+		enabled     bool
+		wantStarted bool
+	}{
+		{"enabled", true, false},
+		{"disabled", false, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config, cleanup := cltest.NewConfig(t)
+			defer cleanup()
+			config.Config.Set("ETH_DISABLED", test.enabled)
+			store, cleanup := cltest.NewStoreWithConfig(config)
+			defer cleanup()
+			runManager := new(mocks.RunManager)
+
+			fm := fluxmonitor.New(store, runManager)
+			logBroadcaster := fm.(fluxmonitor.MockableLogBroadcaster).MockLogBroadcaster()
+
+			err := fm.Start()
+			require.NoError(t, err)
+			defer fm.Stop()
+			assert.Equal(t, test.wantStarted, logBroadcaster.Started)
+		})
+	}
+}
+
 func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	txm := new(mocks.TxManager)
 	store.TxManager = txm
-	txm.On("GetBlockHeight").Return(uint64(123), nil)
+	txm.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(123)}, nil)
+	txm.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil)
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()
@@ -179,15 +214,12 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			const reportableRoundID = 2
 			latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
 
+			paymentAmount := store.Config.MinimumContractPayment().ToInt()
 			var availableFunds *big.Int
-			var paymentAmount *big.Int
-			minPayment := store.Config.MinimumContractPayment().ToInt()
 			if test.funded {
-				availableFunds = minPayment
-				paymentAmount = minPayment
+				availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 			} else {
 				availableFunds = big.NewInt(1)
-				paymentAmount = minPayment
 			}
 
 			roundState := contracts.FluxAggregatorRoundState{
@@ -196,6 +228,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
 				AvailableFunds:    availableFunds,
 				PaymentAmount:     paymentAmount,
+				OracleCount:       oracleCount,
 			}
 			fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
 
@@ -210,17 +243,18 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 					"address": "%s",
 					"functionSelector": "0x%x",
 					"dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
-				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), updateAnswerSelector, reportableRoundID)))
+				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), submitSelector, reportableRoundID)))
 				require.NoError(t, err)
 
 				rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
 					return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
 				})).Return(&run, nil)
 
-				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+				fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
 			}
 
-			checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Second)
+			checker, err := fluxmonitor.NewPollingDeviationChecker(store,
+				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Second), func() {})
 			require.NoError(t, err)
 
 			if test.connected {
@@ -236,15 +270,119 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	}
 }
 
+func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	nodeAddr := ensureAccount(t, store)
+
+	const (
+		fetchedValue = 100
+	)
+
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.ID = 1
+	initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+	initr.IdleThreshold = models.MustMakeDuration(math.MaxInt64)
+
+	// Test helpers
+	var (
+		makeRoundStateForRoundID = func(roundID uint32) contracts.FluxAggregatorRoundState {
+			return contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				EligibleToSubmit:  true,
+				LatestAnswer:      big.NewInt(100 * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
+				AvailableFunds:    store.Config.MinimumContractPayment().ToInt(),
+				PaymentAmount:     store.Config.MinimumContractPayment().ToInt(),
+			}
+		}
+
+		matchRunRequestForRoundID = func(roundID uint32) interface{} {
+			data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+                "result": "%d",
+                "address": "%s",
+                "functionSelector": "0x%x",
+                "dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
+            }`, fetchedValue, initr.InitiatorParams.Address.Hex(), submitSelector, roundID)))
+			require.NoError(t, err)
+
+			return mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+				return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
+			})
+		}
+	)
+
+	chBlock := make(chan struct{})
+	chSafeToAssert := make(chan struct{})
+
+	fluxAggregator := new(mocks.FluxAggregator)
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
+	fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
+	fluxAggregator.On("RoundState", nodeAddr).
+		Return(makeRoundStateForRoundID(1), nil).
+		Run(func(mock.Arguments) { <-chBlock }).
+		Once()
+	fluxAggregator.On("RoundState", nodeAddr).Return(makeRoundStateForRoundID(3), nil).Once()
+	fluxAggregator.On("RoundState", nodeAddr).Return(makeRoundStateForRoundID(4), nil).Once()
+
+	fetcher := new(mocks.Fetcher)
+	fetcher.On("Fetch").Return(decimal.NewFromInt(fetchedValue), nil)
+
+	rm := new(mocks.RunManager)
+	run := cltest.NewJobRun(job)
+
+	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(1)).Return(&run, nil).Once()
+	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(3)).Return(&run, nil).Once()
+	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(4)).Return(&run, nil).Once().
+		Run(func(mock.Arguments) { close(chSafeToAssert) })
+
+	checker, err := fluxmonitor.NewPollingDeviationChecker(
+		store,
+		fluxAggregator,
+		initr,
+		rm,
+		fetcher,
+		models.MustMakeDuration(math.MaxInt64),
+		func() {},
+	)
+	require.NoError(t, err)
+
+	checker.OnConnect()
+	checker.Start()
+
+	var logBroadcasts []*mocks.LogBroadcast
+
+	for i := 0; i < 4; i++ {
+		logBroadcast := new(mocks.LogBroadcast)
+		logBroadcast.On("Log").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i) + 1)})
+		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
+		logBroadcast.On("MarkConsumed").Return(nil)
+		logBroadcasts = append(logBroadcasts, logBroadcast)
+	}
+
+	checker.HandleLog(logBroadcasts[0], nil) // Get the checker to start processing a log so we can freeze it
+	checker.HandleLog(logBroadcasts[1], nil) // This log is evicted from the priority queue
+	checker.HandleLog(logBroadcasts[2], nil)
+	checker.HandleLog(logBroadcasts[3], nil)
+
+	close(chBlock)
+	<-chSafeToAssert
+
+	fluxAggregator.AssertExpectations(t)
+	fetcher.AssertExpectations(t)
+	rm.AssertExpectations(t)
+}
+
 func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		idleThreshold    time.Duration
+		idleThreshold    models.Duration
 		expectedToSubmit bool
 	}{
-		{"no idleThreshold", 0, false},
-		{"idleThreshold > 0", 10 * time.Millisecond, true},
+		{"no idleThreshold", models.MustMakeDuration(0), false},
+		{"idleThreshold > 0", models.MustMakeDuration(10 * time.Millisecond), true},
 	}
 
 	for _, test := range tests {
@@ -257,17 +395,18 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			runManager := new(mocks.RunManager)
 			fluxAggregator := new(mocks.FluxAggregator)
+			logBroadcast := new(mocks.LogBroadcast)
 
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.PollingInterval = models.Duration(math.MaxInt64)
-			initr.IdleThreshold = models.Duration(test.idleThreshold)
+			initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+			initr.IdleThreshold = test.idleThreshold
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
-			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
 
 			roundState1 := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false, LatestAnswer: answerBigInt} // Initial poll
 			roundState2 := contracts.FluxAggregatorRoundState{ReportableRoundID: 2, EligibleToSubmit: false, LatestAnswer: answerBigInt} // idleThreshold 1
@@ -292,7 +431,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				initr,
 				runManager,
 				fetcher,
-				time.Duration(math.MaxInt64),
+				models.MustMakeDuration(time.Duration(math.MaxInt64)),
+				func() {},
 			)
 			require.NoError(t, err)
 
@@ -300,9 +440,15 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			deviationChecker.Start()
 			require.Len(t, idleThresholdOccured, 0, "no Job Runs created")
 
+			decodedLog := contracts.LogNewRound{RoundId: big.NewInt(int64(roundState1.ReportableRoundID))}
+
+			logBroadcast.On("Log").Return(&decodedLog)
+			logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
+			logBroadcast.On("MarkConsumed").Return(nil).Once()
+
 			if test.expectedToSubmit {
 				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
-				deviationChecker.HandleLog(&contracts.LogNewRound{RoundId: big.NewInt(int64(roundState1.ReportableRoundID))}, nil)
+				deviationChecker.HandleLog(logBroadcast, nil)
 				require.Eventually(t, func() bool { return len(idleThresholdOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
 			}
 
@@ -343,33 +489,33 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.PollingInterval = models.Duration(math.MaxInt64)
-			initr.IdleThreshold = models.Duration(0)
+			initr.PollingInterval = models.MustMakeDuration(math.MaxInt64)
+			initr.IdleThreshold = models.MustMakeDuration(0)
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
-			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
 
 			if test.expectedToTrigger {
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt()),
+					StartedAt:         uint64(test.timesOutAt()),
 				}, nil).Once()
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        0,
+					StartedAt:         0,
 				}, nil).Once()
 			} else {
 				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: 1,
 					EligibleToSubmit:  false,
 					LatestAnswer:      answerBigInt,
-					TimesOutAt:        uint64(test.timesOutAt()),
+					StartedAt:         uint64(test.timesOutAt()),
 				}, nil).Once()
 			}
 
@@ -379,7 +525,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll(t *testing.T) {
 				initr,
 				runManager,
 				fetcher,
-				time.Duration(math.MaxInt64),
+				models.MustMakeDuration(time.Duration(math.MaxInt64)),
+				func() {},
 			)
 			require.NoError(t, err)
 
@@ -648,6 +795,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		}
 
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
@@ -660,21 +809,19 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 			initr.ID = 1
-			initr.InitiatorParams.PollingInterval = models.Duration(1 * time.Hour)
+			initr.InitiatorParams.PollingInterval = models.MustMakeDuration(1 * time.Hour)
 
 			rm := new(mocks.RunManager)
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
+			// logBroadcast := new(mocks.LogBroadcast)
 
+			paymentAmount := store.Config.MinimumContractPayment().ToInt()
 			var availableFunds *big.Int
-			var paymentAmount *big.Int
-			minPayment := store.Config.MinimumContractPayment().ToInt()
 			if test.funded {
-				availableFunds = minPayment
-				paymentAmount = minPayment
+				availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 			} else {
 				availableFunds = big.NewInt(1)
-				paymentAmount = minPayment
 			}
 
 			if expectedToFetchRoundState {
@@ -684,6 +831,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 					EligibleToSubmit:  test.eligible,
 					AvailableFunds:    availableFunds,
 					PaymentAmount:     paymentAmount,
+					OracleCount:       oracleCount,
 				}, nil).Once()
 			}
 
@@ -692,12 +840,12 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToSubmit {
-				fluxAggregator.On("GetMethodID", "updateAnswer").Return(updateAnswerSelector, nil)
+				fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
 
 				data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
 					"result": "%d",
 					"address": "%s",
-					"functionSelector": "0xe6330cf7",
+					"functionSelector": "0x202ee0ed",
 					"dataPrefix": "0x%0x"
 				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), utils.EVMWordUint64(uint64(test.fetchedReportableRoundID)))))
 				require.NoError(t, err)
@@ -707,7 +855,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 				})).Return(nil, nil)
 			}
 
-			checker, err := fluxmonitor.NewPollingDeviationChecker(store, fluxAggregator, initr, rm, fetcher, time.Hour)
+			checker, err := fluxmonitor.NewPollingDeviationChecker(store,
+				fluxAggregator, initr, rm, fetcher, models.MustMakeDuration(time.Hour), func() {})
 			require.NoError(t, err)
 
 			checker.ExportedSetStoredReportableRoundID(test.storedReportableRoundID)
@@ -718,7 +867,15 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			if test.startedBySelf {
 				startedBy = nodeAddr
 			}
-			checker.ExportedRespondToLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+			checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+
+			// decodedLog := contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy}
+
+			// logBroadcast.On("Log").Return(&decodedLog).Once()
+			// logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
+			// logBroadcast.On("MarkConsumed").Return(nil).Once()
+
+			// checker.ExportedRespondToLogBroadcast(logBroadcast)
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
@@ -750,6 +907,10 @@ func TestOutsideDeviation(t *testing.T) {
 		{"inside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 201, false},
 		{"equal to deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 200, true},
 		{"outside deviation, crosses 0 forwards", decimal.NewFromFloat(-0.1), decimal.NewFromFloat(0.1), 199, true},
+
+		{"threshold=0, deviation", decimal.NewFromInt(0), decimal.NewFromInt(100), 0, true},
+		{"threshold=0, no deviation", decimal.NewFromInt(100), decimal.NewFromInt(100), 0, true},
+		{"threshold=0, all zeros", decimal.NewFromInt(0), decimal.NewFromInt(0), 0, true},
 	}
 
 	for _, test := range tests {
@@ -816,4 +977,199 @@ func TestExtractFeedURLs(t *testing.T) {
 			assert.Equal(t, val, expectation)
 		})
 	}
+}
+
+func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	checker := cltest.NewPollingDeviationChecker(t, store)
+
+	min := store.Config.MinimumContractPayment().ToInt().Int64()
+
+	tests := []struct {
+		name    string
+		payment int64
+		want    bool
+	}{
+		{"above minimum", min + 1, true},
+		{"equal to minimum", min, true},
+		{"below minimum", min - 1, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, checker.SufficientPayment(big.NewInt(test.payment)))
+		})
+	}
+}
+
+func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	checker := cltest.NewPollingDeviationChecker(t, store)
+
+	payment := 100
+	rounds := 3
+	oracleCount := 21
+	min := payment * rounds * oracleCount
+
+	tests := []struct {
+		name  string
+		funds int
+		want  bool
+	}{
+		{"above minimum", min + 1, true},
+		{"equal to minimum", min, true},
+		{"below minimum", min - 1, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			state := contracts.FluxAggregatorRoundState{
+				AvailableFunds: big.NewInt(int64(test.funds)),
+				PaymentAmount:  big.NewInt(int64(payment)),
+				OracleCount:    uint32(oracleCount),
+			}
+			assert.Equal(t, test.want, checker.SufficientFunds(state))
+		})
+	}
+}
+
+func TestFluxMonitor_MakeIdleTimer_RoundStartedAtIsNil(t *testing.T) {
+	t.Parallel()
+
+	log := contracts.LogNewRound{}
+	idleThreshold, err := models.MakeDuration(5 * time.Second)
+	require.NoError(t, err)
+	clock := new(mocks.AfterNower)
+
+	clock.On("Now").Return(time.Unix(11, 0))
+
+	timerChannel := make(<-chan time.Time)
+	clock.On("After", idleThreshold.Duration()).Return(timerChannel)
+
+	idleTimer := fluxmonitor.MakeIdleTimer(log, idleThreshold, clock)
+
+	assert.Equal(t, timerChannel, idleTimer)
+
+	clock.AssertExpectations(t)
+}
+
+func TestFluxMonitor_MakeIdleTimer_RoundStartedAtIsInPast(t *testing.T) {
+	// We want to err on the side of the shorter idle timeout, so if round started at is in the past
+	// we trust the local clock and adjust the idle timeout down to assume it started counting from
+	// round startedAt in terms of our local clock
+	t.Parallel()
+
+	log := contracts.LogNewRound{StartedAt: big.NewInt(10)}
+	idleThreshold, err := models.MakeDuration(5 * time.Second)
+	require.NoError(t, err)
+	clock := new(mocks.AfterNower)
+
+	clock.On("Now").Return(time.Unix(11, 0))
+
+	timerChannel := make(<-chan time.Time)
+	clock.On("After", 4*time.Second).Return(timerChannel)
+
+	idleTimer := fluxmonitor.MakeIdleTimer(log, idleThreshold, clock)
+
+	assert.Equal(t, timerChannel, idleTimer)
+
+	clock.AssertExpectations(t)
+}
+
+func TestFluxMonitor_MakeIdleTimer_IdleThresholdAlreadyPassed(t *testing.T) {
+	// If idle threshold is already passed, node should trigger a new round immediately
+	t.Parallel()
+
+	log := contracts.LogNewRound{StartedAt: big.NewInt(10)}
+	idleThreshold, err := models.MakeDuration(5 * time.Second)
+	require.NoError(t, err)
+	clock := new(mocks.AfterNower)
+
+	clock.On("Now").Return(time.Unix(42, 0))
+	timerChannel := make(<-chan time.Time)
+	clock.On("After", mock.MatchedBy(func(d time.Duration) bool {
+		// Anything 0 or less is fine since this will expire immediately
+		return d <= 0
+	})).Return(timerChannel)
+
+	idleTimer := fluxmonitor.MakeIdleTimer(log, idleThreshold, clock)
+
+	assert.Equal(t, timerChannel, idleTimer)
+
+	clock.AssertExpectations(t)
+}
+
+func TestFluxMonitor_MakeIdleTimer_OutOfBoundsStartedAt(t *testing.T) {
+	// If idle threshold is out of bounds (should never happen!) simply ignore
+	// it and wait exactly the idle threshold from now
+	t.Parallel()
+
+	var startedAt big.Int
+	startedAt.SetUint64(math.MaxUint64)
+	log := contracts.LogNewRound{StartedAt: &startedAt}
+	idleThreshold, err := models.MakeDuration(5 * time.Second)
+	require.NoError(t, err)
+	clock := new(mocks.AfterNower)
+
+	clock.On("Now").Return(time.Unix(11, 0))
+	timerChannel := make(<-chan time.Time)
+	clock.On("After", idleThreshold.Duration()).Return(timerChannel)
+
+	idleTimer := fluxmonitor.MakeIdleTimer(log, idleThreshold, clock)
+
+	assert.Equal(t, timerChannel, idleTimer)
+
+	clock.AssertExpectations(t)
+}
+
+func TestFluxMonitor_MakeIdleTimer_RoundStartedAtIsInFuture(t *testing.T) {
+	// If the round started at is somehow in the future, this machine probably has a slow clock.
+	// Since local time is skewed backwards, we should not attempt to use it for
+	// calculating expiry time and instead start counting down the idle timer from now.
+	t.Parallel()
+
+	log := contracts.LogNewRound{StartedAt: big.NewInt(40)}
+	idleThreshold, err := models.MakeDuration(42 * time.Second)
+	require.NoError(t, err)
+	clock := new(mocks.AfterNower)
+
+	clock.On("Now").Return(time.Unix(9, 0))
+	timerChannel := make(<-chan time.Time)
+	clock.On("After", idleThreshold.Duration()).Return(timerChannel)
+
+	idleTimer := fluxmonitor.MakeIdleTimer(log, idleThreshold, clock)
+
+	assert.Equal(t, timerChannel, idleTimer)
+
+	clock.AssertExpectations(t)
+}
+
+func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	p := cltest.NewPollingDeviationChecker(t, store)
+
+	logBroadcast := new(mocks.LogBroadcast)
+	var logNewRound *contracts.LogNewRound
+	var logAnswerUpdated *contracts.LogAnswerUpdated
+	var randomType interface{}
+
+	logBroadcast.On("Log").Return(logNewRound).Once()
+	assert.NotPanics(t, func() {
+		p.HandleLog(logBroadcast, nil)
+	})
+
+	logBroadcast.On("Log").Return(logAnswerUpdated).Once()
+	assert.NotPanics(t, func() {
+		p.HandleLog(logBroadcast, nil)
+	})
+
+	logBroadcast.On("Log").Return(randomType).Once()
+	assert.NotPanics(t, func() {
+		p.HandleLog(logBroadcast, nil)
+	})
 }

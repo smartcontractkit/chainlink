@@ -65,6 +65,7 @@ describe('AggregatorProxy', () => {
       'setAggregator',
       'latestTimestamp',
       'getTimestamp',
+      'decimals',
       // Ownable methods:
       'acceptOwnership',
       'owner',

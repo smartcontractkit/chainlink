@@ -33,7 +33,7 @@ type JobRun struct {
 	ResultID       clnull.Uint32 `json:"-"`
 	RunRequest     RunRequest    `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
 	RunRequestID   clnull.Uint32 `json:"-"`
-	Status         RunStatus     `json:"status"`
+	Status         RunStatus     `json:"status" gorm:"default:'unstarted'"`
 	TaskRuns       []TaskRun     `json:"taskRuns"`
 	CreatedAt      time.Time     `json:"createdAt"`
 	FinishedAt     null.Time     `json:"finishedAt"`
@@ -68,6 +68,7 @@ func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight
 			ID:       NewID(),
 			JobRunID: run.ID,
 			TaskSpec: task,
+			Status:   RunStatusUnstarted,
 		}
 	}
 	run.SetStatus(RunStatusInProgress)
@@ -93,7 +94,7 @@ func (jr *JobRun) SetStatus(status RunStatus) {
 	} else if jr.Status.Finished() {
 		jr.FinishedAt = null.TimeFrom(time.Now())
 	}
-	promTotalRunUpdates.WithLabelValues(jr.JobSpecID.String(), string(oldStatus), string(status))
+	promTotalRunUpdates.WithLabelValues(jr.JobSpecID.String(), string(oldStatus), string(status)).Inc()
 }
 
 // GetStatus returns the JobRun's RunStatus
@@ -221,7 +222,7 @@ func (jr *JobRun) ErrorString() string {
 // RunRequest stores the fields used to initiate the parent job run.
 type RunRequest struct {
 	ID            uint32 `gorm:"primary_key"`
-	RequestID     *string
+	RequestID     *common.Hash
 	TxHash        *common.Hash
 	BlockHash     *common.Hash
 	Requester     *common.Address
@@ -242,9 +243,9 @@ type TaskRun struct {
 	JobRunID             *ID           `json:"-"`
 	Result               RunResult     `json:"result"`
 	ResultID             clnull.Uint32 `json:"-"`
-	Status               RunStatus     `json:"status"`
+	Status               RunStatus     `json:"status" gorm:"default:'unstarted'"`
 	TaskSpec             TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
-	TaskSpecID           clnull.Uint32 `json:"-"`
+	TaskSpecID           uint          `json:"-"`
 	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 	Confirmations        clnull.Uint32 `json:"confirmations"`
 	CreatedAt            time.Time     `json:"-"`

@@ -41,7 +41,7 @@
     "eslint": "^6.8.0",
     "eslint-config-prettier": "^6.10.1",
     "eslint-plugin-prettier": "^3.1.2",
-    "eslint-plugin-react": "^7.17.0",
+    "eslint-plugin-react": "^7.19.0",
     "eslint-plugin-react-hooks": "^3.0.0",
     "patch-package": "^6.2.1",
     "postinstall-postinstall": "^2.0.0",
@@ -52,7 +52,8 @@
   "resolutions": {
     "**/sha3": "^2.0.7",
     "**/keccak": "^3.0.0",
-    "**/source-map-support": "0.5.16"
+    "**/source-map-support": "0.5.16",
+    "**/solc": "^0.6.4"
   },
   "dependencies": {
     "tslib": "^1.11.1"

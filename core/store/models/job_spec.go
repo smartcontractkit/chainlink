@@ -4,17 +4,16 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/imdario/mergo"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	null "gopkg.in/guregu/null.v3"
@@ -194,7 +193,7 @@ const (
 // to a parent JobID.
 type Initiator struct {
 	ID        uint32 `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID *ID    `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	JobSpecID *ID    `json:"jobSpecId"`
 
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
@@ -225,18 +224,34 @@ type InitiatorParams struct {
 	PollingInterval Duration `json:"pollingInterval,omitempty"`
 }
 
+// defaults represents a default value for an initiator parameter. Value should
+// be the default value, and isZero should be a predicate which returns true if
+// the value of an initiator passed to SetDefaultValues should be overwritten
+// with the default value. See FluxMonitorDefaultInitiatorParams.
+type defaults struct {
+	Value  interface{}
+	isZero func(interface{}) bool
+}
+
 // FluxMonitorDefaultInitiatorParams are the default parameters for Flux
 // Monitor Job Specs.
-var FluxMonitorDefaultInitiatorParams = InitiatorParams{
-	PollingInterval: Duration(time.Minute),
+var FluxMonitorDefaultInitiatorParams = map[string]defaults{
+	"PollingInterval": {Value: MustMakeDuration(time.Minute),
+		isZero: func(v interface{}) bool { return v.(Duration).IsInstant() },
+	},
 }
 
 // SetDefaultValues returns a InitiatorParams with empty fields set to their
 // default value.
 func (i *InitiatorParams) SetDefaultValues(typ string) {
 	if typ == InitiatorFluxMonitor {
-		err := mergo.Merge(i, &FluxMonitorDefaultInitiatorParams)
-		logger.PanicIf(errors.Wrap(err, "type level dependent error covered by tests"))
+		r := reflect.ValueOf(i)
+		for name, default_ := range FluxMonitorDefaultInitiatorParams {
+			field := reflect.Indirect(r).FieldByName(name)
+			if default_.isZero(field.Interface()) {
+				field.Set(reflect.ValueOf(default_.Value))
+			}
+		}
 	}
 }
 

@@ -319,7 +319,7 @@ func (ta *TestApplication) MustSeedUserSession() models.User {
 // Secret generated.
 func (ta *TestApplication) MustSeedUserAPIKey() models.User {
 	mockUser := MustUser(APIEmail, Password)
-	apiToken := auth.Token{APIKey, APISecret}
+	apiToken := auth.Token{AccessKey: APIKey, Secret: APISecret}
 	require.NoError(ta.t, mockUser.SetAuthToken(&apiToken))
 	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
 	return mockUser
@@ -1184,4 +1184,25 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	result := input.Data.Get("result")
 	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
 	return result.String()
+}
+
+func MakeRoundStateReturnData(
+	roundID uint64,
+	eligible bool,
+	answer, startAt, timeout, availableFunds, paymentAmount, oracleCount uint64,
+) string {
+	var data []byte
+	if eligible {
+		data = append(data, utils.EVMWordUint64(1)...)
+	} else {
+		data = append(data, utils.EVMWordUint64(0)...)
+	}
+	data = append(data, utils.EVMWordUint64(roundID)...)
+	data = append(data, utils.EVMWordUint64(answer)...)
+	data = append(data, utils.EVMWordUint64(startAt)...)
+	data = append(data, utils.EVMWordUint64(timeout)...)
+	data = append(data, utils.EVMWordUint64(availableFunds)...)
+	data = append(data, utils.EVMWordUint64(oracleCount)...)
+	data = append(data, utils.EVMWordUint64(paymentAmount)...)
+	return hexutil.Encode(data)
 }

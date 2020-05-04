@@ -135,7 +135,7 @@ func runLogStatusPresenter(receipt eth.TxReceipt) TxStatus {
 
 type syncInitiatorPresenter struct {
 	Type      string               `json:"type"`
-	RequestID *string              `json:"requestId,omitempty"`
+	RequestID *common.Hash         `json:"requestId,omitempty"`
 	TxHash    *common.Hash         `json:"txHash,omitempty"`
 	Requester *models.EIP55Address `json:"requester,omitempty"`
 }
