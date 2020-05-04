@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -31,8 +33,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
@@ -41,6 +45,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -152,6 +157,7 @@ type TestApplication struct {
 	connectedChannel chan struct{}
 	Started          bool
 	EthMock          *EthMock
+	Backend          *backends.SimulatedBackend
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -244,6 +250,25 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 		cleanupDB()
 		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
+}
+
+func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
+	t testing.TB, tc *TestConfig, backend *backends.SimulatedBackend,
+	flags ...string) (app *TestApplication, cleanup func()) {
+	chainId := int(backend.Blockchain().Config().ChainID.Int64())
+	tc.Config.Set("ETH_CHAIN_ID", chainId)
+	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
+	var client SimulatedBackendClient
+	if txm, ok := app.Store.TxManager.(*store.EthTxManager); ok {
+		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
+		txm.Client = &client
+	} else {
+		log.Panic("SimulatedBackend only works on EthTxManager")
+	}
+	// Clean out the mock registrations, since we don't need those...
+	app.EthMock.Responses = app.EthMock.Responses[:0]
+	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
+	return app, func() { appCleanup(); client.Close() }
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -1205,4 +1230,49 @@ func MakeRoundStateReturnData(
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
 	return hexutil.Encode(data)
+}
+
+// EthereumLogIterator is the interface provided by gethwrapper representations of EVM
+// logs.
+type EthereumLogIterator interface{ Next() bool }
+
+// GetLogs drains logs of EVM log representations. Since those log
+// representations don't fit into a type hierarchy, this API is a bit awkward.
+// It returns the logs as a slice of blank interface{}s, and if rv is non-nil,
+// it must be a pointer to a slice for elements of the same type as the logs,
+// in which case GetLogs will append the logs to it.
+func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface{} {
+	v := reflect.ValueOf(rv)
+	require.True(t, rv == nil ||
+		v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Slice,
+		"must pass a slice to receive logs")
+	var e reflect.Value
+	if rv != nil {
+		e = v.Elem()
+	}
+	var irv []interface{}
+	for logs.Next() {
+		log := reflect.Indirect(reflect.ValueOf(logs)).FieldByName("Event")
+		if v.Kind() == reflect.Ptr {
+			e.Set(reflect.Append(e, log))
+		}
+		irv = append(irv, log.Interface())
+	}
+	return irv
+}
+
+// ChainlinkEthLogFromGethLog returns a copy of l as an eth.Log. (They have
+// identical fields, but the field tags differ, and the types differ slightly.)
+func ChainlinkEthLogFromGethLog(l types.Log) eth.Log {
+	return eth.Log{
+		Address:     l.Address,
+		Topics:      l.Topics,
+		Data:        eth.UntrustedBytes(l.Data),
+		BlockNumber: l.BlockNumber,
+		TxHash:      l.TxHash,
+		TxIndex:     l.TxIndex,
+		BlockHash:   l.BlockHash,
+		Index:       l.Index,
+		Removed:     l.Removed,
+	}
 }
