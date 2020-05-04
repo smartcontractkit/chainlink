@@ -221,7 +221,7 @@ jobs:
     container: smartcontract/builder:1.0.34
     services:
       postgres:
-        image: postgres
+        image: postgres:11
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
