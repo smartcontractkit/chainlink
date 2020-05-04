@@ -1,8 +1,10 @@
 package store_test
 
 import (
+	"fmt"
 	"math/big"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -56,6 +58,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 
 	// assert creation on disk is successful
 	files, err := utils.FilesInDir(app.Config.KeysDir())
+	fmt.Println(app.Config.KeysDir())
 	require.NoError(t, err)
 	require.Len(t, files, 2)
 
@@ -74,12 +77,13 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	// assert contents are the same
 	require.Equal(t, len(keys), len(files))
 
-	sort.Slice(keys, func(i, j int) bool {
-		return strings.ToLower(keys[i].Address.String()) < strings.ToLower(keys[j].Address.String())
-	})
+	// Files are preceded by timestamp so sorting will put the most recent last (to match keys)
 	sort.Slice(files, func(i, j int) bool {
 		return strings.ToLower(files[i]) < strings.ToLower(files[j])
 	})
+	for _, f := range files {
+		assert.Regexp(t, regexp.MustCompile(`^UTC--\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.\d{9}Z--[0-9a-fA-F]{40}$`), f)
+	}
 
 	for i, key := range keys {
 		content, err := utils.FileContents(filepath.Join(app.Config.KeysDir(), files[i]))
