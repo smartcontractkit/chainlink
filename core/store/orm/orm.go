@@ -1277,13 +1277,3 @@ func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
 		offset += limit
 	}
 }
-
-func (orm *ORM) rowExists(query string, args ...interface{}) (bool, error) {
-	var exists bool
-	query = fmt.Sprintf("SELECT exists (%s)", query)
-	err := orm.db.DB().QueryRow(query, args...).Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
-		return false, err
-	}
-	return exists, nil
-}
