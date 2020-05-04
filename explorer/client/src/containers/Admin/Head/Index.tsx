@@ -32,9 +32,10 @@ interface OwnProps {
 }
 
 interface StateProps {
-  loaded: boolean
+  loading: boolean
+  error: boolean
   adminHeads?: Head[]
-  count: AppState['adminHeadsIndex']['count']
+  count?: AppState['adminHeadsIndex']['count']
 }
 
 interface DispatchProps {
@@ -51,15 +52,16 @@ interface Props
 export const Index: React.FC<Props> = ({
   classes,
   adminHeads,
-  loaded,
+  loading,
+  error,
   fetchAdminHeads,
   count,
   rowsPerPage = 10,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(0)
 
   useEffect(() => {
-    fetchAdminHeads(currentPage, rowsPerPage)
+    fetchAdminHeads(currentPage + 1, rowsPerPage)
   }, [rowsPerPage, currentPage, fetchAdminHeads])
 
   return (
@@ -73,12 +75,13 @@ export const Index: React.FC<Props> = ({
         <Title>Heads</Title>
 
         <List
-          loaded={loaded}
+          loading={loading}
+          error={error}
           currentPage={currentPage}
           heads={adminHeads}
           count={count}
           onChangePage={(_, page) => {
-            setCurrentPage(page + 1)
+            setCurrentPage(page)
           }}
         />
       </Grid>
@@ -104,7 +107,8 @@ const mapStateToProps: MapStateToProps<
   AppState
 > = state => {
   return {
-    loaded: state.adminHeadsIndex.loaded,
+    loading: state.adminHeads.loading,
+    error: state.adminHeads.error,
     adminHeads: adminHeadsSelector(state),
     count: state.adminHeadsIndex.count,
   }

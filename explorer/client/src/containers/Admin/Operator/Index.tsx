@@ -32,8 +32,9 @@ interface OwnProps {
 }
 
 interface StateProps {
-  loaded: boolean
-  count: AppState['adminOperatorsIndex']['count']
+  loading: boolean
+  error: boolean
+  count?: AppState['adminOperatorsIndex']['count']
   adminOperators?: ChainlinkNode[]
 }
 
@@ -50,7 +51,8 @@ interface Props
 
 export const Index: React.FC<Props> = ({
   classes,
-  loaded,
+  loading,
+  error,
   adminOperators,
   fetchAdminOperators,
   count,
@@ -73,7 +75,8 @@ export const Index: React.FC<Props> = ({
         <Title>Endorsed Operators</Title>
 
         <List
-          loaded={loaded}
+          loading={loading}
+          error={error}
           currentPage={currentPage}
           operators={adminOperators}
           count={count}
@@ -106,7 +109,8 @@ const mapStateToProps: MapStateToProps<
   return {
     adminOperators: adminOperatorsSelector(state),
     count: state.adminOperatorsIndex.count,
-    loaded: state.adminOperatorsIndex.loaded,
+    loading: state.adminOperators.loading,
+    error: state.adminOperators.error,
   }
 }
 
