@@ -17,6 +17,11 @@ describe('config', () => {
     expect(Config.gaId()).toEqual('ga-id')
   })
 
+  it('returns an array of trimmed whitelist hostnames', () => {
+    process.env.REACT_APP_HOSTNAME_WHITELIST = 'domain-a , domain-b'
+    expect(Config.hostnameWhitelist()).toEqual(['domain-a', 'domain-b'])
+  })
+
   describe('feeds json', () => {
     it('returns feeds json from the process env', () => {
       process.env.REACT_APP_FEEDS_JSON = 'https://test.dev/feeds.json'
@@ -28,14 +33,22 @@ describe('config', () => {
       expect(Config.feedsJson()).toEqual('/feeds.json')
     })
 
-    it('can override feeds json with a query parameter', () => {
-      const location = partialAsFull<Location>({
+    it('can override feeds json with a query parameter from the whitelisted hostnames', () => {
+      process.env.REACT_APP_FEEDS_JSON = 'https://env-configured.dev/feeds.json'
+      process.env.REACT_APP_HOSTNAME_WHITELIST = 'override.dev'
+
+      const whitelistLocation = partialAsFull<Location>({
         search: '?feeds-json=https%3A%2F%2Foverride.dev%2Ffeeds.json',
       })
-      process.env.REACT_APP_FEEDS_JSON = 'https://test.dev/feeds.json'
-
-      expect(Config.feedsJson(process.env, location)).toEqual(
+      expect(Config.feedsJson(process.env, whitelistLocation)).toEqual(
         'https://override.dev/feeds.json',
+      )
+
+      const unknownLocation = partialAsFull<Location>({
+        search: '?feeds-json=https%3A%2F%2Funknown.dev%5Ffeeds.json',
+      })
+      expect(Config.feedsJson(process.env, unknownLocation)).toEqual(
+        'https://env-configured.dev/feeds.json',
       )
     })
   })
@@ -51,14 +64,22 @@ describe('config', () => {
       expect(Config.nodesJson()).toEqual('/nodes.json')
     })
 
-    it('can override nodes json with a query parameter', () => {
-      const location = partialAsFull<Location>({
+    it('can override nodes json with a query parameter from the whitelisted hostnames', () => {
+      process.env.REACT_APP_NODES_JSON = 'https://env-configured.dev/nodes.json'
+      process.env.REACT_APP_HOSTNAME_WHITELIST = 'override.dev'
+
+      const whitelistLocation = partialAsFull<Location>({
         search: '?nodes-json=https%3A%2F%2Foverride.dev%2Fnodes.json',
       })
-      process.env.REACT_APP_FEEDS_JSON = 'https://test.dev/nodes.json'
-
-      expect(Config.nodesJson(process.env, location)).toEqual(
+      expect(Config.nodesJson(process.env, whitelistLocation)).toEqual(
         'https://override.dev/nodes.json',
+      )
+
+      const unknownLocation = partialAsFull<Location>({
+        search: '?nodes-json=https%3A%2F%2Funknown.dev%5Fnodes.json',
+      })
+      expect(Config.nodesJson(process.env, unknownLocation)).toEqual(
+        'https://env-configured.dev/nodes.json',
       )
     })
   })
