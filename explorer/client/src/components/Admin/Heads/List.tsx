@@ -2,13 +2,51 @@ import React from 'react'
 import Paper from '@material-ui/core/Paper'
 import Hidden from '@material-ui/core/Hidden'
 import { join } from 'path'
-import Table, { ChangePageEvent } from '../../Table'
+import Table, { Props as TableProps } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { Head } from 'explorer/models'
 
 const HEADERS = ['Block Height', 'Hash', 'Created At']
 const LOADING_MSG = 'Loading heads...'
 const EMPTY_MSG = 'The Explorer has not yet observed any heads.'
+
+interface Props {
+  loading: boolean
+  error: boolean
+  currentPage: number
+  onChangePage: TableProps['onChangePage']
+  heads?: Head[]
+  count?: number
+  className?: string
+}
+
+const List: React.FC<Props> = ({
+  loading,
+  error,
+  heads,
+  count,
+  currentPage,
+  className,
+  onChangePage,
+}) => {
+  return (
+    <Paper className={className}>
+      <Hidden xsDown>
+        <Table
+          loading={loading}
+          error={error}
+          headers={HEADERS}
+          currentPage={currentPage}
+          rows={rows(heads)}
+          count={count}
+          onChangePage={onChangePage}
+          loadingMsg={LOADING_MSG}
+          emptyMsg={EMPTY_MSG}
+        />
+      </Hidden>
+    </Paper>
+  )
+}
 
 function buildBlockHeightCol(head: Head): TextColumn {
   return {
@@ -40,41 +78,6 @@ function rows(
   return heads?.map(o => {
     return [buildBlockHeightCol(o), buildNameCol(o), buildCreatedAtCol(o)]
   })
-}
-
-interface Props {
-  loaded: boolean
-  currentPage: number
-  onChangePage: (event: ChangePageEvent, page: number) => void
-  heads?: Head[]
-  count?: number
-  className?: string
-}
-
-const List: React.FC<Props> = ({
-  loaded,
-  heads,
-  count,
-  currentPage,
-  className,
-  onChangePage,
-}) => {
-  return (
-    <Paper className={className}>
-      <Hidden xsDown>
-        <Table
-          loaded={loaded}
-          headers={HEADERS}
-          currentPage={currentPage}
-          rows={rows(heads)}
-          count={count}
-          onChangePage={onChangePage}
-          loadingMsg={LOADING_MSG}
-          emptyMsg={EMPTY_MSG}
-        />
-      </Hidden>
-    </Paper>
-  )
 }
 
 export default List

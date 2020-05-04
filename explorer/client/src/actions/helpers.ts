@@ -53,7 +53,7 @@ export function request<
 > {
   return (...args: TApiArgs) => {
     return dispatch => {
-      dispatch({ type: `REQUEST_${type}` })
+      dispatch({ type: `FETCH_${type}_BEGIN` })
 
       return requestData(...args)
         .then(json => {
@@ -72,7 +72,6 @@ export function request<
             })
           }
         })
-        .finally(() => dispatch({ type: `RESPONSE_${type}` }))
     }
   }
 }
