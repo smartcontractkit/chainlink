@@ -1262,10 +1262,29 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 	var merr error
 	for _, k := range keys {
 		merr = multierr.Append(
-			k.WriteToDisk(filepath.Join(keysDir, fmt.Sprintf("%s.json", k.Address.String()))),
+			k.WriteToDisk(filepath.Join(keysDir, keyFileName(k.Address))),
 			merr)
 	}
 	return merr
+}
+
+// Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217
+func keyFileName(keyAddr models.EIP55Address) string {
+	ts := time.Now().UTC()
+	return fmt.Sprintf("UTC--%s--%s", toISO8601(ts), keyAddr[2:])
+}
+
+// Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217
+func toISO8601(t time.Time) string {
+	var tz string
+	name, offset := t.Zone()
+	if name == "UTC" {
+		tz = "Z"
+	} else {
+		tz = fmt.Sprintf("%03d00", offset/3600)
+	}
+	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s",
+		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
 
 func (orm *ORM) CountOf(t interface{}) (int, error) {
