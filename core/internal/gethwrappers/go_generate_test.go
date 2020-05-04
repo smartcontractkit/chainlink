@@ -1,6 +1,6 @@
-// package vrf_test verifies correct and up-to-date generation of golang wrappers
+// package gethwrappers_test verifies correct and up-to-date generation of golang wrappers
 // for solidity contracts. See go_generate.go for the actual generation.
-package vrf_test
+package gethwrappers_test
 
 import (
 	"bufio"
@@ -91,7 +91,8 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 		binPath = "bytecode"
 	}
 	// Normalize the whitespace in the ABI JSON
-	abiBytes := stripWhitespace(gjson.GetBytes(compilerJSON, abiPath).String(), "")
+	abiBytes, err := utils.NormalizedJSON(
+		[]byte(gjson.GetBytes(compilerJSON, abiPath).String()))
 	binBytes := gjson.GetBytes(compilerJSON, binPath).String()
 	if !isLINKCompilerOutput {
 		// Remove the varying contract metadata, as in ./generation/generate.sh
@@ -102,8 +103,7 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	_, err = io.WriteString(hasher, hashMsg)
 	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
 	recompileCommand := color.HiRedString(fmt.Sprintf("`%s && go generate`", compileCommand(t)))
-	// These outputs are huge, so silence them by assert.True on explicit equality
-	assert.True(t, versionInfo.hash == fmt.Sprintf("%x", hasher.Sum(nil)),
+	assert.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
 		boxOutput("compiler artifact %s has changed; please rerun \n%s\nand commit the changes",
 			apath, recompileCommand))
 
@@ -205,10 +205,7 @@ func init() {
 	}
 }
 
-var (
-	stripWhitespace    = regexp.MustCompile(`\s+`).ReplaceAllString
-	stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
-)
+var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 
 // compileCommand() is a shell command which compiles chainlink's solidity
 // contracts.
