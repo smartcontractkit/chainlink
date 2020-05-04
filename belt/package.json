@@ -41,7 +41,7 @@
     "@types/mock-fs": "^4.10.0",
     "@types/node": "^13",
     "@types/shelljs": "^0.8.6",
-    "globby": "^10",
+    "globby": "^11",
     "jest": "^25.1.0",
     "mock-fs": "^4.11.0",
     "ts-jest": "^25.2.0",
