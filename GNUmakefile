@@ -54,8 +54,10 @@ yarndep: ## Ensure all yarn dependencies are installed
 	yarn setup:chainlink
 
 .PHONY: gen-builder-cache
-gen-builder-cache: gomod yarndep # generate a cache for the builder image
-
+gen-builder-cache: gomod # generate a cache for the builder image
+	yarn install --frozen-lockfile
+	./tools/bin/restore-solc-cache
+	
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
