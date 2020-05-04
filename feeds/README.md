@@ -133,8 +133,9 @@ Color Codes
 ## Available env vars
 
 ```
-REACT_APP_INFURA_KEY    - infura key
-REACT_APP_GA_ID         - google analytics key
-REACT_APP_FEEDS_JSON    - URL to load reference contract feeds
-REACT_APP_NODES_JSON    - URL to load oracle nodes
+REACT_APP_INFURA_KEY          - infura key
+REACT_APP_GA_ID               - google analytics key
+REACT_APP_FEEDS_JSON          - URL to load reference contract feeds
+REACT_APP_NODES_JSON          - URL to load oracle nodes
+REACT_APP_HOSTNAME_WHITELIST  - Comma separated hosts that can override the feed & node source via query parameters ([localhost,weiwatchers.com], etc...)
 ```
