@@ -48,8 +48,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
-	if err := checkFilePermissions(cli.Config.RootDir()); err != nil {
-		logger.Warn(err)
+	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
+		logger.Warn(e)
 	}
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
@@ -60,14 +60,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 	if len(c.String("vrfpassword")) != 0 {
-		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
-		if err != nil {
-			return cli.errorOut(errors.Wrapf(err,
+		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
+		if fileErr != nil {
+			return cli.errorOut(errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
 				c.String("vrfpassword")))
 		}
-		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
-			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
+		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); authErr != nil {
+			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
 		}
 	}
 
@@ -82,8 +82,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
 	logger.Info("API exposed for user ", user.Email)
-	if err := app.Start(); err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	if e := app.Start(); e != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
 	defer loggedStop(app)
 	err = logConfigVariables(store)
@@ -327,21 +327,21 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		kdir += src[strings.LastIndex(src, "/"):]
 	}
 
-	if err := copyFile(src, kdir); err != nil {
+	if err := copyFile(src, kdir, 0600); err != nil {
 		return cli.errorOut(err)
 	}
 
 	return app.GetStore().SyncDiskKeyStoreToDB()
 }
 
-func copyFile(src, dst string) error {
+func copyFile(src, dst string, perms os.FileMode) error {
 	from, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer from.Close()
 
-	to, err := os.Create(dst)
+	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}

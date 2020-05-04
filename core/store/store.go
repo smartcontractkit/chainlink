@@ -34,7 +34,7 @@ type Store struct {
 	KeyStore    *KeyStore
 	VRFKeyStore *VRFKeyStore
 	TxManager   TxManager
-	closeOnce   sync.Once
+	closeOnce   *sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -101,6 +101,11 @@ func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{
 	if err != nil {
 		return nil, err
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	wrapper.limiter.Wait(ctx)
+
 	return wrapper.client.EthSubscribe(ctx, channel, args...)
 }
 
@@ -178,6 +183,7 @@ func newStoreWithDialerAndKeyStore(
 		KeyStore:  keyStore,
 		ORM:       orm,
 		TxManager: txManager,
+		closeOnce: &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
@@ -202,14 +208,15 @@ func (s *Store) Close() error {
 // one to work with soft deleted records.
 func (s *Store) Unscoped() *Store {
 	cpy := *s
-	cpy.ORM = cpy.ORM.Unscoped()
+	cpy.ORM = s.ORM.Unscoped()
 	return &cpy
 }
 
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
-	return s.ORM.AuthorizedUserWithSession(sessionID, s.Config.SessionTimeout())
+	return s.ORM.AuthorizedUserWithSession(
+		sessionID, s.Config.SessionTimeout().Duration())
 }
 
 // SyncDiskKeyStoreToDB writes all keys in the keys directory to the underlying

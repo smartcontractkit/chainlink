@@ -1,13 +1,14 @@
 package store
 
 import (
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"

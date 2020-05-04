@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 )
 
@@ -25,8 +26,8 @@ func NewLockingStrategy(dialect DialectName, dbpath string) (LockingStrategy, er
 // LockingStrategy employs the locking and unlocking of an underlying
 // resource for exclusive access, usually a file or database.
 type LockingStrategy interface {
-	Lock(timeout time.Duration) error
-	Unlock(timeout time.Duration) error
+	Lock(timeout models.Duration) error
+	Unlock(timeout models.Duration) error
 }
 
 func normalizedTimeout(timeout time.Duration) <-chan time.Time {
@@ -57,14 +58,14 @@ const postgresAdvisoryLockID int64 = 1027321974924625846
 
 // Lock uses a blocking postgres advisory lock that times out at the passed
 // timeout.
-func (s *PostgresLockingStrategy) Lock(timeout time.Duration) error {
+func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
 	ctx := context.Background()
-	if timeout != 0 {
+	if !timeout.IsInstant() {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout)
+		ctx, cancel = context.WithTimeout(ctx, timeout.Duration())
 		defer cancel()
 	}
 
@@ -86,13 +87,15 @@ func (s *PostgresLockingStrategy) Lock(timeout time.Duration) error {
 
 	_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", postgresAdvisoryLockID)
 	if err != nil {
-		return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v", displayTimeout(timeout), err)
+		return errors.Wrapf(ErrNoAdvisoryLock,
+			"postgres advisory locking strategy failed on .Lock, timeout set to %v: %v",
+			displayTimeout(timeout), err)
 	}
 	return nil
 }
 
 // Unlock unlocks the locked postgres advisory lock.
-func (s *PostgresLockingStrategy) Unlock(timeout time.Duration) error {
+func (s *PostgresLockingStrategy) Unlock(timeout models.Duration) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 

@@ -2,6 +2,7 @@ package orm
 
 import (
 	"crypto/subtle"
+	"database/sql"
 	"encoding"
 	"fmt"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
@@ -22,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
@@ -35,7 +36,6 @@ const BatchSize = 100
 var (
 	// ErrorNotFound is returned when finding a single value fails.
 	ErrorNotFound = gorm.ErrRecordNotFound
-	ErrorConflict = errors.New("record already exists")
 )
 
 // DialectName is a compiler enforced type used that maps to gorm's dialect
@@ -51,7 +51,7 @@ const (
 type ORM struct {
 	db                  *gorm.DB
 	lockingStrategy     LockingStrategy
-	advisoryLockTimeout time.Duration
+	advisoryLockTimeout models.Duration
 	dialectName         DialectName
 	closeOnce           sync.Once
 	shutdownSignal      gracefulpanic.Signal
@@ -62,17 +62,8 @@ var (
 	ErrReleaseLockFailed = errors.New("advisory lock release failed")
 )
 
-// mapError tries to coerce the error into package defined errors.
-func mapError(err error) error {
-	err = errors.Cause(err)
-	if v, ok := err.(*pq.Error); ok && v.Code.Class() == "23" {
-		return ErrorConflict
-	}
-	return err
-}
-
 // NewORM initializes a new database file at the configured uri.
-func NewORM(uri string, timeout time.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal) (*ORM, error) {
 	dialect, err := DeduceDialect(uri)
 	if err != nil {
 		return nil, err
@@ -114,8 +105,8 @@ func (orm *ORM) MustEnsureAdvisoryLock() {
 	}
 }
 
-func displayTimeout(timeout time.Duration) string {
-	if timeout == 0 {
+func displayTimeout(timeout models.Duration) string {
+	if timeout.IsInstant() {
 		return "indefinite"
 	}
 	return timeout.String()
@@ -378,14 +369,14 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	orm.MustEnsureAdvisoryLock()
 	err := orm.db.Create(externalInitiator).Error
-	return mapError(err)
+	return err
 }
 
 // DeleteExternalInitiator removes an external initiator
 func (orm *ORM) DeleteExternalInitiator(name string) error {
 	orm.MustEnsureAdvisoryLock()
 	err := orm.db.Delete(&models.ExternalInitiator{Name: name}).Error
-	return mapError(err)
+	return err
 }
 
 // FindExternalInitiator finds an external initiator given an authentication request
@@ -1184,6 +1175,46 @@ func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
 	return lc, err
 }
 
+// HasConsumedLog reports whether the given consumer had already consumed the given log
+func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, JobID *models.ID) (bool, error) {
+	lc := models.LogConsumption{
+		BlockHash: rawLog.GetBlockHash(),
+		LogIndex:  rawLog.GetIndex(),
+		JobID:     JobID,
+	}
+	return orm.LogConsumptionExists(&lc)
+}
+
+// LogConsumptionExists reports whether a given LogConsumption record already exists
+func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
+	subQuery := "SELECT id FROM log_consumptions " +
+		"WHERE block_hash=$1 " +
+		"AND log_index=$2 " +
+		"AND job_id=$3"
+	query := "SELECT exists (" + subQuery + ")"
+
+	var exists bool
+	err := orm.db.DB().
+		QueryRow(query, lc.BlockHash, lc.LogIndex, lc.JobID).
+		Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return exists, nil
+}
+
+// CreateLogConsumption creates a new LogConsumption record
+func (orm *ORM) CreateLogConsumption(lc *models.LogConsumption) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Create(lc).Error
+}
+
+// FindLogConsumer finds the consuming job of a particular LogConsumption record
+func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, error) {
+	orm.MustEnsureAdvisoryLock()
+	return orm.FindJob(lc.JobID)
+}
+
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
 // the keys folder on disk, deleting anything there prior.
 func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
@@ -1245,4 +1276,14 @@ func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
 
 		offset += limit
 	}
+}
+
+func (orm *ORM) rowExists(query string, args ...interface{}) (bool, error) {
+	var exists bool
+	query = fmt.Sprintf("SELECT exists (%s)", query)
+	err := orm.db.DB().QueryRow(query, args...).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return exists, nil
 }

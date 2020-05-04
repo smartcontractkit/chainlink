@@ -50,6 +50,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: yarndep
 yarndep: ## Ensure all yarn dependencies are installed
 	yarn install --frozen-lockfile
+	yarn setup:chainlink
 
 .PHONY: gen-builder-cache
 gen-builder-cache: gomod yarndep # generate a cache for the builder image
@@ -58,13 +59,9 @@ gen-builder-cache: gomod yarndep # generate a cache for the builder image
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
-chainlink: $(SGX_BUILD_ENCLAVE) ws-setup operator-ui ## Build the chainlink binary.
+chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
-
-.PHONY: ws-setup
-ws-setup:
-	yarn setup:chainlink
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.

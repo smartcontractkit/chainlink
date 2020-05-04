@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
@@ -14,11 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -208,11 +207,15 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 	})
 
 	t.Run("input, should go from pending -> in progress", func(t *testing.T) {
-		run := makeJobRunWithInitiator(t, store, models.NewJob())
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingConnection)
-		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID()}}
+
+		job, err := store.FindJob(run.JobSpecID)
+		require.NoError(t, err)
+		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
+
 		require.NoError(t, store.CreateJobRun(&run))
-		err := runManager.ResumeAllConnecting()
+		err = runManager.ResumeAllConnecting()
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -260,7 +263,7 @@ func TestRunManager_Create(t *testing.T) {
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")} // empty params
 	require.NoError(t, store.CreateJob(&job))
 
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	initiator := job.Initiators[0]
 	rr := models.NewRunRequest(models.JSON{})
 	rr.RequestID = &requestID
@@ -295,7 +298,7 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, job.Tasks, 1)
 	require.Len(t, retrievedJob.Tasks, 1)
-	assert.Equal(t, job.Tasks[0].Params, retrievedJob.Tasks[0].Params)
+	assert.JSONEq(t, job.Tasks[0].Params.String(), retrievedJob.Tasks[0].Params.String())
 }
 
 func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
@@ -342,7 +345,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			require.NoError(t, app.Store.CreateJob(&job))
 
 			creationHeight := big.NewInt(1)
-			requestID := "RequestID"
+			requestID := common.HexToHash("0xcafe")
 			initiator := job.Initiators[0]
 			rr := models.NewRunRequest(models.JSON{})
 			rr.RequestID = &requestID
@@ -635,7 +638,7 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	job.Tasks = []models.TaskSpec{cltest.NewTask(t, "NoOp")}
 	require.NoError(t, store.CreateJob(&job))
 
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	initiator := job.Initiators[0]
 	rr := models.NewRunRequest(models.JSON{})
 	rr.RequestID = &requestID

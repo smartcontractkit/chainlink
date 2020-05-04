@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import httpStatus from 'http-status-codes'
 import { find as findAdmin, isValidPassword } from '../entity/Admin'
-import { getDb } from '../database'
 import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
@@ -21,8 +20,7 @@ export default async function(req: Request, res: Response, next: NextFunction) {
       return
     }
 
-    const db = await getDb()
-    const admin = await findAdmin(db, username)
+    const admin = await findAdmin(username)
     const validPassword = await isValidPassword(password, admin)
 
     // Express.js middleware is sequential

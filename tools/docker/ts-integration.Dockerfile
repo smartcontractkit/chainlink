@@ -21,6 +21,9 @@ WORKDIR ${SRCROOT}
 
 # copy over all our dependencies
 COPY yarn.lock package.json .yarnrc tsconfig.cjs.json tsconfig.es6.json ./
+COPY patches patches
+COPY solc_bin solc_bin
+COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .yarn .yarn
 COPY belt belt
 COPY evm-test-helpers evm-test-helpers
@@ -32,6 +35,7 @@ COPY tools/ci-ts tools/ci-ts
 
 # install deps
 RUN yarn install
+RUN tools/bin/restore-solc-cache
 
 # setup contracts
 RUN yarn setup:contracts

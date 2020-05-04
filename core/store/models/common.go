@@ -3,12 +3,12 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/araddon/dateparse"
@@ -16,17 +16,27 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/mrwonko/cron"
+	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+// CronParser is the global parser for crontabs.
+// It accepts the standard 5 field cron syntax as well as an optional 6th field
+// at the front to represent seconds.
+var CronParser cron.Parser
+
+func init() {
+	cronParserSpec := cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor
+	CronParser = cron.NewParser(cronParserSpec)
+}
 
 // RunStatus is a string that represents the run status
 type RunStatus string
 
 const (
 	// RunStatusUnstarted is the default state of any run status.
-	RunStatusUnstarted = RunStatus("")
+	RunStatusUnstarted = RunStatus("unstarted")
 	// RunStatusInProgress is used for when a run is actively being executed.
 	RunStatusInProgress = RunStatus("in_progress")
 	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
@@ -113,12 +123,14 @@ func (s RunStatus) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (s *RunStatus) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to RunStatus", value, value)
+	switch v := value.(type) {
+	case []byte:
+		*s = RunStatus(string(v))
+	case string:
+		*s = RunStatus(v)
+	default:
+		return fmt.Errorf("Unable to convert %#v of %T to RunStatus", value, value)
 	}
-
-	*s = RunStatus(temp)
 	return nil
 }
 
@@ -130,7 +142,7 @@ type JSON struct {
 
 // Value returns this instance serialized for database storage.
 func (j JSON) Value() (driver.Value, error) {
-	s := j.String()
+	s := j.Bytes()
 	if len(s) == 0 {
 		return nil, nil
 	}
@@ -139,12 +151,14 @@ func (j JSON) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (j *JSON) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
+	switch v := value.(type) {
+	case string:
+		*j = JSON{Result: gjson.Parse(v)}
+	case []byte:
+		*j = JSON{Result: gjson.ParseBytes(v)}
+	default:
 		return fmt.Errorf("Unable to convert %v of %T to JSON", value, value)
 	}
-
-	*j = JSON{Result: gjson.Parse(temp)}
 	return nil
 }
 
@@ -392,8 +406,6 @@ func (t *AnyTime) Scan(value interface{}) error {
 }
 
 // Cron holds the string that will represent the spec of the cron-job.
-// It uses 6 fields to represent the seconds (1), minutes (2), hours (3),
-// day of the month (4), month (5), and day of the week (6).
 type Cron string
 
 // UnmarshalJSON parses the raw spec stored in JSON-encoded
@@ -408,7 +420,11 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
-	_, err = cron.Parse(s)
+	if !strings.HasPrefix(s, "CRON_TZ=") {
+		return errors.New("Cron: specs must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *'")
+	}
+
+	_, err = CronParser.Parse(s)
 	if err != nil {
 		return fmt.Errorf("Cron: %v", err)
 	}
@@ -421,20 +437,46 @@ func (c Cron) String() string {
 	return string(c)
 }
 
-// Duration is a time duration.
-type Duration time.Duration
+// Duration is a non-negative time duration.
+type Duration struct{ d time.Duration }
+
+func MakeDuration(d time.Duration) (Duration, error) {
+	if d < time.Duration(0) {
+		return Duration{}, fmt.Errorf("cannot make negative time duration: %s", d)
+	}
+	return Duration{d: d}, nil
+}
+
+func MustMakeDuration(d time.Duration) Duration {
+	rv, err := MakeDuration(d)
+	if err != nil {
+		panic(err)
+	}
+	return rv
+}
 
 // Duration returns the value as the standard time.Duration value.
 func (d Duration) Duration() time.Duration {
-	return time.Duration(d)
+	return d.d
 }
+
+// Before returns the time d units before time t
+func (d Duration) Before(t time.Time) time.Time {
+	return t.Add(-d.Duration())
+}
+
+// Shorter returns true if and only if d is shorter than od.
+func (d Duration) Shorter(od Duration) bool { return d.d < od.d }
+
+// IsInstant is true if and only if d is of duration 0
+func (d Duration) IsInstant() bool { return d.d == 0 }
 
 // String returns a string representing the duration in the form "72h3m0.5s".
 // Leading zero units are omitted. As a special case, durations less than one
 // second format use a smaller unit (milli-, micro-, or nanoseconds) to ensure
 // that the leading digit is non-zero. The zero duration formats as 0s.
 func (d Duration) String() string {
-	return time.Duration(d).String()
+	return d.Duration().String()
 }
 
 // MarshalJSON implements the json.Marshaler interface.
@@ -453,8 +495,26 @@ func (d *Duration) UnmarshalJSON(input []byte) error {
 	if err != nil {
 		return err
 	}
-	*d = Duration(v)
+	*d, err = MakeDuration(v)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func (d *Duration) Scan(v interface{}) (err error) {
+	switch tv := v.(type) {
+	case int64:
+		*d, err = MakeDuration(time.Duration(tv))
+		return err
+	default:
+		return errors.Errorf(`don't know how to parse "%s" of type %T as a `+
+			`models.Duration`, tv, tv)
+	}
+}
+
+func (d Duration) Value() (driver.Value, error) {
+	return int64(d.d), nil
 }
 
 // WithdrawalRequest request to withdraw LINK.

@@ -11,8 +11,10 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -251,6 +253,25 @@ func (bs *BackoffSleeper) Duration() time.Duration {
 func (bs *BackoffSleeper) Reset() {
 	bs.beenRun = false
 	bs.Backoff.Reset()
+}
+
+func RetryWithBackoff(chCancel <-chan struct{}, errPrefix string, fn func() error) (aborted bool) {
+	sleeper := NewBackoffSleeper()
+	sleeper.Reset()
+	for {
+		err := fn()
+		if err == nil {
+			return false
+		}
+
+		logger.Errorf("%v: %v", errPrefix, err)
+		select {
+		case <-chCancel:
+			return true
+		case <-time.After(sleeper.After()):
+			continue
+		}
+	}
 }
 
 // MinBigs finds the minimum value of a list of big.Ints.
@@ -519,4 +540,154 @@ func Uint256ToHex(n *big.Int) (string, error) {
 
 func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
 	return decimal.NewFromBigInt(i, -precision)
+}
+
+func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
+	chAwait := make(chan struct{})
+	go func() {
+		defer close(chAwait)
+		wg.Wait()
+	}()
+	return chAwait
+}
+
+type DependentAwaiter interface {
+	AwaitDependents() <-chan struct{}
+	AddDependents(n int)
+	DependentReady()
+}
+
+type dependentAwaiter struct {
+	wg *sync.WaitGroup
+	ch <-chan struct{}
+}
+
+func NewDependentAwaiter() DependentAwaiter {
+	return &dependentAwaiter{
+		wg: &sync.WaitGroup{},
+	}
+}
+
+func (da *dependentAwaiter) AwaitDependents() <-chan struct{} {
+	if da.ch == nil {
+		da.ch = WaitGroupChan(da.wg)
+	}
+	return da.ch
+}
+
+func (da *dependentAwaiter) AddDependents(n int) {
+	da.wg.Add(n)
+}
+
+func (da *dependentAwaiter) DependentReady() {
+	da.wg.Done()
+}
+
+// FIFO queue that discards older items when it reaches its capacity.
+type BoundedQueue struct {
+	capacity uint
+	items    []interface{}
+	mu       *sync.RWMutex
+}
+
+func NewBoundedQueue(capacity uint) *BoundedQueue {
+	return &BoundedQueue{
+		capacity: capacity,
+		mu:       &sync.RWMutex{},
+	}
+}
+
+func (q *BoundedQueue) Add(x interface{}) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.items = append(q.items, x)
+	if uint(len(q.items)) > q.capacity {
+		excess := uint(len(q.items)) - q.capacity
+		q.items = q.items[excess:]
+	}
+}
+
+func (q *BoundedQueue) Take() interface{} {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.items) == 0 {
+		return nil
+	}
+	x := q.items[0]
+	q.items = q.items[1:]
+	return x
+}
+
+func (q *BoundedQueue) Empty() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return len(q.items) == 0
+}
+
+func (q *BoundedQueue) Full() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return uint(len(q.items)) >= q.capacity
+}
+
+type BoundedPriorityQueue struct {
+	queues     map[uint]*BoundedQueue
+	priorities []uint
+	capacities map[uint]uint
+	mu         *sync.RWMutex
+}
+
+func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
+	queues := make(map[uint]*BoundedQueue)
+	var priorities []uint
+	for priority, capacity := range capacities {
+		priorities = append(priorities, priority)
+		queues[priority] = NewBoundedQueue(capacity)
+	}
+	sort.Slice(priorities, func(i, j int) bool { return priorities[i] < priorities[j] })
+	return &BoundedPriorityQueue{
+		queues:     queues,
+		priorities: priorities,
+		capacities: capacities,
+		mu:         &sync.RWMutex{},
+	}
+}
+
+func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	subqueue, exists := q.queues[priority]
+	if !exists {
+		panic(fmt.Sprintf("nonexistent priority: %v", priority))
+	}
+
+	subqueue.Add(x)
+}
+
+func (q *BoundedPriorityQueue) Take() interface{} {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	for _, priority := range q.priorities {
+		queue := q.queues[priority]
+		if queue.Empty() {
+			continue
+		}
+		return queue.Take()
+	}
+	return nil
+}
+
+func (q *BoundedPriorityQueue) Empty() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	for _, priority := range q.priorities {
+		queue := q.queues[priority]
+		if !queue.Empty() {
+			return false
+		}
+	}
+	return true
 }

@@ -19,7 +19,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -81,7 +80,7 @@ type TxManager interface {
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
-	SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error)
+	SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) ([]byte, error)
 
 	eth.Client
 }
@@ -336,9 +335,9 @@ func (txm *EthTxManager) sendInitialTx(
 			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")
 		}
 
-		txAttempt, err := txm.orm.AddTxAttempt(tx, tx)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#sendInitialTx AddTxAttempt")
+		txAttempt, e := txm.orm.AddTxAttempt(tx, tx)
+		if e != nil {
+			return errors.Wrap(e, "TxManager#sendInitialTx AddTxAttempt")
 		}
 
 		logger.Debugw("Added Tx attempt #0", "txID", tx.ID, "txAttemptID", txAttempt.ID)
@@ -364,24 +363,24 @@ func isUnderPricedReplacementError(err error) bool {
 }
 
 // SignedRawTxWithBumpedGas takes a transaction and generates a new signed TX from it with the provided params
-func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) (string, error) {
+func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit uint64, gasPrice big.Int) ([]byte, error) {
 	ma := txm.getAccount(originalTx.From)
+	rlp := new(bytes.Buffer)
 	if ma == nil {
-		return "", fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
+		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
 	}
 
 	transaction := types.NewTransaction(originalTx.Nonce, originalTx.To, originalTx.Value.ToInt(), gasLimit, &gasPrice, originalTx.Data)
 
 	transaction, err := txm.keyStore.SignTx(ma.Account, transaction, txm.config.ChainID())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	rlp := new(bytes.Buffer)
 	if err := transaction.EncodeRLP(rlp); err != nil {
-		return "", err
+		return nil, err
 	}
-	return hexutil.Encode(rlp.Bytes()), nil
+	return rlp.Bytes(), nil
 }
 
 // newTx returns a newly signed Ethereum Transaction
@@ -418,7 +417,7 @@ func (txm *EthTxManager) newTx(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: hexutil.Encode(rlp.Bytes()),
+		SignedRawTx: rlp.Bytes(),
 	}, nil
 }
 
@@ -631,9 +630,9 @@ func (txm *EthTxManager) processAttempt(
 		// Update prometheus metric here as waiting on the transaction
 		// to be marked 'Safe' may be too delayed due to possible
 		// backlog of transaction confirmations.
-		ethBalance, err := txm.GetEthBalance(tx.From)
-		if err != nil {
-			return receipt, state, errors.Wrap(err, "confirming confirmation attempt")
+		ethBalance, e := txm.GetEthBalance(tx.From)
+		if e != nil {
+			return receipt, state, errors.Wrap(e, "confirming confirmation attempt")
 		}
 		promUpdateEthBalance(ethBalance, tx.From)
 		return receipt, state, nil
@@ -796,9 +795,9 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 		}
 		if err != nil {
 			promTxAttemptFailed.Inc()
-			err := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
-			logger.Error(err)
-			return err
+			e := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+			logger.Error(e)
+			return e
 		}
 
 		logger.Infow(

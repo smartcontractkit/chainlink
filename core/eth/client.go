@@ -21,9 +21,10 @@ type Client interface {
 	GetNonce(address common.Address) (uint64, error)
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
-	SendRawTx(hex string) (common.Hash, error)
+	SendRawTx(bytes []byte) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockHeight() (uint64, error)
+	GetLatestBlock() (Block, error)
 	GetBlockByNumber(hex string) (Block, error)
 	GetChainID() (*big.Int, error)
 	SubscribeToNewHeads(ctx context.Context, channel chan<- BlockHeader) (Subscription, error)
@@ -114,9 +115,9 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (client *CallerSubscriberClient) SendRawTx(hex string) (common.Hash, error) {
+func (client *CallerSubscriberClient) SendRawTx(bytes []byte) (common.Hash, error) {
 	result := common.Hash{}
-	err := client.Call(&result, "eth_sendRawTransaction", hex)
+	err := client.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
 	return result, err
 }
 
@@ -131,6 +132,12 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 	var height hexutil.Uint64
 	err := client.Call(&height, "eth_blockNumber")
 	return uint64(height), err
+}
+
+func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
+	var block Block
+	err := client.Call(&block, "eth_getBlockByNumber", "latest", true)
+	return block, err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".

@@ -22,7 +22,7 @@ func TestMeasureFulfillmenttGasCost(t *testing.T) {
 		coordinator.rootContractAddress, coordinator.coordinatorABI,
 		"fulfillRandomnessRequest", proofBlob[:])
 
-	assert.Greater(t, estimate, uint64(148000),
+	assert.Greater(t, estimate, uint64(145000),
 		"fulfillRandomness tx cost less gas than expected")
 	assert.Less(t, estimate, uint64(300000),
 		"fulfillRandomness tx cost more gas than expected")
