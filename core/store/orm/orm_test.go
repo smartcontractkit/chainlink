@@ -1377,7 +1377,7 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 	})
 
 	t.Run("tx #2, 3 attempts", func(t *testing.T) {
-		transaction := cltest.NewTransaction(0)
+		transaction := cltest.NewTransaction(1)
 		transaction.SurrogateID = null.StringFrom("1")
 		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
@@ -1385,11 +1385,11 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
-		transaction = cltest.NewTransaction(0, 1)
+		transaction = cltest.NewTransaction(1, 1)
 		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
-		transaction = cltest.NewTransaction(0, 2)
+		transaction = cltest.NewTransaction(1, 2)
 		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 		require.Len(t, tx.Attempts, 3)
@@ -1404,8 +1404,8 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("tx #2, 2 attempts", func(t *testing.T) {
-		transaction := cltest.NewTransaction(0)
+	t.Run("tx #3, 2 attempts", func(t *testing.T) {
+		transaction := cltest.NewTransaction(2)
 		transaction.SurrogateID = null.StringFrom("2")
 		tx, err := store.CreateTx(transaction)
 		require.NoError(t, err)
@@ -1413,7 +1413,7 @@ func TestORM_UnconfirmedTxAttempts(t *testing.T) {
 		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
-		transaction = cltest.NewTransaction(0, 1)
+		transaction = cltest.NewTransaction(2, 1)
 		_, err = store.AddTxAttempt(tx, transaction)
 		require.NoError(t, err)
 
