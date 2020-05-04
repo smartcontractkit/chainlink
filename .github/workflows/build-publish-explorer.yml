@@ -1,0 +1,14 @@
+name: Build/Publish Explorer Workflow
+
+on:
+  repository_dispatch:
+    types: build-publish-explorer
+
+jobs:
+  build-publish-explorer:
+    name: Build/Publish Explorer
+    runs-on: ubuntu-latest
+    container: smartcontract/builder:1.0.29
+    steps:
+      - run: echo GREAT SUCCESS
+
