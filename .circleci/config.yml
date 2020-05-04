@@ -187,7 +187,8 @@ jobs:
           TYPEORM_NAME: ci
       - image: circleci/postgres:11-alpine
         environment:
-          POSTGRES_USER: root
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: explorer_test
     steps:
       - checkout:
