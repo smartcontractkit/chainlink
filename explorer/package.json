@@ -48,7 +48,7 @@
     "js-sha256": "^0.9.0",
     "jsonapi-serializer": "^3.6.6",
     "local-storage-fallback": "^4.1.1",
-    "mime-types": "^2.1.26",
+    "mime-types": "^2.1.27",
     "pg": "^7.17.1",
     "pino": "^6.2.0",
     "reflect-metadata": "^0.1.13",
