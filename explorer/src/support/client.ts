@@ -1,7 +1,7 @@
 import jayson from 'jayson'
 import WebSocket from 'ws'
-import { ACCESS_KEY_HEADER, SECRET_HEADER } from '../utils/constants'
 import { Config } from '../config'
+import { ACCESS_KEY_HEADER, SECRET_HEADER } from '../utils/constants'
 
 export const newChainlinkNode = (
   accessKey: string,
@@ -14,8 +14,9 @@ export const newChainlinkNode = (
     },
   })
 
-  return new Promise((resolve: (arg0: WebSocket) => void, reject) => {
-    ws.on('error', (error: Error) => {
+  return new Promise((resolve, reject) => {
+    ws.on('error', error => {
+      error.message += '[newChainlinkNode] Error on opening websocket:'
       reject(error)
     })
 
