@@ -155,6 +155,11 @@
     "networkId": 1
   },
   {
+    "address": "0x7872eb21639Ae8193f1AAF495B967202713C8Fe5",
+    "name": "dMakers",
+    "networkId": 1
+  },
+  {
     "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
     "name": "LinkPool",
     "networkId": 3
