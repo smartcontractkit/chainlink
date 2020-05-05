@@ -10,6 +10,7 @@ COPY .yarn .yarn
 COPY patches patches
 COPY solc_bin solc_bin
 COPY belt/package.json belt/package.json
+COPY belt/bin ./belt/bin
 COPY evm-contracts/package.json evm-contracts/package.json
 COPY evm-test-helpers/package.json evm-test-helpers/package.json
 COPY explorer/client/package.json explorer/client/package.json
