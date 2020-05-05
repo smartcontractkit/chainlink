@@ -422,6 +422,45 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return rounds[uint32(_roundId)].answeredInRound;
   }
 
+ /**
+   * @notice get all details about a round. Consumers are encouraged to use
+   * this more fully featured method over the "legacy" getAnswer/latestAnswer/
+   * getTimestamp/latestTimestamp functions. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * @param _roundId the round ID to retrieve the details for. If _roundId
+   * has the special value UINT256_MAX (2**256-1), the contract will retrieve
+   * the latest round's details.
+   * @return roundId is the round ID for which details were retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
+   */
+   function getRound(uint256 _roundId)
+    external
+    view
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRound(_roundId);
+  }
+
+
   /**
    * @notice query the available amount of LINK for an oracle to withdraw
    */
@@ -668,6 +707,34 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (uint256)
   {
     return rounds[uint32(_roundId)].updatedAt;
+  }
+
+  /**
+   * @dev Internal implementation of getRound
+   */
+  function _getRound(uint256 _roundId)
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    if (_roundId == uint256(~0)) {
+      _roundId = latestRoundId;
+    }
+
+    Round memory r = rounds[uint32(_roundId)];
+    return (
+      _roundId,
+      r.answer,
+      r.startedAt,
+      r.updatedAt,
+      r.answeredInRound
+    );
   }
 
   /**

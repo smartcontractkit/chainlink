@@ -10,6 +10,7 @@ import { ethers } from 'ethers'
 import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
 import { AggregatorProxyFactory } from '../../ethers/v0.6/AggregatorProxyFactory'
 import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
+import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
@@ -19,6 +20,7 @@ const linkTokenFactory = new contract.LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
 const oracleFactory = new OracleFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
+const fluxAggregatorFactory = new FluxAggregatorFactory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -66,6 +68,7 @@ describe('AggregatorProxy', () => {
       'latestTimestamp',
       'getTimestamp',
       'decimals',
+      'getRound',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -185,6 +188,63 @@ describe('AggregatorProxy', () => {
           await aggregator2.latestTimestamp(),
           await proxy.getTimestamp(latestRound),
         )
+      })
+    })
+  })
+
+  describe('#getRound', () => {
+    describe('when pointed at a Historic Aggregator', () => {
+      beforeEach(async () => {
+        const requestTx = await aggregator.requestRateUpdate()
+        const receipt = await requestTx.wait()
+
+        const request = oracle.decodeRunRequest(receipt.logs?.[3])
+        await oc1.fulfillOracleRequest(
+          ...oracle.convertFufillParams(request, response),
+        )
+        matchers.bigNum(
+          ethers.utils.bigNumberify(response),
+          await aggregator.latestAnswer(),
+        )
+      })
+
+      it.only('reverts', async () => {
+        const latestRoundId = await proxy.latestRound()
+        matchers.evmRevert(async () => {
+          await proxy.getRound(latestRoundId)
+        })
+      })
+    })
+
+    describe('when pointed at a FluxAggregator', () => {
+      const roundId = 1;
+      const submission = 42;
+      beforeEach(async () => {
+        const fluxAggregator = await fluxAggregatorFactory
+          .connect(defaultAccount)
+          .deploy(link.address, basePayment, 3600, 18, ethers.utils.formatBytes32String('DOGE/ZWL'))
+        await link.transferAndCall(fluxAggregator.address, deposit, [])
+        await fluxAggregator.addOracles(
+          [defaultAccount.address],
+          [defaultAccount.address],
+          1,
+          1,
+          0
+        )
+        await fluxAggregator.submit(roundId, submission)
+
+        await proxy.setAggregator(fluxAggregator.address)
+      })
+
+      it('works for a valid roundId', async () => {
+        const round = await proxy.getRound(roundId)
+        matchers.bigNum(roundId, round.roundId)
+        matchers.bigNum(submission, round.answer)
+        const nowSeconds = new Date().valueOf() / 1000;
+        assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
+        assert.isBelow(round.startedAt.toNumber(), nowSeconds)
+        matchers.bigNum(round.startedAt, round.updatedAt)
+        matchers.bigNum(roundId, round.answeredInRound)
       })
     })
   })

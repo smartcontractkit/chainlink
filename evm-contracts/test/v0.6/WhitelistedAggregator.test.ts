@@ -65,6 +65,7 @@ describe('WhitelistedAggregator', () => {
       'getAnswer',
       'getOracles',
       'getOriginatingRoundOfAnswer',
+      'getRound',
       'getRoundStartedAt',
       'getTimedOutStatus',
       'getTimestamp',
