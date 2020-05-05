@@ -8,7 +8,7 @@ interface LogoProps {
 
 const Logo: React.FC<LogoProps> = ({ sponsor }) => (
   <div className="listing-grid__item--sponsors__logo">
-    <img alt={sponsor.name} title={sponsor.name} />
+    <img alt={sponsor.name} title={sponsor.name} src={sponsor.imageTn} />
   </div>
 )
 
