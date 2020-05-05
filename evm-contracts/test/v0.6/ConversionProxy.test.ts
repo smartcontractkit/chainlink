@@ -65,6 +65,7 @@ describe('ConversionProxy', () => {
       'setAddresses',
       'latestTimestamp',
       'getTimestamp',
+      'getRound',
       // Owned methods:
       'acceptOwnership',
       'owner',

@@ -84,6 +84,22 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     return _latestRound();
   }
 
+  function getRound(uint256 _roundId)
+    external
+    view
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRound(_roundId);
+  }
+
   /**
    * @notice represents the number of decimals the aggregator responses represent.
    */
@@ -149,5 +165,19 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     returns (uint256)
   {
     return aggregator.latestRound();
+  }
+
+  function _getRound(uint256 _roundId)
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return aggregator.getRound(_roundId);
   }
 }

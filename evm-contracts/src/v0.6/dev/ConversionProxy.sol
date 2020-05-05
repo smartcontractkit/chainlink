@@ -109,6 +109,23 @@ contract ConversionProxy is AggregatorInterface, Owned {
     return _getTimestamp(_roundId);
   }
 
+  function getRound(uint256 _roundId)
+    external
+    view
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRound(_roundId);
+  }
+
+
   /**
    * @notice Calls the `decimals()` function of the `to` aggregator
    * @return The amount of precision the converted answer will contain
@@ -135,6 +152,27 @@ contract ConversionProxy is AggregatorInterface, Owned {
 
   function _getTimestamp(uint256 _roundId) internal view returns (uint256) {
     return from.getTimestamp(_roundId);
+  }
+
+  function _getRound(uint256 _roundId)
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    uint256 roundIdFrom;
+    int256 answerFrom;
+    uint64 startedAtFrom;
+    uint64 updatedAtFrom;
+    uint256 answeredInRoundFrom;
+
+    (roundIdFrom, answerFrom, startedAtFrom, updatedAtFrom, answeredInRoundFrom) = from.getRound(_roundId);
+    return (roundIdFrom, convertAnswer(answerFrom), startedAtFrom, updatedAtFrom, answeredInRoundFrom);
   }
 
   /**

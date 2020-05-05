@@ -64,6 +64,7 @@ describe('WhitelistedAggregatorProxy', () => {
       'latestTimestamp',
       'decimals',
       'setAggregator',
+      'getRound',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -108,6 +109,12 @@ describe('WhitelistedAggregatorProxy', () => {
         await proxy.connect(personas.Carol).latestRound()
       }, 'Not whitelisted')
     })
+
+    it('getRound reverts', async () => {
+      matchers.evmRevert(async () => {
+        await proxy.connect(personas.Carol).getRound(1)
+      }, 'Not whitelisted')
+    })
   })
 
   describe('if the caller is whitelisted', () => {
@@ -146,5 +153,16 @@ describe('WhitelistedAggregatorProxy', () => {
         await proxy.getTimestamp(latestRound),
       )
     })
+
+    // TODO(kaleofduty)
+    // it('getRound works', async () => {
+    //   const latestRound = await proxy.latestRound()
+    //   const round = await proxy.getRound(latestRound);
+    //   matchers.bigNum(latestRound, round.roundId)
+    //   matchers.bigNum(response, round.answer)
+    //   matchers.bigNum(await aggregator.latestTimestamp(), round.startedAt)
+    //   matchers.bigNum(await aggregator.latestTimestamp(), round.updatedAt)
+    //   matchers.bigNum(round.answeredInRound
+    // })
   })
 })

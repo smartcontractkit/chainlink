@@ -81,4 +81,21 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
   {
     return _getTimestamp(_roundId);
   }
+
+  // TODO(kaleofduty): Comment
+  function getRound(uint256 _roundId)
+    external
+    view
+    override
+    isWhitelisted()
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRound(_roundId);
+  }
 }

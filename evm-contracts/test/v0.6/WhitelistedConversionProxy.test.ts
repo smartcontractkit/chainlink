@@ -59,6 +59,7 @@ describe('WhitelistedConversionProxy', () => {
       'from',
       'to',
       'setAddresses',
+      'getRound',
       // Ownable methods:
       'acceptOwnership',
       'owner',

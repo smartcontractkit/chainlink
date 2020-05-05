@@ -9,6 +9,7 @@ import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
+import { bigNum } from '@chainlink/test-helpers/dist/src/helpers'
 
 let personas: setup.Personas
 const provider = setup.provider()
@@ -194,6 +195,7 @@ describe('FluxAggregator', () => {
       'getAnswer',
       'getOracles',
       'getOriginatingRoundOfAnswer',
+      'getRound',
       'getRoundStartedAt',
       'getTimedOutStatus',
       'getTimestamp',
@@ -423,6 +425,39 @@ describe('FluxAggregator', () => {
           nextRound,
           (await aggregator.getOriginatingRoundOfAnswer(nextRound)).toNumber(),
         )
+      })
+
+      it('updates the round details', async () => {
+        const uint256Max = bigNum("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+
+        const roundBefore = await aggregator.getRound(nextRound)
+        matchers.bigNum(nextRound, roundBefore.roundId)
+        matchers.bigNum(0, roundBefore.answer)
+        assert.isFalse(roundBefore.startedAt.isZero())
+        matchers.bigNum(0, roundBefore.updatedAt)
+        matchers.bigNum(0, roundBefore.answeredInRound)
+
+        const roundBeforeLatest = await aggregator.getRound(uint256Max)
+        matchers.bigNum(nextRound - 1, roundBeforeLatest.roundId)
+
+        h.increaseTimeBy(15, provider)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+
+        const roundAfter = await aggregator.getRound(nextRound)
+        matchers.bigNum(nextRound, roundAfter.roundId)
+        matchers.bigNum(answer, roundAfter.answer)
+        matchers.bigNum(roundBefore.startedAt, roundAfter.startedAt)
+        matchers.bigNum(await aggregator.getTimestamp(nextRound), roundAfter.updatedAt)
+        matchers.bigNum(nextRound, roundAfter.answeredInRound)
+
+        assert.isBelow(roundAfter.startedAt.toNumber(), roundAfter.updatedAt.toNumber())
+
+        const roundAfterLatest = await aggregator.getRound(uint256Max)
+        matchers.bigNum(roundAfter.roundId, roundAfterLatest.roundId)
+        matchers.bigNum(roundAfter.answer, roundAfterLatest.answer)
+        matchers.bigNum(roundAfter.startedAt, roundAfterLatest.startedAt)
+        matchers.bigNum(roundAfter.updatedAt, roundAfterLatest.updatedAt)
+        matchers.bigNum(roundAfter.answeredInRound, roundAfterLatest.answeredInRound)
       })
     })
 
@@ -743,6 +778,13 @@ describe('FluxAggregator', () => {
         ans = await aggregator.getAnswer(previousRound)
         matchers.bigNum(ethers.utils.bigNumberify(block.timestamp), updated)
         assert.equal(answer, ans.toNumber())
+
+        const round = await aggregator.getRound(previousRound)
+        matchers.bigNum(previousRound, round.roundId)
+        matchers.bigNum(ans, round.answer)
+        matchers.bigNum(await aggregator.getRoundStartedAt(previousRound), round.startedAt)
+        matchers.bigNum(updated, round.updatedAt)
+        matchers.bigNum(previousRound - 1, round.answeredInRound)
       })
 
       it('sets the previous round as timed out', async () => {
