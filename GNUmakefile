@@ -51,7 +51,6 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 yarndep: ## Ensure all yarn dependencies are installed
 	yarn install --frozen-lockfile
 	./tools/bin/restore-solc-cache
-	yarn setup:chainlink
 
 .PHONY: gen-builder-cache
 gen-builder-cache: gomod # generate a cache for the builder image
@@ -68,6 +67,7 @@ chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
+	yarn setup:chainlink
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
