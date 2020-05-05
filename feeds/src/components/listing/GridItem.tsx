@@ -1,13 +1,14 @@
 import { DispatchBinding } from '@chainlink/ts-helpers'
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
-import { Col, Popover, Tooltip } from 'antd'
+import { Col, Tooltip } from 'antd'
 import classNames from 'classnames'
 import { AppState } from 'state'
 import { FeedConfig } from 'config'
 import { listingSelectors, listingOperations } from '../../state/ducks/listing'
 import { HealthCheck } from 'state/ducks/listing/reducers'
+import Sponsors from './Sponsors'
 
 interface StateProps {
   healthCheck?: HealthCheck
@@ -70,16 +71,7 @@ export const GridItem: React.FC<Props> = ({
             </>
           )}
         </div>
-        {feed.sponsored && feed.sponsored.length > 0 && (
-          <>
-            <div className="listing-grid__item--sponsored-title">
-              Sponsored by
-            </div>
-            <div className="listing-grid__item--sponsored">
-              <Sponsored data={feed.sponsored} />
-            </div>
-          </>
-        )}
+        <Sponsors sponsors={feed.sponsored} />
       </Link>
     </div>
   )
@@ -108,34 +100,6 @@ function CompareOffchain({ feed }: CompareOffchainProps) {
 
   return (
     <div className="listing-grid__item--offchain-comparison">{content}</div>
-  )
-}
-
-function Sponsored({ data }: any) {
-  const [sliced] = useState(data.slice(0, 2))
-
-  if (data.length <= 2) {
-    return sliced.map((name: any, i: number) => [
-      i > 0 && ', ',
-      <span key={name}>{name}</span>,
-    ])
-  }
-
-  return (
-    <Popover
-      content={data.map((name: any) => (
-        <div className="listing-grid__item--sponsored-popover" key={name}>
-          {name}
-        </div>
-      ))}
-      title="Sponsored by"
-    >
-      {sliced.map((name: any, i: number) => [
-        i > 0 && ', ',
-        <span key={name}>{name}</span>,
-      ])}
-      , (+{data.length - 2})
-    </Popover>
   )
 }
 
