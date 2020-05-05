@@ -150,6 +150,11 @@
     "networkId": 1
   },
   {
+    "address": "0x95b00984a9c38417cDBa9653CE4F4A0A3e54451c",
+    "name": "DexTrac",
+    "networkId": 1
+  },
+  {
     "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
     "name": "LinkPool",
     "networkId": 3
