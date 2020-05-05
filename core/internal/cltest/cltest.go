@@ -1219,6 +1219,19 @@ func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
 	return attempt
 }
 
+func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
+	t.Helper()
+
+	var tx models.Tx
+	var count int
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&tx).Count(&count).Error
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return tx
+}
+
 func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {
 	t.Helper()
 
