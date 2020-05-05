@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "preserveSymlinks": true
   },
-  "include": ["src", "src/**/*.json", "@types"],
+  "include": ["src", "src/**/*.json", "@types", "src/assets/**/*.ts"],
   "references": [
     { "path": "../tools/redux" },
     { "path": "../tools/ts-helpers" },

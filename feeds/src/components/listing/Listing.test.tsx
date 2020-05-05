@@ -119,21 +119,4 @@ describe('components/listing/Listing', () => {
     expect(container).toHaveTextContent('pair name 3')
     expect(container).toHaveTextContent('pair name 4')
   })
-
-  it('renders sponsored names', () => {
-    const { container } = render(
-      <AllTheProviders>
-        <Listing
-          loadingFeeds={false}
-          feedGroups={listingGroups}
-          fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
-        />
-      </AllTheProviders>,
-    )
-
-    expect(container).toHaveTextContent('sponsor 1')
-    expect(container).toHaveTextContent('sponsor 2')
-  })
 })
