@@ -304,8 +304,17 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if config.DatabaseURL() == "" {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
+	parsed, err := url.Parse(config.DatabaseURL())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	dbname := parsed.Path[1:]
+	if dbname != "chainlink_test" {
+		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with the exact name `chainlink_test` to prevent accidental data loss.", dbname))
+	}
 	logger.Infof("Resetting database: %#v", config.DatabaseURL())
-	if err := dropAndCreateDB(config); err != nil {
+	if err := dropAndCreateDB(*parsed); err != nil {
 		return cli.errorOut(err)
 	}
 	if err := migrateTestDB(config); err != nil {
@@ -317,7 +326,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 // PrepareTestDatabase calls ResetDatabase then loads fixtures required for tests
 func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if err := cli.ResetDatabase(c); err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 	config := orm.NewConfig()
 	if err := insertFixtures(config); err != nil {
@@ -326,13 +335,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	return nil
 }
 
-func dropAndCreateDB(config *orm.Config) error {
-	parsed, err := url.Parse(config.DatabaseURL())
-	if err != nil {
-		return err
-	}
-
-	dbname := parsed.Path[1:]
+func dropAndCreateDB(parsed url.URL) error {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
 	parsed.Path = "/template1"
@@ -342,12 +345,11 @@ func dropAndCreateDB(config *orm.Config) error {
 	}
 	defer db.Close()
 
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
+	_, err = db.Exec("DROP DATABASE IF EXISTS chainlink_test")
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
-	// `CREATE DATABASE $1` does not seem to work w CREATE DATABASE
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+	_, err = db.Exec("CREATE DATABASE chainlink_test")
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}
@@ -381,7 +383,7 @@ func insertFixtures(config *orm.Config) error {
 	if !ok {
 		return errors.New("could not get runtime.Caller(1)")
 	}
-	filepath := path.Join(path.Dir(filename), "../internal/fixtures/fixtures.sql")
+	filepath := path.Join(path.Dir(filename), "../store/testdata/fixtures.sql")
 	fixturesSQL, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return err

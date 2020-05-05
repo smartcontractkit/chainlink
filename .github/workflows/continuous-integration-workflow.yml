@@ -44,6 +44,8 @@ jobs:
         run: go mod download
       - name: Set up Yarn for Contracts
         run: yarn setup:contracts
+      - name: Setup DB
+        run: go run ./core local db preparetest
       - name: Run tests
         run: go test -v -p 6 -parallel 4 ./...
         env:

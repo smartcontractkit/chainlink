@@ -84,8 +84,15 @@ func init() {
 	// Register txdb as dialect wrapping postgres
 	// See: DialectTransactionWrappedPostgres
 	config := orm.NewConfig()
-	if config.DatabaseURL() == "" {
-		panic("You must set DATABASE_URL env var to point to your test database. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+
+	parsed, err := url.Parse(config.DatabaseURL())
+	if err != nil {
+		msg := fmt.Sprintf("invalid DATABASE_URL `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST be named exactly `chainlink_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", config.DatabaseURL())
+		panic(msg)
+	}
+	if parsed.Path != "/chainlink_test" {
+		msg := fmt.Sprintf("Cannot run tests against database named `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST be named exactly `chainlink_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:])
+		panic(msg)
 	}
 	// Disable SavePoints because they cause random errors for reasons I cannot fathom
 	// Perhaps txdb's built-in transaction emulation is broken in some subtle way?
