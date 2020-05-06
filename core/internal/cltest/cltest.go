@@ -50,7 +50,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -310,7 +309,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	tc.Config.Set("ETH_CHAIN_ID", chainId)
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
 	var client SimulatedBackendClient
-	if txm, ok := app.Store.TxManager.(*store.EthTxManager); ok {
+	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
 		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 		txm.Client = &client
 	} else {
