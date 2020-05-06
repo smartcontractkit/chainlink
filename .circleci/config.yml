@@ -1,7 +1,7 @@
 version: 2.1
 jobs:
-  go-postgres:
-    resource_class: large
+  core-go-test:
+    resource_class: xlarge
     docker:
       - image: smartcontract/builder:1.0.33
       - image: circleci/postgres:11-alpine
@@ -32,7 +32,8 @@ jobs:
           paths:
             - '/go/pkg/mod'
       - run: yarn setup:contracts
-      - run: go test -v -p 3 -parallel 2 ./...
+      - run: go run ./core local db preparetest
+      - run: go test -v -p 4 -parallel 4 ./...
   rust:
     docker:
       - image: smartcontract/builder:1.0.33
@@ -376,7 +377,7 @@ workflows:
                 - /^release\/.*/
                 - master
                 - /^hotfix\/.*/
-      - go-postgres:
+      - core-go-test:
           filters:
             tags:
               only: /^v.*/
@@ -456,7 +457,7 @@ workflows:
               only: /^v.*/
       - build-publish-chainlink:
           requires:
-            - go-postgres
+            - core-go-test
             - solidity
             - geth-postgres
             - parity-postgres
@@ -469,7 +470,7 @@ workflows:
               only: /^v.*/
       - reportcoverage:
           requires:
-            - go-postgres
+            - core-go-test
             - solidity
             - operator-ui
             - rust

@@ -103,6 +103,8 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
+			// Clear out fixture
+			store.DeleteUser()
 			defer cleanup()
 			_, err := store.KeyStore.NewAccount(cltest.Password)
 			require.NoError(t, err)
@@ -169,6 +171,8 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			config := orm.NewConfig()
 
 			store, cleanup := cltest.NewStore(t)
+			// Clear out fixture
+			store.DeleteUser()
 			defer cleanup()
 			_, err := store.KeyStore.NewAccount(cltest.Password)
 			require.NoError(t, err)
@@ -195,7 +199,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
-				assert.Error(t, client.RunNode(c))
+				assert.EqualError(t, client.RunNode(c), "error creating api initializer: open doesntexist.txt: no such file or directory")
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
@@ -212,15 +216,17 @@ func TestClient_ImportKey(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
 	require.NoError(t, app.Start())
+	keys, err := app.GetStore().Keys()
+	require.NoError(t, err)
 
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("import", 0)
-	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
+	set.Parse([]string{"../internal/fixtures/keys/7fc66c61f88A61DFB670627cA715Fe808057123e.json"})
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ImportKey(c))
 
-	keys, err := app.GetStore().Keys()
+	keys, err = app.GetStore().Keys()
 	require.NoError(t, err)
 	addresses := []string{}
 	for _, k := range keys {
@@ -228,7 +234,7 @@ func TestClient_ImportKey(t *testing.T) {
 	}
 
 	sort.Strings(addresses)
-	expectation := []string{"0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"}
+	expectation := []string{"0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "0x7fc66c61f88A61DFB670627cA715Fe808057123e"}
 	require.Equal(t, expectation, addresses)
 }
 

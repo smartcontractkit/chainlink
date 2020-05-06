@@ -14,10 +14,10 @@ import (
 
 // NewLockingStrategy returns the locking strategy for a particular dialect
 // to ensure exlusive access to the orm.
-func NewLockingStrategy(dialect DialectName, dbpath string) (LockingStrategy, error) {
+func NewLockingStrategy(dialect DialectName, dbpath string, advisoryLockID int64) (LockingStrategy, error) {
 	switch dialect {
-	case DialectPostgres:
-		return NewPostgresLockingStrategy(dbpath)
+	case DialectPostgres, DialectTransactionWrappedPostgres:
+		return NewPostgresLockingStrategy(dbpath, advisoryLockID)
 	}
 
 	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", dialect, dbpath)
@@ -40,21 +40,21 @@ func normalizedTimeout(timeout time.Duration) <-chan time.Time {
 // PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive
 // access.
 type PostgresLockingStrategy struct {
-	db   *sql.DB
-	conn *sql.Conn
-	path string
-	m    *sync.Mutex
+	db             *sql.DB
+	conn           *sql.Conn
+	path           string
+	m              *sync.Mutex
+	advisoryLockID int64
 }
 
 // NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
-func NewPostgresLockingStrategy(path string) (LockingStrategy, error) {
+func NewPostgresLockingStrategy(path string, advisoryLockID int64) (LockingStrategy, error) {
 	return &PostgresLockingStrategy{
-		m:    &sync.Mutex{},
-		path: path,
+		m:              &sync.Mutex{},
+		path:           path,
+		advisoryLockID: advisoryLockID,
 	}, nil
 }
-
-const postgresAdvisoryLockID int64 = 1027321974924625846
 
 // Lock uses a blocking postgres advisory lock that times out at the passed
 // timeout.
@@ -85,11 +85,9 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 		s.conn = conn
 	}
 
-	_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", postgresAdvisoryLockID)
+	_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", s.advisoryLockID)
 	if err != nil {
-		return errors.Wrapf(ErrNoAdvisoryLock,
-			"postgres advisory locking strategy failed on .Lock, timeout set to %v: %v",
-			displayTimeout(timeout), err)
+		return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.advisoryLockID)
 	}
 	return nil
 }

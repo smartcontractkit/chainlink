@@ -283,7 +283,6 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 
 			ethClient := new(mocks.Client)
 			config := cltest.NewTestConfig(t)
-			require.NoError(t, utils.JustError(store.KeyStore.NewAccount(cltest.Password)))
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 			manager := strpkg.NewEthTxManager(ethClient, config, store.KeyStore, store.ORM)
 			manager.Register(store.KeyStore.Accounts())

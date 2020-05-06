@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -118,7 +120,8 @@ func TestIntegration_FeeBump(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
 	defer assertCalled()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	// Must use hardcoded key here since the hash has to match attempt1Hash
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
 	defer cleanup()
 	config := app.Config
 
@@ -705,6 +708,9 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", wsserver.URL.String())
 	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("Accounts").Return([]accounts.Account{})
+	app.Store.KeyStore = kst
 	defer cleanup()
 
 	app.InstantClock()
@@ -726,6 +732,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, j.ID, run.JobSpecID)
 	cltest.WaitForJobRunToComplete(t, app.Store, run)
+	kst.AssertExpectations(t)
 }
 
 func TestIntegration_SleepAdapter(t *testing.T) {
@@ -743,7 +750,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j, runInput)
 
 	cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusInProgress)
-	cltest.JobRunStays(t, app.Store, jr, models.RunStatusInProgress, time.Second)
+	cltest.JobRunStays(t, app.Store, jr, models.RunStatusInProgress, 3*time.Second)
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
@@ -849,7 +856,10 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// set up user
-	app.MustSeedUserAPIKey()
+	mockUser := cltest.MustRandomUser()
+	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
+	require.NoError(t, mockUser.SetAuthToken(&apiToken))
+	require.NoError(t, app.Store.SaveUser(&mockUser))
 
 	url := app.Config.ClientNodeURL() + "/v2/config"
 	headers := make(map[string]string)

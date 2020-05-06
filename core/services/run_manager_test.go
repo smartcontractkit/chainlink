@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
@@ -18,6 +17,9 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -336,6 +338,9 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
+			kst := new(mocks.KeyStoreInterface)
+			kst.On("Accounts").Return([]accounts.Account{})
+			app.Store.KeyStore = kst
 			defer cleanup()
 
 			app.StartAndConnect()
@@ -378,6 +383,8 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.True(t, run.TaskRuns[0].Confirmations.Valid)
 
 			assert.True(t, app.EthMock.AllCalled(), app.EthMock.Remaining())
+
+			kst.AssertExpectations(t)
 		})
 	}
 }
@@ -626,6 +633,9 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("Accounts").Return([]accounts.Account{})
+	app.Store.KeyStore = kst
 	defer cleanup()
 
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
@@ -658,6 +668,8 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	updatedJR := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
 	assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
 	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].Confirmations.Uint32)
+
+	kst.AssertExpectations(t)
 }
 
 func TestRunManager_ResumeConfirmingTasks(t *testing.T) {

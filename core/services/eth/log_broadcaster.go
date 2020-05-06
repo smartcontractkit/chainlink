@@ -46,6 +46,7 @@ type logBroadcaster struct {
 	orm           *orm.ORM
 	backfillDepth uint64
 	connected     bool
+	started       bool
 
 	listeners        map[common.Address]map[LogListener]struct{}
 	chAddListener    chan registration
@@ -135,10 +136,9 @@ func (sub managedSubscription) Unsubscribe() {
 	close(sub.chRawLogs)
 }
 
-const logBroadcasterCursorName = "logBroadcaster"
-
 func (b *logBroadcaster) Start() {
 	go b.awaitInitialSubscribers()
+	b.started = true
 }
 
 func (b *logBroadcaster) awaitInitialSubscribers() {
@@ -168,7 +168,11 @@ func (b *logBroadcaster) addresses() []common.Address {
 
 func (b *logBroadcaster) Stop() {
 	close(b.chStop)
-	<-b.chDone
+	if b.started {
+		<-b.chDone
+		b.started = false
+
+	}
 }
 
 func (b *logBroadcaster) Register(address common.Address, listener LogListener) (connected bool) {
