@@ -19,8 +19,6 @@ COPY --from=builder /app/feeds/node_modules feeds/node_modules
 COPY --from=builder /app/feeds/package.json feeds/package.json
 COPY --from=builder /app/feeds/server.js feeds/server.js
 COPY --from=builder /app/feeds/src feeds/src
-COPY --from=builder /app/feeds/src/feeds.json feeds/build/feeds.json
-COPY --from=builder /app/feeds/src/nodes.json feeds/build/nodes.json
 COPY --from=builder /app/feeds/public feeds/public
 COPY --from=builder /app/feeds/build feeds/build
 
