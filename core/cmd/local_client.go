@@ -213,7 +213,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer app.Stop()
-
 	store := app.GetStore()
 
 	pwd, err := passwordFromFile(c.String("password"))
@@ -270,7 +269,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 
 		jobRunID, err := models.NewIDFromString(tx.SurrogateID.ValueOrZero())
 		if err != nil {
-			logger.Errorw("could not get UUID from surrogate ID", "SurrogateID", tx.SurrogateID.ValueOrZero())
+			logger.Infow("could not get UUID from surrogate ID", "SurrogateID", tx.SurrogateID.ValueOrZero())
 			continue
 		}
 		jobRun, err := store.FindJobRun(jobRunID)

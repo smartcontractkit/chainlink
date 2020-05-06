@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"math/big"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,9 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
@@ -264,4 +267,76 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
 	}
+}
+
+func TestClient_RebroadcastTransactions(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+	account, err := store.KeyStore.GetFirstAccount()
+	require.NoError(t, err)
+	beginningNonce := uint(7)
+	endingNonce := uint(10)
+	gasPrice := big.NewInt(100000000000)
+	gasLimit := uint64(3000000)
+
+	txManager := new(mocks.TxManager)
+	store.TxManager = txManager
+
+	_ = cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(beginningNonce-1), 1000)
+	// before beginningNonce not rebroadcast
+	tx2 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(beginningNonce), 1000)
+	tx3 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(beginningNonce+1), 1000)
+	tx4 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(endingNonce-1), 1000)
+	tx5 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(endingNonce), 1000)
+	// after endingNonce not rebroadcast
+	_ = cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(endingNonce+1), 1000)
+	raw2 := cltest.NewHash().Bytes()
+	raw3 := cltest.NewHash().Bytes()
+	raw4 := cltest.NewHash().Bytes()
+	raw5 := cltest.NewHash().Bytes()
+
+	rawHash2 := cltest.NewHash()
+	rawHash3 := cltest.NewHash()
+	rawHash4 := cltest.NewHash()
+	rawHash5 := cltest.NewHash()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Stop").Return(nil)
+
+	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("beginningNonce", beginningNonce, "")
+	set.Uint("endingNonce", endingNonce, "")
+	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
+	set.Uint64("gasLimit", gasLimit, "")
+	c := cli.NewContext(nil, set, nil)
+
+	txManager.On("Connect", mock.Anything).Return(nil)
+	txManager.On("Register", mock.Anything)
+	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx2.ID }), gasLimit, *gasPrice).Return(raw2, nil)
+	txManager.On("SendRawTx", raw2).Return(rawHash2, nil)
+	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx3.ID }), gasLimit, *gasPrice).Return(raw3, nil)
+	txManager.On("SendRawTx", raw3).Return(rawHash3, nil)
+	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx4.ID }), gasLimit, *gasPrice).Return(raw4, nil)
+	txManager.On("SendRawTx", raw4).Return(rawHash4, nil)
+	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx5.ID }), gasLimit, *gasPrice).Return(raw5, nil)
+	txManager.On("SendRawTx", raw5).Return(rawHash5, nil)
+
+	assert.NoError(t, client.RebroadcastTransactions(c))
+
+	app.AssertExpectations(t)
+	txManager.AssertExpectations(t)
 }
