@@ -26,7 +26,7 @@ describe('components/listing/Sponsors', () => {
     expect(container).toHaveTextContent('Sponsored by (+2)')
   })
 
-  it('renders nothing', () => {
+  it('does not render thumbnails when there are no sponsors', () => {
     const sponsors: string[] | undefined = []
     const { container } = render(<Sponsors sponsors={sponsors} />)
     const logos = container.querySelectorAll('img')
