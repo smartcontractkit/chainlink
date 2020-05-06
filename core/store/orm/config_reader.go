@@ -53,6 +53,7 @@ type ConfigReader interface {
 	MinOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
+	MigrateDatabase() bool
 	Port() uint16
 	ReaperExpiration() models.Duration
 	RootDir() string

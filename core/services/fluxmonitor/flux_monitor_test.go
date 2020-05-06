@@ -38,7 +38,7 @@ var (
 func ensureAccount(t *testing.T, store *store.Store) common.Address {
 	t.Helper()
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
-	_, err := auth.Authenticate(store, "somepassword")
+	_, err := auth.Authenticate(store, cltest.Password)
 	assert.NoError(t, err)
 	assert.True(t, store.KeyStore.HasAccounts())
 	acct, err := store.KeyStore.GetFirstAccount()

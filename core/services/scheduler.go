@@ -208,8 +208,6 @@ func ExpectedRecurringScheduleJobError(err error) bool {
 	}
 }
 
-//go:generate mockery -name Cron -output ../../internal/mocks/ -case=underscore
-
 type Cron interface {
 	Start()
 	Stop() context.Context

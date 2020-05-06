@@ -10,6 +10,8 @@ jobs:
     name: Core Tests
     runs-on: self-hosted
     container: smartcontract/builder:1.0.34
+    env:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/chainlink_test?sslmode=disable
     services:
       postgres:
         image: postgres
@@ -44,10 +46,10 @@ jobs:
         run: go mod download
       - name: Set up Yarn for Contracts
         run: yarn setup:contracts
+      - name: Setup DB
+        run: go run ./core local db preparetest
       - name: Run tests
         run: go test -v -p 6 -parallel 4 ./...
-        env:
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
 
   rust:
     name: Rust
