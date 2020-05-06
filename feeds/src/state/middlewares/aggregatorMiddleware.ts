@@ -1,15 +1,10 @@
 import { Middleware } from 'redux'
 import { Actions } from 'state/actions'
 
-const aggregationMiddleware: Middleware = store => next => (
-  action: Actions,
-) => {
+const aggregationMiddleware: Middleware = () => next => (action: Actions) => {
   if (ignore(action)) {
+    console.log(action)
     return next(action)
-  }
-
-  if (!store.getState().aggregator.contractAddress) {
-    return
   }
 
   return next(action)
