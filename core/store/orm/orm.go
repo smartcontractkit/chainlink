@@ -114,7 +114,6 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 		return nil, errors.Wrap(err, "unable to init DB")
 	}
 
-	// FIXME: Is it desirable to set this mode in production as well?
 	if dialect == DialectTransactionWrappedPostgres {
 		// Required to prevent phantom reads in overlapping tests
 		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
