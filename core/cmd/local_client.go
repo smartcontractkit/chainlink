@@ -339,13 +339,13 @@ func copyFile(src, dst string, perms os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer from.Close()
+	defer func() { _ = from.Close() }()
 
 	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}
-	defer to.Close()
+	defer func() { _ = to.Close() }()
 
 	_, err = io.Copy(to, from)
 
