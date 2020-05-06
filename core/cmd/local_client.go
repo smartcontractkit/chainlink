@@ -310,8 +310,8 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	}
 
 	dbname := parsed.Path[1:]
-	if dbname != "chainlink_test" {
-		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with the exact name `chainlink_test` to prevent accidental data loss.", dbname))
+	if !strings.HasSuffix(dbname, "_test") {
+		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss", dbname))
 	}
 	logger.Infof("Resetting database: %#v", config.DatabaseURL())
 	if err := dropAndCreateDB(*parsed); err != nil {
@@ -338,6 +338,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 func dropAndCreateDB(parsed url.URL) error {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
+	dbname := parsed.Path[1:]
 	parsed.Path = "/template1"
 	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
 	if err != nil {
@@ -345,11 +346,11 @@ func dropAndCreateDB(parsed url.URL) error {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("DROP DATABASE IF EXISTS chainlink_test")
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
-	_, err = db.Exec("CREATE DATABASE chainlink_test")
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}
