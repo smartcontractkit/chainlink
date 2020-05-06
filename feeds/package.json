@@ -69,6 +69,7 @@
     "@types/redux-thunk": "^2.1.0",
     "cross-env": "^7.0.2",
     "jest": "^24.9.0",
+    "jest-transform-stub": "^2.0.0",
     "redux-mock-store": "^1.5.4",
     "rimraf": "^3.0.2",
     "ts-jest": "^24.1.0"
