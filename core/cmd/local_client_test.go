@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v3"
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
@@ -269,53 +270,11 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-	account, err := store.KeyStore.GetFirstAccount()
-	require.NoError(t, err)
+func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
 	gasLimit := uint64(3000000)
-
-	txManager := new(mocks.TxManager)
-	store.TxManager = txManager
-
-	_ = cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(beginningNonce-1), 1000)
-	// before beginningNonce not rebroadcast
-	tx2 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(beginningNonce), 1000)
-	tx3 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(beginningNonce+1), 1000)
-	tx4 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(endingNonce-1), 1000)
-	tx5 := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(endingNonce), 1000)
-	// after endingNonce not rebroadcast
-	_ = cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(endingNonce+1), 1000)
-	raw2 := cltest.NewHash().Bytes()
-	raw3 := cltest.NewHash().Bytes()
-	raw4 := cltest.NewHash().Bytes()
-	raw5 := cltest.NewHash().Bytes()
-
-	rawHash2 := cltest.NewHash()
-	rawHash3 := cltest.NewHash()
-	rawHash4 := cltest.NewHash()
-	rawHash5 := cltest.NewHash()
-
-	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
-	app.On("Stop").Return(nil)
-
-	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
-	client := cmd.Client{
-		Config:                 store.Config,
-		AppFactory:             cltest.InstanceAppFactory{App: app},
-		KeyStoreAuthenticator:  auth,
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
-		Runner:                 cltest.EmptyRunner{},
-	}
-
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("debug", true, "")
 	set.Uint("beginningNonce", beginningNonce, "")
@@ -324,19 +283,124 @@ func TestClient_RebroadcastTransactions(t *testing.T) {
 	set.Uint64("gasLimit", gasLimit, "")
 	c := cli.NewContext(nil, set, nil)
 
-	txManager.On("Connect", mock.Anything).Return(nil)
-	txManager.On("Register", mock.Anything)
-	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx2.ID }), gasLimit, *gasPrice).Return(raw2, nil)
-	txManager.On("SendRawTx", raw2).Return(rawHash2, nil)
-	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx3.ID }), gasLimit, *gasPrice).Return(raw3, nil)
-	txManager.On("SendRawTx", raw3).Return(rawHash3, nil)
-	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx4.ID }), gasLimit, *gasPrice).Return(raw4, nil)
-	txManager.On("SendRawTx", raw4).Return(rawHash4, nil)
-	txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(tx models.Tx) bool { return tx.ID == tx5.ID }), gasLimit, *gasPrice).Return(raw5, nil)
-	txManager.On("SendRawTx", raw5).Return(rawHash5, nil)
+	tests := []struct {
+		name  string
+		nonce uint
+	}{
+		{"range start", beginningNonce},
+		{"mid range", beginningNonce + 1},
+		{"range end", endingNonce},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+			account, err := store.KeyStore.NewAccount(cltest.Password)
+			require.NoError(t, err)
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
 
-	assert.NoError(t, client.RebroadcastTransactions(c))
+			txManager := new(mocks.TxManager)
+			store.TxManager = txManager
+			app := new(mocks.Application)
+			app.On("GetStore").Return(store)
+			app.On("Stop").Return(nil)
 
-	app.AssertExpectations(t)
-	txManager.AssertExpectations(t)
+			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+			client := cmd.Client{
+				Config:                 store.Config,
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				KeyStoreAuthenticator:  auth,
+				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+				Runner:                 cltest.EmptyRunner{},
+			}
+
+			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
+			bumpedRaw := cltest.NewHash().Bytes()
+			bumpedRawHash := cltest.NewHash()
+			j := cltest.NewJobWithWebInitiator()
+			require.NoError(t, store.CreateJob(&j))
+			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConfirmations)
+			tx.SurrogateID = null.StringFrom(jr.ID.String())
+			require.NoError(t, store.SaveTx(tx))
+
+			txManager.On("Connect", mock.Anything).Return(nil)
+			txManager.On("Register", mock.Anything)
+			txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(dbtx models.Tx) bool { return dbtx.ID == tx.ID }), gasLimit, *gasPrice).
+				Return(bumpedRaw, nil)
+			txManager.On("SendRawTx", bumpedRaw).Return(bumpedRawHash, nil)
+
+			assert.NoError(t, client.RebroadcastTransactions(c))
+
+			jr = cltest.FindJobRun(t, store, jr.ID)
+			assert.Equal(t, models.RunStatusErrored, jr.Status)
+
+			app.AssertExpectations(t)
+			txManager.AssertExpectations(t)
+		})
+	}
+}
+
+func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
+	beginningNonce := uint(7)
+	endingNonce := uint(10)
+	gasPrice := big.NewInt(100000000000)
+	gasLimit := uint64(3000000)
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("beginningNonce", beginningNonce, "")
+	set.Uint("endingNonce", endingNonce, "")
+	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
+	set.Uint64("gasLimit", gasLimit, "")
+	c := cli.NewContext(nil, set, nil)
+
+	tests := []struct {
+		name  string
+		nonce uint
+	}{
+		{"below beginning", beginningNonce - 1},
+		{"above ending", endingNonce + 1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+			account, err := store.KeyStore.NewAccount(cltest.Password)
+			require.NoError(t, err)
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
+
+			txManager := new(mocks.TxManager)
+			store.TxManager = txManager
+			app := new(mocks.Application)
+			app.On("GetStore").Return(store)
+			app.On("Stop").Return(nil)
+
+			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+			client := cmd.Client{
+				Config:                 store.Config,
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				KeyStoreAuthenticator:  auth,
+				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+				Runner:                 cltest.EmptyRunner{},
+			}
+
+			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
+			j := cltest.NewJobWithWebInitiator()
+			require.NoError(t, store.CreateJob(&j))
+			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConfirmations)
+			tx.SurrogateID = null.StringFrom(jr.ID.String())
+			require.NoError(t, store.SaveTx(tx))
+
+			txManager.On("Connect", mock.Anything).Return(nil)
+			txManager.On("Register", mock.Anything)
+
+			assert.NoError(t, client.RebroadcastTransactions(c))
+
+			jr = cltest.FindJobRun(t, store, jr.ID)
+			assert.Equal(t, models.RunStatusPendingConfirmations, jr.Status)
+
+			app.AssertExpectations(t)
+			txManager.AssertExpectations(t)
+		})
+	}
 }
