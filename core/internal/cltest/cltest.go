@@ -1341,3 +1341,9 @@ func ChainlinkEthLogFromGethLog(l types.Log) eth.Log {
 		Removed:     l.Removed,
 	}
 }
+
+func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun {
+	jr, err := store.FindJobRun(id)
+	require.NoError(t, err)
+	return jr
+}
