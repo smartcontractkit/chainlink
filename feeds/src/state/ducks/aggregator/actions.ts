@@ -1,6 +1,19 @@
 import { FeedConfig, OracleNode } from 'config'
 
 /**
+ * aggregator/CLEAR_STATE
+ */
+export interface ClearStateAction {
+  type: 'aggregator/CLEAR_STATE'
+}
+
+export function clearState() {
+  return {
+    type: 'aggregator/CLEAR_STATE',
+  }
+}
+
+/**
  * aggregator/FETCH_FEED_BY_PAIR_BEGIN
  */
 export interface FetchFeedByPairBeginAction {

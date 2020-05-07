@@ -1,28 +1,25 @@
-import { AggregatorVis } from 'components/aggregatorVis'
+import { FluxAggregatorVis } from 'components/aggregatorVis'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
 import { OracleTable } from 'components/oracleTable'
 import { FeedConfig } from 'config'
 import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
-import { aggregatorOperations } from 'state/ducks/aggregator'
+import { connect, MapDispatchToProps } from 'react-redux'
+import { fluxAggregatorOperations } from 'state/ducks/aggregator'
+import { DispatchBinding } from '@chainlink/ts-helpers'
 
 interface OwnProps {
   config: FeedConfig
 }
 
 interface DispatchProps {
-  initContract: any
-  clearContract: any
+  initContract: DispatchBinding<typeof fluxAggregatorOperations.initContract>
+  clearContract: DispatchBinding<typeof fluxAggregatorOperations.clearContract>
 }
 
 interface Props extends OwnProps, DispatchProps {}
 
-const Aggregator: React.FC<Props> = ({
-  initContract,
-  config,
-  clearContract,
-}) => {
+const Page: React.FC<Props> = ({ initContract, config, clearContract }) => {
   useEffect(() => {
     try {
       initContract(config)
@@ -39,16 +36,16 @@ const Aggregator: React.FC<Props> = ({
 
   return (
     <>
-      <AggregatorVis config={config} />
+      <FluxAggregatorVis config={config} />
       {history}
       <OracleTable />
     </>
   )
 }
 
-const mapDispatchToProps = {
-  initContract: aggregatorOperations.initContract,
-  clearContract: aggregatorOperations.clearContract,
+const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
+  initContract: fluxAggregatorOperations.initContract,
+  clearContract: fluxAggregatorOperations.clearContract,
 }
 
-export default connect(null, mapDispatchToProps)(Aggregator)
+export default connect(null, mapDispatchToProps)(Page)

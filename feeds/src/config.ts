@@ -16,7 +16,7 @@ export interface FeedConfig {
   multiply?: string
   sponsored?: string[]
   decimalPlaces?: number
-  contractVersion?: 1 | 2 | 3
+  contractVersion: 1 | 2 | 3
 }
 
 export interface OracleNode {
@@ -60,6 +60,10 @@ export class Config {
     return (env.REACT_APP_HOSTNAME_WHITELIST ?? '')
       .split(',')
       .map(s => s.trim())
+  }
+
+  static devProvider(env = process.env): string | undefined {
+    return env.REACT_APP_DEV_PROVIDER
   }
 
   static feedsJson(env = process.env, location = window.location): string {
