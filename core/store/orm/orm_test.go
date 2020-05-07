@@ -1270,6 +1270,10 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	// Clear out the fixture
 	require.NoError(t, os.RemoveAll(keysDir))
 	require.NoError(t, store.DeleteKey("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea"))
+	// Fixture key is deleted
+	dbkeys, err := store.Keys()
+	require.NoError(t, err)
+	require.Len(t, dbkeys, 0)
 
 	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	require.NoError(t, err)
@@ -1279,7 +1283,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
 	require.NoError(t, err)
 
-	dbkeys, err := store.Keys()
+	dbkeys, err = store.Keys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 1)
 
