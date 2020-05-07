@@ -57,9 +57,11 @@ export class Config {
   }
 
   static hostnameWhitelist(env = process.env): string[] {
-    return (env.REACT_APP_HOSTNAME_WHITELIST ?? '')
-      .split(',')
-      .map(s => s.trim())
+    return splitHostnames(env.REACT_APP_HOSTNAME_WHITELIST)
+  }
+
+  static devHostnameWhitelist(env = process.env): string[] {
+    return splitHostnames(env.REACT_APP_DEV_HOSTNAME_WHITELIST)
   }
 
   static devProvider(env = process.env): string | undefined {
@@ -87,4 +89,8 @@ export class Config {
     }
     return env.REACT_APP_NODES_JSON ?? '/nodes.json'
   }
+}
+
+function splitHostnames(list?: string): string[] {
+  return (list ?? '').split(',').map(s => s.trim())
 }
