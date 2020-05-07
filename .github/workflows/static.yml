@@ -59,7 +59,9 @@ jobs:
       with:
         run: staticcheck
         flags: "-checks=\"inherit\",\"-SA4006\",\"-U1000\",\"-SA4009\""
-        comment: false
+        comment: true
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+
 
   # errcheck:
   #   name: Errcheck
