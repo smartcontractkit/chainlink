@@ -5,9 +5,9 @@ import { JsonRpcProvider } from 'ethers/providers'
 import { FeedConfig, Config } from '../../../config'
 import * as actions from './actions'
 import {
-  formatAnswer,
   createContract,
   createInfuraProvider,
+  formatAnswer,
 } from '../../../contracts/utils'
 
 /**
@@ -33,23 +33,33 @@ export function fetchFeeds() {
  */
 export function fetchAnswer(config: FeedConfig) {
   return async (dispatch: Dispatch) => {
-    const provider = createInfuraProvider()
-    const payload = await latestAnswer(config, provider)
-    const answer = formatAnswer(payload, config.multiply, config.decimalPlaces)
-    const listingAnswer: actions.ListingAnswer = { answer, config }
+    try {
+      const provider = createInfuraProvider()
+      const payload = await latestAnswer(config, provider)
+      const answer = formatAnswer(
+        payload,
+        config.multiply,
+        config.decimalPlaces,
+      )
+      const listingAnswer: actions.ListingAnswer = { answer, config }
 
-    dispatch(actions.fetchAnswerSuccess(listingAnswer))
+      dispatch(actions.fetchAnswerSuccess(listingAnswer))
+    } catch {
+      console.error('Could not fetch answer')
+    }
   }
 }
 
-const LATEST_ANSWER_CONTRACT_VERSION = 2
+const LATEST_ANSWER_CONTRACT_VERSIONS = [2, 3]
 
 async function latestAnswer(
   contractConfig: FeedConfig,
   provider: JsonRpcProvider,
 ) {
   const contract = answerContract(contractConfig.contractAddress, provider)
-  return contractConfig.contractVersion === LATEST_ANSWER_CONTRACT_VERSION
+  return LATEST_ANSWER_CONTRACT_VERSIONS.includes(
+    contractConfig.contractVersion,
+  )
     ? await contract.latestAnswer()
     : await contract.currentAnswer()
 }
@@ -82,10 +92,6 @@ function answerContract(contractAddress: string, provider: JsonRpcProvider) {
 /**
  * health checks
  */
-interface HealthPrice {
-  config: any
-  price: number
-}
 
 export function fetchHealthStatus(feed: FeedConfig) {
   return async (dispatch: Dispatch) => {
@@ -97,7 +103,9 @@ export function fetchHealthStatus(feed: FeedConfig) {
   }
 }
 
-async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
+async function fetchHealthPrice(
+  config: any,
+): Promise<actions.HealthPrice | undefined> {
   if (!config.healthPrice) return
 
   const json = await fetch(config.healthPrice).then(r => r.json())

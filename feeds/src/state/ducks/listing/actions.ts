@@ -70,9 +70,14 @@ export function fetchAnswerSuccess(
 /**
  * listing/FETCH_HEALTH_PRICE_SUCCESS
  */
+export interface HealthPrice {
+  price: number
+  config: FeedConfig
+}
+
 export interface FetchHealthPriceSuccessAction {
   type: 'listing/FETCH_HEALTH_PRICE_SUCCESS'
-  payload: any
+  payload: HealthPrice
 }
 
 export function fetchHealthPriceSuccess(

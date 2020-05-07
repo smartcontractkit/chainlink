@@ -22,6 +22,11 @@ describe('config', () => {
     expect(Config.hostnameWhitelist()).toEqual(['domain-a', 'domain-b'])
   })
 
+  it('returns the dev provider from the process env', () => {
+    process.env.REACT_APP_DEV_PROVIDER = 'http://mock-provider'
+    expect(Config.devProvider()).toEqual('http://mock-provider')
+  })
+
   describe('feeds json', () => {
     it('returns feeds json from the process env', () => {
       process.env.REACT_APP_FEEDS_JSON = 'https://test.dev/feeds.json'
