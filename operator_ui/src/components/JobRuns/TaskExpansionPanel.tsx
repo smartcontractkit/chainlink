@@ -140,7 +140,7 @@ const TaskExpansionPanel = ({ jobRun }: Props) => {
               borderTop
               summary={capitalize(taskRun.task.type)}
               status={taskRun.status}
-              confirmations={taskRun.task.confirmations}
+              confirmations={taskRun.confirmations}
               minConfirmations={taskRun.minimumConfirmations}
             >
               <Grid container direction="column">

@@ -42,7 +42,7 @@ type RunManager interface {
 		jobSpecID *models.ID,
 		initiator models.Initiator,
 		err error) (*models.JobRun, error)
-	ResumePending(
+	ResumePendingBridge(
 		runID *models.ID,
 		input models.BridgeRunResult) error
 	Cancel(runID *models.ID) (*models.JobRun, error)
@@ -291,8 +291,8 @@ func (rm *runManager) ResumeAllPendingConnection() error {
 		models.RunStatusPendingConnection)
 }
 
-// ResumePendingTask wakes up a task that required a response from a bridge adapter.
-func (rm *runManager) ResumePending(
+// ResumePendingBridgeTask wakes up a task that required a response from a bridge adapter.
+func (rm *runManager) ResumePendingBridge(
 	runID *models.ID,
 	input models.BridgeRunResult,
 ) error {

@@ -125,8 +125,8 @@ func (_m *RunManager) ResumeAllInProgress() error {
 	return r0
 }
 
-// ResumePending provides a mock function with given fields: runID, input
-func (_m *RunManager) ResumePending(runID *models.ID, input models.BridgeRunResult) error {
+// ResumePendingBridge provides a mock function with given fields: runID, input
+func (_m *RunManager) ResumePendingBridge(runID *models.ID, input models.BridgeRunResult) error {
 	ret := _m.Called(runID, input)
 
 	var r0 error

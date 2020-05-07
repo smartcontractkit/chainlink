@@ -39,7 +39,7 @@ func makeJobRunWithInitiator(t *testing.T, store *strpkg.Store, job models.JobSp
 	return models.MakeJobRun(&job, time.Now(), &initr, big.NewInt(0), &models.RunRequest{})
 }
 
-func TestRunManager_ResumePending(t *testing.T) {
+func TestRunManager_ResumePendingBridge(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -56,7 +56,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 	t.Run("reject a run with an invalid state", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		require.NoError(t, store.CreateJobRun(&run))
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{})
 		assert.Error(t, err)
 	})
 
@@ -64,7 +64,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, models.NewJob())
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -77,7 +77,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{Status: models.RunStatusErrored})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{Status: models.RunStatusErrored})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -95,7 +95,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -111,7 +111,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
