@@ -8,7 +8,7 @@ const migrate = async () => {
   return bootstrap(async (db: Connection) => {
     console.log(`Migrating [\x1b[32m${db.options.database}\x1b[0m]...`)
 
-    const pendingMigrations = await db.runMigrations()
+    const pendingMigrations = await db.runMigrations({ transaction: 'each' })
     for (const m of pendingMigrations) {
       console.log('ran', m)
     }
