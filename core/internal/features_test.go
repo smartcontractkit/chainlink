@@ -1136,26 +1136,38 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 
 	eth := app.EthMock
 	newHeads := make(chan ethpkg.BlockHeader)
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("newHeads", newHeads)
-		eth.Register("eth_getTransactionCount", `0x100`)
-	})
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(100)))
+	startHeight := 100
+	eth.RegisterSubscription("newHeads", newHeads)
+	eth.Register("eth_getTransactionCount", `0x100`)
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(startHeight)))
 	require.NoError(t, app.StartAndConnect())
 
-	result := "0x11"
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
-	jr := cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
-
-	eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
+	result := "0x11"
+	var jr models.JobRun
+	eth.ShouldCall(func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", cltest.NewHash())
 		eth.Register("eth_getTransactionReceipt", errors.New("connection closed"))
+	}).During(func() {
+		jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
+		cltest.WaitForTxAttemptCount(t, app.Store, 1)
+		cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
 	})
 
-	cltest.WaitForTxAttemptCount(t, app.Store, 1)
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
-	app.RunManager.ResumeAllConnecting()
-	cltest.JobRunStays(t, app.Store, jr, models.RunStatusPendingConfirmations)
+	confirmedHeight := startHeight + 1
+
+	eth.ShouldCall(func(eth *cltest.EthMock) {
+		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+			Hash: cltest.NewHash(),
+			// set the confirmation to avoid messing with the head tracker too
+			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinOutgoingConfirmations())),
+		})
+		eth.Register("eth_getBalance", "0x0100")
+		eth.Register("eth_call", "0x0100")
+	}).During(func() {
+		app.RunManager.ResumeAllConnecting()
+		cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	})
 
 	tx := cltest.GetLastTx(t, app.Store)
 	resultOnChain := hexutil.Encode(common.TrimLeftZeroes(tx.Data))

@@ -274,6 +274,7 @@ func (rm *runManager) ResumeAllConnecting() error {
 			return
 		}
 
+		run.SetStatus(models.RunStatusInProgress)
 		err := rm.updateAndTrigger(run)
 		if err != nil {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
