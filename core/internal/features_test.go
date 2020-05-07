@@ -3,6 +3,7 @@ package internal_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1120,4 +1121,56 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 			assert.Fail(t, "message about log with bad source address not found")
 		}
 	}
+}
+
+// TestIntegration_EthTX_Reconnect tests that JobRuns that are interrupted due to
+// eth client connection issues are re-started appropriately. In particular, they
+// should broadcast a tx with the result of the original RunInput.
+func TestIntegration_EthTX_Reconnect(t *testing.T) {
+	t.Parallel()
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.EthMockRegisterChainID)
+	defer cfgCleanup()
+	defer cleanup()
+
+	eth := app.EthMock
+	newHeads := make(chan ethpkg.BlockHeader)
+	startHeight := 100
+	eth.RegisterSubscription("newHeads", newHeads)
+	eth.Register("eth_getTransactionCount", `0x100`)
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(startHeight)))
+	require.NoError(t, app.StartAndConnect())
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
+	result := "0x11"
+	var jr models.JobRun
+	eth.ShouldCall(func(eth *cltest.EthMock) {
+		eth.Register("eth_sendRawTransaction", cltest.NewHash())
+		eth.Register("eth_getTransactionReceipt", errors.New("connection closed"))
+	}).During(func() {
+		jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
+		cltest.WaitForTxAttemptCount(t, app.Store, 1)
+		cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	})
+
+	confirmedHeight := startHeight + 1
+
+	eth.ShouldCall(func(eth *cltest.EthMock) {
+		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+			Hash: cltest.NewHash(),
+			// set the confirmation to avoid messing with the head tracker too
+			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinOutgoingConfirmations())),
+		})
+		eth.Register("eth_getBalance", "0x0100")
+		eth.Register("eth_call", "0x0100")
+	}).During(func() {
+		app.RunManager.ResumeAllConnecting()
+		cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	})
+
+	tx := cltest.GetLastTx(t, app.Store)
+	resultOnChain := hexutil.Encode(common.TrimLeftZeroes(tx.Data))
+
+	assert.Equal(t, result, resultOnChain)
 }
