@@ -112,7 +112,7 @@ go build -o chainlink ./core/
 ./chainlink
 ```
 
-### Test
+### Test Core
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 
@@ -121,13 +121,37 @@ go build -o chainlink ./core/
 ```bash
 yarn
 yarn setup:contracts
+go generate ./...
+go run ./packr/main.go ./core/eth/
 ```
 
-3. Ready for testing:
+3. Generate and compile static assets:
+
+```bash
+go generate ./...
+go run ./packr/main.go ./core/eth/
+```
+
+4. Prepare your development environment:
+
+```bash
+export DATABASE_URL=postgresql://127.0.0.1:5432/chainlnk_test?sslmode=disable
+export CHAINLINK_DEV=true # I prefer to use direnv and skip this
+```
+
+5.  Drop/Create test database and run migrations:
+```
+go run ./core/main.go local db preparetest
+```
+
+If you do end up modifying the migrations for the database, you will need to rerun
+
+6. Run tests:
 
 ```bash
 go test -parallel=1 ./...
 ```
+
 
 ### Solidity Development
 
