@@ -133,7 +133,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	createdTx2, err := manager.CreateTx(to, data)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, createdTx1.From.Hex(), createdTx2.From.Hex(), "should come from a different account")
 
 	ethClient.AssertExpectations(t)
