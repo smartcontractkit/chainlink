@@ -22,6 +22,14 @@ describe('config', () => {
     expect(Config.hostnameWhitelist()).toEqual(['domain-a', 'domain-b'])
   })
 
+  it('returns an array of trimmed dev whitelist hostnames', () => {
+    process.env.REACT_APP_DEV_HOSTNAME_WHITELIST = 'dev-domain-a , dev-domain-b'
+    expect(Config.devHostnameWhitelist()).toEqual([
+      'dev-domain-a',
+      'dev-domain-b',
+    ])
+  })
+
   it('returns the dev provider from the process env', () => {
     process.env.REACT_APP_DEV_PROVIDER = 'http://mock-provider'
     expect(Config.devProvider()).toEqual('http://mock-provider')
