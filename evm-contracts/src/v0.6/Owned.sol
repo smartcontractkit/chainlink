@@ -13,7 +13,7 @@ contract Owned {
     address indexed from,
     address indexed to
   );
-  event OwnershipTransfered(
+  event OwnershipTransferred(
     address indexed from,
     address indexed to
   );
@@ -47,7 +47,7 @@ contract Owned {
     owner = msg.sender;
     pendingOwner = address(0);
 
-    emit OwnershipTransfered(oldOwner, msg.sender);
+    emit OwnershipTransferred(oldOwner, msg.sender);
   }
 
   /**
