@@ -1,4 +1,6 @@
+import { DispatchBinding } from '@chainlink/ts-helpers'
 import React, { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { connect } from 'react-redux'
 import { aggregatorOperations } from 'state/ducks/aggregator'
 import { AggregatorVis } from 'components/aggregatorVis'
@@ -9,18 +11,19 @@ import { OracleTable } from 'components/oracleTable'
 import { FeedConfig } from 'config'
 import { parseQuery, uIntFrom } from 'utils'
 
-interface OwnProps {
-  history: any
-}
+interface OwnProps {}
 
 interface DispatchProps {
-  initContract: any
+  initContract: DispatchBinding<typeof aggregatorOperations.initContract>
 }
 
 interface Props extends OwnProps, DispatchProps {}
 
-const Page: React.FC<Props> = ({ initContract, history }) => {
-  const [config] = useState(parseConfig(parseQuery(history.location.search)))
+const Page: React.FC<Props> = ({ initContract }) => {
+  const location = useLocation()
+  const [config] = useState<FeedConfig>(
+    parseConfig(parseQuery(location.search)),
+  )
 
   useEffect(() => {
     try {
