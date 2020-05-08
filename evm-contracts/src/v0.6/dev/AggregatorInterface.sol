@@ -14,7 +14,7 @@ interface AggregatorInterface {
   /*
    * FluxAggregator functions
    */
-  function getRound(uint256 _roundId)
+  function getRoundData(uint256 _roundId)
     external
     view
     returns (

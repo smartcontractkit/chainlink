@@ -83,7 +83,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
   }
 
   // TODO(kaleofduty): Comment
-  function getRound(uint256 _roundId)
+  function getRoundData(uint256 _roundId)
     external
     view
     override
@@ -96,6 +96,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
       uint256 answeredInRound
     )
   {
-    return _getRound(_roundId);
+    return _getRoundData(_roundId);
   }
 }

@@ -109,7 +109,7 @@ contract ConversionProxy is AggregatorInterface, Owned {
     return _getTimestamp(_roundId);
   }
 
-  function getRound(uint256 _roundId)
+  function getRoundData(uint256 _roundId)
     external
     view
     virtual
@@ -122,7 +122,7 @@ contract ConversionProxy is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _getRound(_roundId);
+    return _getRoundData(_roundId);
   }
 
 
@@ -154,7 +154,7 @@ contract ConversionProxy is AggregatorInterface, Owned {
     return from.getTimestamp(_roundId);
   }
 
-  function _getRound(uint256 _roundId)
+  function _getRoundData(uint256 _roundId)
     internal
     view
     returns (
@@ -171,7 +171,7 @@ contract ConversionProxy is AggregatorInterface, Owned {
     uint64 updatedAtFrom;
     uint256 answeredInRoundFrom;
 
-    (roundIdFrom, answerFrom, startedAtFrom, updatedAtFrom, answeredInRoundFrom) = from.getRound(_roundId);
+    (roundIdFrom, answerFrom, startedAtFrom, updatedAtFrom, answeredInRoundFrom) = from.getRoundData(_roundId);
     return (roundIdFrom, convertAnswer(answerFrom), startedAtFrom, updatedAtFrom, answeredInRoundFrom);
   }
 

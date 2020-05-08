@@ -444,7 +444,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
    * maxSubmissions) answer and updatedAt may change between queries.
    */
-   function getRound(uint256 _roundId)
+   function getRoundData(uint256 _roundId)
     external
     view
     virtual
@@ -457,7 +457,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _getRound(_roundId);
+    return _getRoundData(_roundId);
   }
 
 
@@ -710,9 +710,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @dev Internal implementation of getRound
+   * @dev Internal implementation of getRoundData
    */
-  function _getRound(uint256 _roundId)
+  function _getRoundData(uint256 _roundId)
     internal
     view
     returns (
