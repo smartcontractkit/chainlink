@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+const execa = require('execa')
+
+;(async function() {
+    try {
+        await run(`blockade destroy`)
+    } catch (err) {
+        console.log(err.stderr)
+    }
+    await run(`sudo rm -rf ./container_data`)
+    await run(`docker container prune -f`)
+    await run(`docker volume prune -f`)
+    await run(`docker network prune -f`)
+})()
+
+async function run(cmd) {
+    console.log('$', cmd)
+    console.log((await execa.command(cmd, {all: true})).all)
+}
+
