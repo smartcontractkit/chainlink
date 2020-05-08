@@ -5,8 +5,8 @@ const path = require('path')
 const password = 'password'
 let personas = []
 let accounts = {}
-try { personas = require('./personas') } catch (err) {}
-try { accounts = require('./accounts') } catch (err) {}
+try { personas = require(path.join(accountDirPath(), 'personas.json')) } catch (err) {}
+try { accounts = require(path.join(accountDirPath(), 'accounts.json')) } catch (err) {}
 
 module.exports = {
     accounts,
@@ -15,13 +15,17 @@ module.exports = {
     ensureAccounts,
 }
 
+function accountDirPath() {
+    return path.join(__dirname, '..', 'accounts')
+}
+
 function keyfilePath(persona) {
-    return path.join(__dirname, 'keys', persona)
+    return path.join(accountDirPath(), 'keys', persona)
 }
 
 function addPersona(persona) {
     personas.push(persona)
-    fs.writeFileSync(path.join(__dirname, 'personas.json'), JSON.stringify(personas, null, 4))
+    fs.writeFileSync(path.join(accountDirPath(), 'personas.json'), JSON.stringify(personas, null, 4))
     ensureAccounts([ persona ])
 }
 
@@ -29,10 +33,10 @@ function rmPersona(persona) {
     try { fs.unlinkSync( keyfilePath(persona) ) } catch (err) {}
 
     personas = personas.filter(x => x !== persona)
-    fs.writeFileSync(path.join(__dirname, 'personas.json'), JSON.stringify(personas, null, 4))
+    fs.writeFileSync(path.join(accountDirPath(), 'personas.json'), JSON.stringify(personas, null, 4))
 
     delete accounts[persona]
-    fs.writeFileSync(path.join(__dirname, 'accounts.json'), JSON.stringify(accounts, null, 4))
+    fs.writeFileSync(path.join(accountDirPath(), 'accounts.json'), JSON.stringify(accounts, null, 4))
 }
 
 function ensureAccounts(personas) {
@@ -55,7 +59,7 @@ function ensureAccounts(personas) {
             // keyfileName: persona,
         }
     }
-    fs.writeFileSync(path.join(__dirname, 'accounts.json'), JSON.stringify(accounts, null, 4))
+    fs.writeFileSync(path.join(accountDirPath(), 'accounts.json'), JSON.stringify(accounts, null, 4))
 
     // Write keyfiles
     for (let persona of Object.keys(accounts)) {
@@ -77,13 +81,13 @@ function clean() {
             delete accounts[persona]
         }
     }
-    fs.writeFileSync(path.join(__dirname, 'accounts.json'), JSON.stringify(accounts, null, 4))
+    fs.writeFileSync(path.join(accountDirPath(), 'accounts.json'), JSON.stringify(accounts, null, 4))
 
     const knownFiles = Object.keys(accounts).map(x => accounts[x].keyfileName)
     const dirFiles = fs.readdirSync(__dirname)
                        .filter(x => x.startsWith('UTC--'))
                        .filter(x => !knownFiles.includes(x))
-                       .map(x => path.join(__dirname, x))
+                       .map(x => path.join(accountDirPath(), x))
     for (let file of dirFiles) {
         fs.unlinkSync(file)
         console.log('deleting', file)
@@ -92,7 +96,7 @@ function clean() {
 
 const USAGE = `
     Usage:
-        node create-accounts.js <command>
+        config <command>
 
     Commands:
         add-persona     - add a persona to personas.json and generate its account and keyfile

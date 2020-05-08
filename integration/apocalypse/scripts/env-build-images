@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+
+const execa = require('execa')
+
+;(async function() {
+    await run(`docker build -t smartcontract/chainlink:apocalypse ${__dirname}/../chainlink`)
+    await run(`docker build -t smartcontract/gethnet:apocalypse ${__dirname}/../gethnet`)
+    await run(`docker build -t smartcontract/paritynet:apocalypse ${__dirname}/../paritynet`)
+})()
+
+async function run(cmd) {
+    console.log((await execa.command(cmd, {all: true})).all)
+}

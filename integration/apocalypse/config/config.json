@@ -1,0 +1,5 @@
+{
+    "randomTraffic": {
+        "msBetweenTxs": 5000
+    }
+}
