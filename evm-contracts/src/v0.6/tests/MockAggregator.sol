@@ -36,7 +36,7 @@ contract MockAggregator is AggregatorInterface {
     getTimestamp[latestRound] = block.timestamp;
   }
 
-  function getRound(uint256 _roundId)
+  function getRoundData(uint256 _roundId)
     external
     view
     override

@@ -68,7 +68,7 @@ describe('AggregatorProxy', () => {
       'latestTimestamp',
       'getTimestamp',
       'decimals',
-      'getRound',
+      'getRoundData',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -192,7 +192,7 @@ describe('AggregatorProxy', () => {
     })
   })
 
-  describe('#getRound', () => {
+  describe('#getRoundData', () => {
     describe('when pointed at a Historic Aggregator', () => {
       beforeEach(async () => {
         const requestTx = await aggregator.requestRateUpdate()
@@ -211,7 +211,7 @@ describe('AggregatorProxy', () => {
       it.only('reverts', async () => {
         const latestRoundId = await proxy.latestRound()
         matchers.evmRevert(async () => {
-          await proxy.getRound(latestRoundId)
+          await proxy.getRoundData(latestRoundId)
         })
       })
     })
@@ -237,7 +237,7 @@ describe('AggregatorProxy', () => {
       })
 
       it('works for a valid roundId', async () => {
-        const round = await proxy.getRound(roundId)
+        const round = await proxy.getRoundData(roundId)
         matchers.bigNum(roundId, round.roundId)
         matchers.bigNum(submission, round.answer)
         const nowSeconds = new Date().valueOf() / 1000;

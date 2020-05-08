@@ -112,7 +112,7 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
     return _getTimestamp(_roundId);
   }
 
-  function getRound(uint256 _roundId)
+  function getRoundData(uint256 _roundId)
     external
     view
     override
@@ -125,6 +125,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
       uint256 answeredInRound
     )
   {
-    return _getRound(_roundId);
+    return _getRoundData(_roundId);
   }
 }

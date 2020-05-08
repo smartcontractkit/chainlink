@@ -88,7 +88,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
     return _latestRound();
   }
 
-  function getRound(uint256 _roundId)
+  function getRoundData(uint256 _roundId)
     external
     view
     isWhitelisted()
@@ -101,6 +101,6 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
       uint256 answeredInRound
     )
   {
-    return _getRound(_roundId);
+    return _getRoundData(_roundId);
   }
 }
