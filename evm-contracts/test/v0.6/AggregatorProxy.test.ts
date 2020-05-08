@@ -208,7 +208,7 @@ describe('AggregatorProxy', () => {
         )
       })
 
-      it.only('reverts', async () => {
+      it('reverts', async () => {
         const latestRoundId = await proxy.latestRound()
         matchers.evmRevert(async () => {
           await proxy.getRoundData(latestRoundId)
@@ -217,19 +217,25 @@ describe('AggregatorProxy', () => {
     })
 
     describe('when pointed at a FluxAggregator', () => {
-      const roundId = 1;
-      const submission = 42;
+      const roundId = 1
+      const submission = 42
       beforeEach(async () => {
         const fluxAggregator = await fluxAggregatorFactory
           .connect(defaultAccount)
-          .deploy(link.address, basePayment, 3600, 18, ethers.utils.formatBytes32String('DOGE/ZWL'))
+          .deploy(
+            link.address,
+            basePayment,
+            3600,
+            18,
+            ethers.utils.formatBytes32String('DOGE/ZWL'),
+          )
         await link.transferAndCall(fluxAggregator.address, deposit, [])
         await fluxAggregator.addOracles(
           [defaultAccount.address],
           [defaultAccount.address],
           1,
           1,
-          0
+          0,
         )
         await fluxAggregator.submit(roundId, submission)
 
@@ -240,7 +246,7 @@ describe('AggregatorProxy', () => {
         const round = await proxy.getRoundData(roundId)
         matchers.bigNum(roundId, round.roundId)
         matchers.bigNum(submission, round.answer)
-        const nowSeconds = new Date().valueOf() / 1000;
+        const nowSeconds = new Date().valueOf() / 1000
         assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
         assert.isBelow(round.startedAt.toNumber(), nowSeconds)
         matchers.bigNum(round.startedAt, round.updatedAt)
