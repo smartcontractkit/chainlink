@@ -374,58 +374,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice get the timed out status of a given round
-   * @param _roundId the round number to retrieve the timed out status for
-   */
-  function getTimedOutStatus(uint256 _roundId)
-    external
-    view
-    returns (bool)
-  {
-    uint32 roundId = uint32(_roundId);
-    uint32 answeredIn = rounds[roundId].answeredInRound;
-    return answeredIn > 0 && answeredIn != roundId;
-  }
-
-  /**
-   * @notice get the start time of the current reporting round
-   */
-  function reportingRoundStartedAt()
-    external
-    view
-    returns (uint256)
-  {
-    return rounds[reportingRoundId].startedAt;
-  }
-
-  /**
-   * @notice get the start time of a round
-   * @param _roundId the round number to retrieve the startedAt time for
-   */
-  function getRoundStartedAt(uint256 _roundId)
-    external
-    view
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].startedAt;
-  }
-
-  /**
-   * @notice get the round ID that an answer was originally reported in
-   * @param _roundId the round number to retrieve the answer for
-   */
-  function getOriginatingRoundOfAnswer(uint256 _roundId)
-    external
-    view
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].answeredInRound;
-  }
-
-  /**
-   * @notice get all details about a round. Consumers are encouraged to use
-   * this more fully featured method over the "legacy" getAnswer/latestAnswer/
-   * getTimestamp/latestTimestamp functions. Consumers are encouraged to check
+   * @notice get all details about a round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
    * @param _roundId the round ID to retrieve the details for. If _roundId

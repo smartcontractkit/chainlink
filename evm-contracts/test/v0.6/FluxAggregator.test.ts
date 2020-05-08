@@ -193,10 +193,7 @@ describe('FluxAggregator', () => {
       'getAdmin',
       'getAnswer',
       'getOracles',
-      'getOriginatingRoundOfAnswer',
       'getRoundData',
-      'getRoundStartedAt',
-      'getTimedOutStatus',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
@@ -212,7 +209,6 @@ describe('FluxAggregator', () => {
       'paymentAmount',
       'removeOracles',
       'reportingRound',
-      'reportingRoundStartedAt',
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
@@ -417,14 +413,13 @@ describe('FluxAggregator', () => {
       })
 
       it('does not set the timedout flag', async () => {
-        assert.isFalse(await aggregator.getTimedOutStatus(nextRound))
+        let round = await aggregator.getRoundData(nextRound)
+        assert.notEqual(round.roundId, round.answeredInRound)
 
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        assert.equal(
-          nextRound,
-          (await aggregator.getOriginatingRoundOfAnswer(nextRound)).toNumber(),
-        )
+        round = await aggregator.getRoundData(nextRound)
+        assert.equal(nextRound, round.answeredInRound.toNumber())
       })
 
       it('updates the round details', async () => {
@@ -506,18 +501,14 @@ describe('FluxAggregator', () => {
       })
 
       it('sets the startedAt time for the reportingRound', async () => {
-        matchers.bigNum(
-          ethers.constants.Zero,
-          await aggregator.reportingRoundStartedAt(),
-        )
+        let round = await aggregator.getRoundData(nextRound)
+        matchers.bigNum(ethers.constants.Zero, round.startedAt)
 
         await aggregator.connect(oracles[0]).submit(nextRound, answer)
 
-        const startedAt = (
-          await aggregator.reportingRoundStartedAt()
-        ).toNumber()
+        round = await aggregator.getRoundData(nextRound)
 
-        expect(startedAt).not.toBe(0)
+        expect(round.startedAt).not.toBe(0)
       })
 
       it('announces a new round by emitting a log', async () => {
@@ -789,27 +780,20 @@ describe('FluxAggregator', () => {
         const round = await aggregator.getRoundData(previousRound)
         matchers.bigNum(previousRound, round.roundId)
         matchers.bigNum(ans, round.answer)
-        matchers.bigNum(
-          await aggregator.getRoundStartedAt(previousRound),
-          round.startedAt,
-        )
         matchers.bigNum(updated, round.updatedAt)
         matchers.bigNum(previousRound - 1, round.answeredInRound)
       })
 
       it('sets the previous round as timed out', async () => {
         const previousRound = nextRound - 1
-        assert.isFalse(await aggregator.getTimedOutStatus(previousRound))
+        let round = await aggregator.getRoundData(previousRound)
+        matchers.bigNum(0, round.answeredInRound)
 
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        assert.isTrue(await aggregator.getTimedOutStatus(previousRound))
-        assert.equal(
-          previousRound - 1,
-          (
-            await aggregator.getOriginatingRoundOfAnswer(previousRound)
-          ).toNumber(),
-        )
+        round = await aggregator.getRoundData(previousRound)
+        assert.notEqual(round.roundId, round.answeredInRound)
+        matchers.bigNum(previousRound - 1, round.answeredInRound)
       })
 
       it('still respects the delay restriction', async () => {
@@ -866,28 +850,6 @@ describe('FluxAggregator', () => {
         const currentTimestamp = await aggregator.getTimestamp(i)
         assert.isAtLeast(currentTimestamp.toNumber(), lastTimestamp.toNumber())
         lastTimestamp = currentTimestamp
-      }
-    })
-  })
-
-  describe('#getRoundStartedAt', () => {
-    beforeEach(async () => {
-      await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-
-      for (let i = 0; i < 10; i++) {
-        await advanceRound(aggregator, [personas.Neil])
-      }
-    })
-
-    it('retrieves the startedAt time for past rounds', async () => {
-      let prevStartedAt = (await aggregator.getRoundStartedAt(0)).toNumber()
-
-      for (let i = 1; i < nextRound; i++) {
-        const currentStartedAt = (
-          await aggregator.getRoundStartedAt(i)
-        ).toNumber()
-        expect(prevStartedAt).toBeLessThanOrEqual(currentStartedAt)
-        prevStartedAt = currentStartedAt
       }
     })
   })
