@@ -104,7 +104,7 @@ describe('Owned', () => {
         const tx = await owned.connect(newOwner).acceptOwnership()
         const receipt = await tx.wait()
 
-        const event = h.findEventIn(receipt, ownedEvents.OwnershipTransfered)
+        const event = h.findEventIn(receipt, ownedEvents.OwnershipTransferred)
         expect(h.eventArgs(event).to).toEqual(newOwner.address)
         expect(h.eventArgs(event).from).toEqual(owner.address)
       })
