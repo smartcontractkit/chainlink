@@ -6,12 +6,12 @@ containers:
     #
 
     chainlink_neil:
-        image: smartcontract/chainlink:latest
-        command: local node -d -p /secrets/password.txt -a /secrets/apicredentials
+        image: smartcontract/chainlink:apocalypse
         start_delay: 30
         ports:
             6688: 6688
         environment:
+            KEY_NAME: neil
             ETH_CHAIN_ID: 1337
             ETH_URL: ws://gethnet:8546
             LINK_CONTRACT_ADDRESS:
@@ -19,34 +19,18 @@ containers:
             DATABASE_URL: postgresql://postgres:@postgres_chainlink_neil:5432/postgres?sslmode=disable
             ROOT: /clroot
             SECURE_COOKIES: false
+            CHAINLINK_TLS_PORT: "0"
         depends_on:
             - chainlink_neil_key_import
             - paritynet
             - gethnet
             - postgres_chainlink_neil
         links:
-            # paritynet: paritynet
-            # gethnet: gethnet
+            paritynet: paritynet
+            gethnet: gethnet
             postgres_chainlink_neil: postgres_chainlink_neil
         volumes:
-            "../../tools/secrets": /secrets
-            "./container_data/chainlink_neil": /clroot
-
-    chainlink_neil_key_import:
-        image: smartcontract/chainlink:latest
-        command: local import /secrets/neil
-        start_delay: 10
-        environment:
-            ROOT: /clroot
-            DATABASE_URL: postgresql://postgres:@postgres_chainlink_neil:5432/postgres?sslmode=disable
-        depends_on:
-            - postgres_chainlink_neil
-        links:
-            # paritynet: paritynet
-            # gethnet: gethnet
-            postgres_chainlink_neil: postgres_chainlink_neil
-        volumes:
-            "./accounts/keys": /secrets
+            "./config/keys": /keys
             "./container_data/chainlink_neil": /clroot
 
     postgres_chainlink_neil:
@@ -61,132 +45,117 @@ containers:
     # Chainlink node 2: Nelly
     #
 
-#     chainlink_nelly:
-#         image: smartcontract/chainlink:latest
-#         command: local node -d -p /secrets/password.txt -a /secrets/apicredentials
-#         start_delay: 10
-#         ports:
-#             6689: 6688
-#         environment:
-#             ETH_CHAIN_ID: 1337
-#             ETH_URL: ws://gethnet2:8546
-#             LINK_CONTRACT_ADDRESS:
-#             ORACLE_CONTRACT_ADDR:
-#             DATABASE_URL: postgresql://postgres:@postgres_chainlink_nelly:5432/postgres?sslmode=disable
-#             ROOT: /clroot
-#             SECURE_COOKIES: false
-#         depends_on:
-#             - chainlink_nelly_key_import
-#             - postgres_chainlink_nelly
-#             - paritynet
-#             - gethnet
-#         links:
-#             paritynet: paritynet
-#             gethnet: gethnet
-#             postgres_chainlink_nelly: postgres_chainlink_nelly
-#         volumes:
-#             "../../tools/secrets": /secrets
-#             "./container_data/chainlink_nelly": /clroot
+    chainlink_nelly:
+        image: smartcontract/chainlink:apocalypse
+        start_delay: 10
+        ports:
+            6689: 6688
+        environment:
+            KEY_NAME: nelly
+            ETH_CHAIN_ID: 1337
+            ETH_URL: ws://gethnet2:8546
+            LINK_CONTRACT_ADDRESS:
+            ORACLE_CONTRACT_ADDR:
+            DATABASE_URL: postgresql://postgres:@postgres_chainlink_nelly:5432/postgres?sslmode=disable
+            ROOT: /clroot
+            SECURE_COOKIES: false
+            CHAINLINK_TLS_PORT: "0"
+        depends_on:
+            - chainlink_nelly_key_import
+            - postgres_chainlink_nelly
+            - paritynet
+            - gethnet
+        links:
+            paritynet: paritynet
+            gethnet2: gethnet2
+            postgres_chainlink_nelly: postgres_chainlink_nelly
+        volumes:
+            "./config/keys": /keys
+            "./container_data/chainlink_nelly": /clroot
 
-#     chainlink_nelly_key_import:
-#         image: smartcontract/chainlink:latest
-#         command: local import /secrets/nelly
-#         start_delay: 15
-#         environment:
-#             ROOT: /clroot
-#             DATABASE_URL: postgresql://postgres:@postgres_chainlink_nelly:5432/postgres?sslmode=disable
-#         depends_on:
-#             - postgres_chainlink_nelly
-#         links:
-#             paritynet: paritynet
-#             gethnet: gethnet
-#             postgres_chainlink_nelly: postgres_chainlink_nelly
-#         volumes:
-#             "./accounts/keys": /secrets
-#             "./container_data/chainlink_nelly": /clroot
-
-#     postgres_chainlink_nelly:
-#         image: postgres
-#         expose: [5432]
-#         environment:
-#             POSTGRES_HOST_AUTH_METHOD: trust
-#         volumes:
-#             "./container_data/postgres_chainlink_nelly": /var/lib/postgresql
+    postgres_chainlink_nelly:
+        image: postgres
+        expose: [5432]
+        environment:
+            POSTGRES_HOST_AUTH_METHOD: trust
+        volumes:
+            "./container_data/postgres_chainlink_nelly": /var/lib/postgresql
 
 
-#     #
-#     # Ethereum nodes
-#     #
+    #
+    # Ethereum nodes
+    #
 
-#     gethnet:
-#         image: smartcontract/gethnet:apocalypse
-#         expose: [8545, 8546, 30303]
-#         ports:
-#             8545: 8545
-#             8546: 8546
-#         environment:
-#             NODE_KEY: 70606409c7602a7f7acfa7923c45e4a805eac5d0f440c02e62e95b937e6b2b47
-#             ETHERBASE: "0xbafec8991031ca09b3d8c79cc43feb361c7b9c6e"
+    gethnet:
+        image: smartcontract/gethnet:apocalypse
+        expose: [8545, 8546, 30303]
+        ports:
+            8545: 8545
+            8546: 8546
+        environment:
+            NODE_KEY: 70606409c7602a7f7acfa7923c45e4a805eac5d0f440c02e62e95b937e6b2b47
+            ETHERBASE: "0xbafec8991031ca09b3d8c79cc43feb361c7b9c6e"
 
-#     gethnet2:
-#         image: smartcontract/gethnet:apocalypse
-#         expose: [8545, 8546, 30303]
-#         ports:
-#             18545: 8545
-#             18546: 8546
-#         environment:
-#             NODE_KEY: 70606409c7602a7f7acfa7923c45e4a805eac5d0f440c02e62e95b937e6b2b48
-#             ETHERBASE: "0xa3b8d6c6dbc42a1fe8172ea3ddb30380be266046"
-#         depends_on:
-#             - gethnet
-#         links:
-#             gethnet: gethnet
+    gethnet2:
+        image: smartcontract/gethnet:apocalypse
+        expose: [8545, 8546, 30303]
+        ports:
+            18545: 8545
+            18546: 8546
+        environment:
+            NODE_KEY: 70606409c7602a7f7acfa7923c45e4a805eac5d0f440c02e62e95b937e6b2b48
+            ETHERBASE: "0xa3b8d6c6dbc42a1fe8172ea3ddb30380be266046"
+        depends_on:
+            - gethnet
+        links:
+            gethnet: gethnet
 
-#     paritynet:
-#         image: smartcontract/paritynet:apocalypse
-#         start_delay: 15
-#         user: root
-#         expose: [8545, 8546, 30303]
-#         ports:
-#             28545: 8545
-#             28546: 8546
-#         depends_on:
-#             - gethnet
-#         links:
-#             gethnet: gethnet
-#             gethnet2: gethnet2
+    paritynet:
+        image: smartcontract/paritynet:apocalypse
+        start_delay: 15
+        user: root
+        expose: [8545, 8546, 30303]
+        ports:
+            28545: 8545
+            28546: 8546
+        depends_on:
+            - gethnet
+        links:
+            gethnet: gethnet
+            gethnet2: gethnet2
 
-#     #
-#     # Blockscout
-#     #
+    #
+    # Blockscout
+    #
 
-#     blockscout:
-#         image: blockscout_prod
-#         command: /bin/sh -c "mix do ecto.create, ecto.migrate && mix phx.server"
-#         ports:
-#             4000: 4000
-#         depends_on:
-#             - gethnet
-#             - postgres_blockscout
-#         environment:
-#             COIN: ETH
-#             ETHEREUM_JSONRPC_VARIANT: geth
-#             ETHEREUM_JSONRPC_HTTP_URL: http://gethnet:8545
-#             ETHEREUM_JSONRPC_WS_URL: ws://gethnet:8546
-#             MIX_ENV: prod
-#             DATABASE_URL: postgresql://postgres:@postgres_blockscout:5432/postgres?ssl=false
-#         links:
-#             postgres_blockscout: postgres_blockscout
-#             gethnet: gethnet
-#             paritynet: paritynet
+    blockscout:
+        image: blockscout_prod
+        command: /bin/sh -c "mix do ecto.create, ecto.migrate && mix phx.server"
+        ports:
+            4000: 4000
+        depends_on:
+            - gethnet
+            - postgres_blockscout
+        environment:
+            COIN: ETH
+            ETHEREUM_JSONRPC_TRACE_URL: http://gethnet:8545
+            ETHEREUM_JSONRPC_VARIANT: geth
+            ETHEREUM_JSONRPC_HTTP_URL: http://gethnet:8545
+            ETHEREUM_JSONRPC_WS_URL: ws://gethnet:8546
+            MIX_ENV: prod
+            DATABASE_URL: postgresql://postgres:@postgres_blockscout:5432/postgres?ssl=false
+        links:
+            postgres_blockscout: postgres_blockscout
+            gethnet: gethnet
+            paritynet: paritynet
 
-#     postgres_blockscout:
-#         image: postgres
-#         expose: [5432]
-#         environment:
-#             POSTGRES_HOST_AUTH_METHOD: trust
-#         volumes:
-#             "./postgres_data": /var/lib/postgresql
+    postgres_blockscout:
+        image: postgres
+        expose: [5432]
+        environment:
+            POSTGRES_HOST_AUTH_METHOD: trust
+        volumes:
+            "./postgres_data": /var/lib/postgresql
 
 
 network:
