@@ -24,6 +24,16 @@ interface AggregatorInterface {
       uint64 updatedAt,
       uint256 answeredInRound
     );
+  function latestRoundData()
+    external
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    );
   function decimals() external view returns (uint8);
 
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 timestamp);

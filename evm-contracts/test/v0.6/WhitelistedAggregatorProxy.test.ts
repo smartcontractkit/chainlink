@@ -54,14 +54,15 @@ describe('WhitelistedAggregatorProxy', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(whitelistedAggregatorProxyFactory, [
       'aggregator',
+      'decimals',
       'getAnswer',
+      'getRoundData',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestTimestamp',
-      'decimals',
       'setAggregator',
-      'getRoundData',
       // Ownable methods:
       'acceptOwnership',
       'owner',

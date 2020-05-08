@@ -50,16 +50,17 @@ describe('WhitelistedConversionProxy', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(whitelistedConversionProxyFactory, [
+      'decimals',
+      'from',
       'getAnswer',
+      'getRoundData',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestTimestamp',
-      'decimals',
-      'from',
-      'to',
       'setAddresses',
-      'getRoundData',
+      'to',
       // Ownable methods:
       'acceptOwnership',
       'owner',

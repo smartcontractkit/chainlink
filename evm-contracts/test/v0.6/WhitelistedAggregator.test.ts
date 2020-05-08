@@ -71,6 +71,7 @@ describe('WhitelistedAggregator', () => {
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestSubmission',
       'latestTimestamp',
       'linkToken',

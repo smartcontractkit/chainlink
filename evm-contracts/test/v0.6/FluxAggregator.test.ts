@@ -9,7 +9,6 @@ import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
-import { bigNum } from '@chainlink/test-helpers/dist/src/helpers'
 
 let personas: setup.Personas
 const provider = setup.provider()
@@ -201,6 +200,7 @@ describe('FluxAggregator', () => {
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestSubmission',
       'latestTimestamp',
       'linkToken',
@@ -428,8 +428,6 @@ describe('FluxAggregator', () => {
       })
 
       it('updates the round details', async () => {
-        const uint256Max = bigNum("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-
         const roundBefore = await aggregator.getRoundData(nextRound)
         matchers.bigNum(nextRound, roundBefore.roundId)
         matchers.bigNum(0, roundBefore.answer)
@@ -437,7 +435,7 @@ describe('FluxAggregator', () => {
         matchers.bigNum(0, roundBefore.updatedAt)
         matchers.bigNum(0, roundBefore.answeredInRound)
 
-        const roundBeforeLatest = await aggregator.getRoundData(uint256Max)
+        const roundBeforeLatest = await aggregator.latestRoundData()
         matchers.bigNum(nextRound - 1, roundBeforeLatest.roundId)
 
         h.increaseTimeBy(15, provider)
@@ -447,17 +445,26 @@ describe('FluxAggregator', () => {
         matchers.bigNum(nextRound, roundAfter.roundId)
         matchers.bigNum(answer, roundAfter.answer)
         matchers.bigNum(roundBefore.startedAt, roundAfter.startedAt)
-        matchers.bigNum(await aggregator.getTimestamp(nextRound), roundAfter.updatedAt)
+        matchers.bigNum(
+          await aggregator.getTimestamp(nextRound),
+          roundAfter.updatedAt,
+        )
         matchers.bigNum(nextRound, roundAfter.answeredInRound)
 
-        assert.isBelow(roundAfter.startedAt.toNumber(), roundAfter.updatedAt.toNumber())
+        assert.isBelow(
+          roundAfter.startedAt.toNumber(),
+          roundAfter.updatedAt.toNumber(),
+        )
 
-        const roundAfterLatest = await aggregator.getRoundData(uint256Max)
+        const roundAfterLatest = await aggregator.latestRoundData()
         matchers.bigNum(roundAfter.roundId, roundAfterLatest.roundId)
         matchers.bigNum(roundAfter.answer, roundAfterLatest.answer)
         matchers.bigNum(roundAfter.startedAt, roundAfterLatest.startedAt)
         matchers.bigNum(roundAfter.updatedAt, roundAfterLatest.updatedAt)
-        matchers.bigNum(roundAfter.answeredInRound, roundAfterLatest.answeredInRound)
+        matchers.bigNum(
+          roundAfter.answeredInRound,
+          roundAfterLatest.answeredInRound,
+        )
       })
     })
 
@@ -782,7 +789,10 @@ describe('FluxAggregator', () => {
         const round = await aggregator.getRoundData(previousRound)
         matchers.bigNum(previousRound, round.roundId)
         matchers.bigNum(ans, round.answer)
-        matchers.bigNum(await aggregator.getRoundStartedAt(previousRound), round.startedAt)
+        matchers.bigNum(
+          await aggregator.getRoundStartedAt(previousRound),
+          round.startedAt,
+        )
         matchers.bigNum(updated, round.updatedAt)
         matchers.bigNum(previousRound - 1, round.answeredInRound)
       })

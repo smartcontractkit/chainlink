@@ -65,4 +65,19 @@ contract MockAggregator is AggregatorInterface {
   {
     return (_roundId, getAnswer[_roundId], uint64(getStartedAt[_roundId]), uint64(getTimestamp[_roundId]), _roundId);
   }
+
+  function latestRoundData()
+    external
+    view
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return (latestRound, getAnswer[latestRound], uint64(getStartedAt[latestRound]), uint64(getTimestamp[latestRound]), latestRound);
+  }
 }
