@@ -1154,7 +1154,7 @@ func (orm *ORM) Keys() ([]*models.Key, error) {
 }
 
 func (orm *ORM) DeleteKey(address string) error {
-	return orm.db.Exec("DELETE FROM keys WHERE address = ?", address).Error
+	return orm.db.Exec("DELETE FROM keys WHERE lower(address) = lower(?)", address).Error
 }
 
 // FirstOrCreateKey returns the first key found or creates a new one in the orm.

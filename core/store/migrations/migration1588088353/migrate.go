@@ -4,10 +4,9 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-// Migrate converts keys.address into citext to avoid potential duplicates with mismatching capitalisation
+// Migrate adds a case-insensitive unique index on keys.address to avoid potential duplicates with mismatching capitalisation
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
-	CREATE EXTENSION IF NOT EXISTS citext;
-	ALTER TABLE keys ALTER COLUMN address TYPE citext;
+	CREATE UNIQUE INDEX idx_unique_case_insensitive_keys_addresses ON keys(lower(address))
 	`).Error
 }
