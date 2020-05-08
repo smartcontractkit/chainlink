@@ -17,6 +17,7 @@ contract MockAggregator is AggregatorInterface {
 
   mapping(uint256 => int256) public override getAnswer;
   mapping(uint256 => uint256) public override getTimestamp;
+  mapping(uint256 => uint256) private getStartedAt;
 
   constructor(
     uint8 _decimals,
@@ -36,6 +37,20 @@ contract MockAggregator is AggregatorInterface {
     getTimestamp[latestRound] = block.timestamp;
   }
 
+  function updateRoundData(
+    uint256 _roundId,
+    int256 _answer,
+    uint256 _timestamp,
+    uint256 _startedAt
+  ) public {
+    latestRound = _roundId;
+    latestAnswer = _answer;
+    latestTimestamp = _timestamp;
+    getAnswer[latestRound] = _answer;
+    getTimestamp[latestRound] = _timestamp;
+    getStartedAt[latestRound] = _startedAt;
+  }
+
   function getRoundData(uint256 _roundId)
     external
     view
@@ -48,7 +63,6 @@ contract MockAggregator is AggregatorInterface {
       uint256 answeredInRound
     )
   {
-    // TODO(kaleofduty): deal with roundId = UINT_MAX
-    return (_roundId, getAnswer[_roundId], uint64(getTimestamp[_roundId]), uint64(getTimestamp[_roundId]), _roundId);
+    return (_roundId, getAnswer[_roundId], uint64(getStartedAt[_roundId]), uint64(getTimestamp[_roundId]), _roundId);
   }
 }
