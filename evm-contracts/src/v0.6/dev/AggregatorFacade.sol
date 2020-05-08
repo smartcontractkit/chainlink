@@ -1,0 +1,207 @@
+pragma solidity 0.6.2;
+
+import "./AggregatorInterface.sol";
+import "./HistoricAggregatorInterface.sol";
+
+/**
+ * @title A facade for Historic Aggregator versions to conform to the new v0.6
+ * Aggregator interface.
+ */
+contract AggregatorFacade is AggregatorInterface {
+
+  HistoricAggregatorInterface public aggregator;
+  uint8 public override decimals;
+
+  constructor(address _aggregator, uint8 _decimals) public {
+    aggregator = HistoricAggregatorInterface(_aggregator);
+    decimals = _decimals;
+  }
+
+  /**
+   * @notice Reads the current answer from aggregator delegated to.
+   */
+  function latestAnswer()
+    external
+    view
+    virtual
+    override
+    returns (int256)
+  {
+    return _latestAnswer();
+  }
+
+  /**
+   * @notice Reads the last updated height from aggregator delegated to.
+   */
+  function latestTimestamp()
+    external
+    view
+    virtual
+    override
+    returns (uint256)
+  {
+    return _latestTimestamp();
+  }
+
+  /**
+   * @notice get past rounds answers
+   * @param _roundId the answer number to retrieve the answer for
+   */
+  function getAnswer(uint256 _roundId)
+    external
+    view
+    virtual
+    override
+    returns (int256)
+  {
+    return _getAnswer(_roundId);
+  }
+
+  /**
+   * @notice get block timestamp when an answer was last updated
+   * @param _roundId the answer number to retrieve the updated timestamp for
+   */
+  function getTimestamp(uint256 _roundId)
+    external
+    view
+    virtual
+    override
+    returns (uint256)
+  {
+    return _getTimestamp(_roundId);
+  }
+
+  /**
+   * @notice get the latest completed round where the answer was updated
+   */
+  function latestRound()
+    external
+    view
+    virtual
+    override
+    returns (uint256)
+  {
+    return _latestRound();
+  }
+
+  function getRoundData(uint256 _roundId)
+    external
+    view
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRoundData(_roundId);
+  }
+
+  /**
+   * @notice get all details about the latest round.
+   * @return roundId is the round ID for which details were retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
+   */
+  function latestRoundData()
+    external
+    view
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _latestRoundData();
+  }
+
+  /*
+   * Internal
+   */
+
+  function _latestAnswer()
+    internal
+    view
+    returns (int256)
+  {
+    return aggregator.latestAnswer();
+  }
+
+  function _latestTimestamp()
+    internal
+    view
+    returns (uint256)
+  {
+    return aggregator.latestTimestamp();
+  }
+
+  function _getAnswer(uint256 _roundId)
+    internal
+    view
+    returns (int256)
+  {
+    return aggregator.getAnswer(_roundId);
+  }
+
+  function _getTimestamp(uint256 _roundId)
+    internal
+    view
+    returns (uint256)
+  {
+    return aggregator.getTimestamp(_roundId);
+  }
+
+  function _latestRound()
+    internal
+    view
+    returns (uint256)
+  {
+    return aggregator.latestRound();
+  }
+
+  function _getRoundData(uint256 _roundId)
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    answer = aggregator.getAnswer(_roundId);
+    updatedAt = uint64(aggregator.getTimestamp(_roundId));
+    return (_roundId, answer, 0, updatedAt, _roundId);
+  }
+
+  function _latestRoundData()
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint64 startedAt,
+      uint64 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRoundData(aggregator.latestRound());
+  }
+}
