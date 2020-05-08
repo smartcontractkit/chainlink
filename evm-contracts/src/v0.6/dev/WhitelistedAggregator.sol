@@ -83,9 +83,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
   }
 
   /**
-   * @notice get all details about a round. Consumers are encouraged to use
-   * this more fully featured method over the "legacy" getAnswer/latestAnswer/
-   * getTimestamp/latestTimestamp functions. Consumers are encouraged to check
+   * @notice get all details about a round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
    * @param _roundId the round ID to retrieve the details for. If _roundId
