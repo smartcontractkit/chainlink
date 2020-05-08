@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
@@ -44,5 +45,5 @@ func NewKeyFromFile(path string) (*Key, error) {
 
 // WriteToDisk writes this key to disk at the passed path.
 func (k *Key) WriteToDisk(path string) error {
-	return ioutil.WriteFile(path, []byte(k.JSON.String()), 0700)
+	return utils.WriteFileWithPerms(path, []byte(k.JSON.String()), 0700)
 }
