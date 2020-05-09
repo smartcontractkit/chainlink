@@ -9,6 +9,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
 import { AggregatorProxyFactory } from '../../ethers/v0.6/AggregatorProxyFactory'
+import { AggregatorFacadeFactory } from '../../ethers/v0.6/AggregatorFacadeFactory'
 import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 
@@ -18,6 +19,7 @@ let defaultAccount: ethers.Wallet
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const aggregatorFactory = new AggregatorFactory()
+const aggregatorFacadeFactory = new AggregatorFacadeFactory()
 const oracleFactory = new OracleFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
 const fluxAggregatorFactory = new FluxAggregatorFactory()
@@ -215,6 +217,26 @@ describe('AggregatorProxy', () => {
           await proxy.getRoundData(latestRoundId)
         })
       })
+
+      describe('when pointed at an Aggregator Facade', () => {
+        beforeEach(async () => {
+          const facade = await aggregatorFacadeFactory
+            .connect(defaultAccount)
+            .deploy(aggregator.address, 18)
+          await proxy.setAggregator(facade.address)
+        })
+
+        it('works for a valid roundId', async () => {
+          const roundId = await aggregator.latestRound()
+          const round = await proxy.getRoundData(roundId)
+          matchers.bigNum(roundId, round.roundId)
+          matchers.bigNum(response, round.answer)
+          matchers.bigNum(0, round.startedAt)
+          const nowSeconds = new Date().valueOf() / 1000
+          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
+          matchers.bigNum(roundId, round.answeredInRound)
+        })
+      })
     })
 
     describe('when pointed at a FluxAggregator', () => {
@@ -243,7 +265,7 @@ describe('AggregatorProxy', () => {
         await proxy.setAggregator(fluxAggregator.address)
       })
 
-      it('works for a valid roundId', async () => {
+      it('works for a valid round ID', async () => {
         const round = await proxy.getRoundData(roundId)
         matchers.bigNum(roundId, round.roundId)
         matchers.bigNum(submission, round.answer)
@@ -277,6 +299,26 @@ describe('AggregatorProxy', () => {
           await proxy.latestRoundData()
         })
       })
+
+      describe('when pointed at an Aggregator Facade', () => {
+        beforeEach(async () => {
+          const facade = await aggregatorFacadeFactory
+            .connect(defaultAccount)
+            .deploy(aggregator.address, 18)
+          await proxy.setAggregator(facade.address)
+        })
+
+        it('does not revert', async () => {
+          const roundId = await aggregator.latestRound()
+          const round = await proxy.latestRoundData()
+          matchers.bigNum(roundId, round.roundId)
+          matchers.bigNum(response, round.answer)
+          matchers.bigNum(0, round.startedAt)
+          const nowSeconds = new Date().valueOf() / 1000
+          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
+          matchers.bigNum(roundId, round.answeredInRound)
+        })
+      })
     })
 
     describe('when pointed at a FluxAggregator', () => {
@@ -305,7 +347,7 @@ describe('AggregatorProxy', () => {
         await proxy.setAggregator(fluxAggregator.address)
       })
 
-      it('works for a valid roundId', async () => {
+      it('does not revert', async () => {
         const round = await proxy.latestRoundData()
         matchers.bigNum(roundId, round.roundId)
         matchers.bigNum(submission, round.answer)
