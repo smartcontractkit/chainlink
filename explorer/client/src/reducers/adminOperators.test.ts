@@ -81,7 +81,12 @@ describe('reducers/adminOperators', () => {
   describe('FETCH_ADMIN_OPERATORS_ERROR', () => {
     const action: FetchAdminOperatorsErrorAction = {
       type: 'FETCH_ADMIN_OPERATORS_ERROR',
-      error: new Error('An error'),
+      errors: [
+        {
+          status: 500,
+          detail: 'An error',
+        },
+      ],
     }
 
     it('sets loading to false', () => {

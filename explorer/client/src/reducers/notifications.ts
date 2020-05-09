@@ -1,4 +1,3 @@
-import * as jsonapi from '@chainlink/json-api-client'
 import { Actions } from './actions'
 import { Reducer } from 'redux'
 
@@ -13,21 +12,20 @@ const notificationsReducer: Reducer<State, Actions> = (
   action,
 ) => {
   switch (action.type) {
-    case 'FETCH_ADMIN_SIGNIN_ERROR':
-      if (isUnauthorized(action.error)) {
-        return { errors: ['Invalid username and password.'] }
-      }
-
-      return state
-    case 'NOTIFY_ERROR':
-      return { errors: [action.text] }
+    case 'FETCH_ADMIN_SIGNIN_ERROR': {
+      const errors = action.errors.map(e => {
+        if (e.status === 500) {
+          return 'Error processing your request. Please ensure your connection is active and try again'
+        } else if (e.status === 401) {
+          return 'Invalid username and password'
+        }
+        return e.detail
+      })
+      return { errors }
+    }
     default:
       return state
   }
-}
-
-function isUnauthorized(error: Error) {
-  return error instanceof jsonapi.AuthenticationError
 }
 
 export default notificationsReducer
