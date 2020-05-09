@@ -401,8 +401,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
@@ -436,8 +436,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
@@ -702,8 +702,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
@@ -723,8 +723,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {

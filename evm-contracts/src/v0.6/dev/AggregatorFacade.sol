@@ -92,8 +92,8 @@ contract AggregatorFacade is AggregatorInterface {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
@@ -123,8 +123,8 @@ contract AggregatorFacade is AggregatorInterface {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
@@ -181,8 +181,8 @@ contract AggregatorFacade is AggregatorInterface {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
@@ -197,8 +197,8 @@ contract AggregatorFacade is AggregatorInterface {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
