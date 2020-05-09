@@ -58,12 +58,18 @@ contract MockAggregator is AggregatorInterface {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
-    return (_roundId, getAnswer[_roundId], uint64(getStartedAt[_roundId]), uint64(getTimestamp[_roundId]), _roundId);
+    return (
+      _roundId,
+      getAnswer[_roundId],
+      getStartedAt[_roundId],
+      getTimestamp[_roundId],
+      _roundId
+    );
   }
 
   function latestRoundData()
@@ -73,11 +79,17 @@ contract MockAggregator is AggregatorInterface {
     returns (
       uint256 roundId,
       int256 answer,
-      uint64 startedAt,
-      uint64 updatedAt,
+      uint256 startedAt,
+      uint256 updatedAt,
       uint256 answeredInRound
     )
   {
-    return (latestRound, getAnswer[latestRound], uint64(getStartedAt[latestRound]), uint64(getTimestamp[latestRound]), latestRound);
+    return (
+      latestRound,
+      getAnswer[latestRound],
+      getStartedAt[latestRound],
+      getTimestamp[latestRound],
+      latestRound
+    );
   }
 }
