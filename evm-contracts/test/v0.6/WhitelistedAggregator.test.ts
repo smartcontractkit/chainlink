@@ -96,7 +96,7 @@ describe('WhitelistedAggregator', () => {
       'acceptOwnership',
       'owner',
       'transferOwnership',
-      // Owned methods:
+      // Whitelisted methods:
       'addToWhitelist',
       'disableWhitelist',
       'enableWhitelist',
