@@ -93,7 +93,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
    * @param _roundId the round ID to retrieve the round data for
-   * @return roundId is the round ID for which details were retrieved
+   * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started. This is 0
    * if the round hasn't been started yet.
@@ -123,8 +123,10 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   }
 
   /**
-   * @notice get all details about the latest round.
-   * @return roundId is the round ID for which details were retrieved
+   * @notice get data about the latest round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started. This is 0
    * if the round hasn't been started yet.
