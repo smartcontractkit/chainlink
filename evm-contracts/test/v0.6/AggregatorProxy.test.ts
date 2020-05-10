@@ -231,9 +231,9 @@ describe('AggregatorProxy', () => {
           const round = await proxy.getRoundData(roundId)
           matchers.bigNum(roundId, round.roundId)
           matchers.bigNum(response, round.answer)
-          matchers.bigNum(0, round.startedAt)
           const nowSeconds = new Date().valueOf() / 1000
           assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
+          matchers.bigNum(round.updatedAt, round.startedAt)
           matchers.bigNum(roundId, round.answeredInRound)
         })
       })
@@ -313,9 +313,9 @@ describe('AggregatorProxy', () => {
           const round = await proxy.latestRoundData()
           matchers.bigNum(roundId, round.roundId)
           matchers.bigNum(response, round.answer)
-          matchers.bigNum(0, round.startedAt)
           const nowSeconds = new Date().valueOf() / 1000
           assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
+          matchers.bigNum(round.updatedAt, round.startedAt)
           matchers.bigNum(roundId, round.answeredInRound)
         })
       })
