@@ -110,6 +110,74 @@ contract ConversionProxy is AggregatorInterface, Owned {
   }
 
   /**
+   * @notice get data about a round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * @param _roundId the round ID to retrieve the round data for
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
+   */
+  function getRoundData(uint256 _roundId)
+    external
+    view
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRoundData(_roundId);
+  }
+
+  /**
+   * @notice get data about the latest round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
+   */
+  function latestRoundData()
+    external
+    view
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _latestRoundData();
+  }
+
+
+  /**
    * @notice Calls the `decimals()` function of the `to` aggregator
    * @return The amount of precision the converted answer will contain
    */
@@ -135,6 +203,48 @@ contract ConversionProxy is AggregatorInterface, Owned {
 
   function _getTimestamp(uint256 _roundId) internal view returns (uint256) {
     return from.getTimestamp(_roundId);
+  }
+
+  function _getRoundData(uint256 _roundId)
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    uint256 roundIdFrom;
+    int256 answerFrom;
+    uint256 startedAtFrom;
+    uint256 updatedAtFrom;
+    uint256 answeredInRoundFrom;
+
+    (roundIdFrom, answerFrom, startedAtFrom, updatedAtFrom, answeredInRoundFrom) = from.getRoundData(_roundId);
+    return (roundIdFrom, convertAnswer(answerFrom), startedAtFrom, updatedAtFrom, answeredInRoundFrom);
+  }
+
+  function _latestRoundData()
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    uint256 roundIdFrom;
+    int256 answerFrom;
+    uint256 startedAtFrom;
+    uint256 updatedAtFrom;
+    uint256 answeredInRoundFrom;
+
+    (roundIdFrom, answerFrom, startedAtFrom, updatedAtFrom, answeredInRoundFrom) = from.getRoundData(_latestRound());
+    return (roundIdFrom, convertAnswer(answerFrom), startedAtFrom, updatedAtFrom, answeredInRoundFrom);
   }
 
   /**
