@@ -166,7 +166,12 @@ contract AggregatorFacade is AggregatorInterface {
   {
     answer = aggregator.getAnswer(_roundId);
     updatedAt = uint64(aggregator.getTimestamp(_roundId));
-    return (_roundId, answer, updatedAt, updatedAt, _roundId);
+    if (updatedAt == 0) {
+      answeredInRound = 0;
+    } else {
+      answeredInRound = _roundId;
+    }
+    return (_roundId, answer, updatedAt, updatedAt, answeredInRound);
   }
 
 }
