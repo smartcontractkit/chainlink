@@ -109,6 +109,16 @@ describe('AggregatorFacade', () => {
       matchers.bigNum(await facade.getTimestamp(previousId), round.updatedAt)
       matchers.bigNum(previousId, round.answeredInRound)
     })
+
+    it('returns zero data for non-existing rounds', async () => {
+      const roundId = 13371337
+      const round = await facade.getRoundData(roundId)
+      matchers.bigNum(roundId, round.roundId)
+      matchers.bigNum(0, round.answer)
+      matchers.bigNum(0, round.startedAt)
+      matchers.bigNum(0, round.updatedAt)
+      matchers.bigNum(0, round.answeredInRound)
+    })
   })
 
   describe('#latestRoundData', () => {
