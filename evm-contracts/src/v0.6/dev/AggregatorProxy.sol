@@ -130,7 +130,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
    * of them.
-   * @param _roundId the round ID to retrieve the round data for
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.

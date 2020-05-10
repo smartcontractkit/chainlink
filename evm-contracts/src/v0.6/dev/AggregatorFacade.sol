@@ -59,7 +59,6 @@ contract AggregatorFacade is AggregatorInterface {
   /**
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt value.
-   * @param _roundId the round ID to retrieve the round data for
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is always equal to updatedAt because the underlying
