@@ -8,9 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -384,14 +382,6 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-// FileExists returns true if a file at the passed string exists.
-func FileExists(name string) bool {
-	if _, err := os.Stat(name); os.IsNotExist(err) {
-		return false
-	}
-	return true
-}
-
 // Keccak256 is a simplified interface for the legacy SHA3 implementation that
 // Ethereum uses.
 func Keccak256(in []byte) ([]byte, error) {
@@ -474,31 +464,6 @@ func LogListeningAddress(address common.Address) string {
 		return "[all]"
 	}
 	return address.String()
-}
-
-// FilesInDir returns an array of filenames in the directory.
-func FilesInDir(dir string) ([]string, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return []string{}, err
-	}
-	defer f.Close()
-
-	r, err := f.Readdirnames(-1)
-	if err != nil {
-		return []string{}, err
-	}
-
-	return r, nil
-}
-
-// FileContents returns the contents of a file as a string.
-func FileContents(path string) (string, error) {
-	dat, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(dat), nil
 }
 
 // JustError takes a tuple and returns the last entry, the error.

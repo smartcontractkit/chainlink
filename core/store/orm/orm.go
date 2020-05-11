@@ -1249,7 +1249,7 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(keysDir, 0700); err != nil {
+	if err := utils.EnsureDirAndPerms(keysDir, 0700); err != nil {
 		return err
 	}
 
