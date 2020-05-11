@@ -4,6 +4,7 @@ import {
   matchers,
   oracle,
   setup,
+  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -43,7 +44,10 @@ describe('AggregatorProxy', () => {
   let aggregator: contract.Instance<AggregatorFactory>
   let aggregator2: contract.Instance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
-  let proxy: contract.Instance<AggregatorProxyFactory>
+  let proxy: contract.CallableOverrideInstance<
+    AggregatorProxyFactory,
+    interfaces.AggregatorInterface
+  >
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
@@ -51,9 +55,12 @@ describe('AggregatorProxy', () => {
       .connect(defaultAccount)
       .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
     await link.transfer(aggregator.address, deposit)
-    proxy = await aggregatorProxyFactory
-      .connect(defaultAccount)
-      .deploy(aggregator.address)
+    proxy = contract.callable(
+      await aggregatorProxyFactory
+        .connect(defaultAccount)
+        .deploy(aggregator.address),
+      interfaces.AggregatorMethodList,
+    )
   })
 
   beforeEach(async () => {

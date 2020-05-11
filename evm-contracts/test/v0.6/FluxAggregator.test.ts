@@ -3,6 +3,7 @@ import {
   helpers as h,
   matchers,
   setup,
+  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
@@ -32,14 +33,18 @@ describe('FluxAggregator', () => {
   const description = 'LINK/USD'
   const reserveRounds = 2
 
-  let aggregator: contract.Instance<FluxAggregatorFactory>
+  type AggregatorType = contract.CallableOverrideInstance<
+    FluxAggregatorFactory,
+    interfaces.AggregatorInterface
+  >
+  let aggregator: AggregatorType
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
   async function updateFutureRounds(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     overrides: {
       minAnswers?: ethers.utils.BigNumberish
       maxAnswers?: ethers.utils.BigNumberish
@@ -67,7 +72,7 @@ describe('FluxAggregator', () => {
   }
 
   async function addOracles(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     oraclesAndAdmin: ethers.Wallet[],
     minAnswers: number,
     maxAnswers: number,
@@ -83,7 +88,7 @@ describe('FluxAggregator', () => {
   }
 
   async function advanceRound(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     submitters: ethers.Wallet[],
     currentSubmission: number = answer,
   ): Promise<number> {
@@ -163,15 +168,18 @@ describe('FluxAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await fluxAggregatorFactory
-      .connect(personas.Carol)
-      .deploy(
-        link.address,
-        paymentAmount,
-        timeout,
-        decimals,
-        ethers.utils.formatBytes32String(description),
-      )
+    aggregator = contract.callable(
+      await fluxAggregatorFactory
+        .connect(personas.Carol)
+        .deploy(
+          link.address,
+          paymentAmount,
+          timeout,
+          decimals,
+          ethers.utils.formatBytes32String(description),
+        ),
+      interfaces.AggregatorMethodList,
+    )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))

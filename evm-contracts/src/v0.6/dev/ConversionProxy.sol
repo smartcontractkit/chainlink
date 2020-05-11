@@ -66,7 +66,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * @return The converted answer with amount of precision as defined
    * by `decimals` of the `to` aggregator
    */
-  function latestAnswer() external view virtual override returns (int256) {
+  function latestAnswer()
+    external
+    virtual
+    override
+    returns (int256)
+  {
     return _latestAnswer();
   }
 
@@ -75,7 +80,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * aggregator
    * @return The value of latestTimestamp for the `from` aggregator
    */
-  function latestTimestamp() external view virtual override returns (uint256) {
+  function latestTimestamp()
+    external
+    virtual
+    override
+    returns (uint256)
+  {
     return _latestTimestamp();
   }
 
@@ -84,7 +94,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * aggregator
    * @return The value of latestRound for the `from` aggregator
    */
-  function latestRound() external view virtual override returns (uint256) {
+  function latestRound()
+    external
+    virtual
+    override
+    returns (uint256)
+  {
     return _latestRound();
   }
 
@@ -95,7 +110,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * aggregator with the amount of precision as defined by `decimals`
    * of the `to` aggregator
    */
-  function getAnswer(uint256 _roundId) external view virtual override returns (int256) {
+  function getAnswer(uint256 _roundId)
+    external
+    virtual
+    override
+    returns (int256)
+  {
     return _getAnswer(_roundId);
   }
 
@@ -105,7 +125,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * @return The timestamp of the `from` aggregator for the specified
    * `_roundId`
    */
-  function getTimestamp(uint256 _roundId) external view virtual override returns (uint256) {
+  function getTimestamp(uint256 _roundId)
+    external
+    virtual
+    override
+    returns (uint256)
+  {
     return _getTimestamp(_roundId);
   }
 
@@ -129,7 +154,6 @@ contract ConversionProxy is AggregatorInterface, Owned {
    */
   function getRoundData(uint256 _roundId)
     external
-    view
     virtual
     override
     returns (
@@ -162,7 +186,6 @@ contract ConversionProxy is AggregatorInterface, Owned {
    */
   function latestRoundData()
     external
-    view
     virtual
     override
     returns (
@@ -176,38 +199,56 @@ contract ConversionProxy is AggregatorInterface, Owned {
     return _latestRoundData();
   }
 
-
   /**
    * @notice Calls the `decimals()` function of the `to` aggregator
    * @return The amount of precision the converted answer will contain
    */
-  function decimals() external view override returns (uint8) {
+  function decimals()
+    external
+    override
+    returns (uint8)
+  {
     return to.decimals();
   }
 
-  function _latestAnswer() internal view returns (int256) {
+
+  function _latestAnswer()
+    internal
+    returns (int256)
+  {
     return convertAnswer(from.latestAnswer());
   }
 
-  function _latestTimestamp() internal view returns (uint256) {
+  function _latestTimestamp()
+    internal
+    returns (uint256)
+  {
     return from.latestTimestamp();
   }
 
-  function _latestRound() internal view returns (uint256) {
+  function _latestRound()
+    internal
+    returns (uint256)
+  {
     return from.latestRound();
   }
 
-  function _getAnswer(uint256 _roundId) internal view returns (int256) {
+  function _getAnswer(uint256 _roundId)
+    internal
+    returns (int256)
+  {
     return convertAnswer(from.getAnswer(_roundId));
   }
 
-  function _getTimestamp(uint256 _roundId) internal view returns (uint256) {
+  function _getTimestamp(uint256 _roundId)
+    internal
+    returns (uint256)
+  {
     return from.getTimestamp(_roundId);
   }
 
   function _getRoundData(uint256 _roundId)
     internal
-    view
     returns (
       uint256 roundId,
       int256 answer,
@@ -228,7 +269,6 @@ contract ConversionProxy is AggregatorInterface, Owned {
 
   function _latestRoundData()
     internal
-    view
     returns (
       uint256 roundId,
       int256 answer,
@@ -254,7 +294,10 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * @param _answerFrom The answer of the `from` aggregator
    * @return The converted answer
    */
-  function convertAnswer(int256 _answerFrom) internal view returns (int256) {
+  function convertAnswer(int256 _answerFrom)
+    internal
+    returns (int256)
+  {
     return _answerFrom.mul(to.latestAnswer()).div(int256(10 ** uint256(to.decimals())));
   }
 }
