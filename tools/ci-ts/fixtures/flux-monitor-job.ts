@@ -13,6 +13,7 @@ export default {
         feeds: [''], // set before use
         precision: 2,
         threshold: 5,
+        absoluteThreshold: 0,
         idleTimer: {
           disabled: true,
         },

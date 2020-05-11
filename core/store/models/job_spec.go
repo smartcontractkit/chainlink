@@ -217,12 +217,16 @@ type InitiatorParams struct {
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty"`
 
-	RequestData JSON            `json:"requestData,omitempty" gorm:"type:text"`
-	Feeds       Feeds           `json:"feeds,omitempty" gorm:"type:text"`
-	Precision   int32           `json:"precision,omitempty" gorm:"type:smallint"`
-	Threshold   float32         `json:"threshold,omitempty"`
-	PollTimer   PollTimerConfig `json:"pollTimer,omitempty" gorm:"type:jsonb"`
-	IdleTimer   IdleTimerConfig `json:"idleTimer,omitempty" gorm:"type:jsonb"`
+	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
+	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
+	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
+	Threshold   float32 `json:"threshold,omitempty"`
+	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
+	// value before a new round should be kicked off, so that the current value
+	// can be reported on-chain.
+	AbsoluteThreshold float32         `json:"absoluteThreshold" gorm:"type:float;not null"`
+	PollTimer         PollTimerConfig `json:"pollTimer,omitempty" gorm:"type:jsonb"`
+	IdleTimer         IdleTimerConfig `json:"idleTimer,omitempty" gorm:"type:jsonb"`
 }
 
 type PollTimerConfig struct {
