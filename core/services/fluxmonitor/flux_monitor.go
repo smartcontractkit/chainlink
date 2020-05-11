@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/tevino/abool"
@@ -353,26 +352,16 @@ type PollingDeviationChecker struct {
 	requestData   models.JSON
 	precision     int32
 
-	connected                  *abool.AtomicBool
-	backlog                    *utils.BoundedPriorityQueue
-	chProcessLogs              chan struct{}
-	reportableRoundID          *big.Int
-	mostRecentSubmittedRoundID uint64
-	pollTicker                 <-chan time.Time
-	idleTimer                  <-chan time.Time
-	roundTimer                 <-chan time.Time
+	connected     *abool.AtomicBool
+	backlog       *utils.BoundedPriorityQueue
+	chProcessLogs chan struct{}
+	pollTicker    <-chan time.Time
+	idleTimer     <-chan time.Time
+	roundTimer    <-chan time.Time
 
 	readyForLogs func()
 	chStop       chan struct{}
 	waitOnStop   chan struct{}
-}
-
-// maybeLog is just a tuple that allows us to send either an error or a log over the
-// logs channel.  This is preferable to using two separate channels, as it ensures
-// that we don't drop valid (but unprocessed) logs if we receive an error.
-type maybeLog struct {
-	LogBroadcast eth.LogBroadcast
-	Err          error
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -402,8 +391,8 @@ func NewPollingDeviationChecker(
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
-			priorityNewRoundLog:      2,
-			priorityAnswerUpdatedLog: 1,
+			PriorityNewRoundLog:      2,
+			PriorityAnswerUpdatedLog: 1,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
@@ -412,8 +401,8 @@ func NewPollingDeviationChecker(
 }
 
 const (
-	priorityNewRoundLog      uint = 0
-	priorityAnswerUpdatedLog uint = 1
+	PriorityNewRoundLog      uint = 0
+	PriorityAnswerUpdatedLog uint = 1
 )
 
 // Start begins the CSP consumer in a single goroutine to
@@ -421,7 +410,8 @@ const (
 func (p *PollingDeviationChecker) Start() {
 	logger.Debugw("Starting checker for job",
 		"job", p.initr.JobSpecID.String(),
-		"initr", p.initr.ID)
+		"initr", p.initr.ID,
+	)
 
 	go p.consume()
 }
@@ -434,6 +424,7 @@ func (p *PollingDeviationChecker) Stop() {
 
 func (p *PollingDeviationChecker) OnConnect() {
 	logger.Debugw("PollingDeviationChecker connected to Ethereum node",
+		"jobID", p.initr.JobSpecID.String(),
 		"address", p.initr.Address.Hex(),
 	)
 	p.connected.Set()
@@ -441,13 +432,19 @@ func (p *PollingDeviationChecker) OnConnect() {
 
 func (p *PollingDeviationChecker) OnDisconnect() {
 	logger.Debugw("PollingDeviationChecker disconnected from Ethereum node",
+		"jobID", p.initr.JobSpecID.String(),
 		"address", p.initr.Address.Hex(),
 	)
 	p.connected.UnSet()
 }
 
-func (p *PollingDeviationChecker) HandleLog(lb eth.LogBroadcast, err error) {
-	rawLog := lb.Log()
+func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err error) {
+	if err != nil {
+		logger.Errorf("got error from LogBroadcaster: %v", err)
+		return
+	}
+
+	rawLog := broadcast.Log()
 	if rawLog == nil || reflect.ValueOf(rawLog).IsNil() {
 		logger.Error("HandleLog: ignoring nil value")
 		return
@@ -455,10 +452,10 @@ func (p *PollingDeviationChecker) HandleLog(lb eth.LogBroadcast, err error) {
 
 	switch log := rawLog.(type) {
 	case *contracts.LogNewRound:
-		p.backlog.Add(priorityNewRoundLog, maybeLog{lb, err})
+		p.backlog.Add(PriorityNewRoundLog, broadcast)
 
 	case *contracts.LogAnswerUpdated:
-		p.backlog.Add(priorityAnswerUpdatedLog, maybeLog{lb, err})
+		p.backlog.Add(PriorityAnswerUpdatedLog, broadcast)
 
 	default:
 		logger.Warnf("unexpected log type %T", log)
@@ -474,8 +471,6 @@ func (p *PollingDeviationChecker) HandleLog(lb eth.LogBroadcast, err error) {
 func (p *PollingDeviationChecker) consume() {
 	defer close(p.waitOnStop)
 
-	p.determineMostRecentSubmittedRoundID()
-
 	connected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
 	defer unsubscribeLogs()
 
@@ -489,8 +484,10 @@ func (p *PollingDeviationChecker) consume() {
 
 	if !p.initr.PollTimer.Disabled {
 		// Try to do an initial poll
-		p.pollIfEligible(DeviationThresholds{Rel: float64(p.initr.Threshold),
-			Abs: float64(p.initr.AbsoluteThreshold)})
+		p.pollIfEligible(DeviationThresholds{
+			Rel: float64(p.initr.Threshold),
+			Abs: float64(p.initr.AbsoluteThreshold),
+		})
 
 		ticker := time.NewTicker(p.initr.PollTimer.Period.Duration())
 		defer ticker.Stop()
@@ -512,19 +509,17 @@ func (p *PollingDeviationChecker) consume() {
 			logger.Debugw("Poll ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
-				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
-				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(DeviationThresholds{Rel: float64(p.initr.Threshold),
-				Abs: float64(p.initr.AbsoluteThreshold)})
+			p.pollIfEligible(DeviationThresholds{
+				Rel: float64(p.initr.Threshold),
+				Abs: float64(p.initr.AbsoluteThreshold),
+			})
 
 		case <-p.idleTimer:
 			logger.Debugw("Idle ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
-				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
-				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.Address.Hex(),
 			)
 			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
@@ -533,71 +528,46 @@ func (p *PollingDeviationChecker) consume() {
 			logger.Debugw("Round timeout ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
-				"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
-				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(DeviationThresholds{Rel: float64(p.initr.Threshold),
-				Abs: float64(p.initr.AbsoluteThreshold)})
+			p.pollIfEligible(DeviationThresholds{
+				Rel: float64(p.initr.Threshold),
+				Abs: float64(p.initr.AbsoluteThreshold),
+			})
 		}
 	}
-}
-
-func (p *PollingDeviationChecker) determineMostRecentSubmittedRoundID() {
-	myAccount, err := p.store.KeyStore.GetFirstAccount()
-	if err != nil {
-		logger.Error("error determining most recent submitted round ID: ", err)
-		return
-	}
-
-	// Just to be particularly defensive against issues with the DB or TxManager, we
-	// fetch the most recent 5 transactions we've submitted to this aggregator from our
-	// Chainlink node address.  Take the highest round ID among them and store it so
-	// that we avoid re-polling for a given round when our tx takes a while to confirm.
-	txs, err := p.store.ORM.FindTxsBySenderAndRecipient(myAccount.Address, p.initr.Address, 0, 5)
-	if err != nil && !gorm.IsRecordNotFoundError(err) {
-		logger.Error("error determining most recent submitted round ID: ", err)
-		return
-	}
-
-	// Parse the round IDs from the transaction data
-	for _, tx := range txs {
-		if len(tx.Data) != 68 {
-			logger.Warnw("found Flux Monitor tx with bad data payload",
-				"txID", tx.ID,
-			)
-			continue
-		}
-
-		roundIDBytes := tx.Data[4:36]
-		roundID := big.NewInt(0).SetBytes(roundIDBytes).Uint64()
-		if roundID > p.mostRecentSubmittedRoundID {
-			p.mostRecentSubmittedRoundID = roundID
-		}
-	}
-	logger.Infow(fmt.Sprintf("roundID of most recent submission is %v", p.mostRecentSubmittedRoundID),
-		"jobID", p.initr.JobSpecID,
-		"aggregator", p.initr.Address.Hex(),
-	)
 }
 
 func (p *PollingDeviationChecker) processLogs() {
 	for !p.backlog.Empty() {
-		maybeLog := p.backlog.Take().(maybeLog)
+		broadcast := p.backlog.Take().(eth.LogBroadcast)
 
-		if maybeLog.Err != nil {
-			logger.Errorf("error received from log broadcaster: %v", maybeLog.Err)
+		// If the log is a duplicate of one we've seen before, ignore it (this
+		// happens because of the LogBroadcaster's backfilling behavior).
+		consumed, err := broadcast.WasAlreadyConsumed()
+		if err != nil {
+			logger.Errorf("Error determining if log was already consumed: %v", err)
+			continue
+		} else if consumed {
 			continue
 		}
 
-		switch log := maybeLog.LogBroadcast.Log().(type) {
+		switch log := broadcast.Log().(type) {
 		case *contracts.LogNewRound:
-			logger.Debugw("NewRound log", p.loggerFieldsForNewRound(*log)...)
-			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToNewRoundLog(*log) })
+			p.respondToNewRoundLog(*log)
+
+			err := broadcast.MarkConsumed()
+			if err != nil {
+				logger.Errorf("Error marking log as consumed: %v", err)
+			}
 
 		case *contracts.LogAnswerUpdated:
-			logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(*log)...)
-			consumeLogBroadcast(maybeLog.LogBroadcast, func() { p.respondToAnswerUpdatedLog(*log) })
+			p.respondToAnswerUpdatedLog(*log)
+
+			err := broadcast.MarkConsumed()
+			if err != nil {
+				logger.Errorf("Error marking log as consumed: %v", err)
+			}
 
 		default:
 			logger.Errorf("unknown log %v of type %T", log, log)
@@ -605,42 +575,43 @@ func (p *PollingDeviationChecker) processLogs() {
 	}
 }
 
-func consumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
-	consumed, err := lb.WasAlreadyConsumed()
-	if err != nil {
-		logger.Errorf("Error determining if log was already consumed: %v", err)
-		return
-	} else if consumed {
-		return
-	}
-	callback()
-	if err = lb.MarkConsumed(); err != nil {
-		logger.Errorf("Error marking log as consumed: %v", err)
-	}
-}
-
-// The AnswerUpdated log tells us that round has successfully close with a new
-// answer.  This tells us that we need to reset our poll ticker.
-//
-// Only invoked by the CSP consumer on the single goroutine for thread safety.
+// The AnswerUpdated log tells us that round has successfully closed with a new
+// answer.  We update our view of the oracleRoundState in case this log was
+// generated by a chain reorg.
 func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log contracts.LogAnswerUpdated) {
-	if p.reportableRoundID != nil && log.RoundId.Cmp(p.reportableRoundID) < 0 {
-		logger.Debugw("Received stale AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
+	logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
+
+	_, err := p.roundState(0)
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("could not fetch oracleRoundState: %v", err), p.loggerFieldsForAnswerUpdated(log)...)
 	}
 }
 
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
 // need to poll and submit an answer to the contract regardless of the deviation.
-//
-// Only invoked by the CSP consumer on the single goroutine for thread safety.
 func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound) {
-	// The idleThreshold resets when a new round starts
-	if log.StartedAt != nil {
-		p.resetIdleTicker(log.StartedAt.Uint64())
-	}
+	logger.Debugw("NewRound log", p.loggerFieldsForNewRound(log)...)
 
-	jobSpecID := p.initr.JobSpecID.String()
-	promSetBigInt(promFMSeenRound.WithLabelValues(jobSpecID), log.RoundId)
+	promSetBigInt(promFMSeenRound.WithLabelValues(p.initr.JobSpecID.String()), log.RoundId)
+
+	//
+	// NewRound answer submission logic:
+	//   - Any log that reaches this point, regardless of chain reorgs or log backfilling, is one that we have
+	//         not seen before.  Therefore, we should act upon it.
+	//   - We want to ensure that we respond to a previous, supersedable round in addition to the most recent
+	//         round (sometimes logs come in quickly, all at once, as with a reorg or backfilling).  Therefore,
+	//         we must use the roundID on the log, rather than the `.ReportableRoundID` value suggested by the
+	//         FluxAggregator's `oracleRoundState` method.
+	//   - We query the oracleRoundState of this specific roundID to ensure that it makes sense to submit.  We
+	//         ignore its `reportableRoundID` suggestion, because we already have a specific roundID to consider.
+	//   - In the event of a reorg that pushes our previous submissions back into the mempool, we can rely on the
+	//         TxManager to ensure they end up being mined into blocks, but this may cause them to revert if they
+	//         violate certain conditions in the FluxAggregator (restartDelay, etc.).  Therefore, the cleanest
+	//         solution at present is to resubmit for the reorged rounds.  The drawback of this approach is that
+	//         one or the other submission tx for a given round will revert, costing the node operator some gas.
+	//         The benefit is that those submissions are guaranteed to be made, ensuring that we have high data
+	//         availability (and also ensuring that node operators get paid).
+	//
 
 	// Ignore rounds we started
 	acct, err := p.store.KeyStore.GetFirstAccount()
@@ -652,30 +623,15 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		return
 	}
 
-	// It's possible for RoundState() to return a higher round ID than the one in the NewRound log
-	// (for example, if a large set of logs are delayed and arrive all at once).  We trust the value
-	// from RoundState() over the one in the log, and record it as the current ReportableRoundID.
-	roundState, err := p.roundState()
+	// Ignore rounds we're not eligible for, or for which we won't be paid
+	roundState, err := p.roundState(uint32(log.RoundId.Uint64()))
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("Ignoring new round request: error fetching eligibility from contract: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
-
 	err = p.checkEligibilityAndAggregatorFunding(roundState)
-	if errors.Cause(err) == ErrAlreadySubmitted {
-		logger.Infow(fmt.Sprintf("Ignoring new round request: %v, possible chain reorg", err), p.loggerFieldsForNewRound(log)...)
-		return
-	} else if err != nil {
+	if err != nil {
 		logger.Infow(fmt.Sprintf("Ignoring new round request: %v", err), p.loggerFieldsForNewRound(log)...)
-		return
-	}
-
-	// Ignore old rounds
-	if log.RoundId.Cmp(p.reportableRoundID) < 0 {
-		logger.Infow("Ignoring new round request: new < current", p.loggerFieldsForNewRound(log)...)
-		return
-	} else if log.RoundId.Uint64() <= p.mostRecentSubmittedRoundID {
-		logger.Infow("Ignoring new round request: already submitted for this round", p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
@@ -687,7 +643,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		return
 	}
 
-	err = p.createJobRun(polledAnswer, p.reportableRoundID)
+	err = p.createJobRun(polledAnswer, uint32(log.RoundId.Uint64()))
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to create job run: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
@@ -695,10 +651,9 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 }
 
 var (
-	ErrNotEligible      = errors.New("not eligible to submit")
-	ErrUnderfunded      = errors.New("aggregator is underfunded")
-	ErrPaymentTooLow    = errors.New("round payment amount < minimum contract payment")
-	ErrAlreadySubmitted = errors.Errorf("already submitted for round")
+	ErrNotEligible   = errors.New("not eligible to submit")
+	ErrUnderfunded   = errors.New("aggregator is underfunded")
+	ErrPaymentTooLow = errors.New("round payment amount < minimum contract payment")
 )
 
 func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
@@ -708,8 +663,6 @@ func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundStat
 		return ErrUnderfunded
 	} else if !p.sufficientPayment(roundState.PaymentAmount) {
 		return ErrPaymentTooLow
-	} else if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
-		return ErrAlreadySubmitted
 	}
 	return nil
 }
@@ -744,8 +697,7 @@ type DeviationThresholds struct {
 	Abs float64 // Absolute change required, i.e. |new-old| >= Abs
 }
 
-func (p *PollingDeviationChecker) pollIfEligible(
-	thresholds DeviationThresholds) (createdJobRun bool) {
+func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds) (createdJobRun bool) {
 	loggerFields := []interface{}{
 		"jobID", p.initr.JobSpecID,
 		"address", p.initr.InitiatorParams.Address,
@@ -758,18 +710,25 @@ func (p *PollingDeviationChecker) pollIfEligible(
 		return false
 	}
 
-	roundState, err := p.roundState()
+	//
+	// Poll ticker submission logic:
+	//   - We avoid saving on-chain state wherever possible.  Therefore, we do not know which round we should be
+	//         submitting for when the pollTicker fires.
+	//   - We pass 0 into `roundState()`, and the FluxAggregator returns a suggested roundID for us to
+	//         submit to, as well as our eligibility to submit to that round.
+	//
+
+	// Ask the FluxAggregator which round we should be submitting to, and what the state of that round is.
+	roundState, err := p.roundState(0)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to determine eligibility to submit from FluxAggregator contract: %v", err), loggerFields...)
 		return false
 	}
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
 
+	// Don't submit if we're not eligible, or won't get paid
 	err = p.checkEligibilityAndAggregatorFunding(roundState)
-	if errors.Cause(err) == ErrAlreadySubmitted {
-		logger.Infow(fmt.Sprintf("skipping poll: %v, tx is pending", err), loggerFields...)
-		return false
-	} else if err != nil {
+	if err != nil {
 		logger.Infow(fmt.Sprintf("skipping poll: %v", err), loggerFields...)
 		return false
 	}
@@ -788,8 +747,7 @@ func (p *PollingDeviationChecker) pollIfEligible(
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
 	)
-	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer,
-		polledAnswer, thresholds) {
+	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, thresholds) {
 		logger.Debugw("deviation < threshold, not submitting", loggerFields...)
 		return false
 	}
@@ -800,29 +758,26 @@ func (p *PollingDeviationChecker) pollIfEligible(
 		logger.Infow("starting first round", loggerFields...)
 	}
 
-	err = p.createJobRun(polledAnswer, p.reportableRoundID)
+	err = p.createJobRun(polledAnswer, roundState.ReportableRoundID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("can't create job run: %v", err), loggerFields...)
 		return false
 	}
 
 	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), polledAnswer)
-	promSetBigInt(promFMReportedRound.WithLabelValues(jobSpecID), p.reportableRoundID)
+	promSetUint32(promFMReportedRound.WithLabelValues(jobSpecID), roundState.ReportableRoundID)
 	return true
 }
 
-func (p *PollingDeviationChecker) roundState() (contracts.FluxAggregatorRoundState, error) {
+func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggregatorRoundState, error) {
 	acct, err := p.store.KeyStore.GetFirstAccount()
 	if err != nil {
 		return contracts.FluxAggregatorRoundState{}, err
 	}
-	roundState, err := p.fluxAggregator.RoundState(acct.Address)
+	roundState, err := p.fluxAggregator.RoundState(acct.Address, roundID)
 	if err != nil {
 		return contracts.FluxAggregatorRoundState{}, err
 	}
-
-	// It's pointless to listen to logs from before the current reporting round
-	p.reportableRoundID = big.NewInt(int64(roundState.ReportableRoundID))
 
 	// Update our tickers to reflect the current on-chain round
 	p.resetRoundTimeoutTicker(roundState)
@@ -886,22 +841,19 @@ type jobRunRequest struct {
 	DataPrefix       string          `json:"dataPrefix"`
 }
 
-func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nextRound *big.Int) error {
+func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, roundID uint32) error {
 	methodID, err := p.fluxAggregator.GetMethodID("submit")
 	if err != nil {
 		return err
 	}
 
-	nextRoundData, err := utils.EVMWordBigInt(nextRound)
-	if err != nil {
-		return err
-	}
+	roundIDData := utils.EVMWordUint64(uint64(roundID))
 
 	payload, err := json.Marshal(jobRunRequest{
 		Result:           polledAnswer,
 		Address:          p.initr.Address.Hex(),
 		FunctionSelector: hexutil.Encode(methodID),
-		DataPrefix:       hexutil.Encode(nextRoundData),
+		DataPrefix:       hexutil.Encode(roundIDData),
 	})
 	if err != nil {
 		return errors.Wrapf(err, "unable to encode Job Run request in JSON")
@@ -917,8 +869,6 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, nex
 		return err
 	}
 
-	p.mostRecentSubmittedRoundID = nextRound.Uint64()
-
 	return nil
 }
 
@@ -926,8 +876,6 @@ func (p *PollingDeviationChecker) loggerFields(added ...interface{}) []interface
 	return append(added, []interface{}{
 		"pollFrequency", p.initr.PollTimer.Period,
 		"idleDuration", p.initr.IdleTimer.Duration,
-		"mostRecentSubmittedRoundID", p.mostRecentSubmittedRoundID,
-		"reportableRoundID", p.reportableRoundID,
 		"contract", p.initr.Address.Hex(),
 		"jobID", p.initr.JobSpecID.String(),
 	}...)
@@ -935,7 +883,6 @@ func (p *PollingDeviationChecker) loggerFields(added ...interface{}) []interface
 
 func (p *PollingDeviationChecker) loggerFieldsForNewRound(log contracts.LogNewRound) []interface{} {
 	return []interface{}{
-		"reportableRound", p.reportableRoundID,
 		"round", log.RoundId,
 		"startedBy", log.StartedBy.Hex(),
 		"startedAt", log.StartedAt.String(),
@@ -960,8 +907,7 @@ func (p *PollingDeviationChecker) JobID() *models.ID {
 
 // OutsideDeviation checks whether the next price is outside the threshold.
 // If both thresholds are zero (default value), always returns true.
-func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal,
-	thresholds DeviationThresholds) bool {
+func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, thresholds DeviationThresholds) bool {
 	loggerFields := []interface{}{
 		"threshold", thresholds.Rel,
 		"absoluteThreshold", thresholds.Abs,
@@ -985,12 +931,10 @@ func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal,
 
 	if curAnswer.IsZero() {
 		if nextAnswer.IsZero() {
-			logger.Debugw("Relative deviation is undefined; can't satisfy threshold",
-				loggerFields...)
+			logger.Debugw("Relative deviation is undefined; can't satisfy threshold", loggerFields...)
 			return false
 		}
-
-		logger.Infow("Relative-deviation is ᪲; threshold met", loggerFields...)
+		logger.Infow("Threshold met: relative deviation is ∞", loggerFields...)
 		return true
 	}
 

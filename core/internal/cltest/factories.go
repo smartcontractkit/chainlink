@@ -696,6 +696,7 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	runManager := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
 	initr := models.Initiator{
+		JobSpecID: models.NewID(),
 		InitiatorParams: models.InitiatorParams{
 			PollTimer: models.PollTimerConfig{
 				Period: models.MustMakeDuration(time.Second),
