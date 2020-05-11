@@ -14,11 +14,11 @@ TMP_DIR=$(mktemp -d /tmp/link_token.XXXXXXXXX)
 
 LINK_COMPILER_ARTIFACT_PATH="$CDIR/../../../../evm-test-helpers/src/LinkToken.json"
 
-ABI=$(jq -c -r .abi < "$LINK_COMPILER_ARTIFACT_PATH")
+ABI=$(cat "$LINK_COMPILER_ARTIFACT_PATH" | jq -c -r .abi)
 ABI_PATH="${TMP_DIR}/abi.json"
 echo "$ABI" > "$ABI_PATH"
 
-BIN=$(jq -r .bytecode < "$LINK_COMPILER_ARTIFACT_PATH")
+BIN=$(cat "$LINK_COMPILER_ARTIFACT_PATH" | jq -r .bytecode)
 BIN_PATH="${TMP_DIR}/bin"
 echo "$BIN" > "$BIN_PATH"
 

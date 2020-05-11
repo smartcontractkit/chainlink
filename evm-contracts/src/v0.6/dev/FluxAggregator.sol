@@ -504,7 +504,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function latestSubmission(address _oracle)
     external
     view
-    returns (int256, uint256)
+    returns (int256, uint32)
   {
     return (oracles[_oracle].latestSubmission, oracles[_oracle].lastReportedRound);
   }
@@ -603,7 +603,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * only to be callable by oracles. Not for use by contracts to read state.
    * @param _oracle the address to look up information for.
    */
-  function oracleRoundState(address _oracle)
+  function oracleRoundState(address _oracle, uint32 _queriedRoundId)
     external
     view
     returns (
@@ -619,17 +619,20 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(msg.sender == tx.origin, "off-chain reading only");
 
-    bool shouldSupersede = oracles[_oracle].lastReportedRound == reportingRoundId ||
-      !acceptingSubmissions(reportingRoundId);
+    if (_queriedRoundId == 0) {
+      _queriedRoundId = reportingRoundId;
+    }
+
+    bool shouldSupersede = oracles[_oracle].lastReportedRound == _queriedRoundId || !acceptingSubmissions(_queriedRoundId);
     // Instead of nudging oracles to submit to the next round, the inclusion of
     // the shouldSupersede bool in the if condition pushes them towards
     // submitting in a currently open round.
-    if (supersedable(reportingRoundId) && shouldSupersede) {
-      _roundId = reportingRoundId.add(1);
+    if (supersedable(_queriedRoundId) && shouldSupersede) {
+      _roundId = _queriedRoundId.add(1);
       _paymentAmount = paymentAmount;
       _eligibleToSubmit = delayed(_oracle, _roundId);
     } else {
-      _roundId = reportingRoundId;
+      _roundId = _queriedRoundId;
       _paymentAmount = rounds[_roundId].details.paymentAmount;
       _eligibleToSubmit = acceptingSubmissions(_roundId);
     }

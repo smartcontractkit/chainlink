@@ -22,11 +22,13 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 
 	nodeAddr := cltest.NewAddress()
 	selector := make([]byte, 16)
-	rsHash := utils.MustHash("oracleRoundState(address)")
+	rsHash := utils.MustHash("oracleRoundState(address,uint32)")
 	copy(selector, rsHash.Bytes()[:4])
+	data := append(selector, nodeAddr[:]...)
+	data = append(data, utils.EVMWordUint64(0)...)
 	expectedCallArgs := eth.CallArgs{
 		To:   aggregatorAddress,
-		Data: append(selector, nodeAddr[:]...),
+		Data: data,
 	}
 
 	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`
@@ -62,7 +64,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			fa, err := contracts.NewFluxAggregator(aggregatorAddress, ethClient, nil)
 			require.NoError(t, err)
 
-			roundState, err := fa.RoundState(nodeAddr)
+			roundState, err := fa.RoundState(nodeAddr, 0)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectedRoundID, roundState.ReportableRoundID)
 			assert.Equal(t, test.expectedEligible, roundState.EligibleToSubmit)
