@@ -41,7 +41,32 @@ func (e *EthTx) TaskType() models.TaskType {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	if store.Config.EnableBulletproofTxManager() {
+		return etx.perform(input, store)
+	} else {
+		return etx.legacyPerform(input, store)
+	}
+}
+
+func (etx *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	value, err := getTxData(etx, input)
+	if err != nil {
+		err = errors.Wrap(err, "while constructing EthTx data")
+		return models.NewRunOutputError(err)
+	}
+
+	taskRunID := input.TaskRunID()
+	toAddress := etx.Address
+	encodedPayload := utils.ConcatBytes(etx.FunctionSelector.Bytes(), etx.DataPrefix, value)
+	if err := store.IdempotentInsertEthTaskRunTransaction(taskRunID, nil, toAddress, encodedPayload, etx.GasLimit); err != nil {
+		return models.NewRunOutputError(err)
+	}
+
+	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
+}
+
+func (etx *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
 		return pendingOutgoingConfirmationsOrConnection(input)
 	}
@@ -50,14 +75,14 @@ func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOu
 		return ensureTxRunResult(input, store)
 	}
 
-	value, err := getTxData(e, input)
+	value, err := getTxData(etx, input)
 	if err != nil {
 		err = errors.Wrap(err, "while constructing EthTx data")
 		return models.NewRunOutputError(err)
 	}
 
-	data := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
-	return createTxRunResult(e.Address, e.GasPrice, e.GasLimit, data, input, store)
+	data := utils.ConcatBytes(etx.FunctionSelector.Bytes(), etx.DataPrefix, value)
+	return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
 }
 
 // getTxData returns the data to save against the callback encoded according to

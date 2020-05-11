@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -65,7 +66,7 @@ const (
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
 	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
-	// Email of the fixture API user
+	// APIEmail is the email of the fixture API user
 	APIEmail = "apiuser@chainlink.test"
 	// Password just a password we use everywhere for testing
 	Password = "password"
@@ -101,8 +102,7 @@ func init() {
 	// a no-op, this should have no negative impact on normal test operation.
 	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
 	// store to use the raw DialectPostgres dialect and setup a one-use database.
-	// See `postgres.go`, specifically the `DropAndCreateThrowawayTestDB` function.
-	// You might also check out the migrations tests for an example on how to do this.
+	// See BootstrapORMWithNewDatabase() as a convenience function to help you do this.
 	txdb.Register("cloudsqlpostgres", "postgres", config.DatabaseURL(), txdb.SavePointOption(nil))
 
 	// Seed the random number generator, otherwise separate modules will take
@@ -118,6 +118,34 @@ func logLevelFromEnv() zapcore.Level {
 		_ = lvl.Set(env)
 	}
 	return lvl
+}
+
+// BootstrapORMWithNewDatabase creates an entirely new database and returns the ORM pointing to it
+// This is expensive! Do not use this unless you have a good reason to.
+func BootstrapORMWithNewDatabase(t *testing.T, dbname string, migrate bool) (*orm.ORM, func()) {
+	tc, cleanup := NewConfig(t)
+	config := tc.Config
+
+	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	testDBUrl, err := DropAndCreateThrowawayTestDB(tc.DatabaseURL(), dbname)
+	require.NoError(t, err)
+	orm, err := orm.NewORM(testDBUrl, config.DatabaseTimeout(), gracefulpanic.NewSignal(), orm.DialectPostgres, config.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	orm.SetLogging(true)
+
+	if migrate {
+		require.NoError(t, orm.RawDB(func(db *gorm.DB) error {
+			// Do full migrations
+			require.NoError(t, migrations.Migrate(db))
+			return nil
+		}))
+	}
+
+	return orm, func() {
+		assert.NoError(t, orm.Close())
+		cleanup()
+		os.RemoveAll(config.RootDir())
+	}
 }
 
 // TestConfig struct with test store and wsServer

@@ -670,22 +670,26 @@ func CreateServiceAgreementViaWeb(
 
 func NewRunInput(value models.JSON) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInput(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
 	jobRunID := models.NewID()
+	taskRunID := models.NewID()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, data, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, *taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.PollingDeviationChecker {
@@ -702,4 +706,16 @@ func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.Polli
 	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, func() {})
 	require.NoError(t, err)
 	return checker
+}
+
+func MustInsertTaskRun(t *testing.T, store *store.Store) models.ID {
+	taskRunID := models.NewID()
+
+	job := NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	jobRun := NewJobRun(job)
+	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
+	require.NoError(t, store.CreateJobRun(&jobRun))
+
+	return *taskRunID
 }

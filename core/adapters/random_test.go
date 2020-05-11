@@ -48,7 +48,7 @@ func TestRandom_Perform(t *testing.T) {
 	require.NoError(t, err) // Can't fail
 	jsonInput, err = jsonInput.Add("keyHash", publicKey.MustHash().Hex())
 	require.NoError(t, err) // Can't fail
-	input := models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
+	input := models.NewRunInput(&models.ID{}, models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proof := hexutil.MustDecode(result.Result().String())
@@ -65,7 +65,7 @@ func TestRandom_Perform(t *testing.T) {
 			"in RandomValueFromVRFProof has changed?")
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
-	input = models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
+	input = models.NewRunInput(&models.ID{}, models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result = adapter.Perform(*input, store)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }

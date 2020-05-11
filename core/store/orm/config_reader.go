@@ -29,6 +29,7 @@ type ConfigReader interface {
 	MaximumServiceDuration() models.Duration
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
+	EnableBulletproofTxManager() bool
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
