@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +14,36 @@ import (
 	"github.com/jinzhu/gorm"
 	null "gopkg.in/guregu/null.v3"
 )
+
+type EthTaskRunTransaction struct {
+	TaskRunID        uuid.UUID
+	EthTransactionID int64
+	EthTransaction   EthTransaction
+}
+
+type EthTransaction struct {
+	ID             int64
+	Nonce          *int64
+	FromAddress    *common.Address
+	ToAddress      common.Address
+	EncodedPayload []byte
+	Value          *assets.Eth
+	GasLimit       uint64
+	CreatedAt      time.Time
+}
+
+type EthTransactionAttempt struct {
+	ID                   int64
+	EthTransactionID     int64
+	GasPrice             utils.Big
+	SignedRawTx          []byte
+	Hash                 common.Hash
+	Error                *string
+	ConfirmedInBlockNum  *int64
+	ConfirmedInBlockHash common.Hash
+	ConfirmedAt          *time.Time
+	CreatedAt            time.Time
+}
 
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.

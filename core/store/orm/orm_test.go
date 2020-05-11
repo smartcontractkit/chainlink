@@ -1539,3 +1539,79 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 
 	assert.Equal(t, jobNumber, counter)
 }
+
+func TestORM_EthTaskRunTransaction(t *testing.T) {
+	t.Parallel()
+
+	// NOTE: Must sidestep transactional tests since we rely on error codes for this function
+	orm, cleanup := cltest.BootstrapORMWithNewDatabase(t, "eth_task_run_transactions", true)
+	defer cleanup()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.ORM = orm
+
+	sharedTaskRunID := cltest.MustInsertTaskRun(t, store)
+
+	t.Run("creates eth_task_run_transaction and eth_transaction", func(t *testing.T) {
+		fromAddress := cltest.NewAddress()
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		gasLimit := uint64(42)
+
+		err := store.IdempotentInsertEthTaskRunTransaction(sharedTaskRunID, &fromAddress, toAddress, encodedPayload, gasLimit)
+		require.NoError(t, err)
+
+		etrt, err := store.FindEthTaskRunTransactionByTaskRunID(sharedTaskRunID)
+		require.NoError(t, err)
+
+		assert.Equal(t, sharedTaskRunID.UUID(), etrt.TaskRunID)
+		require.NotNil(t, etrt.EthTransaction)
+		assert.Nil(t, etrt.EthTransaction.Nonce)
+		require.NotNil(t, etrt.EthTransaction.FromAddress)
+		assert.Equal(t, fromAddress, *etrt.EthTransaction.FromAddress)
+		assert.Equal(t, toAddress, etrt.EthTransaction.ToAddress)
+		assert.Equal(t, encodedPayload, etrt.EthTransaction.EncodedPayload)
+		assert.Equal(t, gasLimit, etrt.EthTransaction.GasLimit)
+
+		// Do it again to test idempotence
+		err = store.IdempotentInsertEthTaskRunTransaction(sharedTaskRunID, &fromAddress, toAddress, encodedPayload, gasLimit)
+		require.NoError(t, err)
+
+		// Ensure it didn't leave a stray EthTransaction hanging around
+		store.RawDB(func(db *gorm.DB) error {
+			var count int
+			require.NoError(t, db.Table("eth_transactions").Count(&count).Error)
+			assert.Equal(t, 1, count)
+			return nil
+		})
+	})
+
+	t.Run("returns error if eth_task_run_transaction already exists with this task run ID but has different values", func(t *testing.T) {
+		fromAddress := cltest.NewAddress()
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{3, 2, 1}
+		gasLimit := uint64(24)
+
+		err := store.IdempotentInsertEthTaskRunTransaction(sharedTaskRunID, &fromAddress, toAddress, encodedPayload, gasLimit)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction already exists for task run ID")
+	})
+
+	t.Run("handles nil from address", func(t *testing.T) {
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		gasLimit := uint64(42)
+
+		err := store.IdempotentInsertEthTaskRunTransaction(taskRunID, nil, toAddress, encodedPayload, gasLimit)
+		require.NoError(t, err)
+
+		etrt, err := store.FindEthTaskRunTransactionByTaskRunID(taskRunID)
+		require.NoError(t, err)
+
+		require.NotNil(t, etrt.EthTransaction)
+		require.Nil(t, etrt.EthTransaction.FromAddress)
+	})
+
+}

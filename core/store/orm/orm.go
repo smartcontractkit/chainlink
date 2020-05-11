@@ -1,9 +1,11 @@
 package orm
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"database/sql"
 	"encoding"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -11,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -630,6 +634,62 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	rval := db.Where("type = ?", taskTypeName).First(&taskSpec)
 	found := !rval.RecordNotFound()
 	return found, ignoreRecordNotFound(rval)
+}
+
+// IdempotentInsertEthTaskRunTransaction creates both eth_task_run_transaction and eth_transaction in one hit
+// It can be called multiple times without error as long as the outcome would have resulted in the same database state
+func (orm *ORM) IdempotentInsertEthTaskRunTransaction(taskRunID models.ID, fromAddress *common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+	ethTransaction := models.EthTransaction{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: encodedPayload,
+		Value:          assets.NewEth(0),
+		GasLimit:       gasLimit,
+	}
+	ethTaskRunTransaction := models.EthTaskRunTransaction{
+		TaskRunID: taskRunID.UUID(),
+	}
+	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		if err := dbtx.Save(&ethTransaction).Error; err != nil {
+			return err
+		}
+		ethTaskRunTransaction.EthTransactionID = ethTransaction.ID
+		if err := dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	switch v := err.(type) {
+	case *pq.Error:
+		if v.Constraint == "idx_eth_task_run_transactions_task_run_id" {
+			savedRecord, err := orm.FindEthTaskRunTransactionByTaskRunID(taskRunID)
+			if err != nil {
+				return err
+			}
+			t := savedRecord.EthTransaction
+			if t.ToAddress != toAddress || !bytes.Equal(t.EncodedPayload, encodedPayload) || t.GasLimit != gasLimit {
+				return fmt.Errorf(
+					"transaction already exists for task run ID %s but it has different parameters\n"+
+						"New parameters: toAddress: %s, encodedPayload: 0x%s, gasLimit: %v\n"+
+						"Existing record has: toAddress: %s, encodedPayload: 0x%s, gasLimit: %v",
+					taskRunID.String(),
+					toAddress.String(), hex.EncodeToString(encodedPayload), gasLimit,
+					t.ToAddress.String(), hex.EncodeToString(t.EncodedPayload), t.GasLimit,
+				)
+			}
+			return nil
+		}
+		return err
+	default:
+		return err
+	}
+}
+
+// FindEthTaskRunTransactionByTaskRunID finds the EthTaskRunTransaction with its EthTransaction preloaded
+func (orm *ORM) FindEthTaskRunTransactionByTaskRunID(taskRunID models.ID) (*models.EthTaskRunTransaction, error) {
+	etrt := &models.EthTaskRunTransaction{}
+	err := orm.db.Preload("EthTransaction").First(etrt, "task_run_id = ?", &taskRunID).Error
+	return etrt, err
 }
 
 // CreateTx finds and overwrites a transaction by its surrogate key, if it exists, or

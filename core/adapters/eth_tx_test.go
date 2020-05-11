@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math/big"
@@ -149,7 +150,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_StillPending(t *t
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash(), models.RunStatusPendingOutgoingConfirmations,
+		models.NewID(), *models.NewID(), cltest.NewHash(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -175,7 +176,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash(), models.RunStatusPendingOutgoingConfirmations,
+		models.NewID(), *models.NewID(), cltest.NewHash(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -214,7 +215,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 		"result":"0x3f839aaf5915da8714313a57b9c0a362d1a9a3fac1210190ace5cf3b008d780f"
 	}`)
 	input := *models.NewRunInput(
-		models.NewID(), data, models.RunStatusPendingOutgoingConfirmations,
+		models.NewID(), *models.NewID(), data, models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -265,7 +266,7 @@ func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithFatalErrorInTxMan
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations,
+		models.NewID(), *models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -288,7 +289,7 @@ func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithRecoverableErrorI
 
 	adapter := adapters.EthTx{}
 	input := *models.NewRunInputWithResult(
-		models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations,
+		models.NewID(), *models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations,
 	)
 	output := adapter.Perform(input, store)
 
@@ -310,7 +311,7 @@ func TestEthTxAdapter_Perform_NotConnectedWhenPendingOutgoingConfirmations(t *te
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
-	input := *models.NewRunInputWithResult(models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations)
+	input := *models.NewRunInputWithResult(models.NewID(), *models.NewID(), cltest.NewHash().String(), models.RunStatusPendingOutgoingConfirmations)
 	output := adapter.Perform(input, store)
 
 	require.NoError(t, output.Error())
@@ -426,7 +427,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingOutgo
 	txManager.On("Connected").Return(true)
 	txManager.On("BumpGasUntilSafe", mock.Anything).Return(nil, strpkg.Unknown, badResponseErr)
 
-	input := *models.NewRunInput(models.NewID(), output.Data(), output.Status())
+	input := *models.NewRunInput(models.NewID(), *models.NewID(), output.Data(), output.Status())
 	output = adapter.Perform(input, store)
 	require.NoError(t, output.Error())
 	assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, output.Status())
@@ -476,4 +477,92 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	require.NoError(t, result.Error())
 
 	txManager.AssertExpectations(t)
+}
+
+func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	toAddress := cltest.NewAddress()
+	gasLimit := uint64(42)
+	functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	dataPrefix := hexutil.MustDecode("0x88888888")
+
+	t.Run("with valid data and empty DataFormat writes to database and returns run output pending outgoing confirmations", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			Address:          toAddress,
+			GasLimit:         gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		result := adapter.Perform(*input, store)
+		require.NoError(t, result.Error())
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, result.Status())
+
+		etrt, err := store.FindEthTaskRunTransactionByTaskRunID(input.TaskRunID())
+		require.NoError(t, err)
+
+		assert.Equal(t, taskRunID.UUID(), etrt.TaskRunID)
+		require.NotNil(t, etrt.EthTransaction)
+		assert.Nil(t, etrt.EthTransaction.Nonce)
+		assert.Nil(t, etrt.EthTransaction.FromAddress)
+		assert.Equal(t, toAddress, etrt.EthTransaction.ToAddress)
+		assert.Equal(t, "70a08231888888880000000000000000000000000000000000000000000000000000009786856756", hex.EncodeToString(etrt.EthTransaction.EncodedPayload))
+		assert.Equal(t, gasLimit, etrt.EthTransaction.GasLimit)
+	})
+
+	t.Run("with bytes DataFormat writes correct encoded data to database", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			Address:          toAddress,
+			GasLimit:         gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+			DataFormat:       "bytes",
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "cönfirmed", models.RunStatusUnstarted)
+		result := adapter.Perform(*input, store)
+		require.NoError(t, result.Error())
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, result.Status())
+
+		expectedData := hexutil.MustDecode(
+			functionSelector.String() +
+				"88888888" + // dataPrefix
+				"0000000000000000000000000000000000000000000000000000000000000040" + // offset
+				"000000000000000000000000000000000000000000000000000000000000000a" + // length in bytes
+				"63c3b66e6669726d656400000000000000000000000000000000000000000000") // encoded string left padded
+
+		etrt, err := store.FindEthTaskRunTransactionByTaskRunID(input.TaskRunID())
+		require.NoError(t, err)
+
+		assert.Equal(t, expectedData, etrt.EthTransaction.EncodedPayload)
+	})
+
+	t.Run("with invalid data returns run output error and does not write to DB", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			Address:          toAddress,
+			GasLimit:         gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+			DataFormat:       "some old bollocks",
+		}
+		jobRunID := models.NewID()
+		taskRunID := models.NewID()
+		input := models.NewRunInputWithResult(jobRunID, *taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		result := adapter.Perform(*input, store)
+		assert.EqualError(t, result.Error(), "while constructing EthTx data: unsupported format: some old bollocks")
+		assert.Equal(t, models.RunStatusErrored, result.Status())
+
+		_, err := store.FindEthTaskRunTransactionByTaskRunID(input.TaskRunID())
+		require.Error(t, err)
+	})
 }
