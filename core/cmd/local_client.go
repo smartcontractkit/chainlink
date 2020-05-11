@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
@@ -38,7 +39,7 @@ const ownerPermsMask = os.FileMode(0700)
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	err := cli.Config.Validate()
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
@@ -164,7 +165,6 @@ func passwordFromFile(pwdFile string) (string, error) {
 	dat, err := ioutil.ReadFile(pwdFile)
 	return strings.TrimSpace(string(dat)), err
 }
-
 func logIfNonceOutOfSync(store *strpkg.Store) {
 	account := store.TxManager.NextActiveAccount()
 	if account == nil {
@@ -437,6 +437,34 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 		logger.Info("Deleted API user ", user.Email)
 	}
 	return err
+}
+
+// SetNextNonce manually updates the keys.next_nonce field for the given key with the given nonce value
+func (cli *Client) SetNextNonce(c *clipkg.Context) error {
+	addressHex := c.String("address")
+	nextNonce := c.Uint64("nextNonce")
+
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	config := orm.NewConfig()
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer orm.Close()
+
+	address, err := hexutil.Decode(addressHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode address"))
+	}
+
+	res := orm.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, address)
+	if res.Error != nil {
+		return cli.errorOut(err)
+	}
+	if res.RowsAffected == 0 {
+		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
+	}
+	return orm.Close()
 }
 
 // ImportKey imports a key to be used with the chainlink node

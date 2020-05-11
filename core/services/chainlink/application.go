@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -60,6 +61,7 @@ type ChainlinkApplication struct {
 	RunQueue                 services.RunQueue
 	JobSubscriber            services.JobSubscriber
 	GasUpdater               services.GasUpdater
+	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
@@ -87,12 +89,16 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
 	fluxMonitor := fluxmonitor.New(store, runManager)
+	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config)
+	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	store.NotifyNewEthTx = ethBroadcaster
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
 		JobSubscriber:            jobSubscriber,
 		GasUpdater:               gasUpdater,
+		EthBroadcaster:           ethBroadcaster,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -110,6 +116,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		store.TxManager,
 		jobSubscriber,
 		pendingConnectionResumer,
+		ethConfirmer,
 	}
 	for _, onConnectCallback := range onConnectCallbacks {
 		headTrackable := &headTrackableCallback{func() {
@@ -122,11 +129,9 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	return app
 }
 
-// Start runs the JobSubscriber and Scheduler. If successful,
-// nil will be returned.
-// Also listens for interrupt signals from the operating system so
-// that the application can be properly closed before the application
-// exits.
+// Start all necessary services. If successful, nil will be returned.  Also
+// listens for interrupt signals from the operating system so that the
+// application can be properly closed before the application exits.
 func (app *ChainlinkApplication) Start() error {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -146,6 +151,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
 		app.FluxMonitor.Start(),
+		app.EthBroadcaster.Start(),
 
 		// HeadTracker deliberately started after
 		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
@@ -177,6 +183,7 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 		merr = multierr.Append(merr, app.JobSubscriber.Stop())
 		app.FluxMonitor.Stop()
+		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+This release contains a number of features aimed at improving the node's reliability when putting transactions on-chain.
+
+- An experimental new transaction manager is introduced that delivers reliability improvements compared to the old one, especially when faced with difficult network conditions or spiking gas prices. It also reduces load on the database and makes fewer calls to the eth node compared to the old tx manager.
+- Along with the new transaction manager is a local client command for manually controlling the node nonce - `setnextnonce`. This should never be necessary under normal operation and is included only for use in emergencies.
+- New prometheus metrics for the head tracker:
+  - `head_tracker_heads_in_queue` - The number of heads currently waiting to be executed. You can think of this as the 'load' on the head tracker. Should rarely or never be more than 0.
+  - `head_tracker_callback_execution_duration` - How long it took to execute all callbacks. If the average of this exceeds the time between blocks, your node could lag behind and delay transactions.
+
+### Env var changes
+
+- `ENABLE_BULLETPROOF_TX_MANAGER` - set this to true to enable the experimental new transaction manager. CAUTION: Once the node is booted with this toggled on, a configuration value is written that makes it permanent. Toggling it off again will have no effect. This is done because BulletproofTxManager requires tight control over the nonce sequence and if you revert to the old tx manager, the nonce can get out of sync. If you _must_ revert to the old transaction manager, at your own risk, you can execute the following SQL command: `DELETE FROM configurations WHERE name = 'ENABLE_BULLETPROOF_TX_MANAGER';`.
+- `ETH_GAS_BUMP_PERCENT` default value has been increased from 10% to 20%
+- `ETH_GAS_BUMP_THRESHOLD` default value has been decreased from 12 to 3
+- `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
+- `EthHeadTrackerHistoryDepth` specifies how many heads the head tracker should keep in the database. The default is 100. It is not recommended to change this setting.
+
 ## [0.8.5] - 2020-06-01
 
 ### Added

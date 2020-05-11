@@ -31,6 +31,11 @@ type SimulatedBackendClient struct {
 	chainId int
 }
 
+// GethClient is a noop, solely needed to conform to GethClientWrapper interface
+func (c *SimulatedBackendClient) GethClient(f func(c eth.GethClient) error) error {
+	return nil
+}
+
 // Close terminates the underlying blockchain's update loop.
 func (c *SimulatedBackendClient) Close() {
 	c.b.Close()
