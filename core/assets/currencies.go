@@ -233,3 +233,25 @@ func (*Eth) Symbol() string {
 func (e *Eth) ToInt() *big.Int {
 	return (*big.Int)(e)
 }
+
+// Scan reads the database value and returns an instance.
+func (e *Eth) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case []uint8:
+		// The SQL library returns numeric() types as []uint8 of the string representation
+		decoded, ok := e.SetString(string(v), 10)
+		if !ok {
+			return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Eth", value, value)
+		}
+		*e = *decoded
+	default:
+		return fmt.Errorf("Unable to convert %v of %T to Eth", value, value)
+	}
+
+	return nil
+}
+
+// Value returns the Eth value for serialization to database.
+func (e *Eth) Value() (driver.Value, error) {
+	return e.String(), nil
+}
