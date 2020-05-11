@@ -3,7 +3,6 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/big"
 	"net/url"
@@ -415,43 +414,22 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("Must pass in filepath to key"))
 	}
 
-	src := c.Args().First()
-	kdir := cli.Config.KeysDir()
+	var (
+		srcKeyPath = c.Args().First()                      // ex: ./keys/mykey
+		srcKeyFile = filepath.Base(srcKeyPath)             // ex: mykey
+		dstDirPath = cli.Config.KeysDir()                  // ex: /clroot/keys
+		dstKeyPath = filepath.Join(dstDirPath, srcKeyFile) // ex: /clroot/keys/mykey
+	)
 
-	if !utils.FileExists(kdir) {
-		err := os.MkdirAll(kdir, os.FileMode(0700))
-		if err != nil {
-			return cli.errorOut(err)
-		}
+	err := utils.EnsureDirAndPerms(dstDirPath, 0700|os.ModeDir)
+	if err != nil {
+		return cli.errorOut(err)
 	}
 
-	if i := strings.LastIndex(src, "/"); i < 0 {
-		kdir += "/" + src
-	} else {
-		kdir += src[strings.LastIndex(src, "/"):]
-	}
-
-	if err := copyFile(src, kdir, 0600); err != nil {
+	err = utils.CopyFileWithPerms(srcKeyPath, dstKeyPath, 0600)
+	if err != nil {
 		return cli.errorOut(err)
 	}
 
 	return app.GetStore().SyncDiskKeyStoreToDB()
-}
-
-func copyFile(src, dst string, perms os.FileMode) error {
-	from, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-
-	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-
-	_, err = io.Copy(to, from)
-
-	return err
 }
