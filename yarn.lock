@@ -3814,10 +3814,10 @@
   resolved "https://registry.npmjs.org/@types/pino-std-serializers/-/pino-std-serializers-2.4.0.tgz#8cad99175cb79c2448f7455a2d32fb3fde29579c"
   integrity sha512-eAdu+NW1IkCdmp85SnhyKha+OOREQMT9lXaoICQxa7bhSauRiLzu3WSNt9Mf2piuJvWeXF/G0hGWHr63xNpIRA==
 
-"@types/pino@*", "@types/pino@^5.17.0":
-  version "5.17.0"
-  resolved "https://registry.npmjs.org/@types/pino/-/pino-5.17.0.tgz#850cd1d7c5a0e123f022badc2e2bb42d8d0efd9d"
-  integrity sha512-L5DBGFBRY4DKc7ufjZqV4J61ji9FSn4zKvQ5CUBbWi0gE0uOSNwDBpj1t7VwRwdmrpG3QlFxAeXgpViGUOS5Bg==
+"@types/pino@*", "@types/pino@^6.0.0":
+  version "6.0.0"
+  resolved "https://registry.npmjs.org/@types/pino/-/pino-6.0.0.tgz#9c255a87e127b34a368e9f8498ed25943040b809"
+  integrity sha512-V/ygB0a3bkuNMT+MgRd5wahC3dwgEtWyZG7eY2c9gJZZFoZbIQj8vo/h9h8A+iWJfXpzvm97XtydYvKuW2kt1Q==
   dependencies:
     "@types/node" "*"
     "@types/pino-std-serializers" "*"
