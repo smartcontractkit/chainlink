@@ -202,14 +202,17 @@ func validateFeeds(feeds models.Feeds, store *store.Store) error {
 			}
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
 			bridgeName := feed["bridge"]
+			bridgeNameString, ok := bridgeName.(string)
 			if bridgeName == nil {
 				return errors.New("Feeds object missing bridge key")
 			} else if len(feed) != 1 {
 				return errors.New("Unsupported keys in feed JSON")
+			} else if !ok {
+				return errors.New("Unsupported bridge name type in feed JSON")
 			}
-			bridgeNames = append(bridgeNames, bridgeName.(string))
+			bridgeNames = append(bridgeNames, bridgeNameString)
 		default:
-			return errors.New("unknown feed type")
+			return errors.New("Unknown feed type")
 		}
 	}
 	if _, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
