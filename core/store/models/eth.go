@@ -1,16 +1,98 @@
 package models
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	null "gopkg.in/guregu/null.v3"
 )
+
+type EthTxState string
+type EthTxAttemptState string
+
+const (
+	EthTxUnstarted   = EthTxState("unstarted")
+	EthTxInProgress  = EthTxState("in_progress")
+	EthTxFatalError  = EthTxState("fatal_error")
+	EthTxUnconfirmed = EthTxState("unconfirmed")
+	EthTxConfirmed   = EthTxState("confirmed")
+
+	EthTxAttemptInProgress = EthTxAttemptState("in_progress")
+	EthTxAttemptBroadcast  = EthTxAttemptState("broadcast")
+)
+
+type EthTaskRunTx struct {
+	TaskRunID uuid.UUID
+	EthTxID   int64
+	EthTx     EthTx
+}
+
+type EthTx struct {
+	ID             int64
+	Nonce          *int64
+	FromAddress    common.Address
+	ToAddress      common.Address
+	EncodedPayload []byte
+	Value          assets.Eth
+	GasLimit       uint64
+	Error          *string
+	BroadcastAt    *time.Time
+	CreatedAt      time.Time
+	State          EthTxState
+	EthTxAttempts  []EthTxAttempt `gorm:"association_autoupdate:false;association_autocreate:false"`
+}
+
+func (e EthTx) GetError() error {
+	if e.Error == nil {
+		return nil
+	}
+	return errors.New(*e.Error)
+}
+
+type EthTxAttempt struct {
+	ID                      int64
+	EthTxID                 int64
+	EthTx                   EthTx
+	GasPrice                utils.Big
+	SignedRawTx             []byte
+	Hash                    common.Hash
+	CreatedAt               time.Time
+	BroadcastBeforeBlockNum *int64
+	State                   EthTxAttemptState
+	EthReceipts             []EthReceipt `gorm:"foreignkey:TxHash;association_foreignkey:Hash;association_autoupdate:false;association_autocreate:false"`
+}
+
+type EthReceipt struct {
+	ID               int64
+	TxHash           common.Hash
+	BlockHash        common.Hash
+	BlockNumber      int64
+	TransactionIndex uint
+	Receipt          []byte
+	CreatedAt        time.Time
+}
+
+// GetSignedTx decodes the SignedRawTx into a types.Transaction struct
+func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
+	s := rlp.NewStream(bytes.NewReader(a.SignedRawTx), 0)
+	signedTx := new(types.Transaction)
+	if err := signedTx.DecodeRLP(s); err != nil {
+		logger.Error("could not decode RLP")
+		return nil, err
+	}
+	return signedTx, nil
+}
 
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
@@ -139,6 +221,33 @@ type Head struct {
 	Parent     *Head
 	Timestamp  time.Time
 	CreatedAt  time.Time
+}
+
+// EarliestInChain recurses through parents until it finds the earliest one
+func (h Head) EarliestInChain() Head {
+	for {
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return h
+}
+
+// ChainLength returns the length of the chain followed by recursively looking up parents
+func (h Head) ChainLength() uint32 {
+	l := uint32(1)
+
+	for {
+		if h.Parent != nil {
+			l++
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return l
 }
 
 // NewHead returns a Head instance.

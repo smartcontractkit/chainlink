@@ -188,7 +188,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
-	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
+	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.ToAddress.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
 	initr := j.Initiators[0]
@@ -266,7 +266,7 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
-	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
+	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.ToAddress.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)

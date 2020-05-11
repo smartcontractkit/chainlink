@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -25,12 +26,13 @@ const (
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
-	Address          common.Address       `json:"address"`
+	ToAddress        common.Address       `json:"address"`
+	FromAddress      *common.Address      `json:"fromAddress"`
 	FunctionSelector eth.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes        `json:"dataPrefix"`
 	DataFormat       string               `json:"format"`
 	GasPrice         *utils.Big           `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit         uint64               `json:"gasLimit"`
+	GasLimit         *uint64              `json:"gasLimit"`
 }
 
 // TaskType returns the type of Adapter.
@@ -42,6 +44,93 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	if store.Config.EnableBulletproofTxManager() {
+		return e.perform(input, store)
+	} else {
+		return e.legacyPerform(input, store)
+	}
+}
+
+// TODO(sam): Move away from resuming this on every new head and do something more sensible
+func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
+	if err != nil {
+		err = errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed")
+		logger.Error(err)
+		return models.NewRunOutputError(err)
+	}
+	if trtx != nil {
+		return e.checkForConfirmation(*trtx, input, store)
+	}
+	return e.insertEthTx(input, store)
+}
+
+func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunInput, store *store.Store) models.RunOutput {
+	switch trtx.EthTx.State {
+	case models.EthTxConfirmed:
+		receipt := models.EthReceipt{}
+		if err := store.GetRawDB().
+			Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", trtx.EthTxID).
+			First(&receipt).Error; err != nil {
+			err = errors.Wrap(err, "checkForConfirmation could not find receipt for confirmed eth_tx")
+			logger.Error(err)
+			return models.NewRunOutputError(err)
+		}
+		output, err := models.JSON{}.Add("result", receipt.TxHash.Hex())
+		if err != nil {
+			err = errors.Wrap(err, "checkForConfirmation failed")
+			logger.Error(err)
+			return models.NewRunOutputError(err)
+		}
+		return models.NewRunOutputComplete(output)
+	case models.EthTxFatalError:
+		return models.NewRunOutputError(trtx.EthTx.GetError())
+	default:
+		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
+	}
+}
+
+func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.RunOutput {
+	value, err := getTxData(e, input)
+	if err != nil {
+		err = errors.Wrap(err, "insertEthTx failed while constructing EthTx data")
+		return models.NewRunOutputError(err)
+	}
+
+	taskRunID := input.TaskRunID()
+	toAddress := e.ToAddress
+	var fromAddress common.Address
+	if e.FromAddress != nil {
+		fromAddress = *e.FromAddress
+	} else {
+		fromAddress, err = store.GetDefaultAddress()
+		if err != nil {
+			err = errors.Wrap(err, "insertEthTx failed to GetDefaultAddress")
+			logger.Error(err)
+			return models.NewRunOutputError(err)
+		}
+	}
+	encodedPayload := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
+
+	var gasLimit uint64
+	if e.GasLimit == nil {
+		gasLimit = store.Config.EthGasLimitDefault()
+	} else {
+		gasLimit = *e.GasLimit
+	}
+
+	if err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
+		err = errors.Wrap(err, "insertEthTx failed")
+		logger.Error(err)
+		return models.NewRunOutputError(err)
+	}
+
+	store.NotifyNewEthTx.Trigger()
+
+	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
+}
+
+func (e *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
 		return pendingOutgoingConfirmationsOrConnection(input)
 	}
@@ -57,7 +146,11 @@ func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOu
 	}
 
 	data := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
-	return createTxRunResult(e.Address, e.GasPrice, e.GasLimit, data, input, store)
+	gasLimit := uint64(0)
+	if e.GasLimit != nil {
+		gasLimit = *e.GasLimit
+	}
+	return createTxRunResult(e.ToAddress, e.GasPrice, gasLimit, data, input, store)
 }
 
 // getTxData returns the data to save against the callback encoded according to

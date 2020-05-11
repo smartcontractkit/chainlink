@@ -442,6 +442,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnder
 
 	store := app.Store
 	config := store.Config
+	config.Set("ETH_GAS_BUMP_PERCENT", 10)
 
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
@@ -486,7 +487,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnder
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPriceIsReached(t *testing.T) {
+func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsReached(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t)
@@ -502,6 +503,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPrice
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
+	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold)))
 	require.NoError(t, app.StartAndConnect())
 
@@ -512,18 +514,18 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPrice
 	ethMock.Register("eth_getTransactionReceipt", eth.TxReceipt{})
 
 	receipt, state, err := txm.BumpGasUntilSafe(tx.Attempts[0].Hash)
-	assert.EqualError(t, err, "bumped gas price of 548900000000 would exceed maximum configured limit of 500000000000, set by ETH_MAX_GAS_PRICE_WEI")
+	require.NoError(t, err)
 	assert.Nil(t, receipt)
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
 	tx, err = store.FindTx(tx.ID)
 	require.NoError(t, err)
-	assert.Len(t, tx.Attempts, 1)
+	assert.Len(t, tx.Attempts, 2)
 
-	latestAttempt := tx.Attempts[0]
+	latestAttempt := tx.Attempts[1]
 	gasPrice, err := latestAttempt.GasPrice.Value()
 	require.NoError(t, err)
-	assert.Equal(t, "499000000000", gasPrice)
+	assert.Equal(t, "500000000000", gasPrice)
 
 	ethMock.EventuallyAllCalled(t)
 }
@@ -1245,6 +1247,8 @@ func TestTxManager_BumpGasByIncrement(t *testing.T) {
 
 	config := cltest.NewTestConfig(t)
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
+	config.Set("ETH_GAS_PRICE_DEFAULT", 1)
+	config.Set("ETH_GAS_BUMP_PERCENT", 10)
 	keyStore := strpkg.NewKeyStore(config.KeysDir())
 	txm := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 

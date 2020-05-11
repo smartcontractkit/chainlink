@@ -95,7 +95,6 @@ func (gu *gasUpdater) OnNewLongestChain(head models.Head) {
 		logger.Error(err, fmt.Sprintf("GasUpdater: error retrieving block %v", blockToFetch))
 		return
 	}
-	logger.Debugw("GasUpdater: got block", "blockNumber", blockToFetch)
 	if len(block.Transactions) > 0 {
 		gu.rollingBlockHistory = append(gu.rollingBlockHistory, block)
 		if len(gu.rollingBlockHistory) > gu.rollingBlockHistorySize {
@@ -108,10 +107,10 @@ func (gu *gasUpdater) OnNewLongestChain(head models.Head) {
 			}
 			promGasUpdaterSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", gu.percentile), string(blockToFetch)).Set(float64(percentileGasPrice))
 		} else {
-			logger.Debugw("GasUpdater: waiting for blocks", "inHistory", len(gu.rollingBlockHistory), "required", gu.rollingBlockHistorySize)
+			logger.Debugw(fmt.Sprintf("GasUpdater: waiting for blocks: %v/%v", len(gu.rollingBlockHistory), gu.rollingBlockHistorySize), "inHistory", len(gu.rollingBlockHistory), "required", gu.rollingBlockHistorySize)
 		}
 	} else {
-		logger.Debugw("GasUpdater: skipping empty block", "blockNumber", blockToFetch)
+		logger.Debugw(fmt.Sprintf("GasUpdater: skipping empty block: %v", blockToFetch), "blockNumber", blockToFetch)
 	}
 }
 
@@ -137,7 +136,7 @@ func (gu *gasUpdater) setPercentileGasPrice(gasPrice int64) error {
 	if bigGasPrice.Cmp(gu.store.Config.EthMaxGasPriceWei()) > 0 {
 		return fmt.Errorf("cannot set gas price %s because it exceeds EthMaxGasPriceWei %s", bigGasPrice.String(), gu.store.Config.EthMaxGasPriceWei().String())
 	}
-	logger.Debugw("GasUpdater: setting new default gas price", "gasPriceWei", gasPrice, "gasPriceGWei", gasPriceGwei)
+	logger.Debugw(fmt.Sprintf("GasUpdater: setting new default gas price: %v Gwei", gasPriceGwei), "gasPriceWei", gasPrice, "gasPriceGWei", gasPriceGwei)
 	return gu.store.Config.SetEthGasPriceDefault(bigGasPrice)
 }
 

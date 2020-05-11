@@ -726,5 +726,116 @@ func NewEthHeader(height interface{}) types.Header {
 		ParentHash: NewHash(),
 		Time:       uint64(time.Now().Unix()),
 	}
+}
 
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
+	taskRunID := models.NewID()
+
+	job := NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	jobRun := NewJobRun(job)
+	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
+	require.NoError(t, store.CreateJobRun(&jobRun))
+
+	return *taskRunID
+}
+
+func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) models.Key {
+	a, err := models.NewEIP55Address(address.Hex())
+	require.NoError(t, err)
+	key := models.Key{
+		Address: a,
+		JSON:    JSONFromString(t, "{}"),
+	}
+	require.NoError(t, store.GetRawDB().Save(&key).Error)
+	return key
+}
+
+func NewEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
+	return models.EthTx{
+		FromAddress:    GetDefaultFromAddress(t, store),
+		ToAddress:      NewAddress(),
+		EncodedPayload: []byte{1, 2, 3},
+		Value:          assets.NewEthValue(142),
+		GasLimit:       uint64(1000000000),
+	}
+}
+
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64) models.EthTx {
+	timeNow := time.Now()
+	etx := NewEthTx(t, store)
+
+	etx.BroadcastAt = &timeNow
+	n := nonce
+	etx.Nonce = &n
+	etx.State = models.EthTxUnconfirmed
+	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID, store)
+
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = models.EthTxAttemptBroadcast
+	require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64) models.EthTx {
+	timeNow := time.Now()
+	etx := NewEthTx(t, store)
+
+	etx.BroadcastAt = &timeNow
+	etx.Nonce = &nonce
+	etx.State = models.EthTxConfirmed
+	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID, store)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = models.EthTxAttemptBroadcast
+	require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
+	return etx
+}
+
+func GetDefaultFromAddress(t *testing.T, store *strpkg.Store) common.Address {
+	keys, err := store.Keys()
+	require.NoError(t, err)
+	key := keys[0]
+	return key.Address.Address()
+}
+
+func NewEthTxAttempt(t *testing.T, etxID int64, store *strpkg.Store) models.EthTxAttempt {
+	gasPrice := utils.NewBig(big.NewInt(1))
+	return models.EthTxAttempt{
+		EthTxID:  etxID,
+		GasPrice: *gasPrice,
+		// Just a random signed raw tx that decodes correctly
+		// Ignore all actual values
+		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
+		Hash:        NewHash(),
+	}
+}
+
+func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, blockHash common.Hash, txHash common.Hash) models.EthReceipt {
+	r := models.EthReceipt{
+		BlockNumber: blockNumber,
+		BlockHash:   blockHash,
+		TxHash:      txHash,
+		Receipt:     []byte(`{"foo":42}`),
+	}
+	require.NoError(t, s.GetRawDB().Save(&r).Error)
+	return r
+}
+
+func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
+	etx := NewEthTx(t, store)
+	errStr := "something exploded"
+	etx.Error = &errStr
+	etx.State = models.EthTxFatalError
+
+	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	return etx
 }

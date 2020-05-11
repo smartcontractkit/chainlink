@@ -69,6 +69,20 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	return mock
 }
 
+// SimpleGethWrapper offers an easy way to mock the eth client
+type SimpleGethWrapper struct {
+	c eth.GethClient
+}
+
+func NewSimpleGethWrapper(c eth.GethClient) *SimpleGethWrapper {
+	wrapper := SimpleGethWrapper{c: c}
+	return &wrapper
+}
+
+func (wrapper *SimpleGethWrapper) GethClient(f func(c eth.GethClient) error) error {
+	return f(wrapper.c)
+}
+
 // EthMock is a mock ethereum client
 type EthMock struct {
 	Responses      []MockResponse
@@ -79,6 +93,11 @@ type EthMock struct {
 	context        string
 	strict         bool
 	t              testing.TB
+}
+
+// GethClient is a noop, solely needed to conform to GethClientWrapper interface
+func (mock *EthMock) GethClient(f func(c eth.GethClient) error) error {
+	return nil
 }
 
 // Dial mock dial
