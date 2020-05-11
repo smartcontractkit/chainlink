@@ -186,6 +186,12 @@ func NewEth(w int64) *Eth {
 	return (*Eth)(big.NewInt(w))
 }
 
+// NewEthValue returns a new struct to represent ETH from it's smallest unit
+func NewEthValue(w int64) Eth {
+	eth := NewEth(w)
+	return *eth
+}
+
 // Cmp delegates to *big.Int.Cmp
 func (e *Eth) Cmp(y *Eth) int {
 	return e.ToInt().Cmp(y.ToInt())
@@ -250,4 +256,14 @@ func (*Eth) Symbol() string {
 // ToInt returns the Eth value as a *big.Int.
 func (e *Eth) ToInt() *big.Int {
 	return (*big.Int)(e)
+}
+
+// Scan reads the database value and returns an instance.
+func (e *Eth) Scan(value interface{}) error {
+	return (*utils.Big)(e).Scan(value)
+}
+
+// Value returns the Eth value for serialization to database.
+func (e Eth) Value() (driver.Value, error) {
+	return (utils.Big)(e).Value()
 }

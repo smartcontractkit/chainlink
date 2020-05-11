@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math/big"
@@ -94,7 +95,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 
 			store.TxManager = txManager
 
-			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: gasLimit}
+			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: &gasLimit}
 			input := cltest.NewRunInputWithResult(test.input)
 			result := adapter.Perform(input, store)
 
@@ -476,4 +477,186 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	require.NoError(t, result.Error())
 
 	txManager.AssertExpectations(t)
+}
+
+func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	notifier := new(mocks.NotifyNewEthTx)
+	notifier.On("Trigger").Return()
+	store.NotifyNewEthTx = notifier
+	defer cleanup()
+
+	toAddress := cltest.NewAddress()
+	gasLimit := uint64(42)
+	functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	dataPrefix := hexutil.MustDecode("0x88888888")
+
+	t.Run("with valid data and empty DataFormat writes to database and returns run output pending outgoing confirmations", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		runOutput := adapter.Perform(*input, store)
+		require.NoError(t, runOutput.Error())
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
+
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
+		require.NoError(t, err)
+
+		assert.Equal(t, taskRunID.UUID(), etrt.TaskRunID)
+		require.NotNil(t, etrt.EthTx)
+		assert.Nil(t, etrt.EthTx.Nonce)
+		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
+		assert.Equal(t, "70a08231888888880000000000000000000000000000000000000000000000000000009786856756", hex.EncodeToString(etrt.EthTx.EncodedPayload))
+		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
+		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
+	})
+
+	t.Run("with bytes DataFormat writes correct encoded data to database", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+			DataFormat:       "bytes",
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "cönfirmed", models.RunStatusUnstarted)
+		runOutput := adapter.Perform(*input, store)
+		require.NoError(t, runOutput.Error())
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
+
+		expectedData := hexutil.MustDecode(
+			functionSelector.String() +
+				"88888888" + // dataPrefix
+				"0000000000000000000000000000000000000000000000000000000000000040" + // offset
+				"000000000000000000000000000000000000000000000000000000000000000a" + // length in bytes
+				"63c3b66e6669726d656400000000000000000000000000000000000000000000") // encoded string left padded
+
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
+		require.NoError(t, err)
+
+		assert.Equal(t, expectedData, etrt.EthTx.EncodedPayload)
+	})
+
+	t.Run("with invalid data returns run output error and does not write to DB", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+			DataFormat:       "some old bollocks",
+		}
+		jobRunID := models.NewID()
+		taskRunID := models.NewID()
+		input := models.NewRunInputWithResult(jobRunID, *taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		runOutput := adapter.Perform(*input, store)
+		assert.Contains(t, runOutput.Error().Error(), "while constructing EthTx data: unsupported format: some old bollocks")
+		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
+
+		trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
+		require.NoError(t, err)
+		require.Nil(t, trtx)
+	})
+
+	t.Run("with unconfirmed transaction returns output pending confirmations", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0)
+		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+
+		// Do the thing
+		runOutput := adapter.Perform(*input, store)
+
+		require.NoError(t, runOutput.Error())
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
+	})
+
+	t.Run("with confirmed transaction returns error if receipt is missing (invariant violation, should never happen)", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 1)
+		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+
+		// Do the thing
+		runOutput := adapter.Perform(*input, store)
+
+		require.Error(t, runOutput.Error())
+		require.EqualError(t, runOutput.Error(), "checkForConfirmation could not find receipt for confirmed eth_tx: record not found")
+		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
+	})
+
+	t.Run("with confirmed transaction returns output complete with transaction hash pulled from receipt", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 1)
+
+		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
+
+		cltest.MustInsertEthReceipt(t, store, 1, cltest.NewHash(), confirmedAttemptHash)
+		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+
+		// Do the thing
+		runOutput := adapter.Perform(*input, store)
+
+		require.NoError(t, runOutput.Error())
+		assert.Equal(t, models.RunStatusCompleted, runOutput.Status())
+		assert.Equal(t, confirmedAttemptHash.Hex(), runOutput.Result().String())
+
+		notifier.AssertExpectations(t)
+	})
+
+	t.Run("with transaction that ended up in fatal_error state returns job run error", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		etx := cltest.MustInsertFatalErrorEthTx(t, store)
+		require.NoError(t, store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID).Error)
+
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+
+		// Do the thing
+		runOutput := adapter.Perform(*input, store)
+
+		require.EqualError(t, runOutput.Error(), "something exploded")
+		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
+		assert.Equal(t, "", runOutput.Result().String())
+	})
 }

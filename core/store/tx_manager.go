@@ -741,14 +741,19 @@ func (txm *EthTxManager) handleSafe(
 	return nil
 }
 
-// BumpGasByIncrement returns a new gas price increased by the larger of:
+func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int {
+	return BumpGas(txm.config, originalGasPrice)
+}
+
+// BumpGas returns a new gas price increased by the largest of:
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT)
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI)
-func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int {
+// - The configured default base gas price (ETH_GAS_PRICE_DEFAULT)
+func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) *big.Int {
 	// Similar logic is used in geth
 	// See: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_list.go#L255
 	// And: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_pool.go#L171
-	percentageMultiplier := big.NewInt(100 + int64(txm.config.EthGasBumpPercent()))
+	percentageMultiplier := big.NewInt(100 + int64(config.EthGasBumpPercent()))
 	minimumGasBumpByPercentage := new(big.Int).Div(
 		new(big.Int).Mul(
 			originalGasPrice,
@@ -756,11 +761,15 @@ func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int 
 		),
 		big.NewInt(100),
 	)
-	minimumGasBumpByIncrement := new(big.Int).Add(originalGasPrice, txm.config.EthGasBumpWei())
-	if minimumGasBumpByIncrement.Cmp(minimumGasBumpByPercentage) < 0 {
-		return minimumGasBumpByPercentage
+	minimumGasBumpByIncrement := new(big.Int).Add(originalGasPrice, config.EthGasBumpWei())
+	currentDefaultGasPrice := config.EthGasPriceDefault()
+	prices := []*big.Int{minimumGasBumpByPercentage, minimumGasBumpByIncrement, currentDefaultGasPrice}
+	max := utils.BigIntSlice(prices).Max()
+	if max.Cmp(config.EthMaxGasPriceWei()) > 0 {
+		logger.Errorf("bumped gas price of %v would exceed configured ETH_MAX_GAS_PRICE_WEI, capping at %v wei", max, config.EthMaxGasPriceWei())
+		return config.EthMaxGasPriceWei()
 	}
-	return minimumGasBumpByIncrement
+	return max
 }
 
 // bumpGas attempts a new transaction with an increased gas cost
