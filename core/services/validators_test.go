@@ -489,7 +489,9 @@ func TestValidateInitiator_FeedsErrors(t *testing.T) {
 		FeedsJSON   string
 	}{
 		{"invalid url", `["invalid/url"]`},
-		{"invalid bridge", `[{"bridge": "doesnotexist"}]`},
+		{"invalid bridge name", `[{"bridge": "doesnotexist"}]`},
+		{"invalid url type", `[1]`},
+		{"invalid bridge type", `[{"bridge": 1}]`},
 		{"valid url, invalid bridge", `["http://example.com", {"bridge": "doesnotexist"}]`},
 		{"invalid url, valid bridge", `["invalid/url", {"bridge": "testbridge"}]`},
 		{"missing bridge", `[{"bridgeName": "doesnotexist"}]`},
