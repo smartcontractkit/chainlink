@@ -478,7 +478,8 @@ func (p *PollingDeviationChecker) consume() {
 
 	if !p.initr.PollTimer.Disabled {
 		// Try to do an initial poll
-		p.pollIfEligible(float64(p.initr.Threshold))
+		p.pollIfEligible(DeviationThresholds{Rel: float64(p.initr.Threshold),
+			Abs: float64(p.initr.AbsoluteThreshold)})
 
 		ticker := time.NewTicker(p.initr.PollTimer.Period.Duration())
 		defer ticker.Stop()
@@ -504,7 +505,8 @@ func (p *PollingDeviationChecker) consume() {
 				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(float64(p.initr.Threshold))
+			p.pollIfEligible(DeviationThresholds{Rel: float64(p.initr.Threshold),
+				Abs: float64(p.initr.AbsoluteThreshold)})
 
 		case <-p.idleTimer:
 			logger.Debugw("Idle ticker fired",
@@ -514,7 +516,7 @@ func (p *PollingDeviationChecker) consume() {
 				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(0)
+			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
 
 		case <-p.roundTimer:
 			logger.Debugw("Round timeout ticker fired",
@@ -524,7 +526,8 @@ func (p *PollingDeviationChecker) consume() {
 				"reportableRoundID", p.reportableRoundID,
 				"contract", p.initr.Address.Hex(),
 			)
-			p.pollIfEligible(float64(p.initr.Threshold))
+			p.pollIfEligible(DeviationThresholds{Rel: float64(p.initr.Threshold),
+				Abs: float64(p.initr.AbsoluteThreshold)})
 		}
 	}
 }
@@ -714,8 +717,20 @@ func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
 	return payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
 }
 
-func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobRun bool) {
-	loggerFields := p.loggerFields("threshold", threshold)
+// DeviationThresholds carries parameters used by the threshold-trigger logic
+type DeviationThresholds struct {
+	Rel float64 // Relative change required, i.e. |new-old|/|new| >= Rel
+	Abs float64 // Absolute change required, i.e. |new-old| >= Abs
+}
+
+func (p *PollingDeviationChecker) pollIfEligible(
+	thresholds DeviationThresholds) (createdJobRun bool) {
+	loggerFields := []interface{}{
+		"jobID", p.initr.JobSpecID,
+		"address", p.initr.InitiatorParams.Address,
+		"threshold", thresholds.Rel,
+		"absoluteThreshold", thresholds.Abs,
+	}
 
 	if p.connected.IsSet() == false {
 		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
@@ -752,7 +767,8 @@ func (p *PollingDeviationChecker) pollIfEligible(threshold float64) (createdJobR
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
 	)
-	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, threshold) {
+	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer,
+		polledAnswer, thresholds) {
 		logger.Debugw("deviation < threshold, not submitting", loggerFields...)
 		return false
 	}
@@ -922,39 +938,51 @@ func (p *PollingDeviationChecker) JobID() *models.ID {
 }
 
 // OutsideDeviation checks whether the next price is outside the threshold.
-// If the threshold is zero, always returns true.
-func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, threshold float64) bool {
+// If both thresholds are zero (default value), always returns true.
+func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal,
+	thresholds DeviationThresholds) bool {
 	loggerFields := []interface{}{
-		"threshold", threshold,
+		"threshold", thresholds.Rel,
+		"absoluteThreshold", thresholds.Abs,
 		"currentAnswer", curAnswer,
 		"nextAnswer", nextAnswer,
 	}
 
-	if threshold == 0 {
-		logger.Debugw("Deviation threshold always met at 0", loggerFields...)
+	if thresholds.Rel == 0 && thresholds.Abs == 0 {
+		logger.Debugw(
+			"Deviation thresholds both zero; short-circuiting deviation checker to "+
+				"true, regardless of feed values", loggerFields...)
 		return true
+	}
+	diff := curAnswer.Sub(nextAnswer).Abs()
+	loggerFields = append(loggerFields, "absoluteDeviation", diff)
+
+	if !diff.GreaterThan(decimal.NewFromFloat(thresholds.Abs)) {
+		logger.Debugw("Absolute deviation threshold not met", loggerFields...)
+		return false
 	}
 
 	if curAnswer.IsZero() {
 		if nextAnswer.IsZero() {
-			logger.Debugw("Deviation threshold not met", loggerFields...)
+			logger.Debugw("Relative deviation is undefined; can't satisfy threshold",
+				loggerFields...)
 			return false
 		}
 
-		logger.Infow("Deviation threshold met", loggerFields...)
+		logger.Infow("Relative-deviation is ᪲; threshold met", loggerFields...)
 		return true
 	}
 
-	diff := curAnswer.Sub(nextAnswer).Abs()
+	// 100*|new-old|/|new|: Deviation (relative to curAnswer) as a percentage
 	percentage := diff.Div(curAnswer.Abs()).Mul(decimal.NewFromInt(100))
 
 	loggerFields = append(loggerFields, "percentage", percentage)
 
-	if percentage.LessThan(decimal.NewFromFloat(threshold)) {
-		logger.Debugw("Deviation threshold not met", loggerFields...)
+	if percentage.LessThan(decimal.NewFromFloat(thresholds.Rel)) {
+		logger.Debugw("Relative deviation threshold not met", loggerFields...)
 		return false
 	}
-	logger.Infow("Deviation threshold met", loggerFields...)
+	logger.Infow("Relative and absolute deviation thresholds both met", loggerFields...)
 	return true
 }
 

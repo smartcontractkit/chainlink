@@ -418,7 +418,7 @@ func TestValidateInitiator_FluxMonitorErrors(t *testing.T) {
 		{"address", cltest.MustJSONDel(t, validInitiator, "params.address")},
 		{"feeds", cltest.MustJSONSet(t, validInitiator, "params.feeds", []string{})},
 		{"threshold", cltest.MustJSONDel(t, validInitiator, "params.threshold")},
-		{"threshold must be > 0", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
+		{"must be positive", cltest.MustJSONSet(t, validInitiator, "params.threshold", -5)},
 		{"requestdata", cltest.MustJSONDel(t, validInitiator, "params.requestdata")},
 		{"pollTimer enabled, but no period specified", cltest.MustJSONDel(t, validInitiator, "params.pollTimer.period")},
 		{"period must be equal or greater than 15s", cltest.MustJSONSet(t, validInitiator, "params.pollTimer.period", "1s")},

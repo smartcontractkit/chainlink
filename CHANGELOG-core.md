@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 New cron strings MUST now include time zone. If you want your jobs to run in UTC for example: `CRON_TZ=UTC * * * * *`. Previously, jobs specified without a time zone would run in the server's native time zone, which in most cases is UTC but this was never guaranteed.
 
+### New features
+
+Fluxmonitor initiators may now optionally include an `absoluteThreshold`
+parameter. To trigger a new on-chain report, the absolute difference in the feed
+value must change by at least the `absoluteThreshold` value. If it is
+unspecified or zero, fluxmonitor behavior is unchanged.
+
 ### Added
 - Added Changelog
 
