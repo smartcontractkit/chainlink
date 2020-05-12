@@ -83,7 +83,12 @@ describe('reducers/jobRuns', () => {
   describe('FETCH_JOB_RUNS_ERROR', () => {
     const action: FetchJobRunsErrorAction = {
       type: 'FETCH_JOB_RUNS_ERROR',
-      error: new Error('An error'),
+      errors: [
+        {
+          status: 500,
+          detail: 'An error',
+        },
+      ],
     }
 
     it('sets loading to false', () => {
@@ -149,7 +154,12 @@ describe('reducers/jobRuns', () => {
   describe('FETCH_JOB_RUN_ERROR', () => {
     const action: FetchJobRunErrorAction = {
       type: 'FETCH_JOB_RUN_ERROR',
-      error: new Error('An error'),
+      errors: [
+        {
+          status: 500,
+          detail: 'An error',
+        },
+      ],
     }
 
     it('sets loading to false', () => {

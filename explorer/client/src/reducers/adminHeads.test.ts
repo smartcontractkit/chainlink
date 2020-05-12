@@ -76,7 +76,12 @@ describe('reducers/adminHeads', () => {
   describe('FETCH_ADMIN_HEADS_ERROR', () => {
     const action: FetchAdminHeadsErrorAction = {
       type: 'FETCH_ADMIN_HEADS_ERROR',
-      error: new Error('An error'),
+      errors: [
+        {
+          status: 500,
+          detail: 'An error',
+        },
+      ],
     }
 
     it('sets loading to false', () => {
