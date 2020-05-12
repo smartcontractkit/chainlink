@@ -239,17 +239,17 @@ func NewRunRequest(requestParams JSON) *RunRequest {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                   *ID           `json:"id" gorm:"primary_key;not null"`
-	JobRunID             *ID           `json:"-"`
-	Result               RunResult     `json:"result"`
-	ResultID             clnull.Uint32 `json:"-"`
-	Status               RunStatus     `json:"status" gorm:"default:'unstarted'"`
-	TaskSpec             TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
-	TaskSpecID           uint          `json:"-"`
-	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
-	Confirmations        clnull.Uint32 `json:"confirmations"`
-	CreatedAt            time.Time     `json:"-"`
-	UpdatedAt            time.Time     `json:"-"`
+	ID                               *ID           `json:"id" gorm:"primary_key;not null"`
+	JobRunID                         *ID           `json:"-"`
+	Result                           RunResult     `json:"result"`
+	ResultID                         clnull.Uint32 `json:"-"`
+	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
+	TaskSpec                         TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
+	TaskSpecID                       uint          `json:"-"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
+	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
+	CreatedAt                        time.Time     `json:"-"`
+	UpdatedAt                        time.Time     `json:"-"`
 }
 
 // String returns info on the TaskRun as "ID,Type,Status,Result".
