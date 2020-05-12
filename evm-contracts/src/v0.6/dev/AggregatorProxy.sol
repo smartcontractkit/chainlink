@@ -22,7 +22,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function latestAnswer()
     external
-    view
     virtual
     override
     returns (int256)
@@ -35,7 +34,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function latestTimestamp()
     external
-    view
     virtual
     override
     returns (uint256)
@@ -49,7 +47,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function getAnswer(uint256 _roundId)
     external
-    view
     virtual
     override
     returns (int256)
@@ -63,7 +60,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function getTimestamp(uint256 _roundId)
     external
-    view
     virtual
     override
     returns (uint256)
@@ -76,7 +72,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function latestRound()
     external
-    view
     virtual
     override
     returns (uint256)
@@ -107,7 +102,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function getRoundData(uint256 _roundId)
     external
-    view
     virtual
     override
     returns (
@@ -143,7 +137,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function latestRoundData()
     external
-    view
     virtual
     override
     returns (
@@ -162,7 +155,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    */
   function decimals()
     external
-    view
     override
     returns (uint8)
   {
@@ -186,7 +178,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   function _latestAnswer()
     internal
-    view
     returns (int256)
   {
     return aggregator.latestAnswer();
@@ -194,7 +185,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   function _latestTimestamp()
     internal
-    view
     returns (uint256)
   {
     return aggregator.latestTimestamp();
@@ -202,7 +192,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   function _getAnswer(uint256 _roundId)
     internal
-    view
     returns (int256)
   {
     return aggregator.getAnswer(_roundId);
@@ -210,7 +199,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   function _getTimestamp(uint256 _roundId)
     internal
-    view
     returns (uint256)
   {
     return aggregator.getTimestamp(_roundId);
@@ -218,7 +206,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   function _latestRound()
     internal
-    view
     returns (uint256)
   {
     return aggregator.latestRound();
@@ -226,7 +213,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   function _getRoundData(uint256 _roundId)
     internal
-    view
     returns (
       uint256 roundId,
       int256 answer,
@@ -240,7 +226,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   function _latestRoundData()
     internal
-    view
     returns (
       uint256 roundId,
       int256 answer,

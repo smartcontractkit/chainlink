@@ -37,7 +37,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
    */
   function latestAnswer()
     external
-    view
     override
     isWhitelisted()
     returns (int256)
@@ -53,7 +52,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
    */
   function latestTimestamp()
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
@@ -69,7 +67,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
    */
   function latestRound()
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
@@ -87,7 +84,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
    */
   function getAnswer(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (int256)
@@ -104,7 +100,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
    */
   function getTimestamp(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
@@ -132,7 +127,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
    */
   function getRoundData(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (
@@ -165,7 +159,6 @@ contract WhitelistedConversionProxy is ConversionProxy, Whitelisted {
    */
   function latestRoundData()
     external
-    view
     override
     isWhitelisted()
     returns (

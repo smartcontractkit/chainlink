@@ -1,7 +1,12 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/FluxAggregatorFactory'
-import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  interfaces,
+} from '@chainlink/test-helpers'
 import ChainlinkClient from '../test-helpers/chainlinkClient'
 import fluxMonitorJobTemplate from '../fixtures/flux-monitor-job'
 import * as t from '../test-helpers/common'
@@ -61,7 +66,11 @@ const clClient2 = new ChainlinkClient(
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
 let linkToken: contract.Instance<contract.LinkTokenFactory>
-let fluxAggregator: contract.Instance<FluxAggregatorFactory>
+let fluxAggregator: contract.CallableOverrideInstance<
+  FluxAggregatorFactory,
+  interfaces.AggregatorInterface
+>
+
 let node1Address: string
 let node2Address: string
 
@@ -77,8 +86,12 @@ async function assertAggregatorValues(
     fluxAggregator.latestAnswer(),
     fluxAggregator.latestRound(),
     fluxAggregator.reportingRound(),
-    fluxAggregator.latestSubmission(node1Address).then(res => res[1]),
-    fluxAggregator.latestSubmission(node2Address).then(res => res[1]),
+    fluxAggregator
+      .latestSubmission(node1Address)
+      .then((res: number[]) => res[1]),
+    fluxAggregator
+      .latestSubmission(node2Address)
+      .then((res: number[]) => res[1]),
   ])
 
   matchers.bigNum(latestAnswer, la, `${msg} : latest answer`)
@@ -118,15 +131,19 @@ beforeAll(async () => {
 beforeEach(async () => {
   t.printHeading('Running Test')
   fluxMonitorJob = JSON.parse(JSON.stringify(fluxMonitorJobTemplate)) // perform a deep clone
-  fluxAggregator = await fluxAggregatorFactory.deploy(
+  const deployingContract = await fluxAggregatorFactory.deploy(
     linkToken.address,
     MINIMUM_CONTRACT_PAYMENT,
     10,
     1,
     ethers.utils.formatBytes32String('ETH/USD'),
   )
-  await fluxAggregator.deployed()
-  t.logEvents(fluxAggregator, 'FluxAggregator', faEventsToListenTo)
+  await deployingContract.deployed()
+  fluxAggregator = contract.callable(
+    deployingContract,
+    interfaces.AggregatorMethodList,
+  )
+  t.logEvents(fluxAggregator as any, 'FluxAggregator', faEventsToListenTo)
   console.log(`Deployed FluxAggregator contract: ${fluxAggregator.address}`)
 })
 

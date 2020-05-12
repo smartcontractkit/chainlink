@@ -30,7 +30,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    */
   function latestAnswer()
     external
-    view
     override
     isWhitelisted()
     returns (int256)
@@ -44,7 +43,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    */
   function latestTimestamp()
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
@@ -59,7 +57,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    */
   function getAnswer(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (int256)
@@ -74,7 +71,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    */
   function getTimestamp(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
@@ -102,7 +98,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    */
   function getRoundData(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (
@@ -139,7 +134,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    */
   function latestRoundData()
     external
-    view
     override
     isWhitelisted()
     returns (
