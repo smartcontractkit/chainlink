@@ -196,8 +196,7 @@ func init() {
 	}
 	fmt.Printf("some solidity artifacts missing (%s); rebuilding...",
 		solidityArtifactsMissing)
-	compileCmd := strings.Fields(compileCommand(nil))
-	cmd := exec.Command(compileCmd[0], compileCmd[1:]...)
+	cmd := exec.Command("bash", "-c", compileCommand(nil))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
