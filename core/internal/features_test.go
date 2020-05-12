@@ -3,7 +3,6 @@ package internal_test
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1147,7 +1146,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 	var jr models.JobRun
 	eth.ShouldCall(func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", cltest.NewHash())
-		eth.Register("eth_getTransactionReceipt", errors.New("connection closed"))
+		eth.RegisterError("eth_getTransactionReceipt", "connection closed")
 	}).During(func() {
 		jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
 		cltest.WaitForTxAttemptCount(t, app.Store, 1)
