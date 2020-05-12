@@ -3,7 +3,6 @@ package internal_test
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1147,11 +1146,11 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 	var jr models.JobRun
 	eth.ShouldCall(func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", cltest.NewHash())
-		eth.Register("eth_getTransactionReceipt", errors.New("connection closed"))
+		eth.RegisterError("eth_getTransactionReceipt", "connection closed")
 	}).During(func() {
 		jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
 		cltest.WaitForTxAttemptCount(t, app.Store, 1)
-		cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+		cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	})
 
 	confirmedHeight := startHeight + 1
@@ -1165,7 +1164,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 		eth.Register("eth_getBalance", "0x0100")
 		eth.Register("eth_call", "0x0100")
 	}).During(func() {
-		app.RunManager.ResumeAllConnecting()
+		app.RunManager.ResumeAllPendingConnection()
 		cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	})
 
