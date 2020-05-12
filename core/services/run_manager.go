@@ -287,7 +287,7 @@ func (rm *runManager) ResumeAllPendingConnection() error {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
 	},
-		models.RunStatusPendingConnection)
+		models.RunStatusPendingConnection, models.RunStatusPendingOutgoingConfirmations)
 }
 
 // ResumePendingBridgeTask wakes up a task that required a response from a bridge adapter.
