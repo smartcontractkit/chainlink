@@ -196,7 +196,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		return
 	}
 
-	if err = jrc.App.ResumePending(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
+	if err = jrc.App.ResumePendingBridge(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 		return
 	}

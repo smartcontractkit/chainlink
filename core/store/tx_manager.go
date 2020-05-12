@@ -559,7 +559,7 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // confirmed at block counts as 1 conf
 
-	if new(big.Int).SetUint64(blockHeight).Cmp(confirmedAt) == -1 {
+	if big.NewInt(int64(blockHeight)).Cmp(confirmedAt) < 0 {
 		return receipt, Confirmed, nil
 	}
 
