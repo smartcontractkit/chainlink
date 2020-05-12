@@ -102,10 +102,16 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	hashMsg := string(abiBytes+binBytes) + "\n" // newline from <<< in record_versions.sh
 	_, err = io.WriteString(hasher, hashMsg)
 	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
-	recompileCommand := color.HiRedString(fmt.Sprintf("`%s && go generate`", compileCommand(t)))
+	thisDir, err := os.Getwd()
+	if err != nil {
+		thisDir = "<could not get absolute path to gethwrappers package>"
+	}
+	recompileCommand := color.HiRedString(fmt.Sprintf("`%s && go generate %s`",
+		compileCommand(t), thisDir))
 	assert.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
-		boxOutput("compiler artifact %s has changed; please rerun \n%s\nand commit the changes",
-			apath, recompileCommand))
+		boxOutput(`compiler artifact %s has changed; please rerun
+%s
+and commit the changes`, apath, recompileCommand))
 
 	var artifact struct {
 		Sources map[string]string `json:"sourceCodes"`
@@ -123,7 +129,14 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			require.NoError(t, err, "could not read "+sourcePath)
 			// These outputs are huge, so silence them by assert.True on explicit equality
 			assert.True(t, string(actualSource) == sourceCode,
-				boxOutput("Change detected in %s,\nwhich is a dependency of %s.\n\nFor the vrf package, please rerun \n%s\n and commit the changes",
+				boxOutput(`Change detected in %s,
+which is a dependency of %s.
+
+For the gethwrappers package, please rerun
+
+%s
+
+and commit the changes`,
 					sourcePath, versionInfo.compilerArtifactPath, recompileCommand))
 		}
 	}
