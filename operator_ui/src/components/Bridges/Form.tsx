@@ -44,11 +44,7 @@ interface FormValues {
 interface OwnProps extends Partial<FormValues>, WithStyles<typeof styles> {
   actionText: string
   nameDisabled?: boolean
-  onSubmit: (
-    values: FormValues,
-    onSuccesss: Function,
-    onError: Function,
-  ) => void
+  onSubmit: (values: FormValues, onSuccess: Function, onError: Function) => void
   onSuccess: Function
   onError: Function
 }
