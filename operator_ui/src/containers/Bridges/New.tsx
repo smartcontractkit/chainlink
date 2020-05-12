@@ -11,17 +11,29 @@ import Content from 'components/Content'
 import { createBridge } from 'actions'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import BaseLink from '../../components/BaseLink'
+import { BridgeTypeAuthentication } from 'core/store/models'
 
-const SuccessNotification = ({ id }) => {
+interface SuccessResponse {
+  type: string
+  id: string
+  attributes: BridgeTypeAuthentication
+}
+
+const SuccessNotification = (response: SuccessResponse) => {
   return (
     <React.Fragment>
       Successfully created bridge{' '}
-      <BaseLink href={`/bridges/${id}`}>{id}</BaseLink>
+      <BaseLink href={`/bridges/${response.id}`}>{response.id}</BaseLink> with
+      incoming access token: {response.attributes.incomingToken}
     </React.Fragment>
   )
 }
 
-const New = props => {
+interface Props {
+  createBridge: () => Promise<any>
+}
+
+const New: React.FC<Props> = props => {
   document.title = 'New Bridge'
   return (
     <Content>
