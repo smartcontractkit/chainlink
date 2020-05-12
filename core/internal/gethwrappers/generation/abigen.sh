@@ -46,6 +46,12 @@ else # Must use dockerized abigen
     DOCKER_IMAGE="ethereum/client-go:alltools-$GETH_VERSION"
     echo -n "Native abigen unavailable, broken, or wrong version (need version "
     echo "$GETH_VERSION). Invoking abigen from $DOCKER_IMAGE docker image."
+    echo
+    echo "If you want to install abigen natively into \$GOPATH/bin, run the following commands:"
+    echo "$ td=`mktemp -d`; pushd \"$td\""
+    echo "$ git clone https://github.com/ethereum/go-ethereum/"
+    echo "$ cd go-ethereum; git checkout $NATIVE_ABIGEN_VERSION; cd cmd/abigen"
+    echo "$ go install; popd; rm -rf \"$td\""
     CONTAINER_NAME_PATH="$(mktemp)"
     rm -f "$CONTAINER_NAME_PATH"
     docker run -v "${COMMON_PARENT_DIRECTORY}:${COMMON_PARENT_DIRECTORY}" \
