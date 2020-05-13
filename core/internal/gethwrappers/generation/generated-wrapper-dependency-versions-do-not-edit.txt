@@ -4,4 +4,4 @@ link_token_interface: ./generation/../../../../evm-test-helpers/src/LinkToken.js
 solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json f0216e71d1bfeb6f85efe231e3ba9e751fb23b04b2a0d233b5edbd010d9488ec
 solidity_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json 1b1736395f3b4c1fb90eab2fcadd0529a0f093ccb279fda1d0759a7164ef5674
 solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json 7728afcea4e5cc711dd316fc479b1b6aea063a7107ca2afac9a9fe06431aa269
-solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json d4eddc0201b0ad132173a77d033f4b73e0978c6c31c5f536a08e437684ab14ce
+solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json 16c1067441860757825991d8bd5dc3eac71b013a19a60e94ed9dcfb27f922215
