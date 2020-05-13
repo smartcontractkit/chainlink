@@ -23,22 +23,48 @@ const geth2 = new ethers.Wallet(accounts.geth2.privkey.substring(2), new ethers.
 const parity = new ethers.Wallet(accounts.parity.privkey.substring(2), new ethers.providers.JsonRpcProvider(RPC_GETH2))
 
 async function main() {
+    console.log('Awaiting Geth DAG generation...')
+    await gethDAGGenerationFinished()
+
+    console.log('Deploying direct request contracts...')
+    let { linkToken, oracle } = await deployDirectRequestContracts()
+
+    console.log('Initiating transaction tornado...')
+    await mimicRegularTraffic(200, [ rpcProviders[1] ])
+
+
+}
+
+async function deployDirectRequestContracts() {
     let linkToken = await deployLINK(carol, undefined)
-    console.log('LINK token:', linkToken.address)
+    console.log('  - LINK token:', linkToken.address)
 
     let oracle = await deployOracle(carol, undefined, {
         linkTokenAddress: linkToken.address,
     })
-    console.log('Oracle:', oracle.address)
+    console.log('  - Oracle:', oracle.address)
+
+    return {
+        linkToken,
+        oracle,
+    }
+}
+
+async function deployFluxMonitorContracts() {
+    let linkToken = await deployLINK(carol, undefined)
+    console.log('  - LINK token:', linkToken.address)
 
     let fluxAggregator = await deployFluxAggregator(carol, undefined, {
         linkTokenAddress: linkToken.address,
         paymentAmount: '100',    // LINK-sats
         timeout: 300,            // seconds
     })
-    console.log('Flux Aggregator:', fluxAggregator.address)
+    console.log('  - Flux Aggregator:', fluxAggregator.address)
 
-    mimicRegularTraffic(200)
+    return {
+        linkToken,
+        fluxAggregator,
+    }
 }
 
 async function deployContract({ Factory, name, signer }, ...deployArgs) {
@@ -76,7 +102,7 @@ async function deployFluxAggregator(wallet, nonce, { linkTokenAddress, paymentAm
 }
 
 
-async function mimicRegularTraffic(totalTxsPerSecond) {
+async function mimicRegularTraffic(totalTxsPerSecond, rpcProviders) {
     const numAccounts = 200
 
     let accounts = await makeRandomAccounts(numAccounts, rpcProviders)
@@ -86,23 +112,45 @@ async function mimicRegularTraffic(totalTxsPerSecond) {
 }
 
 async function makeRandomAccounts(num, rpcProviders) {
-    let accounts = Array(num).fill(null).map((_, i) => ethers.Wallet.createRandom().connect(new ethers.providers.JsonRpcProvider(rpcProviders[i % rpcProviders.length])))
+    let senders = []
+    for (let providerURL of rpcProviders) {
+        let wallet = new ethers.Wallet(require('./config/accounts.json').carol.privkey.substring(2), new ethers.providers.JsonRpcProvider(providerURL))
+        senders.push({
+            providerURL: providerURL,
+            nonce: await wallet.provider.getTransactionCount(wallet.address, 'pending'),
+            wallet: wallet,
+        })
+    }
+    let jobs = Array(num).fill(null).map((_, i) => {
+        let sender = senders[i % senders.length]
+        return {
+            providerURL: sender.providerURL,
+            wallet: ethers.Wallet.createRandom().connect(new ethers.providers.JsonRpcProvider(sender.providerURL)),
+            sender: sender,
+        }
+    })
     // Fund the accounts
-    let nonce = await carol.provider.getTransactionCount(carol.address, 'pending')
     await Promise.all(
-        accounts.map(account => carol.sendTransaction({
-            to: account.address,
-            value: ethers.utils.parseUnits('5', 'ether'),
-            nonce: nonce++,
-        }))
+        jobs.map(job => {
+            let nonce = job.sender.nonce
+            job.sender.nonce++
+            return job.sender.wallet.sendTransaction({
+                to: job.wallet.address,
+                value: ethers.utils.parseUnits('5', 'ether'),
+                gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+                nonce: nonce,
+            }).catch(err => {
+                console.log(err, 'nonce =', nonce, job.sender.wallet.address, job.sender.nonce, job.providerURL)
+            })
+        })
     )
-    return accounts
+    return jobs.map(job => job.wallet)
 }
 
-function sendRandomTransactions(account, accounts) {
+function sendRandomTransactions(fromAccount, toAccounts) {
     function randomAccount() {
-        let i = Math.floor(Math.random() * Math.floor(accounts.length - 1))
-        return accounts[i]
+        let i = Math.floor(Math.random() * Math.floor(toAccounts.length - 1))
+        return toAccounts[i]
     }
 
     async function send() {
@@ -111,15 +159,13 @@ function sendRandomTransactions(account, accounts) {
             // Re-read the config each time so that we can control the congestion dynamically
             msBetweenTxs = getConfig().randomTraffic.msBetweenTxs
 
-            let tx = await account.sendTransaction({
+            await fromAccount.sendTransaction({
                 to: randomAccount().address,
                 value: ethers.utils.parseUnits('1', 'wei'),
                 gasPrice: ethers.utils.parseUnits('20', 'gwei'),
             })
-            // console.log(tx)
-        } catch (err) {
-            // console.log(err)
-        }
+        } catch (err) {}
+
         setTimeout(send, msBetweenTxs)
     }
     send()
