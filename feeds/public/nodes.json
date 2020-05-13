@@ -160,6 +160,11 @@
     "networkId": 1
   },
   {
+    "address": "0x58EB922F60Ae3D7A8b9F6cCbe7ae4F05431f998c",
+    "name": "Vulcan Link",
+    "networkId": 1
+  },
+  {
     "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
     "name": "LinkPool",
     "networkId": 3
