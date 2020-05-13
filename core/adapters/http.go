@@ -346,8 +346,8 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 
 		// input is an array of strings like
 		// ["someKey0", "someVal0", "someKey1", "someVal1"]
-	} else {
-		err = json.Unmarshal(input, &strs)
+	} else if err = json.Unmarshal(input, &strs); err != nil {
+		return fmt.Errorf("unable to unmarshal query parameters: %s", input)
 	}
 
 	values, err = buildValues(strs)
