@@ -598,6 +598,7 @@ func consumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
 	consumed, err := lb.WasAlreadyConsumed()
 	if err != nil {
 		logger.Errorf("Error determining if log was already consumed: %v", err)
+		return
 	} else if consumed {
 		return
 	}
