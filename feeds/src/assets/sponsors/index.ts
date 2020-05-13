@@ -14,6 +14,7 @@ import OneInch from './1inch.png'
 import paraswap from './paraswap.png'
 import mcdex from './mcdex.png'
 import futureswap from './futureswap.png'
+import linkpool from './linkpool.png'
 
 // Listing Thumbnails
 
@@ -31,6 +32,7 @@ import OneInchTn from './1inch_tn.png'
 import paraswapTn from './paraswap_tn.png'
 import mcdexTn from './mcdex_tn.png'
 import futureswapTn from './futureswap_tn.png'
+import linkpoolTn from './linkpool_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -123,5 +125,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://www.futureswap.com',
     imageLg: futureswap,
     imageTn: futureswapTn,
+  },
+  {
+    name: 'LinkPool',
+    url: 'https://www.linkpool.io',
+    imageLg: linkpool,
+    imageTn: linkpoolTn,
   },
 ]
