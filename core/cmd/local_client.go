@@ -314,7 +314,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	}
 	logger.Infof("Resetting database: %#v", config.DatabaseURL())
 	if err := dropAndCreateDB(*parsed); err != nil {
-		logger.Error("Failed dropping test database: ", err)
+		return cli.errorOut(err)
 	}
 	if err := migrateTestDB(config); err != nil {
 		return cli.errorOut(err)
