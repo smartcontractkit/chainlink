@@ -121,8 +121,6 @@ go build -o chainlink ./core/
 ```bash
 yarn
 yarn setup:contracts
-go generate ./...
-go run ./packr/main.go ./core/eth/
 ```
 
 3. Generate and compile static assets:
@@ -135,7 +133,7 @@ go run ./packr/main.go ./core/eth/
 4. Prepare your development environment:
 
 ```bash
-export DATABASE_URL=postgresql://127.0.0.1:5432/chainlnk_test?sslmode=disable
+export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
 export CHAINLINK_DEV=true # I prefer to use direnv and skip this
 ```
 
