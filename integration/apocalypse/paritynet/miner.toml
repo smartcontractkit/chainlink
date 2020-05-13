@@ -1,10 +1,11 @@
 [parity]
-chain = "apocalypse-parity.json"
+chain = "/paritynet/apocalypse-parity.json"
 db_path = "/paritynet/data/miner"
 keys_path = "/paritynet/keys"
 
 [network]
 id = 1337
+reserved_peers = "/paritynet/peers.txt"
 
 [rpc]
 disable = false
