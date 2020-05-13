@@ -837,14 +837,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
   }
 
-  function finished(uint32 _roundId)
-    private
-    view
-    returns (bool)
-  {
-    return rounds[_roundId].updatedAt > 0;
-  }
-
   function getStartingRound(address _oracle)
     private
     view
