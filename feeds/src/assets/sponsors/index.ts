@@ -32,8 +32,7 @@ import OneInchTn from './1inch_tn.png'
 import paraswapTn from './paraswap_tn.png'
 import mcdexTn from './mcdex_tn.png'
 import futureswapTn from './futureswap_tn.png'
-// import linkpoolTn from './linkpool_tn.png'
-import linkpoolTn from './futureswap_tn.png'
+import linkpoolTn from './linkpool_tn.png'
 
 export interface SponsorListItem {
   name: string
