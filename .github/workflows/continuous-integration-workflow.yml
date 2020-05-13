@@ -30,15 +30,7 @@ jobs:
       - name: Set up Postgres user
         uses: docker://postgres
         with:
-          args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink;"
-      - name: Set up Postgres database
-        uses: docker://postgres
-        with:
-          args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE DATABASE chainlink_test;"
-      - name: Grant Postgres permissions
-        uses: docker://postgres
-        with:
-          args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "GRANT ALL PRIVILEGES ON DATABASE chainlink_test TO chainlink;"
+          args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink NOSUPERUSER CREATEDB;"
       - name: Cache Yarn dependencies
         uses: actions/cache@v1
         with:
