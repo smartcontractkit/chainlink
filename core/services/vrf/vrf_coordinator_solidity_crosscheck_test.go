@@ -133,7 +133,7 @@ func registerProvingKey(t *testing.T, coordinator coordinator) (
 	keyHash [32]byte, jobID [32]byte, fee *big.Int) {
 	copy(jobID[:], []byte("exactly 32 characters in length."))
 	_, err := coordinator.rootContract.RegisterProvingKey(
-		coordinator.neil, vrfFee, pair(secp256k1.Coordinates(publicKey)), jobID)
+		coordinator.neil, vrfFee, coordinator.neil.From, pair(secp256k1.Coordinates(publicKey)), jobID)
 	require.NoError(t, err, "failed to register VRF proving key on VRFCoordinator contract")
 	coordinator.backend.Commit()
 	keyHash = utils.MustHash(string(secp256k1.LongMarshal(publicKey)))
