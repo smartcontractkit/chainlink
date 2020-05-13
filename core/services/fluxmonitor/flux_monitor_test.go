@@ -1,6 +1,7 @@
 package fluxmonitor_test
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -1296,4 +1297,52 @@ func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
 	assert.NotPanics(t, func() {
 		p.HandleLog(logBroadcast, nil)
 	})
+}
+
+func TestFluxMonitor_ConsumeLogBroadcast_Happy(t *testing.T) {
+	logBroadcast := new(mocks.LogBroadcast)
+	logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
+	logBroadcast.On("MarkConsumed").Return(nil).Once()
+
+	called := false
+	callback := func() {
+		if called == false {
+			called = true
+		} else {
+			t.Fatal("callback called more than once!")
+		}
+	}
+
+	fluxmonitor.ExportedConsumeLogBroadcast(logBroadcast, callback)
+	assert.True(t, called)
+	logBroadcast.AssertExpectations(t)
+}
+
+func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		consumed bool
+		err      error
+	}{
+		{"already consumed", true, nil},
+		{"error determining already consumed", false, errors.New("err")},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			logBroadcast := new(mocks.LogBroadcast)
+			logBroadcast.On("WasAlreadyConsumed").Return(test.consumed, test.err).Once()
+			logBroadcast.On("MarkConsumed").Return(nil).Maybe()
+
+			called := false
+			callback := func() { called = true }
+
+			fluxmonitor.ExportedConsumeLogBroadcast(logBroadcast, callback)
+			assert.False(t, called)
+			logBroadcast.AssertExpectations(t)
+		})
+	}
 }

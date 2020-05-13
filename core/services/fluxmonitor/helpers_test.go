@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 )
 
@@ -34,6 +35,10 @@ func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *bi
 
 func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
 	p.respondToNewRoundLog(*log)
+}
+
+func ExportedConsumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
+	consumeLogBroadcast(lb, callback)
 }
 
 func mustReadFile(t testing.TB, file string) string {
