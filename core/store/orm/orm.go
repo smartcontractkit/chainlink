@@ -1150,11 +1150,11 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 func (orm *ORM) Keys() ([]*models.Key, error) {
 	orm.MustEnsureAdvisoryLock()
 	var keys []*models.Key
-	return keys, orm.db.Find(&keys).Order("created_at ASC").Error
+	return keys, orm.db.Find(&keys).Order("created_at ASC, address ASC").Error
 }
 
-func (orm *ORM) DeleteKey(address string) error {
-	return orm.db.Exec("DELETE FROM keys WHERE lower(address) = lower(?)", address).Error
+func (orm *ORM) DeleteKey(address []byte) error {
+	return orm.db.Exec("DELETE FROM keys WHERE address = ?", address).Error
 }
 
 // FirstOrCreateKey returns the first key found or creates a new one in the orm.
