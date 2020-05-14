@@ -18693,10 +18693,10 @@ pino@^5.0.0:
     quick-format-unescaped "^3.0.3"
     sonic-boom "^0.7.5"
 
-pino@^6.2.0:
-  version "6.2.0"
-  resolved "https://registry.npmjs.org/pino/-/pino-6.2.0.tgz#eef83cd0d9beb2f79102ff15d7946254a1f7846b"
-  integrity sha512-UzrsiT5Wyscw7dxHa8Ec8G2kY45mwFk7rrZhMkCMg8s9F8VWDVj+WFcaSIKproTDyxlqerMaHw+11jlNXgeiCg==
+pino@^6.2.1:
+  version "6.2.1"
+  resolved "https://registry.npmjs.org/pino/-/pino-6.2.1.tgz#d2b86306b3998e8f6bb33bdf23910d418ed696cf"
+  integrity sha512-5F5A+G25Ex2rMOBEe3XYGyLSF4dikQZsFvPojwsqnDBX+rfg7+kw9s5i7pHuVAJImekjwb+MR9jQyHWPLENlvQ==
   dependencies:
     fast-redact "^2.0.0"
     fast-safe-stringify "^2.0.7"
