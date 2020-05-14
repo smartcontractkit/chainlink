@@ -14,8 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// DropAndCreateThrowawayTestDB takes a database URL and appends the postfix to create a new database
-func DropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {
+func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {
 	parsed, err := url.Parse(databaseURL)
 	if err != nil {
 		return "", err
@@ -60,7 +59,7 @@ func BootstrapThrowawayORM(t *testing.T, name string) (*TestConfig, *orm.ORM, fu
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	dbName := fmt.Sprintf("rebroadcast_txs_%s", name)
-	migrationTestDBURL, err := DropAndCreateThrowawayTestDB(tc.DatabaseURL(), dbName)
+	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), dbName)
 	require.NoError(t, err)
 	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), orm.DialectPostgres, config.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
