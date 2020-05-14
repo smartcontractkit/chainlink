@@ -3814,10 +3814,10 @@
   resolved "https://registry.npmjs.org/@types/pino-std-serializers/-/pino-std-serializers-2.4.0.tgz#8cad99175cb79c2448f7455a2d32fb3fde29579c"
   integrity sha512-eAdu+NW1IkCdmp85SnhyKha+OOREQMT9lXaoICQxa7bhSauRiLzu3WSNt9Mf2piuJvWeXF/G0hGWHr63xNpIRA==
 
-"@types/pino@*", "@types/pino@^5.17.0":
-  version "5.17.0"
-  resolved "https://registry.npmjs.org/@types/pino/-/pino-5.17.0.tgz#850cd1d7c5a0e123f022badc2e2bb42d8d0efd9d"
-  integrity sha512-L5DBGFBRY4DKc7ufjZqV4J61ji9FSn4zKvQ5CUBbWi0gE0uOSNwDBpj1t7VwRwdmrpG3QlFxAeXgpViGUOS5Bg==
+"@types/pino@*", "@types/pino@^6.0.1":
+  version "6.0.1"
+  resolved "https://registry.npmjs.org/@types/pino/-/pino-6.0.1.tgz#7a841dd7bb6b70190e99f10c603e80191ad4d6fc"
+  integrity sha512-GkOWuzB1vs6yhx8j9LxwE4LG6NANwpIjxg2q/Iev0cegOtoX8NGNI7PaJ3nTE75/vW5LANFXmuBOEWXbTGdxgQ==
   dependencies:
     "@types/node" "*"
     "@types/pino-std-serializers" "*"
@@ -22950,9 +22950,9 @@ sockjs@0.3.19:
     uuid "^3.0.1"
 
 solc@^0.5.5, solc@^0.6.4:
-  version "0.6.7"
-  resolved "https://registry.npmjs.org/solc/-/solc-0.6.7.tgz#4cf6bed8c1d3a6728fcab86552c6ac31fe4d14ca"
-  integrity sha512-a3iocjS1yGzw3Wy7jkqSLX3Vg1lMDCyoKZoVfpOagRGWkh37f11BrcUDO8f73rjdpw2WUBSLJtTQ26i52/0JOg==
+  version "0.6.8"
+  resolved "https://registry.npmjs.org/solc/-/solc-0.6.8.tgz#accf03634554938e166ba9b9853d17ca5c728131"
+  integrity sha512-7URBAisWVjO7dwWNpEkQ5dpRSpSF4Wm0aD5EB82D5BQKh+q7jhOxhgkG4K5gax/geM0kPZUAxnaLcgl2ZXBgMQ==
   dependencies:
     command-exists "^1.2.8"
     commander "3.0.2"
