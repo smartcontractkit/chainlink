@@ -22,7 +22,7 @@ import (
 )
 
 func TestMigrate_Migrations(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -51,7 +51,7 @@ func TestMigrate_Migrations(t *testing.T) {
 }
 
 func TestMigrate_Migration1560881855(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -84,7 +84,7 @@ INSERT INTO job_runs (id, job_spec_id, overrides_id) VALUES ('%s', '%s', (SELECT
 }
 
 func TestMigrate_Migration1560881846(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -108,7 +108,7 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 }
 
 func TestMigrate_Migration1565210496(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -139,7 +139,7 @@ func TestMigrate_Migration1565210496(t *testing.T) {
 }
 
 func TestMigrate_Migration1565291711(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -169,7 +169,7 @@ func TestMigrate_Migration1565291711(t *testing.T) {
 }
 
 func TestMigrate_Migration1565877314(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -195,7 +195,7 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 
 func TestMigrate_Migration1586369235(t *testing.T) {
 	// Make sure that the data still reads OK afterward
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -237,7 +237,7 @@ func TestMigrate_Migration1586369235(t *testing.T) {
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations")
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
