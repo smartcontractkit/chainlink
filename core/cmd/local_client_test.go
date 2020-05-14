@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"flag"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -9,11 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
@@ -284,56 +287,75 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
-		name  string
-		nonce uint
+		dbName string
+		nonce  uint
 	}{
-		{"range start", beginningNonce},
-		{"mid range", beginningNonce + 1},
-		{"range end", endingNonce},
+		{"range_start", beginningNonce},
+		{"mid_range", beginningNonce + 1},
+		{"range_end", endingNonce},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
+		t.Run(test.dbName, func(t *testing.T) {
+			// Use the a non-transactional db for this test because we need to
+			// test multiple connections to the datbase, and changes made within
+			// the transaction cannot be seen from another connection.
+			config, tempDB, cleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("rebroadcast_txs_%s", test.dbName))
 			defer cleanup()
-			account, err := store.KeyStore.NewAccount(cltest.Password)
-			require.NoError(t, err)
-			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
+			require.NoError(t, tempDB.RawDB(func(db *gorm.DB) error { return migrations.Migrate(db) }))
+			config.Config.Dialect = orm.DialectPostgres
+			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+			defer connectedCleanup()
 
-			txManager := new(mocks.TxManager)
-			store.TxManager = txManager
+			account, err := connectedStore.KeyStore.NewAccount(cltest.Password)
+			tx := cltest.CreateTxWithNonceAndGasPrice(t, connectedStore, account.Address, 0, uint64(test.nonce), 1000)
+			bumpedRaw := cltest.NewHash().Bytes()
+			bumpedRawHash := cltest.NewHash()
+			j := cltest.NewJobWithWebInitiator()
+			require.NoError(t, connectedStore.CreateJob(&j))
+			jr := cltest.CreateJobRunWithStatus(t, connectedStore, j, models.RunStatusPendingOutgoingConfirmations)
+			tx.SurrogateID = null.StringFrom(jr.ID.String())
+			require.NoError(t, connectedStore.SaveTx(tx))
+
+			// Use the same config as the connectedStore so that the advisory
+			// lock ID is the same. We set the config to be Postgres Without
+			// Lock, because the db locking stratgey is decided when we
+			// initialize the store/ORM. We set it back after initialization
+			// and then as a makeshift test, check that it was set back to
+			// WithoutLock at the end of the test.
+			config.Config.Dialect = orm.DialectPostgresWithoutLock
+			store, cleanup := cltest.NewStoreWithConfig(config)
+			config.Config.Dialect = orm.DialectTransactionWrappedPostgres
+			defer cleanup()
+			require.NoError(t, err)
+			require.NoError(t, connectedStore.Start())
+
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("Stop").Return(nil)
+			txManager := new(mocks.TxManager)
+			store.TxManager = txManager
+			txManager.On("Connect", mock.Anything).Return(nil)
+			txManager.On("Register", mock.Anything)
+			txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(dbtx models.Tx) bool {
+				return dbtx.ID == tx.ID
+			}), gasLimit, *gasPrice).Return(bumpedRaw, nil)
+			txManager.On("SendRawTx", bumpedRaw).Return(bumpedRawHash, nil)
 
 			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
 			client := cmd.Client{
-				Config:                 store.Config,
+				Config:                 config.Config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  auth,
 				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 				Runner:                 cltest.EmptyRunner{},
 			}
 
-			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
-			bumpedRaw := cltest.NewHash().Bytes()
-			bumpedRawHash := cltest.NewHash()
-			j := cltest.NewJobWithWebInitiator()
-			require.NoError(t, store.CreateJob(&j))
-			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConfirmations)
-			tx.SurrogateID = null.StringFrom(jr.ID.String())
-			require.NoError(t, store.SaveTx(tx))
-
-			txManager.On("Connect", mock.Anything).Return(nil)
-			txManager.On("Register", mock.Anything)
-			txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(dbtx models.Tx) bool { return dbtx.ID == tx.ID }), gasLimit, *gasPrice).
-				Return(bumpedRaw, nil)
-			txManager.On("SendRawTx", bumpedRaw).Return(bumpedRawHash, nil)
-
 			assert.NoError(t, client.RebroadcastTransactions(c))
 
-			jr = cltest.FindJobRun(t, store, jr.ID)
+			// Check that the Dialect was set back when the command was run.
+			assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
+			jr = cltest.FindJobRun(t, connectedStore, jr.ID)
 			assert.Equal(t, models.RunStatusErrored, jr.Status)
-
 			app.AssertExpectations(t)
 			txManager.AssertExpectations(t)
 		})
@@ -387,7 +409,7 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
 			j := cltest.NewJobWithWebInitiator()
 			require.NoError(t, store.CreateJob(&j))
-			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingConfirmations)
+			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingOutgoingConfirmations)
 			tx.SurrogateID = null.StringFrom(jr.ID.String())
 			require.NoError(t, store.SaveTx(tx))
 
@@ -397,7 +419,7 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 			assert.NoError(t, client.RebroadcastTransactions(c))
 
 			jr = cltest.FindJobRun(t, store, jr.ID)
-			assert.Equal(t, models.RunStatusPendingConfirmations, jr.Status)
+			assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, jr.Status)
 
 			app.AssertExpectations(t)
 			txManager.AssertExpectations(t)
