@@ -16,7 +16,8 @@ func Migrate(tx *gorm.DB) error {
 			to_address bytea NOT NULL,
 			encoded_payload bytea NOT NULL,
 			value numeric(78, 0) NOT NULL,
-		 	gas_limit bigint NOT NULL,
+			gas_limit bigint NOT NULL,
+			error text,
 			created_at timestamptz NOT NULL
 	  	);
 
@@ -25,6 +26,10 @@ func Migrate(tx *gorm.DB) error {
 
 		ALTER TABLE eth_transactions ADD CONSTRAINT chk_nonce_requires_from_address CHECK (
 			nonce IS NULL OR from_address IS NOT NULL
+		);
+
+		ALTER TABLE eth_transactions ADD CONSTRAINT chk_nonce_may_not_be_present_with_error CHECK (
+			nonce IS NULL OR error IS NULL
 		);
 
 		CREATE TABLE eth_transaction_attempts (
