@@ -8,7 +8,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +55,7 @@ func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, e
 // BootstrapThrowawayORM creates an ORM which runs in a separate database
 // than the normal unit tests, so it you can do things like use other
 // Postgres connection types with it.
-func BootstrapThrowawayORM(t *testing.T, name string) (*TestConfig, *orm.ORM, func()) {
+func BootstrapThrowawayORM(t *testing.T, name string, migrate bool) (*TestConfig, *orm.ORM, func()) {
 	tc, cleanup := NewConfig(t)
 	config := tc.Config
 
@@ -65,6 +67,9 @@ func BootstrapThrowawayORM(t *testing.T, name string) (*TestConfig, *orm.ORM, fu
 	require.NoError(t, err)
 	orm.SetLogging(true)
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
+	if migrate {
+		require.NoError(t, orm.RawDB(func(db *gorm.DB) error { return migrations.Migrate(db) }))
+	}
 
 	return tc, orm, func() {
 		assert.NoError(t, orm.Close())

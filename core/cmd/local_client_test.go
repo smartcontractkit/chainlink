@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"flag"
-	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -10,13 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
@@ -299,9 +296,8 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the datbase, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, tempDB, cleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("rebroadcast_txs_%s", test.dbName))
+			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcast_txs", true)
 			defer cleanup()
-			require.NoError(t, tempDB.RawDB(func(db *gorm.DB) error { return migrations.Migrate(db) }))
 			config.Config.Dialect = orm.DialectPostgres
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 			defer connectedCleanup()
