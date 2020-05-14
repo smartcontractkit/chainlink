@@ -111,7 +111,7 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 	}
 	orm.MustEnsureAdvisoryLock()
 
-	db, err := initializeDatabase(string(dialect), uri)
+	db, err := initializeDatabase(dialect, uri)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to init DB")
@@ -145,8 +145,15 @@ func displayTimeout(timeout models.Duration) string {
 	return timeout.String()
 }
 
-func initializeDatabase(dialect, path string) (*gorm.DB, error) {
-	db, err := gorm.Open(dialect, path)
+func selectDialect(dialect DialectName) string {
+	if dialect == DialectPostgresWithoutLock {
+		return string(DialectPostgres)
+	}
+	return string(dialect)
+}
+
+func initializeDatabase(dialect DialectName, path string) (*gorm.DB, error) {
+	db, err := gorm.Open(selectDialect(dialect), path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", path)
 	}

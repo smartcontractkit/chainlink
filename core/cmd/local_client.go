@@ -211,6 +211,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 	overrideGasLimit := c.Uint64("gasLimit")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
+	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer app.Stop()
 	store := app.GetStore()
