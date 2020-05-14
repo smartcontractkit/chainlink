@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1275,7 +1276,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	keysDir := store.Config.KeysDir()
 	// Clear out the fixture
 	require.NoError(t, os.RemoveAll(keysDir))
-	require.NoError(t, store.DeleteKey("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea"))
+	require.NoError(t, store.DeleteKey(hexutil.MustDecode("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")))
 	// Fixture key is deleted
 	dbkeys, err := store.Keys()
 	require.NoError(t, err)
