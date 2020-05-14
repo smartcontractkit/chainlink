@@ -38,7 +38,7 @@ type ConfigSchema struct {
 	EthereumDisabled                bool            `env:"ETH_DISABLED" default:"false"`
 	GasUpdaterBlockDelay            uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
 	GasUpdaterBlockHistorySize      uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
-	GasUpdaterTransactionPercentile uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"35"`
+	GasUpdaterTransactionPercentile uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled               bool            `env:"GAS_UPDATER_ENABLED" default:"false"`
 	JSONConsole                     bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress             string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
