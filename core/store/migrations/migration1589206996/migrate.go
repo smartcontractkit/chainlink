@@ -6,23 +6,27 @@ import (
 
 // Migrate adds the requisite tables for the BulletproofTxManager
 // I have tried to make an intelligent guess at the required indexes and
-// constraints but this will need revisiting after the system has been finished
+// constraints but this will undergo revision as the work progresses
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 	  	CREATE TABLE eth_transactions (
 			id BIGSERIAL PRIMARY KEY,
 			nonce bigint, 
-			from_address bytea REFERENCES keys (address),
+			from_address bytea REFERENCES keys (address) NOT NULL,
 			to_address bytea NOT NULL,
 			encoded_payload bytea NOT NULL,
 			value numeric(78, 0) NOT NULL,
 			gas_limit bigint NOT NULL,
 			error text,
+			broadcast_at timestamptz,
 			created_at timestamptz NOT NULL
 	  	);
 
 		CREATE UNIQUE INDEX idx_eth_transactions_nonce_from_address ON eth_transactions (nonce, from_address);
 		CREATE INDEX idx_eth_transactions_created_at ON eth_transactions USING BRIN (created_at);
+
+		-- only one record allowed per account with a nonce but no broadcast_at
+		CREATE UNIQUE INDEX idx_only_one_in_progress_tx_per_account ON eth_transactions (from_address) WHERE broadcast_at IS NULL AND nonce IS NOT NULL;
 
 		ALTER TABLE eth_transactions ADD CONSTRAINT chk_nonce_requires_from_address CHECK (
 			nonce IS NULL OR from_address IS NOT NULL
@@ -30,6 +34,14 @@ func Migrate(tx *gorm.DB) error {
 
 		ALTER TABLE eth_transactions ADD CONSTRAINT chk_nonce_may_not_be_present_with_error CHECK (
 			nonce IS NULL OR error IS NULL
+		);
+
+		ALTER TABLE eth_transactions ADD CONSTRAINT chk_broadcast_at_may_not_be_present_with_error CHECK (
+			broadcast_at IS NULL OR error IS NULL
+		);
+
+		ALTER TABLE eth_transactions ADD CONSTRAINT chk_broadcast_at_requires_nonce CHECK (
+			broadcast_at IS NULL OR nonce IS NOT NULL
 		);
 
 		CREATE TABLE eth_transaction_attempts (

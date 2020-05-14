@@ -243,6 +243,32 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 	})
 }
 
+// NOTE: Copied verbatim from gorm master
+// Transaction start a transaction as a block,
+// return error will rollback, otherwise to commit.
+func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
+	tx := orm.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%s", r)
+			tx.Rollback()
+			return
+		}
+	}()
+
+	err = fc(tx)
+
+	if err == nil {
+		err = tx.Commit().Error
+	}
+
+	// Makesure rollback when Block error or Commit error
+	if err != nil {
+		tx.Rollback()
+	}
+	return
+}
+
 // convenientTransaction handles setup and teardown for a gorm database
 // transaction, handing off the database transaction to the callback parameter.
 // Encourages the use of transactions for gorm calls that translate
@@ -250,18 +276,7 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 // in a database transaction.
 func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	orm.MustEnsureAdvisoryLock()
-	dbtx := orm.db.Begin()
-	if dbtx.Error != nil {
-		return dbtx.Error
-	}
-	defer dbtx.Rollback()
-
-	err := callback(dbtx)
-	if err != nil {
-		return err
-	}
-
-	return dbtx.Commit().Error
+	return orm.Transaction(callback)
 }
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
@@ -555,18 +570,18 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 
 // IdempotentInsertEthTaskRunTransaction creates both eth_task_run_transaction and eth_transaction in one hit
 // It can be called multiple times without error as long as the outcome would have resulted in the same database state
-func (orm *ORM) IdempotentInsertEthTaskRunTransaction(taskRunID models.ID, fromAddress *common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+func (orm *ORM) IdempotentInsertEthTaskRunTransaction(taskRunID models.ID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
 	ethTransaction := models.EthTransaction{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: encodedPayload,
-		Value:          assets.NewEth(0),
+		Value:          assets.NewEthValue(0),
 		GasLimit:       gasLimit,
 	}
 	ethTaskRunTransaction := models.EthTaskRunTransaction{
 		TaskRunID: taskRunID.UUID(),
 	}
-	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
+	err := orm.Transaction(func(dbtx *gorm.DB) error {
 		if err := dbtx.Save(&ethTransaction).Error; err != nil {
 			return err
 		}
@@ -584,14 +599,14 @@ func (orm *ORM) IdempotentInsertEthTaskRunTransaction(taskRunID models.ID, fromA
 				return err
 			}
 			t := savedRecord.EthTransaction
-			if t.ToAddress != toAddress || !bytes.Equal(t.EncodedPayload, encodedPayload) || t.GasLimit != gasLimit {
+			if t.ToAddress != toAddress || !bytes.Equal(t.EncodedPayload, encodedPayload) {
 				return fmt.Errorf(
 					"transaction already exists for task run ID %s but it has different parameters\n"+
-						"New parameters: toAddress: %s, encodedPayload: 0x%s, gasLimit: %v\n"+
-						"Existing record has: toAddress: %s, encodedPayload: 0x%s, gasLimit: %v",
+						"New parameters: toAddress: %s, encodedPayload: 0x%s"+
+						"Existing record has: toAddress: %s, encodedPayload: 0x%s",
 					taskRunID.String(),
-					toAddress.String(), hex.EncodeToString(encodedPayload), gasLimit,
-					t.ToAddress.String(), hex.EncodeToString(t.EncodedPayload), t.GasLimit,
+					toAddress.String(), hex.EncodeToString(encodedPayload),
+					t.ToAddress.String(), hex.EncodeToString(t.EncodedPayload),
 				)
 			}
 			return nil
@@ -603,10 +618,17 @@ func (orm *ORM) IdempotentInsertEthTaskRunTransaction(taskRunID models.ID, fromA
 }
 
 // FindEthTaskRunTransactionByTaskRunID finds the EthTaskRunTransaction with its EthTransaction preloaded
-func (orm *ORM) FindEthTaskRunTransactionByTaskRunID(taskRunID models.ID) (*models.EthTaskRunTransaction, error) {
-	etrt := &models.EthTaskRunTransaction{}
-	err := orm.db.Preload("EthTransaction").First(etrt, "task_run_id = ?", &taskRunID).Error
+func (orm *ORM) FindEthTaskRunTransactionByTaskRunID(taskRunID models.ID) (models.EthTaskRunTransaction, error) {
+	etrt := models.EthTaskRunTransaction{}
+	err := orm.db.Preload("EthTransaction").First(&etrt, "task_run_id = ?", &taskRunID).Error
 	return etrt, err
+}
+
+// FindEthTransactionWithAttempts finds the EthTransaction with its attempts preloaded
+func (orm *ORM) FindEthTransactionWithAttempts(ethTransactionID int64) (models.EthTransaction, error) {
+	etx := models.EthTransaction{}
+	err := orm.db.Preload("EthTransactionAttempts").First(&etx, "id = ?", &ethTransactionID).Error
+	return etx, err
 }
 
 // CreateTx finds and overwrites a transaction by its surrogate key, if it exists, or
@@ -1374,6 +1396,11 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 // SQLite without causing load problems.
 // NOTE: Now we no longer support SQLite, perhaps this can be tuned?
 const BatchSize = 100
+
+// NOTE: Skips advisory lock, use caution!
+func (orm *ORM) GetRawDB() *gorm.DB {
+	return orm.db
+}
 
 // Batch is an iterator _like_ for batches of records
 func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {

@@ -95,7 +95,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 
 			store.TxManager = txManager
 
-			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: gasLimit}
+			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: &gasLimit}
 			input := cltest.NewRunInputWithResult(test.input)
 			result := adapter.Perform(input, store)
 
@@ -495,8 +495,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 	t.Run("with valid data and empty DataFormat writes to database and returns run output pending outgoing confirmations", func(t *testing.T) {
 		adapter := adapters.EthTx{
-			Address:          toAddress,
-			GasLimit:         gasLimit,
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
@@ -521,8 +521,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 	t.Run("with bytes DataFormat writes correct encoded data to database", func(t *testing.T) {
 		adapter := adapters.EthTx{
-			Address:          toAddress,
-			GasLimit:         gasLimit,
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 			DataFormat:       "bytes",
@@ -549,8 +549,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 	t.Run("with invalid data returns run output error and does not write to DB", func(t *testing.T) {
 		adapter := adapters.EthTx{
-			Address:          toAddress,
-			GasLimit:         gasLimit,
+			ToAddress:        toAddress,
+			GasLimit:         &gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 			DataFormat:       "some old bollocks",

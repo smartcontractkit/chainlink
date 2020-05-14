@@ -129,3 +129,34 @@ func TestHighestPricedTxAttemptPerTx(t *testing.T) {
 	assert.True(t, items[0].GasPrice.ToInt().Cmp(big.NewInt(33333)) == 0)
 	assert.True(t, items[1].GasPrice.ToInt().Cmp(big.NewInt(12211)) == 0)
 }
+
+// TODO: May be redundant
+// func TestModels_EthTransactionAttempt_ScanAndValue(t *testing.T) {
+//     keys, err := orm.Keys()
+//     require.NoError(t, err)
+//     fromAddress := keys[0].Address.Address()
+//     toAddress := cltest.NewAddress()
+//     encodedPayload := []byte{1, 2, 3}
+//     value := assets.NewEth(142)
+//     gasLimit := uint64(242)
+//     nonce := utils.NewBig(342)
+//     errStr := "some error"
+
+//     ethTransaction := models.EthTransaction{
+//         Nonce:          nonce,
+//         FromAddress:    fromAddress,
+//         ToAddress:      toAddress,
+//         EncodedPayload: encodedPayload,
+//         Value:          value,
+//         GasLimit:       gasLimit,
+//         Error:          &errStr,
+//     }
+
+//     err := orm.RawDB(func(db *gorm.DB) error {
+//         return db.Save(&ethTransaction).Error
+//     })
+//     require.NoError(t, err)
+//     ethTransactionAttempt := models.EthTransactionAttempt{}
+//     // TODO: Test save and load all fields
+//     assert.True(t, false)
+// }

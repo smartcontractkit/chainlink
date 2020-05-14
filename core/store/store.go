@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	gethClient "github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -30,16 +31,21 @@ const (
 	AutoMigrate = "auto_migrate"
 )
 
+type GethClientWrapper interface {
+	GethClient(func(gethClient eth.GethClient) error) error
+}
+
 // Store contains fields for the database, Config, KeyStore, and TxManager
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      *orm.Config
-	Clock       utils.AfterNower
-	KeyStore    KeyStoreInterface
-	VRFKeyStore *VRFKeyStore
-	TxManager   TxManager
-	closeOnce   *sync.Once
+	Config            *orm.Config
+	Clock             utils.AfterNower
+	KeyStore          KeyStoreInterface
+	VRFKeyStore       *VRFKeyStore
+	TxManager         TxManager
+	GethClientWrapper GethClientWrapper
+	closeOnce         *sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -86,6 +92,22 @@ func (wrapper *lazyRPCWrapper) lazyDialInitializer() error {
 		wrapper.initialized.Set()
 	}
 	return nil
+}
+
+// GethClient allows callers to access go-ethereum's ethclient through the
+// wrapper's rate limiting
+func (wrapper *lazyRPCWrapper) GethClient(callback func(gethClient eth.GethClient) error) error {
+	err := wrapper.lazyDialInitializer()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	wrapper.limiter.Wait(ctx)
+
+	client := gethClient.NewClient(wrapper.client)
+
+	return callback(client)
 }
 
 func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...interface{}) error {
@@ -178,13 +200,19 @@ func newStoreWithDialerAndKeyStore(
 	keyStore := keyStoreGenerator()
 	callerSubscriberClient := &eth.CallerSubscriberClient{CallerSubscriber: ethrpc}
 	txManager := NewEthTxManager(callerSubscriberClient, config, keyStore, orm)
+
+	if err != nil {
+		logger.Fatalf("Unable to dial ETH client: %+v", err)
+	}
+
 	store := &Store{
-		Clock:     utils.Clock{},
-		Config:    config,
-		KeyStore:  keyStore,
-		ORM:       orm,
-		TxManager: txManager,
-		closeOnce: &sync.Once{},
+		Clock:             utils.Clock{},
+		Config:            config,
+		KeyStore:          keyStore,
+		ORM:               orm,
+		TxManager:         txManager,
+		GethClientWrapper: ethrpc,
+		closeOnce:         &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store

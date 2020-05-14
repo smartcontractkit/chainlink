@@ -18,10 +18,15 @@ import (
 //
 // By default, a key is assumed to represent an ethereum account.
 type Key struct {
-	Address   EIP55Address `gorm:"primary_key;type:varchar(64)"`
-	JSON      JSON         `gorm:"type:text"`
-	CreatedAt time.Time    `json:"-"`
-	UpdatedAt time.Time    `json:"-"`
+	ID        int32
+	Address   EIP55Address
+	JSON      JSON
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+	// This is the nonce that should be used for the next transaction.
+	// Conceptually equivalent to geth's `PendingNonceAt`
+	// TODO: Need to handle "first boot" scenario - bootstrap from transactions table?
+	NextNonce int64
 }
 
 type EncryptedSecretVRFKey = vrfkey.EncryptedSecretKey

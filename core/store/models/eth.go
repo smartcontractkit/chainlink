@@ -22,15 +22,17 @@ type EthTaskRunTransaction struct {
 }
 
 type EthTransaction struct {
-	ID             int64
-	Nonce          *int64
-	FromAddress    *common.Address
-	ToAddress      common.Address
-	EncodedPayload []byte
-	Value          *assets.Eth
-	GasLimit       uint64
-	Error          *string
-	CreatedAt      time.Time
+	ID                     int64
+	Nonce                  *int64
+	FromAddress            common.Address
+	ToAddress              common.Address
+	EncodedPayload         []byte
+	Value                  assets.Eth
+	GasLimit               uint64
+	Error                  *string
+	BroadcastAt            *time.Time
+	CreatedAt              time.Time
+	EthTransactionAttempts []EthTransactionAttempt
 }
 
 type EthTransactionAttempt struct {
@@ -38,10 +40,10 @@ type EthTransactionAttempt struct {
 	EthTransactionID     int64
 	GasPrice             utils.Big
 	SignedRawTx          []byte
-	Hash                 common.Hash
+	Hash                 *common.Hash
 	Error                *string
 	ConfirmedInBlockNum  *int64
-	ConfirmedInBlockHash common.Hash
+	ConfirmedInBlockHash *common.Hash
 	ConfirmedAt          *time.Time
 	CreatedAt            time.Time
 }

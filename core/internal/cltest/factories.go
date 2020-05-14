@@ -719,3 +719,14 @@ func MustInsertTaskRun(t *testing.T, store *store.Store) models.ID {
 
 	return *taskRunID
 }
+
+func MustInsertKey(t *testing.T, store *store.Store, address common.Address) models.Key {
+	a, err := models.NewEIP55Address(address.Hex())
+	require.NoError(t, err)
+	key := models.Key{
+		Address: a,
+		JSON:    JSONFromString(t, "{}"),
+	}
+	require.NoError(t, store.GetRawDB().Save(&key).Error)
+	return key
+}

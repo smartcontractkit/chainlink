@@ -168,6 +168,12 @@ func NewEth(w int64) *Eth {
 	return (*Eth)(big.NewInt(w))
 }
 
+// NewEthValue returns a new struct to represent ETH from it's smallest unit
+func NewEthValue(w int64) Eth {
+	eth := NewEth(w)
+	return *eth
+}
+
 // Cmp delegates to *big.Int.Cmp
 func (e *Eth) Cmp(y *Eth) int {
 	return e.ToInt().Cmp(y.ToInt())
@@ -236,22 +242,10 @@ func (e *Eth) ToInt() *big.Int {
 
 // Scan reads the database value and returns an instance.
 func (e *Eth) Scan(value interface{}) error {
-	switch v := value.(type) {
-	case []uint8:
-		// The SQL library returns numeric() types as []uint8 of the string representation
-		decoded, ok := e.SetString(string(v), 10)
-		if !ok {
-			return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Eth", value, value)
-		}
-		*e = *decoded
-	default:
-		return fmt.Errorf("Unable to convert %v of %T to Eth", value, value)
-	}
-
-	return nil
+	return (*utils.Big)(e).Scan(value)
 }
 
 // Value returns the Eth value for serialization to database.
-func (e *Eth) Value() (driver.Value, error) {
-	return e.String(), nil
+func (e Eth) Value() (driver.Value, error) {
+	return (utils.Big)(e).Value()
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -25,12 +26,14 @@ const (
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
-	Address          common.Address       `json:"address"`
+	ToAddress common.Address `json:"address"`
+	// TODO: Add validation on this... can we use a JSON foreign key??? Otherwise may need to write it to a column
+	FromAddress      *common.Address      `json:"fromAddress"`
 	FunctionSelector eth.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes        `json:"dataPrefix"`
 	DataFormat       string               `json:"format"`
 	GasPrice         *utils.Big           `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit         uint64               `json:"gasLimit"`
+	GasLimit         *uint64              `json:"gasLimit"`
 }
 
 // TaskType returns the type of Adapter.
@@ -42,6 +45,7 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	// TODO: Prevent user from shooting themselves in the foot with this - database flag that says if this has ever been enabled and dont allow to disable it
 	if store.Config.EnableBulletproofTxManager() {
 		return etx.perform(input, store)
 	} else {
@@ -49,7 +53,9 @@ func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.Run
 	}
 }
 
+// TODO: Stop resuming on every run
 func (etx *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	fmt.Println("GasLimit", etx.GasLimit)
 	value, err := getTxData(etx, input)
 	if err != nil {
 		err = errors.Wrap(err, "while constructing EthTx data")
@@ -57,11 +63,31 @@ func (etx *EthTx) perform(input models.RunInput, store *strpkg.Store) models.Run
 	}
 
 	taskRunID := input.TaskRunID()
-	toAddress := etx.Address
+	toAddress := etx.ToAddress
+	var fromAddress common.Address
+	if etx.FromAddress != nil {
+		fromAddress = *etx.FromAddress
+	} else {
+		// TODO: Move this function somewhere more sensible - ethtx shouldn't know about bulletprooftxmanager!
+		fromAddress, err = bulletprooftxmanager.GetDefaultAddress(store)
+		if err != nil {
+			return models.NewRunOutputError(err)
+		}
+	}
 	encodedPayload := utils.ConcatBytes(etx.FunctionSelector.Bytes(), etx.DataPrefix, value)
-	if err := store.IdempotentInsertEthTaskRunTransaction(taskRunID, nil, toAddress, encodedPayload, etx.GasLimit); err != nil {
+
+	var gasLimit uint64
+	if etx.GasLimit == nil {
+		gasLimit = store.Config.EthGasLimitDefault()
+	} else {
+		gasLimit = *etx.GasLimit
+	}
+
+	if err := store.IdempotentInsertEthTaskRunTransaction(taskRunID, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
 		return models.NewRunOutputError(err)
 	}
+
+	// TODO: Check state of tx attempts here to correctly mark job?
 
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 }
@@ -82,7 +108,11 @@ func (etx *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) mode
 	}
 
 	data := utils.ConcatBytes(etx.FunctionSelector.Bytes(), etx.DataPrefix, value)
-	return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
+	gasLimit := uint64(0)
+	if etx.GasLimit != nil {
+		gasLimit = *etx.GasLimit
+	}
+	return createTxRunResult(etx.ToAddress, etx.GasPrice, gasLimit, data, input, store)
 }
 
 // getTxData returns the data to save against the callback encoded according to
