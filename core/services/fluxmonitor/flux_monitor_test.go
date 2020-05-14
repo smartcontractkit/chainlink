@@ -1123,7 +1123,7 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, checker.SufficientPayment(big.NewInt(test.payment)))
+			assert.Equal(t, test.want, checker.ExportedSufficientPayment(big.NewInt(test.payment)))
 		})
 	}
 }
@@ -1156,7 +1156,7 @@ func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
 				PaymentAmount:  big.NewInt(int64(payment)),
 				OracleCount:    uint32(oracleCount),
 			}
-			assert.Equal(t, test.want, checker.SufficientFunds(state))
+			assert.Equal(t, test.want, checker.ExportedSufficientFunds(state))
 		})
 	}
 }
