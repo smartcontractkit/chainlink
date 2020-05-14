@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/eth"
-	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
+	ethsvc "github.com/smartcontractkit/chainlink/core/eth/services"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"

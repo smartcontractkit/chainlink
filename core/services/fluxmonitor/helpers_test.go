@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	eth "github.com/smartcontractkit/chainlink/core/eth/services"
+	"github.com/smartcontractkit/chainlink/core/eth/services/contracts"
 )
 
 func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {

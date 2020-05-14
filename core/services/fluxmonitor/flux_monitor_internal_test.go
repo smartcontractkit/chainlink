@@ -1,7 +1,7 @@
 package fluxmonitor
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	eth "github.com/smartcontractkit/chainlink/core/eth/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"

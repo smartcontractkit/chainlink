@@ -6,11 +6,11 @@ import (
 	abi "github.com/ethereum/go-ethereum/accounts/abi"
 	common "github.com/ethereum/go-ethereum/common"
 
-	contracts "github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	contracts "github.com/smartcontractkit/chainlink/core/eth/services/contracts"
 
 	coreeth "github.com/smartcontractkit/chainlink/core/eth"
 
-	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+	eth "github.com/smartcontractkit/chainlink/core/eth/services"
 
 	mock "github.com/stretchr/testify/mock"
 )
