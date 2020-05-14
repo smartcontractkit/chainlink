@@ -315,12 +315,9 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 			// Use the same config as the connectedStore so that the advisory
 			// lock ID is the same. We set the config to be Postgres Without
 			// Lock, because the db locking stratgey is decided when we
-			// initialize the store/ORM. We set it back after initialization
-			// and then as a makeshift test, check that it was set back to
-			// WithoutLock at the end of the test.
+			// initialize the store/ORM.
 			config.Config.Dialect = orm.DialectPostgresWithoutLock
 			store, cleanup := cltest.NewStoreWithConfig(config)
-			config.Config.Dialect = orm.DialectTransactionWrappedPostgres
 			defer cleanup()
 			require.NoError(t, err)
 			require.NoError(t, connectedStore.Start())
@@ -346,10 +343,13 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 			}
 
+			config.Config.Dialect = orm.DialectTransactionWrappedPostgres
+			// We set the dialect back after initialization so that we can check
+			// that it was set back to WithoutLock at the end of the test.
 			assert.NoError(t, client.RebroadcastTransactions(c))
-
 			// Check that the Dialect was set back when the command was run.
 			assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
+
 			jr = cltest.FindJobRun(t, connectedStore, jr.ID)
 			assert.Equal(t, models.RunStatusErrored, jr.Status)
 			app.AssertExpectations(t)
