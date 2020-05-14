@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
@@ -68,7 +69,8 @@ func (a *EIP55Address) UnmarshalJSON(input []byte) error {
 
 // Value returns this instance serialized for database storage.
 func (a EIP55Address) Value() (driver.Value, error) {
-	return a.String(), nil
+	return a.Bytes(), nil
+
 }
 
 // Scan reads the database value and returns an instance.
@@ -77,7 +79,8 @@ func (a *EIP55Address) Scan(value interface{}) error {
 	case string:
 		*a = EIP55Address(v)
 	case []byte:
-		*a = EIP55Address(string(v))
+		address := common.HexToAddress("0x" + hex.EncodeToString(v))
+		*a = EIP55Address(address.Hex())
 	default:
 		return fmt.Errorf("Unable to convert %v of %T to EIP55Address", value, value)
 	}
