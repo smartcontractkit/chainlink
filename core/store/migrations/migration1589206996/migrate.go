@@ -12,7 +12,7 @@ func Migrate(tx *gorm.DB) error {
 	  	CREATE TABLE eth_transactions (
 			id BIGSERIAL PRIMARY KEY,
 			nonce bigint, 
-			from_address bytea,
+			from_address bytea REFERENCES keys (address),
 			to_address bytea NOT NULL,
 			encoded_payload bytea NOT NULL,
 			value numeric(78, 0) NOT NULL,
