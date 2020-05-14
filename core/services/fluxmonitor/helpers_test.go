@@ -37,6 +37,14 @@ func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.Lo
 	p.respondToNewRoundLog(*log)
 }
 
+func (p *PollingDeviationChecker) ExportedSufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+	return p.sufficientFunds(state)
+}
+
+func (p *PollingDeviationChecker) ExportedSufficientPayment(payment *big.Int) bool {
+	return p.sufficientPayment(payment)
+}
+
 func ExportedConsumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
 	consumeLogBroadcast(lb, callback)
 }

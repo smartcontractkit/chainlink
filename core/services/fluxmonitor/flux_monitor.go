@@ -693,9 +693,9 @@ var (
 func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
 	if !roundState.EligibleToSubmit {
 		return ErrNotEligible
-	} else if !p.SufficientFunds(roundState) {
+	} else if !p.sufficientFunds(roundState) {
 		return ErrUnderfunded
-	} else if !p.SufficientPayment(roundState.PaymentAmount) {
+	} else if !p.sufficientPayment(roundState.PaymentAmount) {
 		return ErrPaymentTooLow
 	} else if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
 		return ErrAlreadySubmitted
@@ -705,16 +705,18 @@ func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundStat
 
 const MinFundedRounds int64 = 3
 
-// Checks if the available payment is enough to submit an answer.
-func (p *PollingDeviationChecker) SufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+// sufficientFunds checks if the contract has sufficient funding to pay all the oracles on a
+// conract for a minimum number of rounds, based on the payment amount in the contract
+func (p *PollingDeviationChecker) sufficientFunds(state contracts.FluxAggregatorRoundState) bool {
 	min := big.NewInt(int64(state.OracleCount))
-	min = min.Mul(min, big.NewInt(MinFundedRounds))
-	min = min.Mul(min, state.PaymentAmount)
+	min.Mul(min, big.NewInt(MinFundedRounds))
+	min.Mul(min, state.PaymentAmount)
 	return state.AvailableFunds.Cmp(min) >= 0
 }
 
-// Checks if the available payment is enough to submit an answer.
-func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
+// sufficientPayment checks if the available payment is enough to submit an answer. It compares
+// the payment amount on chain with the min payment amount listed in the job spec / ENV var.
+func (p *PollingDeviationChecker) sufficientPayment(payment *big.Int) bool {
 	return payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
 }
 
