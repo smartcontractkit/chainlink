@@ -170,9 +170,9 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     VRFConsumerBase v;
     bytes memory resp = abi.encodeWithSelector(
       v.fulfillRandomness.selector, requestId, randomness);
+    delete callbacks[requestId]; // Disables possible re-entrancy vulnerability
     // solhint-disable-next-line avoid-low-level-calls
     (bool success,) = callback.callbackContract.call(resp);
-    delete callbacks[requestId]; // Be a good ethereum citizen
     return success;
   }
 
