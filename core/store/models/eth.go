@@ -29,6 +29,7 @@ type EthTransaction struct {
 	EncodedPayload []byte
 	Value          *assets.Eth
 	GasLimit       uint64
+	Error          *string
 	CreatedAt      time.Time
 }
 
