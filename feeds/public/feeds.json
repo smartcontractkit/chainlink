@@ -438,7 +438,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "Nexus Mutual", "bZx", "1inch", "ParaSwap"],
+    "sponsored": ["Aave", "Nexus Mutual", "bZx", "1inch", "ParaSwap", "Opium.exchange"],
     "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/DAIETH/?exchange=BITFINEX",
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=dai",
