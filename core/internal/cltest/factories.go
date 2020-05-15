@@ -703,3 +703,15 @@ func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.Polli
 	require.NoError(t, err)
 	return checker
 }
+
+func NewPollingDeviationCheckerWithInitiatorParams(t *testing.T, s *store.Store, ip models.InitiatorParams) *fluxmonitor.PollingDeviationChecker {
+	fluxAggregator := new(mocks.FluxAggregator)
+	runManager := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	initr := models.Initiator{
+		InitiatorParams: ip,
+	}
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, runManager, fetcher, func() {})
+	require.NoError(t, err)
+	return checker
+}
