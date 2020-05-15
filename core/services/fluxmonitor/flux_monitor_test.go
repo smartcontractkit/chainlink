@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -98,7 +99,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		})
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		checkerFactory.On("New", job.Initiators[0], runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
+		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
 		fm := fluxmonitor.New(store, runManager)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())
@@ -302,6 +303,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 					store,
 					fluxAggregator,
 					initr,
+					nil,
 					rm,
 					fetcher,
 					func() {},
@@ -397,6 +399,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		store,
 		fluxAggregator,
 		initr,
+		nil,
 		rm,
 		fetcher,
 		func() {},
@@ -482,6 +485,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				store,
 				fluxAggregator,
 				initr,
+				nil,
 				runManager,
 				fetcher,
 				func() {},
@@ -560,6 +564,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 		store,
 		fluxAggregator,
 		initr,
+		nil,
 		runManager,
 		fetcher,
 		func() {},
@@ -619,6 +624,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		store,
 		fluxAggregator,
 		initr,
+		nil,
 		runManager,
 		fetcher,
 		func() {},
@@ -955,6 +961,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 				store,
 				fluxAggregator,
 				initr,
+				nil,
 				rm,
 				fetcher,
 				func() {},
@@ -1111,30 +1118,37 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	var gt int64 = 11
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	rm := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	fluxAggregator := new(mocks.FluxAggregator)
+
 	var payment int64 = 10
-	var lt int64 = 9
+	var eq = payment
+	var gt int64 = payment + 1
+	var lt int64 = payment - 1
 
 	tests := []struct {
 		name               string
 		minContractPayment int64
-		minJobPayment      interface{}
+		minJobPayment      interface{} // nil or int64
 		want               bool
 	}{
-		{"payment above minimum contract payment, no min job payment", lt, nil, true},
-		{"payment equal to minimum contract payment, no min job payment", payment, nil, true},
-		{"payment below minimum contract payment, no min job payment", gt, nil, false},
+		{"payment above min contract payment, no min job payment", lt, nil, true},
+		{"payment equal to min contract payment, no min job payment", eq, nil, true},
+		{"payment below min contract payment, no min job payment", gt, nil, false},
 
-		{"payment above minimum contract payment, above min job payment", lt, lt, true},
-		{"payment equal to minimum contract payment, above min job payment", payment, lt, true},
-		{"payment below minimum contract payment, above min job payment", gt, lt, false},
+		{"payment above min contract payment, above min job payment", lt, lt, true},
+		{"payment equal to min contract payment, above min job payment", eq, lt, true},
+		{"payment below min contract payment, above min job payment", gt, lt, false},
 
-		{"payment above minimum contract payment, equal to min job payment", lt, payment, true},
-		{"payment equal to minimum contract payment, equal to min job payment", payment, payment, true},
-		{"payment below minimum contract payment, equal to min job payment", gt, payment, false},
+		{"payment above min contract payment, equal to min job payment", lt, eq, true},
+		{"payment equal to min contract payment, equal to min job payment", eq, eq, true},
+		{"payment below min contract payment, equal to min job payment", gt, eq, false},
 
 		{"payment above minimum contract payment, below min job payment", lt, gt, false},
-		{"payment equal to minimum contract payment, below min job payment", payment, gt, false},
+		{"payment equal to minimum contract payment, below min job payment", eq, gt, false},
 		{"payment below minimum contract payment, below min job payment", gt, gt, false},
 	}
 
@@ -1142,11 +1156,24 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			store.Config.Set(orm.EnvVarName("MinimumContractPayment"), test.minContractPayment)
-			ip := models.InitiatorParams{}
+			var minJobPayment *assets.Link
+
 			if test.minJobPayment != nil {
-				ip.minimumPayment = test.minJobPayment
+				mjb := assets.Link(*big.NewInt(test.minJobPayment.(int64)))
+				minJobPayment = &mjb
 			}
-			checker := cltest.NewPollingDeviationCheckerWithInitiatorParams(t, store, ip)
+
+			checker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				initr,
+				minJobPayment,
+				rm,
+				fetcher,
+				func() {},
+			)
+			require.NoError(t, err)
+
 			assert.Equal(t, test.want, checker.ExportedSufficientPayment(big.NewInt(payment)))
 		})
 	}
