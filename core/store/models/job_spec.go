@@ -226,6 +226,7 @@ type InitiatorParams struct {
 	AbsoluteThreshold float32         `json:"absoluteThreshold" gorm:"type:float;not null"`
 	PollTimer         PollTimerConfig `json:"pollTimer,omitempty" gorm:"type:jsonb"`
 	IdleTimer         IdleTimerConfig `json:"idleTimer,omitempty" gorm:"type:jsonb"`
+	MinimumPayment    *utils.Big      `json:"minimumPayment,omitempty" gorm:"type:numeric"`
 }
 
 type PollTimerConfig struct {

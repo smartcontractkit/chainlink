@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1105,25 +1106,48 @@ func TestExtractFeedURLs(t *testing.T) {
 }
 
 func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	checker := cltest.NewPollingDeviationChecker(t, store)
 
-	min := store.Config.MinimumContractPayment().ToInt().Int64()
+	var gt int64 = 11
+	var payment int64 = 10
+	var lt int64 = 9
 
 	tests := []struct {
-		name    string
-		payment int64
-		want    bool
+		name               string
+		minContractPayment int64
+		minJobPayment      interface{}
+		want               bool
 	}{
-		{"above minimum", min + 1, true},
-		{"equal to minimum", min, true},
-		{"below minimum", min - 1, false},
+		{"payment above minimum contract payment, no min job payment", lt, nil, true},
+		{"payment equal to minimum contract payment, no min job payment", payment, nil, true},
+		{"payment below minimum contract payment, no min job payment", gt, nil, false},
+
+		{"payment above minimum contract payment, above min job payment", lt, lt, true},
+		{"payment equal to minimum contract payment, above min job payment", payment, lt, true},
+		{"payment below minimum contract payment, above min job payment", gt, lt, false},
+
+		{"payment above minimum contract payment, equal to min job payment", lt, payment, true},
+		{"payment equal to minimum contract payment, equal to min job payment", payment, payment, true},
+		{"payment below minimum contract payment, equal to min job payment", gt, payment, false},
+
+		{"payment above minimum contract payment, below min job payment", lt, gt, false},
+		{"payment equal to minimum contract payment, below min job payment", payment, gt, false},
+		{"payment below minimum contract payment, below min job payment", gt, gt, false},
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, checker.ExportedSufficientPayment(big.NewInt(test.payment)))
+			store.Config.Set(orm.EnvVarName("MinimumContractPayment"), test.minContractPayment)
+			ip := models.InitiatorParams{}
+			if test.minJobPayment != nil {
+				ip.minimumPayment = test.minJobPayment
+			}
+			checker := cltest.NewPollingDeviationCheckerWithInitiatorParams(t, store, ip)
+			assert.Equal(t, test.want, checker.ExportedSufficientPayment(big.NewInt(payment)))
 		})
 	}
 }
