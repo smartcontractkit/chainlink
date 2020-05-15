@@ -110,7 +110,7 @@ func (fm *concreteFluxMonitor) XXXTestingOnlyCreateJob(t *testing.T,
 	nextRound *big.Int) error {
 	jobSpec, err := fm.store.ORM.FindJob(jobSpecId)
 	require.NoError(t, err, "could not find job spec with that ID")
-	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], fm.runManager,
+	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], nil, fm.runManager,
 		fm.store.ORM, models.MustMakeDuration(100*time.Second))
 	require.NoError(t, err, "could not create deviation checker")
 	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, nextRound)
