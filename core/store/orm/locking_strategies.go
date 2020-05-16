@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -28,13 +27,6 @@ func NewLockingStrategy(ct Connection) (LockingStrategy, error) {
 type LockingStrategy interface {
 	Lock(timeout models.Duration) error
 	Unlock(timeout models.Duration) error
-}
-
-func normalizedTimeout(timeout time.Duration) <-chan time.Time {
-	if timeout == 0 {
-		return make(chan time.Time) // never time out
-	}
-	return time.After(timeout)
 }
 
 // PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive

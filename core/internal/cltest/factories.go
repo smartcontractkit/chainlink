@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -617,7 +616,7 @@ func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
 }
 
 // CreateJobRunWithStatus returns a new job run with the specified status that has been persisted
-func CreateJobRunWithStatus(t testing.TB, store *store.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
+func CreateJobRunWithStatus(t testing.TB, store *strpkg.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
 	run := NewJobRun(job)
 	run.SetStatus(status)
 	require.NoError(t, store.CreateJobRun(&run))
@@ -688,7 +687,7 @@ func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) mo
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
 }
 
-func NewPollingDeviationChecker(t *testing.T, s *store.Store) *fluxmonitor.PollingDeviationChecker {
+func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
 	fluxAggregator := new(mocks.FluxAggregator)
 	runManager := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)

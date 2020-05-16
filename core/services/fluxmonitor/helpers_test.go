@@ -102,10 +102,10 @@ func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 	return data
 }
 
-// XXXTestingOnlyCreateJob is used in TestFluxMonitorAntiSpamLogic to create a
+// CreateJob is used in TestFluxMonitorAntiSpamLogic to create a
 // job with a specific answer and round, for testing nodes with malicious
 // behavior
-func (fm *concreteFluxMonitor) XXXTestingOnlyCreateJob(t *testing.T,
+func (fm *concreteFluxMonitor) CreateJob(t *testing.T,
 	jobSpecId *models.ID, polledAnswer decimal.Decimal,
 	nextRound *big.Int) error {
 	jobSpec, err := fm.store.ORM.FindJob(jobSpecId)

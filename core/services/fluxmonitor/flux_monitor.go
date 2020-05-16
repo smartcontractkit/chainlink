@@ -753,7 +753,7 @@ func (p *PollingDeviationChecker) pollIfEligible(
 		"absoluteThreshold", thresholds.Abs,
 	}
 
-	if p.connected.IsSet() == false {
+	if !p.connected.IsSet() {
 		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
 		return false
 	}
