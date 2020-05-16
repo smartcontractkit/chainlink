@@ -86,11 +86,6 @@ func (b *Big) UnmarshalText(input []byte) error {
 	return nil
 }
 
-func (b *Big) setBytes(value []uint8) *Big {
-	w := (*big.Int)(b).SetBytes(value)
-	return (*Big)(w)
-}
-
 func (b *Big) setString(s string, base int) (*Big, bool) {
 	w, ok := (*big.Int)(b).SetString(s, base)
 	return (*Big)(w), ok

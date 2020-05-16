@@ -93,6 +93,7 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	// Normalize the whitespace in the ABI JSON
 	abiBytes, err := utils.NormalizedJSON(
 		[]byte(gjson.GetBytes(compilerJSON, abiPath).String()))
+	assert.NoError(t, err, "failed to normalize JSON %s", compilerJSON)
 	binBytes := gjson.GetBytes(compilerJSON, binPath).String()
 	if !isLINKCompilerOutput {
 		// Remove the varying contract metadata, as in ./generation/generate.sh
