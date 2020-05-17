@@ -157,6 +157,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	assert.NoError(t, err)
 	app.EthMock.EventuallyAllCalled(t)
 	txs, err := store.TxFrom(from)
+	assert.NoError(t, err, "failed to retrieve transactions for address 0x%x", from)
 	require.Len(t, txs, 1)
 	assert.Len(t, txs[0].Attempts, 1)
 }

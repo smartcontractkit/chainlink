@@ -288,7 +288,7 @@ func (txm *EthTxManager) createTx(
 	}
 
 	return nil, fmt.Errorf(
-		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
+		"transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
 		nonceReloadLimit,
 	)
 }
@@ -367,7 +367,7 @@ func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit
 	ma := txm.getAccount(originalTx.From)
 	rlp := new(bytes.Buffer)
 	if ma == nil {
-		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
+		return nil, fmt.Errorf("unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
 	}
 
 	transaction := types.NewTransaction(originalTx.Nonce, originalTx.To, originalTx.Value.ToInt(), gasLimit, &gasPrice, originalTx.Data)
@@ -504,7 +504,7 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	linkBalance, err := txm.GetLINKBalance(*contractAddress)
 	if err != nil {
 		return assets.Link{}, multierr.Combine(
-			fmt.Errorf("Could not check LINK balance for %v",
+			fmt.Errorf("could not check LINK balance for %v",
 				contractAddress),
 			err)
 	}
@@ -817,7 +817,7 @@ func (txm *EthTxManager) createAttempt(
 ) (*models.TxAttempt, error) {
 	ma := txm.getAccount(tx.From)
 	if ma == nil {
-		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
+		return nil, fmt.Errorf("unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
 	}
 
 	newTxAttempt, err := txm.newTx(

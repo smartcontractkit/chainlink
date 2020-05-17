@@ -488,9 +488,9 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 
 	buf, err := fromFile(s)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("Invalid JSON or file not found '%s'", s)
+		return nil, fmt.Errorf("invalid JSON or file not found '%s'", s)
 	} else if err != nil {
-		return nil, fmt.Errorf("Error reading from file '%s': %v", s, err)
+		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
 	}
 	return buf, nil
 }
@@ -522,7 +522,7 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("Try logging in")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("try logging in")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}

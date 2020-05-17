@@ -138,7 +138,7 @@ func (s *RunStatus) Scan(value interface{}) error {
 	case string:
 		*s = RunStatus(v)
 	default:
-		return fmt.Errorf("Unable to convert %#v of %T to RunStatus", value, value)
+		return fmt.Errorf("unable to convert %#v of %T to RunStatus", value, value)
 	}
 	return nil
 }
@@ -166,7 +166,7 @@ func (j *JSON) Scan(value interface{}) error {
 	case []byte:
 		*j = JSON{Result: gjson.ParseBytes(v)}
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to JSON", value, value)
+		return fmt.Errorf("unable to convert %v of %T to JSON", value, value)
 	}
 	return nil
 }
@@ -266,7 +266,7 @@ func (j JSON) CBOR() ([]byte, error) {
 		return cbor.Marshal(v)
 	default:
 		var b []byte
-		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
+		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
 	}
 }
 
@@ -314,7 +314,7 @@ func (w WebURL) Value() (driver.Value, error) {
 func (w *WebURL) Scan(value interface{}) error {
 	s, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to WebURL", value, value)
+		return fmt.Errorf("unable to convert %v of %T to WebURL", value, value)
 	}
 
 	u, err := url.ParseRequestURI(s)
@@ -410,7 +410,7 @@ func (t *AnyTime) Scan(value interface{}) error {
 		t.Valid = false
 		return nil
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Time", value, value)
 	}
 }
 
@@ -569,7 +569,7 @@ func (r AddressCollection) Value() (driver.Value, error) {
 func (r *AddressCollection) Scan(value interface{}) error {
 	str, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to AddressCollection", value, value)
+		return fmt.Errorf("unable to convert %v of %T to AddressCollection", value, value)
 	}
 
 	if len(str) == 0 {
