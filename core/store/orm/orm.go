@@ -64,23 +64,80 @@ const (
 	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
 )
 
-type ConnectionType struct {
+type Connection struct {
 	name               DialectName
+	uri                string
 	dialect            DialectName
 	locking            bool
+	advisoryLockID     int64
 	transactionWrapped bool
 }
 
-func ConnectionTypeFor(dialect DialectName) (ConnectionType, error) {
+func NewConnection(dialect DialectName, uri string, advisoryLockID int64) (Connection, error) {
 	switch dialect {
 	case DialectPostgres:
-		return ConnectionType{name: dialect, dialect: DialectPostgres, locking: true, transactionWrapped: false}, nil
+		return Connection{
+			advisoryLockID:     advisoryLockID,
+			dialect:            DialectPostgres,
+			locking:            true,
+			name:               dialect,
+			transactionWrapped: false,
+			uri:                uri,
+		}, nil
 	case DialectPostgresWithoutLock:
-		return ConnectionType{name: dialect, dialect: DialectPostgres, locking: false, transactionWrapped: false}, nil
+		return Connection{
+			advisoryLockID:     advisoryLockID,
+			dialect:            DialectPostgres,
+			locking:            false,
+			name:               dialect,
+			transactionWrapped: false,
+			uri:                uri,
+		}, nil
 	case DialectTransactionWrappedPostgres:
-		return ConnectionType{name: dialect, dialect: DialectTransactionWrappedPostgres, locking: true, transactionWrapped: true}, nil
+		return Connection{
+			advisoryLockID:     advisoryLockID,
+			dialect:            DialectTransactionWrappedPostgres,
+			locking:            true,
+			name:               dialect,
+			transactionWrapped: true,
+			uri:                uri,
+		}, nil
 	}
-	return ConnectionType{}, errors.Errorf("%s is not a valid dialect type", dialect)
+	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
+}
+
+func (ct Connection) initializeDatabase() (*gorm.DB, error) {
+	if ct.transactionWrapped {
+		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
+		// should be encapsulated in it's own transaction, and thus needs its own
+		// unique id.
+		//
+		// We can happily throw away the original uri here because if we are using
+		// txdb it should have already been set at the point where we called
+		// txdb.Register
+		ct.uri = models.NewID().String()
+	}
+
+	db, err := gorm.Open(string(ct.dialect), ct.uri)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
+	}
+
+	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
+
+	if err := dbutil.SetTimezone(db); err != nil {
+		return nil, err
+	}
+
+	if ct.transactionWrapped {
+		// Required to prevent phantom reads in overlapping tests
+		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return db, nil
 }
 
 // ORM contains the database object used by Chainlink.
@@ -88,7 +145,6 @@ type ORM struct {
 	db                  *gorm.DB
 	lockingStrategy     LockingStrategy
 	advisoryLockTimeout models.Duration
-	connection          ConnectionType
 	closeOnce           sync.Once
 	shutdownSignal      gracefulpanic.Signal
 }
@@ -100,50 +156,28 @@ var (
 
 // NewORM initializes a new database file at the configured uri.
 func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
-	ct, err := ConnectionTypeFor(dialect)
+	ct, err := NewConnection(dialect, uri, advisoryLockID)
 	if err != nil {
 		return nil, err
 	}
 	// Locking strategy for transaction wrapped postgres must use original URI
-	lockingStrategy, err := NewLockingStrategy(ct, uri, advisoryLockID)
+	lockingStrategy, err := NewLockingStrategy(ct)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create ORM lock")
 	}
-	if ct.transactionWrapped {
-		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
-		// should be encapsulated in it's own transaction, and thus needs its own
-		// unique id.
-		//
-		// We can happily throw away the original uri here because if we are using
-		// txdb it should have already been set at the point where we called
-		// txdb.Register
-		uri = models.NewID().String()
-	}
 
 	logger.Infof("Locking %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
-
 	orm := &ORM{
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
-		connection:          ct,
 		shutdownSignal:      shutdownSignal,
 	}
 	orm.MustEnsureAdvisoryLock()
 
-	db, err := initializeDatabase(ct, uri)
-
+	db, err := ct.initializeDatabase()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to init DB")
 	}
-
-	if ct.transactionWrapped {
-		// Required to prevent phantom reads in overlapping tests
-		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	orm.db = db
 
 	return orm, nil
@@ -162,21 +196,6 @@ func displayTimeout(timeout models.Duration) string {
 		return "indefinite"
 	}
 	return timeout.String()
-}
-
-func initializeDatabase(ct ConnectionType, path string) (*gorm.DB, error) {
-	db, err := gorm.Open(string(ct.dialect), path)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", path)
-	}
-
-	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
-
-	if err := dbutil.SetTimezone(db); err != nil {
-		return nil, err
-	}
-
-	return db, nil
 }
 
 // DeduceDialect returns the appropriate dialect for the passed connection string.
