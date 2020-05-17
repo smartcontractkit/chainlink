@@ -77,6 +77,9 @@ go-solidity-wrappers: ## Recompiles solidity contracts and their go wrappers
 	go generate ./...
 	go run ./packr/main.go ./core/eth/
 
+.PHONY: testdb
+testdb: ## Prepares the test database
+	go run ./core/main.go local db preparetest
 
 .PHONY: docker
 docker: ## Build the docker image.
