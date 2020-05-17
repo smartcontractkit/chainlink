@@ -59,14 +59,36 @@ const (
 	//
 	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
 	DialectTransactionWrappedPostgres DialectName = "cloudsqlpostgres"
+	// DialectPostgresWithoutLock represents the postgres dialect but it does not
+	// wait for a lock to connect. Intended to be used for read only access.
+	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
 )
+
+type ConnectionType struct {
+	name               DialectName
+	dialect            DialectName
+	locking            bool
+	transactionWrapped bool
+}
+
+func ConnectionTypeFor(dialect DialectName) (ConnectionType, error) {
+	switch dialect {
+	case DialectPostgres:
+		return ConnectionType{name: dialect, dialect: DialectPostgres, locking: true, transactionWrapped: false}, nil
+	case DialectPostgresWithoutLock:
+		return ConnectionType{name: dialect, dialect: DialectPostgres, locking: false, transactionWrapped: false}, nil
+	case DialectTransactionWrappedPostgres:
+		return ConnectionType{name: dialect, dialect: DialectTransactionWrappedPostgres, locking: true, transactionWrapped: true}, nil
+	}
+	return ConnectionType{}, errors.Errorf("%s is not a valid dialect type", dialect)
+}
 
 // ORM contains the database object used by Chainlink.
 type ORM struct {
 	db                  *gorm.DB
 	lockingStrategy     LockingStrategy
 	advisoryLockTimeout models.Duration
-	dialectName         DialectName
+	connection          ConnectionType
 	closeOnce           sync.Once
 	shutdownSignal      gracefulpanic.Signal
 }
@@ -78,12 +100,16 @@ var (
 
 // NewORM initializes a new database file at the configured uri.
 func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
-	if dialect == "" {
-		return nil, errors.New("dialect is required")
+	ct, err := ConnectionTypeFor(dialect)
+	if err != nil {
+		return nil, err
 	}
 	// Locking strategy for transaction wrapped postgres must use original URI
-	lockingStrategy, err := NewLockingStrategy(dialect, uri, advisoryLockID)
-	if dialect == DialectTransactionWrappedPostgres {
+	lockingStrategy, err := NewLockingStrategy(ct, uri, advisoryLockID)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create ORM lock")
+	}
+	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
 		// unique id.
@@ -94,27 +120,23 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 		uri = models.NewID().String()
 	}
 
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create ORM lock")
-	}
-
-	logger.Infof("Locking %v for exclusive access with %v timeout", dialect, displayTimeout(timeout))
+	logger.Infof("Locking %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
 
 	orm := &ORM{
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
-		dialectName:         dialect,
+		connection:          ct,
 		shutdownSignal:      shutdownSignal,
 	}
 	orm.MustEnsureAdvisoryLock()
 
-	db, err := initializeDatabase(string(dialect), uri)
+	db, err := initializeDatabase(ct, uri)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to init DB")
 	}
 
-	if dialect == DialectTransactionWrappedPostgres {
+	if ct.transactionWrapped {
 		// Required to prevent phantom reads in overlapping tests
 		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
 		if err != nil {
@@ -142,8 +164,8 @@ func displayTimeout(timeout models.Duration) string {
 	return timeout.String()
 }
 
-func initializeDatabase(dialect, path string) (*gorm.DB, error) {
-	db, err := gorm.Open(dialect, path)
+func initializeDatabase(ct ConnectionType, path string) (*gorm.DB, error) {
+	db, err := gorm.Open(string(ct.dialect), path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", path)
 	}
