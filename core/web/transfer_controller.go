@@ -38,7 +38,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	}
 	tx, err := store.TxManager.CreateTxWithEth(from, tr.DestinationAddress, tr.Amount)
 	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Transaction failed: %v", err))
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
 		return
 	}
 
@@ -51,7 +51,7 @@ func retrieveFromAddress(from common.Address, store *store.Store) (common.Addres
 	}
 	ma := store.TxManager.NextActiveAccount()
 	if ma == nil {
-		return common.Address{}, errors.New("Must activate an account before creating a transaction")
+		return common.Address{}, errors.New("must activate an account before creating a transaction")
 	}
 
 	return ma.Address, nil

@@ -346,7 +346,7 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 		for k, v := range typed {
 			coercedKey, ok := k.(string)
 			if !ok {
-				return nil, fmt.Errorf("Unable to coerce key %T %v to a string", k, k)
+				return nil, fmt.Errorf("unable to coerce key %T %v to a string", k, k)
 			}
 			coerced, err := CoerceInterfaceMapToStringMap(v)
 			if err != nil {

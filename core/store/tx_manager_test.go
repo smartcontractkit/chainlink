@@ -343,7 +343,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	to := cltest.NewAddress()
 	data := hexutil.MustDecode("0x0000abcdef")
 	_, err = manager.CreateTx(to, data)
-	assert.EqualError(t, err, "Transaction reattempt limit reached for 'nonce is too low' error. Limit: 3")
+	assert.EqualError(t, err, "transaction reattempt limit reached for 'nonce is too low' error. Limit: 3")
 
 	ethClient.AssertExpectations(t)
 }
