@@ -242,7 +242,6 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    */
   function latestAnswer()
     external
-    view
     returns (int256)
   {
     return currentAnswers[latestCompletedAnswer];
@@ -253,7 +252,6 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    */
   function latestTimestamp()
     external
-    view
     returns (uint256)
   {
     return updatedTimestamps[latestCompletedAnswer];
@@ -265,7 +263,6 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    */
   function getAnswer(uint256 _roundId)
     external
-    view
     returns (int256)
   {
     return currentAnswers[_roundId];
@@ -277,7 +274,6 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    */
   function getTimestamp(uint256 _roundId)
     external
-    view
     returns (uint256)
   {
     return updatedTimestamps[_roundId];
@@ -286,7 +282,10 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   /**
    * @notice get the latest completed round where the answer was updated
    */
-  function latestRound() external view returns (uint256) {
+  function latestRound()
+    external
+    returns (uint256)
+  {
     return latestCompletedAnswer;
   }
 

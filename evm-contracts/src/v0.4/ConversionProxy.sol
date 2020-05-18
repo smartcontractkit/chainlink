@@ -78,7 +78,10 @@ contract ConversionProxy is AggregatorInterface, Ownable {
    * @return The converted answer with amount of precision as defined
    * by `decimals`
    */
-  function latestAnswer() external view returns (int256) {
+  function latestAnswer()
+    external
+    returns (int256)
+  {
     return convertAnswer(from.latestAnswer(), to.latestAnswer());
   }
 
@@ -87,7 +90,10 @@ contract ConversionProxy is AggregatorInterface, Ownable {
    * aggregator
    * @return The value of latestTimestamp for the `from` aggregator
    */
-  function latestTimestamp() external view returns (uint256) {
+  function latestTimestamp()
+    external
+    returns (uint256)
+  {
     return from.latestTimestamp();
   }
 
@@ -96,7 +102,10 @@ contract ConversionProxy is AggregatorInterface, Ownable {
    * aggregator
    * @return The value of latestRound for the `from` aggregator
    */
-  function latestRound() external view returns (uint256) {
+  function latestRound()
+    external
+    returns (uint256)
+  {
     return from.latestRound();
   }
 
@@ -106,7 +115,10 @@ contract ConversionProxy is AggregatorInterface, Ownable {
    * @return The converted answer for `_roundId` of the `from`
    * aggregator with the amount of precision as defined by `decimals`
    */
-  function getAnswer(uint256 _roundId) external view returns (int256) {
+  function getAnswer(uint256 _roundId)
+    external
+    returns (int256)
+  {
     return convertAnswer(from.getAnswer(_roundId), to.latestAnswer());
   }
 
@@ -116,7 +128,10 @@ contract ConversionProxy is AggregatorInterface, Ownable {
    * @return The timestamp of the `from` aggregator for the specified
    * `_roundId`
    */
-  function getTimestamp(uint256 _roundId) external view returns (uint256) {
+  function getTimestamp(uint256 _roundId)
+    external
+    returns (uint256)
+  {
     return from.getTimestamp(_roundId);
   }
 
