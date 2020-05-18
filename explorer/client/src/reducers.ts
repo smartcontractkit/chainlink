@@ -10,7 +10,6 @@ import config from './reducers/config'
 import jobRuns from './reducers/jobRuns'
 import jobRunsIndex from './reducers/jobRunsIndex'
 import notifications from './reducers/notifications'
-import search from './reducers/query'
 import taskRuns from './reducers/taskRuns'
 
 const reducer = combineReducers({
@@ -25,7 +24,6 @@ const reducer = combineReducers({
   jobRuns,
   jobRunsIndex,
   notifications,
-  search,
   taskRuns,
 })
 

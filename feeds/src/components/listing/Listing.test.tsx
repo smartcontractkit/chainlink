@@ -3,11 +3,11 @@ import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import '@testing-library/jest-dom/extend-expect'
 import { render } from '@testing-library/react'
+import { FeedConfig } from 'config'
 import { Provider as ReduxProvider } from 'react-redux'
+import { ListingGroup } from 'state/ducks/listing/selectors'
 import createStore from '../../state/createStore'
 import { Listing } from './Listing'
-import { ListingGroup } from 'state/ducks/listing/selectors'
-import { FeedConfig } from 'config'
 import { Contract } from 'ethers'
 import * as utils from '../../contracts/utils'
 
@@ -21,7 +21,7 @@ const AllTheProviders: React.FC = ({ children }) => {
   )
 }
 
-const listingGroup1: ListingGroup = {
+const listingGroup1 = {
   name: 'List 1',
   feeds: [
     partialAsFull<FeedConfig>({
@@ -33,7 +33,7 @@ const listingGroup1: ListingGroup = {
     partialAsFull<FeedConfig>({
       name: 'pair name 2',
       path: '/link2',
-      valuePrefix: '$',
+      valuePrefix: 'Ξ',
       sponsored: ['sponsor 1', 'sponsor 2'],
     }),
   ],
@@ -50,7 +50,7 @@ const listingGroup2 = {
     partialAsFull<FeedConfig>({
       name: 'pair name 4',
       path: '/link2',
-      valuePrefix: '$',
+      valuePrefix: 'Ξ',
       sponsored: ['sponsor 1', 'sponsor 2'],
     }),
   ],
@@ -118,22 +118,5 @@ describe('components/listing/Listing', () => {
     expect(container).toHaveTextContent('pair name 2')
     expect(container).toHaveTextContent('pair name 3')
     expect(container).toHaveTextContent('pair name 4')
-  })
-
-  it('renders sponsored names', () => {
-    const { container } = render(
-      <AllTheProviders>
-        <Listing
-          loadingFeeds={false}
-          feedGroups={listingGroups}
-          fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
-        />
-      </AllTheProviders>,
-    )
-
-    expect(container).toHaveTextContent('sponsor 1')
-    expect(container).toHaveTextContent('sponsor 2')
   })
 })

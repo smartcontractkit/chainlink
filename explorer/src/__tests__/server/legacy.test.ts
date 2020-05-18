@@ -18,6 +18,20 @@ describe('realtime', () => {
   let secret: string
   let ws: WebSocket
 
+  function closeWebsocket(): Promise<void> {
+    ws?.close()
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject('[closeWebsocket] Timed out waiting.')
+      }, 3000)
+
+      ws?.on('close', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+    })
+  }
+
   beforeAll(async () => {
     server = await start()
   })
@@ -31,7 +45,7 @@ describe('realtime', () => {
   })
 
   afterEach(async () => {
-    ws.close()
+    await closeWebsocket()
   })
 
   afterAll(done => stop(server, done))
@@ -68,7 +82,6 @@ describe('realtime', () => {
 
           if (responses === 2) {
             expect(response.status).toEqual(201)
-            ws.close()
             resolve()
           }
         })
@@ -113,7 +126,6 @@ describe('realtime', () => {
       expect(tr.blockHeight).toEqual('3735928559')
       expect(tr.blockHash).toEqual('0xbadc0de5')
       expect(tr.transactionStatus).toEqual('fulfilledRunLog')
-      ws.close()
     })
 
     it('rejects malformed json events with code 422', async () => {

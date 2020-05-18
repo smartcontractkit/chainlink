@@ -2,22 +2,20 @@ import {
   contract,
   helpers as h,
   matchers,
-  oracle,
   setup,
+  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
+import { MockAggregatorFactory } from '../../ethers/v0.6/MockAggregatorFactory'
 import { WhitelistedAggregatorProxyFactory } from '../../ethers/v0.6/WhitelistedAggregatorProxyFactory'
-import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
-const aggregatorFactory = new AggregatorFactory()
-const oracleFactory = new OracleFactory()
+const aggregatorFactory = new MockAggregatorFactory()
 const whitelistedAggregatorProxyFactory = new WhitelistedAggregatorProxyFactory()
 
 beforeAll(async () => {
@@ -28,26 +26,33 @@ beforeAll(async () => {
 })
 
 describe('WhitelistedAggregatorProxy', () => {
-  const jobId1 =
-    '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001'
   const deposit = h.toWei('100')
-  const basePayment = h.toWei('1')
-  const response = h.numToBytes32(54321)
+  const answer = h.numToBytes32(54321)
+  const roundId = 17
+  const decimals = 18
+  const timestamp = 678
+  const startedAt = 677
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<AggregatorFactory>
-  let oc1: contract.Instance<OracleFactory>
-  let proxy: contract.Instance<WhitelistedAggregatorProxyFactory>
+  let aggregator: contract.Instance<MockAggregatorFactory>
+  let proxy: contract.CallableOverrideInstance<
+    WhitelistedAggregatorProxyFactory,
+    interfaces.AggregatorInterface
+  >
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
-    oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
-      .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+      .deploy(decimals, 0)
+    await aggregator.updateRoundData(roundId, answer, timestamp, startedAt)
     await link.transfer(aggregator.address, deposit)
-    proxy = await whitelistedAggregatorProxyFactory
-      .connect(defaultAccount)
-      .deploy(aggregator.address)
+    proxy = contract.callable(
+      await whitelistedAggregatorProxyFactory
+        .connect(defaultAccount)
+        .deploy(aggregator.address),
+      interfaces.AggregatorMethodList,
+    )
   })
 
   beforeEach(async () => {
@@ -57,12 +62,14 @@ describe('WhitelistedAggregatorProxy', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(whitelistedAggregatorProxyFactory, [
       'aggregator',
+      'decimals',
       'getAnswer',
+      'getRoundData',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestTimestamp',
-      'decimals',
       'setAggregator',
       // Ownable methods:
       'acceptOwnership',
@@ -108,21 +115,20 @@ describe('WhitelistedAggregatorProxy', () => {
         await proxy.connect(personas.Carol).latestRound()
       }, 'Not whitelisted')
     })
+
+    it('getRoundData reverts', async () => {
+      matchers.evmRevert(async () => {
+        await proxy.connect(personas.Carol).getRoundData(1)
+      }, 'Not whitelisted')
+    })
   })
 
   describe('if the caller is whitelisted', () => {
     beforeEach(async () => {
       await proxy.addToWhitelist(defaultAccount.address)
 
-      const requestTx = await aggregator.requestRateUpdate()
-      const receipt = await requestTx.wait()
-      const request = oracle.decodeRunRequest(receipt.logs?.[3])
-      await oc1.fulfillOracleRequest(
-        ...oracle.convertFufillParams(request, response),
-      )
-
       matchers.bigNum(
-        ethers.utils.bigNumberify(response),
+        ethers.utils.bigNumberify(answer),
         await aggregator.latestAnswer(),
       )
       const height = await aggregator.latestTimestamp()
@@ -130,9 +136,9 @@ describe('WhitelistedAggregatorProxy', () => {
     })
 
     it('pulls the rate from the aggregator', async () => {
-      matchers.bigNum(response, await proxy.latestAnswer())
+      matchers.bigNum(answer, await proxy.latestAnswer())
       const latestRound = await proxy.latestRound()
-      matchers.bigNum(response, await proxy.getAnswer(latestRound))
+      matchers.bigNum(answer, await proxy.getAnswer(latestRound))
     })
 
     it('pulls the timestamp from the aggregator', async () => {
@@ -145,6 +151,17 @@ describe('WhitelistedAggregatorProxy', () => {
         await aggregator.latestTimestamp(),
         await proxy.getTimestamp(latestRound),
       )
+    })
+
+    it('getRoundData works', async () => {
+      const latestRound = await proxy.latestRound()
+      await proxy.latestRound()
+      const round = await proxy.getRoundData(latestRound)
+      await proxy.getRoundData(latestRound)
+      matchers.bigNum(roundId, round.roundId)
+      matchers.bigNum(answer, round.answer)
+      matchers.bigNum(startedAt, round.startedAt)
+      matchers.bigNum(timestamp, round.updatedAt)
     })
   })
 })

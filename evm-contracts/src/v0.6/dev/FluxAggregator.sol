@@ -130,7 +130,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @notice Deploy with the address of the LINK token and initial payment amount
    * @dev Sets the LinkToken address and amount of LINK paid
    * @param _link The address of the LINK token
-   * @param _paymentAmount The amount paid of LINK paid to each oracle per submission
+   * @param _paymentAmount The amount paid of LINK paid to each oracle per submission, in wei (units of 10⁻¹⁸ LINK)
    * @param _timeout is the number of seconds after the previous round that are
    * allowed to lapse before allowing an oracle to skip an unfinished round
    */
@@ -301,7 +301,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function latestAnswer()
     external
-    view
     virtual
     override
     returns (int256)
@@ -314,7 +313,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function latestTimestamp()
     external
-    view
     virtual
     override
     returns (uint256)
@@ -327,7 +325,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function latestRound()
     external
-    view
     override
     returns (uint256)
   {
@@ -351,7 +348,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function getAnswer(uint256 _roundId)
     external
-    view
     virtual
     override
     returns (int256)
@@ -365,7 +361,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function getTimestamp(uint256 _roundId)
     external
-    view
     virtual
     override
     returns (uint256)
@@ -374,53 +369,74 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice get the timed out status of a given round
-   * @param _roundId the round number to retrieve the timed out status for
+   * @notice get data about a round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * @param _roundId the round ID to retrieve the round data for
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
    */
-  function getTimedOutStatus(uint256 _roundId)
+  function getRoundData(uint256 _roundId)
     external
-    view
-    returns (bool)
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
   {
-    uint32 roundId = uint32(_roundId);
-    uint32 answeredIn = rounds[roundId].answeredInRound;
-    return answeredIn > 0 && answeredIn != roundId;
+    return _getRoundData(_roundId);
   }
 
   /**
-   * @notice get the start time of the current reporting round
+   * @notice get data about the latest round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values. Consumers are encouraged to
+   * use this more fully featured method over the "legacy" getAnswer/
+   * latestAnswer/getTimestamp/latestTimestamp functions. Consumers are
+   * encouraged to check that they're receiving fresh data by inspecting the
+   * updatedAt and answeredInRound return values.
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
    */
-  function reportingRoundStartedAt()
+   function latestRoundData()
     external
-    view
-    returns (uint256)
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
   {
-    return rounds[reportingRoundId].startedAt;
+    return _latestRoundData();
   }
 
-  /**
-   * @notice get the start time of a round
-   * @param _roundId the round number to retrieve the startedAt time for
-   */
-  function getRoundStartedAt(uint256 _roundId)
-    external
-    view
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].startedAt;
-  }
-
-  /**
-   * @notice get the round ID that an answer was originally reported in
-   * @param _roundId the round number to retrieve the answer for
-   */
-  function getOriginatingRoundOfAnswer(uint256 _roundId)
-    external
-    view
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].answeredInRound;
-  }
 
   /**
    * @notice query the available amount of LINK for an oracle to withdraw
@@ -671,6 +687,44 @@ contract FluxAggregator is AggregatorInterface, Owned {
   }
 
   /**
+   * @dev Internal implementation of getRoundData
+   */
+  function _getRoundData(uint256 _roundId)
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    Round memory r = rounds[uint32(_roundId)];
+    return (
+      _roundId,
+      r.answer,
+      r.startedAt,
+      r.updatedAt,
+      r.answeredInRound
+    );
+  }
+
+  function _latestRoundData()
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRoundData(latestRoundId);
+  }
+
+  /**
    * Private
    */
 
@@ -781,14 +835,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint64 startedAt = rounds[_roundId].startedAt;
     uint32 roundTimeout = rounds[_roundId].details.timeout;
     return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
-  }
-
-  function finished(uint32 _roundId)
-    private
-    view
-    returns (bool)
-  {
-    return rounds[_roundId].updatedAt > 0;
   }
 
   function getStartingRound(address _oracle)

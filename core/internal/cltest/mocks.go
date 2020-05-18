@@ -594,6 +594,16 @@ func NewHTTPMockServer(
 	}
 }
 
+func NewHTTPMockServerWithAlterableResponse(
+	t *testing.T, response func() string) (server *httptest.Server) {
+	server = httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, response())
+		}))
+	return server
+}
+
 // MockCron represents a mock cron
 type MockCron struct {
 	Entries []MockCronEntry
@@ -691,10 +701,19 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
-func MustUser(email, pwd string) models.User {
-	r, err := models.NewUser(email, pwd)
+func MustRandomUser() models.User {
+	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
+	r, err := models.NewUser(email, Password)
 	if err != nil {
 		logger.Panic(err)
+	}
+	return r
+}
+
+func MustNewUser(t *testing.T, email, password string) models.User {
+	r, err := models.NewUser(email, password)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return r
 }
@@ -708,24 +727,25 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 		return user, err
 	}
 	m.Count += 1
-	user := MustUser(APIEmail, Password)
+	user := MustRandomUser()
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader) cmd.HTTPClient {
-	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
+func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader, sessionID string) cmd.HTTPClient {
+	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID})
 }
 
 type MockCookieAuthenticator struct {
-	Error error
+	SessionID string
+	Error     error
 }
 
 func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
-	return MustGenerateSessionCookie(APISessionID), m.Error
+	return MustGenerateSessionCookie(m.SessionID), m.Error
 }
 
 func (m MockCookieAuthenticator) Authenticate(models.SessionRequest) (*http.Cookie, error) {
-	return MustGenerateSessionCookie(APISessionID), m.Error
+	return MustGenerateSessionCookie(m.SessionID), m.Error
 }
 
 type MockSessionRequestBuilder struct {

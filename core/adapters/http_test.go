@@ -430,6 +430,20 @@ func TestQueryParameters_Error(t *testing.T) {
 			adapters.QueryParameters{},
 			baseUrl,
 		},
+		{
+			"invalid type",
+			`{"firstKey": "firstVal", "secondKey": "secondVal"}`,
+			baseUrl,
+			adapters.QueryParameters{},
+			baseUrl,
+		},
+		{
+			"invalid json",
+			"invalid",
+			baseUrl,
+			adapters.QueryParameters{},
+			baseUrl,
+		},
 	}
 
 	for _, test := range cases {

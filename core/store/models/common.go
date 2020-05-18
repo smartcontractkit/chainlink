@@ -39,8 +39,9 @@ const (
 	RunStatusUnstarted = RunStatus("unstarted")
 	// RunStatusInProgress is used for when a run is actively being executed.
 	RunStatusInProgress = RunStatus("in_progress")
-	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
-	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
+	// RunStatusPendingIncomingConfirmations is used for when a run is awaiting for incoming block confirmations
+	// e.g. waiting for the log event to be N blocks deep
+	RunStatusPendingIncomingConfirmations = RunStatus("pending_incoming_confirmations")
 	// RunStatusPendingConnection states that the run is waiting on a connection to the block chain.
 	RunStatusPendingConnection = RunStatus("pending_connection")
 	// RunStatusPendingBridge is used for when a run is waiting on the completion
@@ -48,6 +49,9 @@ const (
 	RunStatusPendingBridge = RunStatus("pending_bridge")
 	// RunStatusPendingSleep is used for when a run is waiting on a sleep function to finish.
 	RunStatusPendingSleep = RunStatus("pending_sleep")
+	// RunStatusPendingOutgoingConfirmations is used for when a run is waiting for outgoing block confirmations
+	// e.g. we have sent a transaction using ethtx and are now waiting for it to be N blocks deep
+	RunStatusPendingOutgoingConfirmations = RunStatus("pending_outgoing_confirmations")
 	// RunStatusErrored is used for when a run has errored and will not complete.
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
@@ -66,9 +70,9 @@ func (s RunStatus) PendingBridge() bool {
 	return s == RunStatusPendingBridge
 }
 
-// PendingConfirmations returns true if the status is pending_confirmations.
-func (s RunStatus) PendingConfirmations() bool {
-	return s == RunStatusPendingConfirmations
+// PendingIncomingConfirmations returns true if the status is pending_incoming_confirmations.
+func (s RunStatus) PendingIncomingConfirmations() bool {
+	return s == RunStatusPendingIncomingConfirmations
 }
 
 // PendingConnection returns true if the status is pending_connection.
@@ -79,6 +83,11 @@ func (s RunStatus) PendingConnection() bool {
 // PendingSleep returns true if the status is pending_sleep.
 func (s RunStatus) PendingSleep() bool {
 	return s == RunStatusPendingSleep
+}
+
+// PendingOutgoingConfirmations returns true if the status is pending_incoming_confirmations.
+func (s RunStatus) PendingOutgoingConfirmations() bool {
+	return s == RunStatusPendingOutgoingConfirmations
 }
 
 // Completed returns true if the status is RunStatusCompleted.
@@ -98,7 +107,7 @@ func (s RunStatus) Errored() bool {
 
 // Pending returns true if the status is pending external or confirmations.
 func (s RunStatus) Pending() bool {
-	return s.PendingBridge() || s.PendingConfirmations() || s.PendingSleep() || s.PendingConnection()
+	return s.PendingBridge() || s.PendingIncomingConfirmations() || s.PendingOutgoingConfirmations() || s.PendingSleep() || s.PendingConnection()
 }
 
 // Finished returns true if the status is final and can't be changed.

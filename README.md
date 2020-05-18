@@ -29,7 +29,7 @@ Examples of how to utilize and integrate Chainlinks can be found in the [Chainli
 
 1. [Install Go 1.14](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
-3. Install [Postgres 11](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
+3. Install [Postgres (>= 9.6)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
 6. Run the node: `chainlink help`
@@ -112,7 +112,7 @@ go build -o chainlink ./core/
 ./chainlink
 ```
 
-### Test
+### Test Core
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 
@@ -123,11 +123,33 @@ yarn
 yarn setup:contracts
 ```
 
-3. Ready for testing:
+3. Generate and compile static assets:
+
+```bash
+go generate ./...
+go run ./packr/main.go ./core/eth/
+```
+
+4. Prepare your development environment:
+
+```bash
+export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
+export CHAINLINK_DEV=true # I prefer to use direnv and skip this
+```
+
+5.  Drop/Create test database and run migrations:
+```
+go run ./core/main.go local db preparetest
+```
+
+If you do end up modifying the migrations for the database, you will need to rerun
+
+6. Run tests:
 
 ```bash
 go test -parallel=1 ./...
 ```
+
 
 ### Solidity Development
 

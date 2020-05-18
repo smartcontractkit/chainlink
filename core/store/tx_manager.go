@@ -89,7 +89,7 @@ type TxManager interface {
 // the local Config for the application, and the database.
 type EthTxManager struct {
 	eth.Client
-	keyStore            *KeyStore
+	keyStore            KeyStoreInterface
 	config              orm.ConfigReader
 	orm                 *orm.ORM
 	registeredAccounts  []accounts.Account
@@ -102,7 +102,7 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore KeyStoreInterface, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
 		Client:        client,
 		config:        config,
@@ -559,7 +559,7 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // confirmed at block counts as 1 conf
 
-	if new(big.Int).SetUint64(blockHeight).Cmp(confirmedAt) == -1 {
+	if big.NewInt(int64(blockHeight)).Cmp(confirmedAt) < 0 {
 		return receipt, Confirmed, nil
 	}
 

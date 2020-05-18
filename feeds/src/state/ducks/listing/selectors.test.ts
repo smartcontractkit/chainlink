@@ -1,5 +1,5 @@
-import { feedGroups, answer } from './selectors'
 import { partialAsFull } from '@chainlink/ts-helpers/src'
+import { feedGroups, answer } from './selectors'
 import { FeedConfig } from 'config'
 import { AppState } from 'state/reducers'
 import { HealthCheck } from 'state/ducks/listing/reducers'

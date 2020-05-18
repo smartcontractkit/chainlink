@@ -14,7 +14,7 @@ export default class AggregatorContractV2 extends AggregatorContract {
 
   async latestAnswerTimestamp() {
     const latestTimestamp = await this.contract.latestTimestamp()
-    return Number(latestTimestamp)
+    return latestTimestamp.toNumber()
   }
 
   async latestCompletedAnswer() {

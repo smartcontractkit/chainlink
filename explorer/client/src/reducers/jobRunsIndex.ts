@@ -15,11 +15,14 @@ export const jobRunsIndexReducer: Reducer<State, Actions> = (
   switch (action.type) {
     case 'FETCH_JOB_RUNS_SUCCEEDED':
       return {
+        ...state,
         items: action.data.meta.currentPageJobRuns.data.map(r => r.id),
         count: action.data.meta.currentPageJobRuns.meta.count,
       }
+
     case 'FETCH_JOB_RUN_SUCCEEDED':
       return INITIAL_STATE
+
     default:
       return state
   }

@@ -2,6 +2,9 @@
 .DS_Store
 .envrc
 *.log
+explorer/**/*.test.*
+operator_ui/**/*.test.*
+feeds/**/*.test.*
 
 node_modules/
 **/node_modules/

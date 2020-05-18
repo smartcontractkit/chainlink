@@ -120,7 +120,6 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
-	minimumPollingInterval := models.Duration(store.Config.DefaultHTTPTimeout())
 
 	if store.Config.EthereumDisabled() {
 		fe.Add("cannot add flux monitor jobs when ethereum is disabled")
@@ -128,20 +127,56 @@ func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Stor
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
-	if !i.IdleThreshold.IsInstant() && i.IdleThreshold.Shorter(i.PollingInterval) {
-		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
-	}
-	if i.Threshold <= 0 {
-		fe.Add("bad threshold")
-	}
 	if i.RequestData.String() == "" {
 		fe.Add("no requestdata")
 	}
-	if i.PollingInterval.IsInstant() {
-		fe.Add("no pollingInterval")
-	} else if i.PollingInterval.Shorter(minimumPollingInterval) {
-		fe.Add("pollingInterval must be equal or greater than " + minimumPollingInterval.String())
+	if i.Threshold <= 0 {
+		fe.Add("bad 'threshold' parameter; this is the maximum relative change " +
+			"allowed in the monitored value, before a new report should be made; " +
+			"it must be positive, and appear in the job initiator parameters; e.g." +
+			`{"initiators": [{"type":"fluxmonitor", "params":{"threshold": 0.5}}]} ` +
+			"means that the value can change by up to half its last-reported value " +
+			"before a new report is made")
 	}
+	if i.AbsoluteThreshold < 0 {
+		fe.Add("bad 'absoluteThreshold' value; this is the maximum absolute " +
+			"change allowed in the monitored value, before a new report should be " +
+			"made; it must be nonnegative and appear in the job initiator parameters; e.g." +
+			`{"initiators":[{"type":"fluxmonitor","params":{"absoluteThreshold":0.01}}]} ` +
+			"means that the value can change by up to 0.01 units " +
+			"before a new report is made")
+	}
+
+	if i.PollTimer.Disabled && i.IdleTimer.Disabled {
+		fe.Add("must enable pollTimer, idleTimer, or both")
+	}
+
+	if i.PollTimer.Disabled {
+		if !i.PollTimer.Period.IsInstant() {
+			fe.Add("pollTimer disabled, period must be 0")
+		}
+	} else {
+		minimumPollPeriod := models.Duration(store.Config.DefaultHTTPTimeout())
+
+		if i.PollTimer.Period.IsInstant() {
+			fe.Add("pollTimer enabled, but no period specified")
+		} else if i.PollTimer.Period.Shorter(minimumPollPeriod) {
+			fe.Add("pollTimer enabled, period must be equal or greater than " + minimumPollPeriod.String())
+		}
+	}
+
+	if i.IdleTimer.Disabled {
+		if !i.IdleTimer.Duration.IsInstant() {
+			fe.Add("idleTimer disabled, duration must be 0")
+		}
+	} else {
+		if i.IdleTimer.Duration.IsInstant() {
+			fe.Add("idleTimer enabled, duration must be > 0")
+		} else if !i.PollTimer.Disabled && i.IdleTimer.Duration.Shorter(i.PollTimer.Period) {
+			fe.Add("idleTimer and pollTimer enabled, idleTimer.duration must be >= than pollTimer.period")
+		}
+	}
+
 	if err := validateFeeds(i.Feeds, store); err != nil {
 		fe.Add(err.Error())
 	}
@@ -167,14 +202,17 @@ func validateFeeds(feeds models.Feeds, store *store.Store) error {
 			}
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
 			bridgeName := feed["bridge"]
+			bridgeNameString, ok := bridgeName.(string)
 			if bridgeName == nil {
 				return errors.New("Feeds object missing bridge key")
 			} else if len(feed) != 1 {
 				return errors.New("Unsupported keys in feed JSON")
+			} else if !ok {
+				return errors.New("Unsupported bridge name type in feed JSON")
 			}
-			bridgeNames = append(bridgeNames, bridgeName.(string))
+			bridgeNames = append(bridgeNames, bridgeNameString)
 		default:
-			return errors.New("unknown feed type")
+			return errors.New("Unknown feed type")
 		}
 	}
 	if _, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
