@@ -8,10 +8,12 @@ const execa = require('execa')
     } catch (err) {
         console.log(err.stderr)
     }
-    await run(`sudo rm -rf ./container_data`)
     await run(`docker container prune -f`)
     await run(`docker volume prune -f`)
     await run(`docker network prune -f`)
+    await run(`sudo rm -rf ./.blockade`)
+    await run(`sudo rm -rf ./container_data`)
+    await run(`sudo rm -rf ./postgres_data`)
 })()
 
 async function run(cmd) {

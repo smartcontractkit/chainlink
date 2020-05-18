@@ -18,8 +18,9 @@ containers:
             ORACLE_CONTRACT_ADDR:
             DATABASE_URL: postgresql://postgres:@postgres_chainlink_neil:5432/postgres?sslmode=disable
             ROOT: /clroot
-            SECURE_COOKIES: false
+            # SECURE_COOKIES: false
             CHAINLINK_TLS_PORT: "0"
+            FEATURE_FLUX_MONITOR: true
         depends_on:
             - chainlink_neil_key_import
             - paritynet
@@ -31,7 +32,7 @@ containers:
             postgres_chainlink_neil: postgres_chainlink_neil
         volumes:
             "./config/keys": /keys
-            "./container_data/chainlink_neil": /clroot
+            # "./container_data/chainlink_neil": /clroot
 
     postgres_chainlink_neil:
         image: postgres
@@ -40,6 +41,14 @@ containers:
             POSTGRES_HOST_AUTH_METHOD: trust
         volumes:
             "./container_data/postgres_chainlink_neil": /var/lib/postgresql
+
+    external_adapter_neil:
+        image: smartcontract/external-adapter
+        ports:
+            6644: 6644
+        environment:
+            EXTERNAL_ADAPTER_PORT: 6644
+
 
     #
     # Chainlink node 2: Nelly
@@ -58,8 +67,9 @@ containers:
             ORACLE_CONTRACT_ADDR:
             DATABASE_URL: postgresql://postgres:@postgres_chainlink_nelly:5432/postgres?sslmode=disable
             ROOT: /clroot
-            SECURE_COOKIES: false
+            # SECURE_COOKIES: false
             CHAINLINK_TLS_PORT: "0"
+            FEATURE_FLUX_MONITOR: true
         depends_on:
             - chainlink_nelly_key_import
             - postgres_chainlink_nelly
@@ -71,7 +81,7 @@ containers:
             postgres_chainlink_nelly: postgres_chainlink_nelly
         volumes:
             "./config/keys": /keys
-            "./container_data/chainlink_nelly": /clroot
+            # "./container_data/chainlink_nelly": /clroot
 
     postgres_chainlink_nelly:
         image: postgres
@@ -80,6 +90,13 @@ containers:
             POSTGRES_HOST_AUTH_METHOD: trust
         volumes:
             "./container_data/postgres_chainlink_nelly": /var/lib/postgresql
+
+    external_adapter_nelly:
+        image: smartcontract/external-adapter
+        ports:
+            6645: 6645
+        environment:
+            EXTERNAL_ADAPTER_PORT: 6645
 
 
     #
@@ -129,7 +146,7 @@ containers:
     #
 
     blockscout:
-        image: blockscout_prod
+        image: smartcontract/blockscout:apocalypse
         command: /bin/sh -c "mix do ecto.create, ecto.migrate && mix phx.server"
         ports:
             4000: 4000
