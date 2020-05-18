@@ -138,6 +138,7 @@ type Whitelist struct {
 	ExplorerURL              string          `json:"explorerUrl"`
 	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
+	LogBackfillDepth         string          `json:"logBackfillDepth"`
 	LogLevel                 orm.LogLevel    `json:"logLevel"`
 	LogSQLMigrations         bool            `json:"logSqlMigrations"`
 	LogSQLStatements         bool            `json:"logSqlStatements"`
@@ -186,6 +187,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			EthGasPriceDefault:       config.EthGasPriceDefault(),
 			JSONConsole:              config.JSONConsole(),
 			LinkContractAddress:      config.LinkContractAddress(),
+			LogBackfillDepth:         config.LogBackfillDepth(),
 			ExplorerURL:              explorerURL,
 			LogLevel:                 config.LogLevel(),
 			LogToDisk:                config.LogToDisk(),
