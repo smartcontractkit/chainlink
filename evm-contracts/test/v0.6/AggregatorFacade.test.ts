@@ -34,18 +34,19 @@ describe('AggregatorFacade', () => {
   const decimals = 18
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<AggregatorFactory>
+  let aggregator: contract.CallableOverrideInstance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
-  let facade: contract.CallableOverrideInstance<
-    AggregatorFacadeFactory,
-    interfaces.AggregatorInterface
-  >
+  let facade: contract.CallableOverrideInstance<AggregatorFacadeFactory>
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = await aggregatorFactory
-      .connect(defaultAccount)
-      .deploy(link.address, 0, 1, [oc1.address], [jobId1])
+    aggregator = contract.callable(
+      await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(link.address, 0, 1, [oc1.address], [jobId1]),
+      interfaces.AggregatorMethodList,
+    )
     facade = contract.callable(
       await aggregatorFacadeFactory
         .connect(defaultAccount)

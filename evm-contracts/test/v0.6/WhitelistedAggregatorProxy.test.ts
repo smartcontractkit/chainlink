@@ -35,10 +35,7 @@ describe('WhitelistedAggregatorProxy', () => {
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.CallableOverrideInstance<
-    WhitelistedAggregatorProxyFactory,
-    interfaces.AggregatorInterface
-  >
+  let proxy: contract.CallableOverrideInstance<WhitelistedAggregatorProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()

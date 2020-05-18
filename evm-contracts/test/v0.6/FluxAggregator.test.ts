@@ -33,10 +33,7 @@ describe('FluxAggregator', () => {
   const description = 'LINK/USD'
   const reserveRounds = 2
 
-  type AggregatorType = contract.CallableOverrideInstance<
-    FluxAggregatorFactory,
-    interfaces.AggregatorInterface
-  >
+  type AggregatorType = contract.CallableOverrideInstance<FluxAggregatorFactory>
   let aggregator: AggregatorType
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
