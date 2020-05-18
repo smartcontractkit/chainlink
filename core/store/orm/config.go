@@ -329,6 +329,12 @@ func (c Config) LinkContractAddress() string {
 	return c.viper.GetString(EnvVarName("LinkContractAddress"))
 }
 
+// LogBackfillDepth specifies the number of blocks before the current HEAD that the
+// log broadcaster will try to re-consume logs from
+func (c Config) LogBackfillDepth() string {
+	return c.viper.GetString(EnvVarName("LogBackfillDepth"))
+}
+
 // ExplorerURL returns the websocket URL for this node to push stats to, or nil.
 func (c Config) ExplorerURL() *url.URL {
 	rval := c.getWithFallback("ExplorerURL", parseURL)
