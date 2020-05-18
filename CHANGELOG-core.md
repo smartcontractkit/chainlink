@@ -15,6 +15,16 @@ parameter. To trigger a new on-chain report, the absolute difference in the feed
 value must change by at least the `absoluteThreshold` value. If it is
 unspecified or zero, fluxmonitor behavior is unchanged.
 
+### Bugfixes
+
+Fix incorrect permissions on some files written by the node
+Prevent a case where duplicate ethereum keys could be added
+Improve robustness and reliability of ethtx transaction logic
+
+### Database Migrations
+
+Add created_at and updated_at to all tables allowing for better historical insights. This migration may take a minute or two on large databases.
+
 ## [0.8.3] - 2020-05-04
 
 ### Breaking changes
