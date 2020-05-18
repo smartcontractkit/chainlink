@@ -13,6 +13,7 @@ import (
 	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -455,18 +456,18 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			blockHeight1:     0,
 			blockHeight2:     15,
 			batch1:           []uint{1, 2},
-			backfillableLogs: []uint{6, 7, 12, 15},
+			backfillableLogs: []uint{11, 12, 15},
 			batch2:           []uint{16, 17},
-			expectedFinal:    []uint{1, 2, 6, 7, 12, 15, 16, 17},
+			expectedFinal:    []uint{1, 2, 11, 12, 15, 16, 17},
 		},
 		{
 			name:             "backfilled logs, overlap",
 			blockHeight1:     0,
 			blockHeight2:     15,
-			batch1:           []uint{1, 9},
-			backfillableLogs: []uint{9, 12, 15},
+			batch1:           []uint{1, 11},
+			backfillableLogs: []uint{11, 12, 15},
 			batch2:           []uint{16, 17},
-			expectedFinal:    []uint{1, 9, 12, 15, 16, 17},
+			expectedFinal:    []uint{1, 11, 12, 15, 16, 17},
 		},
 	}
 
@@ -478,10 +479,23 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
+			var backfillDepth uint64 = 5 // something other than default
+			store.Config.Set(orm.EnvVarName("LogBackfillDepth"), backfillDepth)
+
 			sub := new(mocks.Subscription)
 			ethClient := new(mocks.Client)
 
 			chchRawLogs := make(chan chan<- eth.Log, 1)
+
+			// helper function to validate backfilled logs are being reuested correctly
+			checkFromBlock := func(args mock.Arguments) {
+				fromBlock := args.Get(0).(ethereum.FilterQuery).FromBlock
+				expected := big.NewInt(0)
+				if test.blockHeight2 > backfillDepth {
+					expected = big.NewInt(int64(test.blockHeight2 - backfillDepth))
+				}
+				require.Equal(t, expected, fromBlock)
+			}
 
 			ethClient.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {
@@ -491,7 +505,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				Return(sub, nil).
 				Twice()
 
-			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight1)}, nil).Twice()
+			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight1)}, nil).Once()
 			ethClient.On("GetLogs", mock.Anything).Return(nil, nil).Once()
 
 			sub.On("Err").Return(nil)
@@ -534,7 +548,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				backfillableLogs = append(backfillableLogs, logs[logNum])
 			}
 			ethClient.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
-			ethClient.On("GetLogs", mock.Anything).Return(backfillableLogs, nil).Once()
+			ethClient.On("GetLogs", mock.Anything).Run(checkFromBlock).Return(backfillableLogs, nil).Once()
 			// Trigger resubscription
 			lb.Register(common.Address{1}, &simpleLogListener{})
 			chRawLogs2 := <-chchRawLogs
