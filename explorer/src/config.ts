@@ -7,75 +7,78 @@ export enum Environment {
   PROD,
 }
 
-/**
- * Application configuration for the explorer
- */
-export interface ExplorerConfig {
-  /**
-   * The port to run the server on
-   */
-  port: number
-  /**
-   * Whether dev mode is enabled or not
-   */
-  env: Environment
-  /**
-   * The origin of the client, used for CORS purposes
-   */
-  clientOrigin: string
-  /**
-   * The value of the secret used to sign cookies.
-   * Must be at least 32 characters.
-   *
-   * For production usage, make sure this value is kept secret
-   * and has sufficient entropy
-   *
-   */
-  cookieSecret: string
-  /**
-   * The cookie expiration time in milliseconds
-   */
-  cookieExpirationMs: number
-}
-
-/**
- * Get application configuration for the explorer app
- */
-export function getConfig(): ExplorerConfig {
-  const { env } = process
-
-  let appEnv: Environment = Environment.DEV
-  switch (env.NODE_ENV) {
-    case 'production':
-      appEnv = Environment.PROD
-      break
-    case 'test':
-      appEnv = Environment.TEST
-      break
-    default:
-      appEnv = Environment.DEV
-      break
+export class Config {
+  static port(env = process.env): number {
+    return parseInt(env.EXPLORER_SERVER_PORT, 10) || 8080
   }
 
-  const conf: ExplorerConfig = {
-    port: parseInt(env.EXPLORER_SERVER_PORT) || 8080,
-    env: appEnv,
-    clientOrigin: env.EXPLORER_CLIENT_ORIGIN ?? '',
-    cookieSecret: env.EXPLORER_COOKIE_SECRET,
-    cookieExpirationMs: 86_400_000, // 1 day in ms
+  static testPort(env = process.env): number {
+    return parseInt(env.EXPLORER_TEST_SERVER_PORT, 10) || 8081
   }
 
-  validateCookieSecret(conf.cookieSecret)
-
-  for (const [k, v] of Object.entries(conf)) {
-    if (v == undefined) {
-      throw Error(
-        `Expected environment variable for ${k} to be set. Got "${v}".`,
-      )
+  static env(env = process.env): Environment {
+    switch (this.nodeEnv(env)) {
+      case 'production':
+        return Environment.PROD
+      case 'test':
+        return Environment.TEST
+      default:
+        return Environment.DEV
     }
   }
 
-  return conf
+  static nodeEnv(env = process.env): string | undefined {
+    return env.NODE_ENV
+  }
+
+  static clientOrigin(env = process.env): string {
+    return env.EXPLORER_CLIENT_ORIGIN ?? ''
+  }
+
+  static cookieSecret(env = process.env): string | undefined {
+    const cookieSecret =
+      this.env() === Environment.DEV && !env.EXPLORER_COOKIE_SECRET
+        ? 'secret-sauce-secret-sauce-secret-sauce-secret-sauce-secret-sauce'
+        : env.EXPLORER_COOKIE_SECRET
+
+    validateCookieSecret(cookieSecret)
+
+    return cookieSecret
+  }
+
+  static cookieExpirationMs(): number {
+    return 86_400_000 // 1 day in ms
+  }
+
+  static typeorm(env = process.env): string | Environment {
+    return env.TYPEORM_NAME || this.nodeEnv() || 'development'
+  }
+
+  static composeMode(env = process.env): string | undefined {
+    return env.COMPOSE_MODE
+  }
+
+  static baseUrl(env = process.env): string {
+    return env.EXPLORER_BASE_URL || 'http://localhost:8080'
+  }
+
+  static adminUsername(env = process.env): string | undefined {
+    return env.EXPLORER_ADMIN_USERNAME
+  }
+
+  static adminPassword(env = process.env): string | undefined {
+    return env.EXPLORER_ADMIN_PASSWORD
+  }
+
+  static etherscanHost(env = process.env): string {
+    return env.ETHERSCAN_HOST || 'ropsten.etherscan.io'
+  }
+
+  static setEnv(key: string, value: string | number) {
+    Object.assign(process.env, {
+      [key]: value,
+    })
+  }
 }
 
 /**

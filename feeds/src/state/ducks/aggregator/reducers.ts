@@ -15,7 +15,7 @@ export interface State {
   latestCompletedAnswerId: null | any
   pendingAnswerId: null | any
   nextAnswerId: null | any
-  oracleAnswers: null | any
+  oracleAnswers: any[]
   latestRequestTimestamp: null | any
   minimumAnswers: null | any
   latestAnswerTimestamp: null | any
@@ -34,7 +34,7 @@ export const INITIAL_STATE: State = {
   latestCompletedAnswerId: null,
   pendingAnswerId: null,
   nextAnswerId: null,
-  oracleAnswers: null,
+  oracleAnswers: [],
   latestRequestTimestamp: null,
   minimumAnswers: null,
   latestAnswerTimestamp: null,
@@ -44,6 +44,12 @@ export const INITIAL_STATE: State = {
 
 const reducer = (state: State = INITIAL_STATE, action: Actions) => {
   switch (action.type) {
+    case 'aggregator/CLEAR_STATE': {
+      return {
+        ...INITIAL_STATE,
+      }
+    }
+
     case 'aggregator/FETCH_FEED_BY_PAIR_BEGIN': {
       return {
         ...INITIAL_STATE,

@@ -8,7 +8,7 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.json",
-    "ormconfig.json",
+    "ormconfig/*.json",
     "client/package.json",
     "package.json"
   ],

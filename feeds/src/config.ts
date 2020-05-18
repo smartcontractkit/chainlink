@@ -16,7 +16,7 @@ export interface FeedConfig {
   multiply?: string
   sponsored?: string[]
   decimalPlaces?: number
-  contractVersion?: 1 | 2 | 3
+  contractVersion: 1 | 2 | 3
 }
 
 export interface OracleNode {
@@ -56,19 +56,41 @@ export class Config {
     return env.REACT_APP_GA_ID
   }
 
+  static hostnameWhitelist(env = process.env): string[] {
+    return splitHostnames(env.REACT_APP_HOSTNAME_WHITELIST)
+  }
+
+  static devHostnameWhitelist(env = process.env): string[] {
+    return splitHostnames(env.REACT_APP_DEV_HOSTNAME_WHITELIST)
+  }
+
+  static devProvider(env = process.env): string | undefined {
+    return env.REACT_APP_DEV_PROVIDER
+  }
+
   static feedsJson(env = process.env, location = window.location): string {
-    const urlFeedsJson = UrlConfig.feedsJson(location)
-    if (urlFeedsJson) {
-      return urlFeedsJson
+    const queryOverride = UrlConfig.feedsJson(location)
+    if (queryOverride) {
+      const overrideUrl = new URL(queryOverride)
+      if (Config.hostnameWhitelist().includes(overrideUrl.hostname)) {
+        return queryOverride
+      }
     }
     return env.REACT_APP_FEEDS_JSON ?? '/feeds.json'
   }
 
   static nodesJson(env = process.env, location = window.location): string {
-    const urlNodesJson = UrlConfig.nodesJson(location)
-    if (urlNodesJson) {
-      return urlNodesJson
+    const queryOverride = UrlConfig.nodesJson(location)
+    if (queryOverride) {
+      const overrideUrl = new URL(queryOverride)
+      if (Config.hostnameWhitelist().includes(overrideUrl.hostname)) {
+        return queryOverride
+      }
     }
     return env.REACT_APP_NODES_JSON ?? '/nodes.json'
   }
+}
+
+function splitHostnames(list?: string): string[] {
+  return (list ?? '').split(',').map(s => s.trim())
 }

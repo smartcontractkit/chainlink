@@ -49,7 +49,7 @@ type resumeRunsOnNewHeadWorker struct {
 }
 
 func (rw *resumeRunsOnNewHeadWorker) Work() {
-	err := rw.runManager.ResumeAllConfirming(&rw.head)
+	err := rw.runManager.ResumeAllPendingNextBlock(&rw.head)
 	if err != nil {
 		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
 	}

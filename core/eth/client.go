@@ -134,6 +134,8 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 	return uint64(height), err
 }
 
+// GetLatestBlock returns the last committed block of the best blockchain the
+// blockchain node is aware of.
 func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
 	var block Block
 	err := client.Call(&block, "eth_getBlockByNumber", "latest", true)

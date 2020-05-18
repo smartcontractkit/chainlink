@@ -25,13 +25,18 @@ import (
 	"golang.org/x/time/rate"
 )
 
+const (
+	// AutoMigrate is a flag that automatically migrates the DB when passed to initializeORM
+	AutoMigrate = "auto_migrate"
+)
+
 // Store contains fields for the database, Config, KeyStore, and TxManager
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
 	Config      *orm.Config
 	Clock       utils.AfterNower
-	KeyStore    *KeyStore
+	KeyStore    KeyStoreInterface
 	VRFKeyStore *VRFKeyStore
 	TxManager   TxManager
 	closeOnce   *sync.Once
@@ -158,7 +163,7 @@ func newStoreWithDialerAndKeyStore(
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
 
-	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
+	err := utils.EnsureDirAndPerms(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
@@ -244,16 +249,19 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 }
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal)
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	err = orm.RawDB(func(db *gorm.DB) error {
-		return migrations.Migrate(db)
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "initializeORM#Migrate")
+	if config.MigrateDatabase() {
+		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+
+		err = orm.RawDB(func(db *gorm.DB) error {
+			return migrations.Migrate(db)
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "initializeORM#Migrate")
+		}
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil

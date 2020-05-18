@@ -3,6 +3,7 @@ import {
   helpers as h,
   matchers,
   setup,
+  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
@@ -32,14 +33,18 @@ describe('FluxAggregator', () => {
   const description = 'LINK/USD'
   const reserveRounds = 2
 
-  let aggregator: contract.Instance<FluxAggregatorFactory>
+  type AggregatorType = contract.CallableOverrideInstance<
+    FluxAggregatorFactory,
+    interfaces.AggregatorInterface
+  >
+  let aggregator: AggregatorType
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
   async function updateFutureRounds(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     overrides: {
       minAnswers?: ethers.utils.BigNumberish
       maxAnswers?: ethers.utils.BigNumberish
@@ -67,7 +72,7 @@ describe('FluxAggregator', () => {
   }
 
   async function addOracles(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     oraclesAndAdmin: ethers.Wallet[],
     minAnswers: number,
     maxAnswers: number,
@@ -83,7 +88,7 @@ describe('FluxAggregator', () => {
   }
 
   async function advanceRound(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     submitters: ethers.Wallet[],
     currentSubmission: number = answer,
   ): Promise<number> {
@@ -163,15 +168,18 @@ describe('FluxAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await fluxAggregatorFactory
-      .connect(personas.Carol)
-      .deploy(
-        link.address,
-        paymentAmount,
-        timeout,
-        decimals,
-        ethers.utils.formatBytes32String(description),
-      )
+    aggregator = contract.callable(
+      await fluxAggregatorFactory
+        .connect(personas.Carol)
+        .deploy(
+          link.address,
+          paymentAmount,
+          timeout,
+          decimals,
+          ethers.utils.formatBytes32String(description),
+        ),
+      interfaces.AggregatorMethodList,
+    )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))
@@ -193,12 +201,11 @@ describe('FluxAggregator', () => {
       'getAdmin',
       'getAnswer',
       'getOracles',
-      'getOriginatingRoundOfAnswer',
-      'getRoundStartedAt',
-      'getTimedOutStatus',
+      'getRoundData',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestSubmission',
       'latestTimestamp',
       'linkToken',
@@ -210,7 +217,6 @@ describe('FluxAggregator', () => {
       'paymentAmount',
       'removeOracles',
       'reportingRound',
-      'reportingRoundStartedAt',
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
@@ -415,13 +421,52 @@ describe('FluxAggregator', () => {
       })
 
       it('does not set the timedout flag', async () => {
-        assert.isFalse(await aggregator.getTimedOutStatus(nextRound))
+        let round = await aggregator.getRoundData(nextRound)
+        assert.notEqual(round.roundId, round.answeredInRound)
 
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        assert.equal(
-          nextRound,
-          (await aggregator.getOriginatingRoundOfAnswer(nextRound)).toNumber(),
+        round = await aggregator.getRoundData(nextRound)
+        assert.equal(nextRound, round.answeredInRound.toNumber())
+      })
+
+      it('updates the round details', async () => {
+        const roundBefore = await aggregator.getRoundData(nextRound)
+        matchers.bigNum(nextRound, roundBefore.roundId)
+        matchers.bigNum(0, roundBefore.answer)
+        assert.isFalse(roundBefore.startedAt.isZero())
+        matchers.bigNum(0, roundBefore.updatedAt)
+        matchers.bigNum(0, roundBefore.answeredInRound)
+
+        const roundBeforeLatest = await aggregator.latestRoundData()
+        matchers.bigNum(nextRound - 1, roundBeforeLatest.roundId)
+
+        h.increaseTimeBy(15, provider)
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+
+        const roundAfter = await aggregator.getRoundData(nextRound)
+        matchers.bigNum(nextRound, roundAfter.roundId)
+        matchers.bigNum(answer, roundAfter.answer)
+        matchers.bigNum(roundBefore.startedAt, roundAfter.startedAt)
+        matchers.bigNum(
+          await aggregator.getTimestamp(nextRound),
+          roundAfter.updatedAt,
+        )
+        matchers.bigNum(nextRound, roundAfter.answeredInRound)
+
+        assert.isBelow(
+          roundAfter.startedAt.toNumber(),
+          roundAfter.updatedAt.toNumber(),
+        )
+
+        const roundAfterLatest = await aggregator.latestRoundData()
+        matchers.bigNum(roundAfter.roundId, roundAfterLatest.roundId)
+        matchers.bigNum(roundAfter.answer, roundAfterLatest.answer)
+        matchers.bigNum(roundAfter.startedAt, roundAfterLatest.startedAt)
+        matchers.bigNum(roundAfter.updatedAt, roundAfterLatest.updatedAt)
+        matchers.bigNum(
+          roundAfter.answeredInRound,
+          roundAfterLatest.answeredInRound,
         )
       })
     })
@@ -464,18 +509,14 @@ describe('FluxAggregator', () => {
       })
 
       it('sets the startedAt time for the reportingRound', async () => {
-        matchers.bigNum(
-          ethers.constants.Zero,
-          await aggregator.reportingRoundStartedAt(),
-        )
+        let round = await aggregator.getRoundData(nextRound)
+        matchers.bigNum(ethers.constants.Zero, round.startedAt)
 
         await aggregator.connect(oracles[0]).submit(nextRound, answer)
 
-        const startedAt = (
-          await aggregator.reportingRoundStartedAt()
-        ).toNumber()
+        round = await aggregator.getRoundData(nextRound)
 
-        expect(startedAt).not.toBe(0)
+        expect(round.startedAt).not.toBe(0)
       })
 
       it('announces a new round by emitting a log', async () => {
@@ -743,21 +784,24 @@ describe('FluxAggregator', () => {
         ans = await aggregator.getAnswer(previousRound)
         matchers.bigNum(ethers.utils.bigNumberify(block.timestamp), updated)
         assert.equal(answer, ans.toNumber())
+
+        const round = await aggregator.getRoundData(previousRound)
+        matchers.bigNum(previousRound, round.roundId)
+        matchers.bigNum(ans, round.answer)
+        matchers.bigNum(updated, round.updatedAt)
+        matchers.bigNum(previousRound - 1, round.answeredInRound)
       })
 
       it('sets the previous round as timed out', async () => {
         const previousRound = nextRound - 1
-        assert.isFalse(await aggregator.getTimedOutStatus(previousRound))
+        let round = await aggregator.getRoundData(previousRound)
+        matchers.bigNum(0, round.answeredInRound)
 
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        assert.isTrue(await aggregator.getTimedOutStatus(previousRound))
-        assert.equal(
-          previousRound - 1,
-          (
-            await aggregator.getOriginatingRoundOfAnswer(previousRound)
-          ).toNumber(),
-        )
+        round = await aggregator.getRoundData(previousRound)
+        assert.notEqual(round.roundId, round.answeredInRound)
+        matchers.bigNum(previousRound - 1, round.answeredInRound)
       })
 
       it('still respects the delay restriction', async () => {
@@ -814,28 +858,6 @@ describe('FluxAggregator', () => {
         const currentTimestamp = await aggregator.getTimestamp(i)
         assert.isAtLeast(currentTimestamp.toNumber(), lastTimestamp.toNumber())
         lastTimestamp = currentTimestamp
-      }
-    })
-  })
-
-  describe('#getRoundStartedAt', () => {
-    beforeEach(async () => {
-      await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-
-      for (let i = 0; i < 10; i++) {
-        await advanceRound(aggregator, [personas.Neil])
-      }
-    })
-
-    it('retrieves the startedAt time for past rounds', async () => {
-      let prevStartedAt = (await aggregator.getRoundStartedAt(0)).toNumber()
-
-      for (let i = 1; i < nextRound; i++) {
-        const currentStartedAt = (
-          await aggregator.getRoundStartedAt(i)
-        ).toNumber()
-        expect(prevStartedAt).toBeLessThanOrEqual(currentStartedAt)
-        prevStartedAt = currentStartedAt
       }
     })
   })

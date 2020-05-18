@@ -45,8 +45,8 @@ dropdb explorer_dev
 ##### Connection
 
 [TypeORM](https://typeorm.io/#/migrations) has been configured to load
-`ormconfig.<env>.json`. Therefore, if in development, it loads `ormconfig.development.json`,
-if production, `ormconfig.production.json`.
+`ormconfig/<env>.json`. Therefore, if in development, it loads `ormconfig/development.json`,
+if production, `ormconfig/production.json`.
 
 ##### Running alongside Chainlink Node (dev)
 
@@ -105,6 +105,14 @@ Another way of testing a seperate domain is to not use ngrok to forward the clie
 
 You should now be able to visit the client via browser by using the forwarded ngrok url, or localhost.
 Observe network requests using the api having a different origin than the client, and successfully returning data.
+
+### Configuring the client environment variables
+
+Set Google Analytics tracking ID:
+
+```
+export REACT_APP_EXPLORER_GA_ID="UA-128878871-10"
+```
 
 ## Typescript
 

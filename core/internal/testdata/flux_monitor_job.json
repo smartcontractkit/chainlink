@@ -7,9 +7,17 @@
         "data":{"coin":"ETH","market":"USD"}
       },
       "feeds": [ "https://lambda.staging.devnet.tools/bnc/call" ],
-      "idleThreshold": "1h",
+      "_comment": "if the relative change in the answer exceeds threshold, a new round is started",
       "threshold": 0.5,
-      "precision": 2
+      "_comment": "if the absolute change in the answer exceeds absoluteThreshold, a new round is started",
+      "absoluteThreshold": 0.01,
+      "precision": 2,
+      "idleTimer": {
+        "duration": "1h"
+      },
+      "pollTimer": {
+        "period": "1m"
+      }
     }
   }],
   "tasks": [

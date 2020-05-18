@@ -21,6 +21,21 @@ import (
 // For more information, see: https://github.com/ethereum/go-ethereum/issues/3731
 const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
 
+//go:generate mockery -name KeyStoreInterface -output ../internal/mocks/ -case=underscore
+type KeyStoreInterface interface {
+	Accounts() []accounts.Account
+	Wallets() []accounts.Wallet
+	GetFirstAccount() (accounts.Account, error)
+	HasAccounts() bool
+	Unlock(phrase string) error
+	NewAccount(passphrase string) (accounts.Account, error)
+	SignHash(hash common.Hash) (models.Signature, error)
+	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
+	GetAccounts() []accounts.Account
+
+	SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+}
+
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
 	*keystore.KeyStore

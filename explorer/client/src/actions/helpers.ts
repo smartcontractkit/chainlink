@@ -2,6 +2,7 @@ import * as jsonapi from '@chainlink/json-api-client'
 import { Action } from 'redux'
 import { ThunkAction } from 'redux-thunk'
 import { AppState } from '../reducers'
+import { FetchAdminSignoutSucceededAction } from '../reducers/actions'
 
 /**
  * Extract the inner type of a promise if any
@@ -53,26 +54,23 @@ export function request<
 > {
   return (...args: TApiArgs) => {
     return dispatch => {
-      dispatch({ type: `REQUEST_${type}` })
+      dispatch({ type: `FETCH_${type}_BEGIN` })
 
       return requestData(...args)
         .then(json => {
           const data = normalizeData(json)
           dispatch({ type: `FETCH_${type}_SUCCEEDED`, data })
         })
-        .catch((error: Error) => {
-          dispatch({ type: `FETCH_${type}_ERROR`, error })
+        .catch(e => {
+          dispatch({ type: `FETCH_${type}_ERROR`, errors: e.errors })
 
-          if (error instanceof jsonapi.AuthenticationError) {
-            dispatch({ type: 'FETCH_ADMIN_SIGNOUT_SUCCEEDED' })
-          } else {
-            dispatch({
-              type: 'NOTIFY_ERROR',
-              error,
-            })
+          if (e instanceof jsonapi.AuthenticationError) {
+            const fetchAdminSignoutSucceededAction: FetchAdminSignoutSucceededAction = {
+              type: 'FETCH_ADMIN_SIGNOUT_SUCCEEDED',
+            }
+            dispatch(fetchAdminSignoutSucceededAction)
           }
         })
-        .finally(() => dispatch({ type: `RESPONSE_${type}` }))
     }
   }
 }

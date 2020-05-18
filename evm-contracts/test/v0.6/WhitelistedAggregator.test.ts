@@ -3,6 +3,7 @@ import {
   helpers as h,
   matchers,
   setup,
+  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { WhitelistedAggregatorFactory } from '../../ethers/v0.6/WhitelistedAggregatorFactory'
@@ -27,13 +28,16 @@ describe('WhitelistedAggregator', () => {
   const description = 'LINK/USD'
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
+  let aggregator: contract.CallableOverrideInstance<
+    WhitelistedAggregatorFactory,
+    interfaces.AggregatorInterface
+  >
   let nextRound: number
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await (aggregatorFactory as any)
-      .connect(personas.Carol)
-      .deploy(
+    aggregator = contract.callable(
+      await (aggregatorFactory as any).connect(personas.Carol).deploy(
         link.address,
         paymentAmount,
         timeout,
@@ -42,7 +46,9 @@ describe('WhitelistedAggregator', () => {
         // Remove when this PR gets merged:
         // https://github.com/ethereum-ts/TypeChain/pull/218
         { gasLimit: 8_000_000 },
-      )
+      ),
+      interfaces.AggregatorMethodList,
+    )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))
@@ -64,12 +70,11 @@ describe('WhitelistedAggregator', () => {
       'getAdmin',
       'getAnswer',
       'getOracles',
-      'getOriginatingRoundOfAnswer',
-      'getRoundStartedAt',
-      'getTimedOutStatus',
+      'getRoundData',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestSubmission',
       'latestTimestamp',
       'linkToken',
@@ -81,7 +86,6 @@ describe('WhitelistedAggregator', () => {
       'paymentAmount',
       'removeOracles',
       'reportingRound',
-      'reportingRoundStartedAt',
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
@@ -98,7 +102,7 @@ describe('WhitelistedAggregator', () => {
       'acceptOwnership',
       'owner',
       'transferOwnership',
-      // Owned methods:
+      // Whitelisted methods:
       'addToWhitelist',
       'disableWhitelist',
       'enableWhitelist',

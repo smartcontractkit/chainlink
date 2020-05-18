@@ -5,6 +5,9 @@ on:
     # Run every day at midnight
     - cron: '0 0 * * *'
 
+  repository_dispatch:
+    types: build-docker-cache
+
 jobs:
   update-cache:
     runs-on: ubuntu-latest

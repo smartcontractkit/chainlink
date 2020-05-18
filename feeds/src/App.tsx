@@ -4,12 +4,21 @@ import { createBrowserHistory } from 'history'
 import ReactGA from 'react-ga'
 import * as pages from './pages'
 import { Footer } from './components/footer'
+import { Config } from 'config'
 
 const history = createBrowserHistory()
 
 history.listen(location => {
   ReactGA.pageview(location.pathname + location.search)
 })
+
+const allowDevRoutes = Config.devHostnameWhitelist().includes(
+  window.location.hostname,
+)
+const devRoutes = [
+  <Route exact path="/create" key="create" component={pages.Create} />,
+  <Route exact path="/custom" key="custom" component={pages.Custom} />,
+]
 
 const App = () => {
   useEffect(() => {
@@ -20,8 +29,7 @@ const App = () => {
     <Router history={history}>
       <Switch>
         <Route exact path="/" component={pages.Landing} />
-        <Route exact path="/create" component={pages.Create} />
-        <Route exact path="/custom" component={pages.Custom} />
+        {allowDevRoutes && devRoutes}
         <Route
           path="/address/:contractAddress"
           component={pages.AggregatorByAddress}

@@ -154,7 +154,7 @@ export async function jobCountReport(
     .getRawMany()
 
   const report = jobCountQueryResult.reduce((result, { count, status }) => {
-    result[status] = parseInt(count)
+    result[status] = parseInt(count, 10)
     result.total = result.total + result[status]
     return result
   }, initialReport)

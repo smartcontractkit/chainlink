@@ -1,4 +1,5 @@
 import 'core-js/stable/object/from-entries'
+import { Reducer } from 'redux'
 import { FeedConfig } from 'config'
 import { Actions } from 'state/actions'
 
@@ -22,7 +23,7 @@ export const INITIAL_STATE: State = {
   healthChecks: {},
 }
 
-const reducer = (state: State = INITIAL_STATE, action: Actions) => {
+const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
     case 'listing/FETCH_FEEDS_BEGIN': {
       return {

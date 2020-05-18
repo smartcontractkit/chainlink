@@ -150,6 +150,21 @@
     "networkId": 1
   },
   {
+    "address": "0x95b00984a9c38417cDBa9653CE4F4A0A3e54451c",
+    "name": "DexTrac",
+    "networkId": 1
+  },
+  {
+    "address": "0x7872eb21639Ae8193f1AAF495B967202713C8Fe5",
+    "name": "dMakers",
+    "networkId": 1
+  },
+  {
+    "address": "0x58EB922F60Ae3D7A8b9F6cCbe7ae4F05431f998c",
+    "name": "Vulcan Link",
+    "networkId": 1
+  },
+  {
     "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
     "name": "LinkPool",
     "networkId": 3

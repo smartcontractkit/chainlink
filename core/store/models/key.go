@@ -3,12 +3,14 @@ package models
 import (
 	"errors"
 	"io/ioutil"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
@@ -16,8 +18,10 @@ import (
 //
 // By default, a key is assumed to represent an ethereum account.
 type Key struct {
-	Address EIP55Address `gorm:"primary_key;type:varchar(64)"`
-	JSON    JSON         `gorm:"type:text"`
+	Address   EIP55Address `gorm:"primary_key;type:varchar(64)"`
+	JSON      JSON         `gorm:"type:text"`
+	CreatedAt time.Time    `json:"-"`
+	UpdatedAt time.Time    `json:"-"`
 }
 
 type EncryptedSecretVRFKey = vrfkey.EncryptedSecretKey
@@ -41,5 +45,5 @@ func NewKeyFromFile(path string) (*Key, error) {
 
 // WriteToDisk writes this key to disk at the passed path.
 func (k *Key) WriteToDisk(path string) error {
-	return ioutil.WriteFile(path, []byte(k.JSON.String()), 0700)
+	return utils.WriteFileWithPerms(path, []byte(k.JSON.String()), 0700)
 }

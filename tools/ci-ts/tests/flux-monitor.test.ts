@@ -1,7 +1,12 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/FluxAggregatorFactory'
-import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
+import {
+  contract,
+  helpers as h,
+  matchers,
+  interfaces,
+} from '@chainlink/test-helpers'
 import ChainlinkClient from '../test-helpers/chainlinkClient'
 import fluxMonitorJobTemplate from '../fixtures/flux-monitor-job'
 import * as t from '../test-helpers/common'
@@ -61,10 +66,13 @@ const clClient2 = new ChainlinkClient(
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
 let linkToken: contract.Instance<contract.LinkTokenFactory>
-let fluxAggregator: contract.Instance<FluxAggregatorFactory>
+let fluxAggregator: contract.CallableOverrideInstance<
+  FluxAggregatorFactory,
+  interfaces.AggregatorInterface
+>
+
 let node1Address: string
 let node2Address: string
-let txInterval: number | undefined
 
 async function assertAggregatorValues(
   latestAnswer: number,
@@ -78,8 +86,12 @@ async function assertAggregatorValues(
     fluxAggregator.latestAnswer(),
     fluxAggregator.latestRound(),
     fluxAggregator.reportingRound(),
-    fluxAggregator.latestSubmission(node1Address).then(res => res[1]),
-    fluxAggregator.latestSubmission(node2Address).then(res => res[1]),
+    fluxAggregator
+      .latestSubmission(node1Address)
+      .then((res: number[]) => res[1]),
+    fluxAggregator
+      .latestSubmission(node2Address)
+      .then((res: number[]) => res[1]),
   ])
 
   matchers.bigNum(latestAnswer, la, `${msg} : latest answer`)
@@ -110,14 +122,6 @@ beforeAll(async () => {
   linkToken = await linkTokenFactory.deploy()
   await linkToken.deployed()
 
-  // FIXME: force parity to "mine" block every 2 seconds
-  // www.pivotaltracker.com/story/show/172321994
-  if (!process.env.GETH_MODE) {
-    const miner = ethers.Wallet.createRandom().connect(provider)
-    await t.fundAddress(miner.address)
-    txInterval = t.setRecurringTx(miner)
-  }
-
   console.log(`Chainlink Node 1 address: ${node1Address}`)
   console.log(`Chainlink Node 2 address: ${node2Address}`)
   console.log(`Contract creator's address: ${carol.address}`)
@@ -127,15 +131,19 @@ beforeAll(async () => {
 beforeEach(async () => {
   t.printHeading('Running Test')
   fluxMonitorJob = JSON.parse(JSON.stringify(fluxMonitorJobTemplate)) // perform a deep clone
-  fluxAggregator = await fluxAggregatorFactory.deploy(
+  const deployingContract = await fluxAggregatorFactory.deploy(
     linkToken.address,
     MINIMUM_CONTRACT_PAYMENT,
     10,
     1,
     ethers.utils.formatBytes32String('ETH/USD'),
   )
-  await fluxAggregator.deployed()
-  t.logEvents(fluxAggregator, 'FluxAggregator', faEventsToListenTo)
+  await deployingContract.deployed()
+  fluxAggregator = contract.callable(
+    deployingContract,
+    interfaces.AggregatorMethodList,
+  )
+  t.logEvents(fluxAggregator as any, 'FluxAggregator', faEventsToListenTo)
   console.log(`Deployed FluxAggregator contract: ${fluxAggregator.address}`)
 })
 
@@ -148,10 +156,6 @@ afterEach(async () => {
     t.changePriceFeed(EXTERNAL_ADAPTER_2_URL, 100),
   ])
   fluxAggregator.removeAllListeners('*')
-})
-
-afterAll(() => {
-  clearInterval(txInterval)
 })
 
 describe('FluxMonitor / FluxAggregator integration with one node', () => {
@@ -271,7 +275,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await assertAggregatorValues(14000, 4, 4, 4, 2, 'fourth round')
   })
 
-  it('respects the idleThreshold', async () => {
+  it('respects the idle timer duration', async () => {
     await fluxAggregator.updateFutureRounds(
       MINIMUM_CONTRACT_PAYMENT,
       2,
@@ -283,7 +287,8 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     const node1InitialRunCount = clClient1.getJobRuns().length
     const node2InitialRunCount = clClient2.getJobRuns().length
 
-    fluxMonitorJob.initiators[0].params.idleThreshold = '15s'
+    fluxMonitorJob.initiators[0].params.idleTimer.duration = '15s'
+    fluxMonitorJob.initiators[0].params.idleTimer.disabled = false
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
     clClient1.createJob(JSON.stringify(fluxMonitorJob))

@@ -7,8 +7,14 @@
         "data":{"coin":"ETH","market":"USD"}
       },
       "feeds": [ "https://lambda.staging.devnet.tools/bnc/call" ],
+      "precision": 2,
       "threshold": 0.5,
-      "precision": 2
+      "idleTimer": {
+        "disabled": true
+      },
+      "pollTimer": {
+        "period": "1m"
+      }
     }
   }],
   "tasks": [

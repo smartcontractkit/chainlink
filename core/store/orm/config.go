@@ -41,6 +41,8 @@ type Config struct {
 	viper           *viper.Viper
 	SecretGenerator SecretGenerator
 	runtimeStore    *ORM
+	Dialect         DialectName
+	AdvisoryLockID  int64
 }
 
 var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
@@ -66,7 +68,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		SecretGenerator: filePersistedSecretGenerator{},
 	}
 
-	if err := os.MkdirAll(config.RootDir(), os.FileMode(0700)); err != nil {
+	if err := utils.EnsureDirAndPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		logger.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
 	}
 
@@ -114,6 +116,24 @@ func (c Config) Set(name string, value interface{}) {
 	logger.Panicf("No configuration parameter for %s", name)
 }
 
+const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
+
+func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
+	if c.AdvisoryLockID == 0 {
+		return defaultPostgresAdvisoryLockID
+	} else {
+		return c.AdvisoryLockID
+	}
+}
+
+func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
+	if c.Dialect == "" {
+		return DialectPostgres
+	} else {
+		return c.Dialect
+	}
+}
+
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
@@ -151,6 +171,12 @@ func (c Config) DatabaseTimeout() models.Duration {
 // a properly formatted URL, with a valid scheme (postgres://)
 func (c Config) DatabaseURL() string {
 	return c.viper.GetString(EnvVarName("DatabaseURL"))
+}
+
+// MigrateDatabase determines whether the database will be automatically
+// migrated on application startup if set to true
+func (c Config) MigrateDatabase() bool {
+	return c.viper.GetBool(EnvVarName("MigrateDatabase"))
 }
 
 // DefaultMaxHTTPAttempts defines the limit for HTTP requests.
@@ -539,7 +565,8 @@ func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	}
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
-	return key, ioutil.WriteFile(sessionPath, []byte(str), readWritePerms)
+	err := utils.WriteFileWithPerms(sessionPath, []byte(str), readWritePerms)
+	return key, err
 }
 
 func parseAddress(str string) (interface{}, error) {

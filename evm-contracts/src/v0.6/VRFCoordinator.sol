@@ -64,18 +64,20 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   /**
    * @notice Commits calling address to serve randomness
    * @param _fee minimum LINK payment required to serve randomness
+   * @param _oracle the address of the Chainlink node with the proving key and job
    * @param _publicProvingKey public key used to prove randomness
    * @param _jobID ID of the corresponding chainlink job in the oracle's db
    */
   function registerProvingKey(
-    uint256 _fee, uint256[2] calldata _publicProvingKey, bytes32 _jobID
+    uint256 _fee, address _oracle, uint256[2] calldata _publicProvingKey, bytes32 _jobID
   )
     external
   {
     bytes32 keyHash = hashOfKey(_publicProvingKey);
     address oldVRFOracle = serviceAgreements[keyHash].vRFOracle;
     require(oldVRFOracle == address(0), "please register a new key");
-    serviceAgreements[keyHash].vRFOracle = msg.sender;
+    require(_oracle != address(0), "_oracle must not be 0x0");
+    serviceAgreements[keyHash].vRFOracle = _oracle;
     serviceAgreements[keyHash].jobID = _jobID;
     serviceAgreements[keyHash].fee = _fee;
     emit NewServiceAgreement(keyHash, _fee);
