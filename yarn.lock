@@ -3616,10 +3616,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/helmet@0.0.45":
-  version "0.0.45"
-  resolved "https://registry.npmjs.org/@types/helmet/-/helmet-0.0.45.tgz#3eab6550a4e19acf86012596a7f1981529480fd5"
-  integrity sha512-PsLZI1NqKpXvsMZxh66xAZtpKiTeW+swY8a8LnCNSBbM/mvwU41P3BYoEqkJM9RbITPsq4uhIH0NkIsL9fzPbg==
+"@types/helmet@0.0.47":
+  version "0.0.47"
+  resolved "https://registry.npmjs.org/@types/helmet/-/helmet-0.0.47.tgz#ec5161541b649142205b7c558bca14801c5ce129"
+  integrity sha512-TcHA/djjdUtrMtq/QAayVLrsgjNNZ1Uhtz0KhfH01mrmjH44E54DA1A0HNbwW0H/NBFqV+tGMo85ACuEhMXcdg==
   dependencies:
     "@types/express" "*"
 
