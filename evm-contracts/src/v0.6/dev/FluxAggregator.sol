@@ -6,7 +6,7 @@ import "./SafeMath128.sol";
 import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "./AggregatorInterface.sol";
+import "../interfaces/AggregatorInterface.sol";
 import "../Owned.sol";
 
 /**
