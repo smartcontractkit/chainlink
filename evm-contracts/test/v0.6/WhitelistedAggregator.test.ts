@@ -28,10 +28,7 @@ describe('WhitelistedAggregator', () => {
   const description = 'LINK/USD'
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.CallableOverrideInstance<
-    WhitelistedAggregatorFactory,
-    interfaces.AggregatorInterface
-  >
+  let aggregator: contract.CallableOverrideInstance<WhitelistedAggregatorFactory>
   let nextRound: number
 
   const deployment = setup.snapshot(provider, async () => {

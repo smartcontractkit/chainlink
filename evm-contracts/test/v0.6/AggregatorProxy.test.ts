@@ -41,19 +41,19 @@ describe('AggregatorProxy', () => {
   const response2 = h.numToBytes32(67890)
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<AggregatorFactory>
-  let aggregator2: contract.Instance<AggregatorFactory>
+  let aggregator: contract.CallableOverrideInstance<AggregatorFactory>
+  let aggregator2: contract.CallableOverrideInstance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
-  let proxy: contract.CallableOverrideInstance<
-    AggregatorProxyFactory,
-    interfaces.AggregatorInterface
-  >
+  let proxy: contract.CallableOverrideInstance<AggregatorProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = await aggregatorFactory
-      .connect(defaultAccount)
-      .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+    aggregator = contract.callable(
+      await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+      interfaces.AggregatorMethodList,
+    )
     await link.transfer(aggregator.address, deposit)
     proxy = contract.callable(
       await aggregatorProxyFactory
@@ -109,9 +109,12 @@ describe('AggregatorProxy', () => {
 
     describe('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = await aggregatorFactory
-          .connect(defaultAccount)
-          .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+        aggregator2 = contract.callable(
+          await aggregatorFactory
+            .connect(defaultAccount)
+            .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+          interfaces.AggregatorMethodList,
+        )
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
@@ -160,9 +163,12 @@ describe('AggregatorProxy', () => {
 
     describe('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = await aggregatorFactory
-          .connect(defaultAccount)
-          .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+        aggregator2 = contract.callable(
+          await aggregatorFactory
+            .connect(defaultAccount)
+            .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+          interfaces.AggregatorMethodList,
+        )
         await link.transfer(aggregator2.address, deposit)
 
         const requestTx = await aggregator2.requestRateUpdate()
@@ -372,9 +378,12 @@ describe('AggregatorProxy', () => {
       await proxy.transferOwnership(personas.Carol.address)
       await proxy.connect(personas.Carol).acceptOwnership()
 
-      aggregator2 = await aggregatorFactory
-        .connect(defaultAccount)
-        .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+      aggregator2 = contract.callable(
+        await aggregatorFactory
+          .connect(defaultAccount)
+          .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+        interfaces.AggregatorMethodList,
+      )
 
       assert.equal(aggregator.address, await proxy.aggregator())
     })

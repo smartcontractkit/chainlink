@@ -66,10 +66,7 @@ const clClient2 = new ChainlinkClient(
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
 let linkToken: contract.Instance<contract.LinkTokenFactory>
-let fluxAggregator: contract.CallableOverrideInstance<
-  FluxAggregatorFactory,
-  interfaces.AggregatorInterface
->
+let fluxAggregator: contract.CallableOverrideInstance<FluxAggregatorFactory>
 
 let node1Address: string
 let node2Address: string

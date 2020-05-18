@@ -32,10 +32,7 @@ describe('WhitelistedConversionProxy', () => {
 
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregator2: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.CallableOverrideInstance<
-    WhitelistedConversionProxyFactory,
-    interfaces.AggregatorInterface
-  >
+  let proxy: contract.CallableOverrideInstance<WhitelistedConversionProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     aggregator = await aggregatorFactory
