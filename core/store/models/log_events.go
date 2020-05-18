@@ -591,6 +591,6 @@ func IDToHexTopic(id *ID) common.Hash {
 type LogCursor struct {
 	Name        string `gorm:"primary_key"`
 	Initialized bool   `gorm:"not null;default true"`
-	BlockIndex  uint64 `gorm:"not null;default 0"`
-	LogIndex    uint64 `gorm:"not null;default 0"`
+	BlockIndex  int64  `gorm:"not null;default 0"`
+	LogIndex    int64  `gorm:"not null;default 0"`
 }
