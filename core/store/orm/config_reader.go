@@ -42,7 +42,7 @@ type ConfigReader interface {
 	GasUpdaterTransactionPercentile() uint16
 	JSONConsole() bool
 	LinkContractAddress() string
-	LogBackfillDepth() string
+	LogBackfillDepth() uint64
 	ExplorerURL() *url.URL
 	ExplorerAccessKey() string
 	ExplorerSecret() string

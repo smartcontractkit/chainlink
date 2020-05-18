@@ -138,7 +138,7 @@ type Whitelist struct {
 	ExplorerURL              string          `json:"explorerUrl"`
 	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
-	LogBackfillDepth         string          `json:"logBackfillDepth"`
+	LogBackfillDepth         uint64          `json:"logBackfillDepth"`
 	LogLevel                 orm.LogLevel    `json:"logLevel"`
 	LogSQLMigrations         bool            `json:"logSqlMigrations"`
 	LogSQLStatements         bool            `json:"logSqlStatements"`
