@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "./interfaces/AggregatorInterface.sol";
+import "./interfaces/HistoricAggregatorInterface.sol";
 import "./vendor/Ownable.sol";
 
 /**
@@ -9,9 +9,9 @@ import "./vendor/Ownable.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, Ownable {
+contract AggregatorProxy is HistoricAggregatorInterface, Ownable {
 
-  AggregatorInterface public aggregator;
+  HistoricAggregatorInterface public aggregator;
 
   constructor(address _aggregator) public Ownable() {
     setAggregator(_aggregator);
@@ -77,7 +77,7 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
     public
     onlyOwner()
   {
-    aggregator = AggregatorInterface(_aggregator);
+    aggregator = HistoricAggregatorInterface(_aggregator);
   }
 
   /**

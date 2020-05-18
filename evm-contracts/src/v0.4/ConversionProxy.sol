@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./vendor/SignedSafeMath.sol";
-import "./interfaces/AggregatorInterface.sol";
+import "./interfaces/HistoricAggregatorInterface.sol";
 import "./vendor/Ownable.sol";
 
 /**
@@ -12,12 +12,12 @@ import "./vendor/Ownable.sol";
  * relative to the _from address. Historic answers are provided at
  * the latest rate of _to address.
  */
-contract ConversionProxy is AggregatorInterface, Ownable {
+contract ConversionProxy is HistoricAggregatorInterface, Ownable {
   using SignedSafeMath for int256;
 
   uint8 public decimals;
-  AggregatorInterface public from;
-  AggregatorInterface public to;
+  HistoricAggregatorInterface public from;
+  HistoricAggregatorInterface public to;
 
   event AddressesUpdated(
     address from,
@@ -63,8 +63,8 @@ contract ConversionProxy is AggregatorInterface, Ownable {
     require(_decimals > 0, "Decimals must be greater than 0");
     require(_from != _to, "Cannot use same address");
     decimals = _decimals;
-    from = AggregatorInterface(_from);
-    to = AggregatorInterface(_to);
+    from = HistoricAggregatorInterface(_from);
+    to = HistoricAggregatorInterface(_to);
     emit AddressesUpdated(
       _from,
       _to,
