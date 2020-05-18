@@ -268,7 +268,7 @@ func (orm *ORM) FindJob(id *models.ID) (models.JobSpec, error) {
 }
 
 // FindInitiator returns the single initiator defined by the passed ID.
-func (orm *ORM) FindInitiator(ID uint32) (models.Initiator, error) {
+func (orm *ORM) FindInitiator(ID int64) (models.Initiator, error) {
 	orm.MustEnsureAdvisoryLock()
 	initr := models.Initiator{}
 	return initr, orm.db.

@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/araddon/dateparse"
-	"github.com/jinzhu/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
@@ -587,9 +586,12 @@ func (r *AddressCollection) Scan(value interface{}) error {
 
 // Configuration stores key value pairs for overriding global configuration
 type Configuration struct {
-	gorm.Model
-	Name  string `gorm:"not null;unique;index"`
-	Value string `gorm:"not null"`
+	ID        int64  `gorm:"primary_key"`
+	Name      string `gorm:"not null;unique;index"`
+	Value     string `gorm:"not null"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
 // Merge returns a new map with all keys merged from right to left
