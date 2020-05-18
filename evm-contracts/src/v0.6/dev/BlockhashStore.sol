@@ -55,7 +55,7 @@ contract BlockhashStore {
     // assert(header[0] == 0xf9 && header[3] == 0xa0);
     bytes32 parentHash;
     assembly {
-      parentHash := mload(add(header, 36)) // 36 = 32 byte offset at beginning of aray + 4 byte offset of PARENTHASH
+      parentHash := mload(add(header, 36)) // 36 = 32 byte offset at beginning of array + 4 byte offset of PARENTHASH
     }
 
     s_blockhashes[n] = parentHash;
