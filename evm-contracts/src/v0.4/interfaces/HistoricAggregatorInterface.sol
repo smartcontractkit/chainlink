@@ -1,4 +1,4 @@
-pragma solidity >=0.6.0;
+pragma solidity >=0.4.24;
 
 interface HistoricAggregatorInterface {
   function latestAnswer() external returns (int256);
