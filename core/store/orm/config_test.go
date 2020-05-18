@@ -27,6 +27,7 @@ func TestStore_ConfigDefaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
 	assert.Equal(t, false, config.EthereumDisabled())
+	assert.Equal(t, 10, config.LogBackfillDepth())
 }
 
 func TestConfig_sessionSecret(t *testing.T) {
