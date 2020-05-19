@@ -178,13 +178,13 @@ func (_m *Application) NewBox() packr.Box {
 	return r0
 }
 
-// ResumeAllPendingNextBlock provides a mock function with given fields: currentBlockHeight
-func (_m *Application) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
-	ret := _m.Called(currentBlockHeight)
+// ResumeAllInProgress provides a mock function with given fields:
+func (_m *Application) ResumeAllInProgress() error {
+	ret := _m.Called()
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
-		r0 = rf(currentBlockHeight)
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -206,13 +206,13 @@ func (_m *Application) ResumeAllPendingConnection() error {
 	return r0
 }
 
-// ResumeAllInProgress provides a mock function with given fields:
-func (_m *Application) ResumeAllInProgress() error {
-	ret := _m.Called()
+// ResumeAllPendingNextBlock provides a mock function with given fields: currentBlockHeight
+func (_m *Application) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
+	ret := _m.Called(currentBlockHeight)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
+		r0 = rf(currentBlockHeight)
 	} else {
 		r0 = ret.Error(0)
 	}
