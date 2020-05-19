@@ -3,12 +3,9 @@ import {
   helpers as h,
   matchers,
   setup,
-  // interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-// import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
-//import { BlockhashStoreTestHelper } from '../../ethers/v0.6/BlockhashStoreTestHelper'
 import { BlockhashStoreTestHelperFactory } from '../../ethers/v0.6/BlockhashStoreTestHelperFactory'
 
 let personas: setup.Personas
@@ -22,7 +19,6 @@ beforeAll(async () => {
 describe('BlockhashStore', () => {
   let blockhashStoreTestHelper: contract.Instance<BlockhashStoreTestHelperFactory>
 
-  const zeroBlockhash = '0x0000000000000000000000000000000000000000000000000000000000000000'
   const mainnetBlocks: { num: number, rlpHeader: Uint8Array, hash: string }[] = [
     {
       num: 10000467,
@@ -59,10 +55,10 @@ describe('BlockhashStore', () => {
     assert.strictEqual(await blockhashStoreTestHelper.getBlockhash(lastBlock.num), lastBlock.hash)
   })
 
-  it('getBlockhash returns zero for unknown blockhashes', async () => {
-    assert.strictEqual(
-      await blockhashStoreTestHelper.getBlockhash(99999999),
-      zeroBlockhash
+  it('getBlockhash reverts for unknown blockhashes', async () => {
+    matchers.evmRevert(
+      blockhashStoreTestHelper.getBlockhash(99999999),
+      "blockhash not found in store"
     )
   })
 
@@ -100,10 +96,7 @@ describe('BlockhashStore', () => {
     const n = await provider.getBlockNumber() - 1
     await blockhashStoreTestHelper.connect(personas.Default).store(n)
 
-    assert.notStrictEqual(
-      await blockhashStoreTestHelper.getBlockhash(n),
-      zeroBlockhash
-    )
+    await blockhashStoreTestHelper.getBlockhash(n)
   })
 
   it('store rejects future block numbers', async () => {
@@ -133,9 +126,7 @@ describe('BlockhashStore', () => {
 
     await blockhashStoreTestHelper.connect(personas.Default)
       .storeEarliest()
-    assert.notStrictEqual(
-      await blockhashStoreTestHelper.getBlockhash(await provider.getBlockNumber() - 256),
-      zeroBlockhash
-    )
+
+    await blockhashStoreTestHelper.getBlockhash(await provider.getBlockNumber() - 256)
   })
 })

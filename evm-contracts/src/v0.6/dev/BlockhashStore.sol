@@ -48,7 +48,7 @@ contract BlockhashStore {
     //   | |
     //   | +--- 2 bytes containing the sum of the lenghts of the encoded list items
     //   |
-    //   +--- 0xf9 because we have a list and (sum of lengths of encode list items) fits exactly into two bytes.
+    //   +--- 0xf9 because we have a list and (sum of lengths of encoded list items) fits exactly into two bytes.
     //
     // As a consequence, the PARENTHASH is always at offset 4 of the rlp-encoded block header.
 
@@ -61,7 +61,13 @@ contract BlockhashStore {
     s_blockhashes[n] = parentHash;
   }
 
-  function getBlockhash(uint256 number) external view returns (bytes32) {
-    return s_blockhashes[number];
+  /**
+   * @notice gets a blockhash from the store. If no hash is known, this function reverts.
+   * @param n the number of the block whose blockhash should be returned
+   */
+  function getBlockhash(uint256 n) external view returns (bytes32) {
+    bytes32 h = s_blockhashes[n];
+    require(h != 0x0, "blockhash not found in store");
+    return h;
   }
 }
