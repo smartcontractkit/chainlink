@@ -705,7 +705,7 @@ describe('Aggregator', () => {
 
     describe('when a later answer has not been provided', () => {
       it('does not allow the request to be cancelled', async () => {
-        matchers.evmRevert(async () => {
+        await matchers.evmRevert(async () => {
           await rate.cancelRequest(
             request.requestId,
             request.payment,

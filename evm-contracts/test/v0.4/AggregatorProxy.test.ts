@@ -220,7 +220,7 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('does not update', async () => {
-        matchers.evmRevert(async () => {
+        await matchers.evmRevert(async () => {
           await proxy.connect(personas.Neil).setAggregator(aggregator2.address)
         })
 
