@@ -6,9 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Breaking changes
-
-New cron strings MUST now include time zone. If you want your jobs to run in UTC for example: `CRON_TZ=UTC * * * * *`. Previously, jobs specified without a time zone would run in the server's native time zone, which in most cases is UTC but this was never guaranteed.
+## [0.8.4] - 2020-05-18
 
 ### New features
 
@@ -17,8 +15,33 @@ parameter. To trigger a new on-chain report, the absolute difference in the feed
 value must change by at least the `absoluteThreshold` value. If it is
 unspecified or zero, fluxmonitor behavior is unchanged.
 
-### Added
-- Added Changelog
+### Bugfixes
+
+Fix incorrect permissions on some files written by the node
+Prevent a case where duplicate ethereum keys could be added
+Improve robustness and reliability of ethtx transaction logic
+
+### Database Migrations
+
+Add created_at and updated_at to all tables allowing for better historical insights. This migration may take a minute or two on large databases.
+
+## [0.8.3] - 2020-05-04
+
+### Breaking changes
+
+New cron strings MUST now include time zone. If you want your jobs to run in UTC for example: `CRON_TZ=UTC * * * * *`. Previously, jobs specified without a time zone would run in the server's native time zone, which in most cases is UTC but this was never guaranteed.
+
+### New features
+
+Added Changelog
+
+### Bugfixes
+
+Fix crash in experimental gas updater when run on Kovan network
+
+### Database migrations
+
+There a number of database migrations included in this release as part of our ongoing effort to make the node even more reliable and stable, and build a firm foundation for future development.
 
 ## [0.8.2] - 2020-04-20
 
