@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../dev/AggregatorInterface.sol";
+import "../interfaces/AggregatorInterface.sol";
 
 /**
  * @title The MockAggregator contract

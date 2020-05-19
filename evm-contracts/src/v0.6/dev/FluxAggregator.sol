@@ -6,7 +6,7 @@ import "./SafeMath128.sol";
 import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "./AggregatorInterface.sol";
+import "../interfaces/AggregatorInterface.sol";
 import "../Owned.sol";
 
 /**
@@ -461,6 +461,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(oracles[_oracle].admin == msg.sender, "only callable by admin");
 
+    // Safe to downcast _amount because the total amount of LINK is less than 2^128.
     uint128 amount = uint128(_amount);
     uint128 available = oracles[_oracle].withdrawable;
     require(available >= amount, "insufficient withdrawable funds");
