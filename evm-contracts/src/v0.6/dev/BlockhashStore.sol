@@ -16,7 +16,7 @@ contract BlockhashStore {
    */
   function store(uint256 n) public {
     bytes32 h = blockhash(n);
-    require(h != 0x0, "blockhash(number) failed");
+    require(h != 0x0, "blockhash(n) failed");
     s_blockhashes[n] = h;
   }
 
@@ -46,9 +46,9 @@ contract BlockhashStore {
     //   | |   |
     //   | |   +--- PARENTHASH is 32 bytes. rlpenc(PARENTHASH) is 0xa || PARENTHASH.
     //   | |
-    //   | +--- 2 bytes containing the sum of the lenghts of the list items
+    //   | +--- 2 bytes containing the sum of the lenghts of the encoded list items
     //   |
-    //   +--- 0xf9 because we have a list and (sum of lengths of encode list items) always fits into two bytes.
+    //   +--- 0xf9 because we have a list and (sum of lengths of encode list items) fits exactly into two bytes.
     //
     // As a consequence, the PARENTHASH is always at offset 4 of the rlp-encoded block header.
 
