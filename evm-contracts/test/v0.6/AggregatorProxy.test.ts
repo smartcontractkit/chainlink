@@ -221,7 +221,7 @@ describe('AggregatorProxy', () => {
 
       it('reverts', async () => {
         const latestRoundId = await proxy.latestRound()
-        matchers.evmRevert(async () => {
+        await matchers.evmRevert(async () => {
           await proxy.getRoundData(latestRoundId)
         })
       })
@@ -303,7 +303,7 @@ describe('AggregatorProxy', () => {
       })
 
       it('reverts', async () => {
-        matchers.evmRevert(async () => {
+        await matchers.evmRevert(async () => {
           await proxy.latestRoundData()
         })
       })
@@ -392,7 +392,7 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('does not update', async () => {
-        matchers.evmRevert(async () => {
+        await matchers.evmRevert(async () => {
           await proxy.connect(personas.Neil).setAggregator(aggregator2.address)
         })
 
