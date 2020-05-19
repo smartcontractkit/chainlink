@@ -15,6 +15,7 @@ import (
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
 	AllowOrigins                    string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
+	BlockBackfillDepth              string          `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BridgeResponseURL               url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                         big.Int         `env:"ETH_CHAIN_ID" default:"1"`
 	ClientNodeURL                   string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
@@ -42,7 +43,6 @@ type ConfigSchema struct {
 	GasUpdaterEnabled               bool            `env:"GAS_UPDATER_ENABLED" default:"false"`
 	JSONConsole                     bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress             string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
-	LogBackfillDepth                string          `env:"LOG_BACKFILL_DEPTH" default:"10"`
 	ExplorerURL                     *url.URL        `env:"EXPLORER_URL"`
 	ExplorerAccessKey               string          `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret                  string          `env:"EXPLORER_SECRET"`

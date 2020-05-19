@@ -126,6 +126,7 @@ type ConfigWhitelist struct {
 // Whitelist contains the supported environment variables
 type Whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
+	BlockBackfillDepth       uint64          `json:"blockBackfillDepth"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  *big.Int        `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
@@ -138,7 +139,6 @@ type Whitelist struct {
 	ExplorerURL              string          `json:"explorerUrl"`
 	JSONConsole              bool            `json:"jsonConsole"`
 	LinkContractAddress      string          `json:"linkContractAddress"`
-	LogBackfillDepth         uint64          `json:"logBackfillDepth"`
 	LogLevel                 orm.LogLevel    `json:"logLevel"`
 	LogSQLMigrations         bool            `json:"logSqlMigrations"`
 	LogSQLStatements         bool            `json:"logSqlStatements"`
@@ -176,6 +176,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 		AccountAddress: account.Address.Hex(),
 		Whitelist: Whitelist{
 			AllowOrigins:             config.AllowOrigins(),
+			BlockBackfillDepth:       config.BlockBackfillDepth(),
 			BridgeResponseURL:        config.BridgeResponseURL().String(),
 			ChainID:                  config.ChainID(),
 			ClientNodeURL:            config.ClientNodeURL(),
@@ -187,7 +188,6 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			EthGasPriceDefault:       config.EthGasPriceDefault(),
 			JSONConsole:              config.JSONConsole(),
 			LinkContractAddress:      config.LinkContractAddress(),
-			LogBackfillDepth:         config.LogBackfillDepth(),
 			ExplorerURL:              explorerURL,
 			LogLevel:                 config.LogLevel(),
 			LogToDisk:                config.LogToDisk(),

@@ -484,7 +484,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			defer cleanup()
 
 			var backfillDepth uint64 = 5 // something other than default
-			store.Config.Set(orm.EnvVarName("LogBackfillDepth"), backfillDepth)
+			store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), backfillDepth)
 
 			txManager := new(mocks.TxManager)
 			sub := new(mocks.Subscription)
