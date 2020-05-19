@@ -139,6 +139,12 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// BlockBackfillDepth specifies the number of blocks before the current HEAD that the
+// log broadcaster will try to re-consume logs from
+func (c Config) BlockBackfillDepth() uint64 {
+	return c.viper.GetUint64(EnvVarName("BlockBackfillDepth"))
+}
+
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c Config) BridgeResponseURL() *url.URL {
 	return c.getWithFallback("BridgeResponseURL", parseURL).(*url.URL)
@@ -327,12 +333,6 @@ func (c Config) JSONConsole() bool {
 // LinkContractAddress represents the address
 func (c Config) LinkContractAddress() string {
 	return c.viper.GetString(EnvVarName("LinkContractAddress"))
-}
-
-// LogBackfillDepth specifies the number of blocks before the current HEAD that the
-// log broadcaster will try to re-consume logs from
-func (c Config) LogBackfillDepth() uint64 {
-	return c.viper.GetUint64(EnvVarName("LogBackfillDepth"))
 }
 
 // ExplorerURL returns the websocket URL for this node to push stats to, or nil.

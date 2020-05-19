@@ -39,7 +39,7 @@ declare module 'core/store/presenters' {
     ethGasPriceDefault: Pointer<big.Int>
     jsonConsole: boolean
     linkContractAddress: string
-    logBackfillDepth: string
+    blockBackfillDepth: string
     explorerUrl: string
     logLevel: orm.LogLevel
     logToDisk: boolean

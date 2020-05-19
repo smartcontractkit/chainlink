@@ -63,7 +63,7 @@ func NewLogBroadcaster(store *store.Store) LogBroadcaster {
 	return &logBroadcaster{
 		ethClient:        store.TxManager,
 		orm:              store.ORM,
-		backfillDepth:    store.Config.LogBackfillDepth(),
+		backfillDepth:    store.Config.BlockBackfillDepth(),
 		listeners:        make(map[common.Address]map[LogListener]struct{}),
 		chAddListener:    make(chan registration),
 		chRemoveListener: make(chan registration),
