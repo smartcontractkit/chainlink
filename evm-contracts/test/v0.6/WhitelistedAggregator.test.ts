@@ -3,7 +3,6 @@ import {
   helpers as h,
   matchers,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { WhitelistedAggregatorFactory } from '../../ethers/v0.6/WhitelistedAggregatorFactory'
@@ -33,7 +32,7 @@ describe('WhitelistedAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = contract.callable(
+    aggregator = contract.callableAggregator(
       await (aggregatorFactory as any).connect(personas.Carol).deploy(
         link.address,
         paymentAmount,
@@ -44,7 +43,6 @@ describe('WhitelistedAggregator', () => {
         // https://github.com/ethereum-ts/TypeChain/pull/218
         { gasLimit: 8_000_000 },
       ),
-      interfaces.AggregatorMethodList,
     )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()

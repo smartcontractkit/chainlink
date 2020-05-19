@@ -6,6 +6,7 @@
 import { ethers, Signer, ContractTransaction } from 'ethers'
 import { Provider } from 'ethers/providers'
 import { FunctionFragment } from 'ethers/utils'
+import { interfaces } from '.'
 export * from './generated/LinkTokenFactory'
 
 /**
@@ -37,6 +38,7 @@ export type CallableOverrideInstance<T extends Deployable> = T extends {
       connect(signer: string | Signer | Provider): CallableOverrideInstance<T>
     }
   : never
+
 export function callable(oldContract: ethers.Contract, methods: string[]): any {
   const oldAbi = oldContract.interface.abi
   const newAbi = oldAbi.map(fragment => {
@@ -63,4 +65,8 @@ export function callable(oldContract: ethers.Contract, methods: string[]): any {
   )
 
   return contract
+}
+
+export function callableAggregator(oldContract: ethers.Contract): any {
+  return callable(oldContract, interfaces.AggregatorMethodList)
 }

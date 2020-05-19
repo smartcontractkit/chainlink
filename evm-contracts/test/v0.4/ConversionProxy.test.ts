@@ -1,7 +1,6 @@
 import {
   contract,
   helpers as h,
-  interfaces,
   matchers,
   oracle,
   setup,
@@ -49,32 +48,28 @@ describe('ConversionProxy', () => {
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = contract.callable(
+    aggregator = contract.callableAggregator(
       await aggregatorFactory
         .connect(defaultAccount)
         .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-      interfaces.AggregatorMethodList,
     )
-    aggregatorFiat = contract.callable(
+    aggregatorFiat = contract.callableAggregator(
       await aggregatorFactory
         .connect(defaultAccount)
         .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-      interfaces.AggregatorMethodList,
     )
-    aggregatorEth = contract.callable(
+    aggregatorEth = contract.callableAggregator(
       await aggregatorFactory
         .connect(defaultAccount)
         .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-      interfaces.AggregatorMethodList,
     )
     await link.transfer(aggregator.address, deposit)
     await link.transfer(aggregatorFiat.address, deposit)
     await link.transfer(aggregatorEth.address, deposit)
-    proxy = contract.callable(
+    proxy = contract.callableAggregator(
       await conversionProxyFactory
         .connect(defaultAccount)
         .deploy(fiatDecimals, aggregator.address, aggregatorFiat.address),
-      interfaces.AggregatorMethodList,
     )
   }) // 690110508578
 

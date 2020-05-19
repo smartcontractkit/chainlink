@@ -4,7 +4,6 @@ import {
   matchers,
   oracle,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -41,17 +40,15 @@ describe('AggregatorFacade', () => {
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = contract.callable(
+    aggregator = contract.callableAggregator(
       await aggregatorFactory
         .connect(defaultAccount)
         .deploy(link.address, 0, 1, [oc1.address], [jobId1]),
-      interfaces.AggregatorMethodList,
     )
-    facade = contract.callable(
+    facade = contract.callableAggregator(
       await aggregatorFacadeFactory
         .connect(defaultAccount)
         .deploy(aggregator.address, decimals),
-      interfaces.AggregatorMethodList,
     )
 
     let requestTx = await aggregator.requestRateUpdate()
