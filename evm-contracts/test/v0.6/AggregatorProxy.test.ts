@@ -4,7 +4,6 @@ import {
   matchers,
   oracle,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -48,18 +47,16 @@ describe('AggregatorProxy', () => {
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = contract.callable(
+    aggregator = contract.callableAggregator(
       await aggregatorFactory
         .connect(defaultAccount)
         .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-      interfaces.AggregatorMethodList,
     )
     await link.transfer(aggregator.address, deposit)
-    proxy = contract.callable(
+    proxy = contract.callableAggregator(
       await aggregatorProxyFactory
         .connect(defaultAccount)
         .deploy(aggregator.address),
-      interfaces.AggregatorMethodList,
     )
   })
 
@@ -109,11 +106,10 @@ describe('AggregatorProxy', () => {
 
     describe('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = contract.callable(
+        aggregator2 = contract.callableAggregator(
           await aggregatorFactory
             .connect(defaultAccount)
             .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-          interfaces.AggregatorMethodList,
         )
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
@@ -163,11 +159,10 @@ describe('AggregatorProxy', () => {
 
     describe('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = contract.callable(
+        aggregator2 = contract.callableAggregator(
           await aggregatorFactory
             .connect(defaultAccount)
             .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-          interfaces.AggregatorMethodList,
         )
         await link.transfer(aggregator2.address, deposit)
 
@@ -378,11 +373,10 @@ describe('AggregatorProxy', () => {
       await proxy.transferOwnership(personas.Carol.address)
       await proxy.connect(personas.Carol).acceptOwnership()
 
-      aggregator2 = contract.callable(
+      aggregator2 = contract.callableAggregator(
         await aggregatorFactory
           .connect(defaultAccount)
           .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-        interfaces.AggregatorMethodList,
       )
 
       assert.equal(aggregator.address, await proxy.aggregator())

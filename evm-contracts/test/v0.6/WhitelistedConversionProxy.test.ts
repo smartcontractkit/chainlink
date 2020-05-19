@@ -3,7 +3,6 @@ import {
   helpers as h,
   matchers,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -41,11 +40,10 @@ describe('WhitelistedConversionProxy', () => {
     aggregator2 = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(decimals, fiatAnswer)
-    proxy = contract.callable(
+    proxy = contract.callableAggregator(
       await whitelistedConversionProxyFactory
         .connect(defaultAccount)
         .deploy(aggregator.address, aggregator2.address),
-      interfaces.AggregatorMethodList,
     )
   })
 

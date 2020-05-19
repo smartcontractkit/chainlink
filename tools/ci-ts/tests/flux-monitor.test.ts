@@ -1,12 +1,7 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '@chainlink/contracts/ethers/v0.6/FluxAggregatorFactory'
-import {
-  contract,
-  helpers as h,
-  matchers,
-  interfaces,
-} from '@chainlink/test-helpers'
+import { contract, helpers as h, matchers } from '@chainlink/test-helpers'
 import ChainlinkClient from '../test-helpers/chainlinkClient'
 import fluxMonitorJobTemplate from '../fixtures/flux-monitor-job'
 import * as t from '../test-helpers/common'
@@ -136,10 +131,7 @@ beforeEach(async () => {
     ethers.utils.formatBytes32String('ETH/USD'),
   )
   await deployingContract.deployed()
-  fluxAggregator = contract.callable(
-    deployingContract,
-    interfaces.AggregatorMethodList,
-  )
+  fluxAggregator = contract.callableAggregator(deployingContract)
   t.logEvents(fluxAggregator as any, 'FluxAggregator', faEventsToListenTo)
   console.log(`Deployed FluxAggregator contract: ${fluxAggregator.address}`)
 })

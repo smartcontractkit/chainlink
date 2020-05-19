@@ -1,7 +1,6 @@
 import {
   contract,
   helpers as h,
-  interfaces,
   matchers,
   oracle,
   setup,
@@ -89,11 +88,10 @@ describe('Aggregator', () => {
 
     describe('basic updates', () => {
       beforeEach(async () => {
-        rate = contract.callable(
+        rate = contract.callableAggregator(
           await aggregatorFactory
             .connect(defaultAccount)
             .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-          interfaces.AggregatorMethodList,
         )
 
         await link.transfer(rate.address, deposit)
@@ -195,7 +193,7 @@ describe('Aggregator', () => {
 
     describe('with multiple oracles', () => {
       beforeEach(async () => {
-        rate = contract.callable(
+        rate = contract.callableAggregator(
           await aggregatorFactory.connect(defaultAccount).deploy(
             link.address,
             basePayment,
@@ -203,7 +201,6 @@ describe('Aggregator', () => {
             oracles.map(o => o.address),
             [jobId1, jobId2, jobId3],
           ),
-          interfaces.AggregatorMethodList,
         )
 
         await link.transfer(rate.address, deposit)
@@ -283,7 +280,7 @@ describe('Aggregator', () => {
     describe('with an even number of oracles', () => {
       beforeEach(async () => {
         oracles = [oc1, oc2, oc3, oc4]
-        rate = contract.callable(
+        rate = contract.callableAggregator(
           await aggregatorFactory.connect(defaultAccount).deploy(
             link.address,
             basePayment,
@@ -291,7 +288,6 @@ describe('Aggregator', () => {
             oracles.map(o => o.address),
             [jobId1, jobId2, jobId3, jobId4],
           ),
-          interfaces.AggregatorMethodList,
         )
 
         await link.transfer(rate.address, deposit)
@@ -325,11 +321,10 @@ describe('Aggregator', () => {
 
   describe('#updateRequestDetails', () => {
     beforeEach(async () => {
-      rate = contract.callable(
+      rate = contract.callableAggregator(
         await aggregatorFactory
           .connect(defaultAccount)
           .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-        interfaces.AggregatorMethodList,
       )
       await rate.transferOwnership(personas.Carol.address)
       oc2 = await oracleFactory.connect(defaultAccount).deploy(link.address)
@@ -427,11 +422,10 @@ describe('Aggregator', () => {
 
     describe('when called before a past answer is fulfilled', () => {
       beforeEach(async () => {
-        rate = contract.callable(
+        rate = contract.callableAggregator(
           await aggregatorFactory
             .connect(defaultAccount)
             .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-          interfaces.AggregatorMethodList,
         )
         await link.transfer(rate.address, deposit)
 
@@ -526,11 +520,10 @@ describe('Aggregator', () => {
 
   describe('#transferLINK', () => {
     beforeEach(async () => {
-      rate = contract.callable(
+      rate = contract.callableAggregator(
         await aggregatorFactory
           .connect(defaultAccount)
           .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-        interfaces.AggregatorMethodList,
       )
       await rate.transferOwnership(personas.Carol.address)
       await link.transfer(rate.address, deposit)
@@ -575,11 +568,10 @@ describe('Aggregator', () => {
 
   describe('#destroy', () => {
     beforeEach(async () => {
-      rate = contract.callable(
+      rate = contract.callableAggregator(
         await aggregatorFactory
           .connect(defaultAccount)
           .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-        interfaces.AggregatorMethodList,
       )
       await rate.transferOwnership(personas.Carol.address)
       await link.transfer(rate.address, deposit)
@@ -611,11 +603,10 @@ describe('Aggregator', () => {
 
   describe('#setAuthorization', () => {
     beforeEach(async () => {
-      rate = contract.callable(
+      rate = contract.callableAggregator(
         await aggregatorFactory
           .connect(defaultAccount)
           .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-        interfaces.AggregatorMethodList,
       )
       await link.transfer(rate.address, deposit)
     })
@@ -666,11 +657,10 @@ describe('Aggregator', () => {
     let request: oracle.RunRequest
 
     beforeEach(async () => {
-      rate = contract.callable(
+      rate = contract.callableAggregator(
         await aggregatorFactory
           .connect(defaultAccount)
           .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
-        interfaces.AggregatorMethodList,
       )
 
       await link.transfer(rate.address, basePayment)
@@ -786,11 +776,10 @@ describe('Aggregator', () => {
     ]
 
     beforeEach(async () => {
-      rate = contract.callable(
+      rate = contract.callableAggregator(
         await aggregatorFactory
           .connect(defaultAccount)
           .deploy(link.address, basePayment, 0, [], []),
-        interfaces.AggregatorMethodList,
       )
       await link.transfer(rate.address, deposit)
     })

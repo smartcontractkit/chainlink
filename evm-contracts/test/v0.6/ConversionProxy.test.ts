@@ -3,7 +3,6 @@ import {
   helpers as h,
   matchers,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -46,11 +45,10 @@ describe('ConversionProxy', () => {
     aggregatorEth = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(ethDecimals, ethAnswer)
-    proxy = contract.callable(
+    proxy = contract.callableAggregator(
       await conversionProxyFactory
         .connect(defaultAccount)
         .deploy(aggregator.address, aggregatorFiat.address),
-      interfaces.AggregatorMethodList,
     )
   })
 

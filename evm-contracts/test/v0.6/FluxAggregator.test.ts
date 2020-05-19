@@ -3,7 +3,6 @@ import {
   helpers as h,
   matchers,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { randomBytes } from 'crypto'
@@ -165,7 +164,7 @@ describe('FluxAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = contract.callable(
+    aggregator = contract.callableAggregator(
       await fluxAggregatorFactory
         .connect(personas.Carol)
         .deploy(
@@ -175,7 +174,6 @@ describe('FluxAggregator', () => {
           decimals,
           ethers.utils.formatBytes32String(description),
         ),
-      interfaces.AggregatorMethodList,
     )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
