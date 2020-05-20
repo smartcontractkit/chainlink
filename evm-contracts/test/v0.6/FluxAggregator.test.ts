@@ -3,9 +3,9 @@ import {
   helpers as h,
   matchers,
   setup,
+  wallet,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
@@ -1052,23 +1052,58 @@ describe('FluxAggregator', () => {
       })
     })
 
-    const limit = 42
+    const limit = 100
     describe(`when adding more than ${limit} oracles`, () => {
-      it('reverts', async () => {
+      let oracles: ethers.Wallet[]
+
+      beforeEach(async () => {
+        oracles = []
+        for (let i = 0; i < limit; i++) {
+          const account = await wallet.createWallet(provider, i + 100)
+          await personas.Default.sendTransaction({
+            to: account.address,
+            value: h.toWei('0.01'),
+          })
+          oracles.push(account)
+        }
+
         await link.transfer(
           aggregator.address,
           paymentAmount.mul(limit).mul(reserveRounds),
         )
         await aggregator.updateAvailableFunds()
 
-        for (let i = 0; i < limit; i++) {
-          const minMax = i + 1
-          const fakeAddress = h.addHexPrefix(randomBytes(20).toString('hex'))
+        let addresses = oracles.slice(0, 50).map(o => o.address)
+        await aggregator
+          .connect(personas.Carol)
+          .addOracles(addresses, addresses, 1, 50, rrDelay)
+        // add in two transactions to avoid gas limit issues
+        addresses = oracles.slice(50, 100).map(o => o.address)
+        await aggregator
+          .connect(personas.Carol)
+          .addOracles(addresses, addresses, 1, 100, rrDelay)
+      })
 
-          await aggregator
-            .connect(personas.Carol)
-            .addOracles([fakeAddress], [fakeAddress], minMax, minMax, rrDelay)
+      it('not use too much gas', async () => {
+        let tx: any
+        let receipt: any
+        let i: any
+
+        let txs = []
+        for (i = 0; i < limit; i++) {
+          tx = await aggregator
+            .connect(oracles[i])
+            .submit(nextRound, Math.floor(Math.random() * 10000))
+          txs.push(tx)
         }
+        assert(!!tx)
+        if (!!tx) {
+          receipt = await tx.wait()
+          assert.isAbove(500_000, receipt.gasUsed.toNumber())
+        }
+      })
+
+      it('reverts when another oracle is added', async () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)
