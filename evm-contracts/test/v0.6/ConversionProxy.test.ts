@@ -3,7 +3,6 @@ import {
   helpers as h,
   matchers,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -35,10 +34,7 @@ describe('ConversionProxy', () => {
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregatorFiat: contract.Instance<MockAggregatorFactory>
   let aggregatorEth: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.CallableOverrideInstance<
-    ConversionProxyFactory,
-    interfaces.AggregatorInterface
-  >
+  let proxy: contract.CallableOverrideInstance<ConversionProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
@@ -49,11 +45,10 @@ describe('ConversionProxy', () => {
     aggregatorEth = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(ethDecimals, ethAnswer)
-    proxy = contract.callable(
+    proxy = contract.callableAggregator(
       await conversionProxyFactory
         .connect(defaultAccount)
         .deploy(aggregator.address, aggregatorFiat.address),
-      interfaces.AggregatorMethodList,
     )
   })
 
