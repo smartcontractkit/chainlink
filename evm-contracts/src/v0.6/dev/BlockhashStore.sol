@@ -3,8 +3,8 @@ pragma solidity 0.6.2;
 /**
  * @title BlockhashStore
  * @notice This contract provides a way to access blockhashes older than
- * the 256 block limit imposed by the BLOCKHASH opcode.
- * You may assume that any blockhash stored by the contract is correct.
+ *   the 256 block limit imposed by the BLOCKHASH opcode.
+ *   You may assume that any blockhash stored by the contract is correct.
  */
 contract BlockhashStore {
 
@@ -32,7 +32,7 @@ contract BlockhashStore {
    * @notice stores blockhash after verifying blockheader of child/subsequent block
    * @param n the number of the block whose blockhash should be stored
    * @param header the rlp-encoded blockheader of block n+1. We verify its correctness by checking
-   * that it hashes to a stored blockhash, and then extract parentHash to get the n-th blockhash.
+   *   that it hashes to a stored blockhash, and then extract parentHash to get the n-th blockhash.
    */
   function storeVerifyHeader(uint256 n, bytes memory header) public {
     require(keccak256(header) == s_blockhashes[n + 1], "header has unknown blockhash");
@@ -52,10 +52,10 @@ contract BlockhashStore {
     //
     // As a consequence, the PARENTHASH is always at offset 4 of the rlp-encoded block header.
 
-    // assert(header[0] == 0xf9 && header[3] == 0xa0);
     bytes32 parentHash;
     assembly {
-      parentHash := mload(add(header, 36)) // 36 = 32 byte offset at beginning of array + 4 byte offset of PARENTHASH
+      parentHash := mload(add(header, 36)) // 36 = 32 byte offset for length prefix of ABI-encoded array
+                                           //    +  4 byte offset of PARENTHASH (see above)
     }
 
     s_blockhashes[n] = parentHash;

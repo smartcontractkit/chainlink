@@ -56,7 +56,7 @@ describe('BlockhashStore', () => {
   })
 
   it('getBlockhash reverts for unknown blockhashes', async () => {
-    matchers.evmRevert(
+    await matchers.evmRevert(
       blockhashStoreTestHelper.getBlockhash(99999999),
       "blockhash not found in store"
     )
@@ -71,7 +71,7 @@ describe('BlockhashStore', () => {
   })
 
   it('storeVerifyHeader rejects unknown headers', async () => {
-    const [unknownBlock] = mainnetBlocks.slice(0, 1);
+    const unknownBlock = mainnetBlocks[0];
     await matchers.evmRevert(
       blockhashStoreTestHelper.connect(personas.Default)
         .storeVerifyHeader(unknownBlock.num - 1, unknownBlock.rlpHeader),
@@ -96,7 +96,10 @@ describe('BlockhashStore', () => {
     const n = await provider.getBlockNumber() - 1
     await blockhashStoreTestHelper.connect(personas.Default).store(n)
 
-    await blockhashStoreTestHelper.getBlockhash(n)
+    assert.equal(
+      await blockhashStoreTestHelper.getBlockhash(n),
+      (await provider.getBlock(n)).hash
+    )
   })
 
   it('store rejects future block numbers', async () => {
@@ -127,6 +130,10 @@ describe('BlockhashStore', () => {
     await blockhashStoreTestHelper.connect(personas.Default)
       .storeEarliest()
 
-    await blockhashStoreTestHelper.getBlockhash(await provider.getBlockNumber() - 256)
+    const n = await provider.getBlockNumber() - 256
+    assert.equal(
+      await blockhashStoreTestHelper.getBlockhash(n),
+      (await provider.getBlock(n)).hash
+    )
   })
 })
