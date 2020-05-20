@@ -159,7 +159,7 @@ func newStoreWithDialerAndKeyStore(
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
 
-	err := utils.EnsureDirAndPerms(config.RootDir(), os.FileMode(0700))
+	err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}

@@ -106,7 +106,7 @@ func (e *EncryptedSecretKey) WriteToDisk(path string) error {
 		return errors.Wrapf(err, "while marshaling key to save to %s", path)
 	}
 	userReadWriteOtherNoAccess := os.FileMode(0600)
-	return utils.WriteFileWithPerms(path, keyJSON, userReadWriteOtherNoAccess)
+	return utils.WriteFileWithMaxPerms(path, keyJSON, userReadWriteOtherNoAccess)
 }
 
 // MarshalText renders k as a text string
