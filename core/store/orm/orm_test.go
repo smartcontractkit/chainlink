@@ -210,7 +210,7 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	// Restore the previous updated at to simulate a conflict
 	jr.UpdatedAt = updatedAt
 	jr.SetStatus(models.RunStatusInProgress)
-	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
+	assert.Equal(t, orm.ErrOptimisticUpdateConflict, store.SaveJobRun(&jr))
 }
 
 func TestORM_JobRunsFor(t *testing.T) {
@@ -1207,36 +1207,6 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	assert.NotEqual(t, createdTx.GasPrice, pastTxAttempt.GasPrice)
 	assert.NotEqual(t, createdTx.SentAt, pastTxAttempt.SentAt)
 	assert.NotEqual(t, createdTx.SignedRawTx, pastTxAttempt.SignedRawTx)
-}
-
-func TestORM_DeduceDialect(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name, connection string
-		expect           orm.DialectName
-		wantError        bool
-	}{
-		// Old sqlite URLs included to verify that they error since sqlite
-		// support has been dropped
-		{"windows full path", `D:/node-0/node/db.sqlite3`, ``, true},
-		{"relative file", "db.sqlite", "", true},
-		{"relative dir path", "store/db/here", "", true},
-		{"file url", "file://host/path", "", true},
-		{"sqlite url", "sqlite:///path/to/sqlite.db", "", true},
-		{"sqlite3 url", "sqlite3:///path/to/sqlite.db", "", true},
-		{"postgres url", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
-		{"postgresql url", "postgresql://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
-		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "", true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			actual, err := orm.DeduceDialect(test.connection)
-			assert.Equal(t, test.expect, actual)
-			assert.Equal(t, test.wantError, err != nil)
-		})
-	}
 }
 
 func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {

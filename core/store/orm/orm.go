@@ -5,10 +5,8 @@ import (
 	"database/sql"
 	"encoding"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -28,127 +26,59 @@ import (
 	"go.uber.org/multierr"
 )
 
-// BatchSize is the safe number of records to cache during Batch calls for
-// SQLite without causing load problems.
-// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
-const BatchSize = 100
-
 var (
 	// ErrorNotFound is returned when finding a single value fails.
 	ErrorNotFound = gorm.ErrRecordNotFound
+	// ErrNoAdvisoryLock is returned when an advisory lock can't be acquired.
+	ErrNoAdvisoryLock = errors.New("can't acquire advisory lock")
+	// ErrReleaseLockFailed  is returned when releasing the advisory lock fails.
+	ErrReleaseLockFailed = errors.New("advisory lock release failed")
+	// ErrOptimisticUpdateConflict is returned when a record update failed
+	// because another update occurred while the model was in memory and the
+	// differences must be reconciled.
+	ErrOptimisticUpdateConflict = errors.New("conflict while updating record")
 )
-
-// DialectName is a compiler enforced type used that maps to gorm's dialect
-// names.
-type DialectName string
-
-const (
-	// DialectPostgres represents the postgres dialect.
-	DialectPostgres DialectName = "postgres"
-	// DialectTransactionWrappedPostgres is useful for tests.
-	// When the connection is opened, it starts a transaction and all
-	// operations performed on the DB will be within that transaction.
-	//
-	// HACK: This must be the string 'cloudsqlpostgres' because of an absolutely
-	// horrible design in gorm. We need gorm to enable postgres-specific
-	// features for the txdb driver, but it can only do that if the dialect is
-	// called "postgres" or "cloudsqlpostgres".
-	//
-	// Since "postgres" is already taken, "cloudsqlpostgres" is our only
-	// remaining option
-	//
-	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
-	DialectTransactionWrappedPostgres DialectName = "cloudsqlpostgres"
-	// DialectPostgresWithoutLock represents the postgres dialect but it does not
-	// wait for a lock to connect. Intended to be used for read only access.
-	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
-)
-
-type ConnectionType struct {
-	name               DialectName
-	dialect            DialectName
-	locking            bool
-	transactionWrapped bool
-}
-
-func ConnectionTypeFor(dialect DialectName) (ConnectionType, error) {
-	switch dialect {
-	case DialectPostgres:
-		return ConnectionType{name: dialect, dialect: DialectPostgres, locking: true, transactionWrapped: false}, nil
-	case DialectPostgresWithoutLock:
-		return ConnectionType{name: dialect, dialect: DialectPostgres, locking: false, transactionWrapped: false}, nil
-	case DialectTransactionWrappedPostgres:
-		return ConnectionType{name: dialect, dialect: DialectTransactionWrappedPostgres, locking: true, transactionWrapped: true}, nil
-	}
-	return ConnectionType{}, errors.Errorf("%s is not a valid dialect type", dialect)
-}
 
 // ORM contains the database object used by Chainlink.
 type ORM struct {
 	db                  *gorm.DB
 	lockingStrategy     LockingStrategy
 	advisoryLockTimeout models.Duration
-	connection          ConnectionType
 	closeOnce           sync.Once
 	shutdownSignal      gracefulpanic.Signal
 }
 
-var (
-	ErrNoAdvisoryLock    = errors.New("can't acquire advisory lock")
-	ErrReleaseLockFailed = errors.New("advisory lock release failed")
-)
-
 // NewORM initializes a new database file at the configured uri.
 func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
-	ct, err := ConnectionTypeFor(dialect)
+	ct, err := NewConnection(dialect, uri, advisoryLockID)
 	if err != nil {
 		return nil, err
 	}
 	// Locking strategy for transaction wrapped postgres must use original URI
-	lockingStrategy, err := NewLockingStrategy(ct, uri, advisoryLockID)
+	lockingStrategy, err := NewLockingStrategy(ct)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create ORM lock")
 	}
-	if ct.transactionWrapped {
-		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
-		// should be encapsulated in it's own transaction, and thus needs its own
-		// unique id.
-		//
-		// We can happily throw away the original uri here because if we are using
-		// txdb it should have already been set at the point where we called
-		// txdb.Register
-		uri = models.NewID().String()
-	}
 
 	logger.Infof("Locking %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
-
 	orm := &ORM{
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
-		connection:          ct,
 		shutdownSignal:      shutdownSignal,
 	}
 	orm.MustEnsureAdvisoryLock()
 
-	db, err := initializeDatabase(ct, uri)
-
+	db, err := ct.initializeDatabase()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to init DB")
 	}
-
-	if ct.transactionWrapped {
-		// Required to prevent phantom reads in overlapping tests
-		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	orm.db = db
 
 	return orm, nil
 }
 
+// MustEnsureAdvisoryLock sends a shutdown signal to the ORM if it an advisory
+// lock cannot be acquired.
 func (orm *ORM) MustEnsureAdvisoryLock() {
 	err := orm.lockingStrategy.Lock(orm.advisoryLockTimeout)
 	if err != nil {
@@ -162,36 +92,6 @@ func displayTimeout(timeout models.Duration) string {
 		return "indefinite"
 	}
 	return timeout.String()
-}
-
-func initializeDatabase(ct ConnectionType, path string) (*gorm.DB, error) {
-	db, err := gorm.Open(string(ct.dialect), path)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", path)
-	}
-
-	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
-
-	if err := dbutil.SetTimezone(db); err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-// DeduceDialect returns the appropriate dialect for the passed connection string.
-func DeduceDialect(path string) (DialectName, error) {
-	url, err := url.Parse(path)
-	if err != nil {
-		return "", err
-	}
-	scheme := strings.ToLower(url.Scheme)
-	switch scheme {
-	case "postgresql", "postgres":
-		return DialectPostgres, nil
-	default:
-		return "", fmt.Errorf("missing or unsupported database path: \"%s\". Did you forget to specify DATABASE_URL?", path)
-	}
 }
 
 func ignoreRecordNotFound(db *gorm.DB) error {
@@ -360,11 +260,6 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	return dbtx.Commit().Error
 }
 
-// OptimisticUpdateConflictError is returned when a record update failed
-// because another update occurred while the model was in memory and the
-// differences must be reconciled.
-var OptimisticUpdateConflictError = errors.New("conflict while updating record")
-
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	orm.MustEnsureAdvisoryLock()
@@ -378,7 +273,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return OptimisticUpdateConflictError
+			return ErrOptimisticUpdateConflict
 		}
 		return nil
 	})
@@ -922,24 +817,6 @@ func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	return orm.db.Where("id <> ?", sessionID).Delete(models.Session{}).Error
 }
 
-// SortType defines the different sort orders available.
-type SortType int
-
-const (
-	// Ascending is the sort order going up, i.e. 1,2,3.
-	Ascending SortType = iota
-	// Descending is the sort order going down, i.e. 3,2,1.
-	Descending
-)
-
-func (s SortType) String() string {
-	orderStr := "asc"
-	if s == Descending {
-		orderStr = "desc"
-	}
-	return orderStr
-}
-
 // JobsSorted returns many JobSpecs sorted by CreatedAt from the store adhering
 // to the passed parameters.
 func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSpec, int, error) {
@@ -1169,12 +1046,14 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	})
 }
 
+// Keys returns all of the keys recorded in the database.
 func (orm *ORM) Keys() ([]*models.Key, error) {
 	orm.MustEnsureAdvisoryLock()
 	var keys []*models.Key
 	return keys, orm.db.Find(&keys).Order("created_at ASC, address ASC").Error
 }
 
+// DeleteKey deletes a key whose address matches the supplied bytes.
 func (orm *ORM) DeleteKey(address []byte) error {
 	return orm.db.Exec("DELETE FROM keys WHERE address = ?", address).Error
 }
@@ -1326,6 +1205,116 @@ func (orm *ORM) RawDB(fn func(*gorm.DB) error) error {
 	return fn(orm.db)
 }
 
+// DialectName is a compiler enforced type used that maps to gorm's dialect
+// names.
+type DialectName string
+
+const (
+	// DialectPostgres represents the postgres dialect.
+	DialectPostgres DialectName = "postgres"
+	// DialectTransactionWrappedPostgres is useful for tests.
+	// When the connection is opened, it starts a transaction and all
+	// operations performed on the DB will be within that transaction.
+	//
+	// HACK: This must be the string 'cloudsqlpostgres' because of an absolutely
+	// horrible design in gorm. We need gorm to enable postgres-specific
+	// features for the txdb driver, but it can only do that if the dialect is
+	// called "postgres" or "cloudsqlpostgres".
+	//
+	// Since "postgres" is already taken, "cloudsqlpostgres" is our only
+	// remaining option
+	//
+	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
+	DialectTransactionWrappedPostgres DialectName = "cloudsqlpostgres"
+	// DialectPostgresWithoutLock represents the postgres dialect but it does not
+	// wait for a lock to connect. Intended to be used for read only access.
+	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
+)
+
+// Connection manages all of the possible database connection setup and config.
+type Connection struct {
+	name               DialectName
+	uri                string
+	dialect            DialectName
+	locking            bool
+	advisoryLockID     int64
+	transactionWrapped bool
+}
+
+// NewConnection returns a Connection which holds all of the configuration
+// necessary for managing the database connection.
+func NewConnection(dialect DialectName, uri string, advisoryLockID int64) (Connection, error) {
+	switch dialect {
+	case DialectPostgres:
+		return Connection{
+			advisoryLockID:     advisoryLockID,
+			dialect:            DialectPostgres,
+			locking:            true,
+			name:               dialect,
+			transactionWrapped: false,
+			uri:                uri,
+		}, nil
+	case DialectPostgresWithoutLock:
+		return Connection{
+			advisoryLockID:     advisoryLockID,
+			dialect:            DialectPostgres,
+			locking:            false,
+			name:               dialect,
+			transactionWrapped: false,
+			uri:                uri,
+		}, nil
+	case DialectTransactionWrappedPostgres:
+		return Connection{
+			advisoryLockID:     advisoryLockID,
+			dialect:            DialectTransactionWrappedPostgres,
+			locking:            true,
+			name:               dialect,
+			transactionWrapped: true,
+			uri:                uri,
+		}, nil
+	}
+	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
+}
+
+func (ct Connection) initializeDatabase() (*gorm.DB, error) {
+	if ct.transactionWrapped {
+		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
+		// should be encapsulated in it's own transaction, and thus needs its own
+		// unique id.
+		//
+		// We can happily throw away the original uri here because if we are using
+		// txdb it should have already been set at the point where we called
+		// txdb.Register
+		ct.uri = models.NewID().String()
+	}
+
+	db, err := gorm.Open(string(ct.dialect), ct.uri)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
+	}
+
+	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
+
+	if err := dbutil.SetTimezone(db); err != nil {
+		return nil, err
+	}
+
+	if ct.transactionWrapped {
+		// Required to prevent phantom reads in overlapping tests
+		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return db, nil
+}
+
+// BatchSize is the safe number of records to cache during Batch calls for
+// SQLite without causing load problems.
+// NOTE: Now we no longer support SQLite, perhaps this can be tuned?
+const BatchSize = 100
+
 // Batch is an iterator _like_ for batches of records
 func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
 	offset := uint(0)
@@ -1343,4 +1332,22 @@ func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {
 
 		offset += limit
 	}
+}
+
+// SortType defines the different sort orders available.
+type SortType int
+
+const (
+	// Ascending is the sort order going up, i.e. 1,2,3.
+	Ascending SortType = iota
+	// Descending is the sort order going down, i.e. 3,2,1.
+	Descending
+)
+
+func (s SortType) String() string {
+	orderStr := "asc"
+	if s == Descending {
+		orderStr = "desc"
+	}
+	return orderStr
 }
