@@ -81,7 +81,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * funds without the owner's intervention.)
    */
   uint256 constant private RESERVE_ROUNDS = 2;
-  uint256 constant private MAX_ORACLE_COUNT = 42;
+  uint256 constant private MAX_ORACLE_COUNT = 100;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
