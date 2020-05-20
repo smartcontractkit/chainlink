@@ -20,7 +20,6 @@ var (
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
-	_ = abi.U256
 	_ = bind.Bind
 	_ = common.Big1
 	_ = types.BloomLookup
@@ -191,7 +190,7 @@ func (_FluxAggregator *FluxAggregatorTransactorRaw) Transact(opts *bind.Transact
 
 // VERSION is a free data retrieval call binding the contract method 0xffa1ad74.
 //
-// Solidity: function VERSION() constant returns(uint256)
+// Solidity: function VERSION() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) VERSION(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -203,21 +202,21 @@ func (_FluxAggregator *FluxAggregatorCaller) VERSION(opts *bind.CallOpts) (*big.
 
 // VERSION is a free data retrieval call binding the contract method 0xffa1ad74.
 //
-// Solidity: function VERSION() constant returns(uint256)
+// Solidity: function VERSION() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) VERSION() (*big.Int, error) {
 	return _FluxAggregator.Contract.VERSION(&_FluxAggregator.CallOpts)
 }
 
 // VERSION is a free data retrieval call binding the contract method 0xffa1ad74.
 //
-// Solidity: function VERSION() constant returns(uint256)
+// Solidity: function VERSION() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) VERSION() (*big.Int, error) {
 	return _FluxAggregator.Contract.VERSION(&_FluxAggregator.CallOpts)
 }
 
 // AllocatedFunds is a free data retrieval call binding the contract method 0xd4cc54e4.
 //
-// Solidity: function allocatedFunds() constant returns(uint128)
+// Solidity: function allocatedFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCaller) AllocatedFunds(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -229,21 +228,21 @@ func (_FluxAggregator *FluxAggregatorCaller) AllocatedFunds(opts *bind.CallOpts)
 
 // AllocatedFunds is a free data retrieval call binding the contract method 0xd4cc54e4.
 //
-// Solidity: function allocatedFunds() constant returns(uint128)
+// Solidity: function allocatedFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorSession) AllocatedFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AllocatedFunds(&_FluxAggregator.CallOpts)
 }
 
 // AllocatedFunds is a free data retrieval call binding the contract method 0xd4cc54e4.
 //
-// Solidity: function allocatedFunds() constant returns(uint128)
+// Solidity: function allocatedFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCallerSession) AllocatedFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AllocatedFunds(&_FluxAggregator.CallOpts)
 }
 
 // AvailableFunds is a free data retrieval call binding the contract method 0x46fcff4c.
 //
-// Solidity: function availableFunds() constant returns(uint128)
+// Solidity: function availableFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCaller) AvailableFunds(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -255,21 +254,21 @@ func (_FluxAggregator *FluxAggregatorCaller) AvailableFunds(opts *bind.CallOpts)
 
 // AvailableFunds is a free data retrieval call binding the contract method 0x46fcff4c.
 //
-// Solidity: function availableFunds() constant returns(uint128)
+// Solidity: function availableFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorSession) AvailableFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AvailableFunds(&_FluxAggregator.CallOpts)
 }
 
 // AvailableFunds is a free data retrieval call binding the contract method 0x46fcff4c.
 //
-// Solidity: function availableFunds() constant returns(uint128)
+// Solidity: function availableFunds() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCallerSession) AvailableFunds() (*big.Int, error) {
 	return _FluxAggregator.Contract.AvailableFunds(&_FluxAggregator.CallOpts)
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_FluxAggregator *FluxAggregatorCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var (
 		ret0 = new(uint8)
@@ -281,21 +280,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Decimals(opts *bind.CallOpts) (uint
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_FluxAggregator *FluxAggregatorSession) Decimals() (uint8, error) {
 	return _FluxAggregator.Contract.Decimals(&_FluxAggregator.CallOpts)
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_FluxAggregator *FluxAggregatorCallerSession) Decimals() (uint8, error) {
 	return _FluxAggregator.Contract.Decimals(&_FluxAggregator.CallOpts)
 }
 
 // Description is a free data retrieval call binding the contract method 0x7284e416.
 //
-// Solidity: function description() constant returns(bytes32)
+// Solidity: function description() view returns(bytes32)
 func (_FluxAggregator *FluxAggregatorCaller) Description(opts *bind.CallOpts) ([32]byte, error) {
 	var (
 		ret0 = new([32]byte)
@@ -307,21 +306,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Description(opts *bind.CallOpts) ([
 
 // Description is a free data retrieval call binding the contract method 0x7284e416.
 //
-// Solidity: function description() constant returns(bytes32)
+// Solidity: function description() view returns(bytes32)
 func (_FluxAggregator *FluxAggregatorSession) Description() ([32]byte, error) {
 	return _FluxAggregator.Contract.Description(&_FluxAggregator.CallOpts)
 }
 
 // Description is a free data retrieval call binding the contract method 0x7284e416.
 //
-// Solidity: function description() constant returns(bytes32)
+// Solidity: function description() view returns(bytes32)
 func (_FluxAggregator *FluxAggregatorCallerSession) Description() ([32]byte, error) {
 	return _FluxAggregator.Contract.Description(&_FluxAggregator.CallOpts)
 }
 
 // GetAdmin is a free data retrieval call binding the contract method 0x64efb22b.
 //
-// Solidity: function getAdmin(address _oracle) constant returns(address)
+// Solidity: function getAdmin(address _oracle) view returns(address)
 func (_FluxAggregator *FluxAggregatorCaller) GetAdmin(opts *bind.CallOpts, _oracle common.Address) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
@@ -333,21 +332,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetAdmin(opts *bind.CallOpts, _orac
 
 // GetAdmin is a free data retrieval call binding the contract method 0x64efb22b.
 //
-// Solidity: function getAdmin(address _oracle) constant returns(address)
+// Solidity: function getAdmin(address _oracle) view returns(address)
 func (_FluxAggregator *FluxAggregatorSession) GetAdmin(_oracle common.Address) (common.Address, error) {
 	return _FluxAggregator.Contract.GetAdmin(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // GetAdmin is a free data retrieval call binding the contract method 0x64efb22b.
 //
-// Solidity: function getAdmin(address _oracle) constant returns(address)
+// Solidity: function getAdmin(address _oracle) view returns(address)
 func (_FluxAggregator *FluxAggregatorCallerSession) GetAdmin(_oracle common.Address) (common.Address, error) {
 	return _FluxAggregator.Contract.GetAdmin(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // GetOracles is a free data retrieval call binding the contract method 0x40884c52.
 //
-// Solidity: function getOracles() constant returns(address[])
+// Solidity: function getOracles() view returns(address[])
 func (_FluxAggregator *FluxAggregatorCaller) GetOracles(opts *bind.CallOpts) ([]common.Address, error) {
 	var (
 		ret0 = new([]common.Address)
@@ -359,21 +358,21 @@ func (_FluxAggregator *FluxAggregatorCaller) GetOracles(opts *bind.CallOpts) ([]
 
 // GetOracles is a free data retrieval call binding the contract method 0x40884c52.
 //
-// Solidity: function getOracles() constant returns(address[])
+// Solidity: function getOracles() view returns(address[])
 func (_FluxAggregator *FluxAggregatorSession) GetOracles() ([]common.Address, error) {
 	return _FluxAggregator.Contract.GetOracles(&_FluxAggregator.CallOpts)
 }
 
 // GetOracles is a free data retrieval call binding the contract method 0x40884c52.
 //
-// Solidity: function getOracles() constant returns(address[])
+// Solidity: function getOracles() view returns(address[])
 func (_FluxAggregator *FluxAggregatorCallerSession) GetOracles() ([]common.Address, error) {
 	return _FluxAggregator.Contract.GetOracles(&_FluxAggregator.CallOpts)
 }
 
 // LatestSubmission is a free data retrieval call binding the contract method 0xbb07bacd.
 //
-// Solidity: function latestSubmission(address _oracle) constant returns(int256, uint256)
+// Solidity: function latestSubmission(address _oracle) view returns(int256, uint256)
 func (_FluxAggregator *FluxAggregatorCaller) LatestSubmission(opts *bind.CallOpts, _oracle common.Address) (*big.Int, *big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -389,21 +388,21 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestSubmission(opts *bind.CallOpt
 
 // LatestSubmission is a free data retrieval call binding the contract method 0xbb07bacd.
 //
-// Solidity: function latestSubmission(address _oracle) constant returns(int256, uint256)
+// Solidity: function latestSubmission(address _oracle) view returns(int256, uint256)
 func (_FluxAggregator *FluxAggregatorSession) LatestSubmission(_oracle common.Address) (*big.Int, *big.Int, error) {
 	return _FluxAggregator.Contract.LatestSubmission(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // LatestSubmission is a free data retrieval call binding the contract method 0xbb07bacd.
 //
-// Solidity: function latestSubmission(address _oracle) constant returns(int256, uint256)
+// Solidity: function latestSubmission(address _oracle) view returns(int256, uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) LatestSubmission(_oracle common.Address) (*big.Int, *big.Int, error) {
 	return _FluxAggregator.Contract.LatestSubmission(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // LinkToken is a free data retrieval call binding the contract method 0x57970e93.
 //
-// Solidity: function linkToken() constant returns(address)
+// Solidity: function linkToken() view returns(address)
 func (_FluxAggregator *FluxAggregatorCaller) LinkToken(opts *bind.CallOpts) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
@@ -415,21 +414,21 @@ func (_FluxAggregator *FluxAggregatorCaller) LinkToken(opts *bind.CallOpts) (com
 
 // LinkToken is a free data retrieval call binding the contract method 0x57970e93.
 //
-// Solidity: function linkToken() constant returns(address)
+// Solidity: function linkToken() view returns(address)
 func (_FluxAggregator *FluxAggregatorSession) LinkToken() (common.Address, error) {
 	return _FluxAggregator.Contract.LinkToken(&_FluxAggregator.CallOpts)
 }
 
 // LinkToken is a free data retrieval call binding the contract method 0x57970e93.
 //
-// Solidity: function linkToken() constant returns(address)
+// Solidity: function linkToken() view returns(address)
 func (_FluxAggregator *FluxAggregatorCallerSession) LinkToken() (common.Address, error) {
 	return _FluxAggregator.Contract.LinkToken(&_FluxAggregator.CallOpts)
 }
 
 // MaxSubmissionCount is a free data retrieval call binding the contract method 0x58609e44.
 //
-// Solidity: function maxSubmissionCount() constant returns(uint32)
+// Solidity: function maxSubmissionCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) MaxSubmissionCount(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -441,21 +440,21 @@ func (_FluxAggregator *FluxAggregatorCaller) MaxSubmissionCount(opts *bind.CallO
 
 // MaxSubmissionCount is a free data retrieval call binding the contract method 0x58609e44.
 //
-// Solidity: function maxSubmissionCount() constant returns(uint32)
+// Solidity: function maxSubmissionCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) MaxSubmissionCount() (uint32, error) {
 	return _FluxAggregator.Contract.MaxSubmissionCount(&_FluxAggregator.CallOpts)
 }
 
 // MaxSubmissionCount is a free data retrieval call binding the contract method 0x58609e44.
 //
-// Solidity: function maxSubmissionCount() constant returns(uint32)
+// Solidity: function maxSubmissionCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) MaxSubmissionCount() (uint32, error) {
 	return _FluxAggregator.Contract.MaxSubmissionCount(&_FluxAggregator.CallOpts)
 }
 
 // MinSubmissionCount is a free data retrieval call binding the contract method 0xc9374500.
 //
-// Solidity: function minSubmissionCount() constant returns(uint32)
+// Solidity: function minSubmissionCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) MinSubmissionCount(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -467,21 +466,21 @@ func (_FluxAggregator *FluxAggregatorCaller) MinSubmissionCount(opts *bind.CallO
 
 // MinSubmissionCount is a free data retrieval call binding the contract method 0xc9374500.
 //
-// Solidity: function minSubmissionCount() constant returns(uint32)
+// Solidity: function minSubmissionCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) MinSubmissionCount() (uint32, error) {
 	return _FluxAggregator.Contract.MinSubmissionCount(&_FluxAggregator.CallOpts)
 }
 
 // MinSubmissionCount is a free data retrieval call binding the contract method 0xc9374500.
 //
-// Solidity: function minSubmissionCount() constant returns(uint32)
+// Solidity: function minSubmissionCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) MinSubmissionCount() (uint32, error) {
 	return _FluxAggregator.Contract.MinSubmissionCount(&_FluxAggregator.CallOpts)
 }
 
 // OracleCount is a free data retrieval call binding the contract method 0x613d8fcc.
 //
-// Solidity: function oracleCount() constant returns(uint32)
+// Solidity: function oracleCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) OracleCount(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -493,21 +492,21 @@ func (_FluxAggregator *FluxAggregatorCaller) OracleCount(opts *bind.CallOpts) (u
 
 // OracleCount is a free data retrieval call binding the contract method 0x613d8fcc.
 //
-// Solidity: function oracleCount() constant returns(uint32)
+// Solidity: function oracleCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) OracleCount() (uint32, error) {
 	return _FluxAggregator.Contract.OracleCount(&_FluxAggregator.CallOpts)
 }
 
 // OracleCount is a free data retrieval call binding the contract method 0x613d8fcc.
 //
-// Solidity: function oracleCount() constant returns(uint32)
+// Solidity: function oracleCount() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) OracleCount() (uint32, error) {
 	return _FluxAggregator.Contract.OracleCount(&_FluxAggregator.CallOpts)
 }
 
 // OracleRoundState is a free data retrieval call binding the contract method 0xab175a4d.
 //
-// Solidity: function oracleRoundState(address _oracle) constant returns(bool _eligibleToSubmit, uint32 _roundId, int256 _latestSubmission, uint64 _startedAt, uint64 _timeout, uint128 _availableFunds, uint32 _oracleCount, uint128 _paymentAmount)
+// Solidity: function oracleRoundState(address _oracle) view returns(bool _eligibleToSubmit, uint32 _roundId, int256 _latestSubmission, uint64 _startedAt, uint64 _timeout, uint128 _availableFunds, uint32 _oracleCount, uint128 _paymentAmount)
 func (_FluxAggregator *FluxAggregatorCaller) OracleRoundState(opts *bind.CallOpts, _oracle common.Address) (struct {
 	EligibleToSubmit bool
 	RoundId          uint32
@@ -535,7 +534,7 @@ func (_FluxAggregator *FluxAggregatorCaller) OracleRoundState(opts *bind.CallOpt
 
 // OracleRoundState is a free data retrieval call binding the contract method 0xab175a4d.
 //
-// Solidity: function oracleRoundState(address _oracle) constant returns(bool _eligibleToSubmit, uint32 _roundId, int256 _latestSubmission, uint64 _startedAt, uint64 _timeout, uint128 _availableFunds, uint32 _oracleCount, uint128 _paymentAmount)
+// Solidity: function oracleRoundState(address _oracle) view returns(bool _eligibleToSubmit, uint32 _roundId, int256 _latestSubmission, uint64 _startedAt, uint64 _timeout, uint128 _availableFunds, uint32 _oracleCount, uint128 _paymentAmount)
 func (_FluxAggregator *FluxAggregatorSession) OracleRoundState(_oracle common.Address) (struct {
 	EligibleToSubmit bool
 	RoundId          uint32
@@ -551,7 +550,7 @@ func (_FluxAggregator *FluxAggregatorSession) OracleRoundState(_oracle common.Ad
 
 // OracleRoundState is a free data retrieval call binding the contract method 0xab175a4d.
 //
-// Solidity: function oracleRoundState(address _oracle) constant returns(bool _eligibleToSubmit, uint32 _roundId, int256 _latestSubmission, uint64 _startedAt, uint64 _timeout, uint128 _availableFunds, uint32 _oracleCount, uint128 _paymentAmount)
+// Solidity: function oracleRoundState(address _oracle) view returns(bool _eligibleToSubmit, uint32 _roundId, int256 _latestSubmission, uint64 _startedAt, uint64 _timeout, uint128 _availableFunds, uint32 _oracleCount, uint128 _paymentAmount)
 func (_FluxAggregator *FluxAggregatorCallerSession) OracleRoundState(_oracle common.Address) (struct {
 	EligibleToSubmit bool
 	RoundId          uint32
@@ -567,7 +566,7 @@ func (_FluxAggregator *FluxAggregatorCallerSession) OracleRoundState(_oracle com
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function owner() constant returns(address)
+// Solidity: function owner() view returns(address)
 func (_FluxAggregator *FluxAggregatorCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
@@ -579,21 +578,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Owner(opts *bind.CallOpts) (common.
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function owner() constant returns(address)
+// Solidity: function owner() view returns(address)
 func (_FluxAggregator *FluxAggregatorSession) Owner() (common.Address, error) {
 	return _FluxAggregator.Contract.Owner(&_FluxAggregator.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
-// Solidity: function owner() constant returns(address)
+// Solidity: function owner() view returns(address)
 func (_FluxAggregator *FluxAggregatorCallerSession) Owner() (common.Address, error) {
 	return _FluxAggregator.Contract.Owner(&_FluxAggregator.CallOpts)
 }
 
 // PaymentAmount is a free data retrieval call binding the contract method 0xc35905c6.
 //
-// Solidity: function paymentAmount() constant returns(uint128)
+// Solidity: function paymentAmount() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCaller) PaymentAmount(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -605,21 +604,21 @@ func (_FluxAggregator *FluxAggregatorCaller) PaymentAmount(opts *bind.CallOpts) 
 
 // PaymentAmount is a free data retrieval call binding the contract method 0xc35905c6.
 //
-// Solidity: function paymentAmount() constant returns(uint128)
+// Solidity: function paymentAmount() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorSession) PaymentAmount() (*big.Int, error) {
 	return _FluxAggregator.Contract.PaymentAmount(&_FluxAggregator.CallOpts)
 }
 
 // PaymentAmount is a free data retrieval call binding the contract method 0xc35905c6.
 //
-// Solidity: function paymentAmount() constant returns(uint128)
+// Solidity: function paymentAmount() view returns(uint128)
 func (_FluxAggregator *FluxAggregatorCallerSession) PaymentAmount() (*big.Int, error) {
 	return _FluxAggregator.Contract.PaymentAmount(&_FluxAggregator.CallOpts)
 }
 
 // ReportingRound is a free data retrieval call binding the contract method 0x6fb4bb4e.
 //
-// Solidity: function reportingRound() constant returns(uint256)
+// Solidity: function reportingRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) ReportingRound(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -631,21 +630,21 @@ func (_FluxAggregator *FluxAggregatorCaller) ReportingRound(opts *bind.CallOpts)
 
 // ReportingRound is a free data retrieval call binding the contract method 0x6fb4bb4e.
 //
-// Solidity: function reportingRound() constant returns(uint256)
+// Solidity: function reportingRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) ReportingRound() (*big.Int, error) {
 	return _FluxAggregator.Contract.ReportingRound(&_FluxAggregator.CallOpts)
 }
 
 // ReportingRound is a free data retrieval call binding the contract method 0x6fb4bb4e.
 //
-// Solidity: function reportingRound() constant returns(uint256)
+// Solidity: function reportingRound() view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) ReportingRound() (*big.Int, error) {
 	return _FluxAggregator.Contract.ReportingRound(&_FluxAggregator.CallOpts)
 }
 
 // RestartDelay is a free data retrieval call binding the contract method 0x357ebb02.
 //
-// Solidity: function restartDelay() constant returns(uint32)
+// Solidity: function restartDelay() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) RestartDelay(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -657,21 +656,21 @@ func (_FluxAggregator *FluxAggregatorCaller) RestartDelay(opts *bind.CallOpts) (
 
 // RestartDelay is a free data retrieval call binding the contract method 0x357ebb02.
 //
-// Solidity: function restartDelay() constant returns(uint32)
+// Solidity: function restartDelay() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) RestartDelay() (uint32, error) {
 	return _FluxAggregator.Contract.RestartDelay(&_FluxAggregator.CallOpts)
 }
 
 // RestartDelay is a free data retrieval call binding the contract method 0x357ebb02.
 //
-// Solidity: function restartDelay() constant returns(uint32)
+// Solidity: function restartDelay() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) RestartDelay() (uint32, error) {
 	return _FluxAggregator.Contract.RestartDelay(&_FluxAggregator.CallOpts)
 }
 
 // Timeout is a free data retrieval call binding the contract method 0x70dea79a.
 //
-// Solidity: function timeout() constant returns(uint32)
+// Solidity: function timeout() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCaller) Timeout(opts *bind.CallOpts) (uint32, error) {
 	var (
 		ret0 = new(uint32)
@@ -683,21 +682,21 @@ func (_FluxAggregator *FluxAggregatorCaller) Timeout(opts *bind.CallOpts) (uint3
 
 // Timeout is a free data retrieval call binding the contract method 0x70dea79a.
 //
-// Solidity: function timeout() constant returns(uint32)
+// Solidity: function timeout() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorSession) Timeout() (uint32, error) {
 	return _FluxAggregator.Contract.Timeout(&_FluxAggregator.CallOpts)
 }
 
 // Timeout is a free data retrieval call binding the contract method 0x70dea79a.
 //
-// Solidity: function timeout() constant returns(uint32)
+// Solidity: function timeout() view returns(uint32)
 func (_FluxAggregator *FluxAggregatorCallerSession) Timeout() (uint32, error) {
 	return _FluxAggregator.Contract.Timeout(&_FluxAggregator.CallOpts)
 }
 
 // WithdrawablePayment is a free data retrieval call binding the contract method 0xe2e40317.
 //
-// Solidity: function withdrawablePayment(address _oracle) constant returns(uint256)
+// Solidity: function withdrawablePayment(address _oracle) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCaller) WithdrawablePayment(opts *bind.CallOpts, _oracle common.Address) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -709,14 +708,14 @@ func (_FluxAggregator *FluxAggregatorCaller) WithdrawablePayment(opts *bind.Call
 
 // WithdrawablePayment is a free data retrieval call binding the contract method 0xe2e40317.
 //
-// Solidity: function withdrawablePayment(address _oracle) constant returns(uint256)
+// Solidity: function withdrawablePayment(address _oracle) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorSession) WithdrawablePayment(_oracle common.Address) (*big.Int, error) {
 	return _FluxAggregator.Contract.WithdrawablePayment(&_FluxAggregator.CallOpts, _oracle)
 }
 
 // WithdrawablePayment is a free data retrieval call binding the contract method 0xe2e40317.
 //
-// Solidity: function withdrawablePayment(address _oracle) constant returns(uint256)
+// Solidity: function withdrawablePayment(address _oracle) view returns(uint256)
 func (_FluxAggregator *FluxAggregatorCallerSession) WithdrawablePayment(_oracle common.Address) (*big.Int, error) {
 	return _FluxAggregator.Contract.WithdrawablePayment(&_FluxAggregator.CallOpts, _oracle)
 }

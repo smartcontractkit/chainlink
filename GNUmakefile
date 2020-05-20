@@ -74,7 +74,7 @@ operator-ui: ## Build the static frontend UI.
 .PHONY: go-solidity-wrappers
 go-solidity-wrappers: ## Recompiles solidity contracts and their go wrappers
 	yarn workspace @chainlink/contracts compile
-	go generate ./...
+	go generate ./core/internal/gethwrappers
 	go run ./packr/main.go ./core/eth/
 
 .PHONY: testdb
