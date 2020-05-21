@@ -500,7 +500,7 @@ func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	// Create a task with multiple jobs
-	j := cltest.NewJob()
+	j := cltest.NewJobWithWebInitiator()
 	j.Tasks = []models.TaskSpec{
 		models.TaskSpec{ Type: models.MustNewTaskType("Task1") },
 		models.TaskSpec{ Type: models.MustNewTaskType("Task2") },
