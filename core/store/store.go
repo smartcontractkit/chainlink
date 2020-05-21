@@ -101,13 +101,13 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 	return wrapper.client.Call(result, method, args...)
 }
 
-func (wrapper *lazyRPCWrapper) Subscribe(_ context.Context, channel interface{}, args ...interface{}) (eth.Subscription, error) {
+func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{}, args ...interface{}) (eth.Subscription, error) {
 	err := wrapper.lazyDialInitializer()
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	wrapper.limiter.Wait(ctx)
 
