@@ -27,6 +27,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
   /**
    * @notice get the most recently reported answer
    * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
     external
@@ -40,6 +41,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
   /**
    * @notice get the most recent updated at timestamp
    * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
     external
@@ -54,6 +56,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    * @notice get past rounds answers
    * @dev overridden funcion to add the isWhitelisted() modifier
    * @param _roundId the round number to retrieve the answer for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
     external
@@ -68,6 +71,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    * @notice get timestamp when an answer was last updated
    * @dev overridden funcion to add the isWhitelisted() modifier
    * @param _roundId the round number to retrieve the updated timestamp for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
     external

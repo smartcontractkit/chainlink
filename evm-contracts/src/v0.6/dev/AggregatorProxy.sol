@@ -19,6 +19,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
     external
@@ -31,6 +32,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
     external
@@ -44,6 +46,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   /**
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
     external
@@ -57,6 +60,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   /**
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
     external
@@ -69,6 +73,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
 
   /**
    * @notice get the latest completed round where the answer was updated
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
     external
