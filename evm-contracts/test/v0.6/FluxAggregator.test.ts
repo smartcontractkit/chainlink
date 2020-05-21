@@ -1052,7 +1052,7 @@ describe('FluxAggregator', () => {
       })
     })
 
-    const limit = 100
+    const limit = 77
     describe(`when adding more than ${limit} oracles`, () => {
       let oracles: ethers.Wallet[]
 
@@ -1081,27 +1081,44 @@ describe('FluxAggregator', () => {
         addresses = oracles.slice(50, 100).map(o => o.address)
         await aggregator
           .connect(personas.Carol)
-          .addOracles(addresses, addresses, 1, 100, rrDelay)
+          .addOracles(addresses, addresses, 1, oracles.length, rrDelay)
       })
 
       it('not use too much gas', async () => {
         let tx: any
-        let receipt: any
-        let i: any
-
-        let txs = []
-        for (i = 0; i < limit; i++) {
-          tx = await aggregator
-            .connect(oracles[i])
-            .submit(nextRound, Math.floor(Math.random() * 10000))
-          txs.push(tx)
+        assert.deepEqual(
+          // test adveserial quickselect algo
+          [2, 4, 6, 8, 10, 12, 14, 16, 1, 9, 5, 11, 3, 13, 7, 15],
+          adverserialQuickselectList(16),
+        )
+        const inputs = adverserialQuickselectList(limit)
+        for (let i = 0; i < limit; i++) {
+          tx = await aggregator.connect(oracles[i]).submit(nextRound, inputs[i])
         }
         assert(!!tx)
-        if (!!tx) {
-          receipt = await tx.wait()
-          assert.isAbove(500_000, receipt.gasUsed.toNumber())
+        if (tx) {
+          const receipt = await tx.wait()
+          assert.isAbove(400_000, receipt.gasUsed.toNumber())
         }
       })
+
+      function adverserialQuickselectList(len: number): number[] {
+        const xs: number[] = []
+        const pi: number[] = []
+        for (let i = 0; i < len; i++) {
+          pi[i] = i
+          xs[i] = 0
+        }
+
+        for (let l = len; l > 0; l--) {
+          const pivot = Math.floor((l - 1) / 2)
+          xs[pi[pivot]] = l
+          const temp = pi[l - 1]
+          pi[l - 1] = pi[pivot]
+          pi[pivot] = temp
+        }
+        return xs
+      }
 
       it('reverts when another oracle is added', async () => {
         await matchers.evmRevert(
