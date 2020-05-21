@@ -82,37 +82,37 @@ describe('WhitelistedAggregatorProxy', () => {
 
   describe('if the caller is not whitelisted', () => {
     it('latestAnswer reverts', async () => {
-      matchers.evmRevert(async () => {
+      await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).latestAnswer()
       }, 'Not whitelisted')
     })
 
     it('latestTimestamp reverts', async () => {
-      matchers.evmRevert(async () => {
+      await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).latestTimestamp()
       }, 'Not whitelisted')
     })
 
     it('getAnswer reverts', async () => {
-      matchers.evmRevert(async () => {
+      await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).getAnswer(1)
       }, 'Not whitelisted')
     })
 
     it('getTimestamp reverts', async () => {
-      matchers.evmRevert(async () => {
+      await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).getTimestamp(1)
       }, 'Not whitelisted')
     })
 
     it('latestRound reverts', async () => {
-      matchers.evmRevert(async () => {
+      await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).latestRound()
       }, 'Not whitelisted')
     })
 
     it('getRoundData reverts', async () => {
-      matchers.evmRevert(async () => {
+      await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).getRoundData(1)
       }, 'Not whitelisted')
     })
