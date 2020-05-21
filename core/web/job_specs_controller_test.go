@@ -490,6 +490,37 @@ func TestJobSpecsController_Show(t *testing.T) {
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
 }
 
+func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	// Create a task with multiple jobs
+	j := cltest.NewJob()
+	j.Tasks = []models.TaskSpec{
+		models.TaskSpec{ Type: models.MustNewTaskType("Task1") },
+		models.TaskSpec{ Type: models.MustNewTaskType("Task2") },
+		models.TaskSpec{ Type: models.MustNewTaskType("Task3") },
+		models.TaskSpec{ Type: models.MustNewTaskType("Task4") },
+	}
+	assert.NoError(t, app.Store.CreateJob(&j))
+
+	resp, cleanup := client.Get("/v2/specs/" + j.ID.String())
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	var respJob presenters.JobSpec
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
+	assert.Equal(t, string(respJob.Tasks[0].Type), "task1")
+	assert.Equal(t, string(respJob.Tasks[1].Type), "task2")
+	assert.Equal(t, string(respJob.Tasks[2].Type), "task3")
+	assert.Equal(t, string(respJob.Tasks[3].Type), "task4")
+}
+
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
