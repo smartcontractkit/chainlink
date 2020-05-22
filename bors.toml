@@ -1,0 +1,13 @@
+status = [
+  "Core Tests",  
+  "Explorer",
+  "Geth Integration Tests",
+  "Operator UI",
+  "Parity Integration tests",
+  "Rust",
+  "Solidity",
+  "Yarn Lint",
+]
+block_labels = [ "do-not-merge-yet" ]
+timeout_sec = 3600 # one hour
+required_approvals = 1
