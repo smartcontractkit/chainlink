@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
@@ -204,8 +205,13 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 		)
 
 		timeout := fm.store.Config.DefaultHTTPTimeout()
-		checker, err := fm.checkerFactory.New(initr, fm.runManager, fm.store.ORM,
-			timeout)
+		checker, err := fm.checkerFactory.New(
+			initr,
+			job.MinPayment,
+			fm.runManager,
+			fm.store.ORM,
+			timeout,
+		)
 		if err != nil {
 			return errors.Wrap(err, "factory unable to create checker")
 		}
@@ -232,7 +238,7 @@ func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
 // DeviationCheckerFactory holds the New method needed to create a new instance
 // of a DeviationChecker.
 type DeviationCheckerFactory interface {
-	New(models.Initiator, RunManager, *orm.ORM, models.Duration) (DeviationChecker, error)
+	New(models.Initiator, *assets.Link, RunManager, *orm.ORM, models.Duration) (DeviationChecker, error)
 }
 
 type pollingDeviationCheckerFactory struct {
@@ -242,6 +248,7 @@ type pollingDeviationCheckerFactory struct {
 
 func (f pollingDeviationCheckerFactory) New(
 	initr models.Initiator,
+	minJobPayment *assets.Link,
 	runManager RunManager,
 	orm *orm.ORM,
 	timeout models.Duration,
@@ -276,6 +283,7 @@ func (f pollingDeviationCheckerFactory) New(
 		f.store,
 		fluxAggregator,
 		initr,
+		minJobPayment,
 		runManager,
 		fetcher,
 		func() { f.logBroadcaster.DependentReady() },
@@ -340,9 +348,10 @@ type PollingDeviationChecker struct {
 	runManager     RunManager
 	fetcher        Fetcher
 
-	initr       models.Initiator
-	requestData models.JSON
-	precision   int32
+	initr         models.Initiator
+	minJobPayment *assets.Link
+	requestData   models.JSON
+	precision     int32
 
 	connected                  *abool.AtomicBool
 	backlog                    *utils.BoundedPriorityQueue
@@ -371,6 +380,7 @@ func NewPollingDeviationChecker(
 	store *store.Store,
 	fluxAggregator contracts.FluxAggregator,
 	initr models.Initiator,
+	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
 	readyForLogs func(),
@@ -380,6 +390,7 @@ func NewPollingDeviationChecker(
 		store:          store,
 		fluxAggregator: fluxAggregator,
 		initr:          initr,
+		minJobPayment:  minJobPayment,
 		requestData:    initr.RequestData,
 		precision:      initr.Precision,
 		runManager:     runManager,
@@ -693,9 +704,9 @@ var (
 func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
 	if !roundState.EligibleToSubmit {
 		return ErrNotEligible
-	} else if !p.SufficientFunds(roundState) {
+	} else if !p.sufficientFunds(roundState) {
 		return ErrUnderfunded
-	} else if !p.SufficientPayment(roundState.PaymentAmount) {
+	} else if !p.sufficientPayment(roundState.PaymentAmount) {
 		return ErrPaymentTooLow
 	} else if p.mostRecentSubmittedRoundID >= uint64(roundState.ReportableRoundID) {
 		return ErrAlreadySubmitted
@@ -705,17 +716,26 @@ func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundStat
 
 const MinFundedRounds int64 = 3
 
-// Checks if the available payment is enough to submit an answer.
-func (p *PollingDeviationChecker) SufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+// sufficientFunds checks if the contract has sufficient funding to pay all the oracles on a
+// conract for a minimum number of rounds, based on the payment amount in the contract
+func (p *PollingDeviationChecker) sufficientFunds(state contracts.FluxAggregatorRoundState) bool {
 	min := big.NewInt(int64(state.OracleCount))
 	min = min.Mul(min, big.NewInt(MinFundedRounds))
 	min = min.Mul(min, state.PaymentAmount)
 	return state.AvailableFunds.Cmp(min) >= 0
 }
 
-// Checks if the available payment is enough to submit an answer.
-func (p *PollingDeviationChecker) SufficientPayment(payment *big.Int) bool {
-	return payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
+// sufficientPayment checks if the available payment is enough to submit an answer. It compares
+// the payment amount on chain with the min payment amount listed in the job spec / ENV var.
+func (p *PollingDeviationChecker) sufficientPayment(payment *big.Int) bool {
+	aboveOrEqMinGlobalPayment :=
+		payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
+	aboveOrEqMinJobPayment := true
+	if p.minJobPayment != nil {
+		aboveOrEqMinJobPayment =
+			payment.Cmp(p.minJobPayment.ToInt()) >= 0
+	}
+	return aboveOrEqMinGlobalPayment && aboveOrEqMinJobPayment
 }
 
 // DeviationThresholds carries parameters used by the threshold-trigger logic
