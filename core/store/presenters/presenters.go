@@ -126,6 +126,7 @@ type ConfigWhitelist struct {
 // Whitelist contains the supported environment variables
 type Whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
+	BlockBackfillDepth       uint64          `json:"blockBackfillDepth"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  *big.Int        `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
@@ -175,6 +176,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 		AccountAddress: account.Address.Hex(),
 		Whitelist: Whitelist{
 			AllowOrigins:             config.AllowOrigins(),
+			BlockBackfillDepth:       config.BlockBackfillDepth(),
 			BridgeResponseURL:        config.BridgeResponseURL().String(),
 			ChainID:                  config.ChainID(),
 			ClientNodeURL:            config.ClientNodeURL(),
