@@ -47,39 +47,6 @@ new push to the `master-feeds` branch.
 
 https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlify/#step-2-link-to-your-github
 
-## Deploy to Heroku [DEPRECATED]
-
-[Official heroku docker documentation](https://devcenter.heroku.com/articles/container-registry-and-runtime)
-
-Enable Docker container builds on the application
-
-```
-$ heroku stack:set container -a the-app-name
-
-```
-
-Login to the Heroku Docker container registry
-
-```
-$ heroku container:login
-
-```
-
-Build and push a new image from the root of the monorepo
-
-```
-$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=abc123,REACT_APP_GA_ID=abc123 REACT_APP_FEEDS_JSON=https://feeds.chain.link/feeds.json REACT_APP_NODES_JSON=https://feeds.chain.link/nodes.json -a the-app-name
-
-# If the config vars are stored in Heroku, you can capture the output in a subshell
-$ heroku container:push --recursive --arg REACT_APP_INFURA_KEY=$(heroku config:get REACT_APP_INFURA_KEY -a the-app-name),REACT_APP_GA_ID=$(heroku config:get REACT_APP_GA_ID -a the-app-name),REACT_APP_FEEDS_JSON=$(heroku config:get REACT_APP_FEEDS_JSON -a the-app-name),REACT_APP_NODES_JSON=$(heroku config:get REACT_APP_NODES_JSON -a the-app-name) -a the-app-name
-```
-
-Deploy the newly built image by releasing the container from the root of the monorepo
-
-```
-$ heroku container:release web -a the-app-name
-```
-
 ## Hidden Features
 
 ### Display Offchain Comparison Links
