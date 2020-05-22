@@ -6,16 +6,18 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { AccessControlFactory } from '../../ethers/v0.6/AccessControlFactory'
 import { MockAggregatorFactory } from '../../ethers/v0.6/MockAggregatorFactory'
-import { WhitelistedAggregatorProxyFactory } from '../../ethers/v0.6/WhitelistedAggregatorProxyFactory'
+import { AccessControlledAggregatorProxyFactory } from '../../ethers/v0.6/AccessControlledAggregatorProxyFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
+const accessControlFactory = new AccessControlFactory()
 const aggregatorFactory = new MockAggregatorFactory()
-const whitelistedAggregatorProxyFactory = new WhitelistedAggregatorProxyFactory()
+const controlleredAggregatorProxyFactory = new AccessControlledAggregatorProxyFactory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -24,28 +26,32 @@ beforeAll(async () => {
   defaultAccount = users.roles.defaultAccount
 })
 
-describe('WhitelistedAggregatorProxy', () => {
+describe('AccessControlledAggregatorProxy', () => {
   const deposit = h.toWei('100')
   const answer = h.numToBytes32(54321)
+  const answer2 = h.numToBytes32(54320)
   const roundId = 17
   const decimals = 18
   const timestamp = 678
   const startedAt = 677
 
   let link: contract.Instance<contract.LinkTokenFactory>
+  let controller: contract.Instance<AccessControlFactory>
   let aggregator: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.Instance<WhitelistedAggregatorProxyFactory>
+  let aggregator2: contract.Instance<MockAggregatorFactory>
+  let proxy: contract.Instance<AccessControlledAggregatorProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(decimals, 0)
+    controller = await accessControlFactory.connect(defaultAccount).deploy()
     await aggregator.updateRoundData(roundId, answer, timestamp, startedAt)
     await link.transfer(aggregator.address, deposit)
-    proxy = await whitelistedAggregatorProxyFactory
+    proxy = await controlleredAggregatorProxyFactory
       .connect(defaultAccount)
-      .deploy(aggregator.address)
+      .deploy(aggregator.address, controller.address)
   })
 
   beforeEach(async () => {
@@ -53,8 +59,9 @@ describe('WhitelistedAggregatorProxy', () => {
   })
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(whitelistedAggregatorProxyFactory, [
+    matchers.publicAbi(controlleredAggregatorProxyFactory, [
       'aggregator',
+      'confirmAggregator',
       'decimals',
       'description',
       'getAnswer',
@@ -64,63 +71,73 @@ describe('WhitelistedAggregatorProxy', () => {
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
-      'setAggregator',
+      'proposeAggregator',
+      'proposedAggregator',
+      'proposedGetRoundData',
+      'proposedLatestRoundData',
       'version',
+      'controller',
+      'setController',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
-      // Whitelisted methods:
-      'addToWhitelist',
-      'disableWhitelist',
-      'enableWhitelist',
-      'removeFromWhitelist',
-      'whitelistEnabled',
-      'whitelisted',
     ])
   })
 
-  describe('if the caller is not whitelisted', () => {
+  describe('if the caller does not have access', () => {
     it('latestAnswer reverts', async () => {
       await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).latestAnswer()
-      }, 'Not whitelisted')
+      }, 'No access')
     })
 
     it('latestTimestamp reverts', async () => {
       await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).latestTimestamp()
-      }, 'Not whitelisted')
+      }, 'No access')
     })
 
     it('getAnswer reverts', async () => {
       await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).getAnswer(1)
-      }, 'Not whitelisted')
+      }, 'No access')
     })
 
     it('getTimestamp reverts', async () => {
       await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).getTimestamp(1)
-      }, 'Not whitelisted')
+      }, 'No access')
     })
 
     it('latestRound reverts', async () => {
       await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).latestRound()
-      }, 'Not whitelisted')
+      }, 'No access')
     })
 
     it('getRoundData reverts', async () => {
       await matchers.evmRevert(async () => {
         await proxy.connect(personas.Carol).getRoundData(1)
-      }, 'Not whitelisted')
+      }, 'No access')
+    })
+
+    it('proposedGetRoundData reverts', async () => {
+      await matchers.evmRevert(async () => {
+        await proxy.connect(personas.Carol).proposedGetRoundData(1)
+      }, 'No access')
+    })
+
+    it('proposedLatestRoundData reverts', async () => {
+      await matchers.evmRevert(async () => {
+        await proxy.connect(personas.Carol).proposedLatestRoundData()
+      }, 'No access')
     })
   })
 
-  describe('if the caller is whitelisted', () => {
+  describe('if the caller is controllered', () => {
     beforeEach(async () => {
-      await proxy.addToWhitelist(defaultAccount.address)
+      await controller.addAccess(defaultAccount.address)
 
       matchers.bigNum(
         ethers.utils.bigNumberify(answer),
@@ -157,6 +174,55 @@ describe('WhitelistedAggregatorProxy', () => {
       matchers.bigNum(answer, round.answer)
       matchers.bigNum(startedAt, round.startedAt)
       matchers.bigNum(timestamp, round.updatedAt)
+    })
+
+    describe('and an aggregator has been proposed', () => {
+      beforeEach(async () => {
+        aggregator2 = await aggregatorFactory
+          .connect(defaultAccount)
+          .deploy(decimals, answer2)
+        await proxy.proposeAggregator(aggregator2.address)
+      })
+
+      it('proposedGetRoundData works', async () => {
+        const latestRound = await aggregator2.latestRound()
+        const round = await proxy.proposedGetRoundData(latestRound)
+        matchers.bigNum(latestRound, round.roundId)
+        matchers.bigNum(answer2, round.answer)
+      })
+
+      it('proposedLatestRoundData works', async () => {
+        const latestRound = await aggregator2.latestRound()
+        const round = await proxy.proposedLatestRoundData()
+        matchers.bigNum(latestRound, round.roundId)
+        matchers.bigNum(answer2, round.answer)
+      })
+    })
+  })
+
+  describe('#setController', () => {
+    let newController: contract.Instance<AccessControlFactory>
+
+    beforeEach(async () => {
+      newController = await accessControlFactory
+        .connect(defaultAccount)
+        .deploy()
+    })
+    describe('when called by a stranger', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await proxy
+            .connect(personas.Carol)
+            .setController(newController.address)
+        }, 'Only callable by owner')
+      })
+    })
+
+    describe('when called by the owner', () => {
+      it('updates the controller contract', async () => {
+        await proxy.connect(defaultAccount).setController(newController.address)
+        assert.equal(await proxy.controller(), newController.address)
+      })
     })
   })
 })

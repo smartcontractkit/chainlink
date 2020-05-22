@@ -47,6 +47,8 @@ This release contains a number of features aimed at improving the node's reliabi
   on `FluxAggregator`, `WhitelistedAggregator`, `AggregatorProxy`,
   `WhitelistedAggregatorProxy`.
 - Updated the solidity compiler version for v0.6 from 0.6.2 to 0.6.6.
+- AccessControlledAggregatorProxy checks an external contract for users to be able to
+  read functions.
 
 ### Fixed
 

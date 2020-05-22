@@ -12,6 +12,7 @@ import "../Owned.sol";
 contract AggregatorProxy is AggregatorInterface, Owned {
 
   AggregatorInterface public aggregator;
+  AggregatorInterface public proposedAggregator;
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -163,6 +164,59 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   }
 
   /**
+   * @notice Used if an aggregator contract has been proposed.
+   * @param _roundId the round ID to retrieve the round data for
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+  */
+  function proposedGetRoundData(uint256 _roundId)
+    external
+    view
+    virtual
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _proposedGetRoundData(_roundId);
+  }
+
+  /**
+   * @notice Used if an aggregator contract has been proposed.
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+  */
+  function proposedLatestRoundData()
+    external
+    view
+    virtual
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _proposedLatestRoundData();
+  }
+
+  /**
    * @notice represents the number of decimals the aggregator responses represent.
    */
   function decimals()
@@ -200,58 +254,108 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice Allows the owner to update the aggregator address.
+   * @notice Allows the owner to propose a new address for the aggregator
    * @param _aggregator The new address for the aggregator contract
    */
-  function setAggregator(address _aggregator)
-    public
+  function proposeAggregator(address _aggregator)
+    external
     onlyOwner()
   {
-    aggregator = AggregatorInterface(_aggregator);
+    proposedAggregator = AggregatorInterface(_aggregator);
+  }
+
+  /**
+   * @notice Allows the owner to confirm and change the address
+   * to the proposed aggregator
+   * @dev Reverts if the given address doesn't match what was previously
+   * proposed
+   * @param _aggregator The new address for the aggregator contract
+   */
+  function confirmAggregator(address _aggregator)
+    external
+    onlyOwner()
+  {
+    require(_aggregator == address(proposedAggregator), "Invalid proposed aggregator");
+    delete proposedAggregator;
+    setAggregator(_aggregator);
   }
 
   /*
    * Internal
    */
 
+  function setAggregator(address _aggregator)
+    internal
+  {
+    aggregator = AggregatorInterface(_aggregator);
+  }
+
+  function _proposedGetRoundData(uint256 _roundId)
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return proposedAggregator.getRoundData(_roundId);
+  }
+
+  function _proposedLatestRoundData()
+    internal
+    view
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return proposedAggregator.latestRoundData();
+  }
+
   function _latestAnswer()
     internal
     view
-    returns (int256)
+    returns (int256 answer)
   {
-    return aggregator.latestAnswer();
+    ( , answer, , , ) = _latestRoundData();
   }
 
   function _latestTimestamp()
     internal
     view
-    returns (uint256)
+    returns (uint256 updatedAt)
   {
-    return aggregator.latestTimestamp();
+    ( , , , updatedAt, ) = _latestRoundData();
   }
 
   function _getAnswer(uint256 _roundId)
     internal
     view
-    returns (int256)
+    returns (int256 answer)
   {
-    return aggregator.getAnswer(_roundId);
+    ( , answer, , , ) = _getRoundData(_roundId);
   }
 
   function _getTimestamp(uint256 _roundId)
     internal
     view
-    returns (uint256)
+    returns (uint256 updatedAt)
   {
-    return aggregator.getTimestamp(_roundId);
+    ( , , , updatedAt, ) = _getRoundData(_roundId);
   }
 
   function _latestRound()
     internal
     view
-    returns (uint256)
+    returns (uint256 roundId)
   {
-    return aggregator.latestRound();
+    ( roundId, , , , ) = _latestRoundData();
   }
 
   function _getRoundData(uint256 _roundId)

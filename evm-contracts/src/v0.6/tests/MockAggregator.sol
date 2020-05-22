@@ -37,6 +37,7 @@ contract MockAggregator is AggregatorInterface {
     latestRound++;
     getAnswer[latestRound] = _answer;
     getTimestamp[latestRound] = block.timestamp;
+    getStartedAt[latestRound] = block.timestamp;
   }
 
   function updateRoundData(

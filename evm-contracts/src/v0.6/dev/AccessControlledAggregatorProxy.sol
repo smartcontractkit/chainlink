@@ -1,31 +1,51 @@
 pragma solidity 0.6.6;
 
 import "./AggregatorProxy.sol";
-import "./Whitelisted.sol";
+import "./AccessControllerInterface.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
  * @notice This contract provides a consistent address for the
  * AggregatorInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
- * @notice Only whitelisted addresses are allowed to access getters for
+ * @notice Only access enabled addresses are allowed to access getters for
  * aggregated answers and round information.
  */
-contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
+contract AccessControlledAggregatorProxy is AggregatorProxy {
 
-  constructor(address _aggregator) public AggregatorProxy(_aggregator) {
+  AccessControllerInterface public controller;
+
+  constructor(
+    address _aggregator,
+    address _controller
+  )
+    public
+    AggregatorProxy(_aggregator)
+  {
+    setController(_controller);
+  }
+
+  /**
+   * @notice Allows the owner to update the controller contract address.
+   * @param _controller The new address for the controller contract
+   */
+  function setController(address _controller)
+    public
+    onlyOwner()
+  {
+    controller = AccessControllerInterface(_controller);
   }
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
-   * @dev overridden function to add the isWhitelisted() modifier
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
     external
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (int256)
   {
     return _latestAnswer();
@@ -33,14 +53,14 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
-   * @dev overridden function to add the isWhitelisted() modifier
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
     external
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (uint256)
   {
     return _latestTimestamp();
@@ -49,14 +69,14 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   /**
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
-   * @dev overridden function to add the isWhitelisted() modifier
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
     external
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (int256)
   {
     return _getAnswer(_roundId);
@@ -65,14 +85,14 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   /**
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
-   * @dev overridden function to add the isWhitelisted() modifier
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
     external
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (uint256)
   {
     return _getTimestamp(_roundId);
@@ -80,14 +100,14 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
 
   /**
    * @notice get the latest completed round where the answer was updated
-   * @dev overridden function to add the isWhitelisted() modifier
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
     external
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (uint256)
   {
     return _latestRound();
@@ -117,7 +137,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   function getRoundData(uint256 _roundId)
     external
     view
-    isWhitelisted()
+    checkAccess()
     override
     returns (
       uint256 roundId,
@@ -153,7 +173,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   function latestRoundData()
     external
     view
-    isWhitelisted()
+    checkAccess()
     override
     returns (
       uint256 roundId,
@@ -166,4 +186,66 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
     return _latestRoundData();
   }
 
+  /**
+   * @notice Used if an aggregator contract has been proposed.
+   * @param _roundId the round ID to retrieve the round data for
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+  */
+  function proposedGetRoundData(uint256 _roundId)
+    external
+    view
+    checkAccess()
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _proposedGetRoundData(_roundId);
+  }
+
+  /**
+   * @notice Used if an aggregator contract has been proposed.
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+  */
+  function proposedLatestRoundData()
+    external
+    view
+    checkAccess()
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _proposedLatestRoundData();
+  }
+
+  /**
+   * @dev reverts if the caller does not have access by the controller contract
+   */
+  modifier checkAccess() {
+    require(controller.hasAccess(msg.sender, msg.data), "No access");
+    _;
+  }
 }
