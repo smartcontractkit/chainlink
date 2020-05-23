@@ -87,10 +87,16 @@ func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
 		models.TaskSpec{ Type: models.MustNewTaskType("task3") },
 		models.TaskSpec{ Type: models.MustNewTaskType("task4") },
 	}
+	// Returned job has tasks in correct order.
 	assert.NoError(t, store.CreateJob(&job))
+	assert.Equal(t, string(job.Tasks[0].Type), "task1")
+	assert.Equal(t, string(job.Tasks[1].Type), "task2")
+	assert.Equal(t, string(job.Tasks[2].Type), "task3")
+	assert.Equal(t, string(job.Tasks[3].Type), "task4")
 
 	orm := store.ORM
 	retrievedJob, err := orm.FindJob(job.ID)
+	// Reading the job from the db returns the tasks in correct data.
 	assert.NoError(t, err)
 	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
 	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")

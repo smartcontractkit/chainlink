@@ -469,8 +469,25 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	for i := range job.Initiators {
 		job.Initiators[i].JobSpecID = job.ID
 	}
-
-	return tx.Create(job).Error
+	tasks := job.Tasks
+	job.Tasks = []models.TaskSpec{}
+	if err := tx.Create(job).Error; err != nil {
+		return err
+	}
+	for _, task := range tasks {
+		task.JobSpecID = job.ID
+		if err := tx.Create(&task).Error; err != nil {
+			return err
+		}
+	}
+	return tx.
+		Preload("Initiators", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped().Order(`"id" asc`)
+		}).
+		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped().Order("id asc")
+		}).
+		First(job, "id = ?", job.ID).Error
 }
 
 // ArchiveJob soft deletes the job, job_runs and its initiator.
