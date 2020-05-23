@@ -974,28 +974,67 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 	return orm.db.Create(initr).Error
 }
 
-// CreateHead creates a head record that tracks which block heads we've observed in the HeadTracker
-func (orm *ORM) CreateHead(n *models.Head) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.db.Create(n).Error
-}
-
-// FirstHead returns the oldest persisted head entry.
-func (orm *ORM) FirstHead() (*models.Head, error) {
-	orm.MustEnsureAdvisoryLock()
-	number := &models.Head{}
-	err := orm.db.Order("number asc").First(number).Error
-	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+// IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
+// No advisory lock required because this is thread safe.
+func (orm *ORM) IdempotentInsertHead(h models.Head) error {
+	err := orm.db.Set("gorm:insert_option", "ON CONFLICT (hash) DO NOTHING").Create(&h).Error
+	if err != nil && err.Error() == "sql: no rows in result set" {
+		return nil
 	}
-	return number, err
+	return err
 }
 
-// LastHead returns the most recently persisted head entry.
+// TrimOldHeads deletes heads such that only the top N block numbers remain
+func (orm *ORM) TrimOldHeads(n int) (err error) {
+	return orm.db.Exec(`
+	DELETE FROM heads
+	WHERE number < (
+		SELECT min(number) FROM (
+			SELECT number
+			FROM heads
+			ORDER BY number DESC
+			LIMIT ?
+		) numbers
+	)`, n).Error
+}
+
+// Chain returns the chain of heads starting at hash and up to lookback parents
+// This can return nil if no head with the given hash is found
+func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
+	rows, err := orm.db.Raw(`
+	WITH RECURSIVE chain AS (
+		SELECT * FROM heads WHERE hash = ?
+	UNION
+		SELECT h.* FROM heads h
+		JOIN chain ON chain.parent_hash = h.hash
+	) SELECT id, hash, number, parent_hash, timestamp, created_at FROM chain LIMIT ?
+	`, hash, lookback).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var firstHead *models.Head
+	var prevHead *models.Head
+	for rows.Next() {
+		h := models.Head{}
+		if err := rows.Scan(&h.ID, &h.Hash, &h.Number, &h.ParentHash, &h.Timestamp, &h.CreatedAt); err != nil {
+			return nil, err
+		}
+		if firstHead == nil {
+			firstHead = &h
+		} else {
+			prevHead.Parent = &h
+		}
+		prevHead = &h
+	}
+	return firstHead, nil
+}
+
+// LastHead returns the head with the highest number. In the case of ties (e.g.
+// due to re-org) it returns the most recently seen head entry.
 func (orm *ORM) LastHead() (*models.Head, error) {
-	orm.MustEnsureAdvisoryLock()
 	number := &models.Head{}
-	err := orm.db.Order("number desc").First(number).Error
+	err := orm.db.Order("number DESC, created_at DESC, id DESC").First(number).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -1314,6 +1353,11 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 // SQLite without causing load problems.
 // NOTE: Now we no longer support SQLite, perhaps this can be tuned?
 const BatchSize = 100
+
+// NOTE: Skips advisory lock, use caution!
+func (orm *ORM) GetRawDB() *gorm.DB {
+	return orm.db
+}
 
 // Batch is an iterator _like_ for batches of records
 func Batch(chunkSize uint, cb func(offset, limit uint) (uint, error)) error {

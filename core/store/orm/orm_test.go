@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -1534,4 +1535,105 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, jobNumber, counter)
+}
+
+func TestORM_Heads_Chain(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// A competing chain existed from block num 3 to 4
+	var baseOfForkHash common.Hash
+	var longestChainHeadHash common.Hash
+	var parentHash *common.Hash
+	for idx := 0; idx < 8; idx++ {
+		h := *cltest.Head(idx)
+		if parentHash != nil {
+			h.ParentHash = *parentHash
+		}
+		parentHash = &h.Hash
+		if idx == 2 {
+			baseOfForkHash = h.Hash
+		} else if idx == 7 {
+			longestChainHeadHash = h.Hash
+		}
+		assert.Nil(t, store.IdempotentInsertHead(h))
+	}
+
+	competingHead1 := *cltest.Head(3)
+	competingHead1.ParentHash = baseOfForkHash
+	assert.Nil(t, store.IdempotentInsertHead(competingHead1))
+	competingHead2 := *cltest.Head(4)
+	competingHead2.ParentHash = competingHead1.Hash
+	assert.Nil(t, store.IdempotentInsertHead(competingHead2))
+
+	// Query for the top of the longer chain does not include the competing chain
+	h, err := store.Chain(longestChainHeadHash, 12)
+	require.NoError(t, err)
+	assert.Equal(t, longestChainHeadHash, h.Hash)
+	count := 1
+	for {
+		if h.Parent == nil {
+			break
+		}
+		require.NotEqual(t, competingHead1.Hash, h.Hash)
+		require.NotEqual(t, competingHead2.Hash, h.Hash)
+		h = h.Parent
+		count++
+	}
+	assert.Equal(t, 8, count)
+
+	// If we set the limit lower we get fewer heads in chain
+	h, err = store.Chain(longestChainHeadHash, 2)
+	require.NoError(t, err)
+	assert.Equal(t, longestChainHeadHash, h.Hash)
+	count = 1
+	for {
+		if h.Parent == nil {
+			break
+		}
+		h = h.Parent
+		count++
+	}
+	assert.Equal(t, 2, count)
+
+	// If we query for the top of the competing chain we get its parents
+	head, err := store.Chain(competingHead2.Hash, 12)
+	require.NoError(t, err)
+	assert.Equal(t, competingHead2.Hash, head.Hash)
+	require.NotNil(t, head.Parent)
+	assert.Equal(t, competingHead1.Hash, head.Parent.Hash)
+	require.NotNil(t, head.Parent.Parent)
+	assert.Equal(t, baseOfForkHash, head.Parent.Parent.Hash)
+	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
+
+	// Returns nil if hash has no matches
+	h, err = store.Chain(cltest.NewHash(), 12)
+	require.NoError(t, err)
+	require.Nil(t, h)
+}
+
+func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// Returns nil when inserting first head
+	head := *cltest.Head(0)
+	require.NoError(t, store.IdempotentInsertHead(head))
+
+	// Head is inserted
+	foundHead, err := store.LastHead()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, foundHead.Hash)
+
+	// Returns nil when inserting same head again
+	require.NoError(t, store.IdempotentInsertHead(head))
+
+	// Head is still inserted
+	foundHead, err = store.LastHead()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, foundHead.Hash)
 }

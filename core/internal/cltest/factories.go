@@ -706,3 +706,13 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	require.NoError(t, err)
 	return checker
 }
+
+func NewEthBlockHeader(height interface{}) eth.BlockHeader {
+	return eth.BlockHeader{
+		Number:     BigHexInt(height),
+		GethHash:   NewHash(),
+		ParentHash: NewHash(),
+		Time:       BigHexInt(time.Now().Unix()),
+	}
+
+}

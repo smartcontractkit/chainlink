@@ -187,9 +187,9 @@ func (txm *EthTxManager) Disconnect() {
 	txm.connected.UnSet()
 }
 
-// OnNewHead does nothing; exists to comply with interface.
-func (txm *EthTxManager) OnNewHead(head *models.Head) {
-	txm.currentHead = *head
+// OnNewLongestChain does nothing; exists to comply with interface.
+func (txm *EthTxManager) OnNewLongestChain(head models.Head) {
+	txm.currentHead = head
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.

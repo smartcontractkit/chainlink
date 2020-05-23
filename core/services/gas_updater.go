@@ -76,8 +76,8 @@ func (gu *gasUpdater) Connect(bn *models.Head) error {
 func (gu *gasUpdater) Disconnect() {
 }
 
-// OnNewHead recalculates and sets global gas price on every head
-func (gu *gasUpdater) OnNewHead(head *models.Head) {
+// OnNewLongestChain recalculates and sets global gas price on every head
+func (gu *gasUpdater) OnNewLongestChain(head models.Head) {
 	// Bail out as early as possible if the gas updater is disabled so we avoid
 	// any potential undesired side effects. Note that in a future iteration
 	// the GasUpdaterEnabled setting could be modifiable at runtime

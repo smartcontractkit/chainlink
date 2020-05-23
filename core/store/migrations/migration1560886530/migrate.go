@@ -20,7 +20,7 @@ ALTER TABLE heads RENAME TO heads_archive;`).Error; err != nil {
 		return errors.Wrap(err, "failed to drop heads")
 	}
 
-	if err := tx.AutoMigrate(&models.Head{}).Error; err != nil {
+	if err := tx.AutoMigrate(&Head{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Head")
 	}
 
@@ -60,4 +60,11 @@ DROP TABLE heads_archive;`).Error
 		})
 	}
 	return errors.Wrap(err, "failed to migrate old Heads")
+}
+
+// Head represents a BlockNumber, BlockHash.
+type Head struct {
+	ID     uint64      `gorm:"primary_key;auto_increment"`
+	Hash   common.Hash `gorm:"not null"`
+	Number int64       `gorm:"index;not null"`
 }
