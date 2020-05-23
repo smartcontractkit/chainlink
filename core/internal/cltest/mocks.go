@@ -678,11 +678,11 @@ func (m *MockHeadTrackable) DisconnectedCount() int32 {
 	return atomic.LoadInt32(&m.disconnectedCount)
 }
 
-// OnNewHead increases the OnNewHeadCount count by one
-func (m *MockHeadTrackable) OnNewHead(*models.Head) { atomic.AddInt32(&m.onNewHeadCount, 1) }
+// OnNewLongestChain increases the OnNewLongestChainCount count by one
+func (m *MockHeadTrackable) OnNewLongestChain(models.Head) { atomic.AddInt32(&m.onNewHeadCount, 1) }
 
-// OnNewHeadCount returns the count of new heads, safely.
-func (m *MockHeadTrackable) OnNewHeadCount() int32 {
+// OnNewLongestChainCount returns the count of new heads, safely.
+func (m *MockHeadTrackable) OnNewLongestChainCount() int32 {
 	return atomic.LoadInt32(&m.onNewHeadCount)
 }
 

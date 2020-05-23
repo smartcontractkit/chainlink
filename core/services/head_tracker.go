@@ -25,6 +25,14 @@ var (
 	})
 )
 
+const (
+	// How many block numbers deep to keep heads in the DB
+	blockHeightToKeep = 100
+
+	// How many nodes to return from the top of the longest chain
+	chainDepth = 12
+)
+
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
@@ -32,8 +40,8 @@ type HeadTracker struct {
 	callbacks             []strpkg.HeadTrackable
 	headers               chan eth.BlockHeader
 	headSubscription      eth.Subscription
+	highestSeenHead       *models.Head
 	store                 *strpkg.Store
-	head                  *models.Head
 	headMutex             sync.RWMutex
 	connected             bool
 	sleeper               utils.Sleeper
@@ -71,12 +79,11 @@ func (ht *HeadTracker) Start() error {
 		return nil
 	}
 
-	if err := ht.updateHeadFromDb(); err != nil {
+	if err := ht.setHighestSeenHeadFromDB(); err != nil {
 		return err
 	}
-	number := ht.head
-	if number != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(number.ToInt()), " with hash ", number.Hash.Hex())
+	if ht.highestSeenHead != nil {
+		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(ht.highestSeenHead.ToInt()), " with hash ", ht.highestSeenHead.Hash.Hex())
 	}
 
 	ht.done = make(chan struct{})
@@ -114,30 +121,26 @@ func (ht *HeadTracker) Stop() error {
 
 // Save updates the latest block number, if indeed the latest, and persists
 // this number in case of reboot. Thread safe.
-func (ht *HeadTracker) Save(n *models.Head) error {
-	if n == nil {
-		return errors.New("Cannot save a nil block header")
-	}
-
+func (ht *HeadTracker) Save(h models.Head) error {
 	ht.headMutex.Lock()
-	if n.GreaterThan(ht.head) {
-		copy := *n
-		ht.head = &copy
-		ht.headMutex.Unlock()
-	} else {
-		ht.headMutex.Unlock()
-		msg := fmt.Sprintf("Cannot save new head confirmation %v because it's equal to or less than current head %v with hash %s", n, ht.head, n.Hash.Hex())
-		return errBlockNotLater{msg}
+	if h.GreaterThan(ht.highestSeenHead) {
+		ht.highestSeenHead = &h
 	}
-	return ht.store.CreateHead(n)
+	ht.headMutex.Unlock()
+
+	err := ht.store.IdempotentInsertHead(h)
+	if err != nil {
+		return err
+	}
+	return ht.store.TrimOldHeads(blockHeightToKeep)
 }
 
-// Head returns the latest block header being tracked, or nil.
-func (ht *HeadTracker) Head() *models.Head {
+// HighestSeenHead returns the block header with the highest number that has been seen, or nil
+func (ht *HeadTracker) HighestSeenHead() *models.Head {
 	ht.headMutex.RLock()
 	defer ht.headMutex.RUnlock()
 
-	return ht.head
+	return ht.highestSeenHead
 }
 
 // Connected returns whether or not this HeadTracker is connected.
@@ -157,17 +160,6 @@ func (ht *HeadTracker) connect(bn *models.Head) {
 func (ht *HeadTracker) disconnect() {
 	for _, trackable := range ht.callbacks {
 		trackable.Disconnect()
-	}
-}
-
-func (ht *HeadTracker) onNewHead(head *models.Head) {
-	numberHeadsReceived.Inc()
-
-	ht.headMutex.Lock()
-	defer ht.headMutex.Unlock()
-
-	for _, trackable := range ht.callbacks {
-		trackable.OnNewHead(head)
 	}
 }
 
@@ -210,36 +202,59 @@ func (ht *HeadTracker) subscribe() bool {
 	}
 }
 
+// This should be safe to run concurrently across multiple nodes connected to the same database
 func (ht *HeadTracker) receiveHeaders() error {
 	for {
 		select {
 		case <-ht.done:
 			return nil
 		case block, open := <-ht.headers:
+			numberHeadsReceived.Inc()
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			head := models.NewHead(block.Number.ToInt(), block.Hash())
+			head := models.NewHead(block.Number.ToInt(), block.Hash(), block.ParentHash, block.Time.ToInt())
 			logger.Debugw(
 				fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 				"blockHeight", head.ToInt(),
 				"blockHash", block.Hash(),
 				"hash", head.Hash)
+			prevHead := ht.HighestSeenHead()
 			if err := ht.Save(head); err != nil {
-				switch err.(type) {
-				case errBlockNotLater:
-					logger.Warn(err)
-				default:
-					logger.Error(err)
+				return err
+			}
+			if prevHead == nil || head.Number > prevHead.Number {
+				headWithChain, err := ht.store.Chain(head.Hash, chainDepth)
+				if err != nil {
+					return err
+				}
+				if headWithChain == nil {
+					return fmt.Errorf("invariant violation: head with block hash %s was missing", head.Hash)
+				}
+				ht.onNewLongestChain(*headWithChain)
+			} else if head.Number == prevHead.Number {
+				if head.Hash != prevHead.Hash {
+					logger.Debugf("duplicate blocks at height %v. Got block hash %s but already saw block hash %s", head.Number, head.Hash.Hex(), ht.highestSeenHead.Hash.Hex())
+				} else {
+					logger.Debugf("head with hash %s was already in the database", head.Hash.Hex())
 				}
 			} else {
-				ht.onNewHead(head)
+				logger.Debugf("received out of order head %s with number %v. Latest head is at %v", head.Hash.Hex(), head.Number, ht.highestSeenHead.Number)
 			}
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {
 				return err
 			}
 		}
+	}
+}
+
+func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+
+	for _, trackable := range ht.callbacks {
+		trackable.OnNewLongestChain(headWithChain)
 	}
 }
 
@@ -260,7 +275,8 @@ func (ht *HeadTracker) subscribeToHead() error {
 
 	ht.headSubscription = sub
 	ht.connected = true
-	ht.connect(ht.head)
+
+	ht.connect(ht.highestSeenHead)
 	return nil
 }
 
@@ -280,21 +296,13 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 	return nil
 }
 
-func (ht *HeadTracker) updateHeadFromDb() error {
-	number, err := ht.store.LastHead()
+func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
+	head, err := ht.store.LastHead()
 	if err != nil {
 		return err
 	}
-	ht.head = number
+	ht.highestSeenHead = head
 	return nil
-}
-
-type errBlockNotLater struct {
-	message string
-}
-
-func (e errBlockNotLater) Error() string {
-	return e.message
 }
 
 // chainIDVerify checks whether or not the ChainID from the Chainlink config
