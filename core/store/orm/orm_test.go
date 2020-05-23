@@ -1154,6 +1154,7 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 
 	createdTx := cltest.CreateTx(t, store, from, 1)
 	fetchedTx, fetchedTxAttempt, err := store.FindTxByAttempt(createdTx.Hash)
+	assert.NoError(t, err, "failed to find tx:%s in store", createdTx.Hash)
 
 	assert.Equal(t, createdTx.ID, fetchedTx.ID)
 	assert.Equal(t, createdTx.From, fetchedTx.From)
@@ -1418,6 +1419,7 @@ func TestORM_FindAllTxsInNonceRange(t *testing.T) {
 		require.NoError(t, err)
 		createdTxs = append(createdTxs, *tx)
 	}
+	assert.Len(t, createdTxs, 3)
 
 	txs, err := store.FindAllTxsInNonceRange(2, 3)
 	require.NoError(t, err)
@@ -1499,6 +1501,7 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 		require.NoError(t, store.CreateJob(&job))
 		jobs = append(jobs, job)
 	}
+	assert.Len(t, jobs, jobNumber)
 
 	counter := 0
 	err := store.Jobs(func(j *models.JobSpec) bool {
