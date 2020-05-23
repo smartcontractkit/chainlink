@@ -669,22 +669,26 @@ func CreateServiceAgreementViaWeb(
 
 func NewRunInput(value models.JSON) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInput(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
 	jobRunID := models.NewID()
+	taskRunID := models.NewID()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, data, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, *taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
