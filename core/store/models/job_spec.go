@@ -127,7 +127,7 @@ func (j JobSpec) InitiatorsFor(types ...string) []Initiator {
 func (j JobSpec) InitiatorExternal(name string) *Initiator {
 	var found *Initiator
 	for _, i := range j.InitiatorsFor(InitiatorExternal) {
-		if strings.ToLower(i.Name) == strings.ToLower(name) {
+		if strings.EqualFold(i.Name, name) {
 			found = &i
 			break
 		}

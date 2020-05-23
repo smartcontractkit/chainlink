@@ -50,7 +50,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -310,7 +309,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	tc.Config.Set("ETH_CHAIN_ID", chainId)
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
 	var client SimulatedBackendClient
-	if txm, ok := app.Store.TxManager.(*store.EthTxManager); ok {
+	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
 		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 		txm.Client = &client
 	} else {
@@ -1008,15 +1007,15 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 
 // Head given the value convert it into an Head
 func Head(val interface{}) *models.Head {
-	switch val.(type) {
+	switch t := val.(type) {
 	case int:
-		return models.NewHead(big.NewInt(int64(val.(int))), NewHash())
+		return models.NewHead(big.NewInt(int64(t)), NewHash())
 	case uint64:
-		return models.NewHead(big.NewInt(int64(val.(uint64))), NewHash())
+		return models.NewHead(big.NewInt(int64(t)), NewHash())
 	case int64:
-		return models.NewHead(big.NewInt(val.(int64)), NewHash())
+		return models.NewHead(big.NewInt(t), NewHash())
 	case *big.Int:
-		return models.NewHead(val.(*big.Int), NewHash())
+		return models.NewHead(t, NewHash())
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 		return nil

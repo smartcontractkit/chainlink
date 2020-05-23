@@ -134,18 +134,18 @@ func (i *Int64) Scan(value interface{}) error {
 		*i = Int64From(safe)
 	case uint:
 		if typed > uint(math.MaxInt64) {
-			return fmt.Errorf("Unable to convert %v of %T to Int64; overflow", value, value)
+			return fmt.Errorf("unable to convert %v of %T to Int64; overflow", value, value)
 		}
 		safe := int64(typed)
 		*i = Int64From(safe)
 	case uint64:
 		if typed > uint64(math.MaxInt64) {
-			return fmt.Errorf("Unable to convert %v of %T to Int64; overflow", value, value)
+			return fmt.Errorf("unable to convert %v of %T to Int64; overflow", value, value)
 		}
 		safe := int64(typed)
 		*i = Int64From(safe)
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Int64", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Int64", value, value)
 	}
 	return nil
 }

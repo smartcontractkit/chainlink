@@ -26,14 +26,14 @@ jobs:
       - uses: actions/setup-go@v2
       - run: go get -v golang.org/x/tools/cmd/goimports
       - run: d="$($HOME/go/bin/goimports -d ./)" && if [ -n "$d" ]; then echo "goimports generated output:" ; echo "$d"; exit 1; fi
-  # staticcheck:
-  #   name: staticheck
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: actions/setup-go@v2
-  #     - run: go install honnef.co/go/tools/cmd/staticcheck
-  #     - run: $HOME/go/bin/staticcheck ./...
+  staticcheck:
+    name: staticheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - run: go install honnef.co/go/tools/cmd/staticcheck
+      - run: $HOME/go/bin/staticcheck ./...
   # TODO: Enable linters below one by one and fix issues with each
   # lint:
   #   name: Lint

@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -949,7 +948,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
 	ethClient := new(mocks.Client)
-	txm := store.NewEthTxManager(
+	txm := strpkg.NewEthTxManager(
 		ethClient,
 		orm.NewConfig(),
 		nil,
@@ -958,7 +957,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
 	account := accounts.Account{Address: from}
-	ma := store.NewManagedAccount(account, 0)
+	ma := strpkg.NewManagedAccount(account, 0)
 
 	nonce := uint64(234)
 	ethClient.On("GetNonce", from).Return(nonce, nil)

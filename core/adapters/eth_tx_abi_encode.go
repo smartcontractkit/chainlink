@@ -374,7 +374,7 @@ var hexDigitsRegexp = regexp.MustCompile("^[0-9a-fA-F]*$")
 func bigIntFromJSON(jval interface{}, name string) (*big.Int, error) {
 	switch val := jval.(type) {
 	case string:
-		n := big.NewInt(0)
+		var n = big.NewInt(0)
 		valid := false
 		if utils.HasHexPrefix(val) {
 			if !hexDigitsRegexp.MatchString(val[2:]) {
