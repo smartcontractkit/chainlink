@@ -55,7 +55,7 @@
     "recompose": "^0.30.0",
     "redux": "^4.0.4",
     "redux-persist": "^5.10.0",
-    "redux-persist-transform-filter": "^0.0.18",
+    "redux-persist-transform-filter": "^0.0.20",
     "redux-thunk": "^2.3.0",
     "reselect": "^4.0.0",
     "typescript": "^3.7.2",
