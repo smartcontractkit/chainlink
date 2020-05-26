@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -45,8 +46,10 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 // ValidateBridgeTypeNotExist checks that a bridge has not already been created
 func ValidateBridgeTypeNotExist(bt *models.BridgeTypeRequest, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
-	ts := models.TaskSpec{Type: bt.Name}
-	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
+	bridge, err := store.ORM.FindBridge(bt.Name)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		fe.Add(fmt.Sprintf("Error determining if bridge type %v already exists", bt.Name))
+	} else if (bridge != models.BridgeType{}) {
 		fe.Add(fmt.Sprintf("Bridge Type %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
@@ -69,6 +72,10 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	if bt.MinimumContractPayment != nil &&
 		bt.MinimumContractPayment.Cmp(assets.NewLink(0)) < 0 {
 		fe.Add("MinimumContractPayment must be positive")
+	}
+	ts := models.TaskSpec{Type: bt.Name}
+	if a := adapters.FindNativeAdapterFor(ts); a != nil {
+		fe.Add(fmt.Sprintf("Bridge Type %v is a native adapter", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
 }
