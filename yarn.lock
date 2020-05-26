@@ -21464,10 +21464,10 @@ redux-object@^0.5.9:
   resolved "https://registry.npmjs.org/redux-object/-/redux-object-0.5.10.tgz#20013b59f946b4a7262a69cedf83feb5dc3cae9b"
   integrity sha512-MzAPCIvJW5jtVW1JiIQTGJHi38cSKzrLStszInVcPspjIyvzZDsZ4RWoGzJl57GsDN1ftSNdL9NcaPAY08mxQQ==
 
-redux-persist-transform-filter@^0.0.18:
-  version "0.0.18"
-  resolved "https://registry.npmjs.org/redux-persist-transform-filter/-/redux-persist-transform-filter-0.0.18.tgz#bc9901a0267bd64631099b4e7bb4d48c00647418"
-  integrity sha512-x9NxuHNDnK/THLLBqwP1tqw0yIcuxuVYXBssgGcmm5anxL0flbpLQGB5CbFYHWGG68VdQKr1vUneVnttxWJDtA==
+redux-persist-transform-filter@^0.0.20:
+  version "0.0.20"
+  resolved "https://registry.npmjs.org/redux-persist-transform-filter/-/redux-persist-transform-filter-0.0.20.tgz#12473f4d0ce7f37b634dc05a35b4505f285e74c1"
+  integrity sha512-cgxBjn0igGj0CccxV2hXmDlh36lZtuq2ily9dh7LlYciqNE0dFGjd3GizzmxEBkB9+SEvDwd2m/FgfVt4VnOQg==
   dependencies:
     lodash.clonedeep "^4.5.0"
     lodash.forin "^4.4.0"
