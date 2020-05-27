@@ -19,6 +19,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   /**
    * @notice Reads the current answer from aggregator delegated to.
    * @dev overridden function to add the isWhitelisted() modifier
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
     external
@@ -32,6 +33,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   /**
    * @notice Reads the last updated height from aggregator delegated to.
    * @dev overridden function to add the isWhitelisted() modifier
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
     external
@@ -46,6 +48,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
    * @dev overridden function to add the isWhitelisted() modifier
+   * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
     external
@@ -60,6 +63,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
    * @dev overridden function to add the isWhitelisted() modifier
+   * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
     external
@@ -73,6 +77,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
   /**
    * @notice get the latest completed round where the answer was updated
    * @dev overridden function to add the isWhitelisted() modifier
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
     external
