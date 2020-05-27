@@ -190,7 +190,7 @@ func (c Config) DefaultMaxHTTPAttempts() uint {
 	return c.viper.GetUint(EnvVarName("DefaultMaxHTTPAttempts"))
 }
 
-// DefaultHTTPLimit defines the limit for HTTP requests.
+// DefaultHTTPLimit defines the size limit for HTTP requests and responses
 func (c Config) DefaultHTTPLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("DefaultHTTPLimit"))
 }
