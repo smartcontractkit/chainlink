@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+set -x
+set -e
+
 # Generates the golang wrapper of the LINK ERC20 token, which is represented by
 # a non-standard compiler argument. Takes no arguments.
 
