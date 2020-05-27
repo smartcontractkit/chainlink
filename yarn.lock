@@ -9599,14 +9599,14 @@ docker-modem@^2.1.0:
     split-ca "^1.0.1"
     ssh2 "^0.8.7"
 
-dockerode@^3.1.0:
-  version "3.1.0"
-  resolved "https://registry.npmjs.org/dockerode/-/dockerode-3.1.0.tgz#85b97a1ea1c48231ed32974827127b7b80b2af20"
-  integrity sha512-E0KknBBTlIVEvtt2XJRZ3he59u2UN8Yr1A08Sey/BKIox+WlwnJp5fL5SKyhPgNmSXgamPEuKYCJxMi31uj0Nw==
+dockerode@^3.2.0:
+  version "3.2.0"
+  resolved "https://registry.npmjs.org/dockerode/-/dockerode-3.2.0.tgz#80e5bd9c2a988bdde4c995ae4aa2584fa0166c23"
+  integrity sha512-C+y/W4Kks7YLBsfUOTMkk1IVilb4cdj+rE+UZ5hnE+rpcn2frSs7kX+6H8GteTqHcv8sln+GyxuP1qdno3IzIw==
   dependencies:
     concat-stream "~2.0.0"
     docker-modem "^2.1.0"
-    tar-fs "~2.0.0"
+    tar-fs "~2.0.1"
 
 doctrine@1.5.0:
   version "1.5.0"
@@ -17211,6 +17211,11 @@ mixin-object@^2.0.1:
     for-in "^0.1.3"
     is-extendable "^0.1.1"
 
+mkdirp-classic@^0.5.2:
+  version "0.5.3"
+  resolved "https://registry.npmjs.org/mkdirp-classic/-/mkdirp-classic-0.5.3.tgz#fa10c9115cc6d8865be221ba47ee9bed78601113"
+  integrity sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==
+
 mkdirp-promise@^5.0.1:
   version "5.0.1"
   resolved "https://registry.npmjs.org/mkdirp-promise/-/mkdirp-promise-5.0.1.tgz#e9b8f68e552c68a9c1713b84883f7a1dd039b8a1"
@@ -23907,13 +23912,13 @@ tar-fs@^1.16.3:
     pump "^1.0.0"
     tar-stream "^1.1.2"
 
-tar-fs@^2.0.0, tar-fs@~2.0.0:
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/tar-fs/-/tar-fs-2.0.0.tgz#677700fc0c8b337a78bee3623fdc235f21d7afad"
-  integrity sha512-vaY0obB6Om/fso8a8vakQBzwholQ7v5+uy+tF3Ozvxv1KNezmVQAiWtcNmMHFSFPqL3dJA8ha6gdtFbfX9mcxA==
+tar-fs@^2.0.0, tar-fs@~2.0.1:
+  version "2.0.1"
+  resolved "https://registry.npmjs.org/tar-fs/-/tar-fs-2.0.1.tgz#e44086c1c60d31a4f0cf893b1c4e155dabfae9e2"
+  integrity sha512-6tzWDMeroL87uF/+lin46k+Q+46rAJ0SyPGz7OW7wTgblI273hsBqk2C1j0/xNadNLKDTUL9BukSjB7cwgmlPA==
   dependencies:
     chownr "^1.1.1"
-    mkdirp "^0.5.1"
+    mkdirp-classic "^0.5.2"
     pump "^3.0.0"
     tar-stream "^2.0.0"
 
