@@ -106,7 +106,7 @@ func loggedStop(app chainlink.Application) {
 
 func checkFilePermissions(rootDir string) error {
 	tlsDir := filepath.Join(rootDir, "tls")
-	err := os.Stat(tlsDir)
+	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
 		logger.Errorf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
