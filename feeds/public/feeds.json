@@ -20,7 +20,8 @@
       "ParaSwap",
       "MCDEX",
       "Futureswap",
-      "DMM"
+      "DMM",
+      "Aave"
     ],
     "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
