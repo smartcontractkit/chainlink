@@ -298,6 +298,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice get the most recently reported answer
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
     external
@@ -310,6 +311,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice get the most recent updated at timestamp
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
     external
@@ -322,6 +324,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice get the ID of the last updated round
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
     external
@@ -345,6 +348,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice get past rounds answers
    * @param _roundId the round number to retrieve the answer for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
     external
@@ -358,6 +362,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice get timestamp when an answer was last updated
    * @param _roundId the round number to retrieve the updated timestamp for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
     external
