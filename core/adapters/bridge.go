@@ -80,7 +80,7 @@ func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, bridgeR
 		return models.NewRunOutputError(baRunResultError("post to external adapter", err))
 	}
 
-	input = *models.NewRunInput(input.JobRunID(), data, input.Status())
+	input = input.CloneWithData(data)
 	return ba.responseToRunResult(body, input)
 }
 
