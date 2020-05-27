@@ -19,7 +19,8 @@
       "1inch",
       "ParaSwap",
       "MCDEX",
-      "Futureswap"
+      "Futureswap",
+      "DMM"
     ],
     "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
@@ -84,7 +85,7 @@
     "history": false,
     "decimalPlaces": 6,
     "multiply": "100000000",
-    "sponsored": ["Futureswap"],
+    "sponsored": ["Futureswap", "DMM"],
     "threshold": 0.5,
     "compareOffchain": "https://www.tradingview.com/symbols/DAIUSDC/?exchange=COINBASE",
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=dai",
@@ -368,7 +369,7 @@
     "history": false,
     "decimalPlaces": 9,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "sponsored": ["Aave", "1inch", "ParaSwap", "DMM"],
     "threshold": 1,
     "listing": true
   },
