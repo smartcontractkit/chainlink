@@ -132,7 +132,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 			result := hga.Perform(input, store)
 
 			require.Error(t, result.Error())
-			assert.Equal(t, "All attempts fail:\n#1: HTTP response too large, must be less than 1 bytes", result.Error().Error())
+			assert.Contains(t, result.Error().Error(), "HTTP response too large")
 			assert.Equal(t, "", result.Result().String())
 		})
 	}

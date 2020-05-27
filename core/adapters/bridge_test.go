@@ -228,3 +228,28 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 		})
 	}
 }
+
+func TestBridgeResponse_TooLarge(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("DEFAULT_HTTP_LIMIT", "1")
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	largePayload := `{"pending": true}`
+	mock, serverCleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", largePayload,
+		func(h http.Header, b string) {},
+	)
+	defer serverCleanup()
+
+	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
+	ba := &adapters.Bridge{BridgeType: *bt}
+
+	input := cltest.NewRunInputWithResult("100")
+	result := ba.Perform(input, store)
+
+	require.Error(t, result.Error())
+	assert.Contains(t, result.Error().Error(), "HTTP response too large")
+	assert.Equal(t, "", result.Result().String())
+}
