@@ -75,6 +75,29 @@ func TestORM_Unscoped(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJob()
+	job.Tasks = []models.TaskSpec{
+		models.TaskSpec{ Type: models.MustNewTaskType("task1") },
+		models.TaskSpec{ Type: models.MustNewTaskType("task2") },
+		models.TaskSpec{ Type: models.MustNewTaskType("task3") },
+		models.TaskSpec{ Type: models.MustNewTaskType("task4") },
+	}
+	assert.NoError(t, store.CreateJob(&job))
+
+	orm := store.ORM
+	retrievedJob, err := orm.FindJob(job.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
+	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")
+	assert.Equal(t, string(retrievedJob.Tasks[2].Type), "task3")
+	assert.Equal(t, string(retrievedJob.Tasks[3].Type), "task4")
+}
+
 func TestORM_CreateExternalInitiator(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
