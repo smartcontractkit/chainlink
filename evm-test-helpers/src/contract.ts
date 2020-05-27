@@ -61,7 +61,7 @@ export function callable(oldContract: ethers.Contract, methods: string[]): any {
   const contract = new ethers.Contract(
     oldContract.address,
     newAbi,
-    oldContract.signer,
+    oldContract.signer ?? oldContract.provider,
   )
 
   return contract
