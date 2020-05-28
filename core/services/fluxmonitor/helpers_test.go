@@ -79,16 +79,27 @@ func (*erroringFetcher) Fetch() (decimal.Decimal, error) {
 	return decimal.NewFromInt(0), errors.New("failed to fetch; I always error")
 }
 
+type fetcherRequest struct {
+	Data interface{} `json:"data"`
+	ID   string      `json:"id"`
+}
+
 func fakePriceResponder(t *testing.T, requestData string, result decimal.Decimal) http.Handler {
 	t.Helper()
 
+	var expectedRequest fetcherRequest
+	err := json.Unmarshal([]byte(requestData), &expectedRequest)
+	require.NoError(t, err)
 	response := adapterResponse{Data: dataWithResult(t, result)}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody fetcherRequest
 		payload, err := ioutil.ReadAll(r.Body)
 		require.NoError(t, err)
 		defer r.Body.Close()
-		assert.Equal(t, requestData, string(payload))
+		err = json.Unmarshal(payload, &reqBody)
+		require.NoError(t, err)
+		assert.Equal(t, expectedRequest.Data, reqBody.Data)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(response))
 	})
