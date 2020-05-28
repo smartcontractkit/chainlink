@@ -2,9 +2,11 @@ package eth
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -69,7 +71,7 @@ type CallerSubscriber interface {
 // GetNonce returns the nonce (transaction count) for a given address.
 func (client *CallerSubscriberClient) GetNonce(address common.Address) (uint64, error) {
 	result := ""
-	err := client.Call(&result, "eth_getTransactionCount", address.Hex(), "pending")
+	err := client.logCall(&result, "eth_getTransactionCount", address.Hex(), "pending")
 	if err != nil {
 		return 0, err
 	}
@@ -80,7 +82,7 @@ func (client *CallerSubscriberClient) GetNonce(address common.Address) (uint64, 
 func (client *CallerSubscriberClient) GetEthBalance(address common.Address) (*assets.Eth, error) {
 	result := ""
 	amount := new(assets.Eth)
-	err := client.Call(&result, "eth_getBalance", address.Hex(), "latest")
+	err := client.logCall(&result, "eth_getBalance", address.Hex(), "latest")
 	if err != nil {
 		return amount, err
 	}
@@ -106,7 +108,7 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 		To:   contractAddress,
 		Data: data,
 	}
-	err := client.Call(&result, "eth_call", args, "latest")
+	err := client.logCall(&result, "eth_call", args, "latest")
 	if err != nil {
 		return numLinkBigInt, err
 	}
@@ -117,20 +119,20 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 // SendRawTx sends a signed transaction to the transaction pool.
 func (client *CallerSubscriberClient) SendRawTx(bytes []byte) (common.Hash, error) {
 	result := common.Hash{}
-	err := client.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
+	err := client.logCall(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
 	return result, err
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
 func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
 	receipt := TxReceipt{}
-	err := client.Call(&receipt, "eth_getTransactionReceipt", hash.String())
+	err := client.logCall(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
 
 func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 	var height hexutil.Uint64
-	err := client.Call(&height, "eth_blockNumber")
+	err := client.logCall(&height, "eth_blockNumber")
 	return uint64(height), err
 }
 
@@ -138,7 +140,7 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 // blockchain node is aware of.
 func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
 	var block Block
-	err := client.Call(&block, "eth_getBlockByNumber", "latest", true)
+	err := client.logCall(&block, "eth_getBlockByNumber", "latest", true)
 	return block, err
 }
 
@@ -146,21 +148,21 @@ func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
 // Includes all transactions
 func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (Block, error) {
 	var block Block
-	err := client.Call(&block, "eth_getBlockByNumber", hex, true)
+	err := client.logCall(&block, "eth_getBlockByNumber", hex, true)
 	return block, err
 }
 
 // GetLogs returns all logs that respect the passed filter query.
 func (client *CallerSubscriberClient) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
 	var results []Log
-	err := client.Call(&results, "eth_getLogs", utils.ToFilterArg(q))
+	err := client.logCall(&results, "eth_getLogs", utils.ToFilterArg(q))
 	return results, err
 }
 
 // GetChainID returns the ethereum ChainID.
 func (client *CallerSubscriberClient) GetChainID() (*big.Int, error) {
 	value := new(utils.Big)
-	err := client.Call(value, "eth_chainId")
+	err := client.logCall(value, "eth_chainId")
 	return value.ToInt(), err
 }
 
@@ -185,4 +187,13 @@ func (client *CallerSubscriberClient) SubscribeToNewHeads(
 ) (Subscription, error) {
 	sub, err := client.Subscribe(ctx, channel, "newHeads")
 	return sub, err
+}
+
+// logCall logs an RPC call's method and arguments, and then calls the method
+func (client *CallerSubscriberClient) logCall(result interface{}, method string, args ...interface{}) error {
+	logger.Debugw(
+		fmt.Sprintf(`Calling eth client RPC method "%s"`, method),
+		"args", args,
+	)
+	return client.Call(result, method, args...)
 }
