@@ -35,21 +35,21 @@ type JobSubscriber interface {
 
 // jobSubscriber implementation
 type jobSubscriber struct {
-	store                     *store.Store
-	jobSubscriptions          map[string]JobSubscription
-	jobsMutex                 *sync.RWMutex
-	runManager                RunManager
-	jobResumer                SleeperTask
-	resumeRunsOnNewHeadWorker *resumeRunsOnNewHeadWorker
+	store            *store.Store
+	jobSubscriptions map[string]JobSubscription
+	jobsMutex        *sync.RWMutex
+	runManager       RunManager
+	jobResumer       SleeperTask
+	nextBlockWorker  *nextBlockWorker
 }
 
-type resumeRunsOnNewHeadWorker struct {
+type nextBlockWorker struct {
 	runManager RunManager
 	head       big.Int
 }
 
-func (rw *resumeRunsOnNewHeadWorker) Work() {
-	err := rw.runManager.ResumeAllPendingNextBlock(&rw.head)
+func (b *nextBlockWorker) Work() {
+	err := b.runManager.ResumeAllPendingNextBlock(&b.head)
 	if err != nil {
 		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
 	}
@@ -57,14 +57,14 @@ func (rw *resumeRunsOnNewHeadWorker) Work() {
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
-	rw := &resumeRunsOnNewHeadWorker{runManager: runManager}
+	b := &nextBlockWorker{runManager: runManager}
 	js := &jobSubscriber{
-		store:                     store,
-		runManager:                runManager,
-		jobSubscriptions:          map[string]JobSubscription{},
-		jobsMutex:                 &sync.RWMutex{},
-		jobResumer:                NewSleeperTask(rw),
-		resumeRunsOnNewHeadWorker: rw,
+		store:            store,
+		runManager:       runManager,
+		jobSubscriptions: map[string]JobSubscription{},
+		jobsMutex:        &sync.RWMutex{},
+		jobResumer:       NewSleeperTask(b),
+		nextBlockWorker:  b,
 	}
 	return js
 }
@@ -151,8 +151,8 @@ func (js *jobSubscriber) Disconnect() {
 	js.jobSubscriptions = map[string]JobSubscription{}
 }
 
-// OnNewHead resumes all pending job runs based on the new head activity.
-func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	js.resumeRunsOnNewHeadWorker.head = *head.ToInt()
+// OnNewLongestChain resumes all pending job runs based on the new head activity.
+func (js *jobSubscriber) OnNewLongestChain(head models.Head) {
+	js.nextBlockWorker.head = *head.ToInt()
 	js.jobResumer.WakeUp()
 }
