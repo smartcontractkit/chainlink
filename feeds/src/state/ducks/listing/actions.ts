@@ -7,6 +7,7 @@ import {
   FETCH_ANSWER_SUCCESS,
   FETCH_HEALTH_PRICE_SUCCESS,
   ListingActionTypes,
+  FETCH_ANSWER_TIMESTAMP_SUCCESS,
 } from './types'
 
 export function fetchFeedsBegin(): ListingActionTypes {
@@ -39,6 +40,13 @@ export function fetchAnswerSuccess(payload: ListingAnswer): ListingActionTypes {
 export function fetchHealthPriceSuccess(payload: any): ListingActionTypes {
   return {
     type: FETCH_HEALTH_PRICE_SUCCESS,
+    payload,
+  }
+}
+
+export function fetchAnswerTimestampSuccess(payload: any): ListingActionTypes {
+  return {
+    type: FETCH_ANSWER_TIMESTAMP_SUCCESS,
     payload,
   }
 }

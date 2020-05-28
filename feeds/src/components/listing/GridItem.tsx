@@ -9,10 +9,12 @@ import { AppState } from 'state'
 import { listingSelectors, listingOperations } from '../../state/ducks/listing'
 import { HealthCheck } from 'state/ducks/listing/reducers'
 import Sponsors from './Sponsors'
+import { humanizeUnixTimestamp } from '../../utils'
 
 interface StateProps {
   healthCheck?: HealthCheck
   answer?: string
+  answerTimestamp?: number
 }
 
 interface OwnProps {
@@ -22,7 +24,7 @@ interface OwnProps {
 }
 
 interface DispatchProps {
-  fetchAnswer: DispatchBinding<typeof listingOperations.fetchAnswer>
+  fetchLatestData: DispatchBinding<typeof listingOperations.fetchLatestData>
   fetchHealthStatus: DispatchBinding<typeof listingOperations.fetchHealthStatus>
 }
 
@@ -33,15 +35,16 @@ const GRID = { xs: 24, sm: 12, md: 8 }
 export const GridItem: React.FC<Props> = ({
   feed,
   answer,
+  answerTimestamp,
   compareOffchain,
   enableHealth,
   healthCheck,
-  fetchAnswer,
+  fetchLatestData,
   fetchHealthStatus,
 }) => {
   useEffect(() => {
-    fetchAnswer(feed)
-  }, [fetchAnswer, feed])
+    fetchLatestData(feed)
+  }, [fetchLatestData, feed])
   useEffect(() => {
     if (enableHealth) {
       fetchHealthStatus(feed)
@@ -71,6 +74,10 @@ export const GridItem: React.FC<Props> = ({
               {feed.valuePrefix} {answer}
             </>
           )}
+        </div>
+        <div className="listing-grid__item--date">
+          {answerTimestamp &&
+            humanizeUnixTimestamp(answerTimestamp, 'MMM Do h:mm a')}
         </div>
         <Sponsors sponsors={feed.sponsored} />
       </Link>
@@ -164,16 +171,21 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
 ) => {
   const contractAddress = ownProps.feed.contractAddress
   const answer = listingSelectors.answer(state, contractAddress)
+  const answerTimestamp = listingSelectors.answerTimestamp(
+    state,
+    contractAddress,
+  )
   const healthCheck = state.listing.healthChecks[contractAddress]
 
   return {
     answer,
+    answerTimestamp,
     healthCheck,
   }
 }
 
 const mapDispatchToProps = {
-  fetchAnswer: listingOperations.fetchAnswer,
+  fetchLatestData: listingOperations.fetchLatestData,
   fetchHealthStatus: listingOperations.fetchHealthStatus,
 }
 

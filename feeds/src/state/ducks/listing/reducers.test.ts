@@ -6,6 +6,7 @@ import {
   fetchFeedsSuccess,
   fetchFeedsError,
   fetchAnswerSuccess,
+  fetchAnswerTimestampSuccess,
 } from './actions'
 
 describe('state/ducks/listing/reducers', () => {
@@ -73,6 +74,17 @@ describe('state/ducks/listing/reducers', () => {
       const state = reducer(INITIAL_STATE, action)
 
       expect(state.answers).toEqual({ A: 'answer' })
+    })
+  })
+
+  describe('FETCH_ANSWER_TIMESTAMP_SUCCESS', () => {
+    it('should replace answers timestamp', () => {
+      const config = partialAsFull<FeedConfig>({ contractAddress: 'A' })
+      const payload = { timestamp: 123, config }
+      const action = fetchAnswerTimestampSuccess(payload)
+      const state = reducer(INITIAL_STATE, action)
+
+      expect(state.answersTimestamp).toEqual({ A: 123 })
     })
   })
 })
