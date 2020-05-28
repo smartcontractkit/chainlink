@@ -1007,19 +1007,20 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 
 // Head given the value convert it into an Head
 func Head(val interface{}) *models.Head {
+	var h models.Head
 	switch t := val.(type) {
 	case int:
-		return models.NewHead(big.NewInt(int64(t)), NewHash())
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), big.NewInt(int64(0)))
 	case uint64:
-		return models.NewHead(big.NewInt(int64(t)), NewHash())
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), big.NewInt(int64(0)))
 	case int64:
-		return models.NewHead(big.NewInt(t), NewHash())
+		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), big.NewInt(int64(0)))
 	case *big.Int:
-		return models.NewHead(t, NewHash())
+		h = models.NewHead(t, NewHash(), NewHash(), big.NewInt(int64(0)))
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
-		return nil
 	}
+	return &h
 }
 
 // EmptyBlock returns a new empty ethereum block

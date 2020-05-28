@@ -468,9 +468,9 @@ func (_m *TxManager) NextActiveAccount() *store.ManagedAccount {
 	return r0
 }
 
-// OnNewHead provides a mock function with given fields: _a0
-func (_m *TxManager) OnNewHead(_a0 *models.Head) {
-	_m.Called(_a0)
+// OnNewLongestChain provides a mock function with given fields: head
+func (_m *TxManager) OnNewLongestChain(head models.Head) {
+	_m.Called(head)
 }
 
 // Register provides a mock function with given fields: _a0
