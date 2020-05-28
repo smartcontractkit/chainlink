@@ -105,12 +105,18 @@ func loggedStop(app chainlink.Application) {
 }
 
 func checkFilePermissions(rootDir string) error {
+	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
 		logger.Errorf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
-		err := filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
+		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
+		if err != nil {
+			return err
+		}
+
+		err = filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				logger.Errorf(`error checking perms of "%v": %v`, path, err)
 				return err
@@ -127,6 +133,7 @@ func checkFilePermissions(rootDir string) error {
 		}
 	}
 
+	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
 	protectedFiles := []string{"secret", "cookie"}
 	for _, fileName := range protectedFiles {
 		path := filepath.Join(rootDir, fileName)
