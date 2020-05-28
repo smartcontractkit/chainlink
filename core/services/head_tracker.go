@@ -208,38 +208,13 @@ func (ht *HeadTracker) receiveHeaders() error {
 		select {
 		case <-ht.done:
 			return nil
-		case block, open := <-ht.headers:
+		case blockHeader, open := <-ht.headers:
 			numberHeadsReceived.Inc()
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			head := models.NewHead(block.Number.ToInt(), block.Hash(), block.ParentHash, block.Time.ToInt())
-			logger.Debugw(
-				fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
-				"blockHeight", head.ToInt(),
-				"blockHash", block.Hash(),
-				"hash", head.Hash)
-			prevHead := ht.HighestSeenHead()
-			if err := ht.Save(head); err != nil {
+			if err := ht.handleNewHead(blockHeader); err != nil {
 				return err
-			}
-			if prevHead == nil || head.Number > prevHead.Number {
-				headWithChain, err := ht.store.Chain(head.Hash, chainDepth)
-				if err != nil {
-					return err
-				}
-				if headWithChain == nil {
-					return fmt.Errorf("invariant violation: head with block hash %s was missing", head.Hash)
-				}
-				ht.onNewLongestChain(*headWithChain)
-			} else if head.Number == prevHead.Number {
-				if head.Hash != prevHead.Hash {
-					logger.Debugf("duplicate blocks at height %v. Got block hash %s but already saw block hash %s", head.Number, head.Hash.Hex(), ht.highestSeenHead.Hash.Hex())
-				} else {
-					logger.Debugf("head with hash %s was already in the database", head.Hash.Hex())
-				}
-			} else {
-				logger.Debugf("received out of order head %s with number %v. Latest head is at %v", head.Hash.Hex(), head.Number, ht.highestSeenHead.Number)
 			}
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {
@@ -247,6 +222,47 @@ func (ht *HeadTracker) receiveHeaders() error {
 			}
 		}
 	}
+}
+
+func (ht *HeadTracker) handleNewHead(bh eth.BlockHeader) error {
+	head := models.NewHead(bh.Number.ToInt(), bh.Hash(), bh.ParentHash, bh.Time.ToInt())
+	prevHead := ht.HighestSeenHead()
+
+	logger.Debugw(
+		fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
+		"blockHeight", head.ToInt(),
+		"blockHash", bh.Hash(),
+		"hash", head.Hash)
+
+	if err := ht.Save(head); err != nil {
+		return err
+	}
+
+	if prevHead == nil || head.Number > prevHead.Number {
+		return ht.handleNewHighestHead(head)
+	}
+	if head.Number == prevHead.Number {
+		if head.Hash != prevHead.Hash {
+			logger.Debugf("duplicate blocks at height %v. Got block hash %s but already saw block hash %s", head.Number, head.Hash.Hex(), ht.highestSeenHead.Hash.Hex())
+		} else {
+			logger.Debugf("head with hash %s was already in the database", head.Hash.Hex())
+		}
+	} else {
+		logger.Debugf("received out of order head %s with number %v. Latest head is at %v", head.Hash.Hex(), head.Number, ht.highestSeenHead.Number)
+	}
+	return nil
+}
+
+func (ht *HeadTracker) handleNewHighestHead(head models.Head) error {
+	headWithChain, err := ht.store.Chain(head.Hash, chainDepth)
+	if err != nil {
+		return err
+	}
+	if headWithChain == nil {
+		return fmt.Errorf("invariant violation: head with block hash %s was missing", head.Hash)
+	}
+	ht.onNewLongestChain(*headWithChain)
+	return nil
 }
 
 func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
