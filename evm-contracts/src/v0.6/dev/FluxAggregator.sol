@@ -504,7 +504,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   function latestSubmission(address _oracle)
     external
     view
-    returns (int256, uint32)
+    returns (int256, uint256)
   {
     return (oracles[_oracle].latestSubmission, oracles[_oracle].lastReportedRound);
   }
