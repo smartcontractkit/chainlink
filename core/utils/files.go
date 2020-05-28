@@ -101,7 +101,7 @@ func EnsureFileMaxPerms(file *os.File, perms os.FileMode) error {
 // Ensures that the file at the given filepath has permissions that are
 // no more permissive than the given ones.
 func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) error {
-	dst, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
+	dst, err := os.OpenFile(filepath, os.O_RDWR, perms)
 	if err != nil {
 		return err
 	}

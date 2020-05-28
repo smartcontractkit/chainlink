@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The chainlink node can now be configured to backfill logs from `n` blocks after a
   connection to the ethereum client is reset. This value is specified with an environment
   variable `BLOCK_BACKFILL_DEPTH`.
+- The chainlink node now sets file permissions on sensitive files on startup (tls, .api, .env, .password and secret)
 
 ### Changed
 

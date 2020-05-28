@@ -134,7 +134,7 @@ func checkFilePermissions(rootDir string) error {
 	}
 
 	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
-	protectedFiles := []string{"secret", "cookie"}
+	protectedFiles := []string{"secret", "cookie",".password",".env",".api"}
 	for _, fileName := range protectedFiles {
 		path := filepath.Join(rootDir, fileName)
 		fileInfo, err := os.Stat(path)
