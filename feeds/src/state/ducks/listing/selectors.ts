@@ -71,3 +71,24 @@ export function answer(
 function listingAnswers(state: AppState) {
   return state.listing.answers
 }
+
+/**
+ * answers
+ */
+export function answerTimestamp(
+  state: AppState,
+  contractAddress: FeedConfig['contractAddress'],
+) {
+  return createSelector<
+    AppState,
+    AppState['listing']['answersTimestamp'],
+    number | undefined
+  >(
+    [listingAnswersTimestamp],
+    answersTimestamp => answersTimestamp[contractAddress],
+  )(state)
+}
+
+function listingAnswersTimestamp(state: AppState) {
+  return state.listing.answersTimestamp
+}

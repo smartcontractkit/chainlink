@@ -64,6 +64,7 @@ describe('components/listing/Listing', () => {
       return partialAsFull<Contract>({
         latestAnswer: () => 'latestAnswer',
         currentAnswer: () => 'currentAnswer',
+        latestTimestamp: () => 1590703158,
       })
     })
   })

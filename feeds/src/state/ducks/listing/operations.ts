@@ -9,8 +9,9 @@ import {
   fetchFeedsError,
   fetchAnswerSuccess,
   fetchHealthPriceSuccess,
+  fetchAnswerTimestampSuccess,
 } from './actions'
-import { ListingAnswer, HealthPrice } from './types'
+import { ListingAnswer, HealthPrice, ListingTimestamp } from './types'
 import {
   createContract,
   createInfuraProvider,
@@ -38,24 +39,39 @@ export function fetchFeeds() {
 /**
  * answers
  */
-export function fetchAnswer(config: FeedConfig) {
+export function fetchLatestData(config: FeedConfig) {
   return async (dispatch: Dispatch) => {
     try {
       const provider = createInfuraProvider()
-      const payload = await latestAnswer(config, provider)
+      const answerPayload = await latestAnswer(config, provider)
+      const timestampPayload = await latestTimestamp(config, provider)
+
       const answer = formatAnswer(
-        payload,
+        answerPayload,
         config.multiply,
         config.decimalPlaces,
         config.formatDecimalPlaces,
       )
       const listingAnswer: ListingAnswer = { answer, config }
+      const listingAnswerTimestamp: ListingTimestamp = {
+        timestamp: Number(timestampPayload),
+        config,
+      }
 
       dispatch(fetchAnswerSuccess(listingAnswer))
+      dispatch(fetchAnswerTimestampSuccess(listingAnswerTimestamp))
     } catch {
       console.error('Could not fetch answer')
     }
   }
+}
+
+async function latestTimestamp(
+  contractConfig: FeedConfig,
+  provider: JsonRpcProvider,
+) {
+  const contract = answerContract(contractConfig.contractAddress, provider)
+  return await contract.latestTimestamp()
 }
 
 const LATEST_ANSWER_CONTRACT_VERSIONS = [2, 3]
@@ -87,6 +103,15 @@ const ANSWER_ABI: FunctionFragment[] = [
     inputs: [],
     name: 'latestAnswer',
     outputs: [{ name: '', type: 'int256' }],
+    payable: false,
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: 'latestTimestamp',
+    outputs: [{ name: '', type: 'uint256' }],
     payable: false,
     stateMutability: 'view',
     type: 'function',

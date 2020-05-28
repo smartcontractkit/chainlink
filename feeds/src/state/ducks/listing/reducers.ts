@@ -7,6 +7,7 @@ import {
   FETCH_FEEDS_ERROR,
   FETCH_ANSWER_SUCCESS,
   FETCH_HEALTH_PRICE_SUCCESS,
+  FETCH_ANSWER_TIMESTAMP_SUCCESS,
   ListingActionTypes,
 } from './types'
 
@@ -20,6 +21,7 @@ export interface State {
   feedOrder: Array<FeedConfig['contractAddress']>
   answers: Record<FeedConfig['contractAddress'], string>
   healthChecks: Record<FeedConfig['contractAddress'], HealthCheck>
+  answersTimestamp: Record<FeedConfig['contractAddress'], number>
 }
 
 export const INITIAL_STATE: State = {
@@ -27,6 +29,7 @@ export const INITIAL_STATE: State = {
   feedItems: {},
   feedOrder: [],
   answers: {},
+  answersTimestamp: {},
   healthChecks: {},
 }
 
@@ -73,6 +76,15 @@ const reducer: Reducer<State, ListingActionTypes> = (
         answers: {
           ...state.answers,
           [action.payload.config.contractAddress]: action.payload.answer,
+        },
+      }
+
+    case FETCH_ANSWER_TIMESTAMP_SUCCESS:
+      return {
+        ...state,
+        answersTimestamp: {
+          ...state.answersTimestamp,
+          [action.payload.config.contractAddress]: action.payload.timestamp,
         },
       }
 
