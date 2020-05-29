@@ -105,31 +105,51 @@ func loggedStop(app chainlink.Application) {
 }
 
 func checkFilePermissions(rootDir string) error {
-	errorMsg := "%s has overly permissive file permissions, should be atleast %s"
-	keysDir := filepath.Join(rootDir, "tempkeys")
-	protectedFiles := []string{"secret", "cookie"}
-	err := filepath.Walk(keysDir,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			fileMode := info.Mode().Perm()
-			if fileMode&^ownerPermsMask != 0 {
-				return fmt.Errorf(errorMsg, path, ownerPermsMask)
-			}
-			return nil
-		})
-	if err != nil {
-		return err
-	}
-	for _, fileName := range protectedFiles {
-		fileInfo, err := os.Lstat(filepath.Join(rootDir, fileName))
+	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
+	tlsDir := filepath.Join(rootDir, "tls")
+	_, err := os.Stat(tlsDir)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Errorf("error checking perms of 'tls' directory: %v", err)
+	} else if err == nil {
+		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
 		if err != nil {
 			return err
 		}
-		perm := fileInfo.Mode().Perm()
-		if perm&^ownerPermsMask != 0 {
-			return fmt.Errorf(errorMsg, fileName, ownerPermsMask)
+
+		err = filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				logger.Errorf(`error checking perms of "%v": %v`, path, err)
+				return err
+			}
+			if utils.TooPermissive(info.Mode().Perm(), ownerPermsMask) {
+				newPerms := info.Mode().Perm() & ownerPermsMask
+				logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, info.Mode().Perm(), newPerms)
+				return utils.EnsureFilepathMaxPerms(path, newPerms)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
+	protectedFiles := []string{"secret", "cookie",".password",".env",".api"}
+	for _, fileName := range protectedFiles {
+		path := filepath.Join(rootDir, fileName)
+		fileInfo, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if utils.TooPermissive(fileInfo.Mode().Perm(), ownerPermsMask) {
+			newPerms := fileInfo.Mode().Perm() & ownerPermsMask
+			logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
+			err := utils.EnsureFilepathMaxPerms(path, newPerms)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -417,12 +437,12 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		dstKeyPath = filepath.Join(dstDirPath, srcKeyFile) // ex: /clroot/keys/mykey
 	)
 
-	err := utils.EnsureDirAndPerms(dstDirPath, 0700|os.ModeDir)
+	err := utils.EnsureDirAndMaxPerms(dstDirPath, 0700|os.ModeDir)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	err = utils.CopyFileWithPerms(srcKeyPath, dstKeyPath, 0600)
+	err = utils.CopyFileWithMaxPerms(srcKeyPath, dstKeyPath, 0600)
 	if err != nil {
 		return cli.errorOut(err)
 	}
