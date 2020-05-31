@@ -26,10 +26,29 @@ CLASS_NAME="LinkToken"
 PKG_NAME="link_token_interface"
 OUT_PATH="$TMP_DIR/$PKG_NAME.go"
 
-"$CDIR"/abigen.sh "$BIN_PATH" "$ABI_PATH" "$OUT_PATH" "$CLASS_NAME" "$PKG_NAME"
+# shellcheck source=common.sh
+source "$(dirname "$0")/common.sh"
+
+ABIGEN_ARGS=( -bin "$BIN_PATH" -abi "$ABI_PATH" -out "$OUT_PATH"
+              -type "$CLASS_NAME" -pkg "$PKG_NAME")
+
+# Geth version from which native abigen was built, or v.
+NATIVE_ABIGEN_VERSION=v"$(
+    abigen --version 2> /dev/null | \
+    grep -E -o '([0-9]+\.[0-9]+\.[0-9]+)'
+)" || true
+
+GETH_VERSION=$(go list -json -m github.com/ethereum/go-ethereum | jq -r .Version)
+
+# Generate golang wrapper
+if [ "$NATIVE_ABIGEN_VERSION" == "$GETH_VERSION" ]; then
+    abigen "${ABIGEN_ARGS[@]}"
+else
+    echo "must install correct version of abigen"
+    echo "(`make abigen` in the chainlink root dir)"
+    exit 1
+fi
 
 TARGET_DIR="./generated/$PKG_NAME/"
 mkdir -p "$TARGET_DIR"
 cp "$OUT_PATH" "$TARGET_DIR"
-"$CDIR/record_versions.sh" "$LINK_COMPILER_ARTIFACT_PATH" link_token_interface \
-                           "$ABI" "$BIN" dont_truncate_binary
