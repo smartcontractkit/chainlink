@@ -56,7 +56,7 @@ yarndep: ## Ensure all yarn dependencies are installed
 gen-builder-cache: gomod # generate a cache for the builder image
 	yarn install --frozen-lockfile
 	./tools/bin/restore-solc-cache
-	
+
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
@@ -71,10 +71,14 @@ operator-ui: ## Build the static frontend UI.
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
+.PHONY: abigen
+abigen:
+	./tools/bin/build_abigen
+
 .PHONY: go-solidity-wrappers
-go-solidity-wrappers: ## Recompiles solidity contracts and their go wrappers
+go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers
 	yarn workspace @chainlink/contracts compile
-	go generate ./...
+	go generate ./core/internal/gethwrappers
 	go run ./packr/main.go ./core/eth/
 
 .PHONY: testdb
