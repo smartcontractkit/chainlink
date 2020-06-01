@@ -6,7 +6,8 @@ import { render } from '@testing-library/react'
 import { FeedConfig } from 'config'
 import { Provider as ReduxProvider } from 'react-redux'
 import createStore from '../../state/createStore'
-import { GridItem } from './GridItem'
+import { DetailsContent } from './Details'
+import { humanizeUnixTimestamp } from '../../utils'
 
 const AllTheProviders: React.FC = ({ children }) => {
   const { store } = createStore()
@@ -25,21 +26,24 @@ const feed = partialAsFull<FeedConfig>({
   sponsored: ['sponsor 1', 'sponsor 2'],
 })
 
-describe('components/listing/GridItem', () => {
-  it('renders answer value with prefix', () => {
+describe('components/listing/Details', () => {
+  it('renders popover with details', () => {
     const { container } = render(
       <AllTheProviders>
-        <GridItem
+        <DetailsContent
           feed={feed}
           answer={'10.1'}
-          fetchLatestData={jest.fn()}
-          fetchHealthStatus={jest.fn()}
-          enableDetails={false}
+          healthCheckPrice={10.2}
+          healthCheckStatus={{ result: 'OK', errors: [] }}
+          answerTimestamp={1591005300}
+          healthClasses={'ok'}
         />
       </AllTheProviders>,
     )
-
-    expect(container).toHaveTextContent('10.1')
-    expect(container).toHaveTextContent('$')
+    expect(container).toHaveTextContent('$ 10.1')
+    expect(container).toHaveTextContent('$ 10.2')
+    expect(container).toHaveTextContent(
+      humanizeUnixTimestamp(1591005300, 'LLL'),
+    )
   })
 })

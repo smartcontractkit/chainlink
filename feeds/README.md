@@ -49,23 +49,26 @@ https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlif
 
 ## Hidden Features
 
-### Display Offchain Comparison Links
+### Display Offchain Comparison Links, Contract Health
 
-On the landing page you can enable a link to an offchain price comparison resource with the `compare-offchain` query parameter.
+On the landing page you can enable a link to an offchain price comparison resource and health checks with the `details` query parameter.
 
 ```
-https://feeds.chain.link?compare-offchain=true
+https://feeds.chain.link?details=true
 ```
 
 ![display-offchain-comparison](./docs/feed-landing-compare-offchain.png)
 
-### Display Reference Contract Health
+#### Checks
 
-On the landing page you can enable live health checks with:
+- Within price threshold
+- Answer is 0
 
-```
-https://feeds.chain.link?health=true
-```
+Color Codes
+
+- Red: A check has failed (hover for tooltip that includes failed checks)
+- Yellow: Unknown status (when the price health check is not configured)
+- Green: Ok
 
 ### Override feeds & nodes JSON endpoints
 
@@ -84,17 +87,6 @@ You can use the browser console to encode your URI:
 ```
 
 ![reference-contract-health](./docs/reference-contract-health.png)
-
-#### Checks
-
-- Within price threshold
-- Answer is 0
-
-Color Codes
-
-- Red: A check has failed (hover for tooltip that includes failed checks)
-- Yellow: Unknown status (when the price health check is not configured)
-- Green: Ok
 
 ## Available env vars
 

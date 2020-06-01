@@ -76,8 +76,7 @@ describe('components/listing/Listing', () => {
           loadingFeeds={true}
           feedGroups={[]}
           fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
+          enableDetails={false}
         />
       </AllTheProviders>,
     )
@@ -92,8 +91,7 @@ describe('components/listing/Listing', () => {
           loadingFeeds={false}
           feedGroups={listingGroups}
           fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
+          enableDetails={false}
         />
       </AllTheProviders>,
     )
@@ -109,8 +107,7 @@ describe('components/listing/Listing', () => {
           loadingFeeds={false}
           feedGroups={listingGroups}
           fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
+          enableDetails={false}
         />
       </AllTheProviders>,
     )
