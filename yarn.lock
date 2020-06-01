@@ -14639,10 +14639,10 @@ javascript-stringify@^2.0.1:
   resolved "https://registry.npmjs.org/javascript-stringify/-/javascript-stringify-2.0.1.tgz#6ef358035310e35d667c675ed63d3eb7c1aa19e5"
   integrity sha512-yV+gqbd5vaOYjqlbk16EG89xB5udgjqQF3C5FAORDg4f/IS1Yc5ERCv5e/57yBcfJYw05V5JyIXabhwb75Xxow==
 
-javascript-time-ago@^2.0.2, javascript-time-ago@^2.0.6:
-  version "2.0.6"
-  resolved "https://registry.yarnpkg.com/javascript-time-ago/-/javascript-time-ago-2.0.6.tgz#5d5443fb5a916f498f2dd05d1d39e098cfb9d8a7"
-  integrity sha512-5o5r22LYAMFIdwgUjFcn2EeDH4+vDPRcel57ViHx6pXjd84/btDSyyGKhp9hj8ntH0035NW50FD7TiINxuBTDA==
+javascript-time-ago@^2.0.2, javascript-time-ago@^2.0.7:
+  version "2.0.7"
+  resolved "https://registry.npmjs.org/javascript-time-ago/-/javascript-time-ago-2.0.7.tgz#ed3e4cfae7059d1c3ecc0e7fc253427f0e120636"
+  integrity sha512-NjM8FNqY91lciAE4bIm6KBW1efDt+0T6+08erwaQRu6SzLov8fJ6623LcyxnBN/Xtf4q9O4s5AMxPtStaNz0rA==
   dependencies:
     relative-time-format "^0.1.3"
 
