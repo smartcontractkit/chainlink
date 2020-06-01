@@ -302,6 +302,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function latestAnswer()
     external
+    view
     virtual
     override
     returns (int256)
@@ -315,6 +316,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function latestTimestamp()
     external
+    view
     virtual
     override
     returns (uint256)
@@ -328,6 +330,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function latestRound()
     external
+    view
     override
     returns (uint256)
   {
@@ -352,6 +355,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function getAnswer(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (int256)
@@ -366,6 +370,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (uint256)
@@ -393,6 +398,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   function getRoundData(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (
@@ -429,6 +435,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
    function latestRoundData()
     external
+    view
     virtual
     override
     returns (
