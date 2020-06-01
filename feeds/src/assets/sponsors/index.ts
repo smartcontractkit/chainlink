@@ -15,6 +15,8 @@ import paraswap from './paraswap.png'
 import mcdex from './mcdex.png'
 import futureswap from './futureswap.png'
 import linkpool from './linkpool.png'
+import opium from './opium.png'
+import theforceprotocol from './theforceprotocol.png'
 
 // Listing Thumbnails
 
@@ -33,6 +35,8 @@ import paraswapTn from './paraswap_tn.png'
 import mcdexTn from './mcdex_tn.png'
 import futureswapTn from './futureswap_tn.png'
 import linkpoolTn from './linkpool_tn.png'
+import opiumTn from './opium_tn.png'
+import theforceprotocolTn from './theforceprotocol_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -131,5 +135,17 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://www.linkpool.io',
     imageLg: linkpool,
     imageTn: linkpoolTn,
+  },
+  {
+    name: 'Opium.exchange',
+    url: 'https://trade.opium.exchange/',
+    imageLg: opium,
+    imageTn: opiumTn,
+  },
+  {
+    name: 'The Force Protocol',
+    url: 'https://www.theforceprotocol.com',
+    imageLg: theforceprotocol,
+    imageTn: theforceprotocolTn,
   },
 ]

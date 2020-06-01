@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -21,8 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
@@ -48,7 +45,7 @@ func TestRandom_Perform(t *testing.T) {
 	require.NoError(t, err) // Can't fail
 	jsonInput, err = jsonInput.Add("keyHash", publicKey.MustHash().Hex())
 	require.NoError(t, err) // Can't fail
-	input := models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
+	input := models.NewRunInput(&models.ID{}, models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proof := hexutil.MustDecode(result.Result().String())
@@ -65,7 +62,7 @@ func TestRandom_Perform(t *testing.T) {
 			"in RandomValueFromVRFProof has changed?")
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
-	input = models.NewRunInput(&models.ID{}, jsonInput, models.RunStatusUnstarted)
+	input = models.NewRunInput(&models.ID{}, models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result = adapter.Perform(*input, store)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }

@@ -1,6 +1,6 @@
 pragma solidity 0.4.24;
 
-import "./interfaces/AggregatorInterface.sol";
+import "./interfaces/HistoricAggregatorInterface.sol";
 import "./vendor/Ownable.sol";
 
 /**
@@ -9,9 +9,9 @@ import "./vendor/Ownable.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, Ownable {
+contract AggregatorProxy is HistoricAggregatorInterface, Ownable {
 
-  AggregatorInterface public aggregator;
+  HistoricAggregatorInterface public aggregator;
 
   constructor(address _aggregator) public Ownable() {
     setAggregator(_aggregator);
@@ -22,7 +22,6 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function latestAnswer()
     external
-    view
     returns (int256)
   {
     return aggregator.latestAnswer();
@@ -33,7 +32,6 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function latestTimestamp()
     external
-    view
     returns (uint256)
   {
     return aggregator.latestTimestamp();
@@ -45,7 +43,6 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function getAnswer(uint256 _roundId)
     external
-    view
     returns (int256)
   {
     return aggregator.getAnswer(_roundId);
@@ -57,7 +54,6 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function getTimestamp(uint256 _roundId)
     external
-    view
     returns (uint256)
   {
     return aggregator.getTimestamp(_roundId);
@@ -68,7 +64,6 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
    */
   function latestRound()
     external
-    view
     returns (uint256)
   {
     return aggregator.latestRound();
@@ -82,7 +77,7 @@ contract AggregatorProxy is AggregatorInterface, Ownable {
     public
     onlyOwner()
   {
-    aggregator = AggregatorInterface(_aggregator);
+    aggregator = HistoricAggregatorInterface(_aggregator);
   }
 
   /**

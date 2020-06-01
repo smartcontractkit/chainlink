@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -14,13 +13,13 @@ import (
 
 // NewLockingStrategy returns the locking strategy for a particular dialect
 // to ensure exlusive access to the orm.
-func NewLockingStrategy(dialect DialectName, dbpath string, advisoryLockID int64) (LockingStrategy, error) {
-	switch dialect {
-	case DialectPostgres, DialectTransactionWrappedPostgres:
-		return NewPostgresLockingStrategy(dbpath, advisoryLockID)
+func NewLockingStrategy(ct Connection) (LockingStrategy, error) {
+	switch ct.name {
+	case DialectPostgres, DialectPostgresWithoutLock, DialectTransactionWrappedPostgres:
+		return NewPostgresLockingStrategy(ct)
 	}
 
-	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", dialect, dbpath)
+	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", ct.dialect, ct.uri)
 }
 
 // LockingStrategy employs the locking and unlocking of an underlying
@@ -30,29 +29,20 @@ type LockingStrategy interface {
 	Unlock(timeout models.Duration) error
 }
 
-func normalizedTimeout(timeout time.Duration) <-chan time.Time {
-	if timeout == 0 {
-		return make(chan time.Time) // never time out
-	}
-	return time.After(timeout)
-}
-
 // PostgresLockingStrategy uses a postgres advisory lock to ensure exclusive
 // access.
 type PostgresLockingStrategy struct {
-	db             *sql.DB
-	conn           *sql.Conn
-	path           string
-	m              *sync.Mutex
-	advisoryLockID int64
+	db     *sql.DB
+	conn   *sql.Conn
+	m      *sync.Mutex
+	config Connection
 }
 
 // NewPostgresLockingStrategy returns a new instance of the PostgresLockingStrategy.
-func NewPostgresLockingStrategy(path string, advisoryLockID int64) (LockingStrategy, error) {
+func NewPostgresLockingStrategy(ct Connection) (LockingStrategy, error) {
 	return &PostgresLockingStrategy{
-		m:              &sync.Mutex{},
-		path:           path,
-		advisoryLockID: advisoryLockID,
+		config: ct,
+		m:      &sync.Mutex{},
 	}, nil
 }
 
@@ -70,7 +60,7 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.conn == nil {
-		db, err := sql.Open(string(DialectPostgres), s.path)
+		db, err := sql.Open(string(DialectPostgres), s.config.uri)
 		if err != nil {
 			return err
 		}
@@ -85,9 +75,11 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 		s.conn = conn
 	}
 
-	_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", s.advisoryLockID)
-	if err != nil {
-		return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.advisoryLockID)
+	if s.config.locking {
+		_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", s.config.advisoryLockID)
+		if err != nil {
+			return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.config.advisoryLockID)
+		}
 	}
 	return nil
 }

@@ -8,13 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -115,6 +112,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	oracleList := []common.Address{f.neil.From, f.ned.From, f.nallory.From}
 	_, err = f.aggregatorContract.AddOracles(
 		f.sergey, oracleList, oracleList, 2, 3, 2)
+	assert.NoError(t, err, "failed to add oracles to aggregator")
 	f.backend.Commit()
 	iaddedLogs, err := f.aggregatorContract.FilterOraclePermissionsUpdated(
 		nil, oracleList, []bool{true})
@@ -228,7 +226,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 }
 
 type maliciousFluxMonitor interface {
-	XXXTestingOnlyCreateJob(t *testing.T, jobSpecId *models.ID,
+	CreateJob(t *testing.T, jobSpecId *models.ID,
 		polledAnswer decimal.Decimal, nextRound *big.Int) error
 }
 
@@ -329,12 +327,11 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	//- have the malicious node try to start another round repeatedly until the
 	//roundDelay is reached, making sure that it isn't successful
-	checkNewRoundBlocked(t, reportPrice, answer, submissionReceived, timeout)
 	newRound = newRound + 1
 	processedAnswer = 100 * reportPrice
 	precision := job.Initiators[0].InitiatorParams.Precision
 	// FORCE node to try to start a new round
-	err = app.FluxMonitor.(maliciousFluxMonitor).XXXTestingOnlyCreateJob(t, j.ID,
+	err = app.FluxMonitor.(maliciousFluxMonitor).CreateJob(t, j.ID,
 		decimal.New(processedAnswer, precision), big.NewInt(newRound))
 	require.NoError(t, err)
 	select {
@@ -361,30 +358,4 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	case <-time.After(5 * timeout):
 		t.Fatalf("could not start a new round, even though delay has passed")
 	}
-}
-
-// checkNewRoundBlocked fails if the simulated node in
-// TestFluxMonitorAntiSpamLogic can start a new round.
-//
-// NOTE: THIS OVERRIDES LOG_LEVEL ENVIRONMENT VARIABLE FOR THE DURATION OF THIS
-// FUNCTION.
-func checkNewRoundBlocked(t *testing.T, reportPrice, answer int64,
-	submissionReceived chan *faw.FluxAggregatorSubmissionReceived,
-	timeout time.Duration) {
-	// Set logger to debug-level output to the memory sink, so that we can check
-	// the round is skipped for the right reason.
-	currentLogger := logger.GetLogger().SugaredLogger
-	defer logger.SetLogger(currentLogger.Desugar())
-	logger.SetLogger(cltest.CreateMemoryTestLogger(zapcore.DebugLevel))
-	// Triggers a new round, since price deviation exceeds threshold
-	reportPrice = answer + 1
-	select {
-	case <-submissionReceived:
-		t.Fatalf("chainlink node updated FA, even though it's not allowed to")
-	case <-time.After(5 * timeout):
-	}
-	chkLog := func() string { return cltest.MemoryLogTestingOnly().String() }
-	gomega.NewGomegaWithT(t).Eventually(chkLog).Should(gomega.ContainSubstring(
-		"skipping poll: not eligible to submit"), "did not see log about skipping "+
-		"poll because it's too early")
 }

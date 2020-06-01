@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -128,7 +127,7 @@ func (j JobSpec) InitiatorsFor(types ...string) []Initiator {
 func (j JobSpec) InitiatorExternal(name string) *Initiator {
 	var found *Initiator
 	for _, i := range j.InitiatorsFor(InitiatorExternal) {
-		if strings.ToLower(i.Name) == strings.ToLower(name) {
+		if strings.EqualFold(i.Name, name) {
 			found = &i
 			break
 		}
@@ -192,8 +191,8 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID        uint32 `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID *ID    `json:"jobSpecId"`
+	ID        int64 `json:"id" gorm:"primary_key;auto_increment"`
+	JobSpecID *ID   `json:"jobSpecId"`
 
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
@@ -255,7 +254,7 @@ func (ptc *PollTimerConfig) Scan(value interface{}) error {
 	}
 	b, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Invalid Scan Source")
+		return fmt.Errorf("invalid Scan Source")
 	}
 	return json.Unmarshal(b, ptc)
 }
@@ -286,7 +285,7 @@ func (itc *IdleTimerConfig) Scan(value interface{}) error {
 	}
 	b, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Invalid Scan Source")
+		return fmt.Errorf("invalid Scan Source")
 	}
 	return json.Unmarshal(b, itc)
 }
@@ -305,7 +304,7 @@ func (t *Topics) Scan(value interface{}) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Topics", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Topics", value, value)
 	}
 }
 
@@ -354,11 +353,14 @@ type Feeds = JSON
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	gorm.Model
+	ID                               int64         `gorm:"primary_key"`
 	JobSpecID                        *ID           `json:"-"`
 	Type                             TaskType      `json:"type" gorm:"index;not null"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	Params                           JSON          `json:"params" gorm:"type:text"`
+	CreatedAt                        time.Time
+	UpdatedAt                        time.Time
+	DeletedAt                        *time.Time
 }
 
 // TaskType defines what Adapter a TaskSpec will use.
@@ -368,7 +370,7 @@ type TaskType string
 func NewTaskType(val string) (TaskType, error) {
 	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
 	if !re.MatchString(val) {
-		return TaskType(""), fmt.Errorf("Task Type validation: name %v contains invalid characters", val)
+		return TaskType(""), fmt.Errorf("task type validation: name %v contains invalid characters", val)
 	}
 
 	return TaskType(strings.ToLower(val)), nil
@@ -413,7 +415,7 @@ func (t TaskType) Value() (driver.Value, error) {
 func (t *TaskType) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to TaskType", value, value)
+		return fmt.Errorf("unable to convert %v of %T to TaskType", value, value)
 	}
 
 	*t = TaskType(temp)

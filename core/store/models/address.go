@@ -82,7 +82,7 @@ func (a *EIP55Address) Scan(value interface{}) error {
 		address := common.HexToAddress("0x" + hex.EncodeToString(v))
 		*a = EIP55Address(address.Hex())
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to EIP55Address", value, value)
+		return fmt.Errorf("unable to convert %v of %T to EIP55Address", value, value)
 	}
 	return nil
 }
@@ -105,7 +105,7 @@ func (c EIP55AddressCollection) Value() (driver.Value, error) {
 func (c *EIP55AddressCollection) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to EIP55AddressCollection", value, value)
+		return fmt.Errorf("unable to convert %v of %T to EIP55AddressCollection", value, value)
 	}
 
 	arr := strings.Split(temp, ",")

@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/araddon/dateparse"
-	"github.com/jinzhu/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
@@ -138,7 +137,7 @@ func (s *RunStatus) Scan(value interface{}) error {
 	case string:
 		*s = RunStatus(v)
 	default:
-		return fmt.Errorf("Unable to convert %#v of %T to RunStatus", value, value)
+		return fmt.Errorf("unable to convert %#v of %T to RunStatus", value, value)
 	}
 	return nil
 }
@@ -166,7 +165,7 @@ func (j *JSON) Scan(value interface{}) error {
 	case []byte:
 		*j = JSON{Result: gjson.ParseBytes(v)}
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to JSON", value, value)
+		return fmt.Errorf("unable to convert %v of %T to JSON", value, value)
 	}
 	return nil
 }
@@ -266,7 +265,7 @@ func (j JSON) CBOR() ([]byte, error) {
 		return cbor.Marshal(v)
 	default:
 		var b []byte
-		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
+		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
 	}
 }
 
@@ -314,7 +313,7 @@ func (w WebURL) Value() (driver.Value, error) {
 func (w *WebURL) Scan(value interface{}) error {
 	s, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to WebURL", value, value)
+		return fmt.Errorf("unable to convert %v of %T to WebURL", value, value)
 	}
 
 	u, err := url.ParseRequestURI(s)
@@ -410,7 +409,7 @@ func (t *AnyTime) Scan(value interface{}) error {
 		t.Valid = false
 		return nil
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Time", value, value)
 	}
 }
 
@@ -569,7 +568,7 @@ func (r AddressCollection) Value() (driver.Value, error) {
 func (r *AddressCollection) Scan(value interface{}) error {
 	str, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to AddressCollection", value, value)
+		return fmt.Errorf("unable to convert %v of %T to AddressCollection", value, value)
 	}
 
 	if len(str) == 0 {
@@ -587,9 +586,12 @@ func (r *AddressCollection) Scan(value interface{}) error {
 
 // Configuration stores key value pairs for overriding global configuration
 type Configuration struct {
-	gorm.Model
-	Name  string `gorm:"not null;unique;index"`
-	Value string `gorm:"not null"`
+	ID        int64  `gorm:"primary_key"`
+	Name      string `gorm:"not null;unique;index"`
+	Value     string `gorm:"not null"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
 // Merge returns a new map with all keys merged from right to left

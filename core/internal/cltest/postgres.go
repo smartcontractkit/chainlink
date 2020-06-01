@@ -5,12 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"testing"
 
+	"github.com/jinzhu/gorm"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// DropAndCreateThrowawayTestDB takes a database URL and appends the postfix to create a new database
-func DropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {
+func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {
 	parsed, err := url.Parse(databaseURL)
 	if err != nil {
 		return "", err
@@ -44,4 +50,30 @@ func DropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, e
 	}
 	parsed.Path = fmt.Sprintf("/%s", dbname)
 	return parsed.String(), nil
+}
+
+// BootstrapThrowawayORM creates an ORM which runs in a separate database
+// than the normal unit tests, so it you can do things like use other
+// Postgres connection types with it.
+func BootstrapThrowawayORM(t *testing.T, name string, migrate bool) (*TestConfig, *orm.ORM, func()) {
+	tc, cleanup := NewConfig(t)
+	config := tc.Config
+
+	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
+	dbName := fmt.Sprintf("rebroadcast_txs_%s", name)
+	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), dbName)
+	require.NoError(t, err)
+	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), orm.DialectPostgres, config.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	orm.SetLogging(true)
+	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
+	if migrate {
+		require.NoError(t, orm.RawDB(func(db *gorm.DB) error { return migrations.Migrate(db) }))
+	}
+
+	return tc, orm, func() {
+		assert.NoError(t, orm.Close())
+		cleanup()
+		os.RemoveAll(config.RootDir())
+	}
 }

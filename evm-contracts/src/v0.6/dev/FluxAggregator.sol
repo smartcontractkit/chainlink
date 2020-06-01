@@ -6,7 +6,7 @@ import "./SafeMath128.sol";
 import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "./AggregatorInterface.sol";
+import "../interfaces/AggregatorInterface.sol";
 import "../Owned.sol";
 
 /**
@@ -81,7 +81,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * funds without the owner's intervention.)
    */
   uint256 constant private RESERVE_ROUNDS = 2;
-  uint256 constant private MAX_ORACLE_COUNT = 42;
+  uint256 constant private MAX_ORACLE_COUNT = 77;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
@@ -298,6 +298,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice get the most recently reported answer
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
     external
@@ -310,6 +311,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice get the most recent updated at timestamp
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
     external
@@ -322,6 +324,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
   /**
    * @notice get the ID of the last updated round
+   * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
     external
@@ -345,6 +348,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice get past rounds answers
    * @param _roundId the round number to retrieve the answer for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
     external
@@ -358,6 +362,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   /**
    * @notice get timestamp when an answer was last updated
    * @param _roundId the round number to retrieve the updated timestamp for
+   * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
     external
@@ -461,6 +466,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(oracles[_oracle].admin == msg.sender, "only callable by admin");
 
+    // Safe to downcast _amount because the total amount of LINK is less than 2^128.
     uint128 amount = uint128(_amount);
     uint128 available = oracles[_oracle].withdrawable;
     require(available >= amount, "insufficient withdrawable funds");

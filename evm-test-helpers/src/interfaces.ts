@@ -1,19 +1,19 @@
 export type AggregatorInterface =
-  | 'getAnswer'
-  | 'latestAnswer'
-  | 'getRoundData'
-  | 'latestRoundData'
-  | 'latestRound'
-  | 'latestTimestamp'
-  | 'getTimestamp'
   | 'decimals'
+  | 'getAnswer'
+  | 'getRoundData'
+  | 'getTimestamp'
+  | 'latestAnswer'
+  | 'latestRound'
+  | 'latestRoundData'
+  | 'latestTimestamp'
 export const AggregatorMethodList: Array<string> = [
-  'getAnswer',
-  'latestAnswer',
-  'getRoundData',
-  'latestRoundData',
-  'latestRound',
-  'latestTimestamp',
-  'getTimestamp',
   'decimals',
+  'getAnswer',
+  'getRoundData',
+  'getTimestamp',
+  'latestAnswer',
+  'latestRound',
+  'latestRoundData',
+  'latestTimestamp',
 ]

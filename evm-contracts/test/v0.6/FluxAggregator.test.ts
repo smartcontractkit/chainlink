@@ -3,10 +3,9 @@ import {
   helpers as h,
   matchers,
   setup,
-  interfaces,
+  wallet,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { randomBytes } from 'crypto'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
@@ -33,10 +32,7 @@ describe('FluxAggregator', () => {
   const description = 'LINK/USD'
   const reserveRounds = 2
 
-  type AggregatorType = contract.CallableOverrideInstance<
-    FluxAggregatorFactory,
-    interfaces.AggregatorInterface
-  >
+  type AggregatorType = contract.CallableOverrideInstance<FluxAggregatorFactory>
   let aggregator: AggregatorType
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
@@ -168,7 +164,7 @@ describe('FluxAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = contract.callable(
+    aggregator = contract.callableAggregator(
       await fluxAggregatorFactory
         .connect(personas.Carol)
         .deploy(
@@ -178,7 +174,6 @@ describe('FluxAggregator', () => {
           decimals,
           ethers.utils.formatBytes32String(description),
         ),
-      interfaces.AggregatorMethodList,
     )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
@@ -1057,23 +1052,75 @@ describe('FluxAggregator', () => {
       })
     })
 
-    const limit = 42
+    const limit = 77
     describe(`when adding more than ${limit} oracles`, () => {
-      it('reverts', async () => {
+      let oracles: ethers.Wallet[]
+
+      beforeEach(async () => {
+        oracles = []
+        for (let i = 0; i < limit; i++) {
+          const account = await wallet.createWallet(provider, i + 100)
+          await personas.Default.sendTransaction({
+            to: account.address,
+            value: h.toWei('0.01'),
+          })
+          oracles.push(account)
+        }
+
         await link.transfer(
           aggregator.address,
           paymentAmount.mul(limit).mul(reserveRounds),
         )
         await aggregator.updateAvailableFunds()
 
-        for (let i = 0; i < limit; i++) {
-          const minMax = i + 1
-          const fakeAddress = h.addHexPrefix(randomBytes(20).toString('hex'))
+        let addresses = oracles.slice(0, 50).map(o => o.address)
+        await aggregator
+          .connect(personas.Carol)
+          .addOracles(addresses, addresses, 1, 50, rrDelay)
+        // add in two transactions to avoid gas limit issues
+        addresses = oracles.slice(50, 100).map(o => o.address)
+        await aggregator
+          .connect(personas.Carol)
+          .addOracles(addresses, addresses, 1, oracles.length, rrDelay)
+      })
 
-          await aggregator
-            .connect(personas.Carol)
-            .addOracles([fakeAddress], [fakeAddress], minMax, minMax, rrDelay)
+      it('not use too much gas', async () => {
+        let tx: any
+        assert.deepEqual(
+          // test adveserial quickselect algo
+          [2, 4, 6, 8, 10, 12, 14, 16, 1, 9, 5, 11, 3, 13, 7, 15],
+          adverserialQuickselectList(16),
+        )
+        const inputs = adverserialQuickselectList(limit)
+        for (let i = 0; i < limit; i++) {
+          tx = await aggregator.connect(oracles[i]).submit(nextRound, inputs[i])
         }
+        assert(!!tx)
+        if (tx) {
+          const receipt = await tx.wait()
+          assert.isAbove(400_000, receipt.gasUsed.toNumber())
+        }
+      })
+
+      function adverserialQuickselectList(len: number): number[] {
+        const xs: number[] = []
+        const pi: number[] = []
+        for (let i = 0; i < len; i++) {
+          pi[i] = i
+          xs[i] = 0
+        }
+
+        for (let l = len; l > 0; l--) {
+          const pivot = Math.floor((l - 1) / 2)
+          xs[pi[pivot]] = l
+          const temp = pi[l - 1]
+          pi[l - 1] = pi[pivot]
+          pi[pivot] = temp
+        }
+        return xs
+      }
+
+      it('reverts when another oracle is added', async () => {
         await matchers.evmRevert(
           aggregator
             .connect(personas.Carol)

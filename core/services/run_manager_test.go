@@ -875,7 +875,7 @@ func TestRunManager_ValidateRun_PaymentBelowThreshold(t *testing.T) {
 
 	assert.Equal(t, models.RunStatusErrored, run.GetStatus())
 
-	expectedErrorMsg := fmt.Sprintf("Rejecting job %s with payment 1 below minimum threshold (2)", jobSpecID)
+	expectedErrorMsg := fmt.Sprintf("rejecting job %s with payment 1 below minimum threshold (2)", jobSpecID)
 	assert.Equal(t, expectedErrorMsg, run.Result.ErrorMessage.String)
 }
 

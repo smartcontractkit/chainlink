@@ -56,7 +56,7 @@ func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (eth.CallerSubsc
 		return nil, err
 	}
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, fmt.Errorf("Ethereum url scheme must be websocket: %s", parsed.String())
+		return nil, fmt.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 	return &lazyRPCWrapper{
 		url:         parsed,
@@ -107,7 +107,7 @@ func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	wrapper.limiter.Wait(ctx)
 
@@ -138,12 +138,8 @@ func (ed *EthDialer) Dial(urlString string) (eth.CallerSubscriber, error) {
 
 // NewStore will create a new store using the Eth dialer
 func NewStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
-	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()), shutdownSignal)
-}
-
-// NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(config *orm.Config, dialer Dialer, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
+	dialer := NewEthDialer(config.MaxRPCCallsPerSecond())
 	return newStoreWithDialerAndKeyStore(config, dialer, keyStore, shutdownSignal)
 }
 
@@ -163,7 +159,7 @@ func newStoreWithDialerAndKeyStore(
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
 
-	err := utils.EnsureDirAndPerms(config.RootDir(), os.FileMode(0700))
+	err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGasUpdater_OnNewHead_whenDisabledDoesNothing(t *testing.T) {
+func TestGasUpdater_OnNewLongestChain_whenDisabledDoesNothing(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "false")
 	store, cleanup := cltest.NewStoreWithConfig(config)
@@ -22,13 +22,13 @@ func TestGasUpdater_OnNewHead_whenDisabledDoesNothing(t *testing.T) {
 	gu := services.NewGasUpdater(store)
 	head := cltest.Head(0)
 
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 
 	// No mock calls
 	txm.AssertExpectations(t)
 }
 
-func TestGasUpdater_OnNewHead_WithCurrentBlockHeightLessThanBlockDelayDoesNothing(t *testing.T) {
+func TestGasUpdater_OnNewLongestChain_WithCurrentBlockHeightLessThanBlockDelayDoesNothing(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "true")
 	config.Set("GAS_UPDATER_BLOCK_DELAY", "3")
@@ -40,14 +40,14 @@ func TestGasUpdater_OnNewHead_WithCurrentBlockHeightLessThanBlockDelayDoesNothin
 
 	for i := -1; i < 3; i++ {
 		head := cltest.Head(i)
-		gu.OnNewHead(head)
+		gu.OnNewLongestChain(*head)
 	}
 
 	// No mock calls
 	txm.AssertExpectations(t)
 }
 
-func TestGasUpdater_OnNewHead_WithErrorRetrievingBlockDoesNothing(t *testing.T) {
+func TestGasUpdater_OnNewLongestChain_WithErrorRetrievingBlockDoesNothing(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "true")
 	store, cleanup := cltest.NewStoreWithConfig(config)
@@ -60,11 +60,11 @@ func TestGasUpdater_OnNewHead_WithErrorRetrievingBlockDoesNothing(t *testing.T) 
 
 	head := cltest.Head(3)
 
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 	txm.AssertExpectations(t)
 }
 
-func TestGasUpdater_OnNewHead_AddsBlockToBlockHistory(t *testing.T) {
+func TestGasUpdater_OnNewLongestChain_AddsBlockToBlockHistory(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "true")
 	store, cleanup := cltest.NewStoreWithConfig(config)
@@ -75,14 +75,14 @@ func TestGasUpdater_OnNewHead_AddsBlockToBlockHistory(t *testing.T) {
 
 	txm.On("GetBlockByNumber", "0x0").Return(cltest.BlockWithTransactions(), nil)
 	head := cltest.Head(3)
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 
 	// Empty blocks are not added
 	assert.Len(t, gu.RollingBlockHistory(), 0)
 
 	txm.On("GetBlockByNumber", "0x1").Return(cltest.BlockWithTransactions(20000), nil)
 	head = cltest.Head(4)
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 
 	// Blocks with transactions are added
 	assert.Len(t, gu.RollingBlockHistory(), 1)
@@ -90,7 +90,7 @@ func TestGasUpdater_OnNewHead_AddsBlockToBlockHistory(t *testing.T) {
 	txm.AssertExpectations(t)
 }
 
-func TestGasUpdater_OnNewHead_DoesNotOverflowBlockHistory(t *testing.T) {
+func TestGasUpdater_OnNewLongestChain_DoesNotOverflowBlockHistory(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "true")
 	config.Set("GAS_UPDATER_BLOCK_DELAY", "3")
@@ -104,18 +104,18 @@ func TestGasUpdater_OnNewHead_DoesNotOverflowBlockHistory(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		txm.On("GetBlockByNumber", fmt.Sprintf("0x%v", i)).Return(cltest.BlockWithTransactions(42), nil)
 		head := cltest.Head(i + 3)
-		gu.OnNewHead(head)
+		gu.OnNewLongestChain(*head)
 		assert.Len(t, gu.RollingBlockHistory(), i+1)
 	}
 
 	txm.On("GetBlockByNumber", "0x5").Return(cltest.BlockWithTransactions(42), nil)
 	head := cltest.Head(8)
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 
 	assert.Len(t, gu.RollingBlockHistory(), 5)
 }
 
-func TestGasUpdater_OnNewHead_SetsGlobalGasPriceWhenHistoryFull(t *testing.T) {
+func TestGasUpdater_OnNewLongestChain_SetsGlobalGasPriceWhenHistoryFull(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "true")
 	config.Set("GAS_UPDATER_BLOCK_DELAY", "0")
@@ -132,20 +132,20 @@ func TestGasUpdater_OnNewHead_SetsGlobalGasPriceWhenHistoryFull(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		txm.On("GetBlockByNumber", fmt.Sprintf("0x%v", i)).Return(cltest.BlockWithTransactions(uint64((1+i)*100)), nil)
 		head := cltest.Head(i)
-		gu.OnNewHead(head)
+		gu.OnNewLongestChain(*head)
 		assert.Len(t, gu.RollingBlockHistory(), i+1)
 		assert.Equal(t, big.NewInt(42), config.EthGasPriceDefault())
 	}
 
 	txm.On("GetBlockByNumber", "0x3").Return(cltest.BlockWithTransactions(200, 300, 100, 100, 100, 100), nil)
 	head := cltest.Head(3)
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 
 	assert.Len(t, gu.RollingBlockHistory(), 3)
 	assert.Equal(t, big.NewInt(100), config.EthGasPriceDefault())
 }
 
-func TestGasUpdater_OnNewHead_WillNotSetGasHigherThanEthMaxGasPriceWei(t *testing.T) {
+func TestGasUpdater_OnNewLongestChain_WillNotSetGasHigherThanEthMaxGasPriceWei(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "true")
 	config.Set("GAS_UPDATER_BLOCK_DELAY", "0")
@@ -161,13 +161,13 @@ func TestGasUpdater_OnNewHead_WillNotSetGasHigherThanEthMaxGasPriceWei(t *testin
 
 	txm.On("GetBlockByNumber", "0x0").Return(cltest.BlockWithTransactions(9001), nil)
 	head := cltest.Head(0)
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 	assert.Len(t, gu.RollingBlockHistory(), 1)
 	assert.Equal(t, big.NewInt(42), config.EthGasPriceDefault())
 
 	txm.On("GetBlockByNumber", "0x1").Return(cltest.BlockWithTransactions(9002), nil)
 	head = cltest.Head(1)
-	gu.OnNewHead(head)
+	gu.OnNewLongestChain(*head)
 
 	assert.Equal(t, big.NewInt(42), config.EthGasPriceDefault())
 }

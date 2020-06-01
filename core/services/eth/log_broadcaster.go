@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -58,11 +59,11 @@ type logBroadcaster struct {
 }
 
 // NewLogBroadcaster creates a new instance of the logBroadcaster
-func NewLogBroadcaster(ethClient eth.Client, orm *orm.ORM, backfillDepth uint64) LogBroadcaster {
+func NewLogBroadcaster(store *store.Store) LogBroadcaster {
 	return &logBroadcaster{
-		ethClient:        ethClient,
-		orm:              orm,
-		backfillDepth:    backfillDepth,
+		ethClient:        store.TxManager,
+		orm:              store.ORM,
+		backfillDepth:    store.Config.BlockBackfillDepth(),
 		listeners:        make(map[common.Address]map[LogListener]struct{}),
 		chAddListener:    make(chan registration),
 		chRemoveListener: make(chan registration),
@@ -360,11 +361,8 @@ func (b *logBroadcaster) onAddListener(r registration) (needsResubscribe bool) {
 	}
 	b.listeners[r.address][r.listener] = struct{}{}
 
-	if !knownAddress {
-		// Recreate the subscription with the new contract address
-		return true
-	}
-	return false
+	// Recreate the subscription with the new contract address
+	return !knownAddress
 }
 
 func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool) {

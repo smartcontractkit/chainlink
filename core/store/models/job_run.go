@@ -27,23 +27,23 @@ var (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             *ID           `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      *ID           `json:"jobId"`
-	Result         RunResult     `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
-	ResultID       clnull.Uint32 `json:"-"`
-	RunRequest     RunRequest    `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
-	RunRequestID   clnull.Uint32 `json:"-"`
-	Status         RunStatus     `json:"status" gorm:"default:'unstarted'"`
-	TaskRuns       []TaskRun     `json:"taskRuns"`
-	CreatedAt      time.Time     `json:"createdAt"`
-	FinishedAt     null.Time     `json:"finishedAt"`
-	UpdatedAt      time.Time     `json:"updatedAt"`
-	Initiator      Initiator     `json:"initiator" gorm:"foreignkey:InitiatorID;association_autoupdate:false;association_autocreate:false"`
-	InitiatorID    uint32        `json:"-"`
-	CreationHeight *utils.Big    `json:"creationHeight"`
-	ObservedHeight *utils.Big    `json:"observedHeight"`
-	DeletedAt      null.Time     `json:"-"`
-	Payment        *assets.Link  `json:"payment,omitempty"`
+	ID             *ID          `json:"id" gorm:"primary_key;not null"`
+	JobSpecID      *ID          `json:"jobId"`
+	Result         RunResult    `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
+	ResultID       clnull.Int64 `json:"-"`
+	RunRequest     RunRequest   `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
+	RunRequestID   clnull.Int64 `json:"-"`
+	Status         RunStatus    `json:"status" gorm:"default:'unstarted'"`
+	TaskRuns       []TaskRun    `json:"taskRuns"`
+	CreatedAt      time.Time    `json:"createdAt"`
+	FinishedAt     null.Time    `json:"finishedAt"`
+	UpdatedAt      time.Time    `json:"updatedAt"`
+	Initiator      Initiator    `json:"initiator" gorm:"foreignkey:InitiatorID;association_autoupdate:false;association_autocreate:false"`
+	InitiatorID    int64        `json:"-"`
+	CreationHeight *utils.Big   `json:"creationHeight"`
+	ObservedHeight *utils.Big   `json:"observedHeight"`
+	DeletedAt      null.Time    `json:"-"`
+	Payment        *assets.Link `json:"payment,omitempty"`
 }
 
 // MakeJobRun returns a new JobRun copy
@@ -221,7 +221,7 @@ func (jr *JobRun) ErrorString() string {
 
 // RunRequest stores the fields used to initiate the parent job run.
 type RunRequest struct {
-	ID            uint32 `gorm:"primary_key"`
+	ID            int64 `gorm:"primary_key"`
 	RequestID     *common.Hash
 	TxHash        *common.Hash
 	BlockHash     *common.Hash
@@ -245,7 +245,7 @@ type TaskRun struct {
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
 	TaskSpec                         TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
-	TaskSpecID                       uint          `json:"-"`
+	TaskSpecID                       int64         `json:"-"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
 	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	CreatedAt                        time.Time     `json:"-"`
@@ -285,7 +285,7 @@ func (tr *TaskRun) ApplyOutput(result RunOutput) {
 // RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
 // Data and ErrorMessage.
 type RunResult struct {
-	ID           uint32      `json:"-" gorm:"primary_key;auto_increment"`
+	ID           int64       `json:"-" gorm:"primary_key;auto_increment"`
 	Data         JSON        `json:"data" gorm:"type:text"`
 	ErrorMessage null.String `json:"error"`
 	CreatedAt    time.Time   `json:"-"`
