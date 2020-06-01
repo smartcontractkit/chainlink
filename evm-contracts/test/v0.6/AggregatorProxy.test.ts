@@ -223,7 +223,7 @@ describe('AggregatorProxy', () => {
         beforeEach(async () => {
           const facade = await aggregatorFacadeFactory
             .connect(defaultAccount)
-            .deploy(aggregator.address, 18)
+            .deploy(aggregator.address, 18, 'LINK/USD: Aggregator Facade')
           await proxy.setAggregator(facade.address)
         })
 
@@ -305,7 +305,7 @@ describe('AggregatorProxy', () => {
         beforeEach(async () => {
           const facade = await aggregatorFacadeFactory
             .connect(defaultAccount)
-            .deploy(aggregator.address, 18)
+            .deploy(aggregator.address, 18, 'LINK/USD: Aggregator Facade')
           await proxy.setAggregator(facade.address)
         })
 

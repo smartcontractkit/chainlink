@@ -11,10 +11,17 @@ contract AggregatorFacade is AggregatorInterface {
 
   HistoricAggregatorInterface public aggregator;
   uint8 public override decimals;
+  string public description;
+  uint256 constant public version = 2;
 
-  constructor(address _aggregator, uint8 _decimals) public {
+  constructor(
+    address _aggregator,
+    uint8 _decimals,
+    string memory _description
+  ) public {
     aggregator = HistoricAggregatorInterface(_aggregator);
     decimals = _decimals;
+    description = _description;
   }
 
   /**
