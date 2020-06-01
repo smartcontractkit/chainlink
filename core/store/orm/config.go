@@ -68,7 +68,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		SecretGenerator: filePersistedSecretGenerator{},
 	}
 
-	if err := utils.EnsureDirAndPerms(config.RootDir(), os.FileMode(0700)); err != nil {
+	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		logger.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
 	}
 
@@ -139,6 +139,12 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// BlockBackfillDepth specifies the number of blocks before the current HEAD that the
+// log broadcaster will try to re-consume logs from
+func (c Config) BlockBackfillDepth() uint64 {
+	return c.viper.GetUint64(EnvVarName("BlockBackfillDepth"))
+}
+
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c Config) BridgeResponseURL() *url.URL {
 	return c.getWithFallback("BridgeResponseURL", parseURL).(*url.URL)
@@ -184,7 +190,7 @@ func (c Config) DefaultMaxHTTPAttempts() uint {
 	return c.viper.GetUint(EnvVarName("DefaultMaxHTTPAttempts"))
 }
 
-// DefaultHTTPLimit defines the limit for HTTP requests.
+// DefaultHTTPLimit defines the size limit for HTTP requests and responses
 func (c Config) DefaultHTTPLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("DefaultHTTPLimit"))
 }
@@ -565,7 +571,7 @@ func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	}
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
-	err := utils.WriteFileWithPerms(sessionPath, []byte(str), readWritePerms)
+	err := utils.WriteFileWithMaxPerms(sessionPath, []byte(str), readWritePerms)
 	return key, err
 }
 
@@ -579,13 +585,13 @@ func parseAddress(str string) (interface{}, error) {
 		val := common.BigToAddress(i)
 		return &val, nil
 	}
-	return nil, fmt.Errorf("Unable to parse '%s' into EIP55-compliant address", str)
+	return nil, fmt.Errorf("unable to parse '%s' into EIP55-compliant address", str)
 }
 
 func parseLink(str string) (interface{}, error) {
 	i, ok := new(assets.Link).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse '%v' into *assets.Link(base 10)", str)
+		return i, fmt.Errorf("unable to parse '%v' into *assets.Link(base 10)", str)
 	}
 	return i, nil
 }
@@ -608,7 +614,7 @@ func parseURL(s string) (interface{}, error) {
 func parseBigInt(str string) (interface{}, error) {
 	i, ok := new(big.Int).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse %v into *big.Int(base 10)", str)
+		return i, fmt.Errorf("unable to parse %v into *big.Int(base 10)", str)
 	}
 	return i, nil
 }

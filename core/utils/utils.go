@@ -99,7 +99,7 @@ func NullISO8601UTC(t null.Time) string {
 // DurationFromNow returns the amount of time since the Time
 // field was last updated.
 func DurationFromNow(t time.Time) time.Duration {
-	return t.Sub(time.Now())
+	return time.Until(t)
 }
 
 // FormatJSON applies indent to format a JSON response.
@@ -346,7 +346,7 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 		for k, v := range typed {
 			coercedKey, ok := k.(string)
 			if !ok {
-				return nil, fmt.Errorf("Unable to coerce key %T %v to a string", k, k)
+				return nil, fmt.Errorf("unable to coerce key %T %v to a string", k, k)
 			}
 			coerced, err := CoerceInterfaceMapToStringMap(v)
 			if err != nil {

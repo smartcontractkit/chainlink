@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -73,6 +74,29 @@ func TestORM_Unscoped(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJob()
+	job.Tasks = []models.TaskSpec{
+		models.TaskSpec{ Type: models.MustNewTaskType("task1") },
+		models.TaskSpec{ Type: models.MustNewTaskType("task2") },
+		models.TaskSpec{ Type: models.MustNewTaskType("task3") },
+		models.TaskSpec{ Type: models.MustNewTaskType("task4") },
+	}
+	assert.NoError(t, store.CreateJob(&job))
+
+	orm := store.ORM
+	retrievedJob, err := orm.FindJob(job.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
+	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")
+	assert.Equal(t, string(retrievedJob.Tasks[2].Type), "task3")
+	assert.Equal(t, string(retrievedJob.Tasks[3].Type), "task4")
 }
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
@@ -210,7 +234,7 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	// Restore the previous updated at to simulate a conflict
 	jr.UpdatedAt = updatedAt
 	jr.SetStatus(models.RunStatusInProgress)
-	assert.Equal(t, orm.OptimisticUpdateConflictError, store.SaveJobRun(&jr))
+	assert.Equal(t, orm.ErrOptimisticUpdateConflict, store.SaveJobRun(&jr))
 }
 
 func TestORM_JobRunsFor(t *testing.T) {
@@ -1154,6 +1178,7 @@ func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
 
 	createdTx := cltest.CreateTx(t, store, from, 1)
 	fetchedTx, fetchedTxAttempt, err := store.FindTxByAttempt(createdTx.Hash)
+	assert.NoError(t, err, "failed to find tx:%s in store", createdTx.Hash)
 
 	assert.Equal(t, createdTx.ID, fetchedTx.ID)
 	assert.Equal(t, createdTx.From, fetchedTx.From)
@@ -1207,36 +1232,6 @@ func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
 	assert.NotEqual(t, createdTx.GasPrice, pastTxAttempt.GasPrice)
 	assert.NotEqual(t, createdTx.SentAt, pastTxAttempt.SentAt)
 	assert.NotEqual(t, createdTx.SignedRawTx, pastTxAttempt.SignedRawTx)
-}
-
-func TestORM_DeduceDialect(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name, connection string
-		expect           orm.DialectName
-		wantError        bool
-	}{
-		// Old sqlite URLs included to verify that they error since sqlite
-		// support has been dropped
-		{"windows full path", `D:/node-0/node/db.sqlite3`, ``, true},
-		{"relative file", "db.sqlite", "", true},
-		{"relative dir path", "store/db/here", "", true},
-		{"file url", "file://host/path", "", true},
-		{"sqlite url", "sqlite:///path/to/sqlite.db", "", true},
-		{"sqlite3 url", "sqlite3:///path/to/sqlite.db", "", true},
-		{"postgres url", "postgres://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
-		{"postgresql url", "postgresql://bob:secret@1.2.3.4:5432/mydb?sslmode=verify-full", "postgres", false},
-		{"postgres string", "user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full", "", true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			actual, err := orm.DeduceDialect(test.connection)
-			assert.Equal(t, test.expect, actual)
-			assert.Equal(t, test.wantError, err != nil)
-		})
-	}
 }
 
 func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
@@ -1448,6 +1443,7 @@ func TestORM_FindAllTxsInNonceRange(t *testing.T) {
 		require.NoError(t, err)
 		createdTxs = append(createdTxs, *tx)
 	}
+	assert.Len(t, createdTxs, 3)
 
 	txs, err := store.FindAllTxsInNonceRange(2, 3)
 	require.NoError(t, err)
@@ -1529,6 +1525,7 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 		require.NoError(t, store.CreateJob(&job))
 		jobs = append(jobs, job)
 	}
+	assert.Len(t, jobs, jobNumber)
 
 	counter := 0
 	err := store.Jobs(func(j *models.JobSpec) bool {
@@ -1538,4 +1535,105 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, jobNumber, counter)
+}
+
+func TestORM_Heads_Chain(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// A competing chain existed from block num 3 to 4
+	var baseOfForkHash common.Hash
+	var longestChainHeadHash common.Hash
+	var parentHash *common.Hash
+	for idx := 0; idx < 8; idx++ {
+		h := *cltest.Head(idx)
+		if parentHash != nil {
+			h.ParentHash = *parentHash
+		}
+		parentHash = &h.Hash
+		if idx == 2 {
+			baseOfForkHash = h.Hash
+		} else if idx == 7 {
+			longestChainHeadHash = h.Hash
+		}
+		assert.Nil(t, store.IdempotentInsertHead(h))
+	}
+
+	competingHead1 := *cltest.Head(3)
+	competingHead1.ParentHash = baseOfForkHash
+	assert.Nil(t, store.IdempotentInsertHead(competingHead1))
+	competingHead2 := *cltest.Head(4)
+	competingHead2.ParentHash = competingHead1.Hash
+	assert.Nil(t, store.IdempotentInsertHead(competingHead2))
+
+	// Query for the top of the longer chain does not include the competing chain
+	h, err := store.Chain(longestChainHeadHash, 12)
+	require.NoError(t, err)
+	assert.Equal(t, longestChainHeadHash, h.Hash)
+	count := 1
+	for {
+		if h.Parent == nil {
+			break
+		}
+		require.NotEqual(t, competingHead1.Hash, h.Hash)
+		require.NotEqual(t, competingHead2.Hash, h.Hash)
+		h = h.Parent
+		count++
+	}
+	assert.Equal(t, 8, count)
+
+	// If we set the limit lower we get fewer heads in chain
+	h, err = store.Chain(longestChainHeadHash, 2)
+	require.NoError(t, err)
+	assert.Equal(t, longestChainHeadHash, h.Hash)
+	count = 1
+	for {
+		if h.Parent == nil {
+			break
+		}
+		h = h.Parent
+		count++
+	}
+	assert.Equal(t, 2, count)
+
+	// If we query for the top of the competing chain we get its parents
+	head, err := store.Chain(competingHead2.Hash, 12)
+	require.NoError(t, err)
+	assert.Equal(t, competingHead2.Hash, head.Hash)
+	require.NotNil(t, head.Parent)
+	assert.Equal(t, competingHead1.Hash, head.Parent.Hash)
+	require.NotNil(t, head.Parent.Parent)
+	assert.Equal(t, baseOfForkHash, head.Parent.Parent.Hash)
+	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
+
+	// Returns nil if hash has no matches
+	h, err = store.Chain(cltest.NewHash(), 12)
+	require.NoError(t, err)
+	require.Nil(t, h)
+}
+
+func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// Returns nil when inserting first head
+	head := *cltest.Head(0)
+	require.NoError(t, store.IdempotentInsertHead(head))
+
+	// Head is inserted
+	foundHead, err := store.LastHead()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, foundHead.Hash)
+
+	// Returns nil when inserting same head again
+	require.NoError(t, store.IdempotentInsertHead(head))
+
+	// Head is still inserted
+	foundHead, err = store.LastHead()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, foundHead.Hash)
 }

@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586163842"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586342453"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586369235"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586871710"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586939705"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586949323"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586956053"
@@ -51,6 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588757164"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588853064"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1589470036"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1590226486"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -251,6 +253,14 @@ func init() {
 		{
 			ID:      "1589470036",
 			Migrate: migration1589470036.Migrate,
+		},
+		{
+			ID:      "1586871710",
+			Migrate: migration1586871710.Migrate,
+		},
+		{
+			ID:      "1590226486",
+			Migrate: migration1590226486.Migrate,
 		},
 	}
 }

@@ -106,7 +106,8 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		eth.Register("eth_getBalance", "0x0100")
 		eth.Register("eth_call", "0x0100")
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safe)} // 23465
+	newHeads <- cltest.NewEthBlockHeader(safe) // 23465
+
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -160,7 +161,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_chainId", config.ChainID())
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 	})
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(firstTxSentAt)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(firstTxSentAt)))
 	assert.NoError(t, app.Start())
 	eth.EventuallyAllCalled(t)
 
@@ -180,7 +181,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
+	newHeads <- cltest.NewEthBlockHeader(firstTxRemainsUnconfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
@@ -191,7 +192,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt2Hash)
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
+	newHeads <- cltest.NewEthBlockHeader(firstTxGasBumpAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
@@ -202,7 +203,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
+	newHeads <- cltest.NewEthBlockHeader(secondTxRemainsUnconfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
@@ -213,7 +214,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt3Hash)
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
+	newHeads <- cltest.NewEthBlockHeader(secondTxGasBumpAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
@@ -224,7 +225,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
 		eth.Register("eth_getBalance", "0x0000")
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
+	newHeads <- cltest.NewEthBlockHeader(thirdTxConfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
@@ -235,7 +236,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getBalance", "0x100")
 		eth.Register("eth_call", "0x100")
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxSafeAt)}
+	newHeads <- cltest.NewEthBlockHeader(thirdTxSafeAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -354,13 +355,13 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			blockIncrease := app.Store.Config.MinIncomingConfirmations()
 			minGlobalHeight := creationHeight + blockIncrease
-			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
+			newHeads <- cltest.NewEthBlockHeader(uint64(minGlobalHeight))
 			<-time.After(time.Second)
 			jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
 			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
 
 			safeNumber := creationHeight + requiredConfs
-			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
+			newHeads <- cltest.NewEthBlockHeader(uint64(safeNumber))
 			confirmedReceipt := ethpkg.TxReceipt{
 				Hash:        runlog.TxHash,
 				BlockHash:   &test.receiptBlockHash,
@@ -427,7 +428,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
+	newHeads <- cltest.NewEthBlockHeader(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
 	confirmedReceipt := ethpkg.TxReceipt{
@@ -439,7 +440,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 9)}
+	newHeads <- cltest.NewEthBlockHeader(logBlockNumber + 9)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
@@ -626,7 +627,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
 	})
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(100)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(100)))
 	require.NoError(t, app.StartAndConnect())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
@@ -654,7 +655,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	createCompletedJobRun(100, uint64(0x100))
 
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(200)}
+	newHeads <- cltest.NewEthBlockHeader(200)
 	createCompletedJobRun(200, uint64(0x101))
 }
 
@@ -934,7 +935,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		eth.Register("eth_getBalance", "0x100")
 		eth.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "256"))
 	})
-	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(10)}
+	newHeads <- cltest.NewEthBlockHeader(10)
 
 	// Check the FM price on completed run output
 	jr := cltest.WaitForJobRunToComplete(t, app.GetStore(), jrs[0])
@@ -1138,7 +1139,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 	startHeight := 100
 	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x100`)
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(startHeight)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(startHeight)))
 	require.NoError(t, app.StartAndConnect())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")

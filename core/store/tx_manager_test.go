@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -112,7 +111,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, ntx.Attempts, 1)
 
-	manager.OnNewHead(cltest.Head(bumpAt))
+	manager.OnNewLongestChain(*cltest.Head(bumpAt))
 	ethClient.On("GetTxReceipt", createdTx1.Attempts[0].Hash).Return(&eth.TxReceipt{}, nil)
 	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
@@ -185,7 +184,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Equal(t, nonce, ntx.Nonce)
 	assert.Len(t, ntx.Attempts, 1)
 
-	manager.OnNewHead(cltest.Head(bumpAt))
+	manager.OnNewLongestChain(*cltest.Head(bumpAt))
 	ethClient.On("GetTxReceipt", mock.Anything).Once().Return(&eth.TxReceipt{}, nil)
 	ethClient.On("SendRawTx", mock.Anything).Return(tx.Attempts[0].Hash, nil)
 
@@ -194,7 +193,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Nil(t, receipt)
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
-	manager.OnNewHead(cltest.Head(bumpAgainAt))
+	manager.OnNewLongestChain(*cltest.Head(bumpAgainAt))
 	ethClient.On("GetTxReceipt", mock.Anything).Twice().Return(&eth.TxReceipt{}, nil)
 
 	receipt, state, err = manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -228,7 +227,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", store.Config.ChainID())
 	})
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(sentAt)))
 	assert.NoError(t, app.StartAndConnect())
 
 	ethMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
@@ -343,7 +342,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	to := cltest.NewAddress()
 	data := hexutil.MustDecode("0x0000abcdef")
 	_, err = manager.CreateTx(to, data)
-	assert.EqualError(t, err, "Transaction reattempt limit reached for 'nonce is too low' error. Limit: 3")
+	assert.EqualError(t, err, "transaction reattempt limit reached for 'nonce is too low' error. Limit: 3")
 
 	ethClient.AssertExpectations(t)
 }
@@ -378,7 +377,7 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold-1)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold - 1)))
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.CreateTx(t, store, from, sentAt)
@@ -414,7 +413,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold)))
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.CreateTx(t, store, from, sentAt)
@@ -451,7 +450,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnder
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold)))
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 48000000000)
@@ -503,7 +502,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_returnsErrorIfMaxGasPrice
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold)))
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 499000000000)
@@ -545,7 +544,7 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+1)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold + 1)))
 	require.NoError(t, app.StartAndConnect())
 
 	tx := cltest.CreateTx(t, store, from, sentAt)
@@ -582,7 +581,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	nonce := uint64(234)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
 	minConfs := config.MinOutgoingConfirmations() - 1
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(gasThreshold+minConfs-1)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold + minConfs - 1)))
 	require.NoError(t, app.StartAndConnect())
 
 	txm := store.TxManager
@@ -638,7 +637,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			gasThreshold := sentAt + config.EthGasBumpThreshold()
 			minConfs := config.MinOutgoingConfirmations() - 1
 			head := cltest.Head(gasThreshold + minConfs + test.confsDiff)
-			require.NoError(t, app.Store.ORM.CreateHead(head))
+			require.NoError(t, app.Store.ORM.IdempotentInsertHead(*head))
 			require.NoError(t, app.StartAndConnect())
 
 			txm := store.TxManager
@@ -782,7 +781,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 			ethMock := app.EthMock
 			ethMock.ShouldCall(test.mockSetup).During(func() {
-				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
+				require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(test.blockHeight)))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
@@ -949,7 +948,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
 	ethClient := new(mocks.Client)
-	txm := store.NewEthTxManager(
+	txm := strpkg.NewEthTxManager(
 		ethClient,
 		orm.NewConfig(),
 		nil,
@@ -958,7 +957,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
 	account := accounts.Account{Address: from}
-	ma := store.NewManagedAccount(account, 0)
+	ma := strpkg.NewManagedAccount(account, 0)
 
 	nonce := uint64(234)
 	ethClient.On("GetNonce", from).Return(nonce, nil)
@@ -993,7 +992,7 @@ func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", config.ChainID())
 	})
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(sentAt)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(sentAt)))
 	assert.NoError(t, app.StartAndConnect())
 
 	ethMock.Context("txm.CreateTx#1", func(ethMock *cltest.EthMock) {
@@ -1121,7 +1120,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 		Hash:        tx.Attempts[0].Hash,
 		BlockNumber: cltest.Int(sentAt),
 	}
-	manager.OnNewHead(cltest.Head(confirmedAt))
+	manager.OnNewLongestChain(*cltest.Head(confirmedAt))
 	ethClient.On("GetTxReceipt", tx.Attempts[0].Hash).Return(&confirmedReceipt, nil)
 	ethClient.On("GetERC20Balance", from, mock.Anything).Return(nil, nil)
 	ethClient.On("GetEthBalance", from).Return(cltest.NewEth(t, "10000000"), nil)
@@ -1152,7 +1151,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
 		ethMock.Register("eth_chainId", config.ChainID())
 	})
-	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(1)))
+	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(1)))
 	assert.NoError(t, app.StartAndConnect())
 
 	customGasPrice := utils.NewBig(big.NewInt(1337))

@@ -37,6 +37,14 @@ func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.Lo
 	p.respondToNewRoundLog(*log)
 }
 
+func (p *PollingDeviationChecker) ExportedSufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+	return p.sufficientFunds(state)
+}
+
+func (p *PollingDeviationChecker) ExportedSufficientPayment(payment *big.Int) bool {
+	return p.sufficientPayment(payment)
+}
+
 func ExportedConsumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
 	consumeLogBroadcast(lb, callback)
 }
@@ -71,16 +79,27 @@ func (*erroringFetcher) Fetch() (decimal.Decimal, error) {
 	return decimal.NewFromInt(0), errors.New("failed to fetch; I always error")
 }
 
+type fetcherRequest struct {
+	Data interface{} `json:"data"`
+	ID   string      `json:"id"`
+}
+
 func fakePriceResponder(t *testing.T, requestData string, result decimal.Decimal) http.Handler {
 	t.Helper()
 
+	var expectedRequest fetcherRequest
+	err := json.Unmarshal([]byte(requestData), &expectedRequest)
+	require.NoError(t, err)
 	response := adapterResponse{Data: dataWithResult(t, result)}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody fetcherRequest
 		payload, err := ioutil.ReadAll(r.Body)
 		require.NoError(t, err)
 		defer r.Body.Close()
-		assert.Equal(t, requestData, string(payload))
+		err = json.Unmarshal(payload, &reqBody)
+		require.NoError(t, err)
+		assert.Equal(t, expectedRequest.Data, reqBody.Data)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(response))
 	})
@@ -94,15 +113,15 @@ func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 	return data
 }
 
-// XXXTestingOnlyCreateJob is used in TestFluxMonitorAntiSpamLogic to create a
+// CreateJob is used in TestFluxMonitorAntiSpamLogic to create a
 // job with a specific answer and round, for testing nodes with malicious
 // behavior
-func (fm *concreteFluxMonitor) XXXTestingOnlyCreateJob(t *testing.T,
+func (fm *concreteFluxMonitor) CreateJob(t *testing.T,
 	jobSpecId *models.ID, polledAnswer decimal.Decimal,
 	nextRound *big.Int) error {
 	jobSpec, err := fm.store.ORM.FindJob(jobSpecId)
 	require.NoError(t, err, "could not find job spec with that ID")
-	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], fm.runManager,
+	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], nil, fm.runManager,
 		fm.store.ORM, models.MustMakeDuration(100*time.Second))
 	require.NoError(t, err, "could not create deviation checker")
 	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, nextRound)

@@ -36,6 +36,7 @@ require (
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/guregu/null v3.5.0+incompatible
+	github.com/imdario/mergo v0.3.9
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/lib/pq v1.5.2
@@ -43,8 +44,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.13.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.4
-	github.com/onsi/ginkgo v1.10.3 // indirect
-	github.com/onsi/gomega v1.10.0
+	github.com/onsi/gomega v1.10.1
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0

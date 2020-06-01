@@ -50,7 +50,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -310,7 +309,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	tc.Config.Set("ETH_CHAIN_ID", chainId)
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
 	var client SimulatedBackendClient
-	if txm, ok := app.Store.TxManager.(*store.EthTxManager); ok {
+	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
 		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 		txm.Client = &client
 	} else {
@@ -1008,19 +1007,20 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 
 // Head given the value convert it into an Head
 func Head(val interface{}) *models.Head {
-	switch val.(type) {
+	var h models.Head
+	switch t := val.(type) {
 	case int:
-		return models.NewHead(big.NewInt(int64(val.(int))), NewHash())
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), big.NewInt(int64(0)))
 	case uint64:
-		return models.NewHead(big.NewInt(int64(val.(uint64))), NewHash())
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), big.NewInt(int64(0)))
 	case int64:
-		return models.NewHead(big.NewInt(val.(int64)), NewHash())
+		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), big.NewInt(int64(0)))
 	case *big.Int:
-		return models.NewHead(val.(*big.Int), NewHash())
+		h = models.NewHead(t, NewHash(), NewHash(), big.NewInt(int64(0)))
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
-		return nil
 	}
+	return &h
 }
 
 // EmptyBlock returns a new empty ethereum block
@@ -1340,4 +1340,10 @@ func ChainlinkEthLogFromGethLog(l types.Log) eth.Log {
 		Index:       l.Index,
 		Removed:     l.Removed,
 	}
+}
+
+func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun {
+	jr, err := store.FindJobRun(id)
+	require.NoError(t, err)
+	return jr
 }

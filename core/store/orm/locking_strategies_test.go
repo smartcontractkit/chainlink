@@ -29,7 +29,9 @@ func TestNewLockingStrategy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(string(test.name), func(t *testing.T) {
-			rval, err := orm.NewLockingStrategy(test.dialectName, test.path, 42)
+			connectionType, err := orm.NewConnection(orm.DialectPostgres, test.path, 42)
+			require.NoError(t, err)
+			rval, err := orm.NewLockingStrategy(connectionType)
 			require.NoError(t, err)
 			rtype := reflect.ValueOf(rval).Type()
 			require.Equal(t, test.expect, rtype)
@@ -37,23 +39,22 @@ func TestNewLockingStrategy(t *testing.T) {
 	}
 }
 
-func setupConfig(t *testing.T) *cltest.TestConfig {
-	tc := cltest.NewTestConfig(t)
-	return tc
-}
+func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
+	tc, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	delay := tc.DatabaseTimeout()
+	if tc.DatabaseURL() == "" {
+		t.Skip("No postgres DatabaseURL set.")
+	}
 
-func TestPostgresLockingStrategy_Lock(t *testing.T) {
-	tc := setupConfig(t)
-	c := tc.Config
-
-	delay := c.DatabaseTimeout()
-
-	ls, err := orm.NewPostgresLockingStrategy(c.DatabaseURL(), c.GetAdvisoryLockIDConfiguredOrDefault())
+	withLock, err := orm.NewConnection(orm.DialectPostgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	ls, err := orm.NewPostgresLockingStrategy(withLock)
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
 	require.NoError(t, ls.Lock(delay), "relocking on same instance is reentrant")
 
-	ls2, err := orm.NewPostgresLockingStrategy(c.DatabaseURL(), c.GetAdvisoryLockIDConfiguredOrDefault())
+	ls2, err := orm.NewPostgresLockingStrategy(withLock)
 	require.NoError(t, err)
 	require.Error(t, ls2.Lock(delay), "should not get 2nd exclusive lock")
 
@@ -63,8 +64,35 @@ func TestPostgresLockingStrategy_Lock(t *testing.T) {
 	require.NoError(t, ls2.Unlock(delay))
 }
 
+func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
+	tc, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	delay := tc.DatabaseTimeout()
+	if tc.DatabaseURL() == "" {
+		t.Skip("No postgres DatabaseURL set.")
+	}
+
+	withLock, err := orm.NewConnection(orm.DialectPostgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	ls, err := orm.NewPostgresLockingStrategy(withLock)
+	require.NoError(t, err)
+	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
+	require.NoError(t, ls.Lock(delay), "relocking on same instance is reentrant")
+
+	withoutLock, err := orm.NewConnection(orm.DialectPostgresWithoutLock, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	ls2, err := orm.NewPostgresLockingStrategy(withoutLock)
+	require.NoError(t, err)
+	require.NoError(t, ls2.Lock(delay), "should not wait for lock")
+
+	require.NoError(t, ls.Unlock(delay))
+	require.NoError(t, ls.Unlock(delay))
+	require.NoError(t, ls2.Lock(delay), "should get exclusive lock")
+	require.NoError(t, ls2.Unlock(delay))
+}
+
 func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
-	tc := setupConfig(t)
+	tc := cltest.NewTestConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -79,7 +107,9 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lock2, err := orm.NewLockingStrategy("postgres", store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
+	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	lock2, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)
 	err = lock2.Lock(delay)
 	require.Equal(t, errors.Cause(err), orm.ErrNoAdvisoryLock)
@@ -87,7 +117,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
-	tc := setupConfig(t)
+	tc := cltest.NewTestConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -110,7 +140,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 }
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
-	tc := setupConfig(t)
+	tc := cltest.NewTestConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -120,7 +150,9 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
-	lock, err := orm.NewLockingStrategy("postgres", store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
+	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
+	require.NoError(t, err)
+	lock, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)
 	defer lock.Unlock(delay)
 

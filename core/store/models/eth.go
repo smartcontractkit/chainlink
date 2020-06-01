@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/jinzhu/gorm"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -133,39 +132,22 @@ func HighestPricedTxAttemptPerTx(items []TxAttempt) []TxAttempt {
 
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
-	ID     uint64      `gorm:"primary_key;auto_increment"`
-	Hash   common.Hash `gorm:"not null"`
-	Number int64       `gorm:"index;not null"`
+	ID         uint64
+	Hash       common.Hash
+	Number     int64
+	ParentHash common.Hash
+	Parent     *Head
+	Timestamp  time.Time
+	CreatedAt  time.Time
 }
 
-// AfterCreate is a gorm hook that trims heads after its creation
-func (h Head) AfterCreate(scope *gorm.Scope) (err error) {
-	scope.DB().Exec(`
-	DELETE FROM heads
-	WHERE id <= (
-	  SELECT id
-	  FROM (
-		SELECT id
-		FROM heads
-		ORDER BY id DESC
-		LIMIT 1 OFFSET 100
-	  ) foo
-	)`)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// NewHead returns a Head instance with a BlockNumber and BlockHash.
-func NewHead(bigint *big.Int, hash common.Hash) *Head {
-	if bigint == nil {
-		return nil
-	}
-
-	return &Head{
-		Number: bigint.Int64(),
-		Hash:   hash,
+// NewHead returns a Head instance.
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp *big.Int) Head {
+	return Head{
+		Number:     number.Int64(),
+		Hash:       blockHash,
+		ParentHash: parentHash,
+		Timestamp:  time.Unix(timestamp.Int64(), 0),
 	}
 }
 

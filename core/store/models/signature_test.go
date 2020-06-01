@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -28,7 +27,7 @@ func TestSignature(t *testing.T) {
 
 	assert.Equal(t, str, signature.String())
 
-	assert.Equal(t, str, fmt.Sprintf("%s", signature))
+	assert.Equal(t, str, signature.String())
 
 	zerosignature := Signature{}
 	err = json.Unmarshal([]byte(`"0xb7a987222fc36c4c8ed1b91264867a422769998aadbeeb1c697586a04fa2b616025b5ca936ec5bdb150999e298b6ecf09251d3c4dd1306dedec0692e7037584800"`), &zerosignature)

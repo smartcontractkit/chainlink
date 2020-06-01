@@ -87,7 +87,7 @@ func getBalance(store *store.Store, account accounts.Account, balanceType reques
 	case linkRequest:
 		return store.TxManager.GetLINKBalance(account.Address)
 	}
-	return nil, fmt.Errorf("Impossible to get balance for %T with value %v", balanceType, balanceType)
+	return nil, fmt.Errorf("impossible to get balance for %T with value %v", balanceType, balanceType)
 }
 
 type balanceable interface {
@@ -126,6 +126,7 @@ type ConfigWhitelist struct {
 // Whitelist contains the supported environment variables
 type Whitelist struct {
 	AllowOrigins             string          `json:"allowOrigins"`
+	BlockBackfillDepth       uint64          `json:"blockBackfillDepth"`
 	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                  *big.Int        `json:"ethChainId"`
 	ClientNodeURL            string          `json:"clientNodeUrl"`
@@ -175,6 +176,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 		AccountAddress: account.Address.Hex(),
 		Whitelist: Whitelist{
 			AllowOrigins:             config.AllowOrigins(),
+			BlockBackfillDepth:       config.BlockBackfillDepth(),
 			BridgeResponseURL:        config.BridgeResponseURL().String(),
 			ChainID:                  config.ChainID(),
 			ClientNodeURL:            config.ClientNodeURL(),
@@ -391,7 +393,7 @@ func initiatorParams(i Initiator) (interface{}, error) {
 	case models.InitiatorRandomnessLog:
 		return struct{ Address common.Address }{i.Address}, nil
 	default:
-		return nil, fmt.Errorf("Cannot marshal unsupported initiator type '%v'", i.Type)
+		return nil, fmt.Errorf("cannot marshal unsupported initiator type '%v'", i.Type)
 	}
 }
 
@@ -463,7 +465,7 @@ type ServiceAgreementPresentation struct {
 	ID            string             `json:"id"`
 	CreatedAt     string             `json:"createdAt"`
 	Encumbrance   models.Encumbrance `json:"encumbrance"`
-	EncumbranceID uint               `json:"encumbranceID"`
+	EncumbranceID int64              `json:"encumbranceID"`
 	RequestBody   string             `json:"requestBody"`
 	Signature     string             `json:"signature"`
 	JobSpec       models.JobSpec     `json:"jobSpec"`

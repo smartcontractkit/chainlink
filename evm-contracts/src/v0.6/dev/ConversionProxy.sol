@@ -1,8 +1,8 @@
 pragma solidity 0.6.2;
 
-import "../dev/SignedSafeMath.sol";
-import "./AggregatorInterface.sol";
+import "./SignedSafeMath.sol";
 import "../Owned.sol";
+import "../interfaces/AggregatorInterface.sol";
 
 /**
  * @title The ConversionProxy contract for Solidity v0.6

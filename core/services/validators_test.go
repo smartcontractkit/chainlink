@@ -123,7 +123,7 @@ func TestValidateBridgeType(t *testing.T) {
 				Name: "invalid/adapter",
 				URL:  cltest.WebURL(t, "https://denergy.eth"),
 			},
-			models.NewJSONAPIErrorsWith("Task Type validation: name invalid/adapter contains invalid characters"),
+			models.NewJSONAPIErrorsWith("task type validation: name invalid/adapter contains invalid characters"),
 		},
 		{
 			"invalid with blank url",
@@ -168,6 +168,14 @@ func TestValidateBridgeType(t *testing.T) {
 			models.NewJSONAPIErrorsWith("MinimumContractPayment must be positive"),
 		},
 		{
+			"existing core adapter",
+			models.BridgeTypeRequest{
+				Name: "ethtx",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			models.NewJSONAPIErrorsWith("Bridge Type ethtx is a native adapter"),
+		},
+		{
 			"new external adapter",
 			models.BridgeTypeRequest{
 				Name: "gdaxprice",
@@ -196,33 +204,12 @@ func TestValidateBridgeNotExist(t *testing.T) {
 	bt.URL = cltest.WebURL(t, "https://denergy.eth")
 	assert.NoError(t, store.CreateBridgeType(&bt))
 
-	tests := []struct {
-		description string
-		request     models.BridgeTypeRequest
-		want        error
-	}{
-		{
-			"existing external adapter",
-			models.BridgeTypeRequest{
-				Name: "solargridreporting",
-			},
-			models.NewJSONAPIErrorsWith("Bridge Type solargridreporting already exists"),
-		},
-		{
-			"existing core adapter",
-			models.BridgeTypeRequest{
-				Name: "ethtx",
-			},
-			models.NewJSONAPIErrorsWith("Bridge Type ethtx already exists"),
-		},
+	newBridge := models.BridgeTypeRequest{
+		Name: "solargridreporting",
 	}
-
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			result := services.ValidateBridgeTypeNotExist(&test.request, store)
-			assert.Equal(t, test.want, result)
-		})
-	}
+	expected := models.NewJSONAPIErrorsWith("Bridge Type solargridreporting already exists")
+	result := services.ValidateBridgeTypeNotExist(&newBridge, store)
+	assert.Equal(t, expected, result)
 }
 
 func TestValidateExternalInitiator(t *testing.T) {

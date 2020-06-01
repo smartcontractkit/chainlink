@@ -135,7 +135,7 @@ func (ks *KeyStore) unsafeSignHash(hash common.Hash) (models.Signature, error) {
 // ensures that an account exists during authentication.
 func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
 	if len(ks.Accounts()) == 0 {
-		return accounts.Account{}, errors.New("No Ethereum Accounts configured")
+		return accounts.Account{}, errors.New("no Ethereum Accounts configured")
 	}
 	return ks.Accounts()[0], nil
 }

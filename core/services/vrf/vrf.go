@@ -65,7 +65,6 @@ func add(addend1, addend2 *big.Int) *big.Int         { return i().Add(addend1, a
 func div(dividend, divisor *big.Int) *big.Int        { return i().Div(dividend, divisor) }
 func equal(left, right *big.Int) bool                { return left.Cmp(right) == 0 }
 func exp(base, exponent, modulus *big.Int) *big.Int  { return i().Exp(base, exponent, modulus) }
-func lsh(num *big.Int, bits uint) *big.Int           { return i().Lsh(num, bits) }
 func mul(multiplicand, multiplier *big.Int) *big.Int { return i().Mul(multiplicand, multiplier) }
 func mod(dividend, divisor *big.Int) *big.Int        { return i().Mod(dividend, divisor) }
 func sub(minuend, subtrahend *big.Int) *big.Int      { return i().Sub(minuend, subtrahend) }

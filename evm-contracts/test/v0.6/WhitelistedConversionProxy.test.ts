@@ -3,7 +3,6 @@ import {
   helpers as h,
   matchers,
   setup,
-  interfaces,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -32,10 +31,7 @@ describe('WhitelistedConversionProxy', () => {
 
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregator2: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.CallableOverrideInstance<
-    WhitelistedConversionProxyFactory,
-    interfaces.AggregatorInterface
-  >
+  let proxy: contract.CallableOverrideInstance<WhitelistedConversionProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     aggregator = await aggregatorFactory
@@ -44,11 +40,10 @@ describe('WhitelistedConversionProxy', () => {
     aggregator2 = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(decimals, fiatAnswer)
-    proxy = contract.callable(
+    proxy = contract.callableAggregator(
       await whitelistedConversionProxyFactory
         .connect(defaultAccount)
         .deploy(aggregator.address, aggregator2.address),
-      interfaces.AggregatorMethodList,
     )
   })
 
