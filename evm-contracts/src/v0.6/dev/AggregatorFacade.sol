@@ -22,6 +22,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestRound()
     external
+    view
     virtual
     override
     returns (uint256)
@@ -34,6 +35,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestAnswer()
     external
+    view
     virtual
     override
     returns (int256)
@@ -46,6 +48,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestTimestamp()
     external
+    view
     virtual
     override
     returns (uint256)
@@ -69,6 +72,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestRoundData()
     external
+    view
     virtual
     override
     returns (
@@ -88,6 +92,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function getAnswer(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (int256)
@@ -101,6 +106,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (uint256)
@@ -125,6 +131,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function getRoundData(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (
@@ -144,6 +151,7 @@ contract AggregatorFacade is AggregatorInterface {
 
   function _getRoundData(uint256 _roundId)
     internal
+    view
     returns (
       uint256 roundId,
       int256 answer,

@@ -23,6 +23,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function latestAnswer()
     external
+    view
     override
     isWhitelisted()
     returns (int256)
@@ -37,6 +38,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function latestTimestamp()
     external
+    view
     override
     isWhitelisted()
     returns (uint256)
@@ -52,6 +54,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function getAnswer(uint256 _roundId)
     external
+    view
     override
     isWhitelisted()
     returns (int256)
@@ -67,6 +70,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
     override
     isWhitelisted()
     returns (uint256)
@@ -81,6 +85,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function latestRound()
     external
+    view
     override
     isWhitelisted()
     returns (uint256)
@@ -111,6 +116,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function getRoundData(uint256 _roundId)
     external
+    view
     isWhitelisted()
     override
     returns (
@@ -146,6 +152,7 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function latestRoundData()
     external
+    view
     isWhitelisted()
     override
     returns (

@@ -80,6 +80,7 @@ contract ConversionProxy is HistoricAggregatorInterface, Ownable {
    */
   function latestAnswer()
     external
+    view
     returns (int256)
   {
     return convertAnswer(from.latestAnswer(), to.latestAnswer());
@@ -92,6 +93,7 @@ contract ConversionProxy is HistoricAggregatorInterface, Ownable {
    */
   function latestTimestamp()
     external
+    view
     returns (uint256)
   {
     return from.latestTimestamp();
@@ -104,6 +106,7 @@ contract ConversionProxy is HistoricAggregatorInterface, Ownable {
    */
   function latestRound()
     external
+    view
     returns (uint256)
   {
     return from.latestRound();
@@ -117,6 +120,7 @@ contract ConversionProxy is HistoricAggregatorInterface, Ownable {
    */
   function getAnswer(uint256 _roundId)
     external
+    view
     returns (int256)
   {
     return convertAnswer(from.getAnswer(_roundId), to.latestAnswer());
@@ -130,6 +134,7 @@ contract ConversionProxy is HistoricAggregatorInterface, Ownable {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
     returns (uint256)
   {
     return from.getTimestamp(_roundId);

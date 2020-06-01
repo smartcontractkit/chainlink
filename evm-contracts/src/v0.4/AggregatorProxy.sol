@@ -22,6 +22,7 @@ contract AggregatorProxy is HistoricAggregatorInterface, Ownable {
    */
   function latestAnswer()
     external
+    view
     returns (int256)
   {
     return aggregator.latestAnswer();
@@ -32,6 +33,7 @@ contract AggregatorProxy is HistoricAggregatorInterface, Ownable {
    */
   function latestTimestamp()
     external
+    view
     returns (uint256)
   {
     return aggregator.latestTimestamp();
@@ -43,6 +45,7 @@ contract AggregatorProxy is HistoricAggregatorInterface, Ownable {
    */
   function getAnswer(uint256 _roundId)
     external
+    view
     returns (int256)
   {
     return aggregator.getAnswer(_roundId);
@@ -54,6 +57,7 @@ contract AggregatorProxy is HistoricAggregatorInterface, Ownable {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
     returns (uint256)
   {
     return aggregator.getTimestamp(_roundId);
@@ -64,6 +68,7 @@ contract AggregatorProxy is HistoricAggregatorInterface, Ownable {
    */
   function latestRound()
     external
+    view
     returns (uint256)
   {
     return aggregator.latestRound();
