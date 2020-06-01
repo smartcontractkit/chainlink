@@ -62,7 +62,6 @@ require (
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.4
-	github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.12
 	go.uber.org/multierr v1.5.0
