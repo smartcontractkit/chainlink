@@ -34,7 +34,7 @@ describe('ConversionProxy', () => {
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregatorFiat: contract.Instance<MockAggregatorFactory>
   let aggregatorEth: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.CallableOverrideInstance<ConversionProxyFactory>
+  let proxy: contract.Instance<ConversionProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
@@ -45,11 +45,9 @@ describe('ConversionProxy', () => {
     aggregatorEth = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(ethDecimals, ethAnswer)
-    proxy = contract.callableAggregator(
-      await conversionProxyFactory
-        .connect(defaultAccount)
-        .deploy(aggregator.address, aggregatorFiat.address),
-    )
+    proxy = await conversionProxyFactory
+      .connect(defaultAccount)
+      .deploy(aggregator.address, aggregatorFiat.address)
   })
 
   beforeEach(async () => {
