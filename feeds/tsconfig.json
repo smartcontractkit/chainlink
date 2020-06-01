@@ -12,10 +12,7 @@
     "module": "esnext",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "preserveSymlinks": true,
-    "noUnusedLocals": false /* Report errors on unused locals. */,
-    "noUnusedParameters": false /* Report errors on unused parameters. */,
-    "noImplicitReturns": false /* Report error when not all code paths in function return a value. */
+    "preserveSymlinks": true
   },
   "include": ["src", "src/**/*.json", "@types"],
   "references": [
