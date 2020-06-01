@@ -32,15 +32,14 @@ describe('FluxAggregator', () => {
   const description = 'LINK/USD'
   const reserveRounds = 2
 
-  type AggregatorType = contract.CallableOverrideInstance<FluxAggregatorFactory>
-  let aggregator: AggregatorType
+  let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
   async function updateFutureRounds(
-    aggregator: AggregatorType,
+    aggregator: contract.Instance<FluxAggregatorFactory>,
     overrides: {
       minAnswers?: ethers.utils.BigNumberish
       maxAnswers?: ethers.utils.BigNumberish
@@ -68,7 +67,7 @@ describe('FluxAggregator', () => {
   }
 
   async function addOracles(
-    aggregator: AggregatorType,
+    aggregator: contract.Instance<FluxAggregatorFactory>,
     oraclesAndAdmin: ethers.Wallet[],
     minAnswers: number,
     maxAnswers: number,
@@ -84,7 +83,7 @@ describe('FluxAggregator', () => {
   }
 
   async function advanceRound(
-    aggregator: AggregatorType,
+    aggregator: contract.Instance<FluxAggregatorFactory>,
     submitters: ethers.Wallet[],
     currentSubmission: number = answer,
   ): Promise<number> {
@@ -164,17 +163,15 @@ describe('FluxAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = contract.callableAggregator(
-      await fluxAggregatorFactory
-        .connect(personas.Carol)
-        .deploy(
-          link.address,
-          paymentAmount,
-          timeout,
-          decimals,
-          ethers.utils.formatBytes32String(description),
-        ),
-    )
+    aggregator = await fluxAggregatorFactory
+      .connect(personas.Carol)
+      .deploy(
+        link.address,
+        paymentAmount,
+        timeout,
+        decimals,
+        ethers.utils.formatBytes32String(description),
+      )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))

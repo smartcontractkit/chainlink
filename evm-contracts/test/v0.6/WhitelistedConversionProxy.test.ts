@@ -31,7 +31,7 @@ describe('WhitelistedConversionProxy', () => {
 
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregator2: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.CallableOverrideInstance<WhitelistedConversionProxyFactory>
+  let proxy: contract.Instance<WhitelistedConversionProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     aggregator = await aggregatorFactory
@@ -40,11 +40,9 @@ describe('WhitelistedConversionProxy', () => {
     aggregator2 = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(decimals, fiatAnswer)
-    proxy = contract.callableAggregator(
-      await whitelistedConversionProxyFactory
-        .connect(defaultAccount)
-        .deploy(aggregator.address, aggregator2.address),
-    )
+    proxy = await whitelistedConversionProxyFactory
+      .connect(defaultAccount)
+      .deploy(aggregator.address, aggregator2.address)
   })
 
   beforeEach(async () => {

@@ -3,9 +3,10 @@ pragma solidity >=0.6.0;
 import "./HistoricAggregatorInterface.sol";
 
 interface AggregatorInterface is HistoricAggregatorInterface {
-  function decimals() external returns (uint8);
+  function decimals() external view returns (uint8);
   function getRoundData(uint256 _roundId)
     external
+    view
     returns (
       uint256 roundId,
       int256 answer,
@@ -15,6 +16,7 @@ interface AggregatorInterface is HistoricAggregatorInterface {
     );
   function latestRoundData()
     external
+    view
     returns (
       uint256 roundId,
       int256 answer,

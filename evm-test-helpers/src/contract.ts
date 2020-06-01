@@ -6,7 +6,6 @@
 import { ethers, Signer, ContractTransaction } from 'ethers'
 import { Provider } from 'ethers/providers'
 import { FunctionFragment } from 'ethers/utils'
-import { AggregatorMethodList } from './interfaces'
 export * from './generated/LinkTokenFactory'
 
 /**
@@ -65,8 +64,4 @@ export function callable(oldContract: ethers.Contract, methods: string[]): any {
   )
 
   return contract
-}
-
-export function callableAggregator(oldContract: ethers.Contract): any {
-  return callable(oldContract, AggregatorMethodList)
 }
