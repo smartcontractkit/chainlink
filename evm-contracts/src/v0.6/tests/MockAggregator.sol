@@ -53,6 +53,7 @@ contract MockAggregator is AggregatorInterface {
 
   function getRoundData(uint256 _roundId)
     external
+    view
     override
     returns (
       uint256 roundId,
@@ -73,6 +74,7 @@ contract MockAggregator is AggregatorInterface {
 
   function latestRoundData()
     external
+    view
     override
     returns (
       uint256 roundId,
