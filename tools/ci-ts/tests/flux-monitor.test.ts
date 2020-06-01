@@ -61,7 +61,7 @@ const clClient2 = new ChainlinkClient(
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
 let linkToken: contract.Instance<contract.LinkTokenFactory>
-let fluxAggregator: contract.CallableOverrideInstance<FluxAggregatorFactory>
+let fluxAggregator: contract.Instance<FluxAggregatorFactory>
 
 let node1Address: string
 let node2Address: string
@@ -78,12 +78,8 @@ async function assertAggregatorValues(
     fluxAggregator.latestAnswer(),
     fluxAggregator.latestRound(),
     fluxAggregator.reportingRound(),
-    fluxAggregator
-      .latestSubmission(node1Address)
-      .then((res: number[]) => res[1]),
-    fluxAggregator
-      .latestSubmission(node2Address)
-      .then((res: number[]) => res[1]),
+    fluxAggregator.latestSubmission(node1Address).then(res => res[1]),
+    fluxAggregator.latestSubmission(node2Address).then(res => res[1]),
   ])
 
   matchers.bigNum(latestAnswer, la, `${msg} : latest answer`)
@@ -131,7 +127,7 @@ beforeEach(async () => {
     ethers.utils.formatBytes32String('ETH/USD'),
   )
   await deployingContract.deployed()
-  fluxAggregator = contract.callableAggregator(deployingContract)
+  fluxAggregator = deployingContract
   t.logEvents(fluxAggregator as any, 'FluxAggregator', faEventsToListenTo)
   console.log(`Deployed FluxAggregator contract: ${fluxAggregator.address}`)
 })
