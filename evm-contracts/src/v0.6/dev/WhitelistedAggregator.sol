@@ -15,7 +15,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
     uint128 _paymentAmount,
     uint32 _timeout,
     uint8 _decimals,
-    bytes32 _description
+    string memory _description
   ) public FluxAggregator(
     _link,
     _paymentAmount,
