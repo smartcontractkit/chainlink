@@ -21882,7 +21882,7 @@ hr {
   text-align: center;
   margin-bottom: 18px;
   line-height: 1.8;
-  height: 195px;
+  height: 169px;
 }
 .listing-grid__item:hover {
   background-color: #e0e6e8;
@@ -21894,20 +21894,23 @@ hr {
   display: block;
   padding: 15px 0;
 }
-.listing-grid__item--offchain-comparison {
-  padding-top: 15px;
-}
 .listing-grid__item--health-unknown {
-  background-color: #fffdcc;
-  border: solid 1px #fff619;
+  border-top: solid 3px #dcda22;
+}
+.listing-grid__item--health-icon-unknown {
+  color: #d0881b;
 }
 .listing-grid__item--health-ok {
-  background-color: #efffef;
-  border: solid 1px #35ee35;
+  border-top: solid 3px #0bb70b;
+}
+.listing-grid__item--health-icon-ok {
+  color: #0bb70b;
 }
 .listing-grid__item--health-error {
-  background-color: #ffc0c0;
-  border: solid 1px #ff1414;
+  border-top: solid 3px #ff1414;
+}
+.listing-grid__item--health-icon-error {
+  color: #ff1414;
 }
 .listing-grid__item--sponsors {
   justify-content: center;
@@ -21939,10 +21942,20 @@ hr {
   font-size: 15px;
   min-height: 27px;
 }
-.listing-grid__item--date {
-  color: #484c57;
-  font-size: 12px;
-  min-height: 27px;
+.listing-grid__item--details-icon {
+  position: absolute;
+  right: 25px;
+}
+.listing-grid__item--details {
+  width: 300px;
+}
+.listing-grid__item--details p {
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+.listing-grid__item--details p span {
+  font-weight: normal;
+  margin-right: 5px;
 }
 .listing-grid__group {
   margin-bottom: 40px;

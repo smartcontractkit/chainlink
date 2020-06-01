@@ -7,8 +7,7 @@ import { listingOperations, listingSelectors } from '../../state/ducks/listing'
 import GridItem from './GridItem'
 
 interface OwnProps {
-  enableHealth: boolean
-  compareOffchain: boolean
+  enableDetails: boolean
 }
 
 interface StateProps {
@@ -26,8 +25,7 @@ export const Listing: React.FC<Props> = ({
   fetchFeeds,
   loadingFeeds,
   feedGroups,
-  compareOffchain,
-  enableHealth,
+  enableDetails,
 }) => {
   useEffect(() => {
     fetchFeeds()
@@ -47,12 +45,7 @@ export const Listing: React.FC<Props> = ({
 
             <Row gutter={18} className="listing-grid">
               {g.feeds.map(f => (
-                <GridItem
-                  key={f.name}
-                  feed={f}
-                  compareOffchain={compareOffchain}
-                  enableHealth={enableHealth}
-                />
+                <GridItem key={f.name} feed={f} enableDetails={enableDetails} />
               ))}
             </Row>
           </div>
