@@ -13,6 +13,7 @@ interface AggregatorInterface {
   // post-Historic
 
   function decimals() external view returns (uint8);
+  function description() external view returns (string memory);
   function getRoundData(uint256 _roundId)
     external
     view
@@ -33,4 +34,5 @@ interface AggregatorInterface {
       uint256 updatedAt,
       uint256 answeredInRound
     );
+  function version() external view returns (uint256);
 }

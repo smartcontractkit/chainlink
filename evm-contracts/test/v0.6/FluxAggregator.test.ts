@@ -257,7 +257,7 @@ describe('FluxAggregator', () => {
       )
     })
 
-    it('has the correct VERSION', async () => {
+    it('sets the version to 3', async () => {
       matchers.bigNum(3, await aggregator.version())
     })
   })

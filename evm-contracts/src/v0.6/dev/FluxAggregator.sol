@@ -57,7 +57,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint32 lastStartedRound;
   }
 
-  uint256 constant public version = 3;
+  uint256 constant public override version = 3;
 
   LinkTokenInterface public linkToken;
   uint128 public allocatedFunds;
@@ -70,7 +70,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint32 public restartDelay;
   uint32 public timeout;
   uint8 public override decimals;
-  string public description;
 
 
   /**
@@ -84,6 +83,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint256 constant private MAX_ORACLE_COUNT = 77;
   uint32 constant private ROUND_MAX = 2**32-1;
 
+  string private aggregatorDescription;
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
   mapping(address => OracleStatus) private oracles;
@@ -144,7 +144,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     paymentAmount = _paymentAmount;
     timeout = _timeout;
     decimals = _decimals;
-    description = _description;
+    aggregatorDescription = _description;
     rounds[0].updatedAt = uint64(block.timestamp.sub(uint256(_timeout)));
   }
 
@@ -596,6 +596,18 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(_data.length == 0, "transfer doesn't accept calldata");
     updateAvailableFunds();
+  }
+
+  /**
+   * @notice a description of what number the answer represents.
+   */
+  function description()
+    external
+    view
+    override
+    returns (string memory)
+  {
+    return aggregatorDescription;
   }
 
   /**
