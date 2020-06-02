@@ -1,4 +1,4 @@
-pragma solidity 0.6.2;
+pragma solidity 0.6.6;
 
 import "../interfaces/AggregatorInterface.sol";
 import "../interfaces/HistoricAggregatorInterface.sol";
@@ -11,9 +11,9 @@ contract AggregatorFacade is AggregatorInterface {
 
   HistoricAggregatorInterface public aggregator;
   uint8 public override decimals;
-  uint256 constant public override version = 2;
+  string public override description;
 
-  string private aggregatorDescription;
+  uint256 constant public override version = 2;
 
   constructor(
     address _aggregator,
@@ -22,7 +22,7 @@ contract AggregatorFacade is AggregatorInterface {
   ) public {
     aggregator = HistoricAggregatorInterface(_aggregator);
     decimals = _decimals;
-    aggregatorDescription = _description;
+    description = _description;
   }
 
   /**
@@ -151,18 +151,6 @@ contract AggregatorFacade is AggregatorInterface {
     )
   {
     return _getRoundData(_roundId);
-  }
-
-  /**
-   * @notice a description of what number the answer represents.
-   */
-  function description()
-    external
-    view
-    override
-    returns (string memory)
-  {
-    return aggregatorDescription;
   }
 
   /*

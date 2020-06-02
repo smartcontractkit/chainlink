@@ -56,7 +56,7 @@ var fee = int64(100) // Amount paid by FA contract, in LINK-wei
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
-	decimals uint8, description [32]byte) fluxAggregatorUniverse {
+	decimals uint8, description string) fluxAggregatorUniverse {
 	var f fluxAggregatorUniverse
 	f.sergey = newIdentity(t)
 	f.neil = newIdentity(t)
@@ -234,8 +234,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
 
 	// - deploy a brand new FM contract
-	var description [32]byte
-	copy(description[:], "exactly thirty-two characters!!!")
+	description := "exactly thirty-three characters!!"
 	fa := deployFluxAggregator(t, fee, 1, 8, description)
 
 	// Set up chainlink app
