@@ -92,7 +92,7 @@ describe('WhitelistedAggregator', () => {
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
-      'VERSION',
+      'version',
       // Owned methods:
       'acceptOwnership',
       'owner',
