@@ -175,6 +175,31 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   }
 
   /**
+   * @notice the version number representing the type of aggregator the proxy
+   * points to.
+   */
+  function version()
+    external
+    view
+    override
+    returns (uint256)
+  {
+    return aggregator.version();
+  }
+
+  /**
+   * @notice returns the description of the aggregator the proxy points to.
+   */
+  function description()
+    external
+    view
+    override
+    returns (string memory)
+  {
+    return aggregator.description();
+  }
+
+  /**
    * @notice Allows the owner to update the aggregator address.
    * @param _aggregator The new address for the aggregator contract
    */

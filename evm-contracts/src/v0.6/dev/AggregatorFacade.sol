@@ -11,8 +11,9 @@ contract AggregatorFacade is AggregatorInterface {
 
   HistoricAggregatorInterface public aggregator;
   uint8 public override decimals;
-  string public description;
-  uint256 constant public version = 2;
+  uint256 constant public override version = 2;
+
+  string private aggregatorDescription;
 
   constructor(
     address _aggregator,
@@ -21,7 +22,7 @@ contract AggregatorFacade is AggregatorInterface {
   ) public {
     aggregator = HistoricAggregatorInterface(_aggregator);
     decimals = _decimals;
-    description = _description;
+    aggregatorDescription = _description;
   }
 
   /**
@@ -150,6 +151,18 @@ contract AggregatorFacade is AggregatorInterface {
     )
   {
     return _getRoundData(_roundId);
+  }
+
+  /**
+   * @notice a description of what number the answer represents.
+   */
+  function description()
+    external
+    view
+    override
+    returns (string memory)
+  {
+    return aggregatorDescription;
   }
 
   /*
