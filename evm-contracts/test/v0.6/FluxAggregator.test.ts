@@ -220,7 +220,7 @@ describe('FluxAggregator', () => {
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
-      'VERSION',
+      'version',
       // Owned methods:
       'acceptOwnership',
       'owner',
@@ -258,7 +258,7 @@ describe('FluxAggregator', () => {
     })
 
     it('has the correct VERSION', async () => {
-      matchers.bigNum(2, await aggregator.VERSION())
+      matchers.bigNum(3, await aggregator.version())
     })
   })
 

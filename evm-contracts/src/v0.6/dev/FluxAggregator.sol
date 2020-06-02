@@ -57,7 +57,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint32 lastStartedRound;
   }
 
-  uint256 constant public VERSION = 2;
+  uint256 constant public version = 3;
 
   LinkTokenInterface public linkToken;
   uint128 public allocatedFunds;
@@ -82,6 +82,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   uint256 constant private RESERVE_ROUNDS = 2;
   uint256 constant private MAX_ORACLE_COUNT = 77;
+  uint32 constant private ROUND_MAX = 2**32-1;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
@@ -123,8 +124,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     bool authorized,
     uint32 delay
   );
-
-  uint32 constant private ROUND_MAX = 2**32-1;
 
   /**
    * @notice Deploy with the address of the LINK token and initial payment amount
