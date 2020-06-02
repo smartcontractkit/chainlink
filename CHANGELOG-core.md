@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2020-06-01
+
 ### Added
 
 - The chainlink node can now be configured to backfill logs from `n` blocks after a
