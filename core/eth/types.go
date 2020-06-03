@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 )
 
 // WeiPerEth is amount of Wei currency units in one Eth.
@@ -119,29 +118,6 @@ type logMarshaling struct {
 	Index       hexutil.Uint
 }
 
-// BlockHeader represents a block header in the Ethereum blockchain.
-// Deliberately does not have required fields because some fields aren't
-// present depending on the Ethereum node.
-// i.e. Parity does not always send mixHash
-type BlockHeader struct {
-	ParentHash  common.Hash      `json:"parentHash"`
-	UncleHash   common.Hash      `json:"sha3Uncles"`
-	Coinbase    common.Address   `json:"miner"`
-	Root        common.Hash      `json:"stateRoot"`
-	TxHash      common.Hash      `json:"transactionsRoot"`
-	ReceiptHash common.Hash      `json:"receiptsRoot"`
-	Bloom       types.Bloom      `json:"logsBloom"`
-	Difficulty  hexutil.Big      `json:"difficulty"`
-	Number      hexutil.Big      `json:"number"`
-	GasLimit    hexutil.Uint64   `json:"gasLimit"`
-	GasUsed     hexutil.Uint64   `json:"gasUsed"`
-	Time        hexutil.Big      `json:"timestamp"`
-	Extra       hexutil.Bytes    `json:"extraData"`
-	Nonce       types.BlockNonce `json:"nonce"`
-	GethHash    common.Hash      `json:"mixHash"`
-	ParityHash  common.Hash      `json:"hash"`
-}
-
 type Transaction struct {
 	GasPrice hexutil.Uint64 `json:"gasPrice"`
 }
@@ -154,14 +130,6 @@ type Block struct {
 }
 
 var emptyHash = common.Hash{}
-
-// Hash will return GethHash if it exists otherwise it returns the ParityHash
-func (h BlockHeader) Hash() common.Hash {
-	if h.GethHash != emptyHash {
-		return h.GethHash
-	}
-	return h.ParityHash
-}
 
 // TxReceipt holds the block number and the transaction hash of a signed
 // transaction that has been written to the blockchain.

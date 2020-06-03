@@ -142,12 +142,12 @@ type Head struct {
 }
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp *big.Int) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
 		ParentHash: parentHash,
-		Timestamp:  time.Unix(timestamp.Int64(), 0),
+		Timestamp:  time.Unix(int64(timestamp), 0),
 	}
 }
 
