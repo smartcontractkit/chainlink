@@ -323,6 +323,46 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	}
 }
 
+// If the roundState method is unable to communicate with the contract (possibly due to
+// incorrect address) then the pollIfEligible method should create a JobSpecErr record
+func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	nodeAddr := ensureAccount(t, store)
+
+	rm := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	fluxAggregator := new(mocks.FluxAggregator)
+
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	roundState := contracts.FluxAggregatorRoundState{}
+
+	fluxAggregator.On("RoundState", nodeAddr).Return(roundState, errors.New("err")).Once()
+	checker, err := fluxmonitor.NewPollingDeviationChecker(
+		store,
+		fluxAggregator,
+		initr,
+		nil,
+		rm,
+		fetcher,
+		func() {},
+	)
+	require.NoError(t, err)
+	checker.OnConnect()
+
+	result := checker.ExportedPollIfEligible(1, 1)
+	assert.False(t, result)
+
+	specErrors, err := store.JobSpecErrorsFor(&job)
+	require.NoError(t, err)
+	assert.Len(t, specErrors, 1)
+
+	fluxAggregator.AssertExpectations(t)
+	fetcher.AssertExpectations(t)
+	rm.AssertExpectations(t)
+}
+
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
