@@ -6,7 +6,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { AccessControlFactory } from '../../ethers/v0.6/AccessControlFactory'
+import { SimpleAccessControlFactory } from '../../ethers/v0.6/SimpleAccessControlFactory'
 import { MockAggregatorFactory } from '../../ethers/v0.6/MockAggregatorFactory'
 import { AccessControlledAggregatorProxyFactory } from '../../ethers/v0.6/AccessControlledAggregatorProxyFactory'
 
@@ -15,7 +15,7 @@ let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
-const accessControlFactory = new AccessControlFactory()
+const accessControlFactory = new SimpleAccessControlFactory()
 const aggregatorFactory = new MockAggregatorFactory()
 const controlleredAggregatorProxyFactory = new AccessControlledAggregatorProxyFactory()
 
@@ -36,7 +36,7 @@ describe('AccessControlledAggregatorProxy', () => {
   const startedAt = 677
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let controller: contract.Instance<AccessControlFactory>
+  let controller: contract.Instance<SimpleAccessControlFactory>
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregator2: contract.Instance<MockAggregatorFactory>
   let proxy: contract.Instance<AccessControlledAggregatorProxyFactory>
@@ -201,7 +201,7 @@ describe('AccessControlledAggregatorProxy', () => {
   })
 
   describe('#setController', () => {
-    let newController: contract.Instance<AccessControlFactory>
+    let newController: contract.Instance<SimpleAccessControlFactory>
 
     beforeEach(async () => {
       newController = await accessControlFactory
