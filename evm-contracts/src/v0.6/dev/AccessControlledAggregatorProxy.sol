@@ -42,13 +42,13 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
-    external
+    public
     view
     override
     checkAccess()
     returns (int256)
   {
-    return _latestAnswer();
+    return super.latestAnswer();
   }
 
   /**
@@ -57,13 +57,13 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
-    external
+    public
     view
     override
     checkAccess()
     returns (uint256)
   {
-    return _latestTimestamp();
+    return super.latestTimestamp();
   }
 
   /**
@@ -73,13 +73,13 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
-    external
+    public
     view
     override
     checkAccess()
     returns (int256)
   {
-    return _getAnswer(_roundId);
+    return super.getAnswer(_roundId);
   }
 
   /**
@@ -89,13 +89,13 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
-    external
+    public
     view
     override
     checkAccess()
     returns (uint256)
   {
-    return _getTimestamp(_roundId);
+    return super.getTimestamp(_roundId);
   }
 
   /**
@@ -104,13 +104,13 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
-    external
+    public
     view
     override
     checkAccess()
     returns (uint256)
   {
-    return _latestRound();
+    return super.latestRound();
   }
 
   /**
@@ -135,7 +135,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @dev Note that answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
-    external
+    public
     view
     checkAccess()
     override
@@ -147,7 +147,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
       uint256 answeredInRound
     )
   {
-    return _getRoundData(_roundId);
+    return super.getRoundData(_roundId);
   }
 
   /**
@@ -171,7 +171,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @dev Note that answer and updatedAt may change between queries.
    */
   function latestRoundData()
-    external
+    public
     view
     checkAccess()
     override
@@ -183,7 +183,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
       uint256 answeredInRound
     )
   {
-    return _latestRoundData();
+    return super.latestRoundData();
   }
 
   /**
@@ -199,7 +199,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * was computed.
   */
   function proposedGetRoundData(uint256 _roundId)
-    external
+    public
     view
     checkAccess()
     override
@@ -211,7 +211,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
       uint256 answeredInRound
     )
   {
-    return _proposedGetRoundData(_roundId);
+    return super.proposedGetRoundData(_roundId);
   }
 
   /**
@@ -226,7 +226,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * was computed.
   */
   function proposedLatestRoundData()
-    external
+    public
     view
     checkAccess()
     override
@@ -238,7 +238,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
       uint256 answeredInRound
     )
   {
-    return _proposedLatestRoundData();
+    return super.proposedLatestRoundData();
   }
 
   /**
