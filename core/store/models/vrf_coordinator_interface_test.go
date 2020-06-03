@@ -29,7 +29,7 @@ var (
 				common.BigToHash(seed).Bytes()...),
 				sender.Hash().Bytes()...),
 				fee.ToHash().Bytes()...),
-			Topics: []common.Hash{common.Hash{}, jobID},
+			Topics: []common.Hash{{}, jobID},
 		},
 	}
 )
@@ -41,7 +41,7 @@ func TestVRFParseRandomnessRequestLog(t *testing.T) {
 	assert.Equal(t, rawLog, raw.Raw.Data)
 	nR, err := models.ParseRandomnessRequestLog(models.Log{
 		Data:   rawLog,
-		Topics: []common.Hash{common.Hash{}, jobID},
+		Topics: []common.Hash{{}, jobID},
 	})
 	require.NoError(t, err)
 	require.True(t, r.Equal(*nR),

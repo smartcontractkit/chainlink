@@ -14,7 +14,7 @@ contract VRFConsumer is VRFConsumerBase {
     VRFConsumerBase(_vrfCoordinator, _link) { /* empty */ }
 
   function fulfillRandomness(bytes32 _requestId, uint256 _randomness)
-    external override
+    internal override
   {
     randomnessOutput = _randomness;
     requestId = _requestId;
