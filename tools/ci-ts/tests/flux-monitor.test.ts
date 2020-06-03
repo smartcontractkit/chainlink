@@ -228,46 +228,54 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await t.assertJobRun(clClient1, node1InitialRunCount + 1, 'initial update')
     await t.assertJobRun(clClient2, node2InitialRunCount + 1, 'initial update')
     await assertAggregatorValues(10000, 1, 1, 1, 1, 'initial round')
+    await clClient1.pause()
+    await clClient2.pause()
 
     // node 1 should still begin round even with unresponsive node 2
-    await clClient2.pause()
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 110)
     await t.changePriceFeed(EXTERNAL_ADAPTER_2_URL, 120)
+    await clClient1.unpause()
     await t.assertJobRun(clClient1, node1InitialRunCount + 2, 'second update')
     await assertAggregatorValues(10000, 1, 2, 2, 1, 'node 1 only')
+    await clClient1.pause()
 
     // node 2 should finish round
     await clClient2.unpause()
     await t.assertJobRun(clClient2, node2InitialRunCount + 2, 'second update')
     await assertAggregatorValues(11500, 2, 2, 2, 2, 'second round')
+    await clClient2.pause()
 
     // reduce minAnswers to 1
-    await clClient2.pause()
-    await fluxAggregator.updateFutureRounds(
+    await (await fluxAggregator.updateFutureRounds(
       MINIMUM_CONTRACT_PAYMENT,
       1,
       2,
       0,
       5,
-    )
+    )).wait()
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 130)
+    await clClient1.unpause()
     await t.assertJobRun(clClient1, node1InitialRunCount + 3, 'third update')
     await assertAggregatorValues(13000, 3, 3, 3, 2, 'third round')
+    await clClient1.pause()
 
     // node should continue to start new rounds alone
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 140)
+    await clClient1.unpause()
     await t.assertJobRun(clClient1, node1InitialRunCount + 4, 'fourth update')
     await assertAggregatorValues(14000, 4, 4, 4, 2, 'fourth round')
+
+    await clClient2.unpause()
   })
 
   it('respects the idle timer duration', async () => {
-    await fluxAggregator.updateFutureRounds(
+    await (await fluxAggregator.updateFutureRounds(
       MINIMUM_CONTRACT_PAYMENT,
       2,
       2,
       0,
       10,
-    )
+    )).wait()
 
     const node1InitialRunCount = clClient1.getJobRuns().length
     const node2InitialRunCount = clClient2.getJobRuns().length
