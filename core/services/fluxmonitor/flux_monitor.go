@@ -623,6 +623,8 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 
 	logRoundID := uint32(log.RoundId.Uint64())
 
+	p.resetIdleTimer(log.StartedAt.Uint64())
+
 	// Ignore a round that we've already submitted to, provided that they aren't the result of a reorg.  This must
 	// be an == check, rather than <=, because if the chain reorgs all the way back to a previous round, the txs
 	// that are flushed back to the mempool might be mined in an order that cause them to revert.  Therefore we
@@ -630,7 +632,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	if logRoundID == p.mostRecentSubmittedRoundID {
 		roundStats, err := p.store.ORM.FindFluxMonitorRoundStats(p.initr.Address, logRoundID)
 		if err != nil {
-			logger.Errorw(fmt.Sprintf("error counting NewRound logs in DB: %v", err), p.loggerFieldsForNewRound(log)...)
+			logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), p.loggerFieldsForNewRound(log)...)
 			return
 		}
 
@@ -813,7 +815,7 @@ func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggr
 
 	// Update our tickers to reflect the current on-chain round
 	p.resetRoundTimeoutTicker(roundState)
-	p.resetIdleTicker(roundState.StartedAt)
+	p.resetIdleTimer(roundState.StartedAt)
 
 	return roundState, nil
 }
@@ -840,7 +842,7 @@ func (p *PollingDeviationChecker) resetRoundTimeoutTicker(roundState contracts.F
 	}
 }
 
-func (p *PollingDeviationChecker) resetIdleTicker(roundStartedAtUTC uint64) {
+func (p *PollingDeviationChecker) resetIdleTimer(roundStartedAtUTC uint64) {
 	if p.initr.IdleTimer.Disabled {
 		p.idleTimer = nil
 		return
