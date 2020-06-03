@@ -1,6 +1,6 @@
 import { contract, helpers, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { AccessControlFactory } from '../../ethers/v0.6/AccessControlFactory'
+import { SimpleAccessControlFactory } from '../../ethers/v0.6/SimpleAccessControlFactory'
 import { AccessControlTestHelperFactory } from '../../ethers/v0.6/AccessControlTestHelperFactory'
 
 const controllerFactory = new AccessControlTestHelperFactory()
@@ -10,8 +10,8 @@ beforeAll(async () => {
   await setup.users(provider).then(u => (personas = u.personas))
 })
 
-describe('AccessControl', () => {
-  let controller: contract.Instance<AccessControlFactory>
+describe('SimpleAccessControl', () => {
+  let controller: contract.Instance<SimpleAccessControlFactory>
   const value = 17
   const deployment = setup.snapshot(provider, async () => {
     controller = await controllerFactory.connect(personas.Carol).deploy(value)
@@ -19,7 +19,7 @@ describe('AccessControl', () => {
   beforeEach(deployment)
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(new AccessControlFactory(), [
+    matchers.publicAbi(new SimpleAccessControlFactory(), [
       'hasAccess',
       'addAccess',
       'disableAccessCheck',

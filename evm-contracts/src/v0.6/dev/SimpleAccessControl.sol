@@ -4,10 +4,10 @@ import "../Owned.sol";
 import "./AccessController.sol";
 
 /**
- * @title AccessControl
+ * @title SimpleAccessControl
  * @notice Allows the owner to set access for addresses
  */
-contract AccessControl is AccessController, Owned {
+contract SimpleAccessControl is AccessController, Owned {
 
   bool public checkEnabled;
   mapping(address => bool) internal accessList;

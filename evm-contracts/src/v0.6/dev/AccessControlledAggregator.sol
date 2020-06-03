@@ -1,14 +1,14 @@
 pragma solidity 0.6.6;
 
 import "./FluxAggregator.sol";
-import "./AccessControl.sol";
+import "./SimpleAccessControl.sol";
 
 /**
  * @title AccessControlled FluxAggregator contract
  * @notice This contract requires addresses to be added to a controller
  * in order to read the answers stored in the FluxAggregator contract
  */
-contract AccessControlledAggregator is FluxAggregator, AccessControl {
+contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
 
   constructor(
     address _link,

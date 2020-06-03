@@ -1,8 +1,8 @@
 pragma solidity ^0.6.0;
 
-import "../dev/AccessControl.sol";
+import "../dev/SimpleAccessControl.sol";
 
-contract AccessControlTestHelper is AccessControl {
+contract AccessControlTestHelper is SimpleAccessControl {
 
   int256 private value;
 
