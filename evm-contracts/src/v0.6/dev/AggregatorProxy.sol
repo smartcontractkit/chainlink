@@ -23,13 +23,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
-    external
+    public
     view
     virtual
     override
-    returns (int256)
+    returns (int256 answer)
   {
-    return _latestAnswer();
+    ( , answer, , , ) = latestRoundData();
   }
 
   /**
@@ -37,13 +37,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
-    external
+    public
     view
     virtual
     override
-    returns (uint256)
+    returns (uint256 updatedAt)
   {
-    return _latestTimestamp();
+    ( , , , updatedAt, ) = latestRoundData();
   }
 
   /**
@@ -52,13 +52,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
-    returns (int256)
+    returns (int256 answer)
   {
-    return _getAnswer(_roundId);
+    ( , answer, , , ) = getRoundData(_roundId);
   }
 
   /**
@@ -67,13 +67,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
-    returns (uint256)
+    returns (uint256 updatedAt)
   {
-    return _getTimestamp(_roundId);
+    ( , , , updatedAt, ) = getRoundData(_roundId);
   }
 
   /**
@@ -81,13 +81,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
-    external
+    public
     view
     virtual
     override
-    returns (uint256)
+    returns (uint256 roundId)
   {
-    return _latestRound();
+    ( roundId, , , , ) = latestRoundData();
   }
 
   /**
@@ -112,7 +112,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev Note that answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
@@ -124,7 +124,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _getRoundData(_roundId);
+    return aggregator.getRoundData(_roundId);
   }
 
   /**
@@ -148,7 +148,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev Note that answer and updatedAt may change between queries.
    */
   function latestRoundData()
-    external
+    public
     view
     virtual
     override
@@ -160,7 +160,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _latestRoundData();
+    return aggregator.latestRoundData();
   }
 
   /**
@@ -176,7 +176,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * was computed.
   */
   function proposedGetRoundData(uint256 _roundId)
-    external
+    public
     view
     virtual
     returns (
@@ -187,7 +187,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _proposedGetRoundData(_roundId);
+    return proposedAggregator.getRoundData(_roundId);
   }
 
   /**
@@ -202,7 +202,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * was computed.
   */
   function proposedLatestRoundData()
-    external
+    public
     view
     virtual
     returns (
@@ -213,7 +213,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _proposedLatestRoundData();
+    return proposedAggregator.latestRoundData();
   }
 
   /**
@@ -288,101 +288,5 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     internal
   {
     aggregator = AggregatorInterface(_aggregator);
-  }
-
-  function _proposedGetRoundData(uint256 _roundId)
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return proposedAggregator.getRoundData(_roundId);
-  }
-
-  function _proposedLatestRoundData()
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return proposedAggregator.latestRoundData();
-  }
-
-  function _latestAnswer()
-    internal
-    view
-    returns (int256 answer)
-  {
-    ( , answer, , , ) = _latestRoundData();
-  }
-
-  function _latestTimestamp()
-    internal
-    view
-    returns (uint256 updatedAt)
-  {
-    ( , , , updatedAt, ) = _latestRoundData();
-  }
-
-  function _getAnswer(uint256 _roundId)
-    internal
-    view
-    returns (int256 answer)
-  {
-    ( , answer, , , ) = _getRoundData(_roundId);
-  }
-
-  function _getTimestamp(uint256 _roundId)
-    internal
-    view
-    returns (uint256 updatedAt)
-  {
-    ( , , , updatedAt, ) = _getRoundData(_roundId);
-  }
-
-  function _latestRound()
-    internal
-    view
-    returns (uint256 roundId)
-  {
-    ( roundId, , , , ) = _latestRoundData();
-  }
-
-  function _getRoundData(uint256 _roundId)
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return aggregator.getRoundData(_roundId);
-  }
-
-  function _latestRoundData()
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return aggregator.latestRoundData();
   }
 }
