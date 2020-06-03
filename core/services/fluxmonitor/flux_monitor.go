@@ -359,6 +359,8 @@ type PollingDeviationChecker struct {
 	idleTimer     <-chan time.Time
 	roundTimer    <-chan time.Time
 
+	mostRecentSubmittedRoundID uint32
+
 	readyForLogs func()
 	chStop       chan struct{}
 	waitOnStop   chan struct{}
@@ -549,6 +551,7 @@ func (p *PollingDeviationChecker) processLogs() {
 			logger.Errorf("Error determining if log was already consumed: %v", err)
 			continue
 		} else if consumed {
+			logger.Debug("Log was already consumed by Flux Monitor, skipping")
 			continue
 		}
 
@@ -597,13 +600,11 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	//
 	// NewRound answer submission logic:
 	//   - Any log that reaches this point, regardless of chain reorgs or log backfilling, is one that we have
-	//         not seen before.  Therefore, we should act upon it.
-	//   - We want to ensure that we respond to a previous, supersedable round in addition to the most recent
-	//         round (sometimes logs come in quickly, all at once, as with a reorg or backfilling).  Therefore,
-	//         we must use the roundID on the log, rather than the `.ReportableRoundID` value suggested by the
-	//         FluxAggregator's `oracleRoundState` method.
-	//   - We query the oracleRoundState of this specific roundID to ensure that it makes sense to submit.  We
-	//         ignore its `reportableRoundID` suggestion, because we already have a specific roundID to consider.
+	//         not seen before.  Therefore, we should consider act upon it.
+	//   - If two logs come in in rapid succession, and we submit a tx for the first, the `.ReportableRoundID`
+	//         field in the roundState() response for the 2nd log will not reflect the fact that we've submitted
+	//         for the first round (assuming it hasn't been mined yet).  Therefore, we ignore that field and
+	//         instead use the `.RoundId` field on the log.
 	//   - In the event of a reorg that pushes our previous submissions back into the mempool, we can rely on the
 	//         TxManager to ensure they end up being mined into blocks, but this may cause them to revert if they
 	//         violate certain conditions in the FluxAggregator (restartDelay, etc.).  Therefore, the cleanest
@@ -611,7 +612,40 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	//         one or the other submission tx for a given round will revert, costing the node operator some gas.
 	//         The benefit is that those submissions are guaranteed to be made, ensuring that we have high data
 	//         availability (and also ensuring that node operators get paid).
+	//   - There is one case in which we want to avoid submitting, namely, when our node polls at the same time
+	//         as another node, and both attempt to start a round.  In that case, it's possible that the other
+	//         node will start the round, and our node will see the NewRound log and try to submit again.  For
+	//         this reason, we keep track of the number of times we've submitted for a given round.  If this count
+	//         is greater than the number of times we've seen the NewRound log for that round (prior to incrementing
+	//         the log count), then we know we've already submitted as a result of one of the other triggers
+	//         (poll, idle, round timeout).
 	//
+
+	logRoundID := uint32(log.RoundId.Uint64())
+
+	// Ignore a round that we've already submitted to, provided that they aren't the result of a reorg.  This must
+	// be an == check, rather than <=, because if the chain reorgs all the way back to a previous round, the txs
+	// that are flushed back to the mempool might be mined in an order that cause them to revert.  Therefore we
+	// always want to submit in this case.
+	if logRoundID == p.mostRecentSubmittedRoundID {
+		roundStats, err := p.store.ORM.FindFluxMonitorRoundStats(p.initr.Address, logRoundID)
+		if err != nil {
+			logger.Errorw(fmt.Sprintf("error counting NewRound logs in DB: %v", err), p.loggerFieldsForNewRound(log)...)
+			return
+		}
+
+		if roundStats.NumSubmissions > roundStats.NumNewRoundLogs {
+			// This indicates that we tried to start a round at the same time as another
+			// node, and their transaction was mined first.  We should not resubmit.
+			logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
+			return
+		}
+	}
+	err := p.store.ORM.IncrFluxMonitorNewRoundLogs(p.initr.Address, logRoundID)
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("error updating NewRound log count: %v", err), p.loggerFieldsForNewRound(log)...)
+		return
+	}
 
 	// Ignore rounds we started
 	acct, err := p.store.KeyStore.GetFirstAccount()
@@ -624,7 +658,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	}
 
 	// Ignore rounds we're not eligible for, or for which we won't be paid
-	roundState, err := p.roundState(uint32(log.RoundId.Uint64()))
+	roundState, err := p.roundState(logRoundID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("Ignoring new round request: error fetching eligibility from contract: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
@@ -635,7 +669,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		return
 	}
 
-	logger.Infow("Responding to new round request: new > current", p.loggerFieldsForNewRound(log)...)
+	logger.Infow("Responding to new round request", p.loggerFieldsForNewRound(log)...)
 
 	polledAnswer, err := p.fetcher.Fetch()
 	if err != nil {
@@ -643,7 +677,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		return
 	}
 
-	err = p.createJobRun(polledAnswer, uint32(log.RoundId.Uint64()))
+	err = p.createJobRun(polledAnswer, logRoundID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to create job run: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
@@ -681,12 +715,10 @@ func (p *PollingDeviationChecker) sufficientFunds(state contracts.FluxAggregator
 // sufficientPayment checks if the available payment is enough to submit an answer. It compares
 // the payment amount on chain with the min payment amount listed in the job spec / ENV var.
 func (p *PollingDeviationChecker) sufficientPayment(payment *big.Int) bool {
-	aboveOrEqMinGlobalPayment :=
-		payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
+	aboveOrEqMinGlobalPayment := payment.Cmp(p.store.Config.MinimumContractPayment().ToInt()) >= 0
 	aboveOrEqMinJobPayment := true
 	if p.minJobPayment != nil {
-		aboveOrEqMinJobPayment =
-			payment.Cmp(p.minJobPayment.ToInt()) >= 0
+		aboveOrEqMinJobPayment = payment.Cmp(p.minJobPayment.ToInt()) >= 0
 	}
 	return aboveOrEqMinGlobalPayment && aboveOrEqMinJobPayment
 }
@@ -866,6 +898,18 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, rou
 
 	_, err = p.runManager.Create(p.initr.JobSpecID, &p.initr, nil, runRequest)
 	if err != nil {
+		return err
+	}
+
+	p.mostRecentSubmittedRoundID = roundID
+
+	err = p.store.ORM.IncrFluxMonitorRoundSubmissions(p.initr.Address, roundID)
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("error updating FM round submission count: %v", err),
+			"address", p.initr.Address.Hex(),
+			"roundID", roundID,
+			"jobID", p.initr.JobSpecID.String(),
+		)
 		return err
 	}
 

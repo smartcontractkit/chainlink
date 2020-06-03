@@ -598,6 +598,28 @@ contract FluxAggregator is AggregatorInterface, Owned {
     updateAvailableFunds();
   }
 
+  function asdf(address _oracle, uint32 _queriedRoundId) private view returns (bool _eligible, uint128 _state) {
+      if (rounds[_queriedRoundId].startedAt > 0) {
+        if (!acceptingSubmissions(_queriedRoundId)) {
+            _state = 11;
+        } else if (validateOracleRound(_oracle, _queriedRoundId).length != 0) {
+            _state = 22;
+        } else {
+            _state = 33;
+        }
+        return (acceptingSubmissions(_queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0, _state);
+      } else {
+        if (!delayed(_oracle, _queriedRoundId)) {
+            _state = 44;
+        } else if (validateOracleRound(_oracle, _queriedRoundId).length != 0) {
+            _state = 55;
+        } else {
+            _state = 66;
+        }
+        return (delayed(_oracle, _queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0, _state);
+      }
+  }
+
   /**
    * @notice a method to provide all current info oracles need. Intended only
    * only to be callable by oracles. Not for use by contracts to read state.
@@ -619,35 +641,64 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(msg.sender == tx.origin, "off-chain reading only");
 
-    if (_queriedRoundId == 0) {
-      _queriedRoundId = reportingRoundId;
+    Round storage round = rounds[_queriedRoundId];
+    OracleStatus storage oracle = oracles[_oracle];
+
+    if (_queriedRoundId > 0) {
+      (_eligibleToSubmit, _paymentAmount) = asdf(_oracle, _queriedRoundId);
+      _roundId = _queriedRoundId;
+      _latestSubmission = oracles[_oracle].latestSubmission;
+      _startedAt = round.startedAt;
+      _timeout = round.details.timeout;
+      _availableFunds = availableFunds;
+      _oracleCount = oracleCount();
+      _paymentAmount = _paymentAmount + (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount);
+      return (
+          _eligibleToSubmit,
+          _roundId,
+          _latestSubmission,
+          _startedAt,
+          _timeout,
+          _availableFunds,
+          _oracleCount,
+          _paymentAmount
+      );
     }
 
-    bool shouldSupersede = oracles[_oracle].lastReportedRound == _queriedRoundId || !acceptingSubmissions(_queriedRoundId);
+    uint128 state;
+
+    bool shouldSupersede = oracle.lastReportedRound == reportingRoundId || !acceptingSubmissions(reportingRoundId);
     // Instead of nudging oracles to submit to the next round, the inclusion of
     // the shouldSupersede bool in the if condition pushes them towards
     // submitting in a currently open round.
-    if (supersedable(_queriedRoundId) && shouldSupersede) {
-      _roundId = _queriedRoundId.add(1);
+    if (supersedable(reportingRoundId) && shouldSupersede) {
+      _roundId = reportingRoundId.add(1);
+      round = rounds[_roundId];
+
       _paymentAmount = paymentAmount;
       _eligibleToSubmit = delayed(_oracle, _roundId);
+      state = 1;
     } else {
-      _roundId = _queriedRoundId;
-      _paymentAmount = rounds[_roundId].details.paymentAmount;
+      _roundId = reportingRoundId;
+      round = rounds[_roundId];
+
+      _paymentAmount = round.details.paymentAmount;
       _eligibleToSubmit = acceptingSubmissions(_roundId);
+      state = 2;
     }
 
     if (validateOracleRound(_oracle, _roundId).length != 0) {
       _eligibleToSubmit = false;
+      state = 3;
     }
 
     return (
       _eligibleToSubmit,
       _roundId,
-      oracles[_oracle].latestSubmission,
-      rounds[_roundId].startedAt,
-      rounds[_roundId].details.timeout,
-      availableFunds,
+      oracle.latestSubmission,
+      round.startedAt,
+      round.details.timeout,
+      availableFunds + state,
       oracleCount(),
       _paymentAmount
     );
