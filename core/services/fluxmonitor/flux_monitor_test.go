@@ -413,7 +413,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	for i := 1; i <= 4; i++ {
 		logBroadcast := new(mocks.LogBroadcast)
-		logBroadcast.On("Log").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i))})
+		logBroadcast.On("Log").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i)), StartedAt: big.NewInt(0)})
 		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
 		logBroadcast.On("MarkConsumed").Return(nil)
 		logBroadcasts = append(logBroadcasts, logBroadcast)
@@ -506,7 +506,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 					close(chBlock)
 				})
 
-				decodedLog := contracts.LogNewRound{RoundId: big.NewInt(2)}
+				decodedLog := contracts.LogNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
 				logBroadcast.On("Log").Return(&decodedLog)
 				logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
 				logBroadcast.On("MarkConsumed").Return(nil).Once()
@@ -820,7 +820,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			if test.startedBySelf {
 				startedBy = nodeAddr
 			}
-			checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+			checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy, StartedAt: big.NewInt(0)})
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
