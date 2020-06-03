@@ -3,11 +3,11 @@ package gethwrappers
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
 
-//go:generate ./generation/generate.sh ../../../evm-contracts/abi/v0.6/FluxAggregator.json flux_aggregator_wrapper
-//go:generate ./generation/generate.sh ../../../evm-contracts/abi/v0.6/VRFTestHelper.json solidity_verifier_wrapper
-//go:generate ./generation/generate.sh ../../../evm-contracts/abi/v0.6/VRFCoordinator.json solidity_vrf_coordinator_interface
-//go:generate ./generation/generate.sh ../../../evm-contracts/abi/v0.6/VRFConsumer.json solidity_vrf_consumer_interface
-//go:generate ./generation/generate.sh ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json solidity_request_id
+//go:generate go run ./generation/wrap.go ../../../evm-contracts/abi/v0.6/FluxAggregator.json flux_aggregator_wrapper
+//go:generate go run ./generation/wrap.go ../../../evm-contracts/abi/v0.6/VRFTestHelper.json solidity_verifier_wrapper
+//go:generate go run ./generation/wrap.go ../../../evm-contracts/abi/v0.6/VRFCoordinator.json solidity_vrf_coordinator_interface
+//go:generate go run ./generation/wrap.go ../../../evm-contracts/abi/v0.6/VRFConsumer.json solidity_vrf_consumer_interface
+//go:generate go run ./generation/wrap.go ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json solidity_request_id
 //go:generate ./generation/generate_link.sh
 
 // To run these commands, you must either install docker, or the correct version
