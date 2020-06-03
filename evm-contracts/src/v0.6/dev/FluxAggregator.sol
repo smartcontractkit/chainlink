@@ -598,28 +598,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     updateAvailableFunds();
   }
 
-  function asdf(address _oracle, uint32 _queriedRoundId) private view returns (bool _eligible, uint128 _state) {
-      if (rounds[_queriedRoundId].startedAt > 0) {
-        if (!acceptingSubmissions(_queriedRoundId)) {
-            _state = 11;
-        } else if (validateOracleRound(_oracle, _queriedRoundId).length != 0) {
-            _state = 22;
-        } else {
-            _state = 33;
-        }
-        return (acceptingSubmissions(_queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0, _state);
-      } else {
-        if (!delayed(_oracle, _queriedRoundId)) {
-            _state = 44;
-        } else if (validateOracleRound(_oracle, _queriedRoundId).length != 0) {
-            _state = 55;
-        } else {
-            _state = 66;
-        }
-        return (delayed(_oracle, _queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0, _state);
-      }
-  }
-
   /**
    * @notice a method to provide all current info oracles need. Intended only
    * only to be callable by oracles. Not for use by contracts to read state.
@@ -645,7 +623,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     OracleStatus storage oracle = oracles[_oracle];
 
     if (_queriedRoundId > 0) {
-      (_eligibleToSubmit, _paymentAmount) = asdf(_oracle, _queriedRoundId);
+      _eligibleToSubmit = eligibleForSpecificRound(_oracle, _queriedRoundId);
       _roundId = _queriedRoundId;
       _latestSubmission = oracles[_oracle].latestSubmission;
       _startedAt = round.startedAt;
@@ -654,14 +632,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
       _oracleCount = oracleCount();
       _paymentAmount = _paymentAmount + (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount);
       return (
-          _eligibleToSubmit,
-          _roundId,
-          _latestSubmission,
-          _startedAt,
-          _timeout,
-          _availableFunds,
-          _oracleCount,
-          _paymentAmount
+        _eligibleToSubmit,
+        _roundId,
+        _latestSubmission,
+        _startedAt,
+        _timeout,
+        _availableFunds,
+        _oracleCount,
+        _paymentAmount
       );
     }
 
@@ -703,6 +681,19 @@ contract FluxAggregator is AggregatorInterface, Owned {
       _paymentAmount
     );
   }
+
+  function eligibleForSpecificRound(address _oracle, uint32 _queriedRoundId)
+    private
+    view
+    returns (bool _eligible)
+  {
+    if (rounds[_queriedRoundId].startedAt > 0) {
+      return acceptingSubmissions(_queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0;
+    } else {
+      return delayed(_oracle, _queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0;
+    }
+  }
+
 
   /**
    * Internal
