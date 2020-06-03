@@ -1,4 +1,4 @@
-pragma solidity 0.6.2;
+pragma solidity 0.6.6;
 
 import "../Median.sol";
 import "../vendor/SafeMath.sol";
@@ -57,7 +57,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint32 lastStartedRound;
   }
 
-  uint256 constant public VERSION = 2;
 
   LinkTokenInterface public linkToken;
   uint128 public allocatedFunds;
@@ -70,8 +69,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint32 public restartDelay;
   uint32 public timeout;
   uint8 public override decimals;
-  bytes32 public description;
+  string public override description;
 
+  uint256 constant public override version = 3;
 
   /**
    * @notice To ensure owner isn't withdrawing required funds as oracles are
@@ -82,6 +82,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    */
   uint256 constant private RESERVE_ROUNDS = 2;
   uint256 constant private MAX_ORACLE_COUNT = 77;
+  uint32 constant private ROUND_MAX = 2**32-1;
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
@@ -124,8 +125,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint32 delay
   );
 
-  uint32 constant private ROUND_MAX = 2**32-1;
-
   /**
    * @notice Deploy with the address of the LINK token and initial payment amount
    * @dev Sets the LinkToken address and amount of LINK paid
@@ -139,7 +138,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
     uint128 _paymentAmount,
     uint32 _timeout,
     uint8 _decimals,
-    bytes32 _description
+    string memory _description
   ) public {
     linkToken = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;

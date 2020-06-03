@@ -64,6 +64,7 @@ describe('AggregatorProxy', () => {
     matchers.publicAbi(aggregatorProxyFactory, [
       'aggregator',
       'decimals',
+      'description',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -72,6 +73,7 @@ describe('AggregatorProxy', () => {
       'latestRoundData',
       'latestTimestamp',
       'setAggregator',
+      'version',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -223,7 +225,7 @@ describe('AggregatorProxy', () => {
         beforeEach(async () => {
           const facade = await aggregatorFacadeFactory
             .connect(defaultAccount)
-            .deploy(aggregator.address, 18)
+            .deploy(aggregator.address, 18, 'LINK/USD: Aggregator Facade')
           await proxy.setAggregator(facade.address)
         })
 
@@ -246,13 +248,7 @@ describe('AggregatorProxy', () => {
       beforeEach(async () => {
         const fluxAggregator = await fluxAggregatorFactory
           .connect(defaultAccount)
-          .deploy(
-            link.address,
-            basePayment,
-            3600,
-            18,
-            ethers.utils.formatBytes32String('DOGE/ZWL'),
-          )
+          .deploy(link.address, basePayment, 3600, 18, 'DOGE/ZWL')
         await link.transferAndCall(fluxAggregator.address, deposit, [])
         await fluxAggregator.addOracles(
           [defaultAccount.address],
@@ -305,7 +301,7 @@ describe('AggregatorProxy', () => {
         beforeEach(async () => {
           const facade = await aggregatorFacadeFactory
             .connect(defaultAccount)
-            .deploy(aggregator.address, 18)
+            .deploy(aggregator.address, 17, 'DOGE/ZWL: Aggregator Facade')
           await proxy.setAggregator(facade.address)
         })
 
@@ -319,6 +315,18 @@ describe('AggregatorProxy', () => {
           matchers.bigNum(round.updatedAt, round.startedAt)
           matchers.bigNum(roundId, round.answeredInRound)
         })
+
+        it('uses the decimals set in the constructor', async () => {
+          matchers.bigNum(17, await proxy.decimals())
+        })
+
+        it('uses the description set in the constructor', async () => {
+          assert.equal('DOGE/ZWL: Aggregator Facade', await proxy.description())
+        })
+
+        it('sets the version to 2', async () => {
+          matchers.bigNum(2, await proxy.version())
+        })
       })
     })
 
@@ -328,13 +336,7 @@ describe('AggregatorProxy', () => {
       beforeEach(async () => {
         const fluxAggregator = await fluxAggregatorFactory
           .connect(defaultAccount)
-          .deploy(
-            link.address,
-            basePayment,
-            3600,
-            18,
-            ethers.utils.formatBytes32String('DOGE/ZWL'),
-          )
+          .deploy(link.address, basePayment, 3600, 18, 'DOGE/ZWL')
         await link.transferAndCall(fluxAggregator.address, deposit, [])
         await fluxAggregator.addOracles(
           [defaultAccount.address],
@@ -357,6 +359,18 @@ describe('AggregatorProxy', () => {
         assert.isBelow(round.startedAt.toNumber(), nowSeconds)
         matchers.bigNum(round.startedAt, round.updatedAt)
         matchers.bigNum(roundId, round.answeredInRound)
+      })
+
+      it('uses the decimals set in the constructor', async () => {
+        matchers.bigNum(18, await proxy.decimals())
+      })
+
+      it('uses the description set in the constructor', async () => {
+        assert.equal('DOGE/ZWL', await proxy.description())
+      })
+
+      it('sets the version to 3', async () => {
+        matchers.bigNum(3, await proxy.version())
       })
     })
   })

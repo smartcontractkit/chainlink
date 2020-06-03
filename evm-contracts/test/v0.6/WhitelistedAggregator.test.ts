@@ -32,7 +32,7 @@ describe('WhitelistedAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await aggregatorFactory
+    aggregator = await (aggregatorFactory as any)
       .connect(personas.Carol)
       .deploy(
         link.address,
@@ -40,6 +40,9 @@ describe('WhitelistedAggregator', () => {
         timeout,
         decimals,
         h.toBytes32String(description),
+        // Remove when this PR gets merged:
+        // https://github.com/ethereum-ts/TypeChain/pull/218
+        { gasLimit: 8_000_000 },
       )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
@@ -89,7 +92,7 @@ describe('WhitelistedAggregator', () => {
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
-      'VERSION',
+      'version',
       // Owned methods:
       'acceptOwnership',
       'owner',

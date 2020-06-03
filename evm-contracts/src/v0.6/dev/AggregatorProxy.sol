@@ -1,4 +1,4 @@
-pragma solidity 0.6.2;
+pragma solidity 0.6.6;
 
 import "../interfaces/AggregatorInterface.sol";
 import "../Owned.sol";
@@ -172,6 +172,31 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     returns (uint8)
   {
     return aggregator.decimals();
+  }
+
+  /**
+   * @notice the version number representing the type of aggregator the proxy
+   * points to.
+   */
+  function version()
+    external
+    view
+    override
+    returns (uint256)
+  {
+    return aggregator.version();
+  }
+
+  /**
+   * @notice returns the description of the aggregator the proxy points to.
+   */
+  function description()
+    external
+    view
+    override
+    returns (string memory)
+  {
+    return aggregator.description();
   }
 
   /**
