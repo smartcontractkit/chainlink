@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -44,7 +44,7 @@ func TestMarshaledProof(t *testing.T) {
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
-	_, _, verifier, err := solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	if err != nil {
 		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
 	}
