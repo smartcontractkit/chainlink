@@ -326,6 +326,12 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	return earned, nil
 }
 
+// JobSpecErrorsFor ... TODO - RYAN
+func (orm *ORM) JobSpecErrorsFor(spec *models.JobSpec) ([]models.JobSpecError, error) {
+	var result []models.JobSpecError
+	return result, nil
+}
+
 // CreateExternalInitiator inserts a new external initiator
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	orm.MustEnsureAdvisoryLock()
