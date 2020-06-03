@@ -31,6 +31,7 @@ describe('AggregatorFacade', () => {
   const previousResponse = h.numToBytes32(54321)
   const response = h.numToBytes32(67890)
   const decimals = 18
+  const description = 'LINK / USD: Historic Aggregator Facade'
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<AggregatorFactory>
@@ -45,7 +46,7 @@ describe('AggregatorFacade', () => {
       .deploy(link.address, 0, 1, [oc1.address], [jobId1])
     facade = await aggregatorFacadeFactory
       .connect(defaultAccount)
-      .deploy(aggregator.address, decimals)
+      .deploy(aggregator.address, decimals, description)
 
     let requestTx = await aggregator.requestRateUpdate()
     let receipt = await requestTx.wait()
@@ -69,6 +70,7 @@ describe('AggregatorFacade', () => {
     matchers.publicAbi(aggregatorFacadeFactory, [
       'aggregator',
       'decimals',
+      'description',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -76,7 +78,22 @@ describe('AggregatorFacade', () => {
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
+      'version',
     ])
+  })
+
+  describe('#constructor', () => {
+    it('uses the decimals set in the constructor', async () => {
+      matchers.bigNum(decimals, await facade.decimals())
+    })
+
+    it('uses the description set in the constructor', async () => {
+      assert.equal(description, await facade.description())
+    })
+
+    it('sets the version to 2', async () => {
+      matchers.bigNum(2, await facade.version())
+    })
   })
 
   describe('#getAnswer/latestAnswer', () => {

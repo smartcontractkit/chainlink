@@ -56,6 +56,7 @@ describe('WhitelistedAggregatorProxy', () => {
     matchers.publicAbi(whitelistedAggregatorProxyFactory, [
       'aggregator',
       'decimals',
+      'description',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -64,6 +65,7 @@ describe('WhitelistedAggregatorProxy', () => {
       'latestRoundData',
       'latestTimestamp',
       'setAggregator',
+      'version',
       // Ownable methods:
       'acceptOwnership',
       'owner',

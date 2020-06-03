@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   connection to the ethereum client is reset. This value is specified with an environment
   variable `BLOCK_BACKFILL_DEPTH`.
 - The chainlink node now sets file permissions on sensitive files on startup (tls, .api, .env, .password and secret)
+- AggregatorInterface now has description and version fields.
 
 ### Changed
 
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `latestRound`, `latestTimestamp`, `getAnswer`, `getTimestamp`) as deprecated
   on `FluxAggregator`, `WhitelistedAggregator`, `AggregatorProxy`,
   `WhitelistedAggregatorProxy`.
+- Updated the solidity compiler version for v0.6 from 0.6.2 to 0.6.6.
 
 ### Fixed
 
