@@ -32,14 +32,15 @@ describe('FluxAggregator', () => {
   const description = 'LINK/USD'
   const reserveRounds = 2
 
-  let aggregator: contract.Instance<FluxAggregatorFactory>
+  type AggregatorType = contract.CallableOverrideInstance<FluxAggregatorFactory>
+  let aggregator: AggregatorType
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
   async function updateFutureRounds(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     overrides: {
       minAnswers?: ethers.utils.BigNumberish
       maxAnswers?: ethers.utils.BigNumberish
@@ -67,7 +68,7 @@ describe('FluxAggregator', () => {
   }
 
   async function addOracles(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     oraclesAndAdmin: ethers.Wallet[],
     minAnswers: number,
     maxAnswers: number,
@@ -83,7 +84,7 @@ describe('FluxAggregator', () => {
   }
 
   async function advanceRound(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: AggregatorType,
     submitters: ethers.Wallet[],
     currentSubmission: number = answer,
   ): Promise<number> {
@@ -163,15 +164,17 @@ describe('FluxAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await fluxAggregatorFactory
-      .connect(personas.Carol)
-      .deploy(
-        link.address,
-        paymentAmount,
-        timeout,
-        decimals,
-        ethers.utils.formatBytes32String(description),
-      )
+    aggregator = contract.callableAggregator(
+      await fluxAggregatorFactory
+        .connect(personas.Carol)
+        .deploy(
+          link.address,
+          paymentAmount,
+          timeout,
+          decimals,
+          ethers.utils.formatBytes32String(description),
+        ),
+    )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))
@@ -220,7 +223,7 @@ describe('FluxAggregator', () => {
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
-      'version',
+      'VERSION',
       // Owned methods:
       'acceptOwnership',
       'owner',
@@ -257,8 +260,8 @@ describe('FluxAggregator', () => {
       )
     })
 
-    it('sets the version to 3', async () => {
-      matchers.bigNum(3, await aggregator.version())
+    it('has the correct VERSION', async () => {
+      matchers.bigNum(2, await aggregator.VERSION())
     })
   })
 
@@ -291,14 +294,14 @@ describe('FluxAggregator', () => {
     it('updates the latest submission record for the oracle', async () => {
       let latest = await aggregator.latestSubmission(personas.Neil.address)
       assert.equal(0, latest[0].toNumber())
-      assert.equal(0, latest[1])
+      assert.equal(0, latest[1].toNumber())
 
       const newAnswer = 427
       await aggregator.connect(personas.Neil).submit(nextRound, newAnswer)
 
       latest = await aggregator.latestSubmission(personas.Neil.address)
       assert.equal(newAnswer, latest[0].toNumber())
-      assert.equal(nextRound, latest[1])
+      assert.equal(nextRound, latest[1].toNumber())
     })
 
     it('emits a log event announcing submission details', async () => {
@@ -2114,10 +2117,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: true,
@@ -2138,10 +2138,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: false,
@@ -2162,10 +2159,7 @@ describe('FluxAggregator', () => {
           })
 
           it('is eligible to submit', async () => {
-            const state = await aggregator.oracleRoundState(
-              personas.Nelly.address,
-              0
-            )
+            const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2191,10 +2185,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: true,
@@ -2219,10 +2210,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: true,
@@ -2243,10 +2231,7 @@ describe('FluxAggregator', () => {
           })
 
           it('is eligible to submit', async () => {
-            const state = await aggregator.oracleRoundState(
-              personas.Nelly.address,
-              0
-            )
+            const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2279,10 +2264,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: true,
@@ -2314,10 +2296,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: true,
@@ -2348,10 +2327,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: true,
@@ -2372,10 +2348,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: false,
@@ -2396,10 +2369,7 @@ describe('FluxAggregator', () => {
           })
 
           it('is eligible to submit', async () => {
-            const state = await aggregator.oracleRoundState(
-              personas.Nelly.address,
-              0
-            )
+            const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -2425,10 +2395,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: true,
@@ -2453,10 +2420,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: false,
@@ -2477,10 +2441,7 @@ describe('FluxAggregator', () => {
           })
 
           it('is eligible to submit', async () => {
-            const state = await aggregator.oracleRoundState(
-              personas.Nelly.address,
-              0
-            )
+            const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false, // restart delay enforced
@@ -2513,10 +2474,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: false,
@@ -2548,10 +2506,7 @@ describe('FluxAggregator', () => {
         })
 
         it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0
-          )
+          const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
 
           await checkOracleRoundState(state, {
             eligibleToSubmit: false,

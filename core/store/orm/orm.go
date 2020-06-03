@@ -1166,6 +1166,31 @@ func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, erro
 	return orm.FindJob(lc.JobID)
 }
 
+func (orm *ORM) FindFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
+	orm.MustEnsureAdvisoryLock()
+	var stats models.FluxMonitorRoundStats
+	err := orm.db.FirstOrCreate(&stats, "aggregator = ? and round_id = ?", aggregator, roundID).Error
+	return stats, err
+}
+
+func (orm *ORM) IncrFluxMonitorNewRoundLogs(aggregator common.Address, roundID uint32) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Exec(`
+        UPDATE flux_monitor_round_stats
+        SET num_new_round_logs = num_new_round_logs + 1
+        WHERE aggregator = ? AND round_id = ?
+    `, aggregator, roundID).Error
+}
+
+func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Exec(`
+        UPDATE flux_monitor_round_stats
+        SET num_submissions = num_submissions + 1
+        WHERE aggregator = ? AND round_id = ?
+    `, aggregator, roundID).Error
+}
+
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
 // the keys folder on disk, deleting anything there prior.
 func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
