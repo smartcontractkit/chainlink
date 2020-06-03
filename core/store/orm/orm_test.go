@@ -83,10 +83,10 @@ func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
 
 	job := cltest.NewJob()
 	job.Tasks = []models.TaskSpec{
-		models.TaskSpec{ Type: models.MustNewTaskType("task1") },
-		models.TaskSpec{ Type: models.MustNewTaskType("task2") },
-		models.TaskSpec{ Type: models.MustNewTaskType("task3") },
-		models.TaskSpec{ Type: models.MustNewTaskType("task4") },
+		models.TaskSpec{Type: models.MustNewTaskType("task1")},
+		models.TaskSpec{Type: models.MustNewTaskType("task2")},
+		models.TaskSpec{Type: models.MustNewTaskType("task3")},
+		models.TaskSpec{Type: models.MustNewTaskType("task4")},
 	}
 	assert.NoError(t, store.CreateJob(&job))
 
