@@ -9,7 +9,7 @@ contract FluxAggregatorTestHelper is Owned {
   function readOracleRoundState(address _aggregator, address _oracle)
     external
   {
-    FluxAggregator(_aggregator).oracleRoundState(_oracle);
+    FluxAggregator(_aggregator).oracleRoundState(_oracle, 0);
     emit Here();
   }
 

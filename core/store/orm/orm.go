@@ -1126,22 +1126,6 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey
 	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
 }
 
-// SaveLogCursor saves the log cursor.
-func (orm *ORM) SaveLogCursor(logCursor *models.LogCursor) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.db.Save(logCursor).Error
-}
-
-// FindLogCursor will find the given log cursor.
-func (orm *ORM) FindLogCursor(name string) (models.LogCursor, error) {
-	orm.MustEnsureAdvisoryLock()
-	lc := models.LogCursor{}
-	err := orm.db.
-		Where("name = ?", name).
-		First(&lc).Error
-	return lc, err
-}
-
 // HasConsumedLog reports whether the given consumer had already consumed the given log
 func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, JobID *models.ID) (bool, error) {
 	lc := models.LogConsumption{
@@ -1180,6 +1164,39 @@ func (orm *ORM) CreateLogConsumption(lc *models.LogConsumption) error {
 func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, error) {
 	orm.MustEnsureAdvisoryLock()
 	return orm.FindJob(lc.JobID)
+}
+
+func (orm *ORM) FindFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
+	orm.MustEnsureAdvisoryLock()
+	var stats models.FluxMonitorRoundStats
+	err := orm.db.FirstOrCreate(&stats, models.FluxMonitorRoundStats{Aggregator: aggregator, RoundID: roundID}).Error
+	return stats, err
+}
+
+func (orm *ORM) IncrFluxMonitorNewRoundLogs(aggregator common.Address, roundID uint32) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Exec(`
+        INSERT INTO flux_monitor_round_stats (
+            aggregator, round_id, num_new_round_logs, num_submissions
+        ) VALUES (
+            ?, ?, 1, 0
+        ) ON CONFLICT (aggregator, round_id)
+        DO UPDATE
+        SET num_new_round_logs = excluded.num_new_round_logs + 1
+    `, aggregator, roundID).Error
+}
+
+func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Exec(`
+        INSERT INTO flux_monitor_round_stats (
+            aggregator, round_id, num_new_round_logs, num_submissions
+        ) VALUES (
+            ?, ?, 0, 1
+        ) ON CONFLICT (aggregator, round_id)
+        DO UPDATE
+        SET num_submissions = excluded.num_submissions + 1
+    `, aggregator, roundID).Error
 }
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to

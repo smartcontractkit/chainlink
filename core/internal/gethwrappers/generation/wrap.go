@@ -78,7 +78,11 @@ func main() {
 	if err := ioutil.WriteFile(abiPath, []byte(contract.ABI), 0600); err != nil {
 		exit("could not write contract binary to temp working directory", err)
 	}
-	outPath := filepath.Join(tmpDir, pkgName+".go")
+	cwd, err := os.Getwd() // gethwrappers directory
+	if err != nil {
+		exit("could not get working directory", err)
+	}
+	outPath := filepath.Join(cwd, "generated", pkgName, pkgName+".go")
 
 	buildCommand := exec.Command(
 		abigenExecutablePath,

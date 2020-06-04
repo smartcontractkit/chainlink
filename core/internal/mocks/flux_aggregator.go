@@ -102,20 +102,20 @@ func (_m *FluxAggregator) GetMethodID(method string) ([]byte, error) {
 	return r0, r1
 }
 
-// RoundState provides a mock function with given fields: oracle
-func (_m *FluxAggregator) RoundState(oracle common.Address) (contracts.FluxAggregatorRoundState, error) {
-	ret := _m.Called(oracle)
+// RoundState provides a mock function with given fields: oracle, roundID
+func (_m *FluxAggregator) RoundState(oracle common.Address, roundID uint32) (contracts.FluxAggregatorRoundState, error) {
+	ret := _m.Called(oracle, roundID)
 
 	var r0 contracts.FluxAggregatorRoundState
-	if rf, ok := ret.Get(0).(func(common.Address) contracts.FluxAggregatorRoundState); ok {
-		r0 = rf(oracle)
+	if rf, ok := ret.Get(0).(func(common.Address, uint32) contracts.FluxAggregatorRoundState); ok {
+		r0 = rf(oracle, roundID)
 	} else {
 		r0 = ret.Get(0).(contracts.FluxAggregatorRoundState)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
-		r1 = rf(oracle)
+	if rf, ok := ret.Get(1).(func(common.Address, uint32) error); ok {
+		r1 = rf(oracle, roundID)
 	} else {
 		r1 = ret.Error(1)
 	}
