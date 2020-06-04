@@ -12,6 +12,7 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
@@ -29,7 +30,7 @@ type Client interface {
 	GetLatestBlock() (Block, error)
 	GetBlockByNumber(hex string) (Block, error)
 	GetChainID() (*big.Int, error)
-	SubscribeToNewHeads(ctx context.Context, channel chan<- BlockHeader) (Subscription, error)
+	SubscribeToNewHeads(ctx context.Context, channel chan<- gethTypes.Header) (Subscription, error)
 }
 
 // LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
@@ -183,7 +184,7 @@ func (client *CallerSubscriberClient) SubscribeToLogs(
 // SubscribeToNewHeads registers a subscription for push notifications of new blocks.
 func (client *CallerSubscriberClient) SubscribeToNewHeads(
 	ctx context.Context,
-	channel chan<- BlockHeader,
+	channel chan<- gethTypes.Header,
 ) (Subscription, error) {
 	sub, err := client.Subscribe(ctx, channel, "newHeads")
 	return sub, err

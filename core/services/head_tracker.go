@@ -13,15 +13,29 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	numberHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
+	promNumHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "head_tracker_heads_received",
 		Help: "The total number of heads seen",
+	})
+	promHeadsInQueue = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "head_tracker_heads_in_queue",
+		Help: "The number of heads currently waiting to be executed. You can think of this as the 'load' on the head tracker. Should rarely or never be more than 0",
+	})
+	promCallbackDuration = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "head_tracker_callback_execution_duration",
+		Help: "How long it took to execute all callbacks",
+	})
+	promCallbackDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "head_tracker_callback_execution_duration_hist",
+		Help:    "How long it took to execute all callbacks histogram",
+		Buckets: []float64{50, 100, 250, 500, 1000, 2000, 5000, 10000, 15000, 30000, 100000},
 	})
 )
 
@@ -31,6 +45,9 @@ const (
 
 	// How many nodes to return from the top of the longest chain
 	chainDepth = 12
+
+	// Log a warning if OnNewLongestChain callback execution takes longer than this amount of time
+	callbackExecutionThreshold = 10 * time.Second
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -38,7 +55,7 @@ const (
 // store on reboot.
 type HeadTracker struct {
 	callbacks             []strpkg.HeadTrackable
-	headers               chan eth.BlockHeader
+	headers               chan gethTypes.Header
 	headSubscription      eth.Subscription
 	highestSeenHead       *models.Head
 	store                 *strpkg.Store
@@ -209,7 +226,8 @@ func (ht *HeadTracker) receiveHeaders() error {
 		case <-ht.done:
 			return nil
 		case blockHeader, open := <-ht.headers:
-			numberHeadsReceived.Inc()
+			promNumHeadsReceived.Inc()
+			promHeadsInQueue.Set(float64(len(ht.headers)))
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
@@ -224,15 +242,25 @@ func (ht *HeadTracker) receiveHeaders() error {
 	}
 }
 
-func (ht *HeadTracker) handleNewHead(bh eth.BlockHeader) error {
-	head := models.NewHead(bh.Number.ToInt(), bh.Hash(), bh.ParentHash, bh.Time.ToInt())
+func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
+	defer func(start time.Time, number int64) {
+		elapsed := time.Since(start)
+		ms := float64(elapsed.Milliseconds())
+		promCallbackDuration.Set(ms)
+		promCallbackDurationHist.Observe(ms)
+		if elapsed > callbackExecutionThreshold {
+			logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), callbackExecutionThreshold.String()), "blockNumber", number, "time", elapsed)
+		} else {
+			logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed)
+		}
+	}(time.Now(), bh.Number.Int64())
+	head := models.NewHead(bh.Number, bh.Hash(), bh.ParentHash, bh.Time)
 	prevHead := ht.HighestSeenHead()
 
 	logger.Debugw(
 		fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
-		"blockHash", bh.Hash(),
-		"hash", head.Hash)
+		"blockHash", bh.Hash())
 
 	if err := ht.Save(head); err != nil {
 		return err
@@ -279,7 +307,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 	defer ht.headMutex.Unlock()
 
 	ctx := context.Background()
-	ht.headers = make(chan eth.BlockHeader)
+	ht.headers = make(chan gethTypes.Header)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ctx, ht.headers)
 	if err != nil {
 		return errors.Wrap(err, "TxManager#SubscribeToNewHeads")
