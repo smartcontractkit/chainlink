@@ -96,7 +96,10 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	wrapper.limiter.Wait(ctx)
+	err = wrapper.limiter.Wait(ctx)
+	if err != nil {
+		return err
+	}
 
 	return wrapper.client.Call(result, method, args...)
 }
@@ -109,7 +112,10 @@ func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	wrapper.limiter.Wait(ctx)
+	err = wrapper.limiter.Wait(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return wrapper.client.EthSubscribe(ctx, channel, args...)
 }

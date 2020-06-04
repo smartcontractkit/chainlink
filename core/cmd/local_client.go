@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 
+	"go.uber.org/multierr"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -220,7 +222,7 @@ func logConfigVariables(store *strpkg.Store) error {
 // transactions in a given nonce range. This MUST NOT be run concurrently with
 // the node. Currently the advisory lock in FindAllTxsInNonceRange prevents
 // this.
-func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
+func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	beginningNonce := c.Uint("beginningNonce")
 	endingNonce := c.Uint("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
@@ -229,7 +231,11 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
+	defer func() {
+		if serr := app.Stop(); serr != nil {
+			err = multierr.Append(err, serr)
+		}
+	}()
 	store := app.GetStore()
 
 	pwd, err := passwordFromFile(c.String("password"))
@@ -350,7 +356,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	return nil
 }
 
-func dropAndCreateDB(parsed url.URL) error {
+func dropAndCreateDB(parsed url.URL) (err error) {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
@@ -359,7 +365,11 @@ func dropAndCreateDB(parsed url.URL) error {
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
 	if err != nil {
@@ -388,12 +398,16 @@ func migrateTestDB(config *orm.Config) error {
 	return orm.Close()
 }
 
-func insertFixtures(config *orm.Config) error {
+func insertFixtures(config *orm.Config) (err error) {
 	db, err := sql.Open(string(orm.DialectPostgres), config.DatabaseURL())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
@@ -409,10 +423,14 @@ func insertFixtures(config *orm.Config) error {
 }
 
 // DeleteUser is run locally to remove the User row from the node's database.
-func (cli *Client) DeleteUser(c *clipkg.Context) error {
+func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
+	defer func() {
+		if serr := app.Stop(); serr != nil {
+			err = multierr.Append(err, serr)
+		}
+	}()
 	store := app.GetStore()
 	user, err := store.DeleteUser()
 	if err == nil {
