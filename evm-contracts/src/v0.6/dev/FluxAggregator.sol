@@ -619,10 +619,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   {
     require(msg.sender == tx.origin, "off-chain reading only");
 
-    Round storage round = rounds[_queriedRoundId];
-    OracleStatus storage oracle = oracles[_oracle];
-
     if (_queriedRoundId > 0) {
+      Round storage round = rounds[_queriedRoundId];
+
       _eligibleToSubmit = eligibleForSpecificRound(_oracle, _queriedRoundId);
       _roundId = _queriedRoundId;
       _latestSubmission = oracles[_oracle].latestSubmission;
@@ -641,7 +640,40 @@ contract FluxAggregator is AggregatorInterface, Owned {
         _oracleCount,
         _paymentAmount
       );
+
+    } else {
+      return oracleRoundStateSuggestRound(_oracle);
     }
+  }
+
+  function eligibleForSpecificRound(address _oracle, uint32 _queriedRoundId)
+    private
+    view
+    returns (bool _eligible)
+  {
+    if (rounds[_queriedRoundId].startedAt > 0) {
+      return acceptingSubmissions(_queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0;
+    } else {
+      return delayed(_oracle, _queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0;
+    }
+  }
+
+  function oracleRoundStateSuggestRound(address _oracle)
+    private
+    view
+    returns (
+      bool _eligibleToSubmit,
+      uint32 _roundId,
+      int256 _latestSubmission,
+      uint64 _startedAt,
+      uint64 _timeout,
+      uint128 _availableFunds,
+      uint32 _oracleCount,
+      uint128 _paymentAmount
+    )
+  {
+    Round storage round = rounds[0];
+    OracleStatus storage oracle = oracles[_oracle];
 
     bool shouldSupersede = oracle.lastReportedRound == reportingRoundId || !acceptingSubmissions(reportingRoundId);
     // Instead of nudging oracles to submit to the next round, the inclusion of
@@ -675,18 +707,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
       oracleCount(),
       _paymentAmount
     );
-  }
-
-  function eligibleForSpecificRound(address _oracle, uint32 _queriedRoundId)
-    private
-    view
-    returns (bool _eligible)
-  {
-    if (rounds[_queriedRoundId].startedAt > 0) {
-      return acceptingSubmissions(_queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0;
-    } else {
-      return delayed(_oracle, _queriedRoundId) && validateOracleRound(_oracle, _queriedRoundId).length == 0;
-    }
   }
 
 
