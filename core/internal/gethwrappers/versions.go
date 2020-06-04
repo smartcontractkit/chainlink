@@ -102,10 +102,10 @@ func WriteVersionsDB(db *IntegratedVersion) error {
 		return errors.Wrap(err, "could not construct path to versions DB")
 	}
 	f, err := os.Create(versionsDBPath)
-	defer f.Close()
 	if err != nil {
 		return errors.Wrapf(err, "while opening %s", versionsDBPath)
 	}
+	defer f.Close()
 	gethLine := "GETH_VERSION: " + db.GethVersion + "\n"
 	n, err := f.WriteString(gethLine)
 	if err != nil {
@@ -115,7 +115,7 @@ func WriteVersionsDB(db *IntegratedVersion) error {
 		return errors.Errorf("failed to write entire geth version line, %s", gethLine)
 	}
 	var pkgNames []string
-	for name, _ := range db.ContractVersions {
+	for name := range db.ContractVersions {
 		pkgNames = append(pkgNames, name)
 	}
 	sort.Strings(pkgNames)
