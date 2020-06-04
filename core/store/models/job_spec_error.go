@@ -1,10 +1,21 @@
 package models
 
+import (
+	"time"
+)
+
+// TODO - RYAN - constants for error messages
+
+// JobSpecError represents an asynchronous error caused by a JobSpec
 type JobSpecError struct {
-	JobSpecID   *ID    `json:"jobId"`
-	Description string `json:"description"`
+	JobSpec     JobSpec
+	ID          uint
+	JobSpecID   *ID
+	Description string
+	CreatedAt   time.Time
 }
 
+// NewJobSpecError creates a new JobSpecError struct
 func NewJobSpecError(jobSpecID *ID, description string) JobSpecError {
 	return JobSpecError{
 		JobSpecID:   jobSpecID,

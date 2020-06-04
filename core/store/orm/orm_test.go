@@ -1718,7 +1718,122 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		// But the second insert did not change the gas limit
 		assert.Equal(t, firstGasLimit, etrt.EthTx.GasLimit)
 	})
+}
 
+func TestORM_FindJobPreloadsJobSpecErrors(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job1 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job1))
+	job2 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job2))
+
+	description1, description2 := "description 1", "description 2"
+
+	jse1 := models.NewJobSpecError(job1.ID, description1)
+	jse2 := models.NewJobSpecError(job1.ID, description2)
+	require.NoError(t, store.CreateJobSpecError(&jse1))
+	require.NoError(t, store.CreateJobSpecError(&jse2))
+
+	job1, err := store.FindJob(job1.ID)
+	require.NoError(t, err)
+	job2, err = store.FindJob(job2.ID)
+	require.NoError(t, err)
+
+	assert.Len(t, job1.Errors, 2)
+	assert.Len(t, job2.Errors, 0)
+
+	assert.Equal(t, job1.Errors[0].Description, description1)
+	assert.Equal(t, job1.Errors[1].Description, description2)
+}
+
+func TestORM_CreateJobSpecError_Happy(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job1 := cltest.NewJob()
+	job2 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job1))
+	require.NoError(t, store.CreateJob(&job2))
+
+	description1, description2 := "description 1", "description 2"
+
+	tests := []struct {
+		jobID       *models.ID
+		description string
+	}{
+		{
+			job1.ID,
+			description1,
+		},
+		{
+			job1.ID,
+			description2,
+		},
+		{
+			job2.ID,
+			description1,
+		},
+		{
+			job2.ID,
+			description2,
+		},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		testName := fmt.Sprintf(`Create JobSpecError with ID %v and description "%s"`, test.jobID, test.description)
+		t.Run(testName, func(t *testing.T) {
+			jse := models.NewJobSpecError(test.jobID, test.description)
+			err := store.CreateJobSpecError(&jse)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestORM_CreateJobSpecError_Error(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job))
+	description := "description"
+	jse := models.NewJobSpecError(job.ID, description)
+	err := store.CreateJobSpecError(&jse)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		jobID       *models.ID
+		description string
+	}{
+		{
+			"duplicate",
+			job.ID,
+			description,
+		},
+		{
+			"missing job",
+			models.NewID(),
+			description,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			jse := models.NewJobSpecError(test.jobID, test.description)
+			err := store.CreateJobSpecError(&jse)
+			assert.Error(t, err)
+		})
+	}
 }
 
 func TestORM_FindOrCreateFluxMonitorRoundStats(t *testing.T) {
