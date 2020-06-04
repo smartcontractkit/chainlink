@@ -25,6 +25,10 @@ import (
 	"github.com/tevino/abool"
 )
 
+const (
+	roundStateError = "Unable to call roundState method on provided contract. Check contract address."
+)
+
 //go:generate mockery -name Service -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
 //go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
@@ -797,6 +801,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	roundState, err := p.roundState(0)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to determine eligibility to submit from FluxAggregator contract: %v", err), loggerFields...)
+		p.store.CreateErrorFor(p.JobID(), roundStateError)
 		return
 	}
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)

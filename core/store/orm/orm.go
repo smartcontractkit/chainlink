@@ -335,6 +335,13 @@ func (orm *ORM) CreateJobSpecError(jobSpecErr *models.JobSpecError) error {
 	return orm.db.Create(jobSpecErr).Error
 }
 
+// CreateErrorFor creates a new JobSpecError record for the given job
+func (orm *ORM) CreateErrorFor(jobID *models.ID, description string) error {
+	orm.MustEnsureAdvisoryLock()
+	jobSpecError := models.NewJobSpecError(jobID, description)
+	return orm.CreateJobSpecError(&jobSpecError)
+}
+
 // CreateExternalInitiator inserts a new external initiator
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	orm.MustEnsureAdvisoryLock()

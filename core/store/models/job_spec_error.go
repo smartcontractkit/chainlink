@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -21,4 +22,8 @@ func NewJobSpecError(jobSpecID *ID, description string) JobSpecError {
 		JobSpecID:   jobSpecID,
 		Description: description,
 	}
+}
+
+func (jse JobSpecError) MarshalJSON() ([]byte, error) {
+	return json.Marshal(jse.Description) // TODO - RYAN - use more fields here?
 }
