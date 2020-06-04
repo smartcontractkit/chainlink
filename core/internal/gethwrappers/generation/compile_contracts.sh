@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "compiling contracts"
+
 CDIR=$(dirname "$0")
 COMPILE_COMMAND=$(<"$CDIR/compile_command.txt")
 

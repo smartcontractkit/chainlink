@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -69,7 +70,7 @@ func ExtractContractDetails(beltArtifactPath string) (*ContractDetails, error) {
 		return nil, errors.Wrapf(err, "could not read source code from compiler artifact")
 	}
 	return &ContractDetails{
-		Binary:  truncatedBinary,
+		Binary:  truncatedBinary + constantBinaryMetadataSuffix,
 		ABI:     contractABI,
 		Sources: sources.Sources,
 	}, nil
@@ -84,3 +85,9 @@ func ExtractContractDetails(beltArtifactPath string) (*ContractDetails, error) {
 var binarySuffixRegexp = regexp.MustCompile(
 	"^a264697066735822[[:xdigit:]]{68}64736f6c6343[[:xdigit:]]{6}0033$",
 ).MatchString
+
+// constantBinaryMetadataSuffix is a constant stand-in for the metadata suffix
+// which the EVM expects (and in some cases, it seems, requires) to find at the
+// end of the binary object representing a contract under deployment.
+var constantBinaryMetadataSuffix = "a264697066735822" +
+	strings.Repeat("beef", 68/4) + "64736f6c6343" + "decafe" + "0033"
