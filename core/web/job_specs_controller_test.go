@@ -487,6 +487,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
 	require.Len(t, j.Initiators, 1)
 	require.Len(t, respJob.Initiators, 1)
+	require.Len(t, respJob.Errors, 1)
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
 }
 
@@ -524,6 +525,9 @@ func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
+
+	err := app.Store.CreateErrorFor(j.ID, "job spec error description")
+	assert.NoError(t, err)
 
 	jr1 := cltest.NewJobRun(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))
