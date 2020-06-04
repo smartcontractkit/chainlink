@@ -188,6 +188,9 @@ func (orm *ORM) preloadJobs() *gorm.DB {
 		}).
 		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped().Order("id asc")
+		}).
+		Preload("Errors", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped().Order("id asc")
 		})
 }
 
@@ -326,10 +329,10 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	return earned, nil
 }
 
-// JobSpecErrorsFor ... TODO - RYAN
-func (orm *ORM) JobSpecErrorsFor(spec *models.JobSpec) ([]models.JobSpecError, error) {
-	var result []models.JobSpecError
-	return result, nil
+// CreateJobSpecError creates a new JobSpecError record
+func (orm *ORM) CreateJobSpecError(jobSpecErr *models.JobSpecError) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.db.Create(jobSpecErr).Error
 }
 
 // CreateExternalInitiator inserts a new external initiator
