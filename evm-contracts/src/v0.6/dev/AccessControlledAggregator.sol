@@ -30,13 +30,13 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
-    external
+    public
     view
     override
     checkAccess()
     returns (int256)
   {
-    return _latestAnswer();
+    return super.latestAnswer();
   }
 
   /**
@@ -45,13 +45,13 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
-    external
+    public
     view
     override
     checkAccess()
     returns (uint256)
   {
-    return _latestTimestamp();
+    return super.latestTimestamp();
   }
 
   /**
@@ -61,13 +61,13 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
-    external
+    public
     view
     override
     checkAccess()
     returns (int256)
   {
-    return _getAnswer(_roundId);
+    return super.getAnswer(_roundId);
   }
 
   /**
@@ -77,13 +77,13 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
-    external
+    public
     view
     override
     checkAccess()
     returns (uint256)
   {
-    return _getTimestamp(_roundId);
+    return super.getTimestamp(_roundId);
   }
 
   /**
@@ -105,7 +105,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
-    external
+    public
     view
     override
     checkAccess()
@@ -117,7 +117,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
       uint256 answeredInRound
     )
   {
-    return _getRoundData(_roundId);
+    return super.getRoundData(_roundId);
   }
 
   /**
@@ -142,7 +142,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
   function latestRoundData()
-    external
+    public
     view
     override
     checkAccess()
@@ -154,6 +154,6 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
       uint256 answeredInRound
     )
   {
-    return _latestRoundData();
+    return super.latestRoundData();
   }
 }
