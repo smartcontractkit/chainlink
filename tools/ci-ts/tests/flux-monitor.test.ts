@@ -246,13 +246,15 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await clClient2.pause()
 
     // reduce minAnswers to 1
-    await (await fluxAggregator.updateFutureRounds(
-      MINIMUM_CONTRACT_PAYMENT,
-      1,
-      2,
-      0,
-      5,
-    )).wait()
+    await (
+      await fluxAggregator.updateFutureRounds(
+        MINIMUM_CONTRACT_PAYMENT,
+        1,
+        2,
+        0,
+        5,
+      )
+    ).wait()
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 130)
     await clClient1.unpause()
     await t.assertJobRun(clClient1, node1InitialRunCount + 3, 'third update')
@@ -269,13 +271,15 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
   })
 
   it('respects the idle timer duration', async () => {
-    await (await fluxAggregator.updateFutureRounds(
-      MINIMUM_CONTRACT_PAYMENT,
-      2,
-      2,
-      0,
-      10,
-    )).wait()
+    await (
+      await fluxAggregator.updateFutureRounds(
+        MINIMUM_CONTRACT_PAYMENT,
+        2,
+        2,
+        0,
+        10,
+      )
+    ).wait()
 
     const node1InitialRunCount = clClient1.getJobRuns().length
     const node2InitialRunCount = clClient2.getJobRuns().length
