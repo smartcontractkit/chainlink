@@ -232,8 +232,6 @@ type maliciousFluxMonitor interface {
 }
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
-	// Disabling test until `belt` can be fixed in a later PR
-	return
 	// Comments starting with "-" describe the steps this test executes.
 
 	// - deploy a brand new FM contract
