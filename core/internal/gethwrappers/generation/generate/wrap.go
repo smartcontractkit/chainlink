@@ -45,14 +45,14 @@ func main() {
 	tmpDir, cleanup := gethwrappers.TempDir(className)
 	defer cleanup()
 	binPath := filepath.Join(tmpDir, "bin")
-	if err := ioutil.WriteFile(binPath, []byte(contract.Binary), 0600); err != nil {
+	if bErr := ioutil.WriteFile(binPath, []byte(contract.Binary), 0600); bErr != nil {
 		gethwrappers.Exit(
-			"could not write contract binary to temp working directory", err)
+			"could not write contract binary to temp working directory", bErr)
 	}
 	abiPath := filepath.Join(tmpDir, "abi")
-	if err := ioutil.WriteFile(abiPath, []byte(contract.ABI), 0600); err != nil {
+	if aErr := ioutil.WriteFile(abiPath, []byte(contract.ABI), 0600); aErr != nil {
 		gethwrappers.Exit(
-			"could not write contract binary to temp working directory", err)
+			"could not write contract binary to temp working directory", aErr)
 	}
 	cwd, err := os.Getwd() // gethwrappers directory
 	if err != nil {
