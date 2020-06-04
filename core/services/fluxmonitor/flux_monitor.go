@@ -630,7 +630,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	// that are flushed back to the mempool might be mined in an order that cause them to revert.  Therefore we
 	// always want to submit in this case.
 	if logRoundID == p.mostRecentSubmittedRoundID {
-		roundStats, err := p.store.ORM.FindFluxMonitorRoundStats(p.initr.Address, logRoundID)
+		roundStats, err := p.store.FindFluxMonitorRoundStats(p.initr.Address, logRoundID)
 		if err != nil {
 			logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), p.loggerFieldsForNewRound(log)...)
 			return
@@ -643,7 +643,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 			return
 		}
 	}
-	err := p.store.ORM.IncrFluxMonitorNewRoundLogs(p.initr.Address, logRoundID)
+	err := p.store.IncrFluxMonitorNewRoundLogs(p.initr.Address, logRoundID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error updating NewRound log count: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
