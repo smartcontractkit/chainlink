@@ -5,15 +5,13 @@ import (
 	"time"
 )
 
-// TODO - RYAN - constants for error messages
-
 // JobSpecError represents an asynchronous error caused by a JobSpec
 type JobSpecError struct {
 	JobSpec     JobSpec
-	ID          uint
-	JobSpecID   *ID
-	Description string
-	CreatedAt   time.Time
+	ID          uint      `json:"id,omitempty"`
+	JobSpecID   *ID       `json:"job_spec_id,omitempty"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt,omitempty"`
 }
 
 // NewJobSpecError creates a new JobSpecError struct
@@ -25,5 +23,15 @@ func NewJobSpecError(jobSpecID *ID, description string) JobSpecError {
 }
 
 func (jse JobSpecError) MarshalJSON() ([]byte, error) {
-	return json.Marshal(jse.Description) // TODO - RYAN - use more fields here?
+	return json.Marshal(
+		struct {
+			ID          uint
+			Description string
+			CreatedAt   time.Time
+		}{
+			ID:          jse.ID,
+			Description: jse.Description,
+			CreatedAt:   jse.CreatedAt,
+		},
+	)
 }
