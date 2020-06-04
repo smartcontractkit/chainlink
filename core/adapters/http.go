@@ -206,7 +206,7 @@ func withRetry(
 			if e != nil {
 				return e
 			}
-			defer r.Body.Close()
+			defer logger.ErrorIfCalling(r.Body.Close)
 			statusCode = r.StatusCode
 			elapsed := time.Since(start)
 			logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)

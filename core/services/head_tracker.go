@@ -182,7 +182,10 @@ func (ht *HeadTracker) disconnect() {
 
 func (ht *HeadTracker) listenForNewHeads() {
 	defer ht.listenForNewHeadsWg.Done()
-	defer ht.unsubscribeFromHead()
+	defer func() {
+		err := ht.unsubscribeFromHead()
+		logger.ErrorIf(err, "failed when unsubscribe from head")
+	}()
 
 	for {
 		if !ht.subscribe() {
@@ -202,7 +205,12 @@ func (ht *HeadTracker) listenForNewHeads() {
 func (ht *HeadTracker) subscribe() bool {
 	ht.sleeper.Reset()
 	for {
-		ht.unsubscribeFromHead()
+		err := ht.unsubscribeFromHead()
+		if err != nil {
+			logger.ErrorIf(err, "failed when unsubscribe from head")
+			return false
+		}
+
 		logger.Info("Connecting to ethereum node ", ht.store.Config.EthereumURL(), " in ", ht.sleeper.Duration())
 		select {
 		case <-ht.done:
