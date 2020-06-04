@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../interfaces/HistoricAggregatorInterface.sol";
+import "../interfaces/AggregatorInterface.sol";
 
 /**
  * @title The MockHistoricAggregator contract
@@ -9,7 +9,7 @@ import "../interfaces/HistoricAggregatorInterface.sol";
  * aggregator contract, but how the aggregator got
  * its answer is unimportant
  */
-contract MockHistoricAggregator is HistoricAggregatorInterface {
+contract MockHistoricAggregator is AggregatorInterface {
   int256 public override latestAnswer;
   uint256 public override latestTimestamp;
   uint256 public override latestRound;

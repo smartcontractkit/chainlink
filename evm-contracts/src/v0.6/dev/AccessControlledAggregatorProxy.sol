@@ -6,7 +6,7 @@ import "./AccessControllerInterface.sol";
 /**
  * @title A trusted proxy for updating where current answers are read from
  * @notice This contract provides a consistent address for the
- * AggregatorInterface but delegates where it reads from to the owner, who is
+ * Aggregator and AggregatorV2Interface but delegates where it reads from to the owner, who is
  * trusted to update it.
  * @notice Only access enabled addresses are allowed to access getters for
  * aggregated answers and round information.
@@ -117,7 +117,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @notice get data about a round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
-   * Note that different underlying implementations of AggregatorInterface
+   * Note that different underlying implementations of AggregatorV2Interface
    * have slightly different semantics for some of the return values. Consumers
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
@@ -126,12 +126,12 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
@@ -154,7 +154,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
-   * Note that different underlying implementations of AggregatorInterface
+   * Note that different underlying implementations of AggregatorV2Interface
    * have slightly different semantics for some of the return values. Consumers
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
@@ -162,12 +162,12 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
   function latestRoundData()
@@ -192,7 +192,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
@@ -219,7 +219,7 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer

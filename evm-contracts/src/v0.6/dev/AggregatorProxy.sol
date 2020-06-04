@@ -1,6 +1,7 @@
 pragma solidity 0.6.6;
 
 import "../interfaces/AggregatorInterface.sol";
+import "../interfaces/AggregatorV2Interface.sol";
 import "../Owned.sol";
 
 /**
@@ -9,10 +10,10 @@ import "../Owned.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, Owned {
+contract AggregatorProxy is AggregatorInterface, AggregatorV2Interface, Owned {
 
-  AggregatorInterface public aggregator;
-  AggregatorInterface public proposedAggregator;
+  AggregatorV2Interface public aggregator;
+  AggregatorV2Interface public proposedAggregator;
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -94,7 +95,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @notice get data about a round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
-   * Note that different underlying implementations of AggregatorInterface
+   * Note that different underlying implementations of AggregatorV2Interface
    * have slightly different semantics for some of the return values. Consumers
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
@@ -103,12 +104,12 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
@@ -131,7 +132,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
-   * Note that different underlying implementations of AggregatorInterface
+   * Note that different underlying implementations of AggregatorV2Interface
    * have slightly different semantics for some of the return values. Consumers
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
@@ -139,12 +140,12 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
   function latestRoundData()
@@ -169,7 +170,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
@@ -195,7 +196,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV2Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
@@ -261,7 +262,7 @@ contract AggregatorProxy is AggregatorInterface, Owned {
     external
     onlyOwner()
   {
-    proposedAggregator = AggregatorInterface(_aggregator);
+    proposedAggregator = AggregatorV2Interface(_aggregator);
   }
 
   /**
@@ -287,6 +288,6 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   function setAggregator(address _aggregator)
     internal
   {
-    aggregator = AggregatorInterface(_aggregator);
+    aggregator = AggregatorV2Interface(_aggregator);
   }
 }
