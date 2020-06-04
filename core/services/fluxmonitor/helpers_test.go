@@ -9,15 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
@@ -27,10 +26,6 @@ func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
 
 func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold, absoluteThreshold float64) bool {
 	return p.pollIfEligible(DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
-}
-
-func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *big.Int) {
-	p.reportableRoundID = roundID
 }
 
 func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
@@ -45,8 +40,16 @@ func (p *PollingDeviationChecker) ExportedSufficientPayment(payment *big.Int) bo
 	return p.sufficientPayment(payment)
 }
 
-func ExportedConsumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
-	consumeLogBroadcast(lb, callback)
+func (p *PollingDeviationChecker) ExportedProcessLogs() {
+	p.processLogs()
+}
+
+func (p *PollingDeviationChecker) ExportedBacklog() *utils.BoundedPriorityQueue {
+	return p.backlog
+}
+
+func (p *PollingDeviationChecker) ExportedFluxAggregator() contracts.FluxAggregator {
+	return p.fluxAggregator
 }
 
 func mustReadFile(t testing.TB, file string) string {
@@ -124,5 +127,5 @@ func (fm *concreteFluxMonitor) CreateJob(t *testing.T,
 	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], nil, fm.runManager,
 		fm.store.ORM, models.MustMakeDuration(100*time.Second))
 	require.NoError(t, err, "could not create deviation checker")
-	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, nextRound)
+	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, uint32(nextRound.Uint64()))
 }
