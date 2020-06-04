@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.6] - 2020-06-08
 
-### Fixed
+### Added
 
-
+- The node now logs the eth client RPC calls
+- More reliable Ethereum block header tracking
+- Limit the amount of an HTTP response body that the node will read
+- Make Aggregator contract interface viewable
+- More resilient handling of chain reorganizations
 
 ## [0.8.5] - 2020-06-01
 
