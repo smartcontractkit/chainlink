@@ -663,7 +663,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
     if (validateOracleRound(_oracle, _roundId).length != 0) {
       _eligibleToSubmit = false;
-      state = 3;
     }
 
     return (
