@@ -1,13 +1,13 @@
 pragma solidity 0.6.6;
 
 import "../interfaces/AggregatorInterface.sol";
-import "../interfaces/AggregatorV2Interface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title A facade forAggregator versions to conform to the new v0.6
- * Aggregator V2 interface.
+ * Aggregator V3 interface.
  */
-contract AggregatorFacade is AggregatorInterface, AggregatorV2Interface {
+contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
 
   AggregatorInterface public aggregator;
   uint8 public override decimals;

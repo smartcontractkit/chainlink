@@ -1,6 +1,6 @@
-pragma solidity >=0.4.24;
+pragma solidity >=0.6.0;
 
-interface AggregatorV2Interface {
+interface AggregatorV3Interface {
   function decimals() external view returns (uint8);
   function description() external view returns (string memory);
   function getRoundData(uint256 _roundId)

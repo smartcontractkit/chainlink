@@ -7,7 +7,7 @@ import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/AggregatorInterface.sol";
-import "../interfaces/AggregatorV2Interface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 import "../Owned.sol";
 
 /**
@@ -18,7 +18,7 @@ import "../Owned.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract FluxAggregator is AggregatorInterface, AggregatorV2Interface, Owned {
+contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
