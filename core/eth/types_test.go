@@ -5,12 +5,9 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/eth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 )
 
 func TestLog_UnmarshalEmptyTxHash(t *testing.T) {
@@ -83,42 +80,6 @@ func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 	var fid eth.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.Error(t, err)
-}
-
-func TestModels_Header_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name       string
-		path       string
-		wantNumber hexutil.Big
-		wantHash   string
-	}{
-		{
-			"parity",
-			"testdata/subscription_new_heads_parity.json",
-			cltest.BigHexInt(1263817),
-			"0xf8e4691ceab8052d1cb478c6c5e0d9b122e747ad838023633f63bd5e81ec5114",
-		},
-		{
-			"geth",
-			"testdata/subscription_new_heads_geth.json",
-			cltest.BigHexInt(1263817),
-			"0xf8e4691ceab8052d1cb478c6c5e0d9b122e747ad838023633f63bd5e81ec5fff",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var header eth.BlockHeader
-
-			data := cltest.MustReadFile(t, test.path)
-			value := gjson.Get(string(data), "params.result")
-			assert.NoError(t, json.Unmarshal([]byte(value.String()), &header))
-
-			assert.Equal(t, test.wantNumber, header.Number)
-			assert.Equal(t, test.wantHash, header.Hash().String())
-		})
-	}
 }
 
 func TestSafeByteSlice_Success(t *testing.T) {

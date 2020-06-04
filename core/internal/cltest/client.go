@@ -298,21 +298,13 @@ func (c *SimulatedBackendClient) GetChainID() (*big.Int, error) {
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
 func (c *SimulatedBackendClient) SubscribeToNewHeads(ctx context.Context,
-	channel chan<- eth.BlockHeader) (eth.Subscription, error) {
+	channel chan<- types.Header) (eth.Subscription, error) {
 	ch := make(chan *types.Header)
 	go func() {
 		for h := range ch {
-			channel <- eth.BlockHeader{ParentHash: h.ParentHash, UncleHash: h.UncleHash,
-				Coinbase: h.Coinbase, Root: h.Root, TxHash: h.TxHash,
-				ReceiptHash: h.ReceiptHash, Bloom: h.Bloom,
-				Difficulty: hexutil.Big(*h.Difficulty), Number: hexutil.Big(*h.Number),
-				GasLimit: hexutil.Uint64(h.GasLimit), GasUsed: hexutil.Uint64(h.GasUsed),
-				Time:  hexutil.Big(*big.NewInt(int64(h.Time))),
-				Extra: hexutil.Bytes(h.Extra), Nonce: h.Nonce, GethHash: h.Hash(),
-				// ParityHash not included, because this client is strictly based on
-				// go-ethereum
-			}
+			channel <- *h
 		}
+		close(channel)
 	}()
 	return c.b.SubscribeNewHead(context.Background(), ch)
 }

@@ -708,12 +708,23 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	return checker
 }
 
-func NewEthBlockHeader(height interface{}) eth.BlockHeader {
-	return eth.BlockHeader{
-		Number:     BigHexInt(height),
-		GethHash:   NewHash(),
+func NewEthHeader(height interface{}) types.Header {
+	var h int64
+	switch v := height.(type) {
+	case int64:
+		h = v
+	case int:
+		h = int64(v)
+	case uint64:
+		h = int64(v)
+	default:
+		panic(fmt.Sprintf("invalid type: %t", height))
+	}
+
+	return types.Header{
+		Number:     big.NewInt(h),
 		ParentHash: NewHash(),
-		Time:       BigHexInt(time.Now().Unix()),
+		Time:       uint64(time.Now().Unix()),
 	}
 
 }
