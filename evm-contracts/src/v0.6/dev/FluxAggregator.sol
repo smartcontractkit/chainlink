@@ -643,8 +643,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
       );
     }
 
-    uint128 state;
-
     bool shouldSupersede = oracle.lastReportedRound == reportingRoundId || !acceptingSubmissions(reportingRoundId);
     // Instead of nudging oracles to submit to the next round, the inclusion of
     // the shouldSupersede bool in the if condition pushes them towards
@@ -655,14 +653,12 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
       _paymentAmount = paymentAmount;
       _eligibleToSubmit = delayed(_oracle, _roundId);
-      state = 1;
     } else {
       _roundId = reportingRoundId;
       round = rounds[_roundId];
 
       _paymentAmount = round.details.paymentAmount;
       _eligibleToSubmit = acceptingSubmissions(_roundId);
-      state = 2;
     }
 
     if (validateOracleRound(_oracle, _roundId).length != 0) {
@@ -676,7 +672,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
       oracle.latestSubmission,
       round.startedAt,
       round.details.timeout,
-      availableFunds + state,
+      availableFunds,
       oracleCount(),
       _paymentAmount
     );
