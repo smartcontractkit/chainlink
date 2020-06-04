@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gorilla/websocket"
@@ -238,8 +239,10 @@ func (w *websocketClient) writeMessage(message []byte) error {
 
 func (w *websocketClient) connect(ctx context.Context) error {
 	authHeader := http.Header{}
-	authHeader.Add("X-Explore-Chainlink-AccessKey", w.accessKey)
+	authHeader.Add("X-Explore-Chainlink-Accesskey", w.accessKey)
 	authHeader.Add("X-Explore-Chainlink-Secret", w.secret)
+	authHeader.Add("X-Explore-Chainlink-Core-Version", store.Version)
+	authHeader.Add("X-Explore-Chainlink-Core-Sha", store.Sha)
 
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, w.url.String(), authHeader)
 	if err != nil {
