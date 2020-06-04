@@ -46,16 +46,16 @@ func main() {
 		gethwrappers.Exit("could not extract LINK ABI", err)
 	}
 	abiPath := filepath.Join(tmpDir, "abi")
-	if err := ioutil.WriteFile(abiPath, []byte(abi), 0600); err != nil {
-		gethwrappers.Exit("could not write contract ABI to temp dir.", err)
+	if aErr := ioutil.WriteFile(abiPath, []byte(abi), 0600); aErr != nil {
+		gethwrappers.Exit("could not write contract ABI to temp dir.", aErr)
 	}
 	bin := gjson.Get(string(linkDetails), "bytecode").String()
 	if bin == "" {
 		gethwrappers.Exit("could not extract LINK bytecode", nil)
 	}
 	binPath := filepath.Join(tmpDir, "bin")
-	if err := ioutil.WriteFile(binPath, []byte(bin), 0600); err != nil {
-		gethwrappers.Exit("could not write contract binary to temp dir.", err)
+	if bErr := ioutil.WriteFile(binPath, []byte(bin), 0600); bErr != nil {
+		gethwrappers.Exit("could not write contract binary to temp dir.", bErr)
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
