@@ -300,13 +300,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
-    external
+    public
     view
     virtual
     override
     returns (int256)
   {
-    return _latestAnswer();
+    return rounds[latestRoundId].answer;
   }
 
   /**
@@ -314,13 +314,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
-    external
+    public
     view
     virtual
     override
     returns (uint256)
   {
-    return _latestTimestamp();
+    return rounds[latestRoundId].updatedAt;
   }
 
   /**
@@ -328,7 +328,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
-    external
+    public
     view
     override
     returns (uint256)
@@ -353,13 +353,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
     returns (int256)
   {
-    return _getAnswer(_roundId);
+    return rounds[uint32(_roundId)].answer;
   }
 
   /**
@@ -368,13 +368,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
     returns (uint256)
   {
-    return _getTimestamp(_roundId);
+    return rounds[uint32(_roundId)].updatedAt;
   }
 
   /**
@@ -396,7 +396,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
@@ -408,7 +408,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _getRoundData(_roundId);
+    Round memory r = rounds[uint32(_roundId)];
+    return (
+      _roundId,
+      r.answer,
+      r.startedAt,
+      r.updatedAt,
+      r.answeredInRound
+    );
   }
 
   /**
@@ -433,7 +440,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
    function latestRoundData()
-    external
+    public
     view
     virtual
     override
@@ -445,7 +452,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _latestRoundData();
+    return getRoundData(latestRoundId);
   }
 
 
@@ -709,92 +716,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     );
   }
 
-
-  /**
-   * Internal
-   */
-
-  /**
-   * @dev Internal implementation for latestAnswer
-   */
-  function _latestAnswer()
-    internal
-    view
-    returns (int256)
-  {
-    return rounds[latestRoundId].answer;
-  }
-
-  /**
-   * @dev Internal implementation of latestTimestamp
-   */
-  function _latestTimestamp()
-    internal
-    view
-    returns (uint256)
-  {
-    return rounds[latestRoundId].updatedAt;
-  }
-
-  /**
-   * @dev Internal implementation of getAnswer
-   */
-  function _getAnswer(uint256 _roundId)
-    internal
-    view
-    returns (int256)
-  {
-    return rounds[uint32(_roundId)].answer;
-  }
-
-  /**
-   * @dev Internal implementation of getTimestamp
-   */
-  function _getTimestamp(uint256 _roundId)
-    internal
-    view
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].updatedAt;
-  }
-
-  /**
-   * @dev Internal implementation of getRoundData
-   */
-  function _getRoundData(uint256 _roundId)
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    Round memory r = rounds[uint32(_roundId)];
-    return (
-      _roundId,
-      r.answer,
-      r.startedAt,
-      r.updatedAt,
-      r.answeredInRound
-    );
-  }
-
-  function _latestRoundData()
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return _getRoundData(latestRoundId);
-  }
 
   /**
    * Private
