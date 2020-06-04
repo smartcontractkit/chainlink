@@ -337,6 +337,9 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
 	roundState := contracts.FluxAggregatorRoundState{}
+	require.Len(t, job.Errors, 0)
+	err := store.CreateJob(&job)
+	require.NoError(t, err)
 
 	fluxAggregator.On("RoundState", nodeAddr).Return(roundState, errors.New("err")).Once()
 	checker, err := fluxmonitor.NewPollingDeviationChecker(
@@ -352,11 +355,11 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	checker.OnConnect()
 
 	result := checker.ExportedPollIfEligible(1, 1)
-	assert.False(t, result)
+	require.False(t, result)
 
-	specErrors, err := store.JobSpecErrorsFor(&job)
+	job, err = store.FindJob(job.ID)
 	require.NoError(t, err)
-	assert.Len(t, specErrors, 1)
+	require.Len(t, job.Errors, 1)
 
 	fluxAggregator.AssertExpectations(t)
 	fetcher.AssertExpectations(t)
