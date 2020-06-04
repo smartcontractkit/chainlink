@@ -600,8 +600,8 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	//
 	// NewRound answer submission logic:
 	//   - Any log that reaches this point, regardless of chain reorgs or log backfilling, is one that we have
-	//         not seen before.  Therefore, we should consider act upon it.
-	//   - If two logs come in in rapid succession, and we submit a tx for the first, the `.ReportableRoundID`
+	//         not seen before.  Therefore, we should act upon it.
+	//   - If two NewRound logs come in in rapid succession, and we submit a tx for the first, the `.ReportableRoundID`
 	//         field in the roundState() response for the 2nd log will not reflect the fact that we've submitted
 	//         for the first round (assuming it hasn't been mined yet).  Therefore, we ignore that field and
 	//         instead use the `.RoundId` field on the log.

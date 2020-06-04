@@ -88,11 +88,6 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
 	oldGasLimit := f.sergey.GasLimit
 	f.sergey.GasLimit = gasLimit
-	fmt.Println(linkAddress)
-	fmt.Println(paymentAmount)
-	fmt.Println(timeout)
-	fmt.Println(decimals)
-	fmt.Println(description)
 	f.aggregatorContractAddress, _, f.aggregatorContract, err = faw.DeployFluxAggregator(
 		f.sergey,
 		f.backend,
@@ -103,7 +98,6 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 		description,
 	)
 	f.backend.Commit() // Must commit contract to chain before we can fund with LINK
-	fmt.Println("addr ~>", f.aggregatorContractAddress)
 	require.NoError(t, err, "failed to deploy FluxAggregator contract to simulated ethereum blockchain")
 
 	f.sergey.GasLimit = oldGasLimit
