@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -50,7 +52,8 @@ func (s Signature) String() string {
 
 // Format implements fmt.Formatter
 func (s Signature) Format(state fmt.State, c rune) {
-	fmt.Fprintf(state, "%"+string(c), s.String())
+	_, err := fmt.Fprintf(state, "%"+string(c), s.String())
+	logger.ErrorIf(err, "failed when format signature to state")
 }
 
 // SetBytes assigns the byte array to the signature
