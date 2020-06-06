@@ -1012,7 +1012,7 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer logger.ErrorIfCalling(rows.Close)
 	var firstHead *models.Head
 	var prevHead *models.Head
 	for rows.Next() {

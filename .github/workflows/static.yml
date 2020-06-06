@@ -34,6 +34,14 @@ jobs:
       - uses: actions/setup-go@v2
       - run: go install honnef.co/go/tools/cmd/staticcheck
       - run: $HOME/go/bin/staticcheck ./...
+  errcheck:
+    name: errcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go install github.com/kisielk/errcheck
+      - run: errcheck -ignore 'cltest:.*' -ignoretests -asserts -ignoregenerated ./... | grep -v internal
   # TODO: Enable linters below one by one and fix issues with each
   # lint:
   #   name: Lint
@@ -45,15 +53,6 @@ jobs:
   #     with:
   #       run: lint
   #       comment: false
-  # errcheck:
-  #   name: errcheck
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/setup-go@v2
-  #   - uses: actions/checkout@v2
-  #   - run: go get -u github.com/kisielk/errcheck
-  #   # Can't get -ignorepkg to actually ignore internal... This needs more work
-  #   - run: errcheck -ignore 'cltest:.*' -ignoretests -asserts -ignoregenerated ./... | grep -v internal
   # sec:
   #   name: Sec
   #   runs-on: ubuntu-latest

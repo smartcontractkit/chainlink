@@ -307,7 +307,10 @@ func ExtractFeedURLs(feeds models.Feeds, orm *orm.ORM) ([]*url.URL, error) {
 		case string: // feed url - ex: "http://example.com"
 			bridgeURL, err = url.ParseRequestURI(feed)
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
-			bridgeName := feed["bridge"].(string)
+			bridgeName, ok := feed["bridge"].(string)
+			if !ok {
+				return nil, errors.New("failed to convert bright type into string")
+			}
 			bridgeURL, err = GetBridgeURLFromName(bridgeName, orm) // XXX: currently an n query
 		default:
 			err = errors.New("unable to extract feed URLs from json")
@@ -542,7 +545,10 @@ func (p *PollingDeviationChecker) consume() {
 
 func (p *PollingDeviationChecker) processLogs() {
 	for !p.backlog.Empty() {
-		broadcast := p.backlog.Take().(eth.LogBroadcast)
+		broadcast, ok := p.backlog.Take().(eth.LogBroadcast)
+		if !ok {
+			logger.Error("Failed to convert backlog into LogBroadcast")
+		}
 
 		// If the log is a duplicate of one we've seen before, ignore it (this
 		// happens because of the LogBroadcaster's backfilling behavior).

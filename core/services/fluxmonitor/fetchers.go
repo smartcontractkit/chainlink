@@ -59,7 +59,7 @@ func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s with payload '%s'", p.url.String(), p.requestData))
 	}
 
-	defer r.Body.Close()
+	defer logger.ErrorIfCalling(r.Body.Close)
 	target := adapterResponse{}
 	if err = json.NewDecoder(r.Body).Decode(&target); err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to decode price from %s", p.url.String()))
