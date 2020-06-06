@@ -62,7 +62,9 @@ func SetLogger(zl *zap.Logger) {
 	if logger != nil {
 		defer func() {
 			if err := logger.Sync(); err != nil {
-				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() {
+				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() &&
+					stderr.Unwrap(err).Error() != "inappropriate ioctl for device" &&
+					stderr.Unwrap(err).Error() != "bad file descriptor" {
 					// logger.Sync() will return 'invalid argument' error when closing file
 					log.Fatalf("failed to sync logger %+v", err)
 				}
