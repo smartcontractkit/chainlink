@@ -40,8 +40,8 @@ jobs:
     steps:
       - uses: actions/setup-go@v2
       - uses: actions/checkout@v2
-      - run: go install github.com/kisielk/errcheck
-      - run: errcheck -ignore 'cltest:.*' -ignoretests -asserts -ignoregenerated ./... | grep -v internal
+      - run: go get -v github.com/kisielk/errcheck
+      - run: sh -c "d=\"$($HOME/go/bin/errcheck -ignoretests -asserts -ignoregenerated ./... | grep -v internal)\"; if [ -n \"$d\" ]; then echo \"errcheck output:\" ; echo \"$d\"; exit 1; else exit 0 ; fi" 2>&1
   # TODO: Enable linters below one by one and fix issues with each
   # lint:
   #   name: Lint
