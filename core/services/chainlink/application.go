@@ -164,7 +164,9 @@ func (app *ChainlinkApplication) Stop() error {
 	app.shutdownOnce.Do(func() {
 		defer func() {
 			if err := logger.Sync(); err != nil {
-				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() {
+				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() &&
+					stderr.Unwrap(err).Error() != "inappropriate ioctl for device" &&
+					stderr.Unwrap(err).Error() != "bad file descriptor" {
 					merr = multierr.Append(merr, err)
 				}
 			}
