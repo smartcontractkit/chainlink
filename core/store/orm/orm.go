@@ -1138,11 +1138,12 @@ func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, JobID *models.ID) (bool, error
 
 // LogConsumptionExists reports whether a given LogConsumption record already exists
 func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
-	subQuery := "SELECT id FROM log_consumptions " +
+	query := "SELECT exists (" +
+		"SELECT id FROM log_consumptions " +
 		"WHERE block_hash=$1 " +
 		"AND log_index=$2 " +
-		"AND job_id=$3"
-	query := "SELECT exists (" + subQuery + ")"
+		"AND job_id=$3" +
+		")"
 
 	var exists bool
 	err := orm.db.DB().
