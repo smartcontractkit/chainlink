@@ -76,6 +76,8 @@ router.get('/nodes/:id', async (req, res) => {
     name: node.name,
     url: node.url,
     createdAt: node.createdAt,
+    coreVersion: node.coreVersion,
+    coreSHA: node.coreSHA,
     jobCounts,
     uptime,
   }
