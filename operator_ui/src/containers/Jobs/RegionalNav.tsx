@@ -15,7 +15,7 @@ import classNames from 'classnames'
 import { JobSpec } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
-import { Redirect } from 'react-router-dom'
+import { Redirect, useRouteMatch } from 'react-router-dom'
 import { createJobRun, deleteJobSpec, fetchJobRuns } from '../../actions'
 import BaseLink from '../../components/BaseLink'
 import Button from '../../components/Button'
@@ -131,10 +131,10 @@ const RegionalNav = ({
   jobSpecId,
   job,
   deleteJobSpec,
-  url,
 }: Props) => {
-  const navErrorsActive = url && url.includes('errors')
-  const navDefinitionActive = url && url.includes('json')
+  const match = useRouteMatch()
+  const navErrorsActive = match.path.includes('errors')
+  const navDefinitionActive = match.path.includes('json')
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
   const definition = job && jobSpecDefinition(job)
   const [modalOpen, setModalOpen] = React.useState(false)
