@@ -64,6 +64,7 @@ function parseConfig(config: Record<string, string>): FeedConfig {
     contractVersion: 2,
     decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),
     heartbeat: uIntFrom(config.heartbeat ?? 0) ?? false,
+    historyDays: uIntFrom(config.historyDays ?? 1),
   }
 }
 
