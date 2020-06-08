@@ -13,27 +13,27 @@ import "./AccessControllerInterface.sol";
  */
 contract AccessControlledAggregatorProxy is AggregatorProxy {
 
-  AccessControllerInterface public controller;
+  AccessControllerInterface public accessController;
 
   constructor(
     address _aggregator,
-    address _controller
+    address _accessController
   )
     public
     AggregatorProxy(_aggregator)
   {
-    setController(_controller);
+    setController(_accessController);
   }
 
   /**
-   * @notice Allows the owner to update the controller contract address.
-   * @param _controller The new address for the controller contract
+   * @notice Allows the owner to update the accessController contract address.
+   * @param _accessController The new address for the accessController contract
    */
-  function setController(address _controller)
+  function setController(address _accessController)
     public
     onlyOwner()
   {
-    controller = AccessControllerInterface(_controller);
+    accessController = AccessControllerInterface(_accessController);
   }
 
   /**
@@ -242,10 +242,10 @@ contract AccessControlledAggregatorProxy is AggregatorProxy {
   }
 
   /**
-   * @dev reverts if the caller does not have access by the controller contract
+   * @dev reverts if the caller does not have access by the accessController contract
    */
   modifier checkAccess() {
-    require(controller.hasAccess(msg.sender, msg.data), "No access");
+    require(accessController.hasAccess(msg.sender, msg.data), "No access");
     _;
   }
 }
