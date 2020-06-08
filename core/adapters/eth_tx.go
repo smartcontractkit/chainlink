@@ -91,7 +91,7 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunI
 }
 
 func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.RunOutput {
-	value, err := getTxData(e, input)
+	txData, err := getTxData(e, input)
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed while constructing EthTx data")
 		return models.NewRunOutputError(err)
