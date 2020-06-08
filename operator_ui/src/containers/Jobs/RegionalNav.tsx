@@ -133,8 +133,9 @@ const RegionalNav = ({
   deleteJobSpec,
   url,
 }: Props) => {
-  const navOverviewActive = url && !url.includes('json')
-  const navDefinitionACtive = !navOverviewActive
+  const navErrorsActive = url && url.includes('errors')
+  const navDefinitionActive = url && url.includes('json')
+  const navOverviewActive = !navDefinitionActive && !navErrorsActive
   const definition = job && jobSpecDefinition(job)
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
@@ -299,10 +300,21 @@ const RegionalNav = ({
                   href={`/jobs/${jobSpecId}/json`}
                   className={classNames(
                     classes.horizontalNavLink,
-                    navDefinitionACtive && classes.activeNavLink,
+                    navDefinitionActive && classes.activeNavLink,
                   )}
                 >
                   JSON
+                </Link>
+              </ListItem>
+              <ListItem className={classes.horizontalNavItem}>
+                <Link
+                  href={`/jobs/${jobSpecId}/errors`}
+                  className={classNames(
+                    classes.horizontalNavLink,
+                    navErrorsActive && classes.activeNavLink,
+                  )}
+                >
+                  Errors
                 </Link>
               </ListItem>
             </List>
