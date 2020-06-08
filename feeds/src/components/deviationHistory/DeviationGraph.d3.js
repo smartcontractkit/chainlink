@@ -249,7 +249,7 @@ export default class DeviationGraph {
       )
 
     this.info.style('display', 'block')
-    this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
+    this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp, 'LLL'))
     this.tooltipPrice.text(
       () => `${this.config.valuePrefix} ${d.answerFormatted}`,
     )
