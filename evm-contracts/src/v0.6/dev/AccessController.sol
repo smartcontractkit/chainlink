@@ -3,7 +3,7 @@ pragma solidity ^0.6.0;
 import "./AccessControllerInterface.sol";
 
 /**
- * @title Controller
+ * @title AccessController
  * @notice Allows inheriting contracts to control access to functions
  */
 abstract contract AccessController is AccessControllerInterface {
