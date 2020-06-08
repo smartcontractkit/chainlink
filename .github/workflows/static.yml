@@ -42,6 +42,14 @@ jobs:
       - uses: actions/checkout@v2
       - run: go get -v github.com/kisielk/errcheck
       - run: sh -c "d=\"$($HOME/go/bin/errcheck -ignoretests -asserts -ignoregenerated ./... | grep -v internal)\"; if [ -n \"$d\" ]; then echo \"errcheck output:\" ; echo \"$d\"; exit 1; else exit 0 ; fi" 2>&1
+  sec:
+    name: sec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go get -v github.com/securego/gosec/cmd/gosec
+      - run: $HOME/go/bin/gosec -exclude=G101,G104,G204,G304 -exclude-dir ingester ./...
   # TODO: Enable linters below one by one and fix issues with each
   # lint:
   #   name: Lint
@@ -52,15 +60,4 @@ jobs:
   #     uses: grandcolline/golang-github-actions@v1.1.0
   #     with:
   #       run: lint
-  #       comment: false
-  # sec:
-  #   name: Sec
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: sec
-  #       flags: "-exclude=G104"
   #       comment: false

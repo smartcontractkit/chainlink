@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/pkg/errors"
 )
 
@@ -105,7 +107,7 @@ func WriteVersionsDB(db *IntegratedVersion) error {
 	if err != nil {
 		return errors.Wrapf(err, "while opening %s", versionsDBPath)
 	}
-	defer f.Close()
+	defer logger.ErrorIfCalling(f.Close)
 	gethLine := "GETH_VERSION: " + db.GethVersion + "\n"
 	n, err := f.WriteString(gethLine)
 	if err != nil {
