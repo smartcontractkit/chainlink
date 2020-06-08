@@ -7,8 +7,9 @@ require (
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/aristanetworks/goarista v0.0.0-20190204200901-2166578f3448 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/avast/retry-go v2.6.0+incompatible
+
+	// TODO: Can this be removed?
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boj/redistore v0.0.0-20160128113310-fc113767cd6b // indirect
@@ -28,7 +29,6 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.6.0
 	github.com/gobuffalo/packr v1.30.1
-	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/golang/mock v1.4.3
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/securecookie v1.1.1
@@ -36,11 +36,16 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/guregu/null v3.5.0+incompatible
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
+
+	// TODO: Should be consolidated with retry
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/lib/pq v1.6.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
-	github.com/mattn/go-sqlite3 v1.13.0 // indirect
+
+	// TODO: Can this be removed?
 	github.com/mitchellh/go-homedir v1.1.0
+
+	// TODO: Can this be removed?
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.1
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
@@ -71,5 +76,7 @@ require (
 	golang.org/x/tools v0.0.0-20200414032229-332987a829c3 // indirect
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
+
+	// TODO: Can this be removed?
 	gopkg.in/guregu/null.v3 v3.5.0
 )

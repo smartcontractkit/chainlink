@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -81,6 +81,10 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 	return fe.CoerceEmptyToNil()
 }
 
+var (
+	externalInitiatorNameRegexp = regexp.MustCompile("^[a-zA-Z0-9-_]+$")
+)
+
 // ValidateExternalInitiator checks whether External Initiator parameters are
 // safe for processing.
 func ValidateExternalInitiator(
@@ -90,7 +94,7 @@ func ValidateExternalInitiator(
 	fe := models.NewJSONAPIErrors()
 	if len([]rune(exi.Name)) == 0 {
 		fe.Add("No name specified")
-	} else if onlyValidRunes := govalidator.StringMatches(exi.Name, "^[a-zA-Z0-9-_]*$"); !onlyValidRunes {
+	} else if !externalInitiatorNameRegexp.MatchString(exi.Name) {
 		fe.Add("Name must be alphanumeric and may contain '_' or '-'")
 	} else if _, err := store.FindExternalInitiatorByName(exi.Name); err == nil {
 		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
