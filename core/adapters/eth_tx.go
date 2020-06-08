@@ -110,7 +110,7 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 			return models.NewRunOutputError(err)
 		}
 	}
-	encodedPayload := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
+	encodedPayload := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData)
 
 	var gasLimit uint64
 	if e.GasLimit == nil {
