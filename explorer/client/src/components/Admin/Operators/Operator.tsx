@@ -16,6 +16,8 @@ const entries = (operatorData: OperatorShowData): [string, string][] => {
     ['job runs errored', operatorData.jobCounts.errored.toString()],
     ['job runs in progress', operatorData.jobCounts.inProgress.toString()],
     ['total job runs', operatorData.jobCounts.total.toString()],
+    ['core version', operatorData.coreVersion ?? 'N/A'],
+    ['core sha', operatorData.coreSha ?? 'N/A'],
   ]
 }
 
