@@ -5,7 +5,7 @@
   "main": "./dist/src",
   "types": "./dist/src",
   "engines": {
-    "node": "~10.16"
+    "node": "~12.18.0"
   },
   "scripts": {
     "start": "start-storybook -p 9001",

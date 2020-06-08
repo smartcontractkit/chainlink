@@ -25,7 +25,7 @@ COPY .git .git
 RUN yarn workspace @chainlink/explorer-client build
 RUN yarn workspace @chainlink/explorer write-version
 
-FROM node:10.16.3-alpine
+FROM node:12.18.0-alpine
 
 WORKDIR /app
 

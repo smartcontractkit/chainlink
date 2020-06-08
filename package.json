@@ -23,7 +23,7 @@
     "belt"
   ],
   "engines": {
-    "node": "~10.16"
+    "node": "~12.18"
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",

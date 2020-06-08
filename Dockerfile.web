@@ -1,4 +1,4 @@
-FROM node:10.16.3 as builder
+FROM node:12.18.0 as builder
 
 WORKDIR /app
 ADD . .
@@ -8,7 +8,7 @@ ARG REACT_APP_GA_ID
 RUN yarn install
 RUN yarn workspace @chainlink/feeds run build
 
-FROM node:10.16.3-alpine
+FROM node:12.18.0-alpine
 
 WORKDIR /app
 

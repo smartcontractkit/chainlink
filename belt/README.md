@@ -18,7 +18,7 @@ $ npm install -g @chainlink/belt
 $ belt COMMAND
 running command...
 $ belt (-v|--version|version)
-@chainlink/belt/0.0.1 linux-x64 node-v10.16.3
+@chainlink/belt/0.0.1 linux-x64 node-v12.18.0
 $ belt --help [COMMAND]
 USAGE
   $ belt COMMAND

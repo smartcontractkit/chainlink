@@ -3,7 +3,7 @@ jobs:
   core-go-test:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -36,7 +36,7 @@ jobs:
       - run: go test -v -p 4 -parallel 4 ./...
   rust:
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: ./tools/ci/rust_test
@@ -111,7 +111,7 @@ jobs:
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -129,7 +129,7 @@ jobs:
           path: ./integration/logs
   styleguide:
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -145,7 +145,7 @@ jobs:
       - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -162,7 +162,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -183,7 +183,7 @@ jobs:
     resource_class: xlarge
     working_directory: ~/chainlink
     docker:
-      - image: circleci/node:10.16.3-browsers
+      - image: circleci/node:12.18.0-browsers
         environment:
           TYPEORM_NAME: ci
       - image: circleci/postgres:11-alpine
@@ -197,13 +197,13 @@ jobs:
       - run: echo $CACHE_VERSION > cache.version
       - restore_cache:
           name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
+          key: v{{ checksum "cache.version" }}-yarn-vendor-node:12.18.0-browsers-{{ checksum "yarn.lock" }}
       - run:
           name: Install New Packages
           command: make yarndep
       - save_cache:
           name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
+          key: v{{ checksum "cache.version" }}-yarn-vendor-node:12.18.0-browsers-{{ checksum "yarn.lock" }}
           paths:
             - ~/.cache/yarn
             - /usr/local/share/.cache/yarn
@@ -222,7 +222,7 @@ jobs:
           path: ./integration/logs
   feeds:
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -310,7 +310,7 @@ jobs:
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -327,7 +327,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -344,7 +344,7 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.35
     environment:
       NODE_OPTIONS: --max_old_space_size=512
     steps:

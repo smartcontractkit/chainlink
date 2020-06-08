@@ -6,7 +6,7 @@
   "repository": "https://github.com/smartcontractkit/chainlink",
   "license": "MIT",
   "engines": {
-    "node": "~10.16"
+    "node": "~12.18.0"
   },
   "scripts": {
     "setup": "tsc -b",
