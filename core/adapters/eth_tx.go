@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v3"
 )
@@ -69,22 +70,7 @@ func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOu
 func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunInput, store *store.Store) models.RunOutput {
 	switch trtx.EthTx.State {
 	case models.EthTxConfirmed:
-		// TODO: Re-check the state
-		receipt := models.EthReceipt{}
-		if err := store.GetRawDB().
-			Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", trtx.EthTxID).
-			First(&receipt).Error; err != nil {
-			err = errors.Wrap(err, "checkForConfirmation could not find receipt for confirmed eth_tx")
-			logger.Error(err)
-			return models.NewRunOutputError(err)
-		}
-		output, err := models.JSON{}.Add("result", receipt.TxHash.Hex())
-		if err != nil {
-			err = errors.Wrap(err, "checkForConfirmation failed")
-			logger.Error(err)
-			return models.NewRunOutputError(err)
-		}
-		return models.NewRunOutputComplete(output)
+		return checkEthTxForReceipt(trtx.EthTx.ID, input, store)
 	case models.EthTxFatalError:
 		return models.NewRunOutputError(trtx.EthTx.GetError())
 	default:
@@ -130,6 +116,39 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 	store.NotifyNewEthTx.Trigger()
 
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
+}
+
+func checkEthTxForReceipt(ethTxID int64, input models.RunInput, store *store.Store) models.RunOutput {
+	receipt := models.EthReceipt{}
+	err := store.GetRawDB().
+		Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", ethTxID).
+		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = ?", models.EthTxConfirmed).
+		First(&receipt).
+		Error
+
+	if err == nil {
+		output, err := models.JSON{}.Add("result", receipt.TxHash.Hex())
+		if err != nil {
+			err = errors.Wrap(err, "checkEthTxForReceipt failed")
+			logger.Error(err)
+			return models.NewRunOutputError(err)
+		}
+		return models.NewRunOutputComplete(output)
+	}
+
+	if gorm.IsRecordNotFoundError(err) {
+		// If this happens, one of two scenarios is possible:
+		// 1. A re-org occurred between the initial fetch of the eth_tx and this point, and now the eth_tx is unconfirmed again
+		// 2. Something terrible happened and the entire eth_tx or it's receipts have gone missing without a trace
+		// In either case, the best course of action is to remain in
+		// pending_outgoing_confirmations state and check again on the next
+		// go around until the tx manager sorts itself out.
+		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
+	}
+
+	err = errors.Wrap(err, "checkForConfirmation could not find receipt for confirmed eth_tx")
+	logger.Error(err)
+	return models.NewRunOutputError(err)
 }
 
 func (e *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models.RunOutput {

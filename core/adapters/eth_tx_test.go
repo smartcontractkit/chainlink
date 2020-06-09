@@ -95,7 +95,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 
 			store.TxManager = txManager
 
-			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: &gasLimit}
+			adapter := adapters.EthTx{DataFormat: test.format, GasPrice: gasPrice, GasLimit: gasLimit}
 			input := cltest.NewRunInputWithResult(test.input)
 			result := adapter.Perform(input, store)
 
@@ -499,7 +499,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	t.Run("with valid data and empty DataFormat writes to database and returns run output pending outgoing confirmations", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
-			GasLimit:         &gasLimit,
+			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
@@ -525,7 +525,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	t.Run("with bytes DataFormat writes correct encoded data to database", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
-			GasLimit:         &gasLimit,
+			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 			DataFormat:       "bytes",
@@ -553,7 +553,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	t.Run("with invalid data returns run output error and does not write to DB", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
-			GasLimit:         &gasLimit,
+			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 			DataFormat:       "some old bollocks",
@@ -573,7 +573,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	t.Run("with unconfirmed transaction returns output pending confirmations", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
-			GasLimit:         &gasLimit,
+			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
@@ -590,10 +590,10 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
 	})
 
-	t.Run("with confirmed transaction returns error if receipt is missing (invariant violation, should never happen)", func(t *testing.T) {
+	t.Run("with confirmed transaction returns pending outgoing confirmations if receipt is missing (invariant violation, should never happen)", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
-			GasLimit:         &gasLimit,
+			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
@@ -606,15 +606,14 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
 
-		require.Error(t, runOutput.Error())
-		require.EqualError(t, runOutput.Error(), "checkForConfirmation could not find receipt for confirmed eth_tx: record not found")
-		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
+		require.NoError(t, runOutput.Error())
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
 	})
 
 	t.Run("with confirmed transaction returns output complete with transaction hash pulled from receipt", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
-			GasLimit:         &gasLimit,
+			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
@@ -641,7 +640,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	t.Run("with transaction that ended up in fatal_error state returns job run error", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
-			GasLimit:         &gasLimit,
+			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
 			DataPrefix:       dataPrefix,
 		}
