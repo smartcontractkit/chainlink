@@ -4,14 +4,15 @@ import "./AggregatorProxy.sol";
 import "./AccessControllerInterface.sol";
 
 /**
- * @title A trusted proxy for updating where current answers are read from
+ * @title External Access Controlled Aggregator Proxy
+ * @notice A trusted proxy for updating where current answers are read from
  * @notice This contract provides a consistent address for the
  * Aggregator and AggregatorV3Interface but delegates where it reads from to the owner, who is
  * trusted to update it.
  * @notice Only access enabled addresses are allowed to access getters for
  * aggregated answers and round information.
  */
-contract AccessControlledAggregatorProxy is AggregatorProxy {
+contract EACAggregatorProxy is AggregatorProxy {
 
   AccessControllerInterface public accessController;
 
