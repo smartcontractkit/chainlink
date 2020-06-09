@@ -132,6 +132,9 @@ func (txm *EthTxManager) Connected() bool {
 // Connect iterates over the available accounts to retrieve their nonce
 // for client side management.
 func (txm *EthTxManager) Connect(bn *models.Head) error {
+	if txm.config.EnableBulletproofTxManager() {
+		return nil
+	}
 	var merr error
 	func() {
 		txm.accountsMutex.Lock()
@@ -184,11 +187,17 @@ func (txm *EthTxManager) Connect(bn *models.Head) error {
 
 // Disconnect marks this instance as disconnected.
 func (txm *EthTxManager) Disconnect() {
+	if txm.config.EnableBulletproofTxManager() {
+		return
+	}
 	txm.connected.UnSet()
 }
 
 // OnNewLongestChain does nothing; exists to comply with interface.
 func (txm *EthTxManager) OnNewLongestChain(head models.Head) {
+	if txm.config.EnableBulletproofTxManager() {
+		return
+	}
 	txm.currentHead = head
 }
 

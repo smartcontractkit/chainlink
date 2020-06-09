@@ -127,7 +127,8 @@ func checkEthTxForReceipt(ethTxID int64, input models.RunInput, store *store.Sto
 		Error
 
 	if err == nil {
-		output, err := models.JSON{}.Add("result", receipt.TxHash.Hex())
+		output := models.JSON{}
+		output, err = output.Add("result", receipt.TxHash.Hex())
 		if err != nil {
 			err = errors.Wrap(err, "checkEthTxForReceipt failed")
 			logger.Error(err)

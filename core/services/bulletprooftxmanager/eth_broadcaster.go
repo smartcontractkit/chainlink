@@ -74,10 +74,10 @@ func NewEthBroadcaster(store *store.Store, config orm.ConfigReader) EthBroadcast
 
 func (eb *ethBroadcaster) Start() error {
 	if !eb.config.EnableBulletproofTxManager() {
-		logger.Debug("BulletproofTxManager: Disabled, falling back to legacy TxManager")
+		logger.Info("BulletproofTxManager: Disabled, falling back to legacy TxManager")
 		return nil
 	}
-	logger.Debug("BulletproofTxManager: Enabled")
+	logger.Info("BulletproofTxManager: Enabled")
 
 	eb.stateMutex.Lock()
 	defer eb.stateMutex.Unlock()
