@@ -26,8 +26,7 @@ export const JobSpecErrors: React.FC<Props> = ({
   }, [fetchJob, jobSpecId])
   return (
     <>
-      {/* TODO: Regional nav should handle job = undefined */}
-      {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
+      <RegionalNav jobSpecId={jobSpecId} job={job} />
       <Content>
         <List errors={job?.errors} />
       </Content>
