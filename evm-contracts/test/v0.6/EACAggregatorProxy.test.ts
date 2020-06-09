@@ -7,7 +7,7 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { SimpleAccessControlFactory } from '../../ethers/v0.6/SimpleAccessControlFactory'
-import { MockAggregatorFactory } from '../../ethers/v0.6/MockAggregatorFactory'
+import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
 
 let personas: setup.Personas
@@ -16,7 +16,7 @@ let defaultAccount: ethers.Wallet
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const accessControlFactory = new SimpleAccessControlFactory()
-const aggregatorFactory = new MockAggregatorFactory()
+const aggregatorFactory = new MockV3AggregatorFactory()
 const proxyFactory = new EACAggregatorProxyFactory()
 
 beforeAll(async () => {
@@ -37,8 +37,8 @@ describe('AccessControlledAggregatorProxy', () => {
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let controller: contract.Instance<SimpleAccessControlFactory>
-  let aggregator: contract.Instance<MockAggregatorFactory>
-  let aggregator2: contract.Instance<MockAggregatorFactory>
+  let aggregator: contract.Instance<MockV3AggregatorFactory>
+  let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let proxy: contract.Instance<EACAggregatorProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
