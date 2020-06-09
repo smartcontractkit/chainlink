@@ -6,8 +6,8 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { MockHistoricAggregatorFactory } from '../../ethers/v0.6/MockHistoricAggregatorFactory'
-import { MockAggregatorFactory } from '../../ethers/v0.6/MockAggregatorFactory'
+import { MockV2AggregatorFactory } from '../../ethers/v0.6/MockV2AggregatorFactory'
+import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { AggregatorProxyFactory } from '../../ethers/v0.6/AggregatorProxyFactory'
 import { AggregatorFacadeFactory } from '../../ethers/v0.6/AggregatorFacadeFactory'
 
@@ -16,8 +16,8 @@ let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
-const aggregatorFactory = new MockAggregatorFactory()
-const historicAggregatorFactory = new MockHistoricAggregatorFactory()
+const aggregatorFactory = new MockV3AggregatorFactory()
+const historicAggregatorFactory = new MockV2AggregatorFactory()
 const aggregatorFacadeFactory = new AggregatorFacadeFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
 
@@ -35,9 +35,9 @@ describe('AggregatorProxy', () => {
   const decimals = 18
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<MockAggregatorFactory>
-  let aggregator2: contract.Instance<MockAggregatorFactory>
-  let historicAggregator: contract.Instance<MockHistoricAggregatorFactory>
+  let aggregator: contract.Instance<MockV3AggregatorFactory>
+  let aggregator2: contract.Instance<MockV3AggregatorFactory>
+  let historicAggregator: contract.Instance<MockV2AggregatorFactory>
   let proxy: contract.Instance<AggregatorProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
@@ -303,7 +303,10 @@ describe('AggregatorProxy', () => {
       })
 
       it('uses the description of the aggregator', async () => {
-        assert.equal('v0.6/tests/MockAggregator.sol', await proxy.description())
+        assert.equal(
+          'v0.6/tests/MockV3Aggregator.sol',
+          await proxy.description(),
+        )
       })
 
       it('uses the version of the aggregator', async () => {
