@@ -120,7 +120,7 @@ interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job: JobSpec
+  job?: JobSpec
   url: string
 }
 
@@ -142,12 +142,13 @@ const RegionalNav = ({
   const errorsTabText =
     job && job.errors.length > 0 ? `Errors (${job.errors.length})` : 'Errors'
   const handleRun = () => {
-    createJobRun(job.id, CreateRunSuccessNotification, ErrorMessage).then(() =>
-      fetchJobRuns({
-        jobSpecId: job.id,
-        page: DEFAULT_PAGE,
-        size: RECENT_RUNS_COUNT,
-      }),
+    createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage).then(
+      () =>
+        fetchJobRuns({
+          jobSpecId,
+          page: DEFAULT_PAGE,
+          size: RECENT_RUNS_COUNT,
+        }),
     )
   }
   const handleDelete = (id: string) => {

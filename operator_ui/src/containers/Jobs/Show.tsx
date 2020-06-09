@@ -193,8 +193,7 @@ export const Show: React.FC<Props> = ({
   }, [fetchJob, fetchJobRuns, jobSpecId])
   return (
     <div>
-      {/* TODO: Regional nav should handle job = undefined */}
-      {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
+      <RegionalNav jobSpecId={jobSpecId} job={job} />
       <Content>
         <Details
           job={job}
