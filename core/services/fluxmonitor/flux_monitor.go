@@ -801,7 +801,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	roundState, err := p.roundState(0)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to determine eligibility to submit from FluxAggregator contract: %v", err), loggerFields...)
-		p.store.CreateErrorFor(p.JobID(), roundStateError)
+		p.store.UpsertErrorFor(p.JobID(), roundStateError)
 		return
 	}
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
