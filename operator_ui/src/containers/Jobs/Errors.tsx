@@ -1,14 +1,13 @@
 import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
-// import Grid from '@material-ui/core/Grid'
 import Content from 'components/Content'
-import { KeyValueList } from '@chainlink/styleguide'
 import { JobSpec } from 'operator_ui'
 import { AppState } from 'src/reducers'
 import jobSelector from 'selectors/job'
 import { fetchJob } from 'actions'
 import RegionalNav from './RegionalNav'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import List from 'components/JobErrors/List'
 
 interface Props {
   jobSpecId: string
@@ -30,7 +29,7 @@ export const JobSpecErrors: React.FC<Props> = ({
       {/* TODO: Regional nav should handle job = undefined */}
       {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
       <Content>
-        <KeyValueList title="Errors" entries={[]} showHead titleize />
+        <List errors={job?.errors} />
       </Content>
     </>
   )
