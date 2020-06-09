@@ -139,6 +139,8 @@ const RegionalNav = ({
   const definition = job && jobSpecDefinition(job)
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
+  const errorsTabText =
+    job && job.errors.length > 0 ? `Errors (${job.errors.length})` : 'Errors'
   const handleRun = () => {
     createJobRun(job.id, CreateRunSuccessNotification, ErrorMessage).then(() =>
       fetchJobRuns({
@@ -314,7 +316,7 @@ const RegionalNav = ({
                     navErrorsActive && classes.activeNavLink,
                   )}
                 >
-                  Errors
+                  {errorsTabText}
                 </Link>
               </ListItem>
             </List>

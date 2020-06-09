@@ -59,7 +59,6 @@ const Definition = props => {
 
   return (
     <div>
-      {/* TODO - RYAN - get rid of jobSpecId as argument */}
       <RegionalNav jobSpecId={jobSpecId} job={job} />
       <Content>
         <Card>
