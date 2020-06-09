@@ -329,17 +329,33 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	return earned, nil
 }
 
-// CreateJobSpecError creates a new JobSpecError record
-func (orm *ORM) CreateJobSpecError(jobSpecErr *models.JobSpecError) error {
+// UpsertErrorFor upserts a JobSpecError record, incrementing the occurances counter by 1
+// if the record is found
+func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 	orm.MustEnsureAdvisoryLock()
-	return orm.db.Create(jobSpecErr).Error
+	err := func() error {
+		foundJobSpecErr, found, err := orm.FindJobSpecError(jobID, description)
+		if err != nil {
+			return err
+		} else if !found {
+			newJobSpecError := models.NewJobSpecError(jobID, description)
+			return orm.db.Create(&newJobSpecError).Error
+		} else {
+			foundJobSpecErr.Occurances++
+			return orm.db.Save(&foundJobSpecErr).Error
+		}
+	}()
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("Unable to create JobSpecError: %v", err))
+	}
 }
 
-// CreateErrorFor creates a new JobSpecError record for the given job
-func (orm *ORM) CreateErrorFor(jobID *models.ID, description string) error {
-	orm.MustEnsureAdvisoryLock()
-	jobSpecError := models.NewJobSpecError(jobID, description)
-	return orm.CreateJobSpecError(&jobSpecError)
+// FindJobSpecError looks for a JobSpecError record with the given jobID and description
+func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.JobSpecError, bool, error) {
+	jobSpecErr := &models.JobSpecError{}
+	rval := orm.db.Where("job_spec_id = ? AND description = ?", jobID, description).First(&jobSpecErr)
+	found := !rval.RecordNotFound()
+	return jobSpecErr, found, ignoreRecordNotFound(rval)
 }
 
 // CreateExternalInitiator inserts a new external initiator
