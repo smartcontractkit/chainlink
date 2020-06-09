@@ -8,7 +8,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { SimpleAccessControlFactory } from '../../ethers/v0.6/SimpleAccessControlFactory'
 import { MockAggregatorFactory } from '../../ethers/v0.6/MockAggregatorFactory'
-import { AccessControlledAggregatorProxyFactory } from '../../ethers/v0.6/AccessControlledAggregatorProxyFactory'
+import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
@@ -17,7 +17,7 @@ const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const accessControlFactory = new SimpleAccessControlFactory()
 const aggregatorFactory = new MockAggregatorFactory()
-const controlleredAggregatorProxyFactory = new AccessControlledAggregatorProxyFactory()
+const proxyFactory = new EACAggregatorProxyFactory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -39,7 +39,7 @@ describe('AccessControlledAggregatorProxy', () => {
   let controller: contract.Instance<SimpleAccessControlFactory>
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregator2: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.Instance<AccessControlledAggregatorProxyFactory>
+  let proxy: contract.Instance<EACAggregatorProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
@@ -49,7 +49,7 @@ describe('AccessControlledAggregatorProxy', () => {
     controller = await accessControlFactory.connect(defaultAccount).deploy()
     await aggregator.updateRoundData(roundId, answer, timestamp, startedAt)
     await link.transfer(aggregator.address, deposit)
-    proxy = await controlleredAggregatorProxyFactory
+    proxy = await proxyFactory
       .connect(defaultAccount)
       .deploy(aggregator.address, controller.address)
   })
@@ -59,7 +59,8 @@ describe('AccessControlledAggregatorProxy', () => {
   })
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(controlleredAggregatorProxyFactory, [
+    matchers.publicAbi(proxyFactory, [
+      'accessController',
       'aggregator',
       'confirmAggregator',
       'decimals',
@@ -75,9 +76,8 @@ describe('AccessControlledAggregatorProxy', () => {
       'proposedAggregator',
       'proposedGetRoundData',
       'proposedLatestRoundData',
-      'version',
-      'controller',
       'setController',
+      'version',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -221,7 +221,7 @@ describe('AccessControlledAggregatorProxy', () => {
     describe('when called by the owner', () => {
       it('updates the controller contract', async () => {
         await proxy.connect(defaultAccount).setController(newController.address)
-        assert.equal(await proxy.controller(), newController.address)
+        assert.equal(await proxy.accessController(), newController.address)
       })
     })
   })
