@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -217,25 +216,7 @@ func (c Config) EnableExperimentalAdapters() bool {
 // EnableBulletproofTxManager uses the new tx manager for ethtx tasks. Careful,
 // toggling this on and off could cause transactions to become lost
 func (c Config) EnableBulletproofTxManager() bool {
-	if c.runtimeStore != nil {
-		var value null.Uint32
-		if err := c.runtimeStore.GetConfigValue("EnableBulletproofTxManager", &value); err != nil && errors.Cause(err) != ErrorNotFound {
-			logger.Warnw("Error while trying to fetch EnableBulletproofTxManager.", "error", err)
-		} else if err == nil {
-			return value.Valid
-		}
-	}
 	return c.viper.GetBool(EnvVarName("EnableBulletproofTxManager"))
-}
-
-// PermanentlySetBulletproofTxManagerEnabled turns bulletprooftxmanager on.
-// This is a one-way setting. It can only ever be set once and never unset
-// except via manual database intervention.
-func (c Config) PermanentlySetBulletproofTxManagerEnabled() error {
-	if c.runtimeStore == nil {
-		return errors.New("no runtime store installed")
-	}
-	return c.runtimeStore.SetConfigValue("EnableBulletproofTxManager", null.Uint32From(1))
 }
 
 // FeatureExternalInitiators enables the External Initiator feature.

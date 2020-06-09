@@ -232,10 +232,8 @@ func newStoreWithDialerAndKeyStore(
 
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
-	// BULLETPROOFTXMANAGER MIGRATION
 	if s.Config.EnableBulletproofTxManager() {
-		// Permanently toggle bulletprooftxmanager on
-		if err := migrateFromLegacyTxManager(s); err != nil {
+		if err := setNonceFromLegacyTxManager(s.GetRawDB()); err != nil {
 			return err
 		}
 	} else {
@@ -243,6 +241,14 @@ func (s *Store) Start() error {
 	}
 
 	return s.SyncDiskKeyStoreToDB()
+}
+
+func setNonceFromLegacyTxManager(db *gorm.DB) error {
+	return db.Exec(`
+	UPDATE keys
+	SET next_nonce = (SELECT max(nonce) FROM txes WHERE txes.from = keys.address)+1
+	WHERE next_nonce < (SELECT max(nonce) FROM txes WHERE txes.from = keys.address)+1;
+	`).Error
 }
 
 // Close shuts down all of the working parts of the store.
