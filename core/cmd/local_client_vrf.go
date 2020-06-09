@@ -201,13 +201,13 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 	return nil
 }
 
-func getPublicKey(c *clipkg.Context) (*vrfkey.PublicKey, error) {
+func getPublicKey(c *clipkg.Context) (vrfkey.PublicKey, error) {
 	if !c.IsSet("publicKey") {
-		return nil, fmt.Errorf("must specify public key")
+		return vrfkey.PublicKey{}, fmt.Errorf("must specify public key")
 	}
 	publicKey, err := vrfkey.NewPublicKeyFromHex(c.String("publicKey"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse public key")
+		return vrfkey.PublicKey{}, errors.Wrap(err, "failed to parse public key")
 	}
 	return publicKey, nil
 }

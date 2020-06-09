@@ -7,10 +7,13 @@ import (
 	"regexp"
 	"testing"
 
+	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth"
@@ -35,7 +38,17 @@ func TestPrintingDoesNotLeakKey(t *testing.T) {
 }
 
 func TestMarshaledProof(t *testing.T) {
-	proof, err := k.MarshaledProof(big.NewInt(1))
+	blockHash := common.Hash{}
+	blockNum := 0
+	preSeed := big.NewInt(1)
+	s := tvrf.SeedData(t, preSeed, blockHash, blockNum)
+	proofResponse, err := k.MarshaledProof(s)
+	require.NoError(t, err)
+	goProof, err := vrf.UnmarshalProofResponse(proofResponse)
+	require.NoError(t, err)
+	actualProof, err := goProof.ActualProof(s)
+	require.NoError(t, err)
+	proof, err := actualProof.MarshalForSolidityVerifier()
 	require.NoError(t, err)
 	// NB: For changes to the VRF solidity code to be reflected here, "go generate"
 	// must be run in core/services/vrf.

@@ -480,7 +480,7 @@ contract VRF {
   uint256 constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
 
   // Length of proof marshaled to bytes array. Shows layout of proof
-  uint private constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
+  uint public constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
     64 + // Gamma
     32 + // C
     32 + // S
