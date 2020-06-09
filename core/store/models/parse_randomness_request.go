@@ -36,6 +36,10 @@ func (parseRandomnessRequest) parseJSON(log Log) (js JSON, err error) {
 		"jobID": parsedLog.JobID.Hex(),
 		// Address of consuming contract which initially made the request
 		"sender": parsedLog.Sender.Hex(),
+		// Hash of the block in which this request appeared
+		"blockHash": log.BlockHash.Hex(),
+		// Number/height of the block in which this request appeared
+		"blockNum": log.BlockNumber,
 	})
 }
 

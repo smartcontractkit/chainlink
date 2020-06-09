@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVRF_IsSquare(t *testing.T) {
@@ -24,4 +25,14 @@ func TestVRF_YSquared(t *testing.T) {
 func TestVRF_IsCurveXOrdinate(t *testing.T) {
 	assert.True(t, IsCurveXOrdinate(big.NewInt(1)))
 	assert.False(t, IsCurveXOrdinate(big.NewInt(5)))
+}
+
+func TestVRF_VerifyProof(t *testing.T) {
+	sk, seed, nonce := big.NewInt(1), big.NewInt(2), big.NewInt(3)
+	p, err := generateProofWithNonce(sk, seed, nonce)
+	require.NoError(t, err, "could not generate proof")
+	p.Seed = big.NewInt(0).Add(seed, big.NewInt(1))
+	valid, err := p.VerifyVRFProof()
+	require.NoError(t, err, "could not validate proof")
+	require.False(t, valid, "invalid proof was found valid")
 }

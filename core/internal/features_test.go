@@ -998,13 +998,14 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	eth := app.MockCallerSubscriberClient()
 	logs := make(chan models.Log, 1)
 	txHash := cltest.NewHash()
+	blockNum := 10
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
 		eth.Register("eth_sendRawTransaction", txHash)
 		eth.Register("eth_getTransactionReceipt", models.TxReceipt{
 			Hash:        cltest.NewHash(),
-			BlockNumber: cltest.Int(10),
+			BlockNumber: cltest.Int(blockNum),
 		})
 	})
 	config, cfgCleanup := cltest.NewConfig(t)
@@ -1020,14 +1021,15 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	coordinatorAddress := j.Initiators[0].Address
 
 	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
-	require.Equal(t, &provingKey.PublicKey, pk,
-		"public key in fixture %s does not match secret key in test %d (which has public key %s)",
-		pk, sk, provingKey.PublicKey.String())
+	require.Equal(t, provingKey.PublicKey, pk,
+		"public key in fixture %s does not match secret key in test %d (which has "+
+			"public key %s)", pk, sk, provingKey.PublicKey.String())
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
+	seed := big.NewInt(2)
 	r := models.RandomnessRequestLog{
 		KeyHash: provingKey.PublicKey.MustHash(),
-		Seed:    big.NewInt(2),
+		Seed:    seed,
 		JobID:   common.BytesToHash(rawID),
 		Sender:  cltest.NewAddress(),
 		Fee:     assets.NewLink(100),
@@ -1058,15 +1060,22 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.NoError(t, err)
 	proof, ok := proofContainer["_proof"].([]byte)
 	require.True(t, ok)
-	require.Len(t, proof, vrf.ProofLength)
+	require.Len(t, proof, vrf.OnChainResponseLength)
 	publicPoint, err := provingKey.PublicKey.Point()
 	require.NoError(t, err)
 	require.Equal(t, proof[:64], secp256k1.LongMarshal(publicPoint))
-	goProof, err := vrf.UnmarshalSolidityProof(proof)
+	mProof := vrf.MarshaledOnChainResponse{}
+	require.Equal(t, copy(mProof[:], proof), vrf.OnChainResponseLength)
+	goProof, err := vrf.UnmarshalProofResponse(mProof)
 	require.NoError(t, err, "problem parsing solidity proof")
-	proofValid, err := goProof.VerifyVRFProof()
+	preseed, err := vrf.BigToSeed(seed)
+	require.NoError(t, err, "seed %x out of range", seed)
+	_, err = goProof.ActualProof(vrf.PreSeedData{
+		PreSeed:   preseed,
+		BlockHash: requestlog.BlockHash,
+		BlockNum:  uint64(blockNum),
+	})
 	require.NoError(t, err, "problem verifying solidity proof")
-	require.True(t, proofValid, "vrf proof was invalid: %s", goProof.String())
 
 	// Check that a log from a different address is rejected. (The node will only
 	// ever see this situation if the ethereum.FilterQuery for this job breaks,
