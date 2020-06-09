@@ -1244,3 +1244,157 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 		})
 	}
 }
+
+func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
+	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
+		store, cleanup := cltest.NewStore(t)
+		defer cleanup()
+
+		nodeAddr := ensureAccount(t, store)
+
+		job := cltest.NewJobWithFluxMonitorInitiator()
+		initr := job.Initiators[0]
+		initr.ID = 1
+		initr.PollTimer.Disabled = true
+		initr.IdleTimer.Disabled = true
+		run := cltest.NewJobRun(job)
+
+		rm := new(mocks.RunManager)
+		fetcher := new(mocks.Fetcher)
+		fluxAggregator := new(mocks.FluxAggregator)
+
+		paymentAmount := store.Config.MinimumContractPayment().ToInt()
+		availableFunds := big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
+
+		const (
+			roundID = 3
+			answer  = 100
+		)
+
+		checker, err := fluxmonitor.NewPollingDeviationChecker(
+			store,
+			fluxAggregator,
+			initr,
+			nil,
+			rm,
+			fetcher,
+			func() {},
+		)
+		require.NoError(t, err)
+
+		checker.OnConnect()
+
+		// Fire off the NewRound log, which the node should respond to
+		fluxAggregator.On("RoundState", nodeAddr, uint32(roundID)).
+			Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				LatestAnswer:      big.NewInt(answer),
+				EligibleToSubmit:  true,
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
+				OracleCount:       1,
+			}, nil).
+			Once()
+		fetcher.On("Fetch").
+			Return(decimal.NewFromInt(answer), nil).
+			Once()
+		fluxAggregator.On("GetMethodID", "submit").
+			Return(submitSelector, nil).
+			Once()
+		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
+			Return(&run, nil).
+			Once()
+		checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{
+			RoundId:   big.NewInt(roundID),
+			StartedAt: big.NewInt(0),
+		})
+
+		// Now force the node to try to poll and ensure it does not respond this time
+		fluxAggregator.On("RoundState", nodeAddr, uint32(0)).
+			Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				LatestAnswer:      big.NewInt(answer),
+				EligibleToSubmit:  true,
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
+				OracleCount:       1,
+			}, nil).
+			Once()
+		checker.ExportedPollIfEligible(0, 0)
+
+		rm.AssertExpectations(t)
+		fetcher.AssertExpectations(t)
+		fluxAggregator.AssertExpectations(t)
+	})
+
+	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
+		store, cleanup := cltest.NewStore(t)
+		defer cleanup()
+
+		nodeAddr := ensureAccount(t, store)
+
+		job := cltest.NewJobWithFluxMonitorInitiator()
+		initr := job.Initiators[0]
+		initr.ID = 1
+		initr.PollTimer.Disabled = true
+		initr.IdleTimer.Disabled = true
+		run := cltest.NewJobRun(job)
+
+		rm := new(mocks.RunManager)
+		fetcher := new(mocks.Fetcher)
+		fluxAggregator := new(mocks.FluxAggregator)
+
+		paymentAmount := store.Config.MinimumContractPayment().ToInt()
+		availableFunds := big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
+
+		const (
+			roundID = 3
+			answer  = 100
+		)
+
+		checker, err := fluxmonitor.NewPollingDeviationChecker(
+			store,
+			fluxAggregator,
+			initr,
+			nil,
+			rm,
+			fetcher,
+			func() {},
+		)
+		require.NoError(t, err)
+
+		checker.OnConnect()
+
+		// First, force the node to try to poll, which should result in a submission
+		fluxAggregator.On("RoundState", nodeAddr, uint32(0)).
+			Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				LatestAnswer:      big.NewInt(answer),
+				EligibleToSubmit:  true,
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
+				OracleCount:       1,
+			}, nil).
+			Once()
+		fetcher.On("Fetch").
+			Return(decimal.NewFromInt(answer), nil).
+			Once()
+		fluxAggregator.On("GetMethodID", "submit").
+			Return(submitSelector, nil).
+			Once()
+		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
+			Return(&run, nil).
+			Once()
+		checker.ExportedPollIfEligible(0, 0)
+
+		// Now fire off the NewRound log and ensure it does not respond this time
+		checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{
+			RoundId:   big.NewInt(roundID),
+			StartedAt: big.NewInt(0),
+		})
+
+		rm.AssertExpectations(t)
+		fetcher.AssertExpectations(t)
+		fluxAggregator.AssertExpectations(t)
+	})
+}
