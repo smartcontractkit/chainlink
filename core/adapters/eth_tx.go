@@ -27,12 +27,13 @@ const (
 // to execute.
 type EthTx struct {
 	ToAddress        common.Address       `json:"address"`
-	FromAddress      *common.Address      `json:"fromAddress"`
+	FromAddress      common.Address       `json:"fromAddress,omitempty"`
 	FunctionSelector eth.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes        `json:"dataPrefix"`
 	DataFormat       string               `json:"format"`
-	GasPrice         *utils.Big           `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit         *uint64              `json:"gasLimit"`
+	// GasPrice only needed for legacy tx manager
+	GasPrice *utils.Big `json:"gasPrice" gorm:"type:numeric"`
+	GasLimit uint64     `json:"gasLimit,omitempty"`
 }
 
 // TaskType returns the type of Adapter.
@@ -68,6 +69,7 @@ func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOu
 func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunInput, store *store.Store) models.RunOutput {
 	switch trtx.EthTx.State {
 	case models.EthTxConfirmed:
+		// TODO: Re-check the state
 		receipt := models.EthReceipt{}
 		if err := store.GetRawDB().
 			Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", trtx.EthTxID).
@@ -100,23 +102,23 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 	taskRunID := input.TaskRunID()
 	toAddress := e.ToAddress
 	var fromAddress common.Address
-	if e.FromAddress != nil {
-		fromAddress = *e.FromAddress
-	} else {
+	if e.FromAddress == utils.ZeroAddress {
 		fromAddress, err = store.GetDefaultAddress()
 		if err != nil {
 			err = errors.Wrap(err, "insertEthTx failed to GetDefaultAddress")
 			logger.Error(err)
 			return models.NewRunOutputError(err)
 		}
+	} else {
+		fromAddress = e.FromAddress
 	}
 	encodedPayload := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData)
 
 	var gasLimit uint64
-	if e.GasLimit == nil {
+	if e.GasLimit == 0 {
 		gasLimit = store.Config.EthGasLimitDefault()
 	} else {
-		gasLimit = *e.GasLimit
+		gasLimit = e.GasLimit
 	}
 
 	if err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
@@ -146,11 +148,7 @@ func (e *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models
 	}
 
 	data := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
-	gasLimit := uint64(0)
-	if e.GasLimit != nil {
-		gasLimit = *e.GasLimit
-	}
-	return createTxRunResult(e.ToAddress, e.GasPrice, gasLimit, data, input, store)
+	return createTxRunResult(e.ToAddress, e.GasPrice, e.GasLimit, data, input, store)
 }
 
 // getTxData returns the data to save against the callback encoded according to
