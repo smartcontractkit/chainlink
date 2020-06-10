@@ -18,6 +18,7 @@ import linkpool from './linkpool.png'
 import opium from './opium.png'
 import theforceprotocol from './theforceprotocol.png'
 import oneNode from './01node.png'
+import dolomite from './dolomite.png'
 
 // Listing Thumbnails
 
@@ -39,6 +40,7 @@ import linkpoolTn from './linkpool_tn.png'
 import opiumTn from './opium_tn.png'
 import theforceprotocolTn from './theforceprotocol_tn.png'
 import oneNodeTn from './01node_tn.png'
+import dolomiteTn from './dolomite_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -155,5 +157,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://01node.com',
     imageLg: oneNode,
     imageTn: oneNodeTn,
+  },
+  {
+    name: 'Dolomite',
+    url: 'https://dolomite.io',
+    imageLg: dolomite,
+    imageTn: dolomiteTn,
   },
 ]
