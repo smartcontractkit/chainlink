@@ -617,26 +617,38 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	//         of this approach is that one or the other submission tx for a given round will revert, costing the
 	//         node operator some gas.  The benefit is that those submissions are guaranteed to be made, ensuring
 	//         that we have high data availability (and also ensuring that node operators get paid).
-	//   - There is one case in which we want to avoid submitting, namely, when our node polls at the same time
-	//         as another node, and both attempt to start a round.  In that case, it's possible that the other
-	//         node will start the round, and our node will see the NewRound log and try to submit again.  For
-	//         this reason, we keep track of the number of times we've submitted for a given round.  If this count
-	//         is greater than the number of times we've seen the NewRound log for that round (prior to incrementing
-	//         the log count), then we know we've already submitted as a result of one of the other triggers
-	//         (poll, idle, round timeout).
+	//   - There are a few straightforward cases where we don't want to submit:
+	//         - When we're not eligible
+	//         - When the aggregator is underfunded
+	//         - When we were the initiator of the round (i.e. we've received our own NewRound log)
+	//   - There are a few more nuanced cases as well:
+	//         - When our node polls at the same time as another node, and both attempt to start a round.  In that
+	//               case, it's possible that the other node will start the round, and our node will see the NewRound
+	//               log and try to submit again.
+	//         - When the poll ticker fires very soon after we've responded to a NewRound log.
+	//
+	//         To handle these more nuanced cases, we record round IDs and whether we've submitted for those rounds
+	//         in the DB.  If we see we've already submitted for a given round, we simply bail out.
+	//
+	//         However, in the case of a chain reorganization, we might see logs with round IDs that we've already
+	//         seen.  As mentioned above, we want to re-respond to these rounds to ensure high data availability.
+	//         Therefore, if a log arrives with a round ID that is < the most recent that we submitted to, we delete
+	//         all of the round IDs in the DB back to (and including) the incoming round ID.  This essentially
+	//         rewinds the system back to a state wherein those reorg'ed rounds never occurred, allowing it to move
+	//         forward normally.
+	//
+	//         There is one small exception: if the reorg is fairly shallow, and only un-starts a single round, we
+	//         do not need to resubmit, because the TxManager will ensure that our existing submission gets back
+	//         into the chain.  There is a very small risk that one of the nodes in the quorum (namely, whichever
+	//         one started the previous round) will have its existing submission mined first, thereby violating
+	//         the restartDelay, but as this risk is isolated to a single node, the round will not time out and
+	//         go stale.  We consider this acceptable.
 	//
 
 	logRoundID := uint32(log.RoundId.Uint64())
 
 	// We always want to reset the idle timer upon receiving a NewRound log, so we do it before any `return` statements.
 	p.resetIdleTimer(log.StartedAt.Uint64())
-
-	// Ignore a round that we've already submitted to, provided that they aren't the result of a reorg.  This must
-	// be an == check, rather than <=, because if the chain reorgs all the way back to a previous round, the txs
-	// that are flushed back to the mempool might be mined in an order that cause them to revert.  Therefore we
-	// always want to submit in this case.
-
-	// @@TODO: update doc comment ^
 
 	mostRecentRoundID, err := p.store.MostRecentFluxMonitorRoundID(p.initr.Address)
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -659,8 +671,11 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	}
 
 	if roundStats.NumSubmissions > 0 {
-		// This indicates that we tried to start a round at the same time as another
-		// node, and their transaction was mined first.  We should not resubmit.
+		// This indicates either that:
+		//     - We tried to start a round at the same time as another node, and their transaction was mined first, or
+		//     - The chain experienced a shallow reorg that unstarted the current round.
+		//
+		// In either case, we should not resubmit.
 		logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
 		return
 	}
@@ -766,6 +781,9 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	//         submitting for when the pollTicker fires.
 	//   - We pass 0 into `roundState()`, and the FluxAggregator returns a suggested roundID for us to
 	//         submit to, as well as our eligibility to submit to that round.
+	//   - If the poll ticker fires very soon after we've responded to a NewRound log, and our tx has not been
+	//         mined, we risk double-submitting for a round.  To detect this, we check the DB to see whether
+	//         we've responded to this round already, and bail out if so.
 	//
 
 	// Ask the FluxAggregator which round we should be submitting to, and what the state of that round is.
