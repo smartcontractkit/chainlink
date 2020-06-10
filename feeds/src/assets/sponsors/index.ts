@@ -17,6 +17,7 @@ import futureswap from './futureswap.png'
 import linkpool from './linkpool.png'
 import opium from './opium.png'
 import theforceprotocol from './theforceprotocol.png'
+import oneNode from './01node.png'
 
 // Listing Thumbnails
 
@@ -37,6 +38,7 @@ import futureswapTn from './futureswap_tn.png'
 import linkpoolTn from './linkpool_tn.png'
 import opiumTn from './opium_tn.png'
 import theforceprotocolTn from './theforceprotocol_tn.png'
+import oneNodeTn from './01node_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -147,5 +149,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://www.theforceprotocol.com',
     imageLg: theforceprotocol,
     imageTn: theforceprotocolTn,
+  },
+  {
+    name: '01Node',
+    url: 'https://01node.com',
+    imageLg: oneNode,
+    imageTn: oneNodeTn,
   },
 ]
