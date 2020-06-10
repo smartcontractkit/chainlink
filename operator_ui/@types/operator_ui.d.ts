@@ -71,8 +71,10 @@ export interface TaskSpec {
 
 export interface JobSpecError {
   id: number
-  createdAt: Date
   description: string
+  occurances: number
+  createdAt: Date
+  updatedAt: Date
 }
 
 //REVIEW Not needed?

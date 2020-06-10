@@ -24,11 +24,17 @@ export const JobSpecErrors: React.FC<Props> = ({
     document.title = 'Job Errors'
     fetchJob(jobSpecId)
   }, [fetchJob, jobSpecId])
+
+  const handleDismiss = (id: number) => {
+    console.log('handleDismiss', id)
+    fetchJob(jobSpecId)
+  }
+
   return (
     <>
       <RegionalNav jobSpecId={jobSpecId} job={job} />
       <Content>
-        <List errors={job?.errors} />
+        <List errors={job?.errors} dismiss={handleDismiss} />
       </Content>
     </>
   )
