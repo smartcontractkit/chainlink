@@ -828,7 +828,6 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), polledAnswer)
 	promSetUint32(promFMReportedRound.WithLabelValues(jobSpecID), roundState.ReportableRoundID)
-	return
 }
 
 func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggregatorRoundState, error) {
