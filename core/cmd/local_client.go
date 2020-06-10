@@ -445,26 +445,24 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	config := orm.NewConfig()
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault())
+	db, err := gorm.Open("postgres", cli.Config.DatabaseURL())
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer orm.Close()
 
 	address, err := hexutil.Decode(addressHex)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 
-	res := orm.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, address)
+	res := db.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, address)
 	if res.Error != nil {
 		return cli.errorOut(err)
 	}
 	if res.RowsAffected == 0 {
 		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
 	}
-	return orm.Close()
+	return nil
 }
 
 // ImportKey imports a key to be used with the chainlink node

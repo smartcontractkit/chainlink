@@ -295,7 +295,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the datbase, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "local_client", true)
+			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true)
 			defer cleanup()
 			config.Config.Dialect = orm.DialectPostgres
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
@@ -424,23 +424,15 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "local_client", true)
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "setnextnonce", true, true)
 	defer cleanup()
+	config.Config.Dialect = orm.DialectPostgres
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
-	require.NoError(t, store.Start())
 
-	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
-	app.On("Stop").Return(nil)
-
-	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
 	client := cmd.Client{
-		Config:                 config.Config,
-		AppFactory:             cltest.InstanceAppFactory{App: app},
-		KeyStoreAuthenticator:  auth,
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
-		Runner:                 cltest.EmptyRunner{},
+		Config: config.Config,
+		Runner: cltest.EmptyRunner{},
 	}
 
 	set := flag.NewFlagSet("test", 0)

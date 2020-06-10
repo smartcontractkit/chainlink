@@ -602,7 +602,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	t.Run("external wallet sent a transaction from the account and now the nonce is one higher than it should be", func(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
-		require.Equal(t, uint64(0), localNextNonce)
+		require.Equal(t, 0, int(localNextNonce))
 		remoteNextNonce := uint64(1)
 
 		etx := models.EthTx{
