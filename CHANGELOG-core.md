@@ -19,7 +19,7 @@ This release contains a number of features aimed at improving the node's reliabi
 
 ### Env var changes
 
-- `ENABLE_BULLETPROOF_TX_MANAGER` - set this to true to enable the experimental new transaction manager. CAUTION: Once the node is booted with this toggled on, a configuration value is written that makes it permanent. Toggling it off again will have no effect. This is done because BulletproofTxManager requires tight control over the nonce sequence and if you revert to the old tx manager, the nonce can get out of sync. If you _must_ revert to the old transaction manager, at your own risk, you can execute the following SQL command: `DELETE FROM configurations WHERE name = 'ENABLE_BULLETPROOF_TX_MANAGER';`.
+- `ENABLE_BULLETPROOF_TX_MANAGER` - set this to true to enable the experimental new transaction manager 
 - `ETH_GAS_BUMP_PERCENT` default value has been increased from 10% to 20%
 - `ETH_GAS_BUMP_THRESHOLD` default value has been decreased from 12 to 3
 - `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
