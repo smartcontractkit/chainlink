@@ -433,9 +433,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values. Consumers are encouraged to
    * use this more fully featured method over the "legacy" getAnswer/
-   * latestAnswer/getTimestamp/latestTimestamp functions. Consumers are
-   * encouraged to check that they're receiving fresh data by inspecting the
-   * updatedAt and answeredInRound return values.
+   * latestAnswer/getTimestamp/latestTimestamp functions.
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started. This is 0
