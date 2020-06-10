@@ -24,7 +24,7 @@
     "chalk": "^4.0.0",
     "dockerode": "^3.2.0",
     "ethers": "^4.0.44",
-    "execa": "^4.0.0",
+    "execa": "^4.0.2",
     "isomorphic-unfetch": "^3.0.0",
     "jest": "^25.1.0",
     "link_token": "^1.0.6",
