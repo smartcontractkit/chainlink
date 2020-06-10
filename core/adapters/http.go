@@ -200,7 +200,7 @@ func withRetry(
 		Jitter: true,
 	}
 	for {
-		responseBody, statusCode, err = withRetryFn(client, originalRequest, config)
+		responseBody, statusCode, err = makeHTTPCall(client, originalRequest, config)
 		if err == nil {
 			return responseBody, statusCode, nil
 		}
@@ -220,7 +220,7 @@ func withRetry(
 	}
 }
 
-func withRetryFn(
+func makeHTTPCall(
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
