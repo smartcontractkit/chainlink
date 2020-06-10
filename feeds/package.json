@@ -59,7 +59,7 @@
     "redux-thunk": "^2.3.0",
     "reselect": "^4.0.0",
     "typescript": "^3.7.2",
-    "webpack": "4.41.2"
+    "webpack": "4.43.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^4.2.4",
