@@ -17,6 +17,9 @@ export interface FeedConfig {
   sponsored?: string[]
   decimalPlaces?: number
   contractVersion: 1 | 2 | 3
+
+  // extra config for custom contracts
+  historyDays?: number
 }
 
 export interface OracleNode {
