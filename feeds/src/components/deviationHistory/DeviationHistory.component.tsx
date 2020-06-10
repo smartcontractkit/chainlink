@@ -29,7 +29,10 @@ const DeviationHistory: React.FC<Props> = ({ answerHistory, config }) => {
     <>
       <div className="deviation-history">
         <h2 className="deviation-history-header">
-          24h Volatility {!answerHistory && <Icon type="loading" />}
+          {config.historyDays && config.historyDays > 1
+            ? `Last ${config.historyDays} days volatility chart`
+            : '24h Volatility'}{' '}
+          {!answerHistory && <Icon type="loading" />}
         </h2>
         <div className="deviation-history-graph"></div>
       </div>

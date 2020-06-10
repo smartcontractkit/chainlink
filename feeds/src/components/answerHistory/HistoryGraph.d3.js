@@ -192,7 +192,7 @@ export default class HistoryGraph {
           (this.y(d.answer) + this.margin.top) +
           ')',
       )
-    this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
+    this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp, 'LLL'))
     this.tooltipPrice.text(
       () => `${this.config.valuePrefix} ${d.answerFormatted}`,
     )
