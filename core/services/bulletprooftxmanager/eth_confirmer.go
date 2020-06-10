@@ -22,8 +22,8 @@ var (
 	// ErrExternalWalletUsedNonce is the error string we save if we come to the conclusion that the transaction nonce was used by an external account
 	ErrExternalWalletUsedNonce = "external wallet used nonce"
 
-	// EthConfirmer advisory lock class ID
-	ethConfirmerAdvisoryLockClassID = int32(1)
+	ethConfirmerAdvisoryLockClassID  = int32(1)
+	ethConfirmerAdvisoryLockObjectID = int32(0)
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -68,7 +68,7 @@ func (ec *ethConfirmer) OnNewLongestChain(head models.Head) {
 
 // ProcessHead takes all required transactions for the confirmer on a new head
 func (ec *ethConfirmer) ProcessHead(head models.Head) error {
-	return withAdvisoryLock(ec.store, ethConfirmerAdvisoryLockClassID, 0, func() error {
+	return withAdvisoryLock(ec.store, ethConfirmerAdvisoryLockClassID, ethConfirmerAdvisoryLockObjectID, func() error {
 		return ec.processHead(head)
 	})
 }
@@ -98,8 +98,6 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 }
 
 func (ec *ethConfirmer) CheckForReceipts() error {
-	// NOTE: If this becomes a performance bottleneck due to eth node requests,
-	// it may be possible to use goroutines here to speed it up
 	unconfirmedEtxs, err := ec.findUnconfirmedEthTxs()
 	if err != nil {
 		return err
@@ -109,6 +107,8 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 	}
 	for _, etx := range unconfirmedEtxs {
 		for _, attempt := range etx.EthTxAttempts {
+			// NOTE: If this becomes a performance bottleneck due to eth node requests,
+			// it may be possible to use goroutines here to speed it up
 			receipt, err := ec.fetchReceipt(attempt.Hash)
 			if err != nil {
 				return err
