@@ -84,7 +84,7 @@
     "@types/react-router": "^5.1.4",
     "@types/react-router-dom": "^5.1.2",
     "@types/redux-mock-store": "^1.0.1",
-    "depcheck": "^0.9.1",
+    "depcheck": "^0.9.2",
     "enzyme": "^3.11.0",
     "enzyme-adapter-react-16": "^1.15.2",
     "fetch-mock": "^9.0.0",
