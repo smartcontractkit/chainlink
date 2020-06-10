@@ -63,8 +63,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 	config := tc.Config
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
-	dbName := fmt.Sprintf("rebroadcast_txs_%s", name)
-	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), dbName)
+	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), name)
 	require.NoError(t, err)
 	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), orm.DialectPostgres, config.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
@@ -74,9 +73,9 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 		require.NoError(t, orm.RawDB(func(db *gorm.DB) error { return migrations.Migrate(db) }))
 	}
 	if len(loadFixtures) > 0 && loadFixtures[0] {
-		_, filename, _, ok := runtime.Caller(1)
+		_, filename, _, ok := runtime.Caller(0)
 		if !ok {
-			t.Fatal("could not get runtime.Caller(1)")
+			t.Fatal("could not get runtime.Caller(0)")
 		}
 		filepath := path.Join(path.Dir(filename), "../../store/testdata/fixtures.sql")
 		fixturesSQL, err := ioutil.ReadFile(filepath)
