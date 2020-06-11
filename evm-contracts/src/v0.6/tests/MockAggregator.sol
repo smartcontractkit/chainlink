@@ -10,6 +10,8 @@ import "../interfaces/AggregatorInterface.sol";
  * its answer is unimportant
  */
 contract MockAggregator is AggregatorInterface {
+  uint256 constant public override version = 0;
+
   uint8 public override decimals;
   int256 public override latestAnswer;
   uint256 public override latestTimestamp;
@@ -53,6 +55,7 @@ contract MockAggregator is AggregatorInterface {
 
   function getRoundData(uint256 _roundId)
     external
+    view
     override
     returns (
       uint256 roundId,
@@ -73,6 +76,7 @@ contract MockAggregator is AggregatorInterface {
 
   function latestRoundData()
     external
+    view
     override
     returns (
       uint256 roundId,
@@ -89,5 +93,14 @@ contract MockAggregator is AggregatorInterface {
       getTimestamp[latestRound],
       latestRound
     );
+  }
+
+  function description()
+    external
+    view
+    override
+    returns (string memory)
+  {
+    return "v0.6/tests/MockAggregator.sol";
   }
 }

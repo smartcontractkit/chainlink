@@ -34,7 +34,7 @@ describe('WhitelistedAggregatorProxy', () => {
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.CallableOverrideInstance<WhitelistedAggregatorProxyFactory>
+  let proxy: contract.Instance<WhitelistedAggregatorProxyFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
@@ -43,11 +43,9 @@ describe('WhitelistedAggregatorProxy', () => {
       .deploy(decimals, 0)
     await aggregator.updateRoundData(roundId, answer, timestamp, startedAt)
     await link.transfer(aggregator.address, deposit)
-    proxy = contract.callableAggregator(
-      await whitelistedAggregatorProxyFactory
-        .connect(defaultAccount)
-        .deploy(aggregator.address),
-    )
+    proxy = await whitelistedAggregatorProxyFactory
+      .connect(defaultAccount)
+      .deploy(aggregator.address)
   })
 
   beforeEach(async () => {
@@ -58,6 +56,7 @@ describe('WhitelistedAggregatorProxy', () => {
     matchers.publicAbi(whitelistedAggregatorProxyFactory, [
       'aggregator',
       'decimals',
+      'description',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -66,6 +65,7 @@ describe('WhitelistedAggregatorProxy', () => {
       'latestRoundData',
       'latestTimestamp',
       'setAggregator',
+      'version',
       // Ownable methods:
       'acceptOwnership',
       'owner',

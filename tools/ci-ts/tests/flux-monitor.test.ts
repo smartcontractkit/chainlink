@@ -61,7 +61,7 @@ const clClient2 = new ChainlinkClient(
 // https://www.pivotaltracker.com/story/show/171715396
 let fluxMonitorJob: any
 let linkToken: contract.Instance<contract.LinkTokenFactory>
-let fluxAggregator: contract.CallableOverrideInstance<FluxAggregatorFactory>
+let fluxAggregator: contract.Instance<FluxAggregatorFactory>
 
 let node1Address: string
 let node2Address: string
@@ -78,12 +78,8 @@ async function assertAggregatorValues(
     fluxAggregator.latestAnswer(),
     fluxAggregator.latestRound(),
     fluxAggregator.reportingRound(),
-    fluxAggregator
-      .latestSubmission(node1Address)
-      .then((res: number[]) => res[1]),
-    fluxAggregator
-      .latestSubmission(node2Address)
-      .then((res: number[]) => res[1]),
+    fluxAggregator.latestSubmission(node1Address).then(res => res[1]),
+    fluxAggregator.latestSubmission(node2Address).then(res => res[1]),
   ])
 
   matchers.bigNum(latestAnswer, la, `${msg} : latest answer`)
@@ -131,7 +127,7 @@ beforeEach(async () => {
     ethers.utils.formatBytes32String('ETH/USD'),
   )
   await deployingContract.deployed()
-  fluxAggregator = contract.callableAggregator(deployingContract)
+  fluxAggregator = deployingContract
   t.logEvents(fluxAggregator as any, 'FluxAggregator', faEventsToListenTo)
   console.log(`Deployed FluxAggregator contract: ${fluxAggregator.address}`)
 })
@@ -232,52 +228,66 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await t.assertJobRun(clClient1, node1InitialRunCount + 1, 'initial update')
     await t.assertJobRun(clClient2, node2InitialRunCount + 1, 'initial update')
     await assertAggregatorValues(10000, 1, 1, 1, 1, 'initial round')
+    await clClient1.pause()
+    await clClient2.pause()
 
     // node 1 should still begin round even with unresponsive node 2
-    await clClient2.pause()
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 110)
     await t.changePriceFeed(EXTERNAL_ADAPTER_2_URL, 120)
+    await clClient1.unpause()
     await t.assertJobRun(clClient1, node1InitialRunCount + 2, 'second update')
     await assertAggregatorValues(10000, 1, 2, 2, 1, 'node 1 only')
+    await clClient1.pause()
 
     // node 2 should finish round
     await clClient2.unpause()
     await t.assertJobRun(clClient2, node2InitialRunCount + 2, 'second update')
     await assertAggregatorValues(11500, 2, 2, 2, 2, 'second round')
+    await clClient2.pause()
 
     // reduce minAnswers to 1
-    await clClient2.pause()
-    await fluxAggregator.updateFutureRounds(
-      MINIMUM_CONTRACT_PAYMENT,
-      1,
-      2,
-      0,
-      5,
-    )
+    await (
+      await fluxAggregator.updateFutureRounds(
+        MINIMUM_CONTRACT_PAYMENT,
+        1,
+        2,
+        0,
+        5,
+      )
+    ).wait()
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 130)
+    await clClient1.unpause()
     await t.assertJobRun(clClient1, node1InitialRunCount + 3, 'third update')
     await assertAggregatorValues(13000, 3, 3, 3, 2, 'third round')
+    await clClient1.pause()
 
     // node should continue to start new rounds alone
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 140)
+    await clClient1.unpause()
     await t.assertJobRun(clClient1, node1InitialRunCount + 4, 'fourth update')
     await assertAggregatorValues(14000, 4, 4, 4, 2, 'fourth round')
+
+    await clClient2.unpause()
   })
 
   it('respects the idle timer duration', async () => {
-    await fluxAggregator.updateFutureRounds(
-      MINIMUM_CONTRACT_PAYMENT,
-      2,
-      2,
-      0,
-      10,
-    )
+    await (
+      await fluxAggregator.updateFutureRounds(
+        MINIMUM_CONTRACT_PAYMENT,
+        2,
+        2,
+        0,
+        10,
+      )
+    ).wait()
 
     const node1InitialRunCount = clClient1.getJobRuns().length
     const node2InitialRunCount = clClient2.getJobRuns().length
 
-    fluxMonitorJob.initiators[0].params.idleTimer.duration = '15s'
     fluxMonitorJob.initiators[0].params.idleTimer.disabled = false
+    fluxMonitorJob.initiators[0].params.idleTimer.duration = '15s'
+    fluxMonitorJob.initiators[0].params.pollTimer.disabled = true
+    fluxMonitorJob.initiators[0].params.pollTimer.period = '0'
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
     clClient1.createJob(JSON.stringify(fluxMonitorJob))

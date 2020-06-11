@@ -95,6 +95,7 @@ func createTxRunResult(
 		gasLimit,
 	)
 	if err != nil {
+		logger.Error(errors.Wrap(err, "createTxRunResult failed"))
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
 
@@ -133,7 +134,7 @@ func createTxRunResult(
 func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutput {
 	val, err := input.ResultString()
 	if err != nil {
-		return models.NewRunOutputError(err)
+		return models.NewRunOutputError(errors.Wrapf(err, "while processing ethtx input %#+v", input))
 	}
 
 	hash := common.HexToHash(val)

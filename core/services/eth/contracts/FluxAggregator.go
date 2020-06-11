@@ -14,7 +14,7 @@ import (
 
 type FluxAggregator interface {
 	ethsvc.ConnectedContract
-	RoundState(oracle common.Address) (FluxAggregatorRoundState, error)
+	RoundState(oracle common.Address, roundID uint32) (FluxAggregatorRoundState, error)
 }
 
 const (
@@ -88,9 +88,9 @@ func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
 	return rs.StartedAt + rs.Timeout
 }
 
-func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
+func (fa *fluxAggregator) RoundState(oracle common.Address, roundID uint32) (FluxAggregatorRoundState, error) {
 	var result FluxAggregatorRoundState
-	err := fa.Call(&result, "oracleRoundState", oracle)
+	err := fa.Call(&result, "oracleRoundState", oracle, roundID)
 	if err != nil {
 		return FluxAggregatorRoundState{}, errors.Wrap(err, "unable to encode message call")
 	}

@@ -31,25 +31,22 @@ describe('AggregatorFacade', () => {
   const previousResponse = h.numToBytes32(54321)
   const response = h.numToBytes32(67890)
   const decimals = 18
+  const description = 'LINK / USD: Historic Aggregator Facade'
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.CallableOverrideInstance<AggregatorFactory>
+  let aggregator: contract.Instance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
-  let facade: contract.CallableOverrideInstance<AggregatorFacadeFactory>
+  let facade: contract.Instance<AggregatorFacadeFactory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = contract.callableAggregator(
-      await aggregatorFactory
-        .connect(defaultAccount)
-        .deploy(link.address, 0, 1, [oc1.address], [jobId1]),
-    )
-    facade = contract.callableAggregator(
-      await aggregatorFacadeFactory
-        .connect(defaultAccount)
-        .deploy(aggregator.address, decimals),
-    )
+    aggregator = await aggregatorFactory
+      .connect(defaultAccount)
+      .deploy(link.address, 0, 1, [oc1.address], [jobId1])
+    facade = await aggregatorFacadeFactory
+      .connect(defaultAccount)
+      .deploy(aggregator.address, decimals, description)
 
     let requestTx = await aggregator.requestRateUpdate()
     let receipt = await requestTx.wait()
@@ -73,6 +70,7 @@ describe('AggregatorFacade', () => {
     matchers.publicAbi(aggregatorFacadeFactory, [
       'aggregator',
       'decimals',
+      'description',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -80,7 +78,22 @@ describe('AggregatorFacade', () => {
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
+      'version',
     ])
+  })
+
+  describe('#constructor', () => {
+    it('uses the decimals set in the constructor', async () => {
+      matchers.bigNum(decimals, await facade.decimals())
+    })
+
+    it('uses the description set in the constructor', async () => {
+      assert.equal(description, await facade.description())
+    })
+
+    it('sets the version to 2', async () => {
+      matchers.bigNum(2, await facade.version())
+    })
   })
 
   describe('#getAnswer/latestAnswer', () => {
