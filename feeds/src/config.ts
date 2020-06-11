@@ -23,6 +23,7 @@ export interface FeedConfig {
 }
 
 export interface OracleNode {
+  oracleAddress: string
   address: string
   name: string
   networkId: number

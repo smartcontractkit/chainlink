@@ -3,7 +3,14 @@ import { Dispatch } from 'redux'
 import { FunctionFragment } from 'ethers/utils'
 import { JsonRpcProvider } from 'ethers/providers'
 import { FeedConfig, Config } from '../../../config'
-import * as actions from './actions'
+import {
+  fetchFeedsBegin,
+  fetchFeedsSuccess,
+  fetchFeedsError,
+  fetchAnswerSuccess,
+  fetchHealthPriceSuccess,
+} from './actions'
+import { ListingAnswer, HealthPrice } from './types'
 import {
   createContract,
   createInfuraProvider,
@@ -15,15 +22,15 @@ import {
  */
 export function fetchFeeds() {
   return async (dispatch: Dispatch) => {
-    dispatch(actions.fetchFeedsBegin())
+    dispatch(fetchFeedsBegin())
     jsonapi
       .fetchWithTimeout(Config.feedsJson(), {})
       .then((r: Response) => r.json())
       .then((json: FeedConfig[]) => {
-        dispatch(actions.fetchFeedsSuccess(json))
+        dispatch(fetchFeedsSuccess(json))
       })
       .catch(e => {
-        dispatch(actions.fetchFeedsError(e))
+        dispatch(fetchFeedsError(e))
       })
   }
 }
@@ -41,9 +48,9 @@ export function fetchAnswer(config: FeedConfig) {
         config.multiply,
         config.decimalPlaces,
       )
-      const listingAnswer: actions.ListingAnswer = { answer, config }
+      const listingAnswer: ListingAnswer = { answer, config }
 
-      dispatch(actions.fetchAnswerSuccess(listingAnswer))
+      dispatch(fetchAnswerSuccess(listingAnswer))
     } catch {
       console.error('Could not fetch answer')
     }
@@ -98,14 +105,12 @@ export function fetchHealthStatus(feed: FeedConfig) {
     const priceResponse = await fetchHealthPrice(feed)
 
     if (priceResponse) {
-      dispatch(actions.fetchHealthPriceSuccess(priceResponse))
+      dispatch(fetchHealthPriceSuccess(priceResponse))
     }
   }
 }
 
-async function fetchHealthPrice(
-  config: any,
-): Promise<actions.HealthPrice | undefined> {
+async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
   if (!config.healthPrice) return
 
   const json = await fetch(config.healthPrice).then(r => r.json())
