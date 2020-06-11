@@ -53,7 +53,7 @@ func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOu
 	}
 }
 
-// TODO(sam): Move away from resuming this on every new head and do something more sensible
+// TODO(sam): https://www.pivotaltracker.com/story/show/173280188
 func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
 	if err != nil {
