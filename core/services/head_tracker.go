@@ -40,14 +40,12 @@ var (
 )
 
 const (
-	// How many block numbers deep to keep heads in the DB
-	blockHeightToKeep = 100
-
-	// How many nodes to return from the top of the longest chain
-	chainDepth = 12
-
 	// Log a warning if OnNewLongestChain callback execution takes longer than this amount of time
 	callbackExecutionThreshold = 10 * time.Second
+
+	// The size of the buffer for the headers channel. Note that callback
+	// execution is synchronous and could take a non-trivial amount of time.
+	headsBufferSize = 5
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -149,7 +147,7 @@ func (ht *HeadTracker) Save(h models.Head) error {
 	if err != nil {
 		return err
 	}
-	return ht.store.TrimOldHeads(blockHeightToKeep)
+	return ht.store.TrimOldHeads(ht.store.Config.EthHeadTrackerHistoryDepth())
 }
 
 // HighestSeenHead returns the block header with the highest number that has been seen, or nil
@@ -290,7 +288,7 @@ func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
 }
 
 func (ht *HeadTracker) handleNewHighestHead(head models.Head) error {
-	headWithChain, err := ht.store.Chain(head.Hash, chainDepth)
+	headWithChain, err := ht.store.Chain(head.Hash, ht.store.Config.EthFinalityDepth())
 	if err != nil {
 		return err
 	}
@@ -304,6 +302,7 @@ func (ht *HeadTracker) handleNewHighestHead(head models.Head) error {
 func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
+	logger.Debugf("HeadTracker initiating callbacks for head %v with chain length %v", headWithChain.Number, headWithChain.ChainLength())
 
 	for _, trackable := range ht.callbacks {
 		trackable.OnNewLongestChain(headWithChain)
@@ -315,7 +314,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 	defer ht.headMutex.Unlock()
 
 	ctx := context.Background()
-	ht.headers = make(chan gethTypes.Header)
+	ht.headers = make(chan gethTypes.Header, headsBufferSize)
 	sub, err := ht.store.TxManager.SubscribeToNewHeads(ctx, ht.headers)
 	if err != nil {
 		return errors.Wrap(err, "TxManager#SubscribeToNewHeads")

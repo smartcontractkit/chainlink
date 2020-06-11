@@ -4,8 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
+	"runtime"
 	"testing"
 
 	"github.com/jinzhu/gorm"
@@ -55,13 +58,12 @@ func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, e
 // BootstrapThrowawayORM creates an ORM which runs in a separate database
 // than the normal unit tests, so it you can do things like use other
 // Postgres connection types with it.
-func BootstrapThrowawayORM(t *testing.T, name string, migrate bool) (*TestConfig, *orm.ORM, func()) {
+func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) (*TestConfig, *orm.ORM, func()) {
 	tc, cleanup := NewConfig(t)
 	config := tc.Config
 
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
-	dbName := fmt.Sprintf("rebroadcast_txs_%s", name)
-	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), dbName)
+	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), name)
 	require.NoError(t, err)
 	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), orm.DialectPostgres, config.GetAdvisoryLockIDConfiguredOrDefault())
 	require.NoError(t, err)
@@ -69,6 +71,19 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool) (*TestConfig
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
 	if migrate {
 		require.NoError(t, orm.RawDB(func(db *gorm.DB) error { return migrations.Migrate(db) }))
+	}
+	if len(loadFixtures) > 0 && loadFixtures[0] {
+		_, filename, _, ok := runtime.Caller(0)
+		if !ok {
+			t.Fatal("could not get runtime.Caller(0)")
+		}
+		filepath := path.Join(path.Dir(filename), "../../store/testdata/fixtures.sql")
+		fixturesSQL, err := ioutil.ReadFile(filepath)
+		require.NoError(t, err)
+		err = orm.RawDB(func(db *gorm.DB) error {
+			return db.Exec(string(fixturesSQL)).Error
+		})
+		require.NoError(t, err)
 	}
 
 	return tc, orm, func() {

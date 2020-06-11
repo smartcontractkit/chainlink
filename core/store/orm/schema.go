@@ -25,16 +25,19 @@ type ConfigSchema struct {
 	DefaultHTTPTimeout              models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	Dev                             bool            `env:"CHAINLINK_DEV" default:"false"`
 	EnableExperimentalAdapters      bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
+	EnableBulletproofTxManager      bool            `env:"ENABLE_BULLETPROOF_TX_MANAGER" default:"false"`
 	FeatureExternalInitiators       bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor              bool            `env:"FEATURE_FLUX_MONITOR" default:"false"`
 	MaximumServiceDuration          models.Duration `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration          models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
-	EthGasBumpThreshold             uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"12" `
+	EthGasBumpThreshold             uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"3" `
 	EthGasBumpWei                   big.Int         `env:"ETH_GAS_BUMP_WEI" default:"5000000000"`
-	EthGasBumpPercent               uint16          `env:"ETH_GAS_BUMP_PERCENT" default:"10"`
+	EthGasBumpPercent               uint16          `env:"ETH_GAS_BUMP_PERCENT" default:"20"`
 	EthGasLimitDefault              uint64          `env:"ETH_GAS_LIMIT_DEFAULT" default:"500000"`
 	EthGasPriceDefault              big.Int         `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000"`
 	EthMaxGasPriceWei               uint64          `env:"ETH_MAX_GAS_PRICE_WEI" default:"500000000000"`
+	EthFinalityDepth                uint            `env:"ETH_FINALITY_DEPTH" default:"50"`
+	EthHeadTrackerHistoryDepth      uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH" default:"100"`
 	EthereumURL                     string          `env:"ETH_URL" default:"ws://localhost:8546"`
 	EthereumDisabled                bool            `env:"ETH_DISABLED" default:"false"`
 	GasUpdaterBlockDelay            uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`

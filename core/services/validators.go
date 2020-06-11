@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 )
@@ -111,7 +112,7 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 	case models.InitiatorServiceAgreementExecutionLog:
 		return validateServiceAgreementInitiator(i, j)
 	case models.InitiatorRunLog:
-		return validateRunLogInitiator(i, j)
+		return validateRunLogInitiator(i, j, store)
 	case models.InitiatorFluxMonitor:
 		return validateFluxMonitor(i, j, store)
 	case models.InitiatorWeb:
@@ -229,19 +230,29 @@ func validateFeeds(feeds models.Feeds, store *store.Store) error {
 	return nil
 }
 
-func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {
+func validateRunLogInitiator(i models.Initiator, j models.JobSpec, s *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 	ethTxCount := 0
 	for _, task := range j.Tasks {
 		if task.Type == adapters.TaskTypeEthTx {
-			ethTxCount += 1
+			ethTxCount++
 
-			task.Params.ForEach(func(k, _ gjson.Result) bool {
+			task.Params.ForEach(func(k, v gjson.Result) bool {
 				key := strings.ToLower(k.String())
 				if key == "functionselector" {
 					fe.Add("Cannot set EthTx Task's function selector parameter with a RunLog Initiator")
 				} else if key == "address" {
 					fe.Add("Cannot set EthTx Task's address parameter with a RunLog Initiator")
+				} else if key == "fromaddress" {
+					address, err := hexutil.Decode(v.String())
+					if err != nil {
+						fe.Add(fmt.Sprintf("Cannot set EthTx Task's fromAddress parameter: %s", err.Error()))
+					} else {
+						exists, err := s.KeyExists(address)
+						if err != nil || !exists {
+							fe.Add("Cannot set EthTx Task's fromAddress parameter: the node does not have this private key in the database")
+						}
+					}
 				}
 				return true
 			})

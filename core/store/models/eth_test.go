@@ -1,6 +1,7 @@
 package models_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -128,4 +130,47 @@ func TestHighestPricedTxAttemptPerTx(t *testing.T) {
 	assert.Len(t, items, 2)
 	assert.True(t, items[0].GasPrice.ToInt().Cmp(big.NewInt(33333)) == 0)
 	assert.True(t, items[1].GasPrice.ToInt().Cmp(big.NewInt(12211)) == 0)
+}
+
+func TestEthTxAttempt_GetSignedTx(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	// Use the real KeyStore loaded from database fixtures
+	store.KeyStore.Unlock(cltest.Password)
+	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+
+	keys, err := store.Keys()
+	require.NoError(t, err)
+	key := keys[0]
+	fromAddress := key.Address.Address()
+	account, err := store.KeyStore.GetAccountByAddress(fromAddress)
+	require.NoError(t, err)
+
+	chainID := big.NewInt(3)
+
+	signedTx, err := store.KeyStore.SignTx(account, tx, chainID)
+	require.NoError(t, err)
+	signedTx.Size() // Needed to write the size for equality checking
+	rlp := new(bytes.Buffer)
+	require.NoError(t, signedTx.EncodeRLP(rlp))
+
+	attempt := models.EthTxAttempt{SignedRawTx: rlp.Bytes()}
+
+	gotSignedTx, err := attempt.GetSignedTx()
+	require.NoError(t, err)
+	decodedEncoded := new(bytes.Buffer)
+	require.NoError(t, gotSignedTx.EncodeRLP(decodedEncoded))
+
+	require.Equal(t, signedTx, gotSignedTx)
+	require.Equal(t, attempt.SignedRawTx, decodedEncoded.Bytes())
+}
+
+func TestHead_ChainLength(t *testing.T) {
+	head := models.Head{
+		Parent: &models.Head{
+			Parent: &models.Head{},
+		},
+	}
+
+	assert.Equal(t, uint32(3), head.ChainLength())
 }

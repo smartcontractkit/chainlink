@@ -48,6 +48,7 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
+	store.Config.Set("ETH_HEAD_TRACKER_HISTORY_DEPTH", 100)
 	defer cleanup()
 
 	cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)

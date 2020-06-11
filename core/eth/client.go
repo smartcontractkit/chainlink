@@ -15,6 +15,15 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 )
 
+// GethClient is an interface that represents go-ethereum's own ethclient
+// https://github.com/ethereum/go-ethereum/blob/master/ethclient/ethclient.go
+//go:generate mockery -name GethClient -output ../internal/mocks/ -case=underscore
+type GethClient interface {
+	SendTransaction(context.Context, *gethTypes.Transaction) error
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*gethTypes.Receipt, error)
+}
+
 //go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
 
 // Client is the interface used to interact with an ethereum node.
@@ -67,6 +76,7 @@ var _ Client = (*CallerSubscriberClient)(nil)
 type CallerSubscriber interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	Subscribe(context.Context, interface{}, ...interface{}) (Subscription, error)
+	GethClient(func(gethClient GethClient) error) error
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
