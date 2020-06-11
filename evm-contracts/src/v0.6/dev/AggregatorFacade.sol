@@ -1,4 +1,4 @@
-pragma solidity 0.6.2;
+pragma solidity 0.6.6;
 
 import "../interfaces/AggregatorInterface.sol";
 import "../interfaces/HistoricAggregatorInterface.sol";
@@ -11,10 +11,18 @@ contract AggregatorFacade is AggregatorInterface {
 
   HistoricAggregatorInterface public aggregator;
   uint8 public override decimals;
+  string public override description;
 
-  constructor(address _aggregator, uint8 _decimals) public {
+  uint256 constant public override version = 2;
+
+  constructor(
+    address _aggregator,
+    uint8 _decimals,
+    string memory _description
+  ) public {
     aggregator = HistoricAggregatorInterface(_aggregator);
     decimals = _decimals;
+    description = _description;
   }
 
   /**
@@ -22,6 +30,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestRound()
     external
+    view
     virtual
     override
     returns (uint256)
@@ -34,6 +43,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestAnswer()
     external
+    view
     virtual
     override
     returns (int256)
@@ -46,6 +56,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestTimestamp()
     external
+    view
     virtual
     override
     returns (uint256)
@@ -69,6 +80,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function latestRoundData()
     external
+    view
     virtual
     override
     returns (
@@ -88,6 +100,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function getAnswer(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (int256)
@@ -101,6 +114,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (uint256)
@@ -125,6 +139,7 @@ contract AggregatorFacade is AggregatorInterface {
    */
   function getRoundData(uint256 _roundId)
     external
+    view
     virtual
     override
     returns (
@@ -144,6 +159,7 @@ contract AggregatorFacade is AggregatorInterface {
 
   function _getRoundData(uint256 _roundId)
     internal
+    view
     returns (
       uint256 roundId,
       int256 answer,

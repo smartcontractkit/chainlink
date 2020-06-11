@@ -2,24 +2,42 @@ package assets
 
 import (
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/willf/pad"
+	"github.com/pkg/errors"
 )
 
 var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
 
+// Memo for {1, 10, 100, 1000, ...}. See getDenominator
+var denominators = []*big.Int{big.NewInt(1)}
+
+// getDenominator returns 10**precision.
+func getDenominator(precision int) *big.Int {
+	d := denominators[len(denominators)-1]
+	base := big.NewInt(10)
+	// Extend denominators until it contains 10**precision, if necessary
+	remainingPowers := precision - len(denominators) + 1
+	for i := 0; i < remainingPowers; i++ {
+		d = big.NewInt(1).Mul(d, base)
+		denominators = append(denominators, d)
+	}
+	if len(denominators) < precision+1 {
+		panic(errors.Errorf(
+			"failed to extend denominators far enough to capture precision: "+
+				"%s has length %d, but we need length %d", denominators,
+			len(denominators), precision))
+	}
+	// Return a copy of the answer, so the memo can't be messed up
+	return big.NewInt(0).Set(denominators[precision])
+}
+
 func format(i *big.Int, precision int) string {
-	v := "1" + pad.Right("", precision, "0")
-	d := &big.Int{}
-	d.SetString(v, 10)
-	r := &big.Rat{}
-	r.SetFrac(i, d)
+	r := big.NewRat(1, 1).SetFrac(i, getDenominator(precision))
 	return fmt.Sprintf("%v", r.FloatString(precision))
 }
 

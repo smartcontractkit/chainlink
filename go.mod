@@ -39,7 +39,7 @@ require (
 	github.com/imdario/mergo v0.3.9
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
-	github.com/lib/pq v1.5.2
+	github.com/lib/pq v1.6.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-sqlite3 v1.13.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
@@ -55,14 +55,13 @@ require (
 	github.com/shopspring/decimal v0.0.0-20191130220710-360f2bc03045
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	github.com/tidwall/gjson v1.6.0
 	github.com/tidwall/sjson v1.1.1
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.4
-	github.com/willf/pad v0.0.0-20190207183901-eccfe5d84172
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.12
 	go.uber.org/multierr v1.5.0
