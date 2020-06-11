@@ -121,6 +121,6 @@ func Migrate(tx *gorm.DB) error {
 
 		CREATE INDEX idx_eth_receipts_block_number ON eth_receipts (block_number);
 		CREATE UNIQUE INDEX idx_eth_receipts_unique ON eth_receipts (tx_hash, block_hash);
-		CREATE INDEX idx_eth_receipts_created_at ON eth_tx_attempts USING BRIN (created_at);
+		CREATE INDEX idx_eth_receipts_created_at ON eth_receipts USING BRIN (created_at);
 	`).Error
 }
