@@ -32,9 +32,13 @@ type EthTx struct {
 	FunctionSelector eth.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes        `json:"dataPrefix"`
 	DataFormat       string               `json:"format"`
+	GasLimit         uint64               `json:"gasLimit,omitempty"`
+
 	// GasPrice only needed for legacy tx manager
 	GasPrice *utils.Big `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit uint64     `json:"gasLimit,omitempty"`
+
+	// MinRequiredOutgoingConfirmations only works with bulletprooftxmanager
+	MinRequiredOutgoingConfirmations uint64 `json:"minRequiredOutgoingConfirmations,omitempty"`
 }
 
 // TaskType returns the type of Adapter.
@@ -70,7 +74,7 @@ func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOu
 func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunInput, store *store.Store) models.RunOutput {
 	switch trtx.EthTx.State {
 	case models.EthTxConfirmed:
-		return checkEthTxForReceipt(trtx.EthTx.ID, input, store)
+		return e.checkEthTxForReceipt(trtx.EthTx.ID, input, store)
 	case models.EthTxFatalError:
 		return models.NewRunOutputError(trtx.EthTx.GetError())
 	default:
@@ -118,38 +122,57 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 }
 
-func checkEthTxForReceipt(ethTxID int64, input models.RunInput, store *store.Store) models.RunOutput {
+func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *store.Store) models.RunOutput {
+	// TODO: Check that it meets minRequiredOutgoingConfirmations
+	// 1. Look at latest head
+	// 2. Check that it is at least minRequiredOutgoingConfirmations later than the block_num it was confirmed in
+	var minRequiredOutgoingConfirmations uint64
+	if e.MinRequiredOutgoingConfirmations == 0 {
+		minRequiredOutgoingConfirmations = s.Config.MinOutgoingConfirmations()
+	} else {
+		minRequiredOutgoingConfirmations = e.MinRequiredOutgoingConfirmations
+	}
+
+	hash, err := getConfirmedTxHash(ethTxID, s.GetRawDB(), minRequiredOutgoingConfirmations)
+
+	if err != nil {
+		logger.Error(err)
+		return models.NewRunOutputError(err)
+	}
+
+	if hash == nil {
+		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
+	}
+
+	output := models.JSON{}
+	output, err = output.Add("result", (*hash).Hex())
+	if err != nil {
+		err = errors.Wrap(err, "checkEthTxForReceipt failed")
+		logger.Error(err)
+		return models.NewRunOutputError(err)
+	}
+	return models.NewRunOutputComplete(output)
+}
+
+func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmations uint64) (*common.Hash, error) {
 	receipt := models.EthReceipt{}
-	err := store.GetRawDB().
+	err := db.
 		Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", ethTxID).
 		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = ?", models.EthTxConfirmed).
+		Where("eth_receipts.block_number <= (SELECT max(number) - ? FROM heads)", minRequiredOutgoingConfirmations).
 		First(&receipt).
 		Error
 
 	if err == nil {
-		output := models.JSON{}
-		output, err = output.Add("result", receipt.TxHash.Hex())
-		if err != nil {
-			err = errors.Wrap(err, "checkEthTxForReceipt failed")
-			logger.Error(err)
-			return models.NewRunOutputError(err)
-		}
-		return models.NewRunOutputComplete(output)
+		return &receipt.TxHash, nil
 	}
 
 	if gorm.IsRecordNotFoundError(err) {
-		// If this happens, one of two scenarios is possible:
-		// 1. A re-org occurred between the initial fetch of the eth_tx and this point, and now the eth_tx is unconfirmed again
-		// 2. Something terrible happened and the entire eth_tx or it's receipts have gone missing without a trace
-		// In either case, the best course of action is to remain in
-		// pending_outgoing_confirmations state and check again on the next
-		// go around until the tx manager sorts itself out.
-		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
+		return nil, nil
 	}
 
-	err = errors.Wrap(err, "checkForConfirmation could not find receipt for confirmed eth_tx")
-	logger.Error(err)
-	return models.NewRunOutputError(err)
+	return nil, errors.Wrap(err, "getConfirmedTxHash failed")
+
 }
 
 func (e *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models.RunOutput {
