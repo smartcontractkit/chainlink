@@ -358,6 +358,13 @@ func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.
 	return jobSpecErr, found, ignoreRecordNotFound(rval)
 }
 
+// DeleteJobSpecError removes a JobSpecError
+func (orm *ORM) DeleteJobSpecError(ID uint) error {
+	orm.MustEnsureAdvisoryLock()
+	err := orm.db.Delete(&models.JobSpecError{ID: ID}).Error
+	return err
+}
+
 // CreateExternalInitiator inserts a new external initiator
 func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
 	orm.MustEnsureAdvisoryLock()
