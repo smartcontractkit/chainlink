@@ -1,7 +1,14 @@
 import 'core-js/stable/object/from-entries'
 import { Reducer } from 'redux'
 import { FeedConfig } from 'config'
-import { Actions } from 'state/actions'
+import {
+  FETCH_FEEDS_BEGIN,
+  FETCH_FEEDS_SUCCESS,
+  FETCH_FEEDS_ERROR,
+  FETCH_ANSWER_SUCCESS,
+  FETCH_HEALTH_PRICE_SUCCESS,
+  ListingActionTypes,
+} from './types'
 
 export interface HealthCheck {
   currentPrice: number
@@ -23,16 +30,19 @@ export const INITIAL_STATE: State = {
   healthChecks: {},
 }
 
-const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
+const reducer: Reducer<State, ListingActionTypes> = (
+  state = INITIAL_STATE,
+  action,
+) => {
   switch (action.type) {
-    case 'listing/FETCH_FEEDS_BEGIN': {
+    case FETCH_FEEDS_BEGIN: {
       return {
         ...state,
         loadingFeeds: true,
       }
     }
 
-    case 'listing/FETCH_FEEDS_SUCCESS': {
+    case FETCH_FEEDS_SUCCESS: {
       const listedFeeds: Array<[
         FeedConfig['contractAddress'],
         FeedConfig,
@@ -50,14 +60,14 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
       }
     }
 
-    case 'listing/FETCH_FEEDS_ERROR': {
+    case FETCH_FEEDS_ERROR: {
       return {
         ...state,
         loadingFeeds: false,
       }
     }
 
-    case 'listing/FETCH_ANSWER_SUCCESS':
+    case FETCH_ANSWER_SUCCESS:
       return {
         ...state,
         answers: {
@@ -66,7 +76,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
         },
       }
 
-    case 'listing/FETCH_HEALTH_PRICE_SUCCESS': {
+    case FETCH_HEALTH_PRICE_SUCCESS: {
       const { config, price } = action.payload
       const healthCheck: HealthCheck = { currentPrice: price }
       const healthChecks: Record<string, HealthCheck> = {
