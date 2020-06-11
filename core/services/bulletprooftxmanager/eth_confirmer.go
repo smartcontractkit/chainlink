@@ -159,18 +159,10 @@ func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) er
 		if err != nil {
 			return errors.Wrap(err, "saveReceipt failed")
 		}
-		// This needs to be idempotent since I think there may be a scenario
-		// where we could fetch the same receipt more than once.
-		//
-		// Imagine the following:
-		// Got receipt at block height 3
-		// Re-org happens from block height 2 -> 4 (marking attempt as unconfirmed)
-		// Got receipt at block height 4
-		// Re-org happens AGAIN from the original block 3 -> 5 (marking attempt as unconfirmed again)
-		// Now we fetch the same receipt again.
-		//
-		// Even if this isn't possible (and it may not be) it still shouldn't
-		// be an error to re-insert a receipt we already have.
+		// Conflict here shouldn't be possible because there should only ever
+		// be one receipt for an eth_tx, and if it exists then the transaction
+		// is marked confirmed which means we can never get here.
+		// However, even so, it still shouldn't be an error to re-insert a receipt we already have.
 		if err := tx.Set("gorm:insert_option", "ON CONFLICT (tx_hash, block_hash) DO NOTHING").
 			Create(&models.EthReceipt{
 				Receipt:          receiptJSON,
@@ -519,13 +511,26 @@ func (ec *ethConfirmer) markForRebroadcast(etx models.EthTx) error {
 	// Rebroadcast the one with the highest gas price
 	a := etx.EthTxAttempts[0]
 
-	// Put it back in progress
-	return ec.store.Transaction(func(tx *gorm.DB) error {
+	// Put it back in progress and delete the receipt
+	err := ec.store.Transaction(func(tx *gorm.DB) error {
+		if err := deleteAllReceipts(tx, etx.ID); err != nil {
+			return err
+		}
 		if err := unconfirmEthTx(tx, etx); err != nil {
 			return err
 		}
 		return unbroadcastAttempt(tx, a)
 	})
+	return errors.Wrap(err, "markForRebroadcast failed")
+}
+
+func deleteAllReceipts(db *gorm.DB, etxID int64) error {
+	return db.Exec(`
+		DELETE FROM eth_receipts
+		USING eth_tx_attempts
+		WHERE eth_receipts.tx_hash = eth_tx_attempts.hash
+		AND eth_tx_attempts.eth_tx_id = ?
+	`, etxID).Error
 }
 
 func unconfirmEthTx(db *gorm.DB, etx models.EthTx) error {
