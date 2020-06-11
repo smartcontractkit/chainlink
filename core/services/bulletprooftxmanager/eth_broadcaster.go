@@ -55,7 +55,7 @@ type ethBroadcaster struct {
 
 	// trigger allows other goroutines to force ethBroadcaster to rescan the
 	// database early (before the next poll interval)
-	trigger chan time.Time
+	trigger chan struct{}
 	chStop  chan struct{}
 	chDone  chan struct{}
 }
@@ -66,7 +66,7 @@ func NewEthBroadcaster(store *store.Store, config orm.ConfigReader) EthBroadcast
 		store:             store,
 		config:            config,
 		gethClientWrapper: store.GethClientWrapper,
-		trigger:           make(chan time.Time, 1),
+		trigger:           make(chan struct{}, 1),
 		chStop:            make(chan struct{}),
 		chDone:            make(chan struct{}),
 	}
@@ -105,7 +105,7 @@ func (eb *ethBroadcaster) Stop() error {
 
 func (eb *ethBroadcaster) Trigger() {
 	select {
-	case eb.trigger <- time.Now():
+	case eb.trigger <- struct{}{}:
 	default:
 	}
 }
