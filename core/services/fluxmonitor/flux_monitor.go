@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/tevino/abool"
@@ -362,8 +363,6 @@ type PollingDeviationChecker struct {
 	idleTimer     <-chan time.Time
 	roundTimer    <-chan time.Time
 
-	mostRecentSubmittedRoundID uint32
-
 	readyForLogs func()
 	chStop       chan struct{}
 	waitOnStop   chan struct{}
@@ -606,52 +605,78 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	//
 	// NewRound answer submission logic:
 	//   - Any log that reaches this point, regardless of chain reorgs or log backfilling, is one that we have
-	//         not seen before.  Therefore, we should act upon it.
-	//   - If two NewRound logs come in in rapid succession, and we submit a tx for the first, the `.ReportableRoundID`
-	//         field in the roundState() response for the 2nd log will not reflect the fact that we've submitted
-	//         for the first round (assuming it hasn't been mined yet).  Therefore, we ignore that field and
-	//         instead use the `.RoundId` field on the log.
+	//         not seen before.  Therefore, we should consider acting upon it.
+	//   - We always take the round ID from the log, rather than the round ID suggested by `.RoundState`.  The
+	//         reason is that if two NewRound logs come in in rapid succession, and we submit a tx for the first,
+	//         the `.ReportableRoundID` field in the roundState() response for the 2nd log will not reflect the
+	//         fact that we've submitted for the first round (assuming it hasn't been mined yet).
 	//   - In the event of a reorg that pushes our previous submissions back into the mempool, we can rely on the
 	//         TxManager to ensure they end up being mined into blocks, but this may cause them to revert if they
-	//         violate certain conditions in the FluxAggregator (restartDelay, etc.).  Therefore, the cleanest
-	//         solution at present is to resubmit for the reorged rounds.  The drawback of this approach is that
-	//         one or the other submission tx for a given round will revert, costing the node operator some gas.
-	//         The benefit is that those submissions are guaranteed to be made, ensuring that we have high data
-	//         availability (and also ensuring that node operators get paid).
-	//   - There is one case in which we want to avoid submitting, namely, when our node polls at the same time
-	//         as another node, and both attempt to start a round.  In that case, it's possible that the other
-	//         node will start the round, and our node will see the NewRound log and try to submit again.  For
-	//         this reason, we keep track of the number of times we've submitted for a given round.  If this count
-	//         is greater than the number of times we've seen the NewRound log for that round (prior to incrementing
-	//         the log count), then we know we've already submitted as a result of one of the other triggers
-	//         (poll, idle, round timeout).
+	//         are mined in an order that violates certain conditions in the FluxAggregator (restartDelay, etc.).
+	//         Therefore, the cleanest solution at present is to resubmit for the reorged rounds.  The drawback
+	//         of this approach is that one or the other submission tx for a given round will revert, costing the
+	//         node operator some gas.  The benefit is that those submissions are guaranteed to be made, ensuring
+	//         that we have high data availability (and also ensuring that node operators get paid).
+	//   - There are a few straightforward cases where we don't want to submit:
+	//         - When we're not eligible
+	//         - When the aggregator is underfunded
+	//         - When we were the initiator of the round (i.e. we've received our own NewRound log)
+	//   - There are a few more nuanced cases as well:
+	//         - When our node polls at the same time as another node, and both attempt to start a round.  In that
+	//               case, it's possible that the other node will start the round, and our node will see the NewRound
+	//               log and try to submit again.
+	//         - When the poll ticker fires very soon after we've responded to a NewRound log.
+	//
+	//         To handle these more nuanced cases, we record round IDs and whether we've submitted for those rounds
+	//         in the DB.  If we see we've already submitted for a given round, we simply bail out.
+	//
+	//         However, in the case of a chain reorganization, we might see logs with round IDs that we've already
+	//         seen.  As mentioned above, we want to re-respond to these rounds to ensure high data availability.
+	//         Therefore, if a log arrives with a round ID that is < the most recent that we submitted to, we delete
+	//         all of the round IDs in the DB back to (and including) the incoming round ID.  This essentially
+	//         rewinds the system back to a state wherein those reorg'ed rounds never occurred, allowing it to move
+	//         forward normally.
+	//
+	//         There is one small exception: if the reorg is fairly shallow, and only un-starts a single round, we
+	//         do not need to resubmit, because the TxManager will ensure that our existing submission gets back
+	//         into the chain.  There is a very small risk that one of the nodes in the quorum (namely, whichever
+	//         one started the previous round) will have its existing submission mined first, thereby violating
+	//         the restartDelay, but as this risk is isolated to a single node, the round will not time out and
+	//         go stale.  We consider this acceptable.
 	//
 
 	logRoundID := uint32(log.RoundId.Uint64())
 
+	// We always want to reset the idle timer upon receiving a NewRound log, so we do it before any `return` statements.
 	p.resetIdleTimer(log.StartedAt.Uint64())
 
-	// Ignore a round that we've already submitted to, provided that they aren't the result of a reorg.  This must
-	// be an == check, rather than <=, because if the chain reorgs all the way back to a previous round, the txs
-	// that are flushed back to the mempool might be mined in an order that cause them to revert.  Therefore we
-	// always want to submit in this case.
-	if logRoundID == p.mostRecentSubmittedRoundID {
-		roundStats, err := p.store.FindFluxMonitorRoundStats(p.initr.Address, logRoundID)
-		if err != nil {
-			logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), p.loggerFieldsForNewRound(log)...)
-			return
-		}
+	mostRecentRoundID, err := p.store.MostRecentFluxMonitorRoundID(p.initr.Address)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor most recent round ID from DB: %v", err), p.loggerFieldsForNewRound(log)...)
+		return
+	}
 
-		if roundStats.NumSubmissions > roundStats.NumNewRoundLogs {
-			// This indicates that we tried to start a round at the same time as another
-			// node, and their transaction was mined first.  We should not resubmit.
-			logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
+	if logRoundID < mostRecentRoundID {
+		err = p.store.DeleteFluxMonitorRoundsBackThrough(p.initr.Address, logRoundID)
+		if err != nil {
+			logger.Errorw(fmt.Sprintf("error deleting reorged Flux Monitor rounds from DB: %v", err), p.loggerFieldsForNewRound(log)...)
 			return
 		}
 	}
-	err := p.store.IncrFluxMonitorNewRoundLogs(p.initr.Address, logRoundID)
+
+	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, logRoundID)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error updating NewRound log count: %v", err), p.loggerFieldsForNewRound(log)...)
+		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), p.loggerFieldsForNewRound(log)...)
+		return
+	}
+
+	if roundStats.NumSubmissions > 0 {
+		// This indicates either that:
+		//     - We tried to start a round at the same time as another node, and their transaction was mined first, or
+		//     - The chain experienced a shallow reorg that unstarted the current round.
+		//
+		// In either case, we should not resubmit.
+		logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
 		return
 	}
 
@@ -737,7 +762,7 @@ type DeviationThresholds struct {
 	Abs float64 // Absolute change required, i.e. |new-old| >= Abs
 }
 
-func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds) (createdJobRun bool) {
+func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds) {
 	loggerFields := []interface{}{
 		"jobID", p.initr.JobSpecID,
 		"address", p.initr.InitiatorParams.Address,
@@ -747,7 +772,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 	if !p.connected.IsSet() {
 		logger.Warnw("not connected to Ethereum node, skipping poll", loggerFields...)
-		return false
+		return
 	}
 
 	//
@@ -756,27 +781,42 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	//         submitting for when the pollTicker fires.
 	//   - We pass 0 into `roundState()`, and the FluxAggregator returns a suggested roundID for us to
 	//         submit to, as well as our eligibility to submit to that round.
+	//   - If the poll ticker fires very soon after we've responded to a NewRound log, and our tx has not been
+	//         mined, we risk double-submitting for a round.  To detect this, we check the DB to see whether
+	//         we've responded to this round already, and bail out if so.
 	//
 
 	// Ask the FluxAggregator which round we should be submitting to, and what the state of that round is.
 	roundState, err := p.roundState(0)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to determine eligibility to submit from FluxAggregator contract: %v", err), loggerFields...)
-		return false
+		return
 	}
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
+
+	// If we've just submitted to this round (as the result of a NewRound log, for example) don't submit again
+	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, roundState.ReportableRoundID)
+	if err != nil {
+		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), loggerFields...)
+		return
+	}
+
+	if roundStats.NumSubmissions > 0 {
+		logger.Infow("skipping poll: round already answered, tx unconfirmed", loggerFields...)
+		return
+	}
 
 	// Don't submit if we're not eligible, or won't get paid
 	err = p.checkEligibilityAndAggregatorFunding(roundState)
 	if err != nil {
 		logger.Infow(fmt.Sprintf("skipping poll: %v", err), loggerFields...)
-		return false
+		return
 	}
 
 	polledAnswer, err := p.fetcher.Fetch()
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("can't fetch answer: %v", err), loggerFields...)
-		return false
+		return
 	}
 
 	jobSpecID := p.initr.JobSpecID.String()
@@ -789,7 +829,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	)
 	if roundState.ReportableRoundID > 1 && !OutsideDeviation(latestAnswer, polledAnswer, thresholds) {
 		logger.Debugw("deviation < threshold, not submitting", loggerFields...)
-		return false
+		return
 	}
 
 	if roundState.ReportableRoundID > 1 {
@@ -801,12 +841,11 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	err = p.createJobRun(polledAnswer, roundState.ReportableRoundID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("can't create job run: %v", err), loggerFields...)
-		return false
+		return
 	}
 
 	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), polledAnswer)
 	promSetUint32(promFMReportedRound.WithLabelValues(jobSpecID), roundState.ReportableRoundID)
-	return true
 }
 
 func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggregatorRoundState, error) {
@@ -909,9 +948,7 @@ func (p *PollingDeviationChecker) createJobRun(polledAnswer decimal.Decimal, rou
 		return err
 	}
 
-	p.mostRecentSubmittedRoundID = roundID
-
-	err = p.store.ORM.IncrFluxMonitorRoundSubmissions(p.initr.Address, roundID)
+	err = p.store.IncrFluxMonitorRoundSubmissions(p.initr.Address, roundID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error updating FM round submission count: %v", err),
 			"address", p.initr.Address.Hex(),
