@@ -130,12 +130,14 @@ describe('SimpleAccessControl', () => {
       await controller.connect(personas.Carol).enableAccessCheck()
 
       matchers.bigNum(value, await controller.connect(personas.Eddy).getValue())
+      assert.isTrue(await controller.hasAccess(personas.Eddy.address, '0x00'))
     })
 
     it('does not allow users without access', async () => {
       await controller.connect(personas.Carol).enableAccessCheck()
 
       await matchers.evmRevert(controller.connect(personas.Ned).getValue())
+      assert.isFalse(await controller.hasAccess(personas.Ned.address, '0x00'))
     })
 
     it('announces the change via a log', async () => {
@@ -167,12 +169,14 @@ describe('SimpleAccessControl', () => {
       await controller.connect(personas.Carol).disableAccessCheck()
 
       matchers.bigNum(value, await controller.connect(personas.Eddy).getValue())
+      assert.isTrue(await controller.hasAccess(personas.Eddy.address, '0x00'))
     })
 
     it('allows users without access', async () => {
       await controller.connect(personas.Carol).disableAccessCheck()
 
       matchers.bigNum(value, await controller.connect(personas.Ned).getValue())
+      assert.isTrue(await controller.hasAccess(personas.Ned.address, '0x00'))
     })
 
     it('announces the change via a log', async () => {
