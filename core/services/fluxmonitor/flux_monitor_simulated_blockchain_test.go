@@ -227,8 +227,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 }
 
 type maliciousFluxMonitor interface {
-	CreateJob(t *testing.T, jobSpecId *models.ID,
-		polledAnswer decimal.Decimal, nextRound *big.Int) error
+	CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error
 }
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
@@ -366,6 +365,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		t.Fatalf("FA allowed chainlink node to start a new round early")
 	case <-time.After(5 * timeout):
 	}
+	// Remove the record of the submitted round, or else FM's reorg protection will cause the test to fail
+	err = app.Store.DeleteFluxMonitorRoundsBackThrough(fa.aggregatorContractAddress, uint32(newRound))
+	require.NoError(t, err)
 
 	// Try to start a new round directly, should fail
 	_, err = fa.aggregatorContract.RequestNewRound(fa.nallory)

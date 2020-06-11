@@ -1167,24 +1167,30 @@ func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, erro
 	return orm.FindJob(lc.JobID)
 }
 
-func (orm *ORM) FindFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
+func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
 	orm.MustEnsureAdvisoryLock()
 	var stats models.FluxMonitorRoundStats
 	err := orm.db.FirstOrCreate(&stats, models.FluxMonitorRoundStats{Aggregator: aggregator, RoundID: roundID}).Error
 	return stats, err
 }
 
-func (orm *ORM) IncrFluxMonitorNewRoundLogs(aggregator common.Address, roundID uint32) error {
+func (orm *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Exec(`
-        INSERT INTO flux_monitor_round_stats (
-            aggregator, round_id, num_new_round_logs, num_submissions
-        ) VALUES (
-            ?, ?, 1, 0
-        ) ON CONFLICT (aggregator, round_id)
-        DO UPDATE
-        SET num_new_round_logs = excluded.num_new_round_logs + 1
+        DELETE FROM flux_monitor_round_stats
+        WHERE aggregator = ?
+          AND round_id >= ?
     `, aggregator, roundID).Error
+}
+
+func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error) {
+	orm.MustEnsureAdvisoryLock()
+	var stats models.FluxMonitorRoundStats
+	err := orm.db.First(&stats, "aggregator = ?", aggregator).Order("round_id DESC").Error
+	if err != nil {
+		return 0, err
+	}
+	return stats.RoundID, nil
 }
 
 func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
