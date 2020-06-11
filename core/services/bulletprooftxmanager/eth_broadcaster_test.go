@@ -34,7 +34,7 @@ func mustInsertInProgressEthTxWithAttempt(t *testing.T, store *store.Store, nonc
 	etx.Nonce = &nonce
 	etx.State = models.EthTxInProgress
 	require.NoError(t, store.GetRawDB().Save(&etx).Error)
-	attempt := cltest.NewEthTxAttempt(t, etx.ID, store)
+	attempt := cltest.NewEthTxAttempt(t, etx.ID)
 	tx := gethTypes.NewTransaction(uint64(nonce), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
