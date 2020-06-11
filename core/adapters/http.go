@@ -195,8 +195,8 @@ func withRetry(
 	config HTTPRequestConfig,
 ) (responseBody []byte, statusCode int, err error) {
 	bb := &backoff.Backoff{
-		Min: 100,
-		Max: 20 * time.Minute, // We stop retrying on the number of attempts!
+		Min:    100,
+		Max:    20 * time.Minute, // We stop retrying on the number of attempts!
 		Jitter: true,
 	}
 	for {
@@ -204,7 +204,7 @@ func withRetry(
 		if err == nil {
 			return responseBody, statusCode, nil
 		}
-		if uint(bb.Attempt()) > config.maxAttempts { // Stop retrying.
+		if uint(bb.Attempt())+1 >= config.maxAttempts { // Stop retrying.
 			return responseBody, statusCode, err
 		}
 		switch err.(type) {
@@ -225,39 +225,39 @@ func makeHTTPCall(
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
 ) (responseBody []byte, statusCode int, err error) {
-		ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
-		defer cancel()
-		requestWithTimeout := originalRequest.Clone(ctx)
+	ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
+	defer cancel()
+	requestWithTimeout := originalRequest.Clone(ctx)
 
-		start := time.Now()
+	start := time.Now()
 
-		r, e := client.Do(requestWithTimeout)
-		if e != nil {
-			return nil, 0, e
-		}
-		defer logger.ErrorIfCalling(r.Body.Close)
+	r, e := client.Do(requestWithTimeout)
+	if e != nil {
+		return nil, 0, e
+	}
+	defer logger.ErrorIfCalling(r.Body.Close)
 
-		statusCode = r.StatusCode
-		elapsed := time.Since(start)
-		logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	statusCode = r.StatusCode
+	elapsed := time.Since(start)
+	logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
-		source := newMaxBytesReader(r.Body, config.sizeLimit)
-		bytes, e := ioutil.ReadAll(source)
-		if e != nil {
-			logger.Errorf("http adapter error reading body: %v", e.Error())
-			return nil, statusCode, e
-		}
-		elapsed = time.Since(start)
-		logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	source := newMaxBytesReader(r.Body, config.sizeLimit)
+	bytes, e := ioutil.ReadAll(source)
+	if e != nil {
+		logger.Errorf("http adapter error reading body: %v", e.Error())
+		return nil, statusCode, e
+	}
+	elapsed = time.Since(start)
+	logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
-		responseBody = bytes
+	responseBody = bytes
 
-		// Retry on 5xx since this might give a different result
-		if 500 <= r.StatusCode && r.StatusCode < 600 {
-			return responseBody, statusCode, &RemoteServerError{responseBody, statusCode}
-		}
+	// Retry on 5xx since this might give a different result
+	if 500 <= r.StatusCode && r.StatusCode < 600 {
+		return responseBody, statusCode, &RemoteServerError{responseBody, statusCode}
+	}
 
-		return responseBody, statusCode, nil
+	return responseBody, statusCode, nil
 }
 
 type RemoteServerError struct {
