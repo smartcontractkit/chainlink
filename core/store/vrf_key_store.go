@@ -78,10 +78,10 @@ func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrfkey.PublicKey,
 func (ks *VRFKeyStore) forget(k *vrfkey.PublicKey) error {
 	if _, found := ks.keys[*k]; !found {
 		return fmt.Errorf("public key %s is not unlocked; can't forget it", k)
-	} else {
-		delete(ks.keys, *k)
-		return nil
 	}
+
+	delete(ks.keys, *k)
+	return nil
 }
 
 func (ks *VRFKeyStore) Forget(k *vrfkey.PublicKey) error {
