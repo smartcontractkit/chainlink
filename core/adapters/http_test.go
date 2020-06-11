@@ -3,6 +3,8 @@ package adapters_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -719,4 +721,104 @@ func TestHTTP_JSONDeserializationDoesNotSetAllowUnrestrictedNetworkAccess(t *tes
 	err = json.Unmarshal([]byte(`{"allowUnrestrictedNetworkAccess": true}`), &hpa)
 	require.NoError(t, err)
 	assert.False(t, hpa.AllowUnrestrictedNetworkAccess)
+}
+
+func TestHTTP_RetryPolicy(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Parallel()
+	str := leanStore()
+	input := cltest.NewRunInputWithResult("testRetryPolicy")
+
+	t.Run("don't retry if the response status is", func(t *testing.T) {
+		for _, statusCode := range []int{200, 300, 400} {
+			t.Run(strconv.Itoa(statusCode), func(t *testing.T) {
+				t.Parallel()
+				counter := 0
+				srv := httptest.NewServer(http.HandlerFunc(
+					func(w http.ResponseWriter, r *http.Request) {
+						counter += 1
+						w.WriteHeader(statusCode)
+					}))
+				defer srv.Close()
+				hga := makeHTTPGetAdapter(t, srv)
+				_ = hga.Perform(input, str)
+				if counter != 1 {
+					t.Fatalf("expected retry count to be 1 for status %d but is %d", statusCode, counter)
+				}
+			})
+		}
+	})
+	t.Run("retry if the response is 5xx", func(t *testing.T) {
+		t.Parallel()
+		counter := 0
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				counter += 1
+				if counter <= 2 {
+					w.WriteHeader(500)
+					return
+				}
+				w.WriteHeader(200)
+			}))
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		if counter != 3 {
+			t.Fatalf("expected adapter to make 3 call, when the first 2 are 500s, instead it made %d calls", counter)
+		}
+	})
+	t.Run("don't retry if response body is too large", func(t *testing.T) {
+		t.Parallel()
+		counter := 0
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				counter += 1
+				w.WriteHeader(200)
+				largeBody := fillBlob(str.Config.DefaultHTTPLimit() + 10)
+				w.Write(largeBody)
+			}))
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		if counter != 1 {
+			t.Fatalf("expected adapter to give up when it receives a large response but instead it tried %d times", counter)
+		}
+	})
+	t.Run("retry maxAttempts times then give up", func(t *testing.T) {
+		t.Parallel()
+		var counter uint = 0
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				counter += 1
+				w.WriteHeader(500)
+			}))
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		expected := str.Config.DefaultMaxHTTPAttempts()
+		if counter != expected {
+			t.Fatalf("expected adapter to give up after %d attempts but instead it tried %d times", expected, counter)
+		}
+	})
+	/*
+		//t.Run("retry if connection to server cannot be created", func(t *testing.T) {
+		//})
+	*/
+}
+
+// Helpers
+
+func makeHTTPGetAdapter(t *testing.T, server *httptest.Server) *adapters.HTTPGet {
+	return &adapters.HTTPGet{
+		URL:                            cltest.WebURL(t, server.URL),
+		AllowUnrestrictedNetworkAccess: true,
+	}
+}
+
+func fillBlob(size int64) []byte {
+	body := make([]byte, size)
+	var i int64
+	for i = 0; i < size; i++ {
+		body[i] = 'x'
+	}
+	return body
 }
