@@ -12,7 +12,8 @@
     "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
     "test": "jest --testTimeout 80000 --forceExit",
-    "prepublishOnly": "yarn clean && yarn setup && yarn test && yarn setup"
+    "test:ci": "./scripts/test_ci",
+    "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
   },
   "devDependencies": {
     "@chainlink/belt": "0.0.1",
