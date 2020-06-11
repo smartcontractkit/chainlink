@@ -62,8 +62,8 @@ func GetV6ContractCodec(name string) (ContractCodec, error) {
 	return getContractCodec(name, box)
 }
 
-func (contract *contractCodec) ABI() *abi.ABI {
-	return &contract.abi
+func (cc *contractCodec) ABI() *abi.ABI {
+	return &cc.abi
 }
 
 // EncodeMessageCall encodes method name and arguments into a byte array

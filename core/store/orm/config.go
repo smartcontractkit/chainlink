@@ -121,17 +121,15 @@ const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
 func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
 	if c.AdvisoryLockID == 0 {
 		return defaultPostgresAdvisoryLockID
-	} else {
-		return c.AdvisoryLockID
 	}
+	return c.AdvisoryLockID
 }
 
 func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
 	if c.Dialect == "" {
 		return DialectPostgres
-	} else {
-		return c.Dialect
 	}
+	return c.Dialect
 }
 
 // AllowOrigins returns the CORS hosts used by the frontend.
