@@ -71,12 +71,12 @@ type RawLog interface {
 }
 
 // GetTopic returns the hash for the topic at the passed index, or error.
-func (log Log) GetTopic(idx uint) (common.Hash, error) {
-	if len(log.Topics) <= int(idx) {
-		return common.Hash{}, fmt.Errorf("Log: Unable to get topic #%v for %v", idx, log)
+func (l Log) GetTopic(idx uint) (common.Hash, error) {
+	if len(l.Topics) <= int(idx) {
+		return common.Hash{}, fmt.Errorf("Log: Unable to get topic #%v for %v", idx, l)
 	}
 
-	return log.Topics[idx], nil
+	return l.Topics[idx], nil
 }
 
 // Copy creates a deep copy of a log.  The LogBroadcaster creates a single websocket
@@ -84,23 +84,23 @@ func (log Log) GetTopic(idx uint) (common.Hash, error) {
 // the relevant subscribers elsewhere in the codebase.  If a given log needs to be
 // distributed to multiple subscribers while avoiding data races, it's necessary
 // to make copies.
-func (log Log) Copy() Log {
+func (l Log) Copy() Log {
 	var cpy Log
-	cpy.Address = log.Address
-	if log.Topics != nil {
-		cpy.Topics = make([]common.Hash, len(log.Topics))
-		copy(cpy.Topics, log.Topics)
+	cpy.Address = l.Address
+	if l.Topics != nil {
+		cpy.Topics = make([]common.Hash, len(l.Topics))
+		copy(cpy.Topics, l.Topics)
 	}
-	if log.Data != nil {
-		cpy.Data = make([]byte, len(log.Data))
-		copy(cpy.Data, log.Data)
+	if l.Data != nil {
+		cpy.Data = make([]byte, len(l.Data))
+		copy(cpy.Data, l.Data)
 	}
-	cpy.BlockNumber = log.BlockNumber
-	cpy.TxHash = log.TxHash
-	cpy.TxIndex = log.TxIndex
-	cpy.BlockHash = log.BlockHash
-	cpy.Index = log.Index
-	cpy.Removed = log.Removed
+	cpy.BlockNumber = l.BlockNumber
+	cpy.TxHash = l.TxHash
+	cpy.TxIndex = l.TxIndex
+	cpy.BlockHash = l.BlockHash
+	cpy.Index = l.Index
+	cpy.Removed = l.Removed
 	return cpy
 }
 
