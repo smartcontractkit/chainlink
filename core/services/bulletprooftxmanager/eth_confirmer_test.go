@@ -31,7 +31,7 @@ func mustInsertUnstartedEthTx(t *testing.T, s *store.Store) {
 }
 
 func newBroadcastEthTxAttempt(t *testing.T, etxID int64, store *store.Store, gasPrice ...int64) models.EthTxAttempt {
-	attempt := cltest.NewEthTxAttempt(t, etxID, store)
+	attempt := cltest.NewEthTxAttempt(t, etxID)
 	attempt.State = models.EthTxAttemptBroadcast
 	if len(gasPrice) > 0 {
 		gp := gasPrice[0]
