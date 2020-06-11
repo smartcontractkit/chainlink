@@ -88,12 +88,16 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
 	oldGasLimit := f.sergey.GasLimit
 	f.sergey.GasLimit = gasLimit
+	minSubmissionValue := big.NewInt(0)
+	maxSubmissionValue := big.NewInt(100000000000)
 	f.aggregatorContractAddress, _, f.aggregatorContract, err = faw.DeployFluxAggregator(
 		f.sergey,
 		f.backend,
 		linkAddress,
 		big.NewInt(paymentAmount),
 		timeout,
+		minSubmissionValue,
+		maxSubmissionValue,
 		decimals,
 		description,
 	)

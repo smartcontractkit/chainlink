@@ -31,6 +31,8 @@ describe('FluxAggregator', () => {
   const decimals = 18
   const description = 'LINK/USD'
   const reserveRounds = 2
+  const minSubmissionValue = h.bigNum('1')
+  const maxSubmissionValue = h.bigNum('100000000000000000000')
 
   let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
@@ -169,6 +171,8 @@ describe('FluxAggregator', () => {
         link.address,
         paymentAmount,
         timeout,
+        minSubmissionValue,
+        maxSubmissionValue,
         decimals,
         ethers.utils.formatBytes32String(description),
       )
@@ -202,7 +206,9 @@ describe('FluxAggregator', () => {
       'latestTimestamp',
       'linkToken',
       'maxSubmissionCount',
+      'maxSubmissionValue',
       'minSubmissionCount',
+      'minSubmissionValue',
       'onTokenTransfer',
       'oracleCount',
       'oracleRoundState',
@@ -811,6 +817,38 @@ describe('FluxAggregator', () => {
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
       })
     })
+
+    describe('submitting values near the edges of allowed values', () => {
+      it('rejects values below the submission value range', async () => {
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Neil)
+            .submit(nextRound, minSubmissionValue.sub(1)),
+          'value below minSubmissionValue',
+        )
+      })
+
+      it('accepts submissions equal to the min submission value', async () => {
+        await aggregator
+          .connect(personas.Neil)
+          .submit(nextRound, minSubmissionValue)
+      })
+
+      it('accepts submissions equal to the max submission value', async () => {
+        await aggregator
+          .connect(personas.Neil)
+          .submit(nextRound, maxSubmissionValue)
+      })
+
+      it('rejects submissions equal to the max submission value', async () => {
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Neil)
+            .submit(nextRound, maxSubmissionValue.add(1)),
+          'value above maxSubmissionValue',
+        )
+      })
+    })
   })
 
   describe('#getAnswer', () => {
@@ -838,7 +876,7 @@ describe('FluxAggregator', () => {
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
 
       for (let i = 0; i < 10; i++) {
-        await aggregator.connect(personas.Neil).submit(nextRound, i)
+        await aggregator.connect(personas.Neil).submit(nextRound, i + 1)
         nextRound++
       }
     })
