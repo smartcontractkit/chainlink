@@ -85,7 +85,7 @@ func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
-	return logger.ISO8601UTC(t)
+	return t.UTC().Format(time.RFC3339)
 }
 
 // NullISO8601UTC returns formatted time if valid, empty string otherwise.
