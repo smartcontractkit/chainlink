@@ -1,14 +1,18 @@
 package orm
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"database/sql"
 	"encoding"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -23,6 +27,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 )
 
@@ -239,6 +244,32 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 	})
 }
 
+// NOTE: Copied verbatim from gorm master
+// Transaction start a transaction as a block,
+// return error will rollback, otherwise to commit.
+func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
+	tx := orm.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%s", r)
+			tx.Rollback()
+			return
+		}
+	}()
+
+	err = fc(tx)
+
+	if err == nil {
+		err = tx.Commit().Error
+	}
+
+	// Makesure rollback when Block error or Commit error
+	if err != nil {
+		tx.Rollback()
+	}
+	return
+}
+
 // convenientTransaction handles setup and teardown for a gorm database
 // transaction, handing off the database transaction to the callback parameter.
 // Encourages the use of transactions for gorm calls that translate
@@ -246,18 +277,7 @@ func (orm *ORM) AllSyncEvents(cb func(*models.SyncEvent) error) error {
 // in a database transaction.
 func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	orm.MustEnsureAdvisoryLock()
-	dbtx := orm.db.Begin()
-	if dbtx.Error != nil {
-		return dbtx.Error
-	}
-	defer dbtx.Rollback()
-
-	err := callback(dbtx)
-	if err != nil {
-		return err
-	}
-
-	return dbtx.Commit().Error
+	return orm.Transaction(callback)
 }
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
@@ -547,6 +567,73 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	rval := db.Where("type = ?", taskTypeName).First(&taskSpec)
 	found := !rval.RecordNotFound()
 	return found, ignoreRecordNotFound(rval)
+}
+
+// IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
+// It can be called multiple times without error as long as the outcome would have resulted in the same database state
+func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+	etx := models.EthTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: encodedPayload,
+		Value:          assets.NewEthValue(0),
+		GasLimit:       gasLimit,
+		State:          models.EthTxUnstarted,
+	}
+	ethTaskRunTransaction := models.EthTaskRunTx{
+		TaskRunID: taskRunID.UUID(),
+	}
+	err := orm.Transaction(func(dbtx *gorm.DB) error {
+		if err := dbtx.Save(&etx).Error; err != nil {
+			return err
+		}
+		ethTaskRunTransaction.EthTxID = etx.ID
+		if err := dbtx.Create(&ethTaskRunTransaction).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	switch v := err.(type) {
+	case *pq.Error:
+		if v.Constraint == "idx_eth_task_run_txes_task_run_id" {
+			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID.UUID())
+			if e != nil {
+				return e
+			}
+			t := savedRecord.EthTx
+			if t.ToAddress != toAddress || !bytes.Equal(t.EncodedPayload, encodedPayload) {
+				return fmt.Errorf(
+					"transaction already exists for task run ID %s but it has different parameters\n"+
+						"New parameters: toAddress: %s, encodedPayload: 0x%s"+
+						"Existing record has: toAddress: %s, encodedPayload: 0x%s",
+					taskRunID.String(),
+					toAddress.String(), hex.EncodeToString(encodedPayload),
+					t.ToAddress.String(), hex.EncodeToString(t.EncodedPayload),
+				)
+			}
+			return nil
+		}
+		return err
+	default:
+		return err
+	}
+}
+
+// FindEthTaskRunTxByTaskRunID finds the EthTaskRunTx with its EthTxes and EthTxAttempts preloaded
+func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*models.EthTaskRunTx, error) {
+	etrt := &models.EthTaskRunTx{}
+	err := orm.db.Preload("EthTx").First(etrt, "task_run_id = ?", &taskRunID).Error
+	if err != nil && gorm.IsRecordNotFoundError(err) {
+		return nil, nil
+	}
+	return etrt, err
+}
+
+// FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
+func (orm *ORM) FindEthTxWithAttempts(etxID int64) (models.EthTx, error) {
+	etx := models.EthTx{}
+	err := orm.db.Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
+	return etx, err
 }
 
 // CreateTx finds and overwrites a transaction by its surrogate key, if it exists, or
@@ -985,7 +1072,7 @@ func (orm *ORM) IdempotentInsertHead(h models.Head) error {
 }
 
 // TrimOldHeads deletes heads such that only the top N block numbers remain
-func (orm *ORM) TrimOldHeads(n int) (err error) {
+func (orm *ORM) TrimOldHeads(n uint) (err error) {
 	return orm.db.Exec(`
 	DELETE FROM heads
 	WHERE number < (
@@ -1086,10 +1173,19 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 }
 
 // Keys returns all of the keys recorded in the database.
-func (orm *ORM) Keys() ([]*models.Key, error) {
-	orm.MustEnsureAdvisoryLock()
-	var keys []*models.Key
-	return keys, orm.db.Find(&keys).Order("created_at ASC, address ASC").Error
+func (orm *ORM) Keys() ([]models.Key, error) {
+	var keys []models.Key
+	return keys, orm.db.Order("created_at ASC, address ASC").Find(&keys).Error
+}
+
+// KeyExists returns true if a key exists in the database for this address
+func (orm *ORM) KeyExists(address []byte) (bool, error) {
+	var key models.Key
+	err := orm.db.Where("address = ?", address).First(&key).Error
+	if gorm.IsRecordNotFoundError(err) {
+		return false, nil
+	}
+	return true, err
 }
 
 // DeleteKey deletes a key whose address matches the supplied bytes.
@@ -1124,6 +1220,28 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey
 		anonWhere = append(anonWhere, &constraint)
 	}
 	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
+}
+
+// GetDefaultAddress queries the database for the address of the primary default ethereum key
+func (orm *ORM) GetDefaultAddress() (common.Address, error) {
+	defaultKey, err := orm.getDefaultKey()
+	if err != nil {
+		return common.Address{}, err
+	}
+	return defaultKey.Address.Address(), err
+}
+
+// NOTE: We can add more advanced logic here later such as sorting by priority
+// etc
+func (orm *ORM) getDefaultKey() (models.Key, error) {
+	availableKeys, err := orm.Keys()
+	if err != nil {
+		return models.Key{}, err
+	}
+	if len(availableKeys) == 0 {
+		return models.Key{}, errors.New("no keys available")
+	}
+	return availableKeys[0], nil
 }
 
 // HasConsumedLog reports whether the given consumer had already consumed the given log

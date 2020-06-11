@@ -454,6 +454,20 @@ func (_m *TxManager) GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error) {
 	return r0, r1
 }
 
+// GethClient provides a mock function with given fields: _a0
+func (_m *TxManager) GethClient(_a0 func(eth.GethClient) error) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(func(eth.GethClient) error) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NextActiveAccount provides a mock function with given fields:
 func (_m *TxManager) NextActiveAccount() *store.ManagedAccount {
 	ret := _m.Called()

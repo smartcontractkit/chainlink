@@ -37,6 +37,27 @@ func (_m *KeyStoreInterface) Accounts() []accounts.Account {
 	return r0
 }
 
+// GetAccountByAddress provides a mock function with given fields: _a0
+func (_m *KeyStoreInterface) GetAccountByAddress(_a0 common.Address) (accounts.Account, error) {
+	ret := _m.Called(_a0)
+
+	var r0 accounts.Account
+	if rf, ok := ret.Get(0).(func(common.Address) accounts.Account); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(accounts.Account)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAccounts provides a mock function with given fields:
 func (_m *KeyStoreInterface) GetAccounts() []accounts.Account {
 	ret := _m.Called()
