@@ -1,13 +1,13 @@
 pragma solidity ^0.6.0;
 
 import "../Owned.sol";
-import "./AccessController.sol";
+import "./AccessControllerInterface.sol";
 
 /**
  * @title SimpleAccessControl
  * @notice Allows the owner to set access for addresses
  */
-contract SimpleAccessControl is AccessController, Owned {
+contract SimpleAccessControl is AccessControllerInterface, Owned {
 
   bool public checkEnabled;
   mapping(address => bool) internal accessList;
@@ -90,7 +90,7 @@ contract SimpleAccessControl is AccessController, Owned {
   /**
    * @dev reverts if the caller does not have access
    */
-  modifier checkAccess() virtual override {
+  modifier checkAccess() virtual {
     require(hasAccess(msg.sender, msg.data) || !checkEnabled, "No access");
     _;
   }
