@@ -561,3 +561,47 @@ func unbroadcastAttempt(db *gorm.DB, a models.EthTxAttempt) error {
 	}
 	return errors.Wrap(db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = NULL, state = 'in_progress' WHERE id = ?`, a.ID).Error, "unbroadcastAttempt failed")
 }
+
+// ForceRebroadcast forcibly rebroadcasts eth_txes in the given nonce range at the given gas price.
+// This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
+// Only for emergency usage.
+// Deliberately does not take the advisory lock (we don't write to the database so this is safe from a data integrity perspective).
+// This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
+func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint64) error {
+	etxs, err := findAllEthTxsInNonceRange(ec.store.GetRawDB(), address, beginningNonce, endingNonce)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("ForceRebroadcast: will rebroadcast %v transactions between nonce %v and %v", len(etxs), beginningNonce, endingNonce)
+
+	for _, etx := range etxs {
+		logger.Debugf("ForceRebroadcast: will rebroadcast eth_tx %v with nonce %v", etx.ID, etx.Nonce)
+		if overrideGasLimit != 0 {
+			etx.GasLimit = overrideGasLimit
+		}
+		attempt, err := newAttempt(ec.store, etx, big.NewInt(int64(gasPriceWei)))
+		if err != nil {
+			logger.Errorf("ForceRebroadcast: failed to create new attempt for eth_tx %v: %s", etx.ID, err.Error())
+		}
+		err = sendTransaction(ec.gethClientWrapper, attempt)
+		if err != (*sendError)(nil) {
+			logger.Errorf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error())
+		}
+		logger.Infof("ForceRebroadcast: successfully rebroadcast eth_tx %v with hash: %s", etx.ID, attempt.Hash)
+	}
+	return nil
+}
+
+// findAllEthTxsInNonceRange returns an array of eth_txes for the given key
+// matching the inclusive range between beginningNonce and endingNonce
+func findAllEthTxsInNonceRange(db *gorm.DB, fromAddress gethCommon.Address, beginningNonce uint, endingNonce uint) ([]models.EthTx, error) {
+	etxs := []models.EthTx{}
+	err := db.
+		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("eth_tx_attempts.gas_price DESC")
+		}).
+		Find(&etxs, "from_address = ? AND nonce BETWEEN ? AND ? AND state IN ('confirmed','unconfirmed')", fromAddress, beginningNonce, endingNonce).
+		Error
+	return etxs, errors.Wrap(err, "findAllEthTxsInNonceRange failed")
+}

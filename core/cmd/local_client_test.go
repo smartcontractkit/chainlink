@@ -280,6 +280,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
@@ -298,6 +299,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true)
 			defer cleanup()
 			config.Config.Dialect = orm.DialectPostgres
+			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 			defer connectedCleanup()
 
@@ -368,6 +370,7 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
