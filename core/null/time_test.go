@@ -1,6 +1,7 @@
 package null
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"testing"
 	"time"
@@ -141,10 +142,11 @@ func TestTimePointer(t *testing.T) {
 
 func TestTimeScanValue(t *testing.T) {
 	var ti Time
+	var v driver.Value
 	err := ti.Scan(timeValue1)
 	maybePanic(err)
 	assertTime(t, ti, "scanned time")
-	if v, err := ti.Value(); v != timeValue1 || err != nil {
+	if v, err = ti.Value(); v != timeValue1 || err != nil {
 		t.Error("bad value or err:", v, err)
 	}
 
@@ -152,7 +154,7 @@ func TestTimeScanValue(t *testing.T) {
 	err = null.Scan(nil)
 	maybePanic(err)
 	assertNullTime(t, null, "scanned null")
-	if v, err := null.Value(); v != nil || err != nil {
+	if v, err = null.Value(); v != nil || err != nil {
 		t.Error("bad value or err:", v, err)
 	}
 
