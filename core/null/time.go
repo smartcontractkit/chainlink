@@ -84,27 +84,29 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	var err error
 	var v interface{}
 	if err = json.Unmarshal(data, &v); err != nil {
+		t.Valid = false
 		return err
 	}
 	switch x := v.(type) {
 	case string:
 		err = t.Time.UnmarshalJSON(data)
+		t.Valid = err == nil
 	case map[string]interface{}:
 		ti, tiOK := x["Time"].(string)
 		valid, validOK := x["Valid"].(bool)
 		if !tiOK || !validOK {
-			return fmt.Errorf(`json: unmarshalling object into Go value of type null.Time requires key "Time" to be of type string and key "Valid" to be of type bool; found %T and %T, respectively`, x["Time"], x["Valid"])
+			err = fmt.Errorf(`json: unmarshalling object into Go value of type null.Time requires key "Time" to be of type string and key "Valid" to be of type bool; found %T and %T, respectively`, x["Time"], x["Valid"])
+			t.Valid = false
+		} else {
+			err = t.Time.UnmarshalText([]byte(ti))
+			t.Valid = valid
 		}
-		err = t.Time.UnmarshalText([]byte(ti))
-		t.Valid = valid
-		return err
 	case nil:
 		t.Valid = false
-		return nil
 	default:
 		err = fmt.Errorf("json: cannot unmarshal %v into Go value of type null.Time", reflect.TypeOf(v).Name())
+		t.Valid = false
 	}
-	t.Valid = err == nil
 	return err
 }
 
