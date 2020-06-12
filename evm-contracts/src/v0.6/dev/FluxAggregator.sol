@@ -638,26 +638,16 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
 
     if (_queriedRoundId > 0) {
       Round storage round = rounds[_queriedRoundId];
-
-      _eligibleToSubmit = eligibleForSpecificRound(_oracle, _queriedRoundId);
-      _roundId = _queriedRoundId;
-      _latestSubmission = oracles[_oracle].latestSubmission;
-      _startedAt = round.startedAt;
-      _timeout = round.details.timeout;
-      _availableFunds = availableFunds;
-      _oracleCount = oracleCount();
-      _paymentAmount = _paymentAmount + (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount);
       return (
-        _eligibleToSubmit,
-        _roundId,
-        _latestSubmission,
-        _startedAt,
-        _timeout,
-        _availableFunds,
-        _oracleCount,
-        _paymentAmount
+        eligibleForSpecificRound(_oracle, _queriedRoundId),
+        _queriedRoundId,
+        oracles[_oracle].latestSubmission,
+        round.startedAt,
+        round.details.timeout,
+        availableFunds,
+        oracleCount(),
+        (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount)
       );
-
     } else {
       return oracleRoundStateSuggestRound(_oracle);
     }
