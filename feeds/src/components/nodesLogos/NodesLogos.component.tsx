@@ -29,6 +29,7 @@ import stakingfacilities from 'assets/nodes/stakingfacilities.png'
 import validationcapital from 'assets/nodes/validationcapital.png'
 import watez from 'assets/nodes/watez.png'
 import ztake from 'assets/nodes/ztake.png'
+import oneNode from 'assets/nodes/01node.png'
 
 interface Node {
   name: string
@@ -182,6 +183,11 @@ const list: Node[] = [
     name: 'Kaiko',
     url: 'https://www.kaiko.com',
     src: kaiko,
+  },
+  {
+    name: '01Node',
+    url: 'https://01node.com',
+    src: oneNode,
   },
 ]
 
