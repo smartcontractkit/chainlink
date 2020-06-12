@@ -11,6 +11,6 @@ func Migrate(tx *gorm.DB) error {
 		DROP INDEX IF EXISTS idx_txes_hash;
 		CREATE INDEX idx_txes_hash ON txes (hash);
 		DROP INDEX IF EXISTS idx_txes_unique_nonces_per_account;
-		CREATE INDEX idx_txes_nonce ON txes(nonce);
+		CREATE INDEX IF NOT EXISTS idx_txes_nonce ON txes(nonce);
     `).Error
 }
