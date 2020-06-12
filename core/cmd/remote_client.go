@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
@@ -371,17 +370,25 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 
 // SendEther transfers ETH from the node's account to a specified address.
 func (cli *Client) SendEther(c *clipkg.Context) (err error) {
-	if c.NArg() != 2 {
-		return cli.errorOut(errors.New("sendether expects two arguments: an amount and an address"))
+	if c.NArg() != 3 {
+		return cli.errorOut(errors.New("sendether expects three arguments: amount, fromAddress and toAddress"))
 	}
 
-	amount, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	amount, err := assets.NewEthValueS(c.Args().Get(0))
 	if err != nil {
 		return cli.errorOut(multierr.Combine(
 			errors.New("while parsing ETH transfer amount"), err))
 	}
 
-	unparsedDestinationAddress := c.Args().Get(1)
+	unparsedFromAddress := c.Args().Get(1)
+	fromAddress, err := utils.ParseEthereumAddress(unparsedFromAddress)
+	if err != nil {
+		return cli.errorOut(multierr.Combine(
+			fmt.Errorf("while parsing withdrawal source address %v",
+				unparsedFromAddress), err))
+	}
+
+	unparsedDestinationAddress := c.Args().Get(2)
 	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
 	if err != nil {
 		return cli.errorOut(multierr.Combine(
@@ -389,21 +396,10 @@ func (cli *Client) SendEther(c *clipkg.Context) (err error) {
 				unparsedDestinationAddress), err))
 	}
 
-	unparsedFromAddress := c.String("from")
-	fromAddress := common.Address{}
-	if unparsedFromAddress != "" {
-		fromAddress, err = utils.ParseEthereumAddress(unparsedFromAddress)
-		if err != nil {
-			return cli.errorOut(multierr.Combine(
-				fmt.Errorf("while parsing withdrawal from address %v",
-					unparsedFromAddress), err))
-		}
-	}
-
 	request := models.SendEtherRequest{
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
-		Amount:             assets.NewEth(amount),
+		Amount:             amount,
 	}
 
 	requestData, err := json.Marshal(request)
