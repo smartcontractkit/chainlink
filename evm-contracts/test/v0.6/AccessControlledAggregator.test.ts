@@ -5,9 +5,9 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { WhitelistedAggregatorFactory } from '../../ethers/v0.6/WhitelistedAggregatorFactory'
+import { AccessControlledAggregatorFactory } from '../../ethers/v0.6/AccessControlledAggregatorFactory'
 
-const aggregatorFactory = new WhitelistedAggregatorFactory()
+const aggregatorFactory = new AccessControlledAggregatorFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const provider = setup.provider()
 let personas: setup.Personas
@@ -15,7 +15,7 @@ beforeAll(async () => {
   await setup.users(provider).then(u => (personas = u.personas))
 })
 
-describe('WhitelistedAggregator', () => {
+describe('AccessControlledAggregator', () => {
   const paymentAmount = h.toWei('3')
   const deposit = h.toWei('100')
   const answer = 100
@@ -27,7 +27,7 @@ describe('WhitelistedAggregator', () => {
   const description = 'LINK/USD'
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
+  let aggregator: contract.Instance<AccessControlledAggregatorFactory>
   let nextRound: number
 
   const deployment = setup.snapshot(provider, async () => {
@@ -97,13 +97,13 @@ describe('WhitelistedAggregator', () => {
       'acceptOwnership',
       'owner',
       'transferOwnership',
-      // Whitelisted methods:
-      'addToWhitelist',
-      'disableWhitelist',
-      'enableWhitelist',
-      'removeFromWhitelist',
-      'whitelistEnabled',
-      'whitelisted',
+      // AccessControl methods:
+      'addAccess',
+      'disableAccessCheck',
+      'enableAccessCheck',
+      'removeAccess',
+      'checkEnabled',
+      'hasAccess',
     ])
   })
 
@@ -142,21 +142,21 @@ describe('WhitelistedAggregator', () => {
       await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
-    describe('when the reader is not whitelisted', () => {
+    describe('when the reader does not have access', () => {
       it('does not allow getAnswer to be called', async () => {
         const round = await aggregator.latestRound()
         await matchers.evmRevert(
           aggregator.connect(personas.Eddy).getAnswer(round),
-          'Not whitelisted',
+          'No access',
         )
       })
     })
 
-    describe('when the reader is whitelisted', () => {
+    describe('when the reader has access', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addToWhitelist(personas.Eddy.address)
+          .addAccess(personas.Eddy.address)
       })
 
       it('allows getAnswer to be called', async () => {
@@ -181,21 +181,21 @@ describe('WhitelistedAggregator', () => {
       await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
-    describe('when the reader is not whitelisted', () => {
+    describe('when the reader does not have access', () => {
       it('does not allow getTimestamp to be called', async () => {
         const round = await aggregator.latestRound()
         await matchers.evmRevert(
           aggregator.connect(personas.Eddy).getTimestamp(round),
-          'Not whitelisted',
+          'No access',
         )
       })
     })
 
-    describe('when the reader is whitelisted', () => {
+    describe('when the reader does have access', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addToWhitelist(personas.Eddy.address)
+          .addAccess(personas.Eddy.address)
       })
 
       it('allows getTimestamp to be called', async () => {
@@ -222,20 +222,20 @@ describe('WhitelistedAggregator', () => {
       await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
-    describe('when the reader is not whitelisted', () => {
+    describe('when the reader does not have access', () => {
       it('does not allow latestAnswer to be called', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Eddy).latestAnswer(),
-          'Not whitelisted',
+          'No access',
         )
       })
     })
 
-    describe('when the reader is whitelisted', () => {
+    describe('when the reader does have access', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addToWhitelist(personas.Eddy.address)
+          .addAccess(personas.Eddy.address)
       })
 
       it('allows latestAnswer to be called', async () => {
@@ -259,20 +259,20 @@ describe('WhitelistedAggregator', () => {
       await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
-    describe('when the reader is not whitelisted', () => {
+    describe('when the reader does not have access', () => {
       it('does not allow latestTimestamp to be called', async () => {
         await matchers.evmRevert(
           aggregator.connect(personas.Eddy).latestTimestamp(),
-          'Not whitelisted',
+          'No access',
         )
       })
     })
 
-    describe('when the reader is whitelisted', () => {
+    describe('when the reader does have access', () => {
       beforeEach(async () => {
         await aggregator
           .connect(personas.Carol)
-          .addToWhitelist(personas.Eddy.address)
+          .addAccess(personas.Eddy.address)
       })
 
       it('allows latestTimestamp to be called', async () => {

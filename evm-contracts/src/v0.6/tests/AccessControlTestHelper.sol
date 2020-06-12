@@ -1,8 +1,8 @@
 pragma solidity ^0.6.0;
 
-import "../dev/Whitelisted.sol";
+import "../dev/SimpleAccessControl.sol";
 
-contract WhitelistedTestHelper is Whitelisted {
+contract AccessControlTestHelper is SimpleAccessControl {
 
   int256 private value;
 
@@ -15,7 +15,7 @@ contract WhitelistedTestHelper is Whitelisted {
   function getValue()
     external
     view
-    isWhitelisted()
+    checkAccess()
     returns (int256)
   {
     return value;
