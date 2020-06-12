@@ -110,7 +110,7 @@ func (wrapper *lazyRPCWrapper) GethClient(callback func(gethClient eth.GethClien
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	wrapper.limiter.Wait(ctx)
+	logger.ErrorIf(wrapper.limiter.Wait(ctx))
 
 	client := gethClient.NewClient(wrapper.client)
 
