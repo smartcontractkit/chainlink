@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -971,73 +970,6 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	assert.Equal(t, nonce, ma.Nonce())
 
 	ethClient.AssertExpectations(t)
-}
-
-func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
-	t.Parallel()
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
-	oca := common.HexToAddress("0xDEADB3333333F")
-	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
-	defer cleanup()
-
-	txm := app.Store.TxManager
-
-	from := cltest.GetAccountAddress(t, app.GetStore())
-	to := cltest.NewAddress()
-	hash := cltest.NewHash()
-	sentAt := uint64(23456)
-	nonce := uint64(256)
-	ethMock := app.EthMock
-	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
-		ethMock.Register("eth_chainId", config.ChainID())
-	})
-	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(sentAt)))
-	assert.NoError(t, app.StartAndConnect())
-
-	ethMock.Context("txm.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_sendRawTransaction", hash)
-	})
-
-	wr := models.WithdrawalRequest{
-		DestinationAddress: to,
-		Amount:             assets.NewLink(10),
-	}
-
-	hash, err := txm.WithdrawLINK(wr)
-	assert.NoError(t, err)
-	assert.True(t, ethMock.AllCalled(), "Not Called")
-
-	transactions, err := app.Store.TxFrom(from)
-	require.NoError(t, err)
-	require.Len(t, transactions, 1)
-	tx := transactions[0]
-	assert.Equal(t, hash, tx.Hash)
-	assert.Equal(t, nonce, tx.Nonce)
-}
-
-func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-
-	nonce := uint64(256)
-	ethMock := app.EthMock
-	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
-	})
-	assert.NoError(t, app.StartAndConnect())
-
-	wr := models.WithdrawalRequest{
-		DestinationAddress: cltest.NewAddress(),
-		Amount:             assets.NewLink(10),
-	}
-
-	_, err := app.Store.TxManager.WithdrawLINK(wr)
-	assert.EqualError(t, err, "OracleContractAddress not set; cannot withdraw")
 }
 
 func TestManagedAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {

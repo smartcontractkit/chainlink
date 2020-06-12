@@ -76,7 +76,6 @@ type TxManager interface {
 	BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, AttemptState, error)
 
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
-	WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 

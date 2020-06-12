@@ -369,66 +369,6 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	return cli.errorOut(err)
 }
 
-// Withdraw will withdraw LINK to an address authorized by the node
-func (cli *Client) Withdraw(c *clipkg.Context) (err error) {
-	if c.NArg() != 2 {
-		return cli.errorOut(errors.New("withdraw expects two arguments: an address and an amount"))
-	}
-
-	linkAmount, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
-
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			errors.New("while parsing LINK withdrawal amount"), err))
-	}
-
-	contractAddress := common.Address{}
-	unParsedOracleContractAddress := c.String("from-oracle-contract-address")
-	if unParsedOracleContractAddress != "" {
-		contractAddress, err = utils.ParseEthereumAddress(
-			unParsedOracleContractAddress)
-		if err != nil {
-			return cli.errorOut(multierr.Combine(
-				errors.New("while parsing source contract withdrawal address"),
-				err,
-			))
-		}
-	}
-	unparsedDestinationAddress := c.Args().First()
-	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal destination address %v",
-				unparsedDestinationAddress), err))
-	}
-
-	wR := models.WithdrawalRequest{
-		DestinationAddress: destinationAddress,
-		ContractAddress:    contractAddress,
-		Amount:             assets.NewLink(linkAmount),
-	}
-
-	requestData, err := json.Marshal(wR)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	buf := bytes.NewBuffer(requestData)
-
-	resp, err := cli.HTTP.Post("/v2/withdrawals", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	err = cli.printResponseBody(resp)
-	return err
-}
-
 // SendEther transfers ETH from the node's account to a specified address.
 func (cli *Client) SendEther(c *clipkg.Context) (err error) {
 	if c.NArg() != 2 {
