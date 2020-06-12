@@ -17,7 +17,6 @@ export default class DeviationGraph {
   tooltipTimestamp
   tooltipPercentage
   config = {}
-  colorRange = ['#c51515', '#c3c3c3']
 
   constructor(config) {
     this.config = config
@@ -36,6 +35,16 @@ export default class DeviationGraph {
           this.margin.bottom}`,
       )
 
+    this.clip = this.svg
+      .append('defs')
+      .append('svg:clipPath')
+      .attr('id', 'clip')
+      .append('svg:rect')
+      .attr('width', this.width - this.margin.left)
+      .attr('height', this.height)
+      .attr('x', 0)
+      .attr('y', 0)
+
     this.path = this.svg
       .append('g')
       .attr(
@@ -46,6 +55,7 @@ export default class DeviationGraph {
       .attr('class', 'line')
       .attr('stroke', '#a0a0a0')
       .attr('fill', 'none')
+      .attr('clip-path', 'url(#clip)')
 
     this.tooltip = this.svg
       .append('g')
@@ -85,12 +95,11 @@ export default class DeviationGraph {
       .attr('x', '0')
       .attr('y', '30')
 
-    this.overlay = this.svg
-      .append('rect')
-      .attr('width', this.width - this.margin.left)
-      .attr('height', this.height)
-      .style('fill', 'none')
-      .style('pointer-events', 'all')
+    this.brushX = d3.brushX()
+
+    this.brush = this.svg
+      .append('g')
+      .attr('class', 'brush')
       .attr(
         'transform',
         'translate(' + this.margin.left + ',' + this.margin.top + ')',
@@ -100,36 +109,97 @@ export default class DeviationGraph {
         this.info.style('display', 'none')
       })
 
-    const color = d3
-      .scaleLinear()
-      .range(this.colorRange)
-      .domain([1, 2])
+    this.zoomOutBtn = this.svg
+      .append('g')
+      .attr(
+        'transform',
+        'translate(' + (this.width - 70) + ',' + this.height + ')',
+      )
+      .style('opacity', 0)
+      .style('cursor', 'pointer')
 
-    this.linearGradient = this.svg
-      .append('defs')
-      .append('linearGradient')
-      .attr('id', 'linear-gradient')
-      .attr('gradientTransform', 'rotate(90)')
+    this.zoomOutBtn
+      .append('rect')
+      .attr('class', 'y')
+      .style('fill', '#375bd2')
+      .style('stroke', '#375bd2')
+      .attr('width', '70')
+      .attr('height', '25')
 
-    this.linearGradient
-      .append('stop')
-      .attr('offset', '0%')
-      .attr('stop-color', color(1))
+    this.zoomOutBtn
+      .append('text')
+      .attr('fill', '#fff')
+      .text('Zoom out')
+      .attr('x', '10')
+      .attr('y', '16')
+      .style('font-size', 12)
+  }
 
-    this.linearGradient
-      .append('stop')
-      .attr('offset', '20%')
-      .attr('stop-color', color(2))
+  updateBrushed() {
+    if (!this.x) {
+      return
+    }
 
-    this.linearGradient
-      .append('stop')
-      .attr('offset', '80%')
-      .attr('stop-color', color(2))
+    const extent = d3.event.selection
+    if (extent) {
+      this.x.domain([this.x.invert(extent[0]), this.x.invert(extent[1])])
+      this.brush.call(this.brushX.move, null)
 
-    this.linearGradient
-      .append('stop')
-      .attr('offset', '100%')
-      .attr('stop-color', color(1))
+      this.zoomOutBtn
+        .transition()
+        .duration(300)
+        .style('opacity', 1)
+    }
+
+    this.xAxis
+      .transition()
+      .duration(300)
+      .call(
+        d3
+          .axisBottom()
+          .scale(this.x)
+          .ticks(7)
+          .tickFormat(f => humanizeUnixTimestamp(f)),
+      )
+
+    const line = d3
+      .line()
+      .x(d => this.x(d.timestamp))
+      .y(d => this.y(Number(d.deviation)))
+
+    this.path
+      .transition()
+      .duration(300)
+      .attr('d', line)
+  }
+
+  zoomOut(data) {
+    this.x.domain(d3.extent(data, d => d.timestamp))
+
+    const xAxis = d3
+      .axisBottom()
+      .scale(this.x)
+      .tickFormat(f => humanizeUnixTimestamp(f))
+
+    this.xAxis
+      .transition()
+      .duration(300)
+      .call(xAxis)
+
+    const line = d3
+      .line()
+      .x(d => this.x(d.timestamp))
+      .y(d => this.y(Number(d.deviation)))
+
+    this.path
+      .transition()
+      .duration(300)
+      .attr('d', line)
+
+    this.zoomOutBtn
+      .transition()
+      .duration(300)
+      .style('opacity', 0)
   }
 
   addDeviation(data) {
@@ -145,7 +215,7 @@ export default class DeviationGraph {
         ...[
           {
             ...current,
-            ...{ deviation: Number(deviation.toFixed(3)) },
+            ...{ deviation: Math.abs(Number(deviation.toFixed(3))) },
           },
         ],
       ]
@@ -195,7 +265,7 @@ export default class DeviationGraph {
       .ticks(7)
       .tickFormat(f => humanizeUnixTimestamp(f))
 
-    this.svg
+    this.xAxis = this.svg
       .append('g')
       .attr('class', 'x-axis')
       .attr(
@@ -208,28 +278,31 @@ export default class DeviationGraph {
       .line()
       .x(d => this.x(d.timestamp))
       .y(d => this.y(Number(d.deviation)))
-      .curve(d3.curveMonotoneX)
 
     this.path
-      .attr('d', this.line(data))
       .attr('stroke-width', 1)
-      .attr('stroke', 'url(#linear-gradient)')
+      .attr('stroke', '#a0a0a0')
       .attr('fill', 'none')
+      .datum(data)
+      .attr('d', this.line)
 
-    const totalLength = this.path.node().getTotalLength()
+    this.brush.on('mousemove', () => this.mousemove(data))
 
-    this.path
-      .attr('stroke-dasharray', totalLength + ' ' + totalLength)
-      .attr('stroke-dashoffset', totalLength)
-      .transition()
-      .duration(2000)
-      .attr('stroke-dashoffset', 0)
+    this.svg.on('dblclick', () => this.zoomOut(data))
+    this.zoomOutBtn.on('click', () => this.zoomOut(data))
 
-    this.overlay.on('mousemove', () => this.mousemove(data))
+    this.brush.call(
+      this.brushX
+        .extent([
+          [0, 0],
+          [this.width - this.margin.left, this.height],
+        ])
+        .on('end', () => this.updateBrushed()),
+    )
   }
 
   mousemove(data) {
-    const x0 = this.x.invert(d3.mouse(this.overlay.node())[0])
+    const x0 = this.x.invert(d3.mouse(this.brush.node())[0])
     const i = this.bisectDate(data, x0, 1)
     const d0 = data[i - 1]
     const d1 = data[i]
@@ -249,7 +322,9 @@ export default class DeviationGraph {
       )
 
     this.info.style('display', 'block')
-    this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp, 'LLL'))
+    this.tooltipTimestamp.text(() =>
+      humanizeUnixTimestamp(d.timestamp, 'LL LTS'),
+    )
     this.tooltipPrice.text(
       () => `${this.config.valuePrefix} ${d.answerFormatted}`,
     )
