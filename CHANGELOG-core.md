@@ -29,7 +29,7 @@ This release contains a number of features aimed at improving the node's reliabi
 ### Breaking changes
 
 - `admin withdraw` command has been removed. This was only ever useful to withdraw LINK if the Oracle contract was owned by the Chainlink node address. It is no longer recommended to have the Oracle owner be the chainlink node address.
-
+- Fixed `txs create` to send the amount in Eth not in Wei (as per the documentation)
 
 ## [0.8.6] - 2020-06-08
 

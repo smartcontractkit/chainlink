@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -29,6 +30,20 @@ const (
 	// from the eth node before we consider it to be an error
 	maxEthNodeRequestTime = 2 * time.Minute
 )
+
+// SendEther creates a transaction that transfers the given value of ether
+func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (models.EthTx, error) {
+	ethtx := models.EthTx{
+		FromAddress:    from,
+		ToAddress:      to,
+		EncodedPayload: []byte{},
+		Value:          value,
+		GasLimit:       s.Config.EthGasLimitDefault(),
+		State:          models.EthTxUnstarted,
+	}
+	err := s.GetRawDB().Create(&ethtx).Error
+	return ethtx, err
+}
 
 func newAttempt(s *strpkg.Store, etx models.EthTx, gasPrice *big.Int) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
