@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/guregu/null"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 

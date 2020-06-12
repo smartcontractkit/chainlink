@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	null "gopkg.in/guregu/null.v3"
+	"github.com/smartcontractkit/chainlink/core/null"
 )
 
 // BridgeRunResult handles the parsing of RunResults from external adapters.

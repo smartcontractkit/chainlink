@@ -20,7 +20,7 @@ import (
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 
-	null "gopkg.in/guregu/null.v3"
+	null "github.com/smartcontractkit/chainlink/core/null"
 
 	store "github.com/smartcontractkit/chainlink/core/store"
 

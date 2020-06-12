@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -23,7 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v3"
 )
 
 func makeJobRunWithInitiator(t *testing.T, store *strpkg.Store, job models.JobSpec) models.JobRun {
@@ -153,7 +152,7 @@ func TestRunManager_ResumeAllPendingNextBlock(t *testing.T) {
 	t.Run("leave in pending if not enough incoming confirmations have been met yet", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
-		run.TaskRuns[0].MinRequiredIncomingConfirmations = clnull.Uint32From(2)
+		run.TaskRuns[0].MinRequiredIncomingConfirmations = null.Uint32From(2)
 		require.NoError(t, store.CreateJobRun(&run))
 
 		err := runManager.ResumeAllPendingNextBlock(big.NewInt(0))
@@ -168,7 +167,7 @@ func TestRunManager_ResumeAllPendingNextBlock(t *testing.T) {
 	t.Run("input, should go from pending_incoming_confirmations -> in_progress and save the input", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
-		run.TaskRuns[0].MinRequiredIncomingConfirmations = clnull.Uint32From(2)
+		run.TaskRuns[0].MinRequiredIncomingConfirmations = null.Uint32From(2)
 		require.NoError(t, store.CreateJobRun(&run))
 
 		observedHeight := big.NewInt(1)
@@ -243,7 +242,7 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 	run.SetStatus(models.RunStatusPendingConnection)
 	run.CreationHeight = utils.NewBig(big.NewInt(0))
 	run.ObservedHeight = run.CreationHeight
-	run.TaskRuns[0].MinRequiredIncomingConfirmations = clnull.Uint32From(807)
+	run.TaskRuns[0].MinRequiredIncomingConfirmations = null.Uint32From(807)
 	run.TaskRuns[0].Status = models.RunStatusPendingConnection
 	require.NoError(t, store.CreateJobRun(&run))
 

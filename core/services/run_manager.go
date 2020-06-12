@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -107,7 +107,7 @@ func NewRun(
 			continue
 		}
 
-		run.TaskRuns[i].MinRequiredIncomingConfirmations = clnull.Uint32From(
+		run.TaskRuns[i].MinRequiredIncomingConfirmations = null.Uint32From(
 			utils.MaxUint32(
 				config.MinIncomingConfirmations(),
 				task.MinRequiredIncomingConfirmations.Uint32,

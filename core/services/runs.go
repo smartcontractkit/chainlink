@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -66,7 +66,7 @@ func updateTaskRunObservedIncomingConfirmations(currentHeight *utils.Big, jr *mo
 
 	// diff's ceiling is guaranteed to be MaxUint32 since MinRequiredIncomingConfirmations
 	// ceiling is MaxUint32.
-	taskRun.ObservedIncomingConfirmations = clnull.Uint32From(uint32(diff.Int64()))
+	taskRun.ObservedIncomingConfirmations = null.Uint32From(uint32(diff.Int64()))
 }
 
 func invalidRequest(request models.RunRequest, receipt *eth.TxReceipt) bool {

@@ -3,12 +3,12 @@ package migration1568833756
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v3"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be

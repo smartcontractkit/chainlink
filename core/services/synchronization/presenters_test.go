@@ -8,14 +8,13 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v3"
 )
 
 func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
@@ -38,15 +37,15 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 		models.TaskRun{
 			ID:                               task0RunID,
 			Status:                           models.RunStatusPendingIncomingConfirmations,
-			ObservedIncomingConfirmations:    clnull.Uint32From(1),
-			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
+			ObservedIncomingConfirmations:    null.Uint32From(1),
+			MinRequiredIncomingConfirmations: null.Uint32From(3),
 		},
 		models.TaskRun{
 			ID:                               task1RunID,
 			Status:                           models.RunStatusErrored,
 			Result:                           models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
-			ObservedIncomingConfirmations:    clnull.Uint32From(1),
-			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
+			ObservedIncomingConfirmations:    null.Uint32From(1),
+			MinRequiredIncomingConfirmations: null.Uint32From(3),
 		},
 	}
 	p := SyncJobRunPresenter{JobRun: &run}

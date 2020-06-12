@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,6 @@ import (
 	"github.com/shopspring/decimal"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
-	null "gopkg.in/guregu/null.v3"
 )
 
 const (

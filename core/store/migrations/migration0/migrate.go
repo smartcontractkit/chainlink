@@ -4,14 +4,13 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v3"
 )
 
 // Migrate runs the initial migration
@@ -201,7 +200,7 @@ type TaskSpec struct {
 	gorm.Model
 	JobSpecID     string `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
 	Type          string `gorm:"index;not null"`
-	Confirmations clnull.Uint32
+	Confirmations null.Uint32
 	Params        string `gorm:"type:text"`
 }
 

@@ -5,12 +5,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // SyncJobRunPresenter presents a JobRun for synchronization purposes
@@ -141,11 +140,11 @@ type syncInitiatorPresenter struct {
 }
 
 type syncTaskRunPresenter struct {
-	Index                            int           `json:"index"`
-	Type                             string        `json:"type"`
-	Status                           string        `json:"status"`
-	Error                            null.String   `json:"error"`
-	Result                           interface{}   `json:"result,omitempty"`
-	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations"`
-	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations"`
+	Index                            int         `json:"index"`
+	Type                             string      `json:"type"`
+	Status                           string      `json:"status"`
+	Error                            null.String `json:"error"`
+	Result                           interface{} `json:"result,omitempty"`
+	ObservedIncomingConfirmations    null.Uint32 `json:"confirmations"`
+	MinRequiredIncomingConfirmations null.Uint32 `json:"minimumConfirmations"`
 }

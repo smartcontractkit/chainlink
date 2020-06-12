@@ -9,12 +9,11 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
@@ -34,9 +33,9 @@ type InitiatorRequest struct {
 
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
 type TaskSpecRequest struct {
-	Type                             TaskType      `json:"type"`
-	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations"`
-	Params                           JSON          `json:"params"`
+	Type                             TaskType    `json:"type"`
+	MinRequiredIncomingConfirmations null.Uint32 `json:"confirmations"`
+	Params                           JSON        `json:"params"`
 }
 
 // JobSpec is the definition for all the work to be carried out by the node
@@ -353,11 +352,11 @@ type Feeds = JSON
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	ID                               int64         `gorm:"primary_key"`
-	JobSpecID                        *ID           `json:"-"`
-	Type                             TaskType      `json:"type" gorm:"index;not null"`
-	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
-	Params                           JSON          `json:"params" gorm:"type:text"`
+	ID                               int64       `gorm:"primary_key"`
+	JobSpecID                        *ID         `json:"-"`
+	Type                             TaskType    `json:"type" gorm:"index;not null"`
+	MinRequiredIncomingConfirmations null.Uint32 `json:"confirmations" gorm:"column:confirmations"`
+	Params                           JSON        `json:"params" gorm:"type:text"`
 	CreatedAt                        time.Time
 	UpdatedAt                        time.Time
 	DeletedAt                        *time.Time

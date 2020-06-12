@@ -3,12 +3,12 @@ package migration1559081901
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	null "gopkg.in/guregu/null.v3"
 )
 
 func Migrate(tx *gorm.DB) error {

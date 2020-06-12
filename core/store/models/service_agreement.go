@@ -10,11 +10,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	null "gopkg.in/guregu/null.v3"
 )
 
 // Encumbrance connects job specifications with on-chain encumbrances.
