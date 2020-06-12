@@ -424,3 +424,10 @@ export const fetchTransaction = request(
   api.v2.transactions.getTransaction,
   json => normalize(json),
 )
+
+export const deleteJobSpecError = (id: number) =>
+  request(
+    'DELETE_JOB_SPEC_ERROR',
+    api.v2.jobSpecErrors.destroyJobSpecError,
+    normalize,
+  )(id)

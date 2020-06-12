@@ -8,26 +8,29 @@ import { fetchJob } from 'actions'
 import RegionalNav from './RegionalNav'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import List from 'components/JobErrors/List'
+import { deleteJobSpecError } from 'actions'
 
 interface Props {
   jobSpecId: string
   job?: JobSpec
   fetchJob: (id: string) => Promise<any>
+  deleteJobSpecError: (jobSpecErrorId: number) => Promise<any>
 }
 
 export const JobSpecErrors: React.FC<Props> = ({
   jobSpecId,
   job,
   fetchJob,
+  deleteJobSpecError,
 }) => {
   useEffect(() => {
     document.title = 'Job Errors'
     fetchJob(jobSpecId)
   }, [fetchJob, jobSpecId])
 
-  const handleDismiss = (id: number) => {
-    console.log('handleDismiss', id)
-    fetchJob(jobSpecId)
+  const handleDismiss = (jobSpecErrorId: number) => {
+    deleteJobSpecError(jobSpecErrorId)
+    // fetchJob(jobSpecId)
   }
 
   return (
@@ -58,7 +61,7 @@ const mapStateToProps = (state: AppState, ownProps: { match: Match }) => {
 
 export const ConnectedJobSpecErrors = connect(
   mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJob }),
+  matchRouteAndMapDispatchToProps({ fetchJob, deleteJobSpecError }),
 )(JobSpecErrors)
 
 export default ConnectedJobSpecErrors
