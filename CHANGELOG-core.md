@@ -25,6 +25,16 @@ This release contains a number of features aimed at improving the node's reliabi
 - `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
 - `EthHeadTrackerHistoryDepth` specifies how many heads the head tracker should keep in the database. The default is 100. It is not recommended to change this setting.
 
+## [0.8.6] - 2020-06-08
+
+### Added
+
+- The node now logs the eth client RPC calls
+- More reliable Ethereum block header tracking
+- Limit the amount of an HTTP response body that the node will read
+- Make Aggregator contract interface viewable
+- More resilient handling of chain reorganizations
+
 ## [0.8.5] - 2020-06-01
 
 ### Added
