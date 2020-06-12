@@ -52,9 +52,8 @@ func (e *EthTx) TaskType() models.TaskType {
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if store.Config.EnableBulletproofTxManager() {
 		return e.perform(input, store)
-	} else {
-		return e.legacyPerform(input, store)
 	}
+	return e.legacyPerform(input, store)
 }
 
 // TODO(sam): https://www.pivotaltracker.com/story/show/173280188
