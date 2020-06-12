@@ -20,7 +20,6 @@ var (
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
-	_ = abi.U256
 	_ = bind.Bind
 	_ = common.Big1
 	_ = types.BloomLookup
@@ -191,7 +190,7 @@ func (_LinkToken *LinkTokenTransactorRaw) Transact(opts *bind.TransactOpts, meth
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
 //
-// Solidity: function allowance(address _owner, address _spender) constant returns(uint256 remaining)
+// Solidity: function allowance(address _owner, address _spender) view returns(uint256 remaining)
 func (_LinkToken *LinkTokenCaller) Allowance(opts *bind.CallOpts, _owner common.Address, _spender common.Address) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -203,21 +202,21 @@ func (_LinkToken *LinkTokenCaller) Allowance(opts *bind.CallOpts, _owner common.
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
 //
-// Solidity: function allowance(address _owner, address _spender) constant returns(uint256 remaining)
+// Solidity: function allowance(address _owner, address _spender) view returns(uint256 remaining)
 func (_LinkToken *LinkTokenSession) Allowance(_owner common.Address, _spender common.Address) (*big.Int, error) {
 	return _LinkToken.Contract.Allowance(&_LinkToken.CallOpts, _owner, _spender)
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
 //
-// Solidity: function allowance(address _owner, address _spender) constant returns(uint256 remaining)
+// Solidity: function allowance(address _owner, address _spender) view returns(uint256 remaining)
 func (_LinkToken *LinkTokenCallerSession) Allowance(_owner common.Address, _spender common.Address) (*big.Int, error) {
 	return _LinkToken.Contract.Allowance(&_LinkToken.CallOpts, _owner, _spender)
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
 //
-// Solidity: function balanceOf(address _owner) constant returns(uint256 balance)
+// Solidity: function balanceOf(address _owner) view returns(uint256 balance)
 func (_LinkToken *LinkTokenCaller) BalanceOf(opts *bind.CallOpts, _owner common.Address) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -229,21 +228,21 @@ func (_LinkToken *LinkTokenCaller) BalanceOf(opts *bind.CallOpts, _owner common.
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
 //
-// Solidity: function balanceOf(address _owner) constant returns(uint256 balance)
+// Solidity: function balanceOf(address _owner) view returns(uint256 balance)
 func (_LinkToken *LinkTokenSession) BalanceOf(_owner common.Address) (*big.Int, error) {
 	return _LinkToken.Contract.BalanceOf(&_LinkToken.CallOpts, _owner)
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
 //
-// Solidity: function balanceOf(address _owner) constant returns(uint256 balance)
+// Solidity: function balanceOf(address _owner) view returns(uint256 balance)
 func (_LinkToken *LinkTokenCallerSession) BalanceOf(_owner common.Address) (*big.Int, error) {
 	return _LinkToken.Contract.BalanceOf(&_LinkToken.CallOpts, _owner)
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_LinkToken *LinkTokenCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var (
 		ret0 = new(uint8)
@@ -255,21 +254,21 @@ func (_LinkToken *LinkTokenCaller) Decimals(opts *bind.CallOpts) (uint8, error) 
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_LinkToken *LinkTokenSession) Decimals() (uint8, error) {
 	return _LinkToken.Contract.Decimals(&_LinkToken.CallOpts)
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
-// Solidity: function decimals() constant returns(uint8)
+// Solidity: function decimals() view returns(uint8)
 func (_LinkToken *LinkTokenCallerSession) Decimals() (uint8, error) {
 	return _LinkToken.Contract.Decimals(&_LinkToken.CallOpts)
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
-// Solidity: function name() constant returns(string)
+// Solidity: function name() view returns(string)
 func (_LinkToken *LinkTokenCaller) Name(opts *bind.CallOpts) (string, error) {
 	var (
 		ret0 = new(string)
@@ -281,21 +280,21 @@ func (_LinkToken *LinkTokenCaller) Name(opts *bind.CallOpts) (string, error) {
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
-// Solidity: function name() constant returns(string)
+// Solidity: function name() view returns(string)
 func (_LinkToken *LinkTokenSession) Name() (string, error) {
 	return _LinkToken.Contract.Name(&_LinkToken.CallOpts)
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
-// Solidity: function name() constant returns(string)
+// Solidity: function name() view returns(string)
 func (_LinkToken *LinkTokenCallerSession) Name() (string, error) {
 	return _LinkToken.Contract.Name(&_LinkToken.CallOpts)
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
 //
-// Solidity: function symbol() constant returns(string)
+// Solidity: function symbol() view returns(string)
 func (_LinkToken *LinkTokenCaller) Symbol(opts *bind.CallOpts) (string, error) {
 	var (
 		ret0 = new(string)
@@ -307,21 +306,21 @@ func (_LinkToken *LinkTokenCaller) Symbol(opts *bind.CallOpts) (string, error) {
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
 //
-// Solidity: function symbol() constant returns(string)
+// Solidity: function symbol() view returns(string)
 func (_LinkToken *LinkTokenSession) Symbol() (string, error) {
 	return _LinkToken.Contract.Symbol(&_LinkToken.CallOpts)
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
 //
-// Solidity: function symbol() constant returns(string)
+// Solidity: function symbol() view returns(string)
 func (_LinkToken *LinkTokenCallerSession) Symbol() (string, error) {
 	return _LinkToken.Contract.Symbol(&_LinkToken.CallOpts)
 }
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
 //
-// Solidity: function totalSupply() constant returns(uint256)
+// Solidity: function totalSupply() view returns(uint256)
 func (_LinkToken *LinkTokenCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
@@ -333,14 +332,14 @@ func (_LinkToken *LinkTokenCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, e
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
 //
-// Solidity: function totalSupply() constant returns(uint256)
+// Solidity: function totalSupply() view returns(uint256)
 func (_LinkToken *LinkTokenSession) TotalSupply() (*big.Int, error) {
 	return _LinkToken.Contract.TotalSupply(&_LinkToken.CallOpts)
 }
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
 //
-// Solidity: function totalSupply() constant returns(uint256)
+// Solidity: function totalSupply() view returns(uint256)
 func (_LinkToken *LinkTokenCallerSession) TotalSupply() (*big.Int, error) {
 	return _LinkToken.Contract.TotalSupply(&_LinkToken.CallOpts)
 }

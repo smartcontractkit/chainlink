@@ -87,7 +87,7 @@ func (cc *contractCodec) GetMethodID(method string) ([]byte, error) {
 	if !found {
 		return []byte{}, errors.New("unable to find contract method " + method)
 	}
-	return mabi.ID(), nil
+	return mabi.ID, nil
 }
 
 // MustGetV6ContractEventID finds the event for the given contract by searching
@@ -102,7 +102,7 @@ func MustGetV6ContractEventID(name, eventName string) common.Hash {
 	if !found {
 		logger.Panic(fmt.Errorf("unable to find event %s for contract %s", eventName, name))
 	}
-	return event.ID()
+	return event.ID
 }
 
 func (cc *contractCodec) UnpackLog(out interface{}, event string, log Log) error {
