@@ -359,7 +359,7 @@ func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.
 }
 
 // DeleteJobSpecError removes a JobSpecError
-func (orm *ORM) DeleteJobSpecError(ID uint) error {
+func (orm *ORM) DeleteJobSpecError(ID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
 	err := orm.db.Delete(&models.JobSpecError{ID: ID}).Error
 	return err

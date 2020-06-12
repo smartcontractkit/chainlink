@@ -8,7 +8,7 @@ import (
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 		CREATE TABLE "job_spec_errors" (
-			"id" bigserial primary key NOT NULL,
+			"id" uuid primary key NOT NULL,
 			"job_spec_id" uuid REFERENCES job_specs(id) ON DELETE CASCADE NOT NULL,
 			"description" text NOT NULL,
 			"occurances" integer DEFAULT 1 NOT NULL,
