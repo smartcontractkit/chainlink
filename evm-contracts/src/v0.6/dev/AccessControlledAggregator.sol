@@ -1,14 +1,14 @@
 pragma solidity 0.6.6;
 
 import "./FluxAggregator.sol";
-import "./Whitelisted.sol";
+import "./SimpleAccessControl.sol";
 
 /**
- * @title Whitelisted Prepaid Aggregator contract
- * @notice This contract requires addresses to be added to a whitelist
+ * @title AccessControlled FluxAggregator contract
+ * @notice This contract requires addresses to be added to a controller
  * in order to read the answers stored in the FluxAggregator contract
  */
-contract WhitelistedAggregator is FluxAggregator, Whitelisted {
+contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
 
   constructor(
     address _link,
@@ -26,64 +26,64 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
 
   /**
    * @notice get the most recently reported answer
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden funcion to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
-    external
+    public
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (int256)
   {
-    return _latestAnswer();
+    return super.latestAnswer();
   }
 
   /**
    * @notice get the most recent updated at timestamp
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden funcion to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
-    external
+    public
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (uint256)
   {
-    return _latestTimestamp();
+    return super.latestTimestamp();
   }
 
   /**
    * @notice get past rounds answers
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden funcion to add the checkAccess() modifier
    * @param _roundId the round number to retrieve the answer for
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
-    external
+    public
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (int256)
   {
-    return _getAnswer(_roundId);
+    return super.getAnswer(_roundId);
   }
 
   /**
    * @notice get timestamp when an answer was last updated
-   * @dev overridden funcion to add the isWhitelisted() modifier
+   * @dev overridden funcion to add the checkAccess() modifier
    * @param _roundId the round number to retrieve the updated timestamp for
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
-    external
+    public
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (uint256)
   {
-    return _getTimestamp(_roundId);
+    return super.getTimestamp(_roundId);
   }
 
   /**
@@ -105,10 +105,10 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
-    external
+    public
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (
       uint256 roundId,
       int256 answer,
@@ -117,7 +117,7 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
       uint256 answeredInRound
     )
   {
-    return _getRoundData(_roundId);
+    return super.getRoundData(_roundId);
   }
 
   /**
@@ -142,10 +142,10 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
   function latestRoundData()
-    external
+    public
     view
     override
-    isWhitelisted()
+    checkAccess()
     returns (
       uint256 roundId,
       int256 answer,
@@ -154,6 +154,6 @@ contract WhitelistedAggregator is FluxAggregator, Whitelisted {
       uint256 answeredInRound
     )
   {
-    return _latestRoundData();
+    return super.latestRoundData();
   }
 }
