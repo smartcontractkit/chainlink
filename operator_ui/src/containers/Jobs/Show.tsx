@@ -8,7 +8,7 @@ import {
 } from '@material-ui/core'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
-import { fetchJob, fetchJobRuns } from 'actions'
+import { fetchJob, fetchJobRuns } from 'actionCreators'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
