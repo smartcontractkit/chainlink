@@ -19,6 +19,7 @@ import opium from './opium.png'
 import theforceprotocol from './theforceprotocol.png'
 import kyber from './kyber.png'
 import orchid from './orchid.png'
+import tornadoCash from './tornadocash.png'
 
 // Listing Thumbnails
 
@@ -41,6 +42,7 @@ import opiumTn from './opium_tn.png'
 import theforceprotocolTn from './theforceprotocol_tn.png'
 import kyberTn from './kyber_tn.png'
 import orchidTn from './orchid_tn.png'
+import tornadoCashTn from './tornadocash_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -163,5 +165,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://www.orchid.com/',
     imageLg: orchid,
     imageTn: orchidTn,
+  },
+  {
+    name: 'Tornado Cash',
+    url: 'https://tornado.cash',
+    imageLg: tornadoCash,
+    imageTn: tornadoCashTn,
   },
 ]

@@ -895,5 +895,31 @@
     ],
     "threshold": 1,
     "valuePrefix": "$"
+    "compareOffchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
+    "listing": false
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xA417221ef64b1549575C977764E651c9FAB50141",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "healthPrice": "",
+    "heartbeat": 7200,
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000",
+    "name": "Fast Gas / Gwei",
+    "networkId": 1,
+    "pair": [
+      "Fast Gas",
+      "Wei"
+    ],
+    "path": "fast-gas-gwei",
+    "sponsored": [
+      "Tornado Cash"
+    ],
+    "threshold": 25,
+    "valuePrefix": "Ξ"
   }
 ]
