@@ -105,11 +105,11 @@ func withAdvisoryLock(s *strpkg.Store, classID int32, objectID int32, f func() e
 	if err != nil {
 		return errors.Wrap(err, "withAdvisoryLock failed")
 	}
-	defer conn.Close()
+	defer logger.ErrorIfCalling(conn.Close)
 	if err := tryAdvisoryLock(ctx, conn, classID, objectID); err != nil {
 		return err
 	}
-	defer advisoryUnlock(ctx, conn, classID, objectID)
+	defer logger.ErrorIfCalling(func() error { return advisoryUnlock(ctx, conn, classID, objectID) })
 	return f()
 }
 
@@ -119,7 +119,7 @@ func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectI
 	if err != nil {
 		return errors.Wrap(err, "tryAdvisoryLock failed")
 	}
-	defer rows.Close()
+	defer logger.ErrorIfCalling(rows.Close)
 	gotRow := rows.Next()
 	if !gotRow {
 		return errors.New("query unexpectedly returned 0 rows")
