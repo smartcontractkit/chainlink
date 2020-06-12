@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -610,68 +609,6 @@ func TestClient_RemoteLogin(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestClient_WithdrawSuccess(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := setupWithdrawalsApplication(t)
-	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
-
-	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("admin withdraw", 0)
-	set.Parse([]string{"0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C", "1"})
-
-	c := cli.NewContext(nil, set, nil)
-
-	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
-		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	})
-	assert.Nil(t, client.Withdraw(c))
-}
-
-func TestClient_WithdrawNoArgs(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := setupWithdrawalsApplication(t)
-	defer cleanup()
-
-	require.NoError(t, app.StartAndConnect())
-
-	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("admin withdraw", 0)
-	set.Parse([]string{})
-
-	c := cli.NewContext(nil, set, nil)
-
-	wr := client.Withdraw(c)
-	assert.Error(t, wr)
-	assert.Equal(t,
-		"withdraw expects two arguments: an address and an amount",
-		wr.Error())
-}
-
-func TestClient_WithdrawFromSpecifiedContractAddress(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := setupWithdrawalsApplication(t)
-	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
-
-	client, _ := app.NewClientAndRenderer()
-	cliParserRouter := cmd.NewApp(client)
-
-	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_call", "0xDE0B6B3A7640000")
-		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	})
-	assert.Nil(t, cliParserRouter.Run([]string{
-		"chainlink", "admin", "withdraw",
-		"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", "1234",
-		"--from=" +
-			"0x3141592653589793238462643383279502884197"}))
 }
 
 func setupWithdrawalsApplication(t *testing.T) (*cltest.TestApplication, func()) {

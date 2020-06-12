@@ -233,9 +233,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
 
-		w := WithdrawalsController{app}
-		authv2.POST("/withdrawals", w.Create)
-
 		ts := TransfersController{app}
 		authv2.POST("/transfers", ts.Create)
 
