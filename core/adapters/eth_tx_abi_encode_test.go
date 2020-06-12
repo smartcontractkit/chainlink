@@ -71,22 +71,10 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			Name:    "verifyVRFProof",
 			RawName: "verifyVRFProof",
 			Inputs: []abi.Argument{
-				abi.Argument{
-					Name: "gammaX",
-					Type: uint256Type,
-				},
-				abi.Argument{
-					Name: "gammaY",
-					Type: uint256Type,
-				},
-				abi.Argument{
-					Name: "c",
-					Type: uint256Type,
-				},
-				abi.Argument{
-					Name: "s",
-					Type: uint256Type,
-				},
+				{Name: "gammaX", Type: uint256Type},
+				{Name: "gammaY", Type: uint256Type},
+				{Name: "c", Type: uint256Type},
+				{Name: "s", Type: uint256Type},
 			},
 			Outputs: []abi.Argument{},
 		},
