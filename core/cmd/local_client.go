@@ -445,7 +445,7 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	db, err := gorm.Open("postgres", cli.Config.DatabaseURL())
+	db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
 	if err != nil {
 		return cli.errorOut(err)
 	}
