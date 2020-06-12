@@ -4,11 +4,11 @@ import Content from 'components/Content'
 import { JobSpec } from 'operator_ui'
 import { AppState } from 'src/reducers'
 import jobSelector from 'selectors/job'
-import { fetchJob } from 'actions'
+import { fetchJob } from 'actionCreators'
 import RegionalNav from './RegionalNav'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import List from 'components/JobErrors/List'
-import { deleteJobSpecError } from 'actions'
+import { deleteJobSpecError } from 'actionCreators'
 
 interface Props {
   jobSpecId: string

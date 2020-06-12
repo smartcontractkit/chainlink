@@ -1,7 +1,7 @@
 import { KeyValueList, PaddedCard } from '@chainlink/styleguide'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
-import { fetchConfiguration } from 'actions'
+import { fetchConfiguration } from 'actionCreators'
 import Content from 'components/Content'
 import DeleteJobRuns from 'containers/Configuration/DeleteJobRuns'
 import PropTypes from 'prop-types'
