@@ -74,7 +74,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold() + 1
-	safe := confirmed + config.MinOutgoingConfirmations() - 1
+	safe := confirmed + config.MinRequiredOutgoingConfirmations() - 1
 	unconfirmedReceipt := ethpkg.TxReceipt{}
 	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        attempt1Hash,
@@ -152,7 +152,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(thirdTxConfirmedAt),
 	}
-	thirdTxSafeAt := thirdTxSentAt + config.MinOutgoingConfirmations()
+	thirdTxSafeAt := thirdTxSentAt + config.MinRequiredOutgoingConfirmations()
 
 	newHeads := make(chan types.Header)
 	eth := app.EthMock
@@ -634,7 +634,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 
 	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
-		confirmedBlockNumber := blockNumber - app.Store.Config.MinOutgoingConfirmations()
+		confirmedBlockNumber := blockNumber - app.Store.Config.MinRequiredOutgoingConfirmations()
 
 		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 			eth.Register("eth_sendRawTransaction", hash)
@@ -1160,7 +1160,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
 			Hash: cltest.NewHash(),
 			// set the confirmation to avoid messing with the head tracker too
-			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinOutgoingConfirmations())),
+			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinRequiredOutgoingConfirmations())),
 		})
 		eth.Register("eth_getBalance", "0x0100")
 		eth.Register("eth_call", "0x0100")

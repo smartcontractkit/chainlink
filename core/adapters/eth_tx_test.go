@@ -723,7 +723,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, store, 1, cltest.NewHash(), confirmedAttemptHash)
 		require.NoError(t, store.IdempotentInsertHead(models.Head{
 			Hash:   cltest.NewHash(),
-			Number: int64(store.Config.MinOutgoingConfirmations()) + 2,
+			Number: int64(store.Config.MinRequiredOutgoingConfirmations()) + 2,
 		}))
 		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)

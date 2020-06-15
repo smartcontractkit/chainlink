@@ -125,39 +125,39 @@ type ConfigWhitelist struct {
 
 // Whitelist contains the supported environment variables
 type Whitelist struct {
-	AllowOrigins             string          `json:"allowOrigins"`
-	BlockBackfillDepth       uint64          `json:"blockBackfillDepth"`
-	BridgeResponseURL        string          `json:"bridgeResponseURL,omitempty"`
-	ChainID                  *big.Int        `json:"ethChainId"`
-	ClientNodeURL            string          `json:"clientNodeUrl"`
-	DatabaseTimeout          models.Duration `json:"databaseTimeout"`
-	Dev                      bool            `json:"chainlinkDev"`
-	EthereumURL              string          `json:"ethUrl"`
-	EthGasBumpThreshold      uint64          `json:"ethGasBumpThreshold"`
-	EthGasBumpWei            *big.Int        `json:"ethGasBumpWei"`
-	EthGasPriceDefault       *big.Int        `json:"ethGasPriceDefault"`
-	ExplorerURL              string          `json:"explorerUrl"`
-	JSONConsole              bool            `json:"jsonConsole"`
-	LinkContractAddress      string          `json:"linkContractAddress"`
-	LogLevel                 orm.LogLevel    `json:"logLevel"`
-	LogSQLMigrations         bool            `json:"logSqlMigrations"`
-	LogSQLStatements         bool            `json:"logSqlStatements"`
-	LogToDisk                bool            `json:"logToDisk"`
-	MaxRPCCallsPerSecond     uint64          `json:"maxRPCCallsPerSecond"`
-	MinimumContractPayment   *assets.Link    `json:"minimumContractPayment"`
-	MinimumRequestExpiration uint64          `json:"minimumRequestExpiration"`
-	MinIncomingConfirmations uint32          `json:"minIncomingConfirmations"`
-	MinOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
-	OracleContractAddress    *common.Address `json:"oracleContractAddress"`
-	Port                     uint16          `json:"chainlinkPort"`
-	ReaperExpiration         models.Duration `json:"reaperExpiration"`
-	ReplayFromBlock          int64           `json:"replayFromBlock"`
-	RootDir                  string          `json:"root"`
-	SessionTimeout           models.Duration `json:"sessionTimeout"`
-	TLSHost                  string          `json:"chainlinkTLSHost"`
-	TLSPort                  uint16          `json:"chainlinkTLSPort"`
-	TLSRedirect              bool            `json:"chainlinkTLSRedirect"`
-	TxAttemptLimit           uint16          `json:"txAttemptLimit"`
+	AllowOrigins                     string          `json:"allowOrigins"`
+	BlockBackfillDepth               uint64          `json:"blockBackfillDepth"`
+	BridgeResponseURL                string          `json:"bridgeResponseURL,omitempty"`
+	ChainID                          *big.Int        `json:"ethChainId"`
+	ClientNodeURL                    string          `json:"clientNodeUrl"`
+	DatabaseTimeout                  models.Duration `json:"databaseTimeout"`
+	Dev                              bool            `json:"chainlinkDev"`
+	EthereumURL                      string          `json:"ethUrl"`
+	EthGasBumpThreshold              uint64          `json:"ethGasBumpThreshold"`
+	EthGasBumpWei                    *big.Int        `json:"ethGasBumpWei"`
+	EthGasPriceDefault               *big.Int        `json:"ethGasPriceDefault"`
+	ExplorerURL                      string          `json:"explorerUrl"`
+	JSONConsole                      bool            `json:"jsonConsole"`
+	LinkContractAddress              string          `json:"linkContractAddress"`
+	LogLevel                         orm.LogLevel    `json:"logLevel"`
+	LogSQLMigrations                 bool            `json:"logSqlMigrations"`
+	LogSQLStatements                 bool            `json:"logSqlStatements"`
+	LogToDisk                        bool            `json:"logToDisk"`
+	MaxRPCCallsPerSecond             uint64          `json:"maxRPCCallsPerSecond"`
+	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
+	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
+	MinIncomingConfirmations         uint32          `json:"minIncomingConfirmations"`
+	MinRequiredOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
+	OracleContractAddress            *common.Address `json:"oracleContractAddress"`
+	Port                             uint16          `json:"chainlinkPort"`
+	ReaperExpiration                 models.Duration `json:"reaperExpiration"`
+	ReplayFromBlock                  int64           `json:"replayFromBlock"`
+	RootDir                          string          `json:"root"`
+	SessionTimeout                   models.Duration `json:"sessionTimeout"`
+	TLSHost                          string          `json:"chainlinkTLSHost"`
+	TLSPort                          uint16          `json:"chainlinkTLSPort"`
+	TLSRedirect                      bool            `json:"chainlinkTLSRedirect"`
+	TxAttemptLimit                   uint16          `json:"txAttemptLimit"`
 }
 
 // NewConfigWhitelist creates an instance of ConfigWhitelist
@@ -175,39 +175,39 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 	return ConfigWhitelist{
 		AccountAddress: account.Address.Hex(),
 		Whitelist: Whitelist{
-			AllowOrigins:             config.AllowOrigins(),
-			BlockBackfillDepth:       config.BlockBackfillDepth(),
-			BridgeResponseURL:        config.BridgeResponseURL().String(),
-			ChainID:                  config.ChainID(),
-			ClientNodeURL:            config.ClientNodeURL(),
-			Dev:                      config.Dev(),
-			DatabaseTimeout:          config.DatabaseTimeout(),
-			EthereumURL:              config.EthereumURL(),
-			EthGasBumpThreshold:      config.EthGasBumpThreshold(),
-			EthGasBumpWei:            config.EthGasBumpWei(),
-			EthGasPriceDefault:       config.EthGasPriceDefault(),
-			JSONConsole:              config.JSONConsole(),
-			LinkContractAddress:      config.LinkContractAddress(),
-			ExplorerURL:              explorerURL,
-			LogLevel:                 config.LogLevel(),
-			LogToDisk:                config.LogToDisk(),
-			LogSQLStatements:         config.LogSQLStatements(),
-			LogSQLMigrations:         config.LogSQLMigrations(),
-			MaxRPCCallsPerSecond:     config.MaxRPCCallsPerSecond(),
-			MinimumContractPayment:   config.MinimumContractPayment(),
-			MinimumRequestExpiration: config.MinimumRequestExpiration(),
-			MinIncomingConfirmations: config.MinIncomingConfirmations(),
-			MinOutgoingConfirmations: config.MinOutgoingConfirmations(),
-			OracleContractAddress:    config.OracleContractAddress(),
-			Port:                     config.Port(),
-			ReaperExpiration:         config.ReaperExpiration(),
-			ReplayFromBlock:          config.ReplayFromBlock(),
-			RootDir:                  config.RootDir(),
-			SessionTimeout:           config.SessionTimeout(),
-			TLSHost:                  config.TLSHost(),
-			TLSPort:                  config.TLSPort(),
-			TLSRedirect:              config.TLSRedirect(),
-			TxAttemptLimit:           config.TxAttemptLimit(),
+			AllowOrigins:                     config.AllowOrigins(),
+			BlockBackfillDepth:               config.BlockBackfillDepth(),
+			BridgeResponseURL:                config.BridgeResponseURL().String(),
+			ChainID:                          config.ChainID(),
+			ClientNodeURL:                    config.ClientNodeURL(),
+			Dev:                              config.Dev(),
+			DatabaseTimeout:                  config.DatabaseTimeout(),
+			EthereumURL:                      config.EthereumURL(),
+			EthGasBumpThreshold:              config.EthGasBumpThreshold(),
+			EthGasBumpWei:                    config.EthGasBumpWei(),
+			EthGasPriceDefault:               config.EthGasPriceDefault(),
+			JSONConsole:                      config.JSONConsole(),
+			LinkContractAddress:              config.LinkContractAddress(),
+			ExplorerURL:                      explorerURL,
+			LogLevel:                         config.LogLevel(),
+			LogToDisk:                        config.LogToDisk(),
+			LogSQLStatements:                 config.LogSQLStatements(),
+			LogSQLMigrations:                 config.LogSQLMigrations(),
+			MaxRPCCallsPerSecond:             config.MaxRPCCallsPerSecond(),
+			MinimumContractPayment:           config.MinimumContractPayment(),
+			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
+			MinIncomingConfirmations:         config.MinIncomingConfirmations(),
+			MinRequiredOutgoingConfirmations: config.MinRequiredOutgoingConfirmations(),
+			OracleContractAddress:            config.OracleContractAddress(),
+			Port:                             config.Port(),
+			ReaperExpiration:                 config.ReaperExpiration(),
+			ReplayFromBlock:                  config.ReplayFromBlock(),
+			RootDir:                          config.RootDir(),
+			SessionTimeout:                   config.SessionTimeout(),
+			TLSHost:                          config.TLSHost(),
+			TLSPort:                          config.TLSPort(),
+			TLSRedirect:                      config.TLSRedirect(),
+			TxAttemptLimit:                   config.TxAttemptLimit(),
 		},
 	}, nil
 }
