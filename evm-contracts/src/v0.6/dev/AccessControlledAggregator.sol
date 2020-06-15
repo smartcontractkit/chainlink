@@ -14,12 +14,16 @@ contract AccessControlledAggregator is FluxAggregator, SimpleAccessControl {
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
+    int256 _minSubmissionValue,
+    int256 _maxSubmissionValue,
     uint8 _decimals,
     string memory _description
   ) public FluxAggregator(
     _link,
     _paymentAmount,
     _timeout,
+    _minSubmissionValue,
+    _maxSubmissionValue,
     _decimals,
     _description
   ){}
