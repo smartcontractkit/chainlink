@@ -268,6 +268,63 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.Equal(t, models.EthTxConfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 3)
 	})
+
+	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce)
+	attempt3_1 := etx3.EthTxAttempts[0]
+	nonce++
+
+	t.Run("ignores error that comes from querying parity too early", func(t *testing.T) {
+		gethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt3_1.Hash
+		})).Return(nil, errors.New("missing required field 'transactionHash' for Log")).Once()
+
+		// Do the thing
+		require.NoError(t, ec.CheckForReceipts())
+
+		// No receipt, but no error either
+		etx, err := store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, models.EthTxUnconfirmed, etx.State)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt3_1 = etx.EthTxAttempts[0]
+		require.Len(t, attempt3_1.EthReceipts, 0)
+	})
+
+	t.Run("handles case where eth_receipt already exists somehow", func(t *testing.T) {
+		ethReceipt := cltest.MustInsertEthReceipt(t, store, 42, cltest.NewHash(), attempt3_1.Hash)
+
+		gethReceipt := gethTypes.Receipt{
+			TxHash:           attempt3_1.Hash,
+			BlockHash:        ethReceipt.BlockHash,
+			BlockNumber:      big.NewInt(ethReceipt.BlockNumber),
+			TransactionIndex: ethReceipt.TransactionIndex,
+		}
+		gethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt3_1.Hash
+		})).Return(&gethReceipt, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.CheckForReceipts())
+
+		// Check that the receipt was unchanged
+		etx, err := store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, models.EthTxConfirmed, etx.State)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt3_1 = etx.EthTxAttempts[0]
+		require.Len(t, attempt3_1.EthReceipts, 1)
+
+		ethReceipt = attempt3_1.EthReceipts[0]
+
+		assert.Equal(t, gethReceipt.TxHash, ethReceipt.TxHash)
+		assert.Equal(t, gethReceipt.BlockHash, ethReceipt.BlockHash)
+		assert.Equal(t, gethReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
+		assert.Equal(t, gethReceipt.TransactionIndex, ethReceipt.TransactionIndex)
+
+		gethClient.AssertExpectations(t)
+	})
 }
 
 func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
@@ -661,7 +718,8 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		err = ec.BumpGasWhereNecessary(currentHead)
-		require.EqualError(t, err, "some network error")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "some network error")
 
 		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
