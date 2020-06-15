@@ -72,6 +72,9 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   uint8 public override decimals;
   string public override description;
 
+  int256 immutable public minSubmissionValue;
+  int256 immutable public maxSubmissionValue;
+
   uint256 constant public override version = 3;
 
   /**
@@ -138,12 +141,16 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
+    int256 _minSubmissionValue,
+    int256 _maxSubmissionValue,
     uint8 _decimals,
     string memory _description
   ) public {
     linkToken = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
+    minSubmissionValue = _minSubmissionValue;
+    maxSubmissionValue = _maxSubmissionValue;
     decimals = _decimals;
     description = _description;
     rounds[0].updatedAt = uint64(block.timestamp.sub(uint256(_timeout)));
@@ -158,6 +165,8 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     external
   {
     bytes memory error = validateOracleRound(msg.sender, uint32(_roundId));
+    require(_submission >= minSubmissionValue, "value below minSubmissionValue");
+    require(_submission <= maxSubmissionValue, "value above maxSubmissionValue");
     require(error.length == 0, string(error));
 
     oracleInitializeNewRound(uint32(_roundId));

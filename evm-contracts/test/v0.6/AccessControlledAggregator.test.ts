@@ -25,6 +25,8 @@ describe('AccessControlledAggregator', () => {
   const timeout = 1800
   const decimals = 18
   const description = 'LINK/USD'
+  const minSubmissionValue = h.bigNum('1')
+  const maxSubmissionValue = h.bigNum('100000000000000000000')
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<AccessControlledAggregatorFactory>
@@ -38,6 +40,8 @@ describe('AccessControlledAggregator', () => {
         link.address,
         paymentAmount,
         timeout,
+        minSubmissionValue,
+        maxSubmissionValue,
         decimals,
         h.toBytes32String(description),
         // Remove when this PR gets merged:
@@ -74,7 +78,9 @@ describe('AccessControlledAggregator', () => {
       'latestTimestamp',
       'linkToken',
       'maxSubmissionCount',
+      'maxSubmissionValue',
       'minSubmissionCount',
+      'minSubmissionValue',
       'onTokenTransfer',
       'oracleCount',
       'oracleRoundState',
