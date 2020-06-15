@@ -21425,13 +21425,13 @@ react-universal-component@^3.0.2:
     hoist-non-react-statics "^2.2.1"
     prop-types "^15.5.10"
 
-react-universal-component@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.npmjs.org/react-universal-component/-/react-universal-component-4.0.0.tgz#51e74198b98092dff6faf25315091070547ed129"
-  integrity sha512-FOL+1ZDS7Fp6AvUbkTDjttTOGxSRJZaU5M9MX+mm/Uj4/Azq7r2TpFACaUvMxFUYHjDRg2NpKwZDsHvywXMvMg==
+react-universal-component@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.npmjs.org/react-universal-component/-/react-universal-component-4.0.1.tgz#01eec19dafda55ee7cf71f3aeb996c924718cc19"
+  integrity sha512-dm3HT1ITlony+8Mb7m8i6jTD2cpStRGErMdHxYTdIFw1aBiGbuFOwZ1U13bgGT4gssANLRz0KrmjgarBuy+QJQ==
   dependencies:
-    hoist-non-react-statics "^2.2.1"
-    prop-types "^15.5.10"
+    hoist-non-react-statics "^3.3.0"
+    prop-types "^15.7.2"
     react-hot-loader "^4.3.6"
 
 react@^16.13.1, react@^16.8.1, react@^16.8.3:
