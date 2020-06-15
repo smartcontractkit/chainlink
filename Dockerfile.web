@@ -5,7 +5,7 @@ ADD . .
 
 ARG REACT_APP_INFURA_KEY
 ARG REACT_APP_GA_ID
-RUN yarn install
+RUN yarn install --ignore-optional --frozen-lockfile
 RUN yarn workspace @chainlink/feeds run build
 
 FROM node:12.18.0-alpine

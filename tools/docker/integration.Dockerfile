@@ -42,7 +42,7 @@ COPY integration/package.json integration/
 COPY integration-scripts/package.json integration-scripts/
 
 # install deps for our integration scripts
-RUN yarn
+RUN yarn install --frozen-lockfile --ignore-optional
 RUN tools/bin/restore-solc-cache
 # copy our CI test
 COPY tools/ci/ethereum_test tools/ci/

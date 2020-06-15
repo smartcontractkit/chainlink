@@ -14,7 +14,7 @@ COPY tools/local-storage/package.json ./tools/local-storage/
 COPY tools/redux/package.json ./tools/redux/
 COPY tools/ts-helpers/package.json ./tools/ts-helpers/
 COPY styleguide/package.json ./styleguide/
-RUN yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfile --ignore-optional
 
 COPY tsconfig.*.json babel.config.js ./
 COPY explorer ./explorer

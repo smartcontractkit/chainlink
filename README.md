@@ -158,7 +158,7 @@ go test -parallel=1 ./...
 
 ```bash
 cd evm
-yarn install
+yarn install --ignore-optional
 ```
 
 3. Run tests:
