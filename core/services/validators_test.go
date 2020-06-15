@@ -66,6 +66,11 @@ func TestValidateJob(t *testing.T) {
 			models.NewJSONAPIErrorsWith("Cannot set EthTx Task's function selector parameter with a RunLog Initiator"),
 		},
 		{
+			"runlog and ethtx with a fromAddress that doesn't match one of our keys",
+			cltest.MustReadFile(t, "testdata/runlog_ethtx_w_missing_fromAddress_job.json"),
+			models.NewJSONAPIErrorsWith("Cannot set EthTx Task's fromAddress parameter: the node does not have this private key in the database"),
+		},
+		{
 			"runlog with two ethtx tasks",
 			cltest.MustReadFile(t, "testdata/runlog_2_ethlogs_job.json"),
 			models.NewJSONAPIErrorsWith("Cannot RunLog initiated jobs cannot have more than one EthTx Task"),

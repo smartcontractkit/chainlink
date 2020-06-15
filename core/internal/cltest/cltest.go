@@ -64,7 +64,7 @@ const (
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
 	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
-	// Email of the fixture API user
+	// APIEmail is the email of the fixture API user
 	APIEmail = "apiuser@chainlink.test"
 	// Password just a password we use everywhere for testing
 	Password = "password"
@@ -100,8 +100,7 @@ func init() {
 	// a no-op, this should have no negative impact on normal test operation.
 	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
 	// store to use the raw DialectPostgres dialect and setup a one-use database.
-	// See `postgres.go`, specifically the `DropAndCreateThrowawayTestDB` function.
-	// You might also check out the migrations tests for an example on how to do this.
+	// See BootstrapThrowawayORM() as a convenience function to help you do this.
 	txdb.Register("cloudsqlpostgres", "postgres", config.DatabaseURL(), txdb.SavePointOption(nil))
 
 	// Seed the random number generator, otherwise separate modules will take
@@ -1008,15 +1007,16 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 // Head given the value convert it into an Head
 func Head(val interface{}) *models.Head {
 	var h models.Head
+	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), big.NewInt(int64(0)))
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), big.NewInt(int64(0)))
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
 	case int64:
-		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), big.NewInt(int64(0)))
+		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), time)
 	case *big.Int:
-		h = models.NewHead(t, NewHash(), NewHash(), big.NewInt(int64(0)))
+		h = models.NewHead(t, NewHash(), NewHash(), time)
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}

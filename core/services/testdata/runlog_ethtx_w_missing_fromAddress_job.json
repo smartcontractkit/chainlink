@@ -1,0 +1,10 @@
+{
+    "initiators": [{"type": "runLog"}],
+    "tasks": [{"type": "ethtx",
+      "params": {
+        "fromAddress": "0x0f416a5a298f05d386cfe8164f342bec5b5e10d7",
+        "_comment": "This address will not exist as a key in the database"
+      }
+    }]
+  }
+  

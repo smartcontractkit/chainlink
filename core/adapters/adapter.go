@@ -87,8 +87,8 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 	if ba != nil { // task is for native adapter
 		err = unmarshalParams(task.Params, ba)
 	} else { // task is for external adapter
-		bt, err := orm.FindBridge(task.Type)
-		if err != nil {
+		bt, bErr := orm.FindBridge(task.Type)
+		if bErr != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
 		b := Bridge{BridgeType: bt, Params: task.Params}

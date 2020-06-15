@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
@@ -67,6 +69,20 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	return mock
 }
 
+// SimpleGethWrapper offers an easy way to mock the eth client
+type SimpleGethWrapper struct {
+	c eth.GethClient
+}
+
+func NewSimpleGethWrapper(c eth.GethClient) *SimpleGethWrapper {
+	wrapper := SimpleGethWrapper{c: c}
+	return &wrapper
+}
+
+func (wrapper *SimpleGethWrapper) GethClient(f func(c eth.GethClient) error) error {
+	return f(wrapper.c)
+}
+
 // EthMock is a mock ethereum client
 type EthMock struct {
 	Responses      []MockResponse
@@ -77,6 +93,11 @@ type EthMock struct {
 	context        string
 	strict         bool
 	t              testing.TB
+}
+
+// GethClient is a noop, solely needed to conform to GethClientWrapper interface
+func (mock *EthMock) GethClient(f func(c eth.GethClient) error) error {
+	return nil
 }
 
 // Dial mock dial
@@ -269,7 +290,7 @@ func channelFromSubscriptionName(name string) interface{} {
 	case "logs":
 		return make(chan eth.Log)
 	case "newHeads":
-		return make(chan eth.BlockHeader)
+		return make(chan gethTypes.Header)
 	default:
 		return make(chan struct{})
 	}
@@ -289,7 +310,7 @@ func (mock *EthMock) Subscribe(
 			switch channel.(type) {
 			case chan<- eth.Log:
 				fwdLogs(channel, sub.channel)
-			case chan<- eth.BlockHeader:
+			case chan<- gethTypes.Header:
 				fwdHeaders(channel, sub.channel)
 			default:
 				return nil, errors.New("channel type not supported by ethMock")
@@ -313,16 +334,16 @@ func (mock *EthMock) Subscribe(
 }
 
 // RegisterNewHeads registers a newheads subscription
-func (mock *EthMock) RegisterNewHeads() chan eth.BlockHeader {
-	newHeads := make(chan eth.BlockHeader, 10)
+func (mock *EthMock) RegisterNewHeads() chan gethTypes.Header {
+	newHeads := make(chan gethTypes.Header, 10)
 	mock.RegisterSubscription("newHeads", newHeads)
 	return newHeads
 }
 
 // RegisterNewHead register new head at given blocknumber
-func (mock *EthMock) RegisterNewHead(blockNumber int64) chan eth.BlockHeader {
+func (mock *EthMock) RegisterNewHead(blockNumber int64) chan gethTypes.Header {
 	newHeads := mock.RegisterNewHeads()
-	newHeads <- eth.BlockHeader{Number: BigHexInt(blockNumber)}
+	newHeads <- gethTypes.Header{Number: big.NewInt(blockNumber)}
 	return newHeads
 }
 
@@ -337,8 +358,8 @@ func fwdLogs(actual, mock interface{}) {
 }
 
 func fwdHeaders(actual, mock interface{}) {
-	logChan := actual.(chan<- eth.BlockHeader)
-	mockChan := mock.(chan eth.BlockHeader)
+	logChan := actual.(chan<- gethTypes.Header)
+	mockChan := mock.(chan gethTypes.Header)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -377,8 +398,8 @@ func (mes *MockSubscription) Unsubscribe() {
 		close(mes.channel.(chan struct{}))
 	case chan eth.Log:
 		close(mes.channel.(chan eth.Log))
-	case chan eth.BlockHeader:
-		close(mes.channel.(chan eth.BlockHeader))
+	case chan gethTypes.Header:
+		close(mes.channel.(chan gethTypes.Header))
 	default:
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}

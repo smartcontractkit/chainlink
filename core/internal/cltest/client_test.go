@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/eth"
 )
 
@@ -15,12 +16,12 @@ func assertFieldsMatch(t *testing.T, fields []string,
 	structReflection := reflect.ValueOf(object).Elem()
 	assert.Equal(t, len(fields), structReflection.NumField(),
 		"number of fields in eth.Log has changed; "+
-			"please update chainlinkEthLogFromGethLog")
+			"please update %s", targetMethod)
 	type_ := structReflection.Type()
 	for i, field := range fields {
 		assert.Equal(t, field, type_.Field(i).Name, "fields in %s have "+
-			"changed; please update chainlinkEthLogFromGethLog",
-			structReflection.Type().Name, targetMethod)
+			"changed; please update %s",
+			structReflection.Type().Name(), targetMethod)
 	}
 }
 
@@ -45,6 +46,6 @@ func TestGetBlockByNumberGetsAllFields(t *testing.T) {
 func TestSubscribeToNewHeadsGetsAllFields(t *testing.T) {
 	fields := []string{"ParentHash", "UncleHash", "Coinbase", "Root", "TxHash",
 		"ReceiptHash", "Bloom", "Difficulty", "Number", "GasLimit", "GasUsed",
-		"Time", "Extra", "Nonce", "GethHash", "ParityHash"}
-	assertFieldsMatch(t, fields, &eth.BlockHeader{}, "SubscribeToNewHeads")
+		"Time", "Extra", "MixDigest", "Nonce"}
+	assertFieldsMatch(t, fields, &gethTypes.Header{}, "SubscribeToNewHeads")
 }

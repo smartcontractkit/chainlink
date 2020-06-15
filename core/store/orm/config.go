@@ -60,7 +60,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		item := schemaT.FieldByIndex([]int{index})
 		name := item.Tag.Get("env")
 		v.SetDefault(name, item.Tag.Get("default"))
-		v.BindEnv(name, name)
+		_ = v.BindEnv(name, name)
 	}
 
 	config := &Config{
@@ -93,6 +93,9 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
+	if c.EthHeadTrackerHistoryDepth() < c.EthFinalityDepth() {
+		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
+	}
 	return nil
 }
 
@@ -121,17 +124,15 @@ const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
 func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
 	if c.AdvisoryLockID == 0 {
 		return defaultPostgresAdvisoryLockID
-	} else {
-		return c.AdvisoryLockID
 	}
+	return c.AdvisoryLockID
 }
 
 func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
 	if c.Dialect == "" {
 		return DialectPostgres
-	} else {
-		return c.Dialect
 	}
+	return c.Dialect
 }
 
 // AllowOrigins returns the CORS hosts used by the frontend.
@@ -210,6 +211,12 @@ func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
 }
 
+// EnableBulletproofTxManager uses the new tx manager for ethtx tasks. Careful,
+// toggling this on and off could cause transactions to become lost
+func (c Config) EnableBulletproofTxManager() bool {
+	return c.viper.GetBool(EnvVarName("EnableBulletproofTxManager"))
+}
+
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
@@ -283,6 +290,23 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 		return errors.New("No runtime store installed")
 	}
 	return c.runtimeStore.SetConfigValue("EthGasPriceDefault", value)
+}
+
+// EthFinalityDepth is the number of blocks after which an ethereum transaction is considered "final"
+// BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
+// There is not a large performance penalty to setting this relatively high (on the order of hundreds)
+// It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
+// If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
+// Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
+func (c Config) EthFinalityDepth() uint {
+	return c.viper.GetUint(EnvVarName("EthFinalityDepth"))
+}
+
+// EthHeadTrackerBlocksToKeep is the number of heads to keep in the `heads` database table.
+// This number should be at least as large as `EthFinalityDepth`.
+// There may be a small performance penalty to setting this to something very large (10,000+)
+func (c Config) EthHeadTrackerHistoryDepth() uint {
+	return c.viper.GetUint(EnvVarName("EthHeadTrackerHistoryDepth"))
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
@@ -394,9 +418,9 @@ func (c Config) MinIncomingConfirmations() uint32 {
 	return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
 }
 
-// MinOutgoingConfirmations represents the minimum number of block
-// confirmations that need to be recorded on an outgoing transaction before a
-// task is completed.
+// MinOutgoingConfirmations represents the default minimum number of block
+// confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
+// This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
 func (c Config) MinOutgoingConfirmations() uint64 {
 	return c.viper.GetUint64(EnvVarName("MinOutgoingConfirmations"))
 }

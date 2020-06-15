@@ -240,3 +240,18 @@ func TestBig_ScanErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestBig_BigIntSliceMax(t *testing.T) {
+	unsorted := BigIntSlice([]*big.Int{
+		big.NewInt(5),
+		big.NewInt(7),
+		big.NewInt(2),
+		big.NewInt(9),
+		big.NewInt(4),
+		big.NewInt(5),
+	})
+
+	assert.Equal(t, big.NewInt(9), unsorted.Max())
+	// Check it didn't get mutated by the sort
+	assert.Equal(t, big.NewInt(5), unsorted[0])
+}

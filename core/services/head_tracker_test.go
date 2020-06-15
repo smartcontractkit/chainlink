@@ -6,14 +6,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -49,6 +48,7 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
+	store.Config.Set("ETH_HEAD_TRACKER_HISTORY_DEPTH", 100)
 	defer cleanup()
 
 	cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
@@ -139,7 +139,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	headers := make(chan eth.BlockHeader)
+	headers := make(chan gethTypes.Header)
 	mocketh.RegisterSubscription("newHeads", headers)
 	mocketh.Register("eth_chainId", store.Config.ChainID())
 
@@ -148,7 +148,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
-	headers <- eth.BlockHeader{Number: cltest.BigHexInt(1)}
+	headers <- gethTypes.Header{Number: big.NewInt(1)}
 	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
@@ -201,7 +201,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
-	headers := make(chan eth.BlockHeader)
+	headers := make(chan gethTypes.Header)
 	mocketh.RegisterSubscription("newHeads", headers)
 
 	lastSavedBN := big.NewInt(1)
@@ -213,10 +213,10 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	}}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash(), cltest.NewHash(), big.NewInt(0))))
+	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash(), cltest.NewHash(), 0)))
 
 	assert.Nil(t, ht.Start())
-	headers <- eth.BlockHeader{Number: hexutil.Big(*currentBN)}
+	headers <- gethTypes.Header{Number: currentBN}
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 
 	connectedBN := connectedValue.Load().(*big.Int)
@@ -240,7 +240,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	checker := new(mocks.HeadTrackable)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	headers := make(chan eth.BlockHeader)
+	headers := make(chan gethTypes.Header)
 	mocketh.RegisterSubscription("newHeads", headers)
 	mocketh.Register("eth_chainId", store.Config.ChainID())
 
@@ -252,24 +252,25 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	assert.Nil(t, ht.Start())
 
 	lastHead := make(chan struct{})
-	blockHeaders := []eth.BlockHeader{}
+	blockHeaders := []gethTypes.Header{}
 
 	// First block comes in
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(1), ParentHash: cltest.NewHash(), GethHash: cltest.NewHash(), Time: cltest.BigHexInt(1)})
+	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(1), ParentHash: cltest.NewHash(), Time: 1})
 	// Blocks 2 and 3 are out of order
-	block2Hash := cltest.NewHash()
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(3), ParentHash: block2Hash, GethHash: cltest.NewHash(), Time: cltest.BigHexInt(3)})
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(2), ParentHash: blockHeaders[0].Hash(), GethHash: block2Hash, Time: cltest.BigHexInt(2)})
+	head2 := gethTypes.Header{Number: big.NewInt(2), ParentHash: blockHeaders[0].Hash(), Time: 2}
+	head3 := gethTypes.Header{Number: big.NewInt(3), ParentHash: head2.Hash(), Time: 3}
+	blockHeaders = append(blockHeaders, head3)
+	blockHeaders = append(blockHeaders, head2)
 	// Block 4 comes in
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(4), ParentHash: blockHeaders[1].Hash(), GethHash: cltest.NewHash(), Time: cltest.BigHexInt(4)})
+	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[1].Hash(), Time: 4})
 	// Another block at level 4 comes in, that will be uncled
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(4), ParentHash: blockHeaders[1].Hash(), GethHash: cltest.NewHash(), Time: cltest.BigHexInt(5)})
+	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[1].Hash(), Time: 5})
 	// Reorg happened forking from block 2
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(2), ParentHash: blockHeaders[0].Hash(), GethHash: cltest.NewHash(), Time: cltest.BigHexInt(6)})
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(3), ParentHash: blockHeaders[5].Hash(), GethHash: cltest.NewHash(), Time: cltest.BigHexInt(7)})
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(4), ParentHash: blockHeaders[6].Hash(), GethHash: cltest.NewHash(), Time: cltest.BigHexInt(8)})
+	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(2), ParentHash: blockHeaders[0].Hash(), Time: 6})
+	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(3), ParentHash: blockHeaders[5].Hash(), Time: 7})
+	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[6].Hash(), Time: 8})
 	// Now the new chain is longer
-	blockHeaders = append(blockHeaders, eth.BlockHeader{Number: cltest.BigHexInt(5), ParentHash: blockHeaders[7].Hash(), GethHash: cltest.NewHash(), Time: cltest.BigHexInt(9)})
+	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(5), ParentHash: blockHeaders[7].Hash(), Time: 9})
 
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
 		return h.Number == 1 && h.Hash == blockHeaders[0].Hash()
@@ -322,8 +323,8 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, c)
 		assert.Equal(t, c.ParentHash, h.ParentHash)
-		assert.Equal(t, c.Timestamp.Unix(), h.Time.ToInt().Int64())
-		assert.Equal(t, c.Number, h.Number.ToInt().Int64())
+		assert.Equal(t, c.Timestamp.Unix(), int64(h.Time))
+		assert.Equal(t, c.Number, h.Number.Int64())
 	}
 
 	checker.AssertExpectations(t)

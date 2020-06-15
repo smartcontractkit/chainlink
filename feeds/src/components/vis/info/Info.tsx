@@ -72,7 +72,6 @@ const Info: React.FC<Props> = ({
           {config.name} aggregation
         </h1>
       </div>
-
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
           Latest and trusted answer{' '}
@@ -84,20 +83,20 @@ const Info: React.FC<Props> = ({
           {config.valuePrefix || ''} {latestAnswer || '...'}
         </h2>
       </div>
-
-      <div className="network-graph-info__item">
-        <div className="network-graph-info__item--label">
-          Primary Aggregation Parameter{' '}
-          <TooltipQuestion
-            title={`A new trusted answer is written when the off-chain price moves more than the deviation threshold`}
-          />
+      {config.threshold && (
+        <div className="network-graph-info__item">
+          <div className="network-graph-info__item--label">
+            Primary Aggregation Parameter{' '}
+            <TooltipQuestion
+              title={`A new trusted answer is written when the off-chain price moves more than the deviation threshold`}
+            />
+          </div>
+          <h2 className="network-graph-info__item--value">
+            Deviation Threshold: <Percent value={config.threshold} />
+          </h2>
         </div>
-        <h2 className="network-graph-info__item--value">
-          Deviation Threshold: <Percent value={config.threshold} />
-        </h2>
-      </div>
-
-      {config.heartbeat && (
+      )}
+      {config.heartbeat ? (
         <div className="network-graph-info__item">
           <div className="network-graph-info__item--label">
             Secondary Aggregation Parameter{' '}
@@ -113,8 +112,7 @@ const Info: React.FC<Props> = ({
             />
           </h2>
         </div>
-      )}
-
+      ) : null}
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
           Oracle responses (minimum {minimumAnswers || '...'}){' '}
@@ -127,7 +125,6 @@ const Info: React.FC<Props> = ({
           {getCurrentResponses()}
         </h2>
       </div>
-
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
           Update date {updateDate}{' '}

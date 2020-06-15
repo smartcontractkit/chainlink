@@ -29,7 +29,12 @@ const AnswerHistory: React.FC<Props> = ({ answerHistory, config }) => {
     <>
       <div className="answer-history">
         <div className="answer-history-header">
-          <h2>24h Price history {!answerHistory && <Icon type="loading" />}</h2>
+          <h2>
+            {config.historyDays && config.historyDays > 1
+              ? `Last ${config.historyDays} days history chart`
+              : '24h Price history'}{' '}
+            {!answerHistory && <Icon type="loading" />}
+          </h2>
         </div>
         <div className="answer-history-graph"></div>
       </div>

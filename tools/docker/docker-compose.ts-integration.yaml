@@ -30,7 +30,6 @@ services:
       - NODE_1_CONTAINER
       - NODE_2_CONTAINER
       - SRCROOT
-      - DOCKER_API_VERSION
     secrets:
       - apicredentials
 

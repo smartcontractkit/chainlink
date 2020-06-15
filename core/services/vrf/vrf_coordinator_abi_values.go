@@ -76,9 +76,9 @@ func readCoordinatorABI() {
 		panic(fmt.Errorf("could not find method %s in VRFCoordinator ABI",
 			fulfillMethodName))
 	}
-	v.fulfillSelector = hexutil.Encode(v.fulfillMethod.ID())
+	v.fulfillSelector = hexutil.Encode(v.fulfillMethod.ID)
 	randomnessRequestABI := v.coordinatorABI.Events["RandomnessRequest"]
-	v.randomnessRequestLogTopic = randomnessRequestABI.ID()
+	v.randomnessRequestLogTopic = randomnessRequestABI.ID
 	for _, arg := range randomnessRequestABI.Inputs {
 		if !arg.Indexed {
 			v.randomnessRequestRawDataArgs = append(v.randomnessRequestRawDataArgs, arg)

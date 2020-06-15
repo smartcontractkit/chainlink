@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/pkg/errors"
 )
 
@@ -51,7 +53,7 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer logger.ErrorIfCalling(f.Close)
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
 		return err
@@ -67,13 +69,13 @@ func CopyFileWithMaxPerms(srcPath, dstPath string, perms os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer src.Close()
+	defer logger.ErrorIfCalling(src.Close)
 
 	dst, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer logger.ErrorIfCalling(dst.Close)
 
 	err = EnsureFileMaxPerms(dst, perms)
 	if err != nil {
@@ -105,7 +107,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer logger.ErrorIfCalling(dst.Close)
 
 	return EnsureFileMaxPerms(dst, perms)
 }
@@ -116,7 +118,7 @@ func FilesInDir(dir string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	defer f.Close()
+	defer logger.ErrorIfCalling(f.Close)
 
 	r, err := f.Readdirnames(-1)
 	if err != nil {

@@ -3,10 +3,13 @@
 package logger
 
 import (
+	stderr "errors"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
+	"reflect"
+	"runtime"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -57,7 +60,16 @@ func (l *Logger) Write(b []byte) (int, error) {
 // SetLogger sets the internal logger to the given input.
 func SetLogger(zl *zap.Logger) {
 	if logger != nil {
-		defer logger.Sync()
+		defer func() {
+			if err := logger.Sync(); err != nil {
+				if stderr.Unwrap(err).Error() != os.ErrInvalid.Error() &&
+					stderr.Unwrap(err).Error() != "inappropriate ioctl for device" &&
+					stderr.Unwrap(err).Error() != "bad file descriptor" {
+					// logger.Sync() will return 'invalid argument' error when closing file
+					log.Fatalf("failed to sync logger %+v", err)
+				}
+			}
+		}()
 	}
 	logger = &Logger{zl.Sugar()}
 }
@@ -159,6 +171,19 @@ func ErrorIf(err error, optionalMsg ...string) {
 			logger.Error(errors.Wrap(err, optionalMsg[0]))
 		} else {
 			logger.Error(err)
+		}
+	}
+}
+
+// ErrorIfCalling calls the given function and logs the error of it if there is.
+func ErrorIfCalling(f func() error, optionalMsg ...string) {
+	err := f()
+	if err != nil {
+		e := errors.Wrap(err, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		if len(optionalMsg) > 0 {
+			logger.Error(errors.Wrap(e, optionalMsg[0]))
+		} else {
+			logger.Error(e)
 		}
 	}
 }
