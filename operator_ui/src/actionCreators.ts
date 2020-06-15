@@ -27,6 +27,8 @@ type Errors =
   | jsonapi.ServerError
   | jsonapi.UnknownResponseError
 
+type RestAction = 'UPSERT' | 'DELETE'
+
 const createErrorAction = (error: Error, type: string) => ({
   type,
   error: error.stack,
@@ -304,6 +306,7 @@ interface UpsertAction<TNormalizedData> extends Action<string> {
  * @template TApiResp The response of the `requestData` function, will be inferred from `requestData` parameter
  *
  * @param type The action type field to be dispatched
+ * @param prefix A prefix to apply to the request actions to signify the REST action
  * @param requestData A function that outputs the data to be normalized and dispatched
  * @param normalizeData A function that normalizes the data returned by the requester function to be dispatched into an upsert action
  */
@@ -313,6 +316,7 @@ function request<
   TApiResp extends Promise<any>
 >(
   type: string, // CHECKME -- stricten this type when we can
+  prefix: RestAction,
   requestData: (...args: TApiArgs) => TApiResp,
   normalizeData: (dataToNormalize: UnboxPromise<TApiResp>) => TNormalizedData,
 ): (
@@ -323,22 +327,58 @@ function request<
   void,
   UpsertAction<TNormalizedData> | Action<string>
 > {
+  const requestType =
+    prefix === 'UPSERT' ? `REQUEST_${type}` : `REQUEST_${prefix}_${type}`
+  const responseType =
+    prefix === 'UPSERT' ? `RESPONSE_${type}` : `RESPONSE_${prefix}_${type}`
+  const successType = `${prefix}_${type}`
+
   return (...args: TApiArgs) => {
     return dispatch => {
-      dispatch({ type: `REQUEST_${type}` })
+      dispatch({ type: requestType })
 
       return requestData(...args)
         .then(json => {
           const data = normalizeData(json)
-          dispatch({ type: `UPSERT_${type}`, data })
+          dispatch({ type: successType, data })
         })
         .catch(handleError(dispatch))
-        .finally(() => dispatch({ type: `RESPONSE_${type}` }))
+        .finally(() => dispatch({ type: responseType }))
     }
   }
 }
 
-export const fetchAccountBalance = request(
+/**
+ * requestFetch calls the request action creator, specifying 'UPSERT' as the action prefix
+ *
+ * @param type The action type field to be dispatched
+ * @param requestData A function that outputs the data to be normalized and dispatched
+ * @param normalizeData A function that normalizes the data returned by the requester function to be dispatched into an upsert action
+ */
+function requestFetch(
+  type: Parameters<typeof request>[0],
+  requestData: Parameters<typeof request>[2],
+  normalizeData: Parameters<typeof request>[3],
+): ReturnType<typeof request> {
+  return request(type, 'UPSERT', requestData, normalizeData)
+}
+
+/**
+ * requestDelete calls the request action creator, specifying 'DELETE' as the action prefix
+ *
+ * @param type The action type field to be dispatched
+ * @param requestData A function that outputs the data to be normalized and dispatched
+ * @param normalizeData A function that normalizes the data returned by the requester function to be dispatched into an upsert action
+ */
+function requestDelete(
+  type: Parameters<typeof request>[0],
+  requestData: Parameters<typeof request>[2],
+  normalizeData: Parameters<typeof request>[3],
+): ReturnType<typeof request> {
+  return request(type, 'DELETE', requestData, normalizeData)
+}
+
+export const fetchAccountBalance = requestFetch(
   'ACCOUNT_BALANCE',
   api.v2.user.balances.getAccountBalances,
   json =>
@@ -351,83 +391,85 @@ export type NormalizedAccountBalance = GetNormalizedData<
   typeof fetchAccountBalance
 >
 
-export const fetchConfiguration = request(
+export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
   normalize,
 )
 
-export const fetchBridges = request(
+export const fetchBridges = requestFetch(
   'BRIDGES',
   api.v2.bridgeTypes.getBridges,
   json => normalize(json, { endpoint: 'currentPageBridges' }),
 )
 
-export const fetchBridgeSpec = request(
+export const fetchBridgeSpec = requestFetch(
   'BRIDGE',
   api.v2.bridgeTypes.getBridgeSpec,
   json => normalize(json),
 )
 
-export const fetchJobs = request('JOBS', api.v2.specs.getJobSpecs, json =>
+export const fetchJobs = requestFetch('JOBS', api.v2.specs.getJobSpecs, json =>
   normalize(json, { endpoint: 'currentPageJobs' }),
 )
 
-export const fetchRecentlyCreatedJobs = request(
+export const fetchRecentlyCreatedJobs = requestFetch(
   'RECENTLY_CREATED_JOBS',
   api.v2.specs.getRecentJobSpecs,
   json => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
 )
 
-export const fetchJob = request('JOB', api.v2.specs.getJobSpec, json =>
+export const fetchJob = requestFetch('JOB', api.v2.specs.getJobSpec, json =>
   normalize(json, { camelizeKeys: false }),
 )
 
-export const fetchJobRuns = request(
+export const fetchJobRuns = requestFetch(
   'JOB_RUNS',
   api.v2.runs.getJobSpecRuns,
   json => normalize(json, { endpoint: 'currentPageJobRuns' }),
 )
 
-export const fetchRecentJobRuns = request(
+export const fetchRecentJobRuns = requestFetch(
   'RECENT_JOB_RUNS',
   api.v2.runs.getRecentJobRuns,
   json => normalize(json, { endpoint: 'recentJobRuns' }),
 )
 
-export const fetchJobRun = request('JOB_RUN', api.v2.runs.getJobSpecRun, json =>
-  normalize(json, { camelizeKeys: false }),
+export const fetchJobRun = requestFetch(
+  'JOB_RUN',
+  api.v2.runs.getJobSpecRun,
+  json => normalize(json, { camelizeKeys: false }),
 )
 
 export const deleteCompletedJobRuns = (updatedBefore: string) =>
-  request(
-    'DELETE_COMPLETED_JOB_RUNS',
+  requestDelete(
+    'COMPLETED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
   )({ status: [RunStatus.COMPLETED], updatedBefore })
 
 export const deleteErroredJobRuns = (updatedBefore: string) =>
-  request(
-    'DELETE_ERRORED_JOB_RUNS',
+  requestDelete(
+    'ERRORED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
   )({ status: [RunStatus.ERRORED], updatedBefore })
 
-export const fetchTransactions = request(
+export const fetchTransactions = requestFetch(
   'TRANSACTIONS',
   api.v2.transactions.getTransactions,
   json => normalize(json, { endpoint: 'currentPageTransactions' }),
 )
 
-export const fetchTransaction = request(
+export const fetchTransaction = requestFetch(
   'TRANSACTION',
   api.v2.transactions.getTransaction,
   json => normalize(json),
 )
 
-export const deleteJobSpecError = (id: number) =>
-  request(
-    'DELETE_JOB_SPEC_ERROR',
+export const deleteJobSpecError = (id: string, jobSpecID: string) =>
+  requestDelete(
+    'JOB_SPEC_ERROR',
     api.v2.jobSpecErrors.destroyJobSpecError,
-    normalize,
+    _ => ({ id, jobSpecID }), // no data returned from api, just dispatch error & job ids
   )(id)

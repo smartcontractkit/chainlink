@@ -1,6 +1,7 @@
 import { Reducer } from 'redux'
 import pickBy from 'lodash/pickBy'
 import { Actions, ResourceActionType } from './actions'
+import { JobSpec } from 'operator_ui'
 
 export interface State {
   items: Record<string, any>
@@ -49,6 +50,18 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
     }
     case ResourceActionType.RECEIVE_DELETE_SUCCESS: {
       const items = pickBy(state.items, i => i.id !== action.id)
+
+      return { ...state, items }
+    }
+    case ResourceActionType.DELETE_JOB_SPEC_ERROR: {
+      const resource = state.items[action.data.jobSpecID]
+      const attributes: JobSpec = resource.attributes
+      const newErrors = attributes.errors.filter(
+        error => error.id != action.data.id,
+      )
+      const newAttributes = { ...attributes, errors: newErrors }
+      const newResource = { ...resource, attributes: newAttributes }
+      const items = { ...state.items, [action.data.jobSpecID]: newResource }
 
       return { ...state, items }
     }

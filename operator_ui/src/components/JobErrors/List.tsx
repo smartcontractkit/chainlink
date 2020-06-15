@@ -11,16 +11,16 @@ import { JobSpecError } from 'operator_ui'
 import Button from '../../components/Button'
 
 const HEADERS = ['Occurances', 'Created', 'Last Seen', 'Message', 'Actions']
-type dismissHandler = (id: number) => void
+type DismissHandler = (id: string) => void
 
 function renderBody(
   errors: JobSpecError[] | undefined,
-  dismiss: dismissHandler,
+  dismiss: DismissHandler,
 ) {
   if (errors && errors.length === 0) {
     return (
       <TableRow>
-        <TableCell component="th" scope="row" colSpan={3}>
+        <TableCell component="th" scope="row" colSpan={5}>
           No errors
         </TableCell>
       </TableRow>
@@ -66,7 +66,7 @@ function renderBody(
 
   return (
     <TableRow>
-      <TableCell component="th" scope="row" colSpan={3}>
+      <TableCell component="th" scope="row" colSpan={5}>
         Loading...
       </TableCell>
     </TableRow>
@@ -85,7 +85,7 @@ function renderHeaders() {
 
 interface Props {
   errors?: JobSpecError[]
-  dismiss: dismissHandler
+  dismiss: DismissHandler
 }
 
 export const List: React.FC<Props> = ({ errors, dismiss }) => {

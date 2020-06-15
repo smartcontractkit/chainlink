@@ -14,7 +14,7 @@ interface Props {
   jobSpecId: string
   job?: JobSpec
   fetchJob: (id: string) => Promise<any>
-  deleteJobSpecError: (jobSpecErrorId: number) => Promise<any>
+  deleteJobSpecError: typeof deleteJobSpecError
 }
 
 export const JobSpecErrors: React.FC<Props> = ({
@@ -28,9 +28,8 @@ export const JobSpecErrors: React.FC<Props> = ({
     fetchJob(jobSpecId)
   }, [fetchJob, jobSpecId])
 
-  const handleDismiss = (jobSpecErrorId: number) => {
-    deleteJobSpecError(jobSpecErrorId)
-    // fetchJob(jobSpecId)
+  const handleDismiss = (jobSpecErrorId: string) => {
+    deleteJobSpecError(jobSpecErrorId, jobSpecId)
   }
 
   return (
