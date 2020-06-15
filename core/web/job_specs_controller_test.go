@@ -526,7 +526,7 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
-	err := app.Store.CreateErrorFor(j.ID, "job spec error description")
+	err := app.Store.UpsertErrorFor(j.ID, "job spec error description")
 	assert.NoError(t, err)
 
 	jr1 := cltest.NewJobRun(j)

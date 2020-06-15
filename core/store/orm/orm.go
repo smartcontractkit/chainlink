@@ -331,7 +331,7 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 
 // UpsertErrorFor upserts a JobSpecError record, incrementing the occurances counter by 1
 // if the record is found
-func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
+func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) error {
 	orm.MustEnsureAdvisoryLock()
 	err := func() error {
 		foundJobSpecErr, found, err := orm.FindJobSpecError(jobID, description)
@@ -346,8 +346,9 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 		}
 	}()
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Unable to create JobSpecError: %v", err))
+		return errors.Wrap(err, "Unable to create JobSpecError")
 	}
+	return nil
 }
 
 // FindJobSpecError looks for a JobSpecError record with the given jobID and description
