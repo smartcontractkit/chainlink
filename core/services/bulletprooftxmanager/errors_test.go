@@ -39,7 +39,14 @@ func TestBulletproofTxManager_Errors(t *testing.T) {
 	assert.False(t, randomError.IsTransactionAlreadyInMempool())
 
 	// Geth
+	// I have seen this in log output
 	err = bulletprooftxmanager.NewSendError("known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960")
+	assert.True(t, err.IsTransactionAlreadyInMempool())
+	// This comes from the geth source - https://github.com/ethereum/go-ethereum/blob/eb9d7d15ecf08cd5104e01a8af64489f01f700b0/core/tx_pool.go#L57
+	err = bulletprooftxmanager.NewSendError("already known")
+	assert.True(t, err.IsTransactionAlreadyInMempool())
+	// This one is present in the light client (?!)
+	err = bulletprooftxmanager.NewSendError("Known transaction (7f65)")
 	assert.True(t, err.IsTransactionAlreadyInMempool())
 	// Parity
 	s = "Transaction with the same hash was already imported."
