@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	gethClient "github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -30,16 +31,28 @@ const (
 	AutoMigrate = "auto_migrate"
 )
 
+type GethClientWrapper interface {
+	GethClient(func(gethClient eth.GethClient) error) error
+}
+
+// NotifyNewEthTx allows to notify the ethBroadcaster of a new transaction
+//go:generate mockery -name NotifyNewEthTx -output ../internal/mocks/ -case=underscore
+type NotifyNewEthTx interface {
+	Trigger()
+}
+
 // Store contains fields for the database, Config, KeyStore, and TxManager
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config      *orm.Config
-	Clock       utils.AfterNower
-	KeyStore    KeyStoreInterface
-	VRFKeyStore *VRFKeyStore
-	TxManager   TxManager
-	closeOnce   *sync.Once
+	Config            *orm.Config
+	Clock             utils.AfterNower
+	KeyStore          KeyStoreInterface
+	VRFKeyStore       *VRFKeyStore
+	TxManager         TxManager
+	GethClientWrapper GethClientWrapper
+	NotifyNewEthTx    NotifyNewEthTx
+	closeOnce         *sync.Once
 }
 
 type lazyRPCWrapper struct {
@@ -88,6 +101,22 @@ func (wrapper *lazyRPCWrapper) lazyDialInitializer() error {
 	return nil
 }
 
+// GethClient allows callers to access go-ethereum's ethclient through the
+// wrapper's rate limiting
+func (wrapper *lazyRPCWrapper) GethClient(callback func(gethClient eth.GethClient) error) error {
+	err := wrapper.lazyDialInitializer()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	logger.ErrorIf(wrapper.limiter.Wait(ctx))
+
+	client := gethClient.NewClient(wrapper.client)
+
+	return callback(client)
+}
+
 func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...interface{}) error {
 	err := wrapper.lazyDialInitializer()
 	if err != nil {
@@ -96,7 +125,10 @@ func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...i
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	wrapper.limiter.Wait(ctx)
+	err = wrapper.limiter.Wait(ctx)
+	if err != nil {
+		return err
+	}
 
 	return wrapper.client.Call(result, method, args...)
 }
@@ -109,7 +141,10 @@ func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	wrapper.limiter.Wait(ctx)
+	err = wrapper.limiter.Wait(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return wrapper.client.EthSubscribe(ctx, channel, args...)
 }
@@ -159,8 +194,7 @@ func newStoreWithDialerAndKeyStore(
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
 
-	err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700))
-	if err != nil {
+	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
 	orm, err := initializeORM(config, shutdownSignal)
@@ -171,20 +205,26 @@ func newStoreWithDialerAndKeyStore(
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to dial ETH RPC port: %+v", err))
 	}
-	if err := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", err))
+	if e := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); e != nil {
+		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
 	keyStore := keyStoreGenerator()
 	callerSubscriberClient := &eth.CallerSubscriberClient{CallerSubscriber: ethrpc}
 	txManager := NewEthTxManager(callerSubscriberClient, config, keyStore, orm)
+
+	if err != nil {
+		logger.Fatalf("Unable to dial ETH client: %+v", err)
+	}
+
 	store := &Store{
-		Clock:     utils.Clock{},
-		Config:    config,
-		KeyStore:  keyStore,
-		ORM:       orm,
-		TxManager: txManager,
-		closeOnce: &sync.Once{},
+		Clock:             utils.Clock{},
+		Config:            config,
+		KeyStore:          keyStore,
+		ORM:               orm,
+		TxManager:         txManager,
+		GethClientWrapper: ethrpc,
+		closeOnce:         &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
@@ -192,8 +232,23 @@ func newStoreWithDialerAndKeyStore(
 
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
-	s.TxManager.Register(s.KeyStore.Accounts())
+	if s.Config.EnableBulletproofTxManager() {
+		if err := setNonceFromLegacyTxManager(s.GetRawDB()); err != nil {
+			return err
+		}
+	} else {
+		s.TxManager.Register(s.KeyStore.Accounts())
+	}
+
 	return s.SyncDiskKeyStoreToDB()
+}
+
+func setNonceFromLegacyTxManager(db *gorm.DB) error {
+	return db.Exec(`
+	UPDATE keys
+	SET next_nonce = (SELECT max(nonce) FROM txes WHERE txes.from = keys.address)+1
+	WHERE next_nonce < (SELECT max(nonce) FROM txes WHERE txes.from = keys.address)+1;
+	`).Error
 }
 
 // Close shuts down all of the working parts of the store.

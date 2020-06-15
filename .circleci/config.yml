@@ -458,7 +458,6 @@ workflows:
       - build-publish-chainlink:
           requires:
             - core-go-test
-            - solidity
             - geth-postgres
             - parity-postgres
             - styleguide

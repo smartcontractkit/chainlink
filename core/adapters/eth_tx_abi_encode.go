@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -143,7 +144,7 @@ func abiEncode(fnABI *abi.Method, args map[string]interface{}) ([]byte, error) {
 		panic("unexpected size of static part")
 	}
 
-	result := fnABI.ID()
+	result := functionSelector(fnABI)
 	result = append(result, encodedStaticPart...)
 	result = append(result, encodedDynamicPart...)
 	return result, nil
@@ -285,9 +286,8 @@ func encStatic(typ *abi.Type, jval interface{}, name string) ([]byte, error) {
 		}
 		if b {
 			return padLeft([]byte{1}, evmWordSize), nil
-		} else {
-			return padLeft([]byte{0}, evmWordSize), nil
 		}
+		return padLeft([]byte{0}, evmWordSize), nil
 	case abi.FixedBytesTy:
 		bytes, err := bytesFromJSON(jval, name)
 		if err != nil {
@@ -457,4 +457,13 @@ func assertPadded(b []byte) {
 	if len(b)%evmWordSize != 0 {
 		panic("ABI encoded data isn't padded properly")
 	}
+}
+
+func functionSelector(fnABI *abi.Method) []byte {
+	types := []string{}
+	for _, input := range fnABI.Inputs {
+		types = append(types, input.Type.String())
+	}
+	signature := fmt.Sprintf("%v(%v)", fnABI.Name, strings.Join(types, ","))
+	return utils.MustHash(signature).Bytes()[:4]
 }

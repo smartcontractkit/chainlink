@@ -31,6 +31,11 @@ type SimulatedBackendClient struct {
 	chainId int
 }
 
+// GethClient is a noop, solely needed to conform to GethClientWrapper interface
+func (c *SimulatedBackendClient) GethClient(f func(c eth.GethClient) error) error {
+	return nil
+}
+
 // Close terminates the underlying blockchain's update loop.
 func (c *SimulatedBackendClient) Close() {
 	c.b.Close()
@@ -298,31 +303,23 @@ func (c *SimulatedBackendClient) GetChainID() (*big.Int, error) {
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
 func (c *SimulatedBackendClient) SubscribeToNewHeads(ctx context.Context,
-	channel chan<- eth.BlockHeader) (eth.Subscription, error) {
+	channel chan<- types.Header) (eth.Subscription, error) {
 	ch := make(chan *types.Header)
 	go func() {
 		for h := range ch {
-			channel <- eth.BlockHeader{ParentHash: h.ParentHash, UncleHash: h.UncleHash,
-				Coinbase: h.Coinbase, Root: h.Root, TxHash: h.TxHash,
-				ReceiptHash: h.ReceiptHash, Bloom: h.Bloom,
-				Difficulty: hexutil.Big(*h.Difficulty), Number: hexutil.Big(*h.Number),
-				GasLimit: hexutil.Uint64(h.GasLimit), GasUsed: hexutil.Uint64(h.GasUsed),
-				Time:  hexutil.Big(*big.NewInt(int64(h.Time))),
-				Extra: hexutil.Bytes(h.Extra), Nonce: h.Nonce, GethHash: h.Hash(),
-				// ParityHash not included, because this client is strictly based on
-				// go-ethereum
-			}
+			channel <- *h
 		}
+		close(channel)
 	}()
 	return c.b.SubscribeNewHead(context.Background(), ch)
 }
 
 // GetLatestBlock returns the last committed block of the best blockchain the
 // blockchain node is aware of.
-func (client *SimulatedBackendClient) GetLatestBlock() (eth.Block, error) {
-	height, err := client.GetBlockHeight()
+func (c *SimulatedBackendClient) GetLatestBlock() (eth.Block, error) {
+	height, err := c.GetBlockHeight()
 	if err != nil {
 		return eth.Block{}, errors.Wrap(err, "while getting latest block")
 	}
-	return client.GetBlockByNumber(common.BigToHash(big.NewInt(int64(height))).Hex())
+	return c.GetBlockByNumber(common.BigToHash(big.NewInt(int64(height))).Hex())
 }

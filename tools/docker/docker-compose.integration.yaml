@@ -29,7 +29,6 @@ services:
       - CYPRESS_JOB_SERVER_HOST
       - CYPRESS_EXPLORER_URL
       - CYPRESS_CHAINLINK_URL=$CHAINLINK_URL
-      - DOCKER_API_VERSION
     secrets:
       - apicredentials
 

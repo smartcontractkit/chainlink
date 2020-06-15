@@ -295,7 +295,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the datbase, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcast_txs", true)
+			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true)
 			defer cleanup()
 			config.Config.Dialect = orm.DialectPostgres
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
@@ -420,4 +420,31 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 			txManager.AssertExpectations(t)
 		})
 	}
+}
+
+func TestClient_SetNextNonce(t *testing.T) {
+	// Need to use separate database
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "setnextnonce", true, true)
+	defer cleanup()
+	config.Config.Dialect = orm.DialectPostgres
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	client := cmd.Client{
+		Config: config.Config,
+		Runner: cltest.EmptyRunner{},
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("nextNonce", 42, "")
+	defaultFromAddress := cltest.GetDefaultFromAddress(t, store)
+	set.String("address", defaultFromAddress.Hex(), "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.SetNextNonce(c))
+
+	var key models.Key
+	require.NoError(t, store.GetRawDB().First(&key).Error)
+	require.Equal(t, int64(42), key.NextNonce)
 }

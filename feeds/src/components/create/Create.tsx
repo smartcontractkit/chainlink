@@ -98,8 +98,27 @@ const Create: React.FC<CreateProps> = ({ form, history }) => {
         <Form.Item label="Answer multiply">
           {getFieldDecorator('multiply', {
             rules: [{ required: true }],
-            initialValue: 1000000000000000000,
-          })(<Input placeholder="1000000000000000000" />)}
+            initialValue: 100000000,
+          })(<Input placeholder="100000000" />)}
+        </Form.Item>
+
+        <Form.Item label="History">
+          {getFieldDecorator('history', {
+            rules: [{ required: true }],
+            initialValue: 'true',
+          })(
+            <Select placeholder="Select">
+              <Option value={'true'}>Yes</Option>
+              <Option value={'false'}>No</Option>
+            </Select>,
+          )}
+        </Form.Item>
+
+        <Form.Item label="History days">
+          {getFieldDecorator('historyDays', {
+            rules: [{ required: false }],
+            initialValue: 1,
+          })(<Input placeholder="1" />)}
         </Form.Item>
 
         <Form.Item {...formTailLayout}>

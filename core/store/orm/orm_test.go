@@ -1637,3 +1637,87 @@ func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, foundHead.Hash)
 }
+
+func TestORM_EthTaskRunTx(t *testing.T) {
+	t.Parallel()
+
+	// NOTE: Must sidestep transactional tests since we rely on transaction
+	// rollback due to constraint violation for this function
+	tc, orm, cleanup := cltest.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
+	defer cleanup()
+	store, cleanup := cltest.NewStoreWithConfig(tc)
+	store.ORM = orm
+	defer cleanup()
+
+	sharedTaskRunID := cltest.MustInsertTaskRun(t, store)
+	keys, err := orm.Keys()
+	require.NoError(t, err)
+	fromAddress := keys[0].Address.Address()
+
+	t.Run("creates eth_task_run_transaction and eth_tx", func(t *testing.T) {
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		gasLimit := uint64(42)
+
+		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		require.NoError(t, err)
+
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(sharedTaskRunID.UUID())
+		require.NoError(t, err)
+
+		assert.Equal(t, sharedTaskRunID.UUID(), etrt.TaskRunID)
+		require.NotNil(t, etrt.EthTx)
+		assert.Nil(t, etrt.EthTx.Nonce)
+		assert.Equal(t, fromAddress, etrt.EthTx.FromAddress)
+		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
+		assert.Equal(t, encodedPayload, etrt.EthTx.EncodedPayload)
+		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
+		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
+
+		// Do it again to test idempotence
+		err = store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		require.NoError(t, err)
+
+		// Ensure it didn't leave a stray EthTx hanging around
+		store.RawDB(func(db *gorm.DB) error {
+			var count int
+			require.NoError(t, db.Table("eth_txes").Count(&count).Error)
+			assert.Equal(t, 1, count)
+			return nil
+		})
+	})
+
+	t.Run("returns error if eth_task_run_transaction already exists with this task run ID but has different values", func(t *testing.T) {
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{3, 2, 1}
+		gasLimit := uint64(24)
+
+		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction already exists for task run ID")
+	})
+
+	t.Run("does not return error on re-insert if only the gas limit changed", func(t *testing.T) {
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		firstGasLimit := uint64(42)
+
+		// First insert
+		err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, firstGasLimit)
+		require.NoError(t, err)
+
+		secondGasLimit := uint64(99)
+
+		// Second insert
+		err = store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, secondGasLimit)
+		require.NoError(t, err)
+
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(taskRunID.UUID())
+		require.NoError(t, err)
+
+		// But the second insert did not change the gas limit
+		assert.Equal(t, firstGasLimit, etrt.EthTx.GasLimit)
+	})
+
+}

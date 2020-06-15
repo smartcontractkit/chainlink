@@ -30,12 +30,15 @@ type ConfigReader interface {
 	MaximumServiceDuration() models.Duration
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
+	EnableBulletproofTxManager() bool
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
 	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
+	EthFinalityDepth() uint
+	EthHeadTrackerHistoryDepth() uint
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
 	GasUpdaterBlockDelay() uint16

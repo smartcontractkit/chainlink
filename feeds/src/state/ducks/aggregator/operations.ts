@@ -196,12 +196,12 @@ function fetchMinimumAnswers() {
   }
 }
 
-function fetchAnswerHistory() {
+function fetchAnswerHistory(config: FeedConfig) {
   return async (dispatch: any) => {
     try {
       const fromBlock = await contractInstance.provider
         .getBlockNumber()
-        .then((b: any) => b - 6700) // 6700 block is ~24 hours
+        .then((b: any) => b - 6700 * (config.historyDays ?? 1)) // 6700 block is ~24 hours
 
       const payload = await contractInstance.answerUpdatedLogs({ fromBlock })
       const uniquePayload = _.uniqBy(payload, (e: any) => {
@@ -363,7 +363,7 @@ const initContract = (config: FeedConfig) => {
     initListeners()(dispatch, getState)
 
     if (config.history) {
-      fetchAnswerHistory()(dispatch)
+      fetchAnswerHistory(config)(dispatch)
     }
   }
 }

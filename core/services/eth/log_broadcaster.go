@@ -465,10 +465,14 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 	}
 
 	var decodedLog eth.RawLog
+	var ok bool
 	if logType.Kind() == reflect.Ptr {
-		decodedLog = reflect.New(logType.Elem()).Interface().(eth.RawLog)
+		decodedLog, ok = reflect.New(logType.Elem()).Interface().(eth.RawLog)
 	} else {
-		decodedLog = reflect.New(logType).Interface().(eth.RawLog)
+		decodedLog, ok = reflect.New(logType).Interface().(eth.RawLog)
+	}
+	if !ok {
+		panic("DecodingLogListener expects a eth.Rawlog logType")
 	}
 
 	// Insert the raw log into the ".Log" field
