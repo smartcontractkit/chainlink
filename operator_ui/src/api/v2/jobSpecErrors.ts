@@ -7,17 +7,17 @@ import { boundMethod } from 'autobind-decorator'
  * @example "<application>/specs/:SpecID"
  */
 interface DestroyPathParams {
-  jobSpecErrorID: number
+  id: string
 }
 
-const DESTROY_ENDPOINT = '/v2/job_spec_errors/:jobSpecErrorID'
+const DESTROY_ENDPOINT = '/v2/job_spec_errors/:id'
 
 export class JobSpecErrors {
   constructor(private api: jsonapi.Api) {}
 
   @boundMethod
-  public destroyJobSpecError(id: number): Promise<jsonapi.ApiResponse<null>> {
-    return this.destroy(undefined, { jobSpecErrorID: id })
+  public destroyJobSpecError(id: string): Promise<jsonapi.ApiResponse<null>> {
+    return this.destroy(undefined, { id })
   }
 
   private destroy = this.api.deleteResource<undefined, null, DestroyPathParams>(

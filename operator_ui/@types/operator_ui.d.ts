@@ -70,7 +70,7 @@ export interface TaskSpec {
 }
 
 export interface JobSpecError {
-  id: number
+  id: string
   description: string
   occurances: number
   createdAt: Date
