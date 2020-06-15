@@ -124,7 +124,7 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *store.Store) models.RunOutput {
 	var minRequiredOutgoingConfirmations uint64
 	if e.MinRequiredOutgoingConfirmations == 0 {
-		minRequiredOutgoingConfirmations = s.Config.MinOutgoingConfirmations()
+		minRequiredOutgoingConfirmations = s.Config.MinRequiredOutgoingConfirmations()
 	} else {
 		minRequiredOutgoingConfirmations = e.MinRequiredOutgoingConfirmations
 	}

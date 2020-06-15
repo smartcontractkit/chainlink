@@ -884,7 +884,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cwl.Whitelist.LogLevel, app.Config.LogLevel())
 	assert.Equal(t, cwl.Whitelist.LogSQLStatements, app.Config.LogSQLStatements())
 	assert.Equal(t, cwl.Whitelist.MinIncomingConfirmations, app.Config.MinIncomingConfirmations())
-	assert.Equal(t, cwl.Whitelist.MinOutgoingConfirmations, app.Config.MinOutgoingConfirmations())
+	assert.Equal(t, cwl.Whitelist.MinRequiredOutgoingConfirmations, app.Config.MinRequiredOutgoingConfirmations())
 	assert.Equal(t, cwl.Whitelist.MinimumContractPayment, app.Config.MinimumContractPayment())
 	assert.Equal(t, cwl.Whitelist.RootDir, app.Config.RootDir())
 	assert.Equal(t, cwl.Whitelist.SessionTimeout, app.Config.SessionTimeout())

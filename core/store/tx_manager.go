@@ -562,7 +562,7 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 		return receipt, Unconfirmed, nil
 	}
 
-	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinOutgoingConfirmations())
+	minimumConfirmations := new(big.Int).SetUint64(txm.config.MinRequiredOutgoingConfirmations())
 	confirmedAt := new(big.Int).Add(minimumConfirmations, receipt.BlockNumber.ToInt())
 
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // confirmed at block counts as 1 conf
@@ -730,7 +730,7 @@ func (txm *EthTxManager) handleSafe(
 	}
 
 	var balanceErr error
-	minimumConfirmations := txm.config.MinOutgoingConfirmations()
+	minimumConfirmations := txm.config.MinRequiredOutgoingConfirmations()
 	ethBalance, err := txm.GetEthBalance(tx.From)
 	balanceErr = multierr.Append(balanceErr, err)
 	linkBalance, err := txm.GetLINKBalance(tx.From)

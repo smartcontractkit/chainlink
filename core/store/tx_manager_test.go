@@ -581,7 +581,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	sentAt := uint64(23456)
 	nonce := uint64(234)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	minConfs := config.MinOutgoingConfirmations() - 1
+	minConfs := config.MinRequiredOutgoingConfirmations() - 1
 	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold + minConfs - 1)))
 	require.NoError(t, app.StartAndConnect())
 
@@ -636,7 +636,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			config := store.Config
 
 			gasThreshold := sentAt + config.EthGasBumpThreshold()
-			minConfs := config.MinOutgoingConfirmations() - 1
+			minConfs := config.MinRequiredOutgoingConfirmations() - 1
 			head := cltest.Head(gasThreshold + minConfs + test.confsDiff)
 			require.NoError(t, app.Store.ORM.IdempotentInsertHead(*head))
 			require.NoError(t, app.StartAndConnect())
@@ -720,7 +720,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	sentAt1 := uint64(23456)
 	sentAt2 := sentAt1 + config.EthGasBumpThreshold()
 	confirmedAt := sentAt2 + 1
-	safeAt := confirmedAt + config.MinOutgoingConfirmations()
+	safeAt := confirmedAt + config.MinRequiredOutgoingConfirmations()
 
 	nonConfedReceipt := eth.TxReceipt{}
 	confedReceipt := eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
@@ -1026,7 +1026,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	nonce := uint64(256)
 	sentAt := uint64(1)
-	confirmedAt := sentAt + config.MinOutgoingConfirmations()
+	confirmedAt := sentAt + config.MinRequiredOutgoingConfirmations()
 
 	manager.Register(keyStore.Accounts())
 	require.NoError(t, err)
