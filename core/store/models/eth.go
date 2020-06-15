@@ -99,6 +99,15 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 	return signedTx, nil
 }
 
+// MustGetSignedTx decodes the SignedRawTx or panics
+func (a EthTxAttempt) MustGetSignedTx() types.Transaction {
+	signedTx, err := a.GetSignedTx()
+	if err != nil {
+		panic(err)
+	}
+	return *signedTx
+}
+
 // Tx contains fields necessary for an Ethereum transaction with
 // an additional field for the TxAttempt.
 type Tx struct {
