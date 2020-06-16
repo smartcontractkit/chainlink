@@ -31,10 +31,10 @@
     "typescript": "^3.7.4"
   },
   "devDependencies": {
-    "@babel/core": "7.7.4",
-    "@babel/preset-env": "7.8.2",
-    "@babel/preset-react": "7.0.0",
-    "@babel/preset-typescript": "7.9.0",
+    "@babel/core": "7.10.2",
+    "@babel/preset-env": "7.10.2",
+    "@babel/preset-react": "7.10.1",
+    "@babel/preset-typescript": "7.10.1",
     "@storybook/addon-actions": "^5.3.18",
     "@storybook/addon-info": "^5.3.18",
     "@storybook/addon-links": "^5.2.5",
