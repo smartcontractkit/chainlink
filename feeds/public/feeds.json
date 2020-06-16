@@ -365,7 +365,8 @@
       "Loopring",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -393,7 +394,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -423,7 +425,8 @@
       "1inch",
       "ParaSwap",
       "Dolomite",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -451,7 +454,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -479,7 +483,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -508,7 +513,8 @@
       "bZx",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -537,7 +543,8 @@
       "bZx",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -567,7 +574,8 @@
       "ParaSwap",
       "DMM",
       "The Force Protocol",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -595,7 +603,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -624,7 +633,8 @@
       "bZx",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -652,7 +662,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -683,7 +694,8 @@
       "1inch",
       "ParaSwap",
       "Opium.exchange",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -711,7 +723,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -740,7 +753,8 @@
       "1inch",
       "ParaSwap",
       "The Force Protocol",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -768,7 +782,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -797,7 +812,8 @@
       "bZx",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -825,7 +841,8 @@
       "Aave",
       "1inch",
       "ParaSwap",
-      "Kyber Network"
+      "Kyber Network",
+      "Bamboo Relay"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
