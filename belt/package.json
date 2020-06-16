@@ -35,6 +35,7 @@
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",
+    "@truffle/contract-schema": "^3.2.0",
     "@types/debug": "^4.1.5",
     "@types/inquirer": "^6.5.0",
     "@types/jest": "^25.1.1",
