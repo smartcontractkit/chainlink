@@ -341,7 +341,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	err := store.CreateJob(&job)
 	require.NoError(t, err)
 
-	fluxAggregator.On("RoundState", nodeAddr).Return(roundState, errors.New("err")).Once()
+	fluxAggregator.On("RoundState", nodeAddr, mock.Anything).Return(roundState, errors.New("err")).Once()
 	checker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
