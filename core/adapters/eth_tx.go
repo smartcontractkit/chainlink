@@ -140,8 +140,14 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
 
-	output := models.JSON{}
-	output, err = output.Add("result", (*hash).Hex())
+	hexHash := (*hash).Hex()
+
+	output := input.Data()
+	output, err = output.MultiAdd(models.KV{
+		"result": hexHash,
+		// HACK: latestOutgoingTxHash is used for backwards compatibility with the stats pusher
+		"latestOutgoingTxHash": hexHash,
+	})
 	if err != nil {
 		err = errors.Wrap(err, "checkEthTxForReceipt failed")
 		logger.Error(err)
