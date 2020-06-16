@@ -164,6 +164,7 @@ export default class FluxContract {
       latestAnswer,
       this.options.multiply,
       this.options.decimalPlaces,
+      this.options.formatDecimalPlaces,
     )
   }
 
@@ -186,6 +187,7 @@ export default class FluxContract {
       getAnswer,
       this.options.multiply,
       this.options.decimalPlaces,
+      this.options.formatDecimalPlaces,
     )
   }
 
@@ -246,6 +248,7 @@ export default class FluxContract {
               decodedLog.answer,
               this.options.multiply,
               this.options.decimalPlaces,
+              this.options.formatDecimalPlaces,
             ),
             answer: Number(decodedLog.answer),
             answerId: Number(decodedLog.round),
@@ -356,6 +359,7 @@ export default class FluxContract {
           decodedLog.answer,
           this.options.multiply,
           this.options.decimalPlaces,
+          this.options.formatDecimalPlaces,
         ),
         answer: Number(decodedLog.answer),
         answerId: Number(decodedLog.round),
@@ -391,6 +395,7 @@ export default class FluxContract {
           decodedLog.current,
           this.options.multiply,
           this.options.decimalPlaces,
+          this.options.formatDecimalPlaces,
         ),
         answer: Number(decodedLog.current),
         answerId: Number(decodedLog.roundId),

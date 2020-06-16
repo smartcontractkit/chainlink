@@ -47,6 +47,7 @@ export function fetchAnswer(config: FeedConfig) {
         payload,
         config.multiply,
         config.decimalPlaces,
+        config.formatDecimalPlaces,
       )
       const listingAnswer: ListingAnswer = { answer, config }
 
