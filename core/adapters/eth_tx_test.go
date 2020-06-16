@@ -661,7 +661,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			Number: 13,
 		}))
 		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		data := cltest.JSONFromString(t, `{"foo": "bar", "result": "some old bollocks"}`)
+		input := models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -669,6 +670,10 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusCompleted, runOutput.Status())
 		assert.Equal(t, confirmedAttemptHash.Hex(), runOutput.Result().String())
+		// Does not clobber previously assigned data
+		assert.Equal(t, "bar", runOutput.Get("foo").String())
+		// Assigns latestOutgoingTxHash for legacy compatibility
+		assert.Equal(t, confirmedAttemptHash.Hex(), runOutput.Get("latestOutgoingTxHash").String())
 	})
 
 	t.Run("with confirmed transaction with exactly one attempt with exactly one receipt that is older than minRequiredOutgoingConfirmations, returns output complete with transaction hash pulled from receipt", func(t *testing.T) {
