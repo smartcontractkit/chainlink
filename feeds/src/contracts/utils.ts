@@ -45,12 +45,17 @@ export function createInfuraProvider(
  */
 export function formatAnswer(
   value: any,
-  multiply?: string,
-  decimalPlaces = 2,
+  multiply: string,
+  decimalPlaces: number,
+  formatDecimalPlaces: number,
 ): string {
   const decimals = 10 ** decimalPlaces
   const divided = value.mul(decimals).div(multiply)
-  const formatted = ethers.utils.formatUnits(divided, decimalPlaces)
+  const formatted = ethers.utils.formatUnits(
+    divided,
+    decimalPlaces + formatDecimalPlaces,
+  )
+
   return formatted.toString()
 }
 
