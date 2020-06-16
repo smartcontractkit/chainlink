@@ -22,9 +22,9 @@
         "type": "uint8"
       },
       {
-        "internalType": "bytes32",
+        "internalType": "string",
         "name": "_description",
-        "type": "bytes32"
+        "type": "string"
       }
     ],
     "stateMutability": "nonpayable",
@@ -101,9 +101,21 @@
         "internalType": "address",
         "name": "oracle",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "admin",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
       }
     ],
-    "name": "OracleAdded",
+    "name": "OracleAdminUpdateRequested",
     "type": "event"
   },
   {
@@ -133,9 +145,15 @@
         "internalType": "address",
         "name": "oracle",
         "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "bool",
+        "name": "whitelisted",
+        "type": "bool"
       }
     ],
-    "name": "OracleRemoved",
+    "name": "OraclePermissionsUpdated",
     "type": "event"
   },
   {
@@ -173,7 +191,7 @@
         "type": "address"
       }
     ],
-    "name": "OwnershipTransfered",
+    "name": "OwnershipTransferred",
     "type": "event"
   },
   {
@@ -188,11 +206,17 @@
       {
         "indexed": false,
         "internalType": "bool",
-        "name": "allowed",
+        "name": "authorized",
         "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "delay",
+        "type": "uint32"
       }
     ],
-    "name": "RequesterAuthorizationSet",
+    "name": "RequesterPermissionsSet",
     "type": "event"
   },
   {
@@ -207,13 +231,13 @@
       {
         "indexed": true,
         "internalType": "uint32",
-        "name": "minAnswerCount",
+        "name": "minSubmissionCount",
         "type": "uint32"
       },
       {
         "indexed": true,
         "internalType": "uint32",
-        "name": "maxAnswerCount",
+        "name": "maxSubmissionCount",
         "type": "uint32"
       },
       {
@@ -238,7 +262,7 @@
       {
         "indexed": true,
         "internalType": "int256",
-        "name": "answer",
+        "name": "submission",
         "type": "int256"
       },
       {
@@ -258,16 +282,16 @@
     "type": "event"
   },
   {
-    "inputs": [],
-    "name": "VERSION",
-    "outputs": [
+    "inputs": [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "_oracle",
+        "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "name": "acceptAdmin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -280,23 +304,23 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_oracle",
-        "type": "address"
+        "internalType": "address[]",
+        "name": "_oracles",
+        "type": "address[]"
       },
       {
-        "internalType": "address",
-        "name": "_admin",
-        "type": "address"
+        "internalType": "address[]",
+        "name": "_admins",
+        "type": "address[]"
       },
       {
         "internalType": "uint32",
-        "name": "_minAnswers",
+        "name": "_minSubmissions",
         "type": "uint32"
       },
       {
         "internalType": "uint32",
-        "name": "_maxAnswers",
+        "name": "_maxSubmissions",
         "type": "uint32"
       },
       {
@@ -305,7 +329,7 @@
         "type": "uint32"
       }
     ],
-    "name": "addOracle",
+    "name": "addOracles",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -354,9 +378,9 @@
     "name": "description",
     "outputs": [
       {
-        "internalType": "bytes32",
+        "internalType": "string",
         "name": "",
-        "type": "bytes32"
+        "type": "string"
       }
     ],
     "stateMutability": "view",
@@ -421,50 +445,32 @@
         "type": "uint256"
       }
     ],
-    "name": "getOriginatingRoundOfAnswer",
+    "name": "getRoundData",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "roundId",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
+      },
+      {
+        "internalType": "int256",
+        "name": "answer",
+        "type": "int256"
+      },
       {
         "internalType": "uint256",
-        "name": "_roundId",
+        "name": "startedAt",
         "type": "uint256"
-      }
-    ],
-    "name": "getRoundStartedAt",
-    "outputs": [
+      },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "updatedAt",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
+      },
       {
         "internalType": "uint256",
-        "name": "_roundId",
+        "name": "answeredInRound",
         "type": "uint256"
-      }
-    ],
-    "name": "getTimedOutStatus",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -516,6 +522,39 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "latestRoundData",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "roundId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int256",
+        "name": "answer",
+        "type": "int256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "startedAt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "updatedAt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "answeredInRound",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -554,7 +593,20 @@
   },
   {
     "inputs": [],
-    "name": "maxAnswerCount",
+    "name": "linkToken",
+    "outputs": [
+      {
+        "internalType": "contract LinkTokenInterface",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "maxSubmissionCount",
     "outputs": [
       {
         "internalType": "uint32",
@@ -567,7 +619,7 @@
   },
   {
     "inputs": [],
-    "name": "minAnswerCount",
+    "name": "minSubmissionCount",
     "outputs": [
       {
         "internalType": "uint32",
@@ -592,7 +644,7 @@
       },
       {
         "internalType": "bytes",
-        "name": "",
+        "name": "_data",
         "type": "bytes"
       }
     ],
@@ -609,6 +661,65 @@
         "internalType": "uint32",
         "name": "",
         "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_oracle",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_queriedRoundId",
+        "type": "uint32"
+      }
+    ],
+    "name": "oracleRoundState",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "_eligibleToSubmit",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_roundId",
+        "type": "uint32"
+      },
+      {
+        "internalType": "int256",
+        "name": "_latestSubmission",
+        "type": "int256"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_startedAt",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_timeout",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint128",
+        "name": "_availableFunds",
+        "type": "uint128"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_oracleCount",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint128",
+        "name": "_paymentAmount",
+        "type": "uint128"
       }
     ],
     "stateMutability": "view",
@@ -643,18 +754,18 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_oracle",
-        "type": "address"
+        "internalType": "address[]",
+        "name": "_oracles",
+        "type": "address[]"
       },
       {
         "internalType": "uint32",
-        "name": "_minAnswers",
+        "name": "_minSubmissions",
         "type": "uint32"
       },
       {
         "internalType": "uint32",
-        "name": "_maxAnswers",
+        "name": "_maxSubmissions",
         "type": "uint32"
       },
       {
@@ -663,7 +774,7 @@
         "type": "uint32"
       }
     ],
-    "name": "removeOracle",
+    "name": "removeOracles",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -683,15 +794,9 @@
   },
   {
     "inputs": [],
-    "name": "reportingRoundStartedAt",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
+    "name": "requestNewRound",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -711,67 +816,39 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_oracle",
-        "type": "address"
-      }
-    ],
-    "name": "roundState",
-    "outputs": [
-      {
-        "internalType": "uint32",
-        "name": "_reportableRoundId",
-        "type": "uint32"
-      },
-      {
-        "internalType": "bool",
-        "name": "_eligibleToSubmit",
-        "type": "bool"
-      },
-      {
-        "internalType": "int256",
-        "name": "_latestRoundAnswer",
-        "type": "int256"
-      },
-      {
-        "internalType": "uint64",
-        "name": "_timesOutAt",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint128",
-        "name": "_availableFunds",
-        "type": "uint128"
-      },
-      {
-        "internalType": "uint128",
-        "name": "_paymentAmount",
-        "type": "uint128"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "_requester",
         "type": "address"
       },
       {
         "internalType": "bool",
-        "name": "_allowed",
+        "name": "_authorized",
         "type": "bool"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_delay",
+        "type": "uint32"
       }
     ],
-    "name": "setAuthorization",
+    "name": "setRequesterPermissions",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "startNewRound",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_roundId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int256",
+        "name": "_submission",
+        "type": "int256"
+      }
+    ],
+    "name": "submit",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -793,19 +870,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_to",
-        "type": "address"
-      }
-    ],
-    "name": "transferOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "_oracle",
         "type": "address"
       },
@@ -815,7 +879,7 @@
         "type": "address"
       }
     ],
-    "name": "updateAdmin",
+    "name": "transferAdmin",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -823,17 +887,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "_round",
-        "type": "uint256"
-      },
-      {
-        "internalType": "int256",
-        "name": "_answer",
-        "type": "int256"
+        "internalType": "address",
+        "name": "_to",
+        "type": "address"
       }
     ],
-    "name": "updateAnswer",
+    "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -849,17 +908,17 @@
     "inputs": [
       {
         "internalType": "uint128",
-        "name": "_newPaymentAmount",
+        "name": "_paymentAmount",
         "type": "uint128"
       },
       {
         "internalType": "uint32",
-        "name": "_minAnswers",
+        "name": "_minSubmissions",
         "type": "uint32"
       },
       {
         "internalType": "uint32",
-        "name": "_maxAnswers",
+        "name": "_maxSubmissions",
         "type": "uint32"
       },
       {
@@ -879,26 +938,16 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_oracle",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_recipient",
-        "type": "address"
-      },
+    "inputs": [],
+    "name": "version",
+    "outputs": [
       {
         "internalType": "uint256",
-        "name": "_amount",
+        "name": "",
         "type": "uint256"
       }
     ],
-    "name": "withdraw",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -925,9 +974,32 @@
         "internalType": "address",
         "name": "_oracle",
         "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_recipient",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
       }
     ],
-    "name": "withdrawable",
+    "name": "withdrawPayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_oracle",
+        "type": "address"
+      }
+    ],
+    "name": "withdrawablePayment",
     "outputs": [
       {
         "internalType": "uint256",
