@@ -78,6 +78,7 @@ export default class AggregatorContract {
       latestAnswer,
       this.config.multiply,
       this.config.decimalPlaces,
+      this.config.formatDecimalPlaces,
     )
   }
 
@@ -218,6 +219,7 @@ export default class AggregatorContract {
               decodedLog.response,
               this.config.multiply,
               this.config.decimalPlaces,
+              this.config.formatDecimalPlaces,
             ),
             answer: Number(decodedLog.response),
             answerId: Number(decodedLog.answerId),
@@ -252,6 +254,7 @@ export default class AggregatorContract {
           decodedLog.current,
           this.config.multiply,
           this.config.decimalPlaces,
+          this.config.formatDecimalPlaces,
         ),
         answer: Number(decodedLog.current),
         answerId: Number(decodedLog.answerId),

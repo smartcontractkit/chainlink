@@ -124,6 +124,7 @@ export default class HistoryGraph {
           ethers.utils.bigNumberify(f),
           this.config.multiply,
           this.config.decimalPlaces,
+          this.config.formatDecimalPlaces,
         ),
       )
 
