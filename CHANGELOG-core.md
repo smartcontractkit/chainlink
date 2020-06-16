@@ -82,6 +82,7 @@ This release contains a number of features aimed at improving the node's reliabi
 - New prometheus metrics for the head tracker:
   - `head_tracker_heads_in_queue` - The number of heads currently waiting to be executed. You can think of this as the 'load' on the head tracker. Should rarely or never be more than 0.
   - `head_tracker_callback_execution_duration` - How long it took to execute all callbacks. If the average of this exceeds the time between blocks, your node could lag behind and delay transactions.
+- Nodes transmit their build info to Explorer for better debugging/tracking.
 
 ### Env var changes
 
