@@ -9,5 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Changelog
 - Added common environment configuration to explorer server and client
 - Added Google Analytics tracking to explorer client
+- Expose build info collected from nodes
 
 ## [0.8.2] - 2020-04-22
