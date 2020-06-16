@@ -23,6 +23,7 @@ type GethClient interface {
 	SendTransaction(context.Context, *gethTypes.Transaction) error
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*gethTypes.Receipt, error)
+	HeaderByNumber(ctx context.Context, n *big.Int) (*gethTypes.Header, error)
 }
 
 //go:generate mockery -name Client -output ../../internal/mocks/ -case=underscore

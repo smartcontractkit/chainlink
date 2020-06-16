@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- HeadTracker now automatically backfills missing heads up to `ETH_FINALITY_DEPTH`
+
 ## [0.8.7] - 2020-06-15
 
 ### Added
