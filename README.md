@@ -138,6 +138,7 @@ export CHAINLINK_DEV=true # I prefer to use direnv and skip this
 ```
 
 5.  Drop/Create test database and run migrations:
+
 ```
 go run ./core/main.go local db preparetest
 ```
@@ -150,7 +151,6 @@ If you do end up modifying the migrations for the database, you will need to rer
 go test -parallel=1 ./...
 ```
 
-
 ### Solidity Development
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
@@ -158,7 +158,7 @@ go test -parallel=1 ./...
 
 ```bash
 cd evm
-yarn install --ignore-optional
+yarn install
 ```
 
 3. Run tests:

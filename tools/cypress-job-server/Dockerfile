@@ -7,7 +7,7 @@ COPY .yarn .yarn
 COPY tools/cypress-job-server/package.json tools/cypress-job-server/
 
 # install deps for our integration scripts
-RUN yarn install --frozen-lockfile --ignore-optional
+RUN yarn install --frozen-lockfile 
 
 # copy over all our dependencies
 COPY tools/cypress-job-server tools/cypress-job-server

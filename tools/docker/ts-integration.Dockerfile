@@ -34,7 +34,7 @@ COPY operator_ui/@types operator_ui/@types/
 COPY tools/ci-ts tools/ci-ts
 
 # install deps
-RUN yarn install --ignore-optional --frozen-lockfile
+RUN yarn install --frozen-lockfile
 RUN tools/bin/restore-solc-cache
 
 # setup contracts

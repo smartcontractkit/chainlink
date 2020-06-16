@@ -8,7 +8,7 @@ COPY .yarn .yarn
 COPY tools/echo-server/package.json tools/echo-server/
 
 # install deps for our integration scripts
-RUN yarn install --ignore-optional --frozen-lockfile
+RUN yarn install --frozen-lockfile
 
 # copy over all our dependencies
 COPY tools/echo-server tools/echo-server
