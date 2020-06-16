@@ -2087,119 +2087,80 @@ describe('FluxAggregator', () => {
   })
 
   describe('#oracleRoundState', () => {
-    const previousSubmission = 42
-    let baseFunds: any
-    let minAnswers: number
-    let maxAnswers: number
-    let submitters: ethers.Wallet[]
+    describe('when round ID 0 is passed in', () => {
+      const previousSubmission = 42
+      let baseFunds: any
+      let minAnswers: number
+      let maxAnswers: number
+      let submitters: ethers.Wallet[]
 
-    beforeEach(async () => {
-      oracles = [
-        personas.Neil,
-        personas.Ned,
-        personas.Nelly,
-        personas.Nancy,
-        personas.Norbert,
-      ]
-      minAnswers = 3
-      maxAnswers = 4
-
-      await addOracles(aggregator, oracles, minAnswers, maxAnswers, rrDelay)
-      submitters = [personas.Nelly, personas.Ned, personas.Neil, personas.Nancy]
-      await advanceRound(aggregator, submitters, previousSubmission)
-      baseFunds = h.bigNum(deposit).sub(paymentAmount.mul(submitters.length))
-      startingState = await aggregator.oracleRoundState(
-        personas.Nelly.address,
-        0,
-      )
-    })
-
-    it('returns all of the important round information', async () => {
-      const state = await aggregator.oracleRoundState(personas.Nelly.address, 0)
-
-      await checkOracleRoundState(state, {
-        eligibleToSubmit: true,
-        roundId: 2,
-        latestSubmission: previousSubmission,
-        startedAt: ShouldNotBeSet,
-        timeout: 0,
-        availableFunds: baseFunds,
-        oracleCount: oracles.length,
-        paymentAmount,
-      })
-    })
-
-    it('reverts if called by a contract', async () => {
-      testHelper = await testHelperFactory.connect(personas.Carol).deploy()
-      await matchers.evmRevert(
-        testHelper.readOracleRoundState(
-          aggregator.address,
-          personas.Neil.address,
-        ),
-        'off-chain reading only',
-      )
-    })
-
-    describe('when the restart delay is not enforced', () => {
       beforeEach(async () => {
-        await updateFutureRounds(aggregator, {
-          minAnswers,
-          maxAnswers,
-          restartDelay: 0,
+        oracles = [
+          personas.Neil,
+          personas.Ned,
+          personas.Nelly,
+          personas.Nancy,
+          personas.Norbert,
+        ]
+        minAnswers = 3
+        maxAnswers = 4
+
+        await addOracles(aggregator, oracles, minAnswers, maxAnswers, rrDelay)
+        submitters = [
+          personas.Nelly,
+          personas.Ned,
+          personas.Neil,
+          personas.Nancy,
+        ]
+        await advanceRound(aggregator, submitters, previousSubmission)
+        baseFunds = h.bigNum(deposit).sub(paymentAmount.mul(submitters.length))
+        startingState = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          0,
+        )
+      })
+
+      it('returns all of the important round information', async () => {
+        const state = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          0,
+        )
+
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: true,
+          roundId: 2,
+          latestSubmission: previousSubmission,
+          startedAt: ShouldNotBeSet,
+          timeout: 0,
+          availableFunds: baseFunds,
+          oracleCount: oracles.length,
+          paymentAmount,
         })
       })
 
-      describe('< min submissions and oracle not included', () => {
-        beforeEach(async () => {
-          await advanceRound(aggregator, [personas.Neil])
-        })
-
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: true,
-            roundId: 2,
-            latestSubmission: previousSubmission,
-            startedAt: ShouldBeSet,
-            timeout,
-            availableFunds: baseFunds.sub(paymentAmount),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
+      it('reverts if called by a contract', async () => {
+        testHelper = await testHelperFactory.connect(personas.Carol).deploy()
+        await matchers.evmRevert(
+          testHelper.readOracleRoundState(
+            aggregator.address,
+            personas.Neil.address,
+          ),
+          'off-chain reading only',
+        )
       })
 
-      describe('< min submissions and oracle included', () => {
+      describe('when the restart delay is not enforced', () => {
         beforeEach(async () => {
-          await advanceRound(aggregator, [personas.Nelly])
-        })
-
-        it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: false,
-            roundId: 2,
-            latestSubmission: answer,
-            startedAt: ShouldBeSet,
-            timeout,
-            availableFunds: baseFunds.sub(paymentAmount),
-            oracleCount: oracles.length,
-            paymentAmount,
+          await updateFutureRounds(aggregator, {
+            minAnswers,
+            maxAnswers,
+            restartDelay: 0,
           })
         })
 
-        describe('and timed out', () => {
+        describe('< min submissions and oracle not included', () => {
           beforeEach(async () => {
-            await h.increaseTimeBy(timeout + 1, provider)
-            await h.mineBlock(provider)
+            await advanceRound(aggregator, [personas.Neil])
           })
 
           it('is eligible to submit', async () => {
@@ -2210,77 +2171,101 @@ describe('FluxAggregator', () => {
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
-              roundId: 3,
-              latestSubmission: answer,
-              startedAt: ShouldNotBeSet,
-              timeout: 0,
+              roundId: 2,
+              latestSubmission: previousSubmission,
+              startedAt: ShouldBeSet,
+              timeout,
               availableFunds: baseFunds.sub(paymentAmount),
               oracleCount: oracles.length,
               paymentAmount,
             })
           })
         })
-      })
 
-      describe('>= min sumbissions and oracle not included', () => {
-        beforeEach(async () => {
-          await advanceRound(aggregator, [
-            personas.Neil,
-            personas.Nancy,
-            personas.Ned,
-          ])
-        })
-
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: true,
-            roundId: 2,
-            latestSubmission: previousSubmission,
-            startedAt: ShouldBeSet,
-            timeout,
-            availableFunds: baseFunds.sub(paymentAmount.mul(3)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
-      })
-
-      describe('>= min submissions and oracle included', () => {
-        beforeEach(async () => {
-          await advanceRound(aggregator, [
-            personas.Neil,
-            personas.Nelly,
-            personas.Ned,
-          ])
-        })
-
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: true,
-            roundId: 3,
-            latestSubmission: answer,
-            startedAt: ShouldNotBeSet,
-            timeout: 0,
-            availableFunds: baseFunds.sub(paymentAmount.mul(3)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
-
-        describe('and timed out', () => {
+        describe('< min submissions and oracle included', () => {
           beforeEach(async () => {
-            await h.increaseTimeBy(timeout + 1, provider)
-            await h.mineBlock(provider)
+            await advanceRound(aggregator, [personas.Nelly])
+          })
+
+          it('is not eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: false,
+              roundId: 2,
+              latestSubmission: answer,
+              startedAt: ShouldBeSet,
+              timeout,
+              availableFunds: baseFunds.sub(paymentAmount),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('is eligible to submit', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: true,
+                roundId: 3,
+                latestSubmission: answer,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
+          })
+        })
+
+        describe('>= min sumbissions and oracle not included', () => {
+          beforeEach(async () => {
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Nancy,
+              personas.Ned,
+            ])
+          })
+
+          it('is eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: true,
+              roundId: 2,
+              latestSubmission: previousSubmission,
+              startedAt: ShouldBeSet,
+              timeout,
+              availableFunds: baseFunds.sub(paymentAmount.mul(3)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+
+        describe('>= min submissions and oracle included', () => {
+          beforeEach(async () => {
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Nelly,
+              personas.Ned,
+            ])
           })
 
           it('is eligible to submit', async () => {
@@ -2300,140 +2285,221 @@ describe('FluxAggregator', () => {
               paymentAmount,
             })
           })
-        })
-      })
 
-      describe('max submissions and oracle not included', () => {
-        beforeEach(async () => {
-          submitters = [
-            personas.Neil,
-            personas.Ned,
-            personas.Nancy,
-            personas.Norbert,
-          ]
-          assert.equal(
-            submitters.length,
-            maxAnswers,
-            'precondition, please update submitters if maxAnswers changes',
-          )
-          await advanceRound(aggregator, submitters)
-        })
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
 
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
+            it('is eligible to submit', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
 
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: true,
-            roundId: 3,
-            latestSubmission: previousSubmission,
-            startedAt: ShouldNotBeSet,
-            timeout: 0,
-            availableFunds: baseFunds.sub(paymentAmount.mul(4)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
-      })
-
-      describe('max submissions and oracle included', () => {
-        beforeEach(async () => {
-          submitters = [
-            personas.Neil,
-            personas.Ned,
-            personas.Nelly,
-            personas.Nancy,
-          ]
-          assert.equal(
-            submitters.length,
-            maxAnswers,
-            'precondition, please update submitters if maxAnswers changes',
-          )
-          await advanceRound(aggregator, submitters)
-        })
-
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: true,
-            roundId: 3,
-            latestSubmission: answer,
-            startedAt: ShouldNotBeSet,
-            timeout: 0,
-            availableFunds: baseFunds.sub(paymentAmount.mul(4)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
-      })
-    })
-
-    describe('when the restart delay is enforced', () => {
-      beforeEach(async () => {
-        await updateFutureRounds(aggregator, {
-          minAnswers,
-          maxAnswers,
-          restartDelay: maxAnswers - 1,
-        })
-      })
-
-      describe('< min submissions and oracle not included', () => {
-        beforeEach(async () => {
-          await advanceRound(aggregator, [personas.Neil, personas.Ned])
-        })
-
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: true,
-            roundId: 2,
-            latestSubmission: previousSubmission,
-            startedAt: ShouldBeSet,
-            timeout,
-            availableFunds: baseFunds.sub(paymentAmount.mul(2)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
-      })
-
-      describe('< min submissions and oracle included', () => {
-        beforeEach(async () => {
-          await advanceRound(aggregator, [personas.Neil, personas.Nelly])
-        })
-
-        it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: false,
-            roundId: 2,
-            latestSubmission: answer,
-            startedAt: ShouldBeSet,
-            timeout,
-            availableFunds: baseFunds.sub(paymentAmount.mul(2)),
-            oracleCount: oracles.length,
-            paymentAmount,
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: true,
+                roundId: 3,
+                latestSubmission: answer,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(3)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
           })
         })
 
-        describe('and timed out', () => {
+        describe('max submissions and oracle not included', () => {
           beforeEach(async () => {
-            await h.increaseTimeBy(timeout + 1, provider)
-            await h.mineBlock(provider)
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nancy,
+              personas.Norbert,
+            ]
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              'precondition, please update submitters if maxAnswers changes',
+            )
+            await advanceRound(aggregator, submitters)
+          })
+
+          it('is eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: true,
+              roundId: 3,
+              latestSubmission: previousSubmission,
+              startedAt: ShouldNotBeSet,
+              timeout: 0,
+              availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+
+        describe('max submissions and oracle included', () => {
+          beforeEach(async () => {
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nelly,
+              personas.Nancy,
+            ]
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              'precondition, please update submitters if maxAnswers changes',
+            )
+            await advanceRound(aggregator, submitters)
+          })
+
+          it('is eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: true,
+              roundId: 3,
+              latestSubmission: answer,
+              startedAt: ShouldNotBeSet,
+              timeout: 0,
+              availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+      })
+
+      describe('when the restart delay is enforced', () => {
+        beforeEach(async () => {
+          await updateFutureRounds(aggregator, {
+            minAnswers,
+            maxAnswers,
+            restartDelay: maxAnswers - 1,
+          })
+        })
+
+        describe('< min submissions and oracle not included', () => {
+          beforeEach(async () => {
+            await advanceRound(aggregator, [personas.Neil, personas.Ned])
+          })
+
+          it('is eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: true,
+              roundId: 2,
+              latestSubmission: previousSubmission,
+              startedAt: ShouldBeSet,
+              timeout,
+              availableFunds: baseFunds.sub(paymentAmount.mul(2)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+
+        describe('< min submissions and oracle included', () => {
+          beforeEach(async () => {
+            await advanceRound(aggregator, [personas.Neil, personas.Nelly])
+          })
+
+          it('is not eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: false,
+              roundId: 2,
+              latestSubmission: answer,
+              startedAt: ShouldBeSet,
+              timeout,
+              availableFunds: baseFunds.sub(paymentAmount.mul(2)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('is eligible to submit', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: false,
+                roundId: 3,
+                latestSubmission: answer,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(2)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
+          })
+        })
+
+        describe('>= min sumbissions and oracle not included', () => {
+          beforeEach(async () => {
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Ned,
+              personas.Nancy,
+            ])
+          })
+
+          it('is eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: true,
+              roundId: 2,
+              latestSubmission: previousSubmission,
+              startedAt: ShouldBeSet,
+              timeout,
+              availableFunds: baseFunds.sub(paymentAmount.mul(3)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+
+        describe('>= min submissions and oracle included', () => {
+          beforeEach(async () => {
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Ned,
+              personas.Nelly,
+            ])
           })
 
           it('is eligible to submit', async () => {
@@ -2448,88 +2514,247 @@ describe('FluxAggregator', () => {
               latestSubmission: answer,
               startedAt: ShouldNotBeSet,
               timeout: 0,
-              availableFunds: baseFunds.sub(paymentAmount.mul(2)),
+              availableFunds: baseFunds.sub(paymentAmount.mul(3)),
               oracleCount: oracles.length,
               paymentAmount,
             })
           })
-        })
-      })
 
-      describe('>= min sumbissions and oracle not included', () => {
-        beforeEach(async () => {
-          await advanceRound(aggregator, [
-            personas.Neil,
-            personas.Ned,
-            personas.Nancy,
-          ])
-        })
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
 
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
+            it('is eligible to submit', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
 
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: true,
-            roundId: 2,
-            latestSubmission: previousSubmission,
-            startedAt: ShouldBeSet,
-            timeout,
-            availableFunds: baseFunds.sub(paymentAmount.mul(3)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
-      })
-
-      describe('>= min submissions and oracle included', () => {
-        beforeEach(async () => {
-          await advanceRound(aggregator, [
-            personas.Neil,
-            personas.Ned,
-            personas.Nelly,
-          ])
-        })
-
-        it('is eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: false,
-            roundId: 3,
-            latestSubmission: answer,
-            startedAt: ShouldNotBeSet,
-            timeout: 0,
-            availableFunds: baseFunds.sub(paymentAmount.mul(3)),
-            oracleCount: oracles.length,
-            paymentAmount,
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: false, // restart delay enforced
+                roundId: 3,
+                latestSubmission: answer,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(3)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
           })
         })
 
-        describe('and timed out', () => {
+        describe('max submissions and oracle not included', () => {
           beforeEach(async () => {
-            await h.increaseTimeBy(timeout + 1, provider)
-            await h.mineBlock(provider)
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nancy,
+              personas.Norbert,
+            ]
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              'precondition, please update submitters if maxAnswers changes',
+            )
+            await advanceRound(aggregator, submitters, answer)
           })
 
-          it('is eligible to submit', async () => {
+          it('is not eligible to submit', async () => {
             const state = await aggregator.oracleRoundState(
               personas.Nelly.address,
               0,
             )
 
             await checkOracleRoundState(state, {
-              eligibleToSubmit: false, // restart delay enforced
+              eligibleToSubmit: false,
+              roundId: 3,
+              latestSubmission: previousSubmission,
+              startedAt: ShouldNotBeSet,
+              timeout: 0, // details have been deleted
+              availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+
+        describe('max submissions and oracle included', () => {
+          beforeEach(async () => {
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nelly,
+              personas.Nancy,
+            ]
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              'precondition, please update submitters if maxAnswers changes',
+            )
+            await advanceRound(aggregator, submitters, answer)
+          })
+
+          it('is not eligible to submit', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              0,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: false,
               roundId: 3,
               latestSubmission: answer,
               startedAt: ShouldNotBeSet,
               timeout: 0,
-              availableFunds: baseFunds.sub(paymentAmount.mul(3)),
+              availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+      })
+    })
+
+    describe('when non-zero round ID 0 is passed in', () => {
+      const answers = [0, 42, 47, 52, 57]
+      let currentFunds: any
+
+      beforeEach(async () => {
+        oracles = [personas.Neil, personas.Ned, personas.Nelly]
+
+        await addOracles(aggregator, oracles, 2, 3, rrDelay)
+        startingState = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          0,
+        )
+        await advanceRound(aggregator, oracles, answers[1])
+        await advanceRound(
+          aggregator,
+          [personas.Neil, personas.Ned],
+          answers[2],
+        )
+        await advanceRound(aggregator, oracles, answers[3])
+        await advanceRound(aggregator, [personas.Neil], answers[4])
+        const submissionsSoFar = 9
+        currentFunds = h
+          .bigNum(deposit)
+          .sub(paymentAmount.mul(submissionsSoFar))
+      })
+
+      it('returns info about previous rounds', async () => {
+        const state = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          1,
+        )
+
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: false,
+          roundId: 1,
+          latestSubmission: answers[3],
+          startedAt: ShouldBeSet,
+          timeout: 0,
+          availableFunds: currentFunds,
+          oracleCount: oracles.length,
+          paymentAmount: 0,
+        })
+      })
+
+      it('returns info about previous rounds that were not submitted to', async () => {
+        const state = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          2,
+        )
+
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: false,
+          roundId: 2,
+          latestSubmission: answers[3],
+          startedAt: ShouldBeSet,
+          timeout,
+          availableFunds: currentFunds,
+          oracleCount: oracles.length,
+          paymentAmount,
+        })
+      })
+
+      describe('for the current round', () => {
+        describe('which has not been submitted to', () => {
+          it("returns info about the current round that hasn't been submitted to", async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              4,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: true,
+              roundId: 4,
+              latestSubmission: answers[3],
+              startedAt: ShouldBeSet,
+              timeout,
+              availableFunds: currentFunds,
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+
+          it('returns info about the subsequent round', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              5,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: false,
+              roundId: 5,
+              latestSubmission: answers[3],
+              startedAt: ShouldNotBeSet,
+              timeout: 0,
+              availableFunds: currentFunds,
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+        })
+
+        describe('which has been submitted to', () => {
+          beforeEach(async () => {
+            await aggregator.connect(personas.Nelly).submit(4, answers[4])
+          })
+
+          it("returns info about the current round that hasn't been submitted to", async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              4,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: false,
+              roundId: 4,
+              latestSubmission: answers[4],
+              startedAt: ShouldBeSet,
+              timeout,
+              availableFunds: currentFunds.sub(paymentAmount),
+              oracleCount: oracles.length,
+              paymentAmount,
+            })
+          })
+
+          it('returns info about the subsequent round', async () => {
+            const state = await aggregator.oracleRoundState(
+              personas.Nelly.address,
+              5,
+            )
+
+            await checkOracleRoundState(state, {
+              eligibleToSubmit: true,
+              roundId: 5,
+              latestSubmission: answers[4],
+              startedAt: ShouldNotBeSet,
+              timeout: 0,
+              availableFunds: currentFunds.sub(paymentAmount),
               oracleCount: oracles.length,
               paymentAmount,
             })
@@ -2537,73 +2762,21 @@ describe('FluxAggregator', () => {
         })
       })
 
-      describe('max submissions and oracle not included', () => {
-        beforeEach(async () => {
-          submitters = [
-            personas.Neil,
-            personas.Ned,
-            personas.Nancy,
-            personas.Norbert,
-          ]
-          assert.equal(
-            submitters.length,
-            maxAnswers,
-            'precondition, please update submitters if maxAnswers changes',
-          )
-          await advanceRound(aggregator, submitters, answer)
-        })
+      it('returns speculative info about future rounds', async () => {
+        const state = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          6,
+        )
 
-        it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: false,
-            roundId: 3,
-            latestSubmission: previousSubmission,
-            startedAt: ShouldNotBeSet,
-            timeout: 0, // details have been deleted
-            availableFunds: baseFunds.sub(paymentAmount.mul(4)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
-        })
-      })
-
-      describe('max submissions and oracle included', () => {
-        beforeEach(async () => {
-          submitters = [
-            personas.Neil,
-            personas.Ned,
-            personas.Nelly,
-            personas.Nancy,
-          ]
-          assert.equal(
-            submitters.length,
-            maxAnswers,
-            'precondition, please update submitters if maxAnswers changes',
-          )
-          await advanceRound(aggregator, submitters, answer)
-        })
-
-        it('is not eligible to submit', async () => {
-          const state = await aggregator.oracleRoundState(
-            personas.Nelly.address,
-            0,
-          )
-
-          await checkOracleRoundState(state, {
-            eligibleToSubmit: false,
-            roundId: 3,
-            latestSubmission: answer,
-            startedAt: ShouldNotBeSet,
-            timeout: 0,
-            availableFunds: baseFunds.sub(paymentAmount.mul(4)),
-            oracleCount: oracles.length,
-            paymentAmount,
-          })
+        await checkOracleRoundState(state, {
+          eligibleToSubmit: false,
+          roundId: 6,
+          latestSubmission: answers[3],
+          startedAt: ShouldNotBeSet,
+          timeout: 0,
+          availableFunds: currentFunds,
+          oracleCount: oracles.length,
+          paymentAmount,
         })
       })
     })
