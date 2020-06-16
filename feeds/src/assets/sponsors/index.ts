@@ -18,6 +18,7 @@ import linkpool from './linkpool.png'
 import opium from './opium.png'
 import theforceprotocol from './theforceprotocol.png'
 import kyber from './kyber.png'
+import orchid from './orchid.png'
 
 // Listing Thumbnails
 
@@ -39,6 +40,7 @@ import linkpoolTn from './linkpool_tn.png'
 import opiumTn from './opium_tn.png'
 import theforceprotocolTn from './theforceprotocol_tn.png'
 import kyberTn from './kyber_tn.png'
+import orchidTn from './orchid_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -155,5 +157,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://kyber.network/',
     imageLg: kyber,
     imageTn: kyberTn,
+  },
+  {
+    name: 'Orchid Network',
+    url: 'https://www.orchid.com/',
+    imageLg: orchid,
+    imageTn: orchidTn,
   },
 ]
