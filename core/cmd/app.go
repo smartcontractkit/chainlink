@@ -64,18 +64,6 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
-				{
-					Name:        "withdraw",
-					Usage:       "Withdraw to <address>, <amount> units of LINK from the configured Oracle Contract",
-					Description: "Only works if the Chainlink node is the owner of the contract being withdrawn from",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "from",
-							Usage: "override the configured oracle address to withdraw from",
-						},
-					},
-					Action: client.Withdraw,
-				},
 			},
 		},
 
@@ -440,14 +428,8 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling Ethereum transactions",
 			Subcommands: []cli.Command{
 				{
-					Name:  "create",
-					Usage: "Send <amount> ETH from the node's ETH account to an <address>.",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "from, f",
-							Usage: "optional flag to specify which address should send the transaction",
-						},
-					},
+					Name:   "create",
+					Usage:  "Send <amount> Wei from node ETH account <fromAddress> to destination <toAddress>.",
 					Action: client.SendEther,
 				},
 				{

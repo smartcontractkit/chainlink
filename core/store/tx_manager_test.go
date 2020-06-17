@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -582,7 +581,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	sentAt := uint64(23456)
 	nonce := uint64(234)
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
-	minConfs := config.MinOutgoingConfirmations() - 1
+	minConfs := config.MinRequiredOutgoingConfirmations() - 1
 	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold + minConfs - 1)))
 	require.NoError(t, app.StartAndConnect())
 
@@ -637,7 +636,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 			config := store.Config
 
 			gasThreshold := sentAt + config.EthGasBumpThreshold()
-			minConfs := config.MinOutgoingConfirmations() - 1
+			minConfs := config.MinRequiredOutgoingConfirmations() - 1
 			head := cltest.Head(gasThreshold + minConfs + test.confsDiff)
 			require.NoError(t, app.Store.ORM.IdempotentInsertHead(*head))
 			require.NoError(t, app.StartAndConnect())
@@ -721,7 +720,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	sentAt1 := uint64(23456)
 	sentAt2 := sentAt1 + config.EthGasBumpThreshold()
 	confirmedAt := sentAt2 + 1
-	safeAt := confirmedAt + config.MinOutgoingConfirmations()
+	safeAt := confirmedAt + config.MinRequiredOutgoingConfirmations()
 
 	nonConfedReceipt := eth.TxReceipt{}
 	confedReceipt := eth.TxReceipt{Hash: cltest.NewHash(), BlockNumber: cltest.Int(confirmedAt)}
@@ -973,73 +972,6 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_WithdrawLink_HappyPath(t *testing.T) {
-	t.Parallel()
-	config, configCleanup := cltest.NewConfig(t)
-	defer configCleanup()
-	oca := common.HexToAddress("0xDEADB3333333F")
-	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
-	defer cleanup()
-
-	txm := app.Store.TxManager
-
-	from := cltest.GetAccountAddress(t, app.GetStore())
-	to := cltest.NewAddress()
-	hash := cltest.NewHash()
-	sentAt := uint64(23456)
-	nonce := uint64(256)
-	ethMock := app.EthMock
-	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
-		ethMock.Register("eth_chainId", config.ChainID())
-	})
-	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(sentAt)))
-	assert.NoError(t, app.StartAndConnect())
-
-	ethMock.Context("txm.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_sendRawTransaction", hash)
-	})
-
-	wr := models.WithdrawalRequest{
-		DestinationAddress: to,
-		Amount:             assets.NewLink(10),
-	}
-
-	hash, err := txm.WithdrawLINK(wr)
-	assert.NoError(t, err)
-	assert.True(t, ethMock.AllCalled(), "Not Called")
-
-	transactions, err := app.Store.TxFrom(from)
-	require.NoError(t, err)
-	require.Len(t, transactions, 1)
-	tx := transactions[0]
-	assert.Equal(t, hash, tx.Hash)
-	assert.Equal(t, nonce, tx.Nonce)
-}
-
-func TestTxManager_WithdrawLink_Unconfigured_Oracle(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-
-	nonce := uint64(256)
-	ethMock := app.EthMock
-	ethMock.Context("app.StartAndConnect()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(nonce))
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
-	})
-	assert.NoError(t, app.StartAndConnect())
-
-	wr := models.WithdrawalRequest{
-		DestinationAddress: cltest.NewAddress(),
-		Amount:             assets.NewLink(10),
-	}
-
-	_, err := app.Store.TxManager.WithdrawLINK(wr)
-	assert.EqualError(t, err, "OracleContractAddress not set; cannot withdraw")
-}
-
 func TestManagedAccount_GetAndIncrementNonce_YieldsCurrentNonceAndIncrements(t *testing.T) {
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 	managedAccount := strpkg.NewManagedAccount(account, 0)
@@ -1094,7 +1026,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	data, err := hex.DecodeString("0000abcdef")
 	nonce := uint64(256)
 	sentAt := uint64(1)
-	confirmedAt := sentAt + config.MinOutgoingConfirmations()
+	confirmedAt := sentAt + config.MinRequiredOutgoingConfirmations()
 
 	manager.Register(keyStore.Accounts())
 	require.NoError(t, err)

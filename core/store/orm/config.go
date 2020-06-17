@@ -418,11 +418,11 @@ func (c Config) MinIncomingConfirmations() uint32 {
 	return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
 }
 
-// MinOutgoingConfirmations represents the default minimum number of block
+// MinRequiredOutgoingConfirmations represents the default minimum number of block
 // confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
 // This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
-func (c Config) MinOutgoingConfirmations() uint64 {
-	return c.viper.GetUint64(EnvVarName("MinOutgoingConfirmations"))
+func (c Config) MinRequiredOutgoingConfirmations() uint64 {
+	return c.viper.GetUint64(EnvVarName("MinRequiredOutgoingConfirmations"))
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be

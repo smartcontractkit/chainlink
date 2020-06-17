@@ -45,7 +45,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
-	github.com/shopspring/decimal v0.0.0-20191130220710-360f2bc03045
+	github.com/shopspring/decimal v1.2.0
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1

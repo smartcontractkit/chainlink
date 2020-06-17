@@ -536,7 +536,7 @@ type WithdrawalRequest struct {
 type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
-	Amount             *assets.Eth    `json:"amount"`
+	Amount             assets.Eth     `json:"amount"`
 }
 
 // CreateKeyRequest represents a request to add an ethereum key.
