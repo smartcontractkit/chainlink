@@ -4,7 +4,7 @@ import { boundMethod } from 'autobind-decorator'
 /**
  * Destroy deletes a JobSpecError, effectively dismissing the notification
  *
- * @example "<application>/specs/:SpecID"
+ * @example "<application>/job_spec_errors/:SpecID"
  */
 interface DestroyPathParams {
   id: string
