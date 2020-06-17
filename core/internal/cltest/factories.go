@@ -829,10 +829,11 @@ func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, store *strpkg.St
 
 func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, blockHash common.Hash, txHash common.Hash) models.EthReceipt {
 	r := models.EthReceipt{
-		BlockNumber: blockNumber,
-		BlockHash:   blockHash,
-		TxHash:      txHash,
-		Receipt:     []byte(`{"foo":42}`),
+		BlockNumber:      blockNumber,
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: uint(NewRandomInt64()),
+		Receipt:          []byte(`{"foo":42}`),
 	}
 	require.NoError(t, s.GetRawDB().Save(&r).Error)
 	return r
