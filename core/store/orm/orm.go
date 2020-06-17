@@ -334,10 +334,10 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) error {
 	orm.MustEnsureAdvisoryLock()
 	err := func() error {
-		foundJobSpecErr, found, err := orm.FindJobSpecError(jobID, description)
-		if err != nil {
+		foundJobSpecErr, err := orm.FindJobSpecError(jobID, description)
+		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
-		} else if !found {
+		} else if err != nil {
 			newJobSpecError := models.NewJobSpecError(jobID, description)
 			return orm.db.Create(&newJobSpecError).Error
 		} else {
@@ -352,18 +352,22 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) error {
 }
 
 // FindJobSpecError looks for a JobSpecError record with the given jobID and description
-func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.JobSpecError, bool, error) {
+func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.JobSpecError, error) {
 	jobSpecErr := &models.JobSpecError{}
-	rval := orm.db.Where("job_spec_id = ? AND description = ?", jobID, description).First(&jobSpecErr)
-	found := !rval.RecordNotFound()
-	return jobSpecErr, found, ignoreRecordNotFound(rval)
+	err := orm.db.
+		Where("job_spec_id = ? AND description = ?", jobID, description).
+		First(&jobSpecErr).Error
+	return jobSpecErr, err
 }
 
 // DeleteJobSpecError removes a JobSpecError
 func (orm *ORM) DeleteJobSpecError(ID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
-	err := orm.db.Delete(&models.JobSpecError{ID: ID}).Error
-	return err
+	err := orm.db.Where("id = ?", ID).First(&models.JobSpecError{}).Error
+	if err != nil {
+		return err
+	}
+	return orm.db.Delete(&models.JobSpecError{ID: ID}).Error
 }
 
 // CreateExternalInitiator inserts a new external initiator
