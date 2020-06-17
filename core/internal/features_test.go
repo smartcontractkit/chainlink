@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -876,6 +877,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	app.GetStore().Config.Set(orm.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
 
@@ -935,7 +937,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		eth.Register("eth_getBalance", "0x100")
 		eth.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "256"))
 	})
-	newHeads <- cltest.NewEthHeader(10)
+	newHeads <- cltest.NewEthHeader(1)
 
 	// Check the FM price on completed run output
 	jr := cltest.WaitForJobRunToComplete(t, app.GetStore(), jrs[0])
@@ -951,17 +953,24 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		t,
 		"0x0000000000000000000000000000000000000000000000000000000000000002",
 		requestParams.Get("dataPrefix").String())
+
+	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
+	require.NoError(t, err)
+	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
 }
 
 func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
+	app.GetStore().Config.Set(orm.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
+	newHeads := make(chan types.Header)
 
 	// Start, connect, and initialize node
 	eth := app.EthMock
 	eth.Context("app.StartAndConnect()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x0100`) // TxManager.ActivateAccount()
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
@@ -1013,16 +1022,26 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		BlockNumber: cltest.Int(1),
 	}
 	eth.Context("ethTx.Perform() for new round send", func(eth *cltest.EthMock) {
-		eth.Register("eth_sendRawTransaction", attemptHash)         // Initial tx attempt sent
-		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+		eth.Register("eth_sendRawTransaction", attemptHash) // Initial tx attempt sent
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
+		eth.Register("eth_getBalance", "0x0100")
 	})
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
 		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
+		mock.Register("eth_call", hex)
 		mock.Register("eth_call", hex)
 	})
 	newRounds <- log
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
+
+	newHeads <- cltest.NewEthHeader(1)
+	_ = cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
+	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
+	require.NoError(t, err)
+	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
+
 	eth.EventuallyAllCalled(t)
 }
 
