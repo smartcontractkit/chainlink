@@ -571,7 +571,7 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 	defer cleanup()
 
-	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
+	resp, err := http.Get(app.Server.URL + "/v2/specs/garbage")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
 }

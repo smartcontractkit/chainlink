@@ -1797,9 +1797,8 @@ func TestORM_UpsertErrorFor_Happy(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			err := store.UpsertErrorFor(test.jobID, test.description)
 			require.NoError(t, err)
-			jse, found, err := store.FindJobSpecError(test.jobID, test.description)
+			jse, err := store.FindJobSpecError(test.jobID, test.description)
 			require.NoError(t, err)
-			require.True(t, found)
 			require.Equal(t, test.expectedOccurances, jse.Occurances)
 		})
 	}
