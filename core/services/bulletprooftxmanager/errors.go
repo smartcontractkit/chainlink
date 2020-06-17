@@ -63,7 +63,7 @@ func (s *sendError) IsNonceTooLowError() bool {
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
 func (s *sendError) IsTransactionAlreadyInMempool() bool {
-	return s != nil && s.err != nil && (strings.HasPrefix(s.Error(), "known transaction:") || s.Error() == parAlreadyImported)
+	return s != nil && s.err != nil && (strings.HasPrefix(strings.ToLower(s.Error()), "known transaction") || s.Error() == "already known" || s.Error() == parAlreadyImported)
 }
 
 // IsTerminallyUnderpriced indicates that this transaction is so far
@@ -125,4 +125,13 @@ func isParityFatal(s string) bool {
 			parGasLimitExceeded.MatchString(s) ||
 			parInvalidSignature.MatchString(s) ||
 			parInvalidRlp.MatchString(s))
+}
+
+// Parity can return partially hydrated Log entries if you query a receipt
+// while the transaction is still in the mempool. Go-ethereum's built-in
+// client raises an error since this is a required field. There is no easy way
+// to ignore the error or pass in a custom struct, so we use this hack to
+// detect it instead.
+func isParityQueriedReceiptTooEarly(e error) bool {
+	return e != nil && e.Error() == "missing required field 'transactionHash' for Log"
 }

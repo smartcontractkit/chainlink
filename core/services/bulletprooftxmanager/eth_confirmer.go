@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/eth"
@@ -61,7 +62,7 @@ func (ec *ethConfirmer) Disconnect() {
 func (ec *ethConfirmer) OnNewLongestChain(head models.Head) {
 	if ec.config.EnableBulletproofTxManager() {
 		if err := ec.ProcessHead(head); err != nil {
-			logger.Error(err)
+			logger.Error("EthConfirmer: ", err)
 		}
 	}
 }
@@ -108,12 +109,17 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 	for _, etx := range unconfirmedEtxs {
 		for _, attempt := range etx.EthTxAttempts {
 			// NOTE: If this becomes a performance bottleneck due to eth node requests,
-			// it may be possible to use goroutines here to speed it up
+			// it may be possible to use goroutines here to speed it up by
+			// issuing `fetchReceipt` requests in parallel
 			receipt, err := ec.fetchReceipt(attempt.Hash)
-			if err != nil {
-				return err
+			if isParityQueriedReceiptTooEarly(err) {
+				logger.Debugw("EthConfirmer: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
+				break
+			} else if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("fetchReceipt failed for transaction %s", attempt.Hash.Hex()))
 			}
 			if receipt != nil {
+				logger.Debugw("EthConfirmer: got receipt for transaction", "txHash", attempt.Hash.Hex(), "blockNumber", receipt.BlockNumber)
 				if receipt.TxHash != attempt.Hash {
 					return errors.Errorf("invariant violation: expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
 				}
@@ -121,6 +127,8 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 					return err
 				}
 				break
+			} else {
+				logger.Debugw("EthConfirmer: still waiting for receipt", "txHash", attempt.Hash.Hex())
 			}
 		}
 	}
@@ -150,7 +158,8 @@ func (ec *ethConfirmer) fetchReceipt(hash gethCommon.Hash) (*gethTypes.Receipt, 
 	if err != nil && err.Error() == "not found" {
 		return nil, nil
 	}
-	return receipt, errors.Wrap(err, "fetchReceipt failed")
+	return receipt, err
+
 }
 
 func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) error {
@@ -163,17 +172,19 @@ func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) er
 		// be one receipt for an eth_tx, and if it exists then the transaction
 		// is marked confirmed which means we can never get here.
 		// However, even so, it still shouldn't be an error to re-insert a receipt we already have.
-		if err := tx.Set("gorm:insert_option", "ON CONFLICT (tx_hash, block_hash) DO NOTHING").
+		err = tx.Set("gorm:insert_option", "ON CONFLICT (tx_hash, block_hash) DO NOTHING").
 			Create(&models.EthReceipt{
 				Receipt:          receiptJSON,
 				TxHash:           receipt.TxHash,
 				BlockHash:        receipt.BlockHash,
 				BlockNumber:      receipt.BlockNumber.Int64(),
 				TransactionIndex: receipt.TransactionIndex,
-			}).Error; err != nil {
-			return errors.Wrap(err, "saveReceipt failed to save receipt")
+			}).Error
+		if err == nil || err.Error() == "sql: no rows in result set" {
+			return errors.Wrap(tx.Exec(`UPDATE eth_txes SET state = 'confirmed' WHERE id = ?`, ethTxID).Error, "saveReceipt failed to update eth_txes")
 		}
-		return errors.Wrap(tx.Exec(`UPDATE eth_txes SET state = 'confirmed' WHERE id = ?`, ethTxID).Error, "saveReceipt failed to update eth_txes")
+
+		return errors.Wrap(err, "saveReceipt failed to save receipt")
 	})
 }
 
@@ -387,7 +398,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 		sendError = nil
 	}
 
-	if sendError == nil || sendError.IsTransactionAlreadyInMempool() {
+	if sendError == nil {
 		return saveSentAttempt(ec.store.GetRawDB(), &a)
 	}
 
@@ -395,7 +406,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 	// node operator. The node may have it in the mempool so we must keep the
 	// attempt (leave it in_progress). Safest thing to do is bail out and wait
 	// for the next head.
-	return sendError
+	return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, a.Hash.Hex())
 }
 
 func deleteInProgressAttempt(db *gorm.DB, a models.EthTxAttempt) error {
