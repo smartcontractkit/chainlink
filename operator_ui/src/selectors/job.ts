@@ -6,6 +6,5 @@ export default (
   { jobs }: Pick<AppState, 'jobs'>,
   id: string,
 ): JobSpec | undefined => {
-  // TODO - RYAN - null?
   return build(jobs, 'items', id, { eager: true })
 }

@@ -40,7 +40,6 @@ function renderBody(
         </TableCell>
         <TableCell>
           <Typography variant="body1">
-            {/* TODO - RYAN - make these localized */}
             <TimeAgo tooltip>
               {localizedTimestamp(error.updatedAt.toString())}
             </TimeAgo>
