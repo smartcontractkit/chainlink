@@ -762,6 +762,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 				}
 				w.WriteHeader(200)
 			}))
+		defer srv.Close()
 		hga := makeHTTPGetAdapter(t, srv)
 		_ = hga.Perform(input, str)
 		if counter != 3 {
@@ -778,6 +779,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 				largeBody := fillBlob(str.Config.DefaultHTTPLimit() + 10)
 				w.Write(largeBody)
 			}))
+		defer srv.Close()
 		hga := makeHTTPGetAdapter(t, srv)
 		_ = hga.Perform(input, str)
 		if counter != 1 {
@@ -792,6 +794,7 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 				counter += 1
 				w.WriteHeader(500)
 			}))
+		defer srv.Close()
 		hga := makeHTTPGetAdapter(t, srv)
 		_ = hga.Perform(input, str)
 		expected := str.Config.DefaultMaxHTTPAttempts()
