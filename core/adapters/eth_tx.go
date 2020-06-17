@@ -124,7 +124,7 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *store.Store) models.RunOutput {
 	var minRequiredOutgoingConfirmations uint64
 	if e.MinRequiredOutgoingConfirmations == 0 {
-		minRequiredOutgoingConfirmations = s.Config.MinOutgoingConfirmations()
+		minRequiredOutgoingConfirmations = s.Config.MinRequiredOutgoingConfirmations()
 	} else {
 		minRequiredOutgoingConfirmations = e.MinRequiredOutgoingConfirmations
 	}
@@ -160,7 +160,7 @@ func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmat
 	receipt := models.EthReceipt{}
 	err := db.
 		Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", ethTxID).
-		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = ?", models.EthTxConfirmed).
+		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed'").
 		Where("eth_receipts.block_number <= (SELECT max(number) - ? FROM heads)", minRequiredOutgoingConfirmations).
 		First(&receipt).
 		Error

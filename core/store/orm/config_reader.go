@@ -54,7 +54,7 @@ type ConfigReader interface {
 	LogToDisk() bool
 	LogSQLStatements() bool
 	MinIncomingConfirmations() uint32
-	MinOutgoingConfirmations() uint64
+	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
 	MigrateDatabase() bool

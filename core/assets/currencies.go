@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
@@ -181,15 +182,25 @@ func (l *Link) Scan(value interface{}) error {
 // Eth contains a field to represent the smallest units of ETH
 type Eth big.Int
 
-// NewEth returns a new struct to represent ETH from it's smallest unit
+// NewEth returns a new struct to represent ETH from it's smallest unit (wei)
 func NewEth(w int64) *Eth {
 	return (*Eth)(big.NewInt(w))
 }
 
-// NewEthValue returns a new struct to represent ETH from it's smallest unit
+// NewEthValue returns a new struct to represent ETH from it's smallest unit (wei)
 func NewEthValue(w int64) Eth {
 	eth := NewEth(w)
 	return *eth
+}
+
+// NewEthValueS returns a new struct to represent ETH from a string value of Eth (not wei)
+func NewEthValueS(s string) (Eth, error) {
+	e, err := decimal.NewFromString(s)
+	if err != nil {
+		return Eth{}, err
+	}
+	w := e.Mul(decimal.RequireFromString("10").Pow(decimal.RequireFromString("18")))
+	return *(*Eth)(w.BigInt()), nil
 }
 
 // Cmp delegates to *big.Int.Cmp

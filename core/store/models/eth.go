@@ -60,6 +60,11 @@ func (e EthTx) GetError() error {
 	return errors.New(*e.Error)
 }
 
+// GetID allows EthTx to be used as jsonapi.MarshalIdentifier
+func (e EthTx) GetID() string {
+	return string(e.ID)
+}
+
 type EthTxAttempt struct {
 	ID                      int64
 	EthTxID                 int64

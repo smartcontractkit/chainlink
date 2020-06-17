@@ -345,7 +345,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 		// NOTE: It may be possible to introduce some optimisation here since
 		// we know that if a later nonce is confirmed, earlier nonces are also
 		// automatically confirmed.
-		if ec.IsFinalized(etx, blockHeight) {
+		if ec.IsSafeToAbandon(etx, blockHeight) {
 			logger.Errorf("nonce %v for transaction %v was already used but we never got a receipt from the eth node for any of our attempts. "+
 				"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
 				"This can happen if an external wallet has been used to send a transaction from account %s with nonce %v."+
@@ -419,13 +419,13 @@ func deleteInProgressAttempt(db *gorm.DB, a models.EthTxAttempt) error {
 	return errors.Wrap(db.Exec(`DELETE FROM eth_tx_attempts WHERE id = ?`, a.ID).Error, "deleteInProgressAttempt failed")
 }
 
-// IsFinalized determines whether the transaction has an attempt that was
+// IsSafeToAbandon determines whether the transaction has an attempt that was
 // broadcast long enough ago that we consider it to be "final". Note that this
 // is only used in the case the nonce has been used but we cannot get a
 // receipt, because we do not have the right attempt in our database.
 //
 // This should only ever happen if an external wallet has used the account.
-func (ec *ethConfirmer) IsFinalized(etx models.EthTx, blockHeight int64) bool {
+func (ec *ethConfirmer) IsSafeToAbandon(etx models.EthTx, blockHeight int64) bool {
 	min := int64(0)
 	for _, attempt := range etx.EthTxAttempts {
 		if attempt.BroadcastBeforeBlockNum != nil && (min == 0 || *attempt.BroadcastBeforeBlockNum < min) {
