@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/avast/retry-go"
+	"github.com/jpillora/backoff"
 )
 
 // HTTPGet requires a URL which is used for a GET request when the adapter is called.
@@ -194,59 +194,70 @@ func withRetry(
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
 ) (responseBody []byte, statusCode int, err error) {
-	err = retry.Do(
-		func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
-			defer cancel()
-			requestWithTimeout := originalRequest.Clone(ctx)
+	bb := &backoff.Backoff{
+		Min:    100,
+		Max:    20 * time.Minute, // We stop retrying on the number of attempts!
+		Jitter: true,
+	}
+	for {
+		responseBody, statusCode, err = makeHTTPCall(client, originalRequest, config)
+		if err == nil {
+			return responseBody, statusCode, nil
+		}
+		if uint(bb.Attempt())+1 >= config.maxAttempts { // Stop retrying.
+			return responseBody, statusCode, err
+		}
+		switch err.(type) {
+		// There is no point in retrying a request if the response was
+		// too large since it's likely that all retries will suffer the
+		// same problem
+		case *HTTPResponseTooLargeError:
+			return responseBody, statusCode, err
+		}
+		// Sleep and retry.
+		time.Sleep(bb.Duration())
+		logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", bb.Attempt(), "timeout", config.timeout)
+	}
+}
 
-			start := time.Now()
+func makeHTTPCall(
+	client *http.Client,
+	originalRequest *http.Request,
+	config HTTPRequestConfig,
+) (responseBody []byte, statusCode int, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
+	defer cancel()
+	requestWithTimeout := originalRequest.Clone(ctx)
 
-			r, e := client.Do(requestWithTimeout)
-			if e != nil {
-				return e
-			}
-			defer logger.ErrorIfCalling(r.Body.Close)
-			statusCode = r.StatusCode
-			elapsed := time.Since(start)
-			logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	start := time.Now()
 
-			source := newMaxBytesReader(r.Body, config.sizeLimit)
-			bytes, e := ioutil.ReadAll(source)
-			if e != nil {
-				logger.Errorf("http adapter error reading body: %v", e.Error())
-				return e
-			}
-			elapsed = time.Since(start)
-			logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	r, e := client.Do(requestWithTimeout)
+	if e != nil {
+		return nil, 0, e
+	}
+	defer logger.ErrorIfCalling(r.Body.Close)
 
-			responseBody = bytes
+	statusCode = r.StatusCode
+	elapsed := time.Since(start)
+	logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
-			// Retry on 5xx since this might give a different result
-			if 500 <= r.StatusCode && r.StatusCode < 600 {
-				return &RemoteServerError{responseBody, statusCode}
-			}
+	source := newMaxBytesReader(r.Body, config.sizeLimit)
+	bytes, e := ioutil.ReadAll(source)
+	if e != nil {
+		logger.Errorf("http adapter error reading body: %v", e.Error())
+		return nil, statusCode, e
+	}
+	elapsed = time.Since(start)
+	logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
-			return nil
-		},
-		retry.Attempts(config.maxAttempts),
-		retry.RetryIf(func(err error) bool {
-			switch err.(type) {
-			// There is no point in retrying a request if the response was
-			// too large since it's likely that all retries will suffer the
-			// same problem
-			case *HTTPResponseTooLargeError:
-				return false
-			default:
-				return true
-			}
-		}),
-		retry.OnRetry(func(n uint, err error) {
-			logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", n, "timeout", config.timeout)
-		}),
-	)
+	responseBody = bytes
 
-	return responseBody, statusCode, err
+	// Retry on 5xx since this might give a different result
+	if 500 <= r.StatusCode && r.StatusCode < 600 {
+		return responseBody, statusCode, &RemoteServerError{responseBody, statusCode}
+	}
+
+	return responseBody, statusCode, nil
 }
 
 type RemoteServerError struct {
