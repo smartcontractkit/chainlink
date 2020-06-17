@@ -802,10 +802,30 @@ func TestHTTP_RetryPolicy(t *testing.T) {
 			t.Fatalf("expected adapter to give up after %d attempts but instead it tried %d times", expected, counter)
 		}
 	})
-	/*
-		//t.Run("retry if connection to server cannot be created", func(t *testing.T) {
-		//})
-	*/
+	t.Run("retry if the server is broken", func(t *testing.T) {
+		t.Parallel()
+		var counter uint = 0
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				counter += 1
+				hj, ok := w.(http.Hijacker)
+				if !ok {
+					t.Fatalf("Unable to hijack response writer!")
+				}
+				conn, _, err := hj.Hijack()
+				if err != nil {
+					require.NoError(t, err)
+				}
+				conn.Close()
+			}))
+		defer srv.Close()
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		expected := str.Config.DefaultMaxHTTPAttempts()
+		if counter != expected {
+			t.Fatalf("expected adapter to try %d times but got %d when the server is broken", expected, counter)
+		}
+	})
 }
 
 // Helpers
