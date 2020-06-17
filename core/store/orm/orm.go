@@ -251,7 +251,7 @@ func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
 	tx := orm.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%s", r)
+			err = errors.Errorf("%s", r)
 			tx.Rollback()
 			return
 		}
@@ -260,7 +260,7 @@ func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
 	err = fc(tx)
 
 	if err == nil {
-		err = tx.Commit().Error
+		err = errors.WithStack(tx.Commit().Error)
 	}
 
 	// Makesure rollback when Block error or Commit error

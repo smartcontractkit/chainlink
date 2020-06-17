@@ -76,19 +76,23 @@ func (ec *ethConfirmer) ProcessHead(head models.Head) error {
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
 func (ec *ethConfirmer) processHead(head models.Head) error {
+	logger.Debugw("EthConfirmer: running SetBroadcastBeforeBlockNum", "headNum", head.Number)
 	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
-		return err
+		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 
+	logger.Debugw("EthConfirmer: running CheckForReceipts", "headNum", head.Number)
 	if err := ec.CheckForReceipts(); err != nil {
-		return err
+		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
+	logger.Debugw("EthConfirmer: running BumpGasWhereNecessary", "headNum", head.Number)
 	if err := ec.BumpGasWhereNecessary(head.Number); err != nil {
-		return err
+		return errors.Wrap(err, "BumpGasWhereNecessary failed")
 	}
 
-	return ec.EnsureConfirmedTransactionsInLongestChain(head)
+	logger.Debugw("EthConfirmer: running EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number)
+	return errors.Wrap(ec.EnsureConfirmedTransactionsInLongestChain(head), "EnsureConfirmedTransactionsInLongestChain failed")
 }
 
 func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
@@ -101,7 +105,7 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 func (ec *ethConfirmer) CheckForReceipts() error {
 	unconfirmedEtxs, err := ec.findUnconfirmedEthTxs()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "findUnconfirmedEthTxs failed")
 	}
 	if len(unconfirmedEtxs) > 0 {
 		logger.Debugf("EthConfirmer: %v unconfirmed transactions", len(unconfirmedEtxs))
@@ -143,7 +147,7 @@ func (ec *ethConfirmer) findUnconfirmedEthTxs() ([]models.EthTx, error) {
 		}).
 		Order("nonce ASC").
 		Find(&etxs, "eth_txes.state = 'unconfirmed'").Error
-	return etxs, errors.Wrap(err, "findUnconfirmedEthTxs failed")
+	return etxs, err
 }
 
 func (ec *ethConfirmer) fetchReceipt(hash gethCommon.Hash) (*gethTypes.Receipt, error) {
