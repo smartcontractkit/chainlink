@@ -152,6 +152,7 @@ export default class AggregatorContract {
           decodedLog.response,
           this.config.multiply,
           this.config.decimalPlaces,
+          this.config.formatDecimalPlaces,
         ),
         answer: Number(decodedLog.response),
         answerId: Number(decodedLog.answerId),
