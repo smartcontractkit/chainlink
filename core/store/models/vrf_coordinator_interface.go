@@ -1,4 +1,4 @@
-package vrf
+package models
 
 import (
 	"math/big"
@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -31,7 +30,7 @@ type RandomnessRequestLog struct {
 var dummyCoordinator, _ = solidity_vrf_coordinator_interface.NewVRFCoordinator(
 	common.Address{}, nil)
 
-func toGethLog(log eth.Log) types.Log {
+func toGethLog(log Log) types.Log {
 	return types.Log{
 		Address:     log.Address,
 		Topics:      log.Topics,
@@ -47,7 +46,7 @@ func toGethLog(log eth.Log) types.Log {
 
 // ParseRandomnessRequestLog returns the RandomnessRequestLog corresponding to
 // the raw logData
-func ParseRandomnessRequestLog(log eth.Log) (*RandomnessRequestLog, error) {
+func ParseRandomnessRequestLog(log Log) (*RandomnessRequestLog, error) {
 	rawLog, err := dummyCoordinator.ParseRandomnessRequest(toGethLog(log))
 	if err != nil {
 		return nil, errors.Wrapf(err,
@@ -91,3 +90,5 @@ func RawRandomnessRequestLogToRandomnessRequestLog(
 		Raw:     *l,
 	}
 }
+
+func equal(left, right *big.Int) bool { return left.Cmp(right) == 0 }

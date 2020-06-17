@@ -6,10 +6,11 @@ import (
 
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -51,7 +52,7 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			jsonStr := cltest.JSONFromFixture(t, test.path).Get("result").String()
-			var receipt eth.TxReceipt
+			var receipt models.TxReceipt
 			err := json.Unmarshal([]byte(jsonStr), &receipt)
 			require.NoError(t, err)
 
@@ -75,7 +76,7 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			receipt := cltest.TxReceiptFromFixture(t, test.path)
-			assert.Equal(t, test.want, receipt.FulfilledRunLog())
+			assert.Equal(t, test.want, eth.FulfilledRunLog(receipt))
 		})
 	}
 }
@@ -178,7 +179,7 @@ func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 			contractAddress := cltest.NewAddress()
 			userAddress := cltest.NewAddress()
 
-			functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+			functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 			data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 			callArgs := eth.CallArgs{
 				To:   contractAddress,

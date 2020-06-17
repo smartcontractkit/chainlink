@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // fail unless the struct fields on object match those in fields.
@@ -15,7 +15,7 @@ func assertFieldsMatch(t *testing.T, fields []string,
 	object interface{}, targetMethod string) {
 	structReflection := reflect.ValueOf(object).Elem()
 	assert.Equal(t, len(fields), structReflection.NumField(),
-		"number of fields in eth.Log has changed; "+
+		"number of fields in models.Log has changed; "+
 			"please update %s", targetMethod)
 	type_ := structReflection.Type()
 	for i, field := range fields {
@@ -28,19 +28,19 @@ func assertFieldsMatch(t *testing.T, fields []string,
 func TestChainlinkEthLogFromGethLogGetsAllFields(t *testing.T) {
 	fields := []string{"Address", "Topics", "Data", "BlockNumber", "TxHash",
 		"TxIndex", "BlockHash", "Index", "Removed"}
-	assertFieldsMatch(t, fields, &eth.Log{}, "chainlinkEthLogFromGethLog")
+	assertFieldsMatch(t, fields, &models.Log{}, "chainlinkEthLogFromGethLog")
 }
 
 func TestGetTxReceiptGetsAllFields(t *testing.T) {
 	fields := []string{"BlockNumber", "BlockHash", "Hash", "Logs"}
-	assertFieldsMatch(t, fields, &eth.TxReceipt{}, "GetTxReceipt")
+	assertFieldsMatch(t, fields, &models.TxReceipt{}, "GetTxReceipt")
 }
 
 func TestGetBlockByNumberGetsAllFields(t *testing.T) {
 	fields := []string{"GasPrice"}
-	assertFieldsMatch(t, fields, &eth.Transaction{}, "GetBlockByNumber")
+	assertFieldsMatch(t, fields, &models.Transaction{}, "GetBlockByNumber")
 	ofields := []string{"Number", "Transactions"}
-	assertFieldsMatch(t, ofields, &eth.Block{}, "GetBlockByNumber")
+	assertFieldsMatch(t, ofields, &models.Block{}, "GetBlockByNumber")
 }
 
 func TestSubscribeToNewHeadsGetsAllFields(t *testing.T) {

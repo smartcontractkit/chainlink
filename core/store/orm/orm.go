@@ -16,11 +16,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1200,20 +1200,20 @@ func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 }
 
 // FirstOrCreateEncryptedSecretKey returns the first key found or creates a new one in the orm.
-func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedSecretKey) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.FirstOrCreate(k).Error
 }
 
 // DeleteEncryptedSecretKey deletes k from the encrypted keys table, or errors
-func (orm *ORM) DeleteEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedSecretKey) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Delete(k).Error
 }
 
 // FindEncryptedSecretKeys retrieves matches to where from the encrypted keys table, or errors
-func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey) (
-	retrieved []*models.EncryptedSecretVRFKey, err error) {
+func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedSecretKey) (
+	retrieved []*vrfkey.EncryptedSecretKey, err error) {
 	orm.MustEnsureAdvisoryLock()
 	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
 	for _, constraint := range where {
@@ -1245,7 +1245,7 @@ func (orm *ORM) getDefaultKey() (models.Key, error) {
 }
 
 // HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, JobID *models.ID) (bool, error) {
+func (orm *ORM) HasConsumedLog(rawLog models.RawLog, JobID *models.ID) (bool, error) {
 	lc := models.LogConsumption{
 		BlockHash: rawLog.GetBlockHash(),
 		LogIndex:  rawLog.GetIndex(),

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -23,7 +22,7 @@ func TestParseRunLog(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         eth.Log
+		log         models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -67,7 +66,7 @@ func TestParseRunLog(t *testing.T) {
 			wantData: cltest.JSONFromString(t, `{
 				"address":"0xfeb35e1f7abe4ef198b7c8df895e19767f3ab8a5",
 				"dataprefix":"0xe947f54ec4d3cab0588684217b029cd9421ea25c59f3309bef6e8fb0d75ff5310000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000650c346f84248abc27e716ea3c6de20f7fbbdb7992cdaaf300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005e1b7f6b",
-				"functionselector":"0x4ab0d190", 
+				"functionselector":"0x4ab0d190",
 				"get":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd",
 				"path":"usd",
 				"times":100}`),
@@ -91,7 +90,7 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          eth.Log
+		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -176,7 +175,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) eth.Log)
+		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -215,7 +214,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			defer cleanup()
 
 			ethMock := app.EthMock
-			logs := make(chan eth.Log, 1)
+			logs := make(chan models.Log, 1)
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_getTransactionCount", "0x1")
 				meth.RegisterSubscription("logs", logs)
@@ -374,7 +373,7 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         eth.Log
+		log         models.Log
 		wantErrored bool
 		want        *assets.Link
 	}{
@@ -415,7 +414,7 @@ func TestRunLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         eth.Log
+		log         models.Log
 		wantErrored bool
 		want        common.Address
 	}{
@@ -456,7 +455,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		log           eth.Log
+		log           models.Log
 		wantRequestID common.Hash
 		wantTxHash    string
 		wantBlockHash string
