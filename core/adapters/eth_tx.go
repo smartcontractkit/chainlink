@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -27,12 +26,12 @@ const (
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
-	ToAddress        common.Address       `json:"address"`
-	FromAddress      common.Address       `json:"fromAddress,omitempty"`
-	FunctionSelector eth.FunctionSelector `json:"functionSelector"`
-	DataPrefix       hexutil.Bytes        `json:"dataPrefix"`
-	DataFormat       string               `json:"format"`
-	GasLimit         uint64               `json:"gasLimit,omitempty"`
+	ToAddress        common.Address          `json:"address"`
+	FromAddress      common.Address          `json:"fromAddress,omitempty"`
+	FunctionSelector models.FunctionSelector `json:"functionSelector"`
+	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
+	DataFormat       string                  `json:"format"`
+	GasLimit         uint64                  `json:"gasLimit,omitempty"`
 
 	// GasPrice only needed for legacy tx manager
 	GasPrice *utils.Big `json:"gasPrice" gorm:"type:numeric"`
@@ -318,11 +317,11 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 }
 
 func addReceiptToResult(
-	receipt eth.TxReceipt,
+	receipt models.TxReceipt,
 	input models.RunInput,
 	data models.JSON,
 ) models.RunOutput {
-	receipts := []eth.TxReceipt{}
+	receipts := []models.TxReceipt{}
 
 	ethereumReceipts := input.Data().Get("ethereumReceipts").String()
 	if ethereumReceipts != "" {

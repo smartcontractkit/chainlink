@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -71,9 +71,9 @@ type TxManager interface {
 	CreateTx(to common.Address, data []byte) (*models.Tx, error)
 	CreateTxWithGas(surrogateID null.String, to common.Address, data []byte, gasPriceWei *big.Int, gasLimit uint64) (*models.Tx, error)
 	CreateTxWithEth(from, to common.Address, value *assets.Eth) (*models.Tx, error)
-	CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*eth.TxReceipt, AttemptState, error)
+	CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, AttemptState, error)
 
-	BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, AttemptState, error)
+	BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error)
 
 	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
@@ -441,7 +441,7 @@ func (txm *EthTxManager) GetLINKBalance(address common.Address) (*assets.Link, e
 
 // BumpGasUntilSafe process a collection of related TxAttempts, trying to get
 // at least one TxAttempt into a safe state, bumping gas if needed
-func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, AttemptState, error) {
 	tx, _, err := txm.orm.FindTxByAttempt(hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "BumpGasUntilSafe FindTxByAttempt")
@@ -455,7 +455,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*eth.TxReceipt, Att
 	return txm.checkAccountForConfirmation(tx)
 }
 
-func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*eth.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
 	blockHeight := uint64(txm.currentHead.Number)
 
 	var merr error
@@ -472,7 +472,7 @@ func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*eth.TxReceip
 	return nil, Unconfirmed, merr
 }
 
-func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*eth.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) checkAccountForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
 	ma := txm.GetAvailableAccount(tx.From)
 
 	if ma != nil && ma.lastSafeNonce > tx.Nonce {
@@ -552,7 +552,7 @@ func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash,
 
 // CheckAttempt retrieves a receipt for a TxAttempt, and check if it meets the
 // minimum number of confirmations
-func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*eth.TxReceipt, AttemptState, error) {
+func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, AttemptState, error) {
 	receipt, err := txm.GetTxReceipt(txAttempt.Hash)
 	if err != nil {
 		return nil, Unknown, errors.Wrap(err, "CheckAttempt GetTxReceipt failed")
@@ -613,7 +613,7 @@ func (txm *EthTxManager) processAttempt(
 	tx *models.Tx,
 	attemptIndex int,
 	blockHeight uint64,
-) (*eth.TxReceipt, AttemptState, error) {
+) (*models.TxReceipt, AttemptState, error) {
 	jobRunID := tx.SurrogateID.ValueOrZero()
 	txAttempt := tx.Attempts[attemptIndex]
 

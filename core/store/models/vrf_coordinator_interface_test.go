@@ -1,12 +1,12 @@
-package vrf_test
+package models_test
 
 import (
 	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -40,7 +40,7 @@ func TestVRFParseRandomnessRequestLog(t *testing.T) {
 	rawLog, err := r.RawData()
 	require.NoError(t, err)
 	assert.Equal(t, rawLog, raw.Raw.Data)
-	nR, err := vrf.ParseRandomnessRequestLog(eth.Log{
+	nR, err := vrf.ParseRandomnessRequestLog(models.Log{
 		Data:   rawLog,
 		Topics: []common.Hash{common.Hash{}, jobID},
 	})

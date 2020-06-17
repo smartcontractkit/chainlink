@@ -11,11 +11,13 @@ import (
 
 	context "context"
 
-	eth "github.com/smartcontractkit/chainlink/core/eth"
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	ethereum "github.com/ethereum/go-ethereum"
 
 	mock "github.com/stretchr/testify/mock"
+
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	types "github.com/ethereum/go-ethereum/core/types"
 )
@@ -43,14 +45,14 @@ func (_m *Client) Call(result interface{}, method string, args ...interface{}) e
 }
 
 // GetBlockByNumber provides a mock function with given fields: hex
-func (_m *Client) GetBlockByNumber(hex string) (eth.Block, error) {
+func (_m *Client) GetBlockByNumber(hex string) (models.Block, error) {
 	ret := _m.Called(hex)
 
-	var r0 eth.Block
-	if rf, ok := ret.Get(0).(func(string) eth.Block); ok {
+	var r0 models.Block
+	if rf, ok := ret.Get(0).(func(string) models.Block); ok {
 		r0 = rf(hex)
 	} else {
-		r0 = ret.Get(0).(eth.Block)
+		r0 = ret.Get(0).(models.Block)
 	}
 
 	var r1 error
@@ -154,14 +156,14 @@ func (_m *Client) GetEthBalance(address common.Address) (*assets.Eth, error) {
 }
 
 // GetLatestBlock provides a mock function with given fields:
-func (_m *Client) GetLatestBlock() (eth.Block, error) {
+func (_m *Client) GetLatestBlock() (models.Block, error) {
 	ret := _m.Called()
 
-	var r0 eth.Block
-	if rf, ok := ret.Get(0).(func() eth.Block); ok {
+	var r0 models.Block
+	if rf, ok := ret.Get(0).(func() models.Block); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(eth.Block)
+		r0 = ret.Get(0).(models.Block)
 	}
 
 	var r1 error
@@ -175,15 +177,15 @@ func (_m *Client) GetLatestBlock() (eth.Block, error) {
 }
 
 // GetLogs provides a mock function with given fields: q
-func (_m *Client) GetLogs(q ethereum.FilterQuery) ([]eth.Log, error) {
+func (_m *Client) GetLogs(q ethereum.FilterQuery) ([]models.Log, error) {
 	ret := _m.Called(q)
 
-	var r0 []eth.Log
-	if rf, ok := ret.Get(0).(func(ethereum.FilterQuery) []eth.Log); ok {
+	var r0 []models.Log
+	if rf, ok := ret.Get(0).(func(ethereum.FilterQuery) []models.Log); ok {
 		r0 = rf(q)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]eth.Log)
+			r0 = ret.Get(0).([]models.Log)
 		}
 	}
 
@@ -219,15 +221,15 @@ func (_m *Client) GetNonce(address common.Address) (uint64, error) {
 }
 
 // GetTxReceipt provides a mock function with given fields: hash
-func (_m *Client) GetTxReceipt(hash common.Hash) (*eth.TxReceipt, error) {
+func (_m *Client) GetTxReceipt(hash common.Hash) (*models.TxReceipt, error) {
 	ret := _m.Called(hash)
 
-	var r0 *eth.TxReceipt
-	if rf, ok := ret.Get(0).(func(common.Hash) *eth.TxReceipt); ok {
+	var r0 *models.TxReceipt
+	if rf, ok := ret.Get(0).(func(common.Hash) *models.TxReceipt); ok {
 		r0 = rf(hash)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*eth.TxReceipt)
+			r0 = ret.Get(0).(*models.TxReceipt)
 		}
 	}
 
@@ -305,11 +307,11 @@ func (_m *Client) Subscribe(_a0 context.Context, _a1 interface{}, _a2 ...interfa
 }
 
 // SubscribeToLogs provides a mock function with given fields: ctx, channel, q
-func (_m *Client) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
+func (_m *Client) SubscribeToLogs(ctx context.Context, channel chan<- models.Log, q ethereum.FilterQuery) (eth.Subscription, error) {
 	ret := _m.Called(ctx, channel, q)
 
 	var r0 eth.Subscription
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- eth.Log, ethereum.FilterQuery) eth.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- models.Log, ethereum.FilterQuery) eth.Subscription); ok {
 		r0 = rf(ctx, channel, q)
 	} else {
 		if ret.Get(0) != nil {
@@ -318,7 +320,7 @@ func (_m *Client) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log, q
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- eth.Log, ethereum.FilterQuery) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- models.Log, ethereum.FilterQuery) error); ok {
 		r1 = rf(ctx, channel, q)
 	} else {
 		r1 = ret.Error(1)
