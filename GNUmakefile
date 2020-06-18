@@ -66,7 +66,7 @@ chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 
 .PHONY: chainlink-build
 chainlink-build:
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 	go build $(GOFLAGS) -o chainlink ./core/
 	cp chainlink $(GOBIN)/chainlink
@@ -90,7 +90,7 @@ abigen:
 go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers
 	yarn workspace @chainlink/contracts compile
 	go generate ./core/internal/gethwrappers
-	go run ./packr/main.go ./core/eth/
+	go run ./packr/main.go ./core/services/eth/
 
 .PHONY: testdb
 testdb: ## Prepares the test database
