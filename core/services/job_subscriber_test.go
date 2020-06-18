@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -140,8 +139,8 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 
 	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_getLogs", []ethpkg.Log{})
-	eth.Register("eth_getLogs", []ethpkg.Log{})
+	eth.Register("eth_getLogs", []models.Log{})
+	eth.Register("eth_getLogs", []models.Log{})
 
 	jobSpec1 := cltest.NewJobWithLogInitiator()
 	jobSpec2 := cltest.NewJobWithLogInitiator()

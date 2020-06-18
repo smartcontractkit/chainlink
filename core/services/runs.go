@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -69,7 +68,7 @@ func updateTaskRunObservedIncomingConfirmations(currentHeight *utils.Big, jr *mo
 	taskRun.ObservedIncomingConfirmations = clnull.Uint32From(uint32(diff.Int64()))
 }
 
-func invalidRequest(request models.RunRequest, receipt *eth.TxReceipt) bool {
+func invalidRequest(request models.RunRequest, receipt *models.TxReceipt) bool {
 	return receipt.Unconfirmed() ||
 		(request.BlockHash != nil && *request.BlockHash != *receipt.BlockHash)
 }

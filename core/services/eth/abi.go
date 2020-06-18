@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +18,7 @@ type ContractCodec interface {
 	ABI() *abi.ABI
 	GetMethodID(method string) ([]byte, error)
 	EncodeMessageCall(method string, args ...interface{}) ([]byte, error)
-	UnpackLog(out interface{}, event string, log Log) error
+	UnpackLog(out interface{}, event string, log models.Log) error
 }
 
 // Contract holds the solidity contract's parsed ABI
@@ -47,7 +48,7 @@ func getContractCodec(name string, box packr.Box) (ContractCodec, error) {
 //    yarn setup:contracts
 // in the base project directory.
 func GetContractCodec(name string) (ContractCodec, error) {
-	box := packr.NewBox("../../evm-contracts/abi/v0.4")
+	box := packr.NewBox("../../../evm-contracts/abi/v0.4")
 	return getContractCodec(name, box)
 }
 
@@ -58,7 +59,7 @@ func GetContractCodec(name string) (ContractCodec, error) {
 //    yarn setup:contracts
 // in the base project directory.
 func GetV6ContractCodec(name string) (ContractCodec, error) {
-	box := packr.NewBox("../../evm-contracts/abi/v0.6")
+	box := packr.NewBox("../../../evm-contracts/abi/v0.6")
 	return getContractCodec(name, box)
 }
 
@@ -105,6 +106,6 @@ func MustGetV6ContractEventID(name, eventName string) common.Hash {
 	return event.ID
 }
 
-func (cc *contractCodec) UnpackLog(out interface{}, event string, log Log) error {
+func (cc *contractCodec) UnpackLog(out interface{}, event string, log models.Log) error {
 	return gethUnpackLog(cc, out, event, log)
 }

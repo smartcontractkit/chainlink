@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/eth"
 )
 
 // A LogConsumption is a unique record indicating that a particular job has
@@ -19,7 +18,7 @@ type LogConsumption struct {
 }
 
 // NewLogConsumption creates a new LogConsumption
-func NewLogConsumption(log eth.RawLog, jobID *ID) LogConsumption {
+func NewLogConsumption(log RawLog, jobID *ID) LogConsumption {
 	return LogConsumption{
 		BlockHash: log.GetBlockHash(),
 		LogIndex:  log.GetIndex(),

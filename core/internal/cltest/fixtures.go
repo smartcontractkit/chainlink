@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/require"
@@ -40,19 +39,19 @@ func JSONResultFromFixture(t *testing.T, path string) models.JSON {
 }
 
 // LogFromFixture create ethtypes.log from file path
-func LogFromFixture(t *testing.T, path string) eth.Log {
+func LogFromFixture(t *testing.T, path string) models.Log {
 	value := gjson.Get(string(MustReadFile(t, path)), "params.result")
-	var el eth.Log
+	var el models.Log
 	require.NoError(t, json.Unmarshal([]byte(value.String()), &el))
 
 	return el
 }
 
 // TxReceiptFromFixture create ethtypes.log from file path
-func TxReceiptFromFixture(t *testing.T, path string) eth.TxReceipt {
+func TxReceiptFromFixture(t *testing.T, path string) models.TxReceipt {
 	jsonStr := JSONFromFixture(t, path).Get("result").String()
 
-	var receipt eth.TxReceipt
+	var receipt models.TxReceipt
 	err := json.Unmarshal([]byte(jsonStr), &receipt)
 	require.NoError(t, err)
 

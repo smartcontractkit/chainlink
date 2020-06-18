@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,12 +34,12 @@ var (
 // based on the configured percentile of gas prices in that block
 type GasUpdater interface {
 	store.HeadTrackable
-	RollingBlockHistory() []eth.Block
+	RollingBlockHistory() []models.Block
 }
 
 type gasUpdater struct {
 	store                   *store.Store
-	rollingBlockHistory     []eth.Block
+	rollingBlockHistory     []models.Block
 	rollingBlockHistorySize int
 	// HACK: blockDelay is the number of blocks that the gas updater trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, gas updater will
@@ -56,7 +55,7 @@ type gasUpdater struct {
 func NewGasUpdater(store *store.Store) GasUpdater {
 	gu := &gasUpdater{
 		store:                   store,
-		rollingBlockHistory:     make([]eth.Block, 0),
+		rollingBlockHistory:     make([]models.Block, 0),
 		rollingBlockHistorySize: int(store.Config.GasUpdaterBlockHistorySize()),
 		blockDelay:              int64(store.Config.GasUpdaterBlockDelay()),
 		percentile:              int(store.Config.GasUpdaterTransactionPercentile()),
@@ -140,6 +139,6 @@ func (gu *gasUpdater) setPercentileGasPrice(gasPrice int64) error {
 	return gu.store.Config.SetEthGasPriceDefault(bigGasPrice)
 }
 
-func (gu *gasUpdater) RollingBlockHistory() []eth.Block {
+func (gu *gasUpdater) RollingBlockHistory() []models.Block {
 	return gu.rollingBlockHistory
 }

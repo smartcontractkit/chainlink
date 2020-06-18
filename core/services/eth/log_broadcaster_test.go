@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -39,7 +38,7 @@ func requireLogConsumptionCount(t *testing.T, store *store.Store, expectedCount 
 	require.Eventually(t, comparisonFunc, 5*time.Second, 10*time.Millisecond)
 }
 
-func handleLogBroadcast(t *testing.T, lb ethsvc.LogBroadcast) {
+func handleLogBroadcast(t *testing.T, lb eth.LogBroadcast) {
 	consumed, err := lb.WasAlreadyConsumed()
 	require.NoError(t, err)
 	require.False(t, consumed)
@@ -74,10 +73,10 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(mock.Arguments) { chSubscribe <- struct{}{} })
-	txManager.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil)
+	txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+	txManager.On("GetLogs", mock.Anything).Return([]models.Log{}, nil)
 
-	lb := ethsvc.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.AddDependents(2)
 	lb.Start()
 
@@ -121,7 +120,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 			subscribeCalls++
 		})
 	txManager.On("GetLatestBlock").
-		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
 	txManager.On("GetLogs", mock.Anything).
 		Return(nil, nil)
 	sub.On("Unsubscribe").
@@ -129,12 +128,12 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		Run(func(mock.Arguments) { unsubscribeCalls++ })
 	sub.On("Err").Return(nil)
 
-	lb := ethsvc.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	type registration struct {
 		common.Address
-		ethsvc.LogListener
+		eth.LogListener
 	}
 	registrations := make([]registration, numContracts)
 	for i := 0; i < numContracts; i++ {
@@ -163,11 +162,11 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 }
 
 type simpleLogListener struct {
-	handler    func(lb ethsvc.LogBroadcast, err error)
+	handler    func(lb eth.LogBroadcast, err error)
 	consumerID *models.ID
 }
 
-func (listener simpleLogListener) HandleLog(lb ethsvc.LogBroadcast, err error) {
+func (listener simpleLogListener) HandleLog(lb eth.LogBroadcast, err error) {
 	listener.handler(lb, err)
 }
 func (listener simpleLogListener) OnConnect()    {}
@@ -188,31 +187,31 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	sub := new(mocks.Subscription)
 	store.TxManager = txManager
 
-	chchRawLogs := make(chan chan<- eth.Log, 1)
+	chchRawLogs := make(chan chan<- models.Log, 1)
 	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchRawLogs <- args.Get(1).(chan<- eth.Log)
+			chchRawLogs <- args.Get(1).(chan<- models.Log)
 		}).
 		Return(sub, nil).
 		Once()
 	txManager.On("GetLatestBlock").
-		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
 	txManager.On("GetLogs", mock.Anything).
 		Return(nil, nil)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := ethsvc.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	addr1 := cltest.NewAddress()
 	addr2 := cltest.NewAddress()
-	addr1SentLogs := []eth.Log{
+	addr1SentLogs := []models.Log{
 		{Address: addr1, BlockNumber: 1, BlockHash: cltest.NewHash()},
 		{Address: addr1, BlockNumber: 2, BlockHash: cltest.NewHash()},
 		{Address: addr1, BlockNumber: 3, BlockHash: cltest.NewHash()},
 	}
-	addr2SentLogs := []eth.Log{
+	addr2SentLogs := []models.Log{
 		{Address: addr2, BlockNumber: 4, BlockHash: cltest.NewHash()},
 		{Address: addr2, BlockNumber: 5, BlockHash: cltest.NewHash()},
 		{Address: addr2, BlockNumber: 6, BlockHash: cltest.NewHash()},
@@ -221,7 +220,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	var addr1Logs1, addr1Logs2, addr2Logs1, addr2Logs2 []interface{}
 
 	listener1 := simpleLogListener{
-		func(lb ethsvc.LogBroadcast, err error) {
+		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr1Logs1 = append(addr1Logs1, lb.Log())
 			handleLogBroadcast(t, lb)
@@ -229,7 +228,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		createJob(t, store).ID,
 	}
 	listener2 := simpleLogListener{
-		func(lb ethsvc.LogBroadcast, err error) {
+		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr1Logs2 = append(addr1Logs2, lb.Log())
 			handleLogBroadcast(t, lb)
@@ -237,7 +236,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		createJob(t, store).ID,
 	}
 	listener3 := simpleLogListener{
-		func(lb ethsvc.LogBroadcast, err error) {
+		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr2Logs1 = append(addr2Logs1, lb.Log())
 			handleLogBroadcast(t, lb)
@@ -245,7 +244,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		createJob(t, store).ID,
 	}
 	listener4 := simpleLogListener{
-		func(lb ethsvc.LogBroadcast, err error) {
+		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
 			addr2Logs2 = append(addr2Logs2, lb.Log())
 			handleLogBroadcast(t, lb)
@@ -306,16 +305,16 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	addr1 := cltest.NewAddress()
 	addr2 := cltest.NewAddress()
 
-	chchRawLogs := make(chan chan<- eth.Log, 1)
+	chchRawLogs := make(chan chan<- models.Log, 1)
 	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchRawLogs <- args.Get(1).(chan<- eth.Log)
+			chchRawLogs <- args.Get(1).(chan<- models.Log)
 		}).
 		Return(sub, nil).
 		Twice()
 
 	txManager.On("GetLatestBlock").
-		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
 	txManager.On("GetLogs", mock.Anything).
 		Run(func(args mock.Arguments) {
 			query := args.Get(0).(ethereum.FilterQuery)
@@ -346,11 +345,11 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	listener1.On("OnDisconnect").Return()
 	listener2.On("OnDisconnect").Return()
 
-	lb := ethsvc.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()                    // Subscribe #1
 	lb.Register(addr1, listener1) // Subscribe #2
 	chRawLogs := <-chchRawLogs
-	chRawLogs <- eth.Log{BlockNumber: expectedBlock}
+	chRawLogs <- models.Log{BlockNumber: expectedBlock}
 	lb.Register(addr2, listener2) // Subscribe #3
 	<-chchRawLogs
 
@@ -370,7 +369,7 @@ func TestDecodingLogListener(t *testing.T) {
 	require.NoError(t, err)
 
 	type LogNewRound struct {
-		eth.Log
+		models.Log
 		RoundId   *big.Int
 		StartedBy common.Address
 		StartedAt *big.Int
@@ -383,14 +382,14 @@ func TestDecodingLogListener(t *testing.T) {
 	var decodedLog interface{}
 
 	listener := simpleLogListener{
-		func(lb ethsvc.LogBroadcast, innerErr error) {
+		func(lb eth.LogBroadcast, innerErr error) {
 			err = innerErr
 			decodedLog = lb.Log()
 		},
 		createJob(t, store).ID,
 	}
 
-	decodingListener := ethsvc.NewDecodingLogListener(contract, logTypes, &listener)
+	decodingListener := eth.NewDecodingLogListener(contract, logTypes, &listener)
 	rawLog := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
 	logBroadcast := new(mocks.LogBroadcast)
 
@@ -419,9 +418,9 @@ func TestDecodingLogListener(t *testing.T) {
 func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	t.Parallel()
 
-	logs := make(map[uint]eth.Log)
+	logs := make(map[uint]models.Log)
 	for n := 1; n < 18; n++ {
-		logs[uint(n)] = eth.Log{
+		logs[uint(n)] = models.Log{
 			BlockNumber: uint64(n),
 			BlockHash:   cltest.NewHash(),
 			Index:       0,
@@ -490,7 +489,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			sub := new(mocks.Subscription)
 			store.TxManager = txManager
 
-			chchRawLogs := make(chan chan<- eth.Log, 1)
+			chchRawLogs := make(chan chan<- models.Log, 1)
 
 			// helper function to validate backfilled logs are being requested correctly
 			checkFromBlock := func(args mock.Arguments) {
@@ -504,29 +503,29 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {
-					chRawLogs := args.Get(1).(chan<- eth.Log)
+					chRawLogs := args.Get(1).(chan<- models.Log)
 					chchRawLogs <- chRawLogs
 				}).
 				Return(sub, nil).
 				Twice()
 
-			txManager.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight1)}, nil).Once()
+			txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(test.blockHeight1)}, nil).Once()
 			txManager.On("GetLogs", mock.Anything).Return(nil, nil).Once()
 
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 
-			lb := ethsvc.NewLogBroadcaster(store)
+			lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 			lb.Start()
 
-			var recvd []*eth.Log
+			var recvd []*models.Log
 
-			handleLog := func(lb ethsvc.LogBroadcast, err error) {
+			handleLog := func(lb eth.LogBroadcast, err error) {
 				require.NoError(t, err)
 				consumed, err := lb.WasAlreadyConsumed()
 				require.NoError(t, err)
 				if !consumed {
-					recvd = append(recvd, lb.Log().(*eth.Log))
+					recvd = append(recvd, lb.Log().(*models.Log))
 					err = lb.MarkConsumed()
 					require.NoError(t, err)
 				}
@@ -549,11 +548,11 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				require.Equal(t, *recvd[i], logs[logNum])
 			}
 
-			var backfillableLogs []eth.Log
+			var backfillableLogs []models.Log
 			for _, logNum := range test.backfillableLogs {
 				backfillableLogs = append(backfillableLogs, logs[logNum])
 			}
-			txManager.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
+			txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
 			txManager.On("GetLogs", mock.Anything).Run(checkFromBlock).Return(backfillableLogs, nil).Once()
 			// Trigger resubscription
 			lb.Register(common.Address{1}, &simpleLogListener{})
@@ -577,7 +576,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 func TestAppendLogChannel(t *testing.T) {
 	t.Parallel()
 
-	logs1 := []eth.Log{
+	logs1 := []models.Log{
 		{BlockNumber: 1},
 		{BlockNumber: 2},
 		{BlockNumber: 3},
@@ -585,7 +584,7 @@ func TestAppendLogChannel(t *testing.T) {
 		{BlockNumber: 5},
 	}
 
-	logs2 := []eth.Log{
+	logs2 := []models.Log{
 		{BlockNumber: 6},
 		{BlockNumber: 7},
 		{BlockNumber: 8},
@@ -593,7 +592,7 @@ func TestAppendLogChannel(t *testing.T) {
 		{BlockNumber: 10},
 	}
 
-	logs3 := []eth.Log{
+	logs3 := []models.Log{
 		{BlockNumber: 11},
 		{BlockNumber: 12},
 		{BlockNumber: 13},
@@ -601,12 +600,12 @@ func TestAppendLogChannel(t *testing.T) {
 		{BlockNumber: 15},
 	}
 
-	ch1 := make(chan eth.Log)
-	ch2 := make(chan eth.Log)
-	ch3 := make(chan eth.Log)
+	ch1 := make(chan models.Log)
+	ch2 := make(chan models.Log)
+	ch3 := make(chan models.Log)
 
-	chCombined := ethsvc.ExposedAppendLogChannel(ch1, ch2)
-	chCombined = ethsvc.ExposedAppendLogChannel(chCombined, ch3)
+	chCombined := eth.ExposedAppendLogChannel(ch1, ch2)
+	chCombined = eth.ExposedAppendLogChannel(chCombined, ch3)
 
 	go func() {
 		defer close(ch1)
@@ -647,23 +646,23 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	sub := new(mocks.Subscription)
 	store.TxManager = txManager
 
-	chchRawLogs := make(chan chan<- eth.Log, 1)
+	chchRawLogs := make(chan chan<- models.Log, 1)
 
 	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chRawLogs := args.Get(1).(chan<- eth.Log)
+			chRawLogs := args.Get(1).(chan<- models.Log)
 			chchRawLogs <- chRawLogs
 		}).
 		Return(sub, nil).
 		Once()
 
-	txManager.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil).Once()
+	txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+	txManager.On("GetLogs", mock.Anything).Return([]models.Log{}, nil).Once()
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := ethsvc.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 
 	lb.Start()
 
@@ -671,7 +670,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 
 	job := createJob(t, store)
 	logListener := simpleLogListener{
-		func(lb ethsvc.LogBroadcast, err error) {
+		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
 			consumed, err := lb.WasAlreadyConsumed()
 			require.NoError(t, err)
@@ -690,8 +689,8 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	lb.Register(addr, &logListener)
 
 	chRawLogs := <-chchRawLogs
-	chRawLogs <- eth.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
-	chRawLogs <- eth.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
+	chRawLogs <- models.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
+	chRawLogs <- models.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
 
 	require.Eventually(t, func() bool { return listenerCount == 2 }, 5*time.Second, 10*time.Millisecond)
 	requireLogConsumptionCount(t, store, 2)
@@ -707,18 +706,18 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 
 	const blockHeight uint64 = 0
 
-	chchRawLogs := make(chan chan<- eth.Log, 1)
+	chchRawLogs := make(chan chan<- models.Log, 1)
 	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- eth.Log) }).
+		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- models.Log) }).
 		Return(sub, nil).
 		Once()
 	txManager.On("GetLatestBlock").
-		Return(eth.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil).Once()
+		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
+	txManager.On("GetLogs", mock.Anything).Return([]models.Log{}, nil).Once()
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
-	lb := ethsvc.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	blockHash0 := cltest.NewHash()
@@ -728,7 +727,7 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	blockHash2R := cltest.NewHash()
 
 	addr := cltest.NewAddress()
-	logs := []eth.Log{
+	logs := []models.Log{
 		{Address: addr, BlockHash: blockHash0, BlockNumber: 0, Index: 0},
 		{Address: addr, BlockHash: blockHash1, BlockNumber: 1, Index: 0},
 		{Address: addr, BlockHash: blockHash2, BlockNumber: 2, Index: 0},
@@ -736,13 +735,13 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		{Address: addr, BlockHash: blockHash2R, BlockNumber: 2, Index: 0},
 	}
 
-	var recvd []*eth.Log
+	var recvd []*models.Log
 
 	job := createJob(t, store)
 	listener := simpleLogListener{
-		func(lb ethsvc.LogBroadcast, err error) {
+		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
-			ethLog := lb.Log().(*eth.Log)
+			ethLog := lb.Log().(*models.Log)
 			recvd = append(recvd, ethLog)
 			handleLogBroadcast(t, lb)
 		},
