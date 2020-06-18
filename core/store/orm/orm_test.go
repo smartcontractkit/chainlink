@@ -1767,7 +1767,7 @@ func TestORM_UpsertErrorFor_Happy(t *testing.T) {
 	tests := []struct {
 		jobID              *models.ID
 		description        string
-		expectedOccurances uint
+		expectedOccurences uint
 	}{
 		{
 			job1.ID,
@@ -1799,7 +1799,7 @@ func TestORM_UpsertErrorFor_Happy(t *testing.T) {
 			require.NoError(t, err)
 			jse, err := store.FindJobSpecError(test.jobID, test.description)
 			require.NoError(t, err)
-			require.Equal(t, test.expectedOccurances, jse.Occurances)
+			require.Equal(t, test.expectedOccurences, jse.Occurences)
 		})
 	}
 }
