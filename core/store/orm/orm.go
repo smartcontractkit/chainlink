@@ -329,7 +329,7 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	return earned, nil
 }
 
-// UpsertErrorFor upserts a JobSpecError record, incrementing the occurances counter by 1
+// UpsertErrorFor upserts a JobSpecError record, incrementing the occurences counter by 1
 // if the record is found
 func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) error {
 	orm.MustEnsureAdvisoryLock()
@@ -341,7 +341,7 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) error {
 			newJobSpecError := models.NewJobSpecError(jobID, description)
 			return orm.db.Create(&newJobSpecError).Error
 		} else {
-			foundJobSpecErr.Occurances++
+			foundJobSpecErr.Occurences++
 			return orm.db.Save(&foundJobSpecErr).Error
 		}
 	}()

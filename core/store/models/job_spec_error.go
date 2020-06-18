@@ -9,7 +9,7 @@ type JobSpecError struct {
 	ID          *ID       `json:"id"`
 	JobSpecID   *ID       `json:"-"`
 	Description string    `json:"description"`
-	Occurances  uint      `json:"occurances"`
+	Occurences  uint      `json:"occurences"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
@@ -20,6 +20,6 @@ func NewJobSpecError(jobSpecID *ID, description string) JobSpecError {
 		ID:          NewID(),
 		JobSpecID:   jobSpecID,
 		Description: description,
-		Occurances:  1,
+		Occurences:  1,
 	}
 }

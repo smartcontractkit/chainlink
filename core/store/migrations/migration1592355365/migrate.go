@@ -11,7 +11,7 @@ func Migrate(tx *gorm.DB) error {
 			"id" uuid primary key NOT NULL,
 			"job_spec_id" uuid REFERENCES job_specs(id) ON DELETE CASCADE NOT NULL,
 			"description" text NOT NULL,
-			"occurances" integer DEFAULT 1 NOT NULL,
+			"occurences" integer DEFAULT 1 NOT NULL,
 			"created_at" timestamp without time zone NOT NULL,
 			"updated_at" timestamp without time zone NOT NULL
 		);

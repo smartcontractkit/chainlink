@@ -10,7 +10,7 @@ import React from 'react'
 import { JobSpecError } from 'operator_ui'
 import Button from '../../components/Button'
 
-const HEADERS = ['Occurances', 'Created', 'Last Seen', 'Message', 'Actions']
+const HEADERS = ['Occurences', 'Created', 'Last Seen', 'Message', 'Actions']
 type DismissHandler = (id: string) => void
 
 function renderBody(
@@ -29,7 +29,7 @@ function renderBody(
     return errors.map(error => (
       <TableRow key={error.id}>
         <TableCell>
-          <Typography variant="body1">{error.occurances}</Typography>
+          <Typography variant="body1">{error.occurences}</Typography>
         </TableCell>
         <TableCell>
           <Typography variant="body1">
