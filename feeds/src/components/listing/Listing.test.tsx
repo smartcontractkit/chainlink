@@ -64,6 +64,7 @@ describe('components/listing/Listing', () => {
       return partialAsFull<Contract>({
         latestAnswer: () => 'latestAnswer',
         currentAnswer: () => 'currentAnswer',
+        latestTimestamp: () => 1590703158,
       })
     })
   })
@@ -75,8 +76,7 @@ describe('components/listing/Listing', () => {
           loadingFeeds={true}
           feedGroups={[]}
           fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
+          enableDetails={false}
         />
       </AllTheProviders>,
     )
@@ -91,8 +91,7 @@ describe('components/listing/Listing', () => {
           loadingFeeds={false}
           feedGroups={listingGroups}
           fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
+          enableDetails={false}
         />
       </AllTheProviders>,
     )
@@ -108,8 +107,7 @@ describe('components/listing/Listing', () => {
           loadingFeeds={false}
           feedGroups={listingGroups}
           fetchFeeds={jest.fn()}
-          enableHealth={false}
-          compareOffchain={false}
+          enableDetails={false}
         />
       </AllTheProviders>,
     )
