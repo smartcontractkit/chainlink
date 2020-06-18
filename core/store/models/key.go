@@ -9,7 +9,6 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -28,9 +27,6 @@ type Key struct {
 	// because we have a better view of our own transactions
 	NextNonce int64
 }
-
-type EncryptedSecretVRFKey = vrfkey.EncryptedSecretKey
-type PublicKey = vrfkey.PublicKey
 
 // NewKeyFromFile creates an instance in memory from a key file on disk.
 func NewKeyFromFile(path string) (*Key, error) {

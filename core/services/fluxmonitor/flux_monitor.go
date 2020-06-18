@@ -77,7 +77,7 @@ func New(
 		return &concreteFluxMonitor{disabled: true}
 	}
 
-	logBroadcaster := eth.NewLogBroadcaster(store)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,

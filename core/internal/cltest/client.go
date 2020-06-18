@@ -17,8 +17,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -109,7 +110,7 @@ func (c *SimulatedBackendClient) Subscribe(ctx context.Context, namespace interf
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []eth.Log,
+func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []models.Log,
 	err error) {
 	rawLogs, err := c.b.FilterLogs(context.Background(), q)
 	if err != nil {
@@ -123,7 +124,7 @@ func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []eth.Log
 
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
-func (c *SimulatedBackendClient) SubscribeToLogs(ctx context.Context, channel chan<- eth.Log,
+func (c *SimulatedBackendClient) SubscribeToLogs(ctx context.Context, channel chan<- models.Log,
 	q ethereum.FilterQuery) (eth.Subscription, error) {
 	ch := make(chan types.Log)
 	go func() {
@@ -220,20 +221,20 @@ func (c *SimulatedBackendClient) SendRawTx(
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) GetTxReceipt(
-	receipt common.Hash) (*eth.TxReceipt, error) {
+	receipt common.Hash) (*models.TxReceipt, error) {
 	rawReceipt, err := c.b.TransactionReceipt(context.Background(), receipt)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while retrieving tx receipt for %s", receipt)
 	}
 	if rawReceipt == nil {
 		// Calling code depends on getting empty TxReceipt, rather than nil
-		return &eth.TxReceipt{}, nil
+		return &models.TxReceipt{}, nil
 	}
-	logs := []eth.Log{}
+	logs := []models.Log{}
 	for _, log := range rawReceipt.Logs {
 		logs = append(logs, ChainlinkEthLogFromGethLog(*log))
 	}
-	return &eth.TxReceipt{BlockNumber: (*utils.Big)(rawReceipt.BlockNumber),
+	return &models.TxReceipt{BlockNumber: (*utils.Big)(rawReceipt.BlockNumber),
 		BlockHash: &rawReceipt.BlockHash, Hash: receipt, Logs: logs}, nil
 }
 
@@ -273,7 +274,7 @@ func (c *SimulatedBackendClient) blockNumber(
 
 // GetBlockByNumber returns the block for the passed hex, or "latest",
 // "earliest", "pending". Includes all transactions
-func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block,
+func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block models.Block,
 	err error) {
 	blockNumber, err := c.blockNumber(hex)
 	if err != nil {
@@ -281,15 +282,15 @@ func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block eth.Block,
 	}
 	b, err := c.b.BlockByNumber(context.Background(), blockNumber)
 	if err != nil {
-		return eth.Block{}, errors.Wrapf(err, "while retrieving block %d",
+		return models.Block{}, errors.Wrapf(err, "while retrieving block %d",
 			blockNumber)
 	}
-	var txs []eth.Transaction
+	var txs []models.Transaction
 	for _, tx := range b.Transactions() {
-		txs = append(txs, eth.Transaction{
+		txs = append(txs, models.Transaction{
 			GasPrice: hexutil.Uint64(tx.GasPrice().Uint64())})
 	}
-	return eth.Block{Number: hexutil.Uint64(blockNumber.Uint64()),
+	return models.Block{Number: hexutil.Uint64(blockNumber.Uint64()),
 		Transactions: txs}, nil
 }
 
@@ -316,10 +317,10 @@ func (c *SimulatedBackendClient) SubscribeToNewHeads(ctx context.Context,
 
 // GetLatestBlock returns the last committed block of the best blockchain the
 // blockchain node is aware of.
-func (c *SimulatedBackendClient) GetLatestBlock() (eth.Block, error) {
+func (c *SimulatedBackendClient) GetLatestBlock() (models.Block, error) {
 	height, err := c.GetBlockHeight()
 	if err != nil {
-		return eth.Block{}, errors.Wrap(err, "while getting latest block")
+		return models.Block{}, errors.Wrap(err, "while getting latest block")
 	}
 	return c.GetBlockByNumber(common.BigToHash(big.NewInt(int64(height))).Hex())
 }

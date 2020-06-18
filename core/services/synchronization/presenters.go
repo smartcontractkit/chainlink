@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -98,7 +97,7 @@ func fetchLatestOutgoingTxHash(tr models.TaskRun) (*syncReceiptPresenter, error)
 }
 
 func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
-	var receipt eth.TxReceipt
+	var receipt models.TxReceipt
 	err := json.Unmarshal([]byte(str), &receipt)
 	if err != nil {
 		return nil, err
@@ -126,7 +125,7 @@ const (
 	StatusNoFulfilledRunLog = "noFulfilledRunLog"
 )
 
-func runLogStatusPresenter(receipt eth.TxReceipt) TxStatus {
+func runLogStatusPresenter(receipt models.TxReceipt) TxStatus {
 	if receipt.FulfilledRunLog() {
 		return StatusFulfilledRunLog
 	}

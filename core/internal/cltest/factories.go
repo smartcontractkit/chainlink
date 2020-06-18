@@ -16,11 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -378,7 +376,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-// NewRunLog create eth.Log for given jobid, address, block, and json
+// NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
 	jobID *models.ID,
@@ -386,8 +384,8 @@ func NewRunLog(
 	requester common.Address,
 	blk int,
 	json string,
-) eth.Log {
-	return eth.Log{
+) models.Log {
+	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
@@ -402,11 +400,11 @@ func NewRunLog(
 
 // NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
 // the randomness request log represented by r.
-func NewRandomnessRequestLog(t *testing.T, r vrf.RandomnessRequestLog,
-	emitter common.Address, blk int) eth.Log {
+func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
+	emitter common.Address, blk int) models.Log {
 	rawData, err := r.RawData()
 	require.NoError(t, err)
-	return eth.Log{
+	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        rawData,
@@ -426,8 +424,8 @@ func NewServiceAgreementExecutionLog(
 	executionRequester common.Address,
 	blockHeight int,
 	serviceAgreementJSON string,
-) eth.Log {
-	return eth.Log{
+) models.Log {
+	return models.Log{
 		Address:     logEmitter,
 		BlockNumber: uint64(blockHeight),
 		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),

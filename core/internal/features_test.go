@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
-	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -76,8 +75,8 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	sentAt := uint64(23456)
 	confirmed := sentAt + config.EthGasBumpThreshold() + 1
 	safe := confirmed + config.MinRequiredOutgoingConfirmations() - 1
-	unconfirmedReceipt := ethpkg.TxReceipt{}
-	confirmedReceipt := ethpkg.TxReceipt{
+	unconfirmedReceipt := models.TxReceipt{}
+	confirmedReceipt := models.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(confirmed),
 	}
@@ -135,7 +134,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
 	attempt3Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000003")
 
-	unconfirmedReceipt := ethpkg.TxReceipt{}
+	unconfirmedReceipt := models.TxReceipt{}
 
 	// Enumerate the different block heights at which various state changes
 	// happen for the transaction attempts created during this test
@@ -149,7 +148,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	thirdTxSentAt := secondTxGasBumpAt
 	thirdTxConfirmedAt := thirdTxSentAt + 1
-	thirdTxConfirmedReceipt := ethpkg.TxReceipt{
+	thirdTxConfirmedReceipt := models.TxReceipt{
 		Hash:        attempt1Hash,
 		BlockNumber: cltest.Int(thirdTxConfirmedAt),
 	}
@@ -275,7 +274,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	defer cleanup()
 
 	eth := app.EthMock
-	logs := make(chan ethpkg.Log, 1)
+	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Store.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
@@ -327,7 +326,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			defer cleanup()
 
 			eth := app.EthMock
-			logs := make(chan ethpkg.Log, 1)
+			logs := make(chan models.Log, 1)
 			newHeads := eth.RegisterNewHeads()
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.RegisterSubscription("logs", logs)
@@ -363,7 +362,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			safeNumber := creationHeight + requiredConfs
 			newHeads <- cltest.NewEthHeader(uint64(safeNumber))
-			confirmedReceipt := ethpkg.TxReceipt{
+			confirmedReceipt := models.TxReceipt{
 				Hash:        runlog.TxHash,
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(creationHeight),
@@ -405,7 +404,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 
 	eth := app.EthMock
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
-	logs := make(chan ethpkg.Log, 1)
+	logs := make(chan models.Log, 1)
 	newHeads := make(chan types.Header, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
@@ -432,7 +431,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	newHeads <- cltest.NewEthHeader(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
-	confirmedReceipt := ethpkg.TxReceipt{
+	confirmedReceipt := models.TxReceipt{
 		Hash:        runlog.TxHash,
 		BlockHash:   &runlog.BlockHash,
 		BlockNumber: cltest.Int(logBlockNumber),
@@ -561,7 +560,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 
 	eth := app.EthMock
 	eth.RegisterNewHead(1)
-	logs := make(chan ethpkg.Log, 1)
+	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
@@ -639,7 +638,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 			eth.Register("eth_sendRawTransaction", hash)
-			eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+			eth.Register("eth_getTransactionReceipt", models.TxReceipt{
 				Hash:        hash,
 				BlockNumber: cltest.Int(confirmedBlockNumber),
 			})
@@ -667,7 +666,7 @@ func TestIntegration_CreateServiceAgreement(t *testing.T) {
 	defer cleanup()
 
 	eth := app.EthMock
-	logs := make(chan ethpkg.Log, 1)
+	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
@@ -906,7 +905,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Single task ethTx receives configuration from FM init and writes to chain.
 	attemptHash := cltest.NewHash()
-	confirmedReceipt := ethpkg.TxReceipt{
+	confirmedReceipt := models.TxReceipt{
 		Hash:        attemptHash,
 		BlockNumber: cltest.Int(1),
 	}
@@ -914,8 +913,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	eth.Context("ethTx.Perform() for initial send", func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", attemptHash)         // Initial tx attempt sent
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
-		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
-		eth.Register("eth_getLogs", []ethpkg.Log{})
+		eth.Register("eth_getBlockByNumber", models.Block{Number: hexutil.Uint64(1)})
+		eth.Register("eth_getLogs", []models.Log{})
 	})
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
@@ -990,12 +989,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	defer assertCalled()
 
 	// Prepare new rounds logs subscription to be called by new FM job
-	newRounds := make(chan ethpkg.Log)
+	newRounds := make(chan models.Log)
 	eth.RegisterSubscription("logs", newRounds)
 
 	eth.Context("Log Broadcaster backfills logs", func(mock *cltest.EthMock) {
-		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
-		eth.Register("eth_getLogs", []ethpkg.Log{})
+		eth.Register("eth_getBlockByNumber", models.Block{Number: hexutil.Uint64(1)})
+		eth.Register("eth_getLogs", []models.Log{})
 	})
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
@@ -1017,7 +1016,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	log.Address = job.Initiators[0].InitiatorParams.Address
 
 	attemptHash := cltest.NewHash()
-	confirmedReceipt := ethpkg.TxReceipt{
+	confirmedReceipt := models.TxReceipt{
 		Hash:        attemptHash,
 		BlockNumber: cltest.Int(1),
 	}
@@ -1049,13 +1048,13 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient()
-	logs := make(chan ethpkg.Log, 1)
+	logs := make(chan models.Log, 1)
 	txHash := cltest.NewHash()
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
 		eth.Register("eth_sendRawTransaction", txHash)
-		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+		eth.Register("eth_getTransactionReceipt", models.TxReceipt{
 			Hash:        cltest.NewHash(),
 			BlockNumber: cltest.Int(10),
 		})
@@ -1078,7 +1077,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		pk, sk, provingKey.PublicKey.String())
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
-	r := vrf.RandomnessRequestLog{
+	r := models.RandomnessRequestLog{
 		KeyHash: provingKey.PublicKey.MustHash(),
 		Seed:    big.NewInt(2),
 		JobID:   common.BytesToHash(rawID),
@@ -1105,9 +1104,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	fixtureToAddress := j.Tasks[1].Params.Get("address").String()
 	require.Equal(t, *tx.To(), common.HexToAddress(fixtureToAddress))
 	payload := tx.Data()
-	require.Equal(t, hexutil.Encode(payload[:4]), vrf.FulfillSelector())
+	require.Equal(t, hexutil.Encode(payload[:4]), models.VRFFulfillSelector())
 	proofContainer := make(map[string]interface{})
-	err = vrf.FulfillMethod().Inputs.UnpackIntoMap(proofContainer, payload[4:])
+	err = models.VRFFulfillMethod().Inputs.UnpackIntoMap(proofContainer, payload[4:])
 	require.NoError(t, err)
 	proof, ok := proofContainer["_proof"].([]byte)
 	require.True(t, ok)
@@ -1176,7 +1175,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 	confirmedHeight := startHeight + 1
 
 	eth.ShouldCall(func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+		eth.Register("eth_getTransactionReceipt", models.TxReceipt{
 			Hash: cltest.NewHash(),
 			// set the confirmation to avoid messing with the head tracker too
 			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinRequiredOutgoingConfirmations())),

@@ -62,7 +62,7 @@ install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
 chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: operator-ui

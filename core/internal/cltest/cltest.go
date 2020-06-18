@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -1024,18 +1023,18 @@ func Head(val interface{}) *models.Head {
 }
 
 // EmptyBlock returns a new empty ethereum block
-func EmptyBlock() eth.Block {
-	return eth.Block{}
+func EmptyBlock() models.Block {
+	return models.Block{}
 }
 
 // BlockWithTransactions returns a new ethereum block with transactions
 // matching the given gas prices
-func BlockWithTransactions(gasPrices ...uint64) eth.Block {
-	txs := make([]eth.Transaction, len(gasPrices))
+func BlockWithTransactions(gasPrices ...uint64) models.Block {
+	txs := make([]models.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
 		txs[i].GasPrice = hexutil.Uint64(gasPrice)
 	}
-	return eth.Block{
+	return models.Block{
 		Transactions: txs,
 	}
 }
@@ -1326,13 +1325,13 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	return irv
 }
 
-// ChainlinkEthLogFromGethLog returns a copy of l as an eth.Log. (They have
+// ChainlinkEthLogFromGethLog returns a copy of l as an models.Log. (They have
 // identical fields, but the field tags differ, and the types differ slightly.)
-func ChainlinkEthLogFromGethLog(l types.Log) eth.Log {
-	return eth.Log{
+func ChainlinkEthLogFromGethLog(l types.Log) models.Log {
+	return models.Log{
 		Address:     l.Address,
 		Topics:      l.Topics,
-		Data:        eth.UntrustedBytes(l.Data),
+		Data:        models.UntrustedBytes(l.Data),
 		BlockNumber: l.BlockNumber,
 		TxHash:      l.TxHash,
 		TxIndex:     l.TxIndex,

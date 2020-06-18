@@ -9,7 +9,7 @@
 // The details of the secret key in a keypair should remain private to this
 // package. If you need to access the secret key, you should add a method to
 // PrivateKey which does the crypto requiring it, without leaking the secret.
-// See PrivateKey#MarshaledProof in private_key.go, for an example.
+// See MakeMarshaledProof in private_key.go, for an example.
 //
 // PrivateKey#PublicKey represents the associated public key, and, in the
 // context of a VRF, represents a public commitment to a particular "verifiable
@@ -26,7 +26,7 @@
 // Call PrivateKey#Encrypt(passphrase) to create a representation of the key
 // which is encrypted for storage.
 //
-// Call PrivateKey#MarshaledProof(seed) to generate the VRF proof for the given
+// Call MakeMarshaledProof(privateKey, seed) to generate the VRF proof for the given
 // seed and private key. The proof is marshaled in the format expected by the
 // on-chain verification mechanism in VRF.sol. If you want to know the VRF
 // output independently of the on-chain verification mechanism, you can get it

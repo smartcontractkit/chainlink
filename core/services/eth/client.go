@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -17,14 +18,14 @@ import (
 
 // GethClient is an interface that represents go-ethereum's own ethclient
 // https://github.com/ethereum/go-ethereum/blob/master/ethclient/ethclient.go
-//go:generate mockery -name GethClient -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name GethClient -output ../../internal/mocks/ -case=underscore
 type GethClient interface {
 	SendTransaction(context.Context, *gethTypes.Transaction) error
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*gethTypes.Receipt, error)
 }
 
-//go:generate mockery -name Client -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name Client -output ../../internal/mocks/ -case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -34,21 +35,21 @@ type Client interface {
 	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(bytes []byte) (common.Hash, error)
-	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
+	GetTxReceipt(hash common.Hash) (*models.TxReceipt, error)
 	GetBlockHeight() (uint64, error)
-	GetLatestBlock() (Block, error)
-	GetBlockByNumber(hex string) (Block, error)
+	GetLatestBlock() (models.Block, error)
+	GetBlockByNumber(hex string) (models.Block, error)
 	GetChainID() (*big.Int, error)
 	SubscribeToNewHeads(ctx context.Context, channel chan<- gethTypes.Header) (Subscription, error)
 }
 
 // LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
 type LogSubscriber interface {
-	GetLogs(q ethereum.FilterQuery) ([]Log, error)
-	SubscribeToLogs(ctx context.Context, channel chan<- Log, q ethereum.FilterQuery) (Subscription, error)
+	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
+	SubscribeToLogs(ctx context.Context, channel chan<- models.Log, q ethereum.FilterQuery) (Subscription, error)
 }
 
-//go:generate mockery -name Subscription -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name Subscription -output ../../internal/mocks/ -case=underscore
 
 // Subscription holds the methods for an ethereum log subscription.
 //
@@ -68,7 +69,7 @@ type CallerSubscriberClient struct {
 
 var _ Client = (*CallerSubscriberClient)(nil)
 
-//go:generate mockery -name CallerSubscriber -output ../internal/mocks/ -case=underscore
+//go:generate mockery -name CallerSubscriber -output ../../internal/mocks/ -case=underscore
 
 // CallerSubscriber implements the Call and Subscribe functions. Call performs
 // a JSON-RPC call with the given arguments and Subscribe registers a subscription,
@@ -113,7 +114,7 @@ type CallArgs struct {
 func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
-	functionSelector := HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := CallArgs{
 		To:   contractAddress,
@@ -135,8 +136,8 @@ func (client *CallerSubscriberClient) SendRawTx(bytes []byte) (common.Hash, erro
 }
 
 // GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*TxReceipt, error) {
-	receipt := TxReceipt{}
+func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*models.TxReceipt, error) {
+	receipt := models.TxReceipt{}
 	err := client.logCall(&receipt, "eth_getTransactionReceipt", hash.String())
 	return &receipt, err
 }
@@ -149,23 +150,23 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 
 // GetLatestBlock returns the last committed block of the best blockchain the
 // blockchain node is aware of.
-func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
-	var block Block
+func (client *CallerSubscriberClient) GetLatestBlock() (models.Block, error) {
+	var block models.Block
 	err := client.logCall(&block, "eth_getBlockByNumber", "latest", true)
 	return block, err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
 // Includes all transactions
-func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (Block, error) {
-	var block Block
+func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (models.Block, error) {
+	var block models.Block
 	err := client.logCall(&block, "eth_getBlockByNumber", hex, true)
 	return block, err
 }
 
 // GetLogs returns all logs that respect the passed filter query.
-func (client *CallerSubscriberClient) GetLogs(q ethereum.FilterQuery) ([]Log, error) {
-	var results []Log
+func (client *CallerSubscriberClient) GetLogs(q ethereum.FilterQuery) ([]models.Log, error) {
+	var results []models.Log
 	err := client.logCall(&results, "eth_getLogs", utils.ToFilterArg(q))
 	return results, err
 }
@@ -184,7 +185,7 @@ func (client *CallerSubscriberClient) GetChainID() (*big.Int, error) {
 // https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
 func (client *CallerSubscriberClient) SubscribeToLogs(
 	ctx context.Context,
-	channel chan<- Log,
+	channel chan<- models.Log,
 	q ethereum.FilterQuery,
 ) (Subscription, error) {
 	sub, err := client.Subscribe(ctx, channel, "logs", utils.ToFilterArg(q))

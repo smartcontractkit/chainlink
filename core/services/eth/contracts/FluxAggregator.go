@@ -3,8 +3,8 @@ package contracts
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
-	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -13,7 +13,7 @@ import (
 //go:generate mockery -name FluxAggregator -output ../../../internal/mocks/ -case=underscore
 
 type FluxAggregator interface {
-	ethsvc.ConnectedContract
+	eth.ConnectedContract
 	RoundState(oracle common.Address, roundID uint32) (FluxAggregatorRoundState, error)
 }
 
@@ -33,13 +33,13 @@ var (
 )
 
 type fluxAggregator struct {
-	ethsvc.ConnectedContract
+	eth.ConnectedContract
 	ethClient eth.Client
 	address   common.Address
 }
 
 type LogNewRound struct {
-	eth.Log
+	models.Log
 	RoundId   *big.Int
 	StartedBy common.Address
 	// seconds since unix epoch
@@ -47,7 +47,7 @@ type LogNewRound struct {
 }
 
 type LogAnswerUpdated struct {
-	eth.Log
+	models.Log
 	Current   *big.Int
 	RoundId   *big.Int
 	Timestamp *big.Int
@@ -58,18 +58,18 @@ var fluxAggregatorLogTypes = map[common.Hash]interface{}{
 	AggregatorAnswerUpdatedLogTopic20191220: LogAnswerUpdated{},
 }
 
-func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster ethsvc.LogBroadcaster) (FluxAggregator, error) {
+func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) (FluxAggregator, error) {
 	codec, err := eth.GetV6ContractCodec(FluxAggregatorName)
 	if err != nil {
 		return nil, err
 	}
-	connectedContract := ethsvc.NewConnectedContract(codec, address, ethClient, logBroadcaster)
+	connectedContract := eth.NewConnectedContract(codec, address, ethClient, logBroadcaster)
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
-func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connected bool, _ ethsvc.UnsubscribeFunc) {
+func (fa *fluxAggregator) SubscribeToLogs(listener eth.LogListener) (connected bool, _ eth.UnsubscribeFunc) {
 	return fa.ConnectedContract.SubscribeToLogs(
-		ethsvc.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
+		eth.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
 	)
 }
 

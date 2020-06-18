@@ -3,8 +3,7 @@
 package mocks
 
 import (
-	coreeth "github.com/smartcontractkit/chainlink/core/eth"
-
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -44,7 +43,7 @@ func (_m *LogBroadcast) MarkConsumed() error {
 }
 
 // UpdateLog provides a mock function with given fields: _a0
-func (_m *LogBroadcast) UpdateLog(_a0 coreeth.RawLog) {
+func (_m *LogBroadcast) UpdateLog(_a0 models.RawLog) {
 	_m.Called(_a0)
 }
 
