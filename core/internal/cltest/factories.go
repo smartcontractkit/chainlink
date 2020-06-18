@@ -803,6 +803,7 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 func GetDefaultFromAddress(t *testing.T, store *strpkg.Store) common.Address {
 	keys, err := store.Keys()
 	require.NoError(t, err)
+	require.Len(t, keys, 1)
 	key := keys[0]
 	return key.Address.Address()
 }

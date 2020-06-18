@@ -561,3 +561,78 @@ func unbroadcastAttempt(db *gorm.DB, a models.EthTxAttempt) error {
 	}
 	return errors.Wrap(db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = NULL, state = 'in_progress' WHERE id = ?`, a.ID).Error, "unbroadcastAttempt failed")
 }
+
+// ForceRebroadcast sends a transaction for every nonce in the given nonce range at the given gas price.
+// If an eth_tx exists for this nonce, we re-send the existing eth_tx with the supplied parameters.
+// If an eth_tx doesn't exist for this nonce, we send a zero transaction.
+// This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
+// Only for emergency usage.
+// Deliberately does not take the advisory lock (we don't write to the database so this is safe from a data integrity perspective).
+// This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
+func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint64) error {
+	logger.Info("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
+
+	for n := beginningNonce; n <= endingNonce; n++ {
+		etx, err := findEthTxWithNonce(ec.store.GetRawDB(), address, n)
+		if err != nil {
+			return errors.Wrap(err, "ForceRebroadcast failed")
+		}
+		if etx == nil {
+			logger.Debugf("ForceRebroadcast: no eth_tx found with nonce %v, will rebroadcast empty transaction", n)
+			hash, err := ec.sendEmptyTransaction(address, n, overrideGasLimit, gasPriceWei)
+			if err != nil {
+				logger.Errorf("ForceRebroadcast: failed to send empty transaction with nonce %v: %s", n, err.Error())
+				continue
+			}
+			logger.Infof("ForceRebroadcast: successfully rebroadcast empty transaction with nonce %v and hash %s", n, hash)
+		} else {
+			logger.Debugf("ForceRebroadcast: got eth_tx %v with nonce %v, will rebroadcast this transaction", etx.ID, etx.Nonce)
+			if overrideGasLimit != 0 {
+				etx.GasLimit = overrideGasLimit
+			}
+			attempt, err := newAttempt(ec.store, *etx, big.NewInt(int64(gasPriceWei)))
+			if err != nil {
+				logger.Errorf("ForceRebroadcast: failed to create new attempt for eth_tx %v: %s", etx.ID, err.Error())
+				continue
+			}
+			if err := sendTransaction(ec.gethClientWrapper, attempt); err != nil {
+				logger.Errorf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error())
+				continue
+			}
+			logger.Infof("ForceRebroadcast: successfully rebroadcast eth_tx %v with hash: %s", etx.ID, attempt.Hash)
+		}
+	}
+	return nil
+}
+
+func (ec *ethConfirmer) sendEmptyTransaction(fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint64, gasPriceWei uint64) (gethCommon.Hash, error) {
+	gasLimit := overrideGasLimit
+	if gasLimit == 0 {
+		gasLimit = ec.config.EthGasLimitDefault()
+	}
+	account, err := ec.store.KeyStore.GetAccountByAddress(fromAddress)
+	if err != nil {
+		return gethCommon.Hash{}, errors.Wrap(err, "(ethConfirmer).sendEmptyTransaction failed")
+	}
+	tx, err := sendEmptyTransaction(ec.gethClientWrapper, ec.store.KeyStore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), account, ec.config.ChainID())
+	if err != nil {
+		return gethCommon.Hash{}, errors.Wrap(err, "(ethConfirmer).sendEmptyTransaction failed")
+	}
+	return tx.Hash(), nil
+}
+
+// findAllEthTxsInNonceRange returns an array of eth_txes for the given key
+// matching the inclusive range between beginningNonce and endingNonce
+func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint) (*models.EthTx, error) {
+	etx := models.EthTx{}
+	err := db.
+		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("eth_tx_attempts.gas_price DESC")
+		}).
+		First(&etx, "from_address = ? AND nonce = ? AND state IN ('confirmed','unconfirmed')", fromAddress, nonce).
+		Error
+	if gorm.IsRecordNotFoundError(err) {
+		return nil, nil
+	}
+	return &etx, errors.Wrap(err, "findEthTxsWithNonce failed")
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"testing"
 	"time"
 
@@ -1053,6 +1054,122 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		assert.Equal(t, models.EthTxAttemptBroadcast, attempt2.State)
 		attempt3 = etx.EthTxAttempts[2]
 		assert.Equal(t, models.EthTxAttemptBroadcast, attempt3.State)
+
+		gethClient.AssertExpectations(t)
+	})
+}
+
+func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.KeyStore.Unlock(cltest.Password)
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	mustInsertUnstartedEthTx(t, store)
+	mustInsertInProgressEthTx(t, store, 0)
+	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1)
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2)
+
+	gasPriceWei := uint64(52)
+	address := cltest.GetDefaultFromAddress(t, store)
+	overrideGasLimit := uint64(20000)
+
+	t.Run("rebroadcasts one eth_tx if it falls within in nonce range", func(t *testing.T) {
+		gethClient := new(mocks.GethClient)
+		store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+		ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(*etx1.Nonce) &&
+				uint64(tx.GasPrice().Int64()) == gasPriceWei &&
+				tx.Gas() == overrideGasLimit &&
+				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
+				*tx.To() == etx1.ToAddress
+		})).Return(nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(1, 1, gasPriceWei, address, overrideGasLimit))
+
+		gethClient.AssertExpectations(t)
+	})
+
+	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
+		gethClient := new(mocks.GethClient)
+		store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+		ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(*etx1.Nonce) &&
+				uint64(tx.GasPrice().Int64()) == gasPriceWei &&
+				tx.Gas() == etx1.GasLimit &&
+				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
+				*tx.To() == etx1.ToAddress
+		})).Return(nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(1, 1, gasPriceWei, address, 0))
+
+		gethClient.AssertExpectations(t)
+	})
+
+	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
+		gethClient := new(mocks.GethClient)
+		store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+		ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(*etx1.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == overrideGasLimit
+		})).Return(nil).Once()
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(*etx2.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == overrideGasLimit
+		})).Return(nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(1, 2, gasPriceWei, address, overrideGasLimit))
+
+		gethClient.AssertExpectations(t)
+	})
+
+	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
+		gethClient := new(mocks.GethClient)
+		store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+		ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(1)
+		})).Return(nil).Once()
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(2)
+		})).Return(nil).Once()
+		for i := 3; i <= 5; i++ {
+			nonce := i
+			gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				return tx.Nonce() == uint64(nonce) &&
+					uint64(tx.GasPrice().Int64()) == gasPriceWei &&
+					tx.Gas() == overrideGasLimit &&
+					*tx.To() == utils.ZeroAddress &&
+					tx.Value().Cmp(big.NewInt(0)) == 0 &&
+					len(tx.Data()) == 0
+			})).Return(nil).Once()
+		}
+
+		require.NoError(t, ec.ForceRebroadcast(1, 5, gasPriceWei, address, overrideGasLimit))
+
+		gethClient.AssertExpectations(t)
+	})
+
+	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
+		gethClient := new(mocks.GethClient)
+		store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+		ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			fmt.Println("tx.Gas()", tx.Gas())
+			fmt.Println("default gas", config.EthGasPriceDefault())
+			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint64(tx.Gas()) == config.EthGasLimitDefault()
+		})).Return(nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(0, 0, gasPriceWei, address, 0))
 
 		gethClient.AssertExpectations(t)
 	})

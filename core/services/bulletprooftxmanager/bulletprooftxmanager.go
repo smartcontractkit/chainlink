@@ -102,6 +102,25 @@ func sendTransaction(gethClientWrapper strpkg.GethClientWrapper, a models.EthTxA
 	return SendError(err)
 }
 
+// sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
+// May be useful for clearing stuck nonces
+func sendEmptyTransaction(gethClientWrapper strpkg.GethClientWrapper, keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+	to := utils.ZeroAddress
+	value := big.NewInt(0)
+	payload := []byte{}
+	tx := gethTypes.NewTransaction(nonce, to, value, gasLimit, gasPriceWei, payload)
+	signedTx, err := keyStore.SignTx(account, tx, chainID)
+	if err != nil {
+		return signedTx, errors.Wrap(err, "sendEmptyTransaction failed")
+	}
+	err = gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
+		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+		defer cancel()
+		return errors.Wrap(gethClient.SendTransaction(ctx, signedTx), "sendEmptyTransaction failed")
+	})
+	return signedTx, err
+}
+
 // BumpGas returns a new gas price increased by the largest of:
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT)
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI)
