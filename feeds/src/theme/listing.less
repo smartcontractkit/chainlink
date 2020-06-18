@@ -21,20 +21,29 @@
         display: block;
         padding: 15px 0;
       }
-      &--offchain-comparison {
-        padding-top: 15px;
-      }
+
       &--health-unknown {
-        background-color: #fffdcc;
-        border: solid 1px #fff619;
+        border-top: solid 3px #dcda22;
       }
+
+      &--health-icon-unknown {
+        color: #d0881b;
+      }
+
       &--health-ok {
-        background-color: #efffef;
-        border: solid 1px #35ee35;
+        border-top: solid 3px #0bb70b;
       }
+
+      &--health-icon-ok {
+        color: #0bb70b;
+      }
+
       &--health-error {
-        background-color: #ffc0c0;
-        border: solid 1px #ff1414;
+        border-top: solid 3px #ff1414;
+      }
+
+      &--health-icon-error {
+        color: #ff1414;
       }
 
       &--sponsors {
@@ -73,6 +82,23 @@
         color: #484c57;
         font-size: 15px;
         min-height: 27px;
+      }
+
+      &--details-icon {
+        position: absolute;
+        right: 25px;
+      }
+
+      &--details {
+        p {
+          margin-bottom: 5px;
+          font-weight: bold;
+          span {
+            font-weight: normal;
+            margin-right: 5px;
+          }
+        }
+        width: 300px;
       }
     }
 
