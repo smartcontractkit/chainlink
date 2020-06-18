@@ -27,7 +27,7 @@ interface DecodedLog {
 }
 
 interface SubmissionReceivedEventLog extends Log {
-  answer: number
+  submission: number
   round: number
   oracle: string
 }
@@ -128,12 +128,12 @@ export default class FluxContract {
     return await this.contract.getOracles()
   }
 
-  async minimumAnswers(): Promise<number> {
+  async minSubmissionCount(): Promise<number> {
     if (!this.contract) {
       throw Error('Contract instance does not exist')
     }
 
-    return await this.contract.minAnswerCount()
+    return await this.contract.minSubmissionCount()
   }
 
   async latestRound(): Promise<number> {
@@ -245,16 +245,17 @@ export default class FluxContract {
           },
           (decodedLog: SubmissionReceivedEventLog) => ({
             answerFormatted: formatAnswer(
-              decodedLog.answer,
+              decodedLog.submission,
               this.options.multiply,
               this.options.decimalPlaces,
               this.options.formatDecimalPlaces,
             ),
-            answer: Number(decodedLog.answer),
+            answer: Number(decodedLog.submission),
             answerId: Number(decodedLog.round),
             sender: decodedLog.oracle,
           }),
         )
+
         const logWithTimestamp = await this.addBlockTimestampToLogs([logged])
         const logWithGasPrice = await this.addGasPriceToLogs(
           logWithTimestamp,
@@ -356,12 +357,12 @@ export default class FluxContract {
       },
       (decodedLog: SubmissionReceivedEventLog) => ({
         answerFormatted: formatAnswer(
-          decodedLog.answer,
+          decodedLog.submission,
           this.options.multiply,
           this.options.decimalPlaces,
           this.options.formatDecimalPlaces,
         ),
-        answer: Number(decodedLog.answer),
+        answer: Number(decodedLog.submission),
         answerId: Number(decodedLog.round),
         sender: decodedLog.oracle,
       }),
