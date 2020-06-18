@@ -41,6 +41,7 @@ This release contains a number of features aimed at improving the node's reliabi
 - `ETH_GAS_BUMP_THRESHOLD` default value has been decreased from 12 to 3
 - `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
 - `EthHeadTrackerHistoryDepth` specifies how many heads the head tracker should keep in the database. The default is 100. It is not recommended to change this setting.
+- Update README.md with links to mockery, jq, and gencodec as they are required to run `go generate ./...`
 
 ## [0.8.6] - 2020-06-08
 
