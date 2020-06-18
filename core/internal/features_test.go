@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -1078,7 +1077,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		pk, sk, provingKey.PublicKey.String())
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
-	r := vrf.RandomnessRequestLog{
+	r := models.RandomnessRequestLog{
 		KeyHash: provingKey.PublicKey.MustHash(),
 		Seed:    big.NewInt(2),
 		JobID:   common.BytesToHash(rawID),

@@ -76,7 +76,7 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
 	txManager.On("GetLogs", mock.Anything).Return([]models.Log{}, nil)
 
-	lb := eth.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.AddDependents(2)
 	lb.Start()
 
@@ -128,7 +128,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		Run(func(mock.Arguments) { unsubscribeCalls++ })
 	sub.On("Err").Return(nil)
 
-	lb := eth.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	type registration struct {
@@ -201,7 +201,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := eth.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	addr1 := cltest.NewAddress()
@@ -345,7 +345,7 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	listener1.On("OnDisconnect").Return()
 	listener2.On("OnDisconnect").Return()
 
-	lb := eth.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()                    // Subscribe #1
 	lb.Register(addr1, listener1) // Subscribe #2
 	chRawLogs := <-chchRawLogs
@@ -515,7 +515,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 
-			lb := eth.NewLogBroadcaster(store)
+			lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 			lb.Start()
 
 			var recvd []*models.Log
@@ -662,7 +662,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := eth.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 
 	lb.Start()
 
@@ -717,7 +717,7 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
-	lb := eth.NewLogBroadcaster(store)
+	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	blockHash0 := cltest.NewHash()
