@@ -82,7 +82,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 
 	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
 	if err != nil {
-		_ = js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
+		js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
 		return err
 	}
 	js.addSubscription(sub)

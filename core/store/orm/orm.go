@@ -172,6 +172,18 @@ func (orm *ORM) FindJob(id *models.ID) (models.JobSpec, error) {
 	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
 }
 
+// FindJobWithErrors looks up a Job by its ID and preloads JobSpecErrors.
+func (orm *ORM) FindJobWithErrors(id *models.ID) (models.JobSpec, error) {
+	var job models.JobSpec
+	err := orm.
+		preloadJobs().
+		Preload("Errors", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped().Order("id asc")
+		}).
+		First(&job, "id = ?", id).Error
+	return job, err
+}
+
 // FindInitiator returns the single initiator defined by the passed ID.
 func (orm *ORM) FindInitiator(ID int64) (models.Initiator, error) {
 	orm.MustEnsureAdvisoryLock()
@@ -187,9 +199,6 @@ func (orm *ORM) preloadJobs() *gorm.DB {
 			return db.Unscoped().Order(`"id" asc`)
 		}).
 		Preload("Tasks", func(db *gorm.DB) *gorm.DB {
-			return db.Unscoped().Order("id asc")
-		}).
-		Preload("Errors", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped().Order("id asc")
 		})
 }
@@ -329,26 +338,20 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 	return earned, nil
 }
 
-// UpsertErrorFor upserts a JobSpecError record, incrementing the occurences counter by 1
+// UpsertErrorFor upserts a JobSpecError record, incrementing the occurrences counter by 1
 // if the record is found
-func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) error {
-	orm.MustEnsureAdvisoryLock()
-	err := func() error {
-		foundJobSpecErr, err := orm.FindJobSpecError(jobID, description)
-		if err != nil && err != gorm.ErrRecordNotFound {
-			return err
-		} else if err != nil {
-			newJobSpecError := models.NewJobSpecError(jobID, description)
-			return orm.db.Create(&newJobSpecError).Error
-		} else {
-			foundJobSpecErr.Occurences++
-			return orm.db.Save(&foundJobSpecErr).Error
-		}
-	}()
-	if err != nil {
-		return errors.Wrap(err, "Unable to create JobSpecError")
-	}
-	return nil
+func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
+	jse := models.NewJobSpecError(jobID, description)
+	err := orm.db.
+		Set(
+			"gorm:insert_option",
+			`ON CONFLICT (job_spec_id, description)
+			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1`,
+		).
+		Create(&jse).
+		Error
+
+	logger.ErrorIf(err, fmt.Sprintf("Unable to create JobSpecError: %v", err))
 }
 
 // FindJobSpecError looks for a JobSpecError record with the given jobID and description
@@ -361,13 +364,14 @@ func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.
 }
 
 // DeleteJobSpecError removes a JobSpecError
-func (orm *ORM) DeleteJobSpecError(ID *models.ID) error {
-	orm.MustEnsureAdvisoryLock()
-	err := orm.db.Where("id = ?", ID).First(&models.JobSpecError{}).Error
-	if err != nil {
-		return err
+func (orm *ORM) DeleteJobSpecError(ID int64) error {
+	result := orm.db.Exec("DELETE FROM job_spec_errors WHERE id = ?", ID)
+	if result.Error != nil {
+		return result.Error
+	} else if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
 	}
-	return orm.db.Delete(&models.JobSpecError{ID: ID}).Error
+	return nil
 }
 
 // CreateExternalInitiator inserts a new external initiator

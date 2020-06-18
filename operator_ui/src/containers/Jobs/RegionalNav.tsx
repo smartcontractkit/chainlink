@@ -140,7 +140,9 @@ const RegionalNav = ({
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const errorsTabText =
-    job && job.errors.length > 0 ? `Errors (${job.errors.length})` : 'Errors'
+    job?.errors && job.errors.length > 0
+      ? `Errors (${job.errors.length})`
+      : 'Errors'
   const handleRun = () => {
     createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage).then(
       () =>

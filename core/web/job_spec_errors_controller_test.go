@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -24,13 +25,12 @@ func TestJobSpecErrorsController_Delete(t *testing.T) {
 
 	description := "job spec error description"
 
-	err := app.Store.UpsertErrorFor(j.ID, description)
-	assert.NoError(t, err)
+	app.Store.UpsertErrorFor(j.ID, description)
 
 	jse, err := app.Store.FindJobSpecError(j.ID, description)
 	assert.NoError(t, err)
 
-	resp, cleanup := client.Delete("/v2/job_spec_errors/" + jse.ID.String())
+	resp, cleanup := client.Delete(fmt.Sprintf("/v2/job_spec_errors/%v", jse.ID))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 
@@ -46,7 +46,7 @@ func TestJobSpecErrorsController_Delete_NotFound(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	resp, cleanup := client.Delete("/v2/job_spec_errors/190AE4CE-40B6-4D60-A3DA-061C5ACD32D0")
+	resp, cleanup := client.Delete("/v2/job_spec_errors/1")
 	defer cleanup()
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")
