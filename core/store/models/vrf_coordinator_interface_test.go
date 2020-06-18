@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 
@@ -22,7 +21,7 @@ var (
 	seed      = big.NewInt(1)
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
 	fee       = assets.NewLink(100)
-	raw       = RawRandomnessRequestLog{keyHash, seed, jobID, sender,
+	raw       = models.RawRandomnessRequestLog{keyHash, seed, jobID, sender,
 		(*big.Int)(fee), types.Log{
 			// A raw, on-the-wire RandomnessRequestLog is the concat of fields as uint256's
 			Data: append(append(append(

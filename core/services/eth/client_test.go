@@ -76,7 +76,7 @@ func TestTxReceipt_FulfilledRunlog(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			receipt := cltest.TxReceiptFromFixture(t, test.path)
-			assert.Equal(t, test.want, eth.FulfilledRunLog(receipt))
+			assert.Equal(t, test.want, receipt.FulfilledRunLog())
 		})
 	}
 }
