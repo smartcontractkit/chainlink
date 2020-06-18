@@ -30,10 +30,9 @@ Examples of how to utilize and integrate Chainlinks can be found in the [Chainli
 1. [Install Go 1.14](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
 3. Install [Postgres (>= 9.6)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
-4. Install [gencodec](https://github.com/fjl/gencodec), [mockery version 1.0.0](https://github.com/vektra/mockery/releases/tag/v1.0.0), and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
-5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
-6. Build and install Chainlink: `make install`
-7. Run the node: `chainlink help`
+4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
+5. Build and install Chainlink: `make install`
+6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
 
@@ -117,35 +116,37 @@ go build -o chainlink ./core/
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 
-2. Build contracts:
+2. Install [gencodec](https://github.com/fjl/gencodec), [mockery version 1.0.0](https://github.com/vektra/mockery/releases/tag/v1.0.0), and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
+
+3. Build contracts:
 
 ```bash
 yarn
 yarn setup:contracts
 ```
 
-3. Generate and compile static assets:
+4. Generate and compile static assets:
 
 ```bash
 go generate ./...
 go run ./packr/main.go ./core/eth/
 ```
 
-4. Prepare your development environment:
+5. Prepare your development environment:
 
 ```bash
 export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
 export CHAINLINK_DEV=true # I prefer to use direnv and skip this
 ```
 
-5.  Drop/Create test database and run migrations:
+6.  Drop/Create test database and run migrations:
 ```
 go run ./core/main.go local db preparetest
 ```
 
 If you do end up modifying the migrations for the database, you will need to rerun
 
-6. Run tests:
+7. Run tests:
 
 ```bash
 go test -parallel=1 ./...
