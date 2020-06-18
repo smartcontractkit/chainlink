@@ -416,7 +416,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)}},
 			}
 
-			receipt := cltest.TxReceiptFromFixture(t, "../eth/testdata/runlogReceipt.json")
+			receipt := cltest.TxReceiptFromFixture(t, "../services/eth/testdata/runlogReceipt.json")
 			log := receipt.Logs[3]
 			log.Topics[1] = models.IDToTopic(job.ID)
 
