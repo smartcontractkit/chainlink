@@ -48,7 +48,7 @@ func getContractCodec(name string, box packr.Box) (ContractCodec, error) {
 //    yarn setup:contracts
 // in the base project directory.
 func GetContractCodec(name string) (ContractCodec, error) {
-	box := packr.NewBox("../../evm-contracts/abi/v0.4")
+	box := packr.NewBox("../../../evm-contracts/abi/v0.4")
 	return getContractCodec(name, box)
 }
 
@@ -59,7 +59,7 @@ func GetContractCodec(name string) (ContractCodec, error) {
 //    yarn setup:contracts
 // in the base project directory.
 func GetV6ContractCodec(name string) (ContractCodec, error) {
-	box := packr.NewBox("../../evm-contracts/abi/v0.6")
+	box := packr.NewBox("../../../evm-contracts/abi/v0.6")
 	return getContractCodec(name, box)
 }
 
