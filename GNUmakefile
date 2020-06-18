@@ -9,7 +9,6 @@ GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := core/chainlink.Dockerfile
-DOCKER_TAG ?= latest
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
@@ -26,7 +25,7 @@ else
 	SGX_BUILD_ENCLAVE :=
 endif
 
-TAGGED_REPO := $(REPO):$(DOCKER_TAG)
+TAGGED_REPO := $(REPO):$(VERSION)
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -65,11 +64,23 @@ chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
+.PHONY: chainlink-build
+chainlink-build:
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
+	go build $(GOFLAGS) -o chainlink ./core/
+	cp chainlink $(GOBIN)/chainlink
+
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
 	yarn setup:chainlink
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
+
+.PHONY: contracts-operator-ui-build
+contracts-operator-ui-build: # only compiles tsc and builds contracts and operator-ui
+	yarn setup:chainlink
+	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 
 .PHONY: abigen
 abigen:
@@ -79,7 +90,7 @@ abigen:
 go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers
 	yarn workspace @chainlink/contracts compile
 	go generate ./core/internal/gethwrappers
-	go run ./packr/main.go ./core/eth/
+	go run ./packr/main.go ./core/services/eth/
 
 .PHONY: testdb
 testdb: ## Prepares the test database
@@ -92,6 +103,7 @@ docker: ## Build the docker image.
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		--build-arg SGX_SIMULATION=$(SGX_SIMULATION) \
 		-t $(TAGGED_REPO) \
+		-t $(REPO):$(COMMIT_SHA) \
 		-f $(DOCKERFILE) \
 		.
 
