@@ -12,8 +12,8 @@ func Migrate(tx *gorm.DB) error {
 			"job_spec_id" uuid REFERENCES job_specs(id) ON DELETE CASCADE NOT NULL,
 			"description" text NOT NULL,
 			"occurences" integer DEFAULT 1 NOT NULL,
-			"created_at" timestamp without time zone NOT NULL,
-			"updated_at" timestamp without time zone NOT NULL
+			"created_at" timestamptz without time zone NOT NULL,
+			"updated_at" timestamptz without time zone NOT NULL
 		);
 
 		CREATE UNIQUE INDEX job_spec_errors_unique_idx ON job_spec_errors ("job_spec_id", "description");
