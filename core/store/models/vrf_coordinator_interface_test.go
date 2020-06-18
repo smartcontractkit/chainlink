@@ -22,7 +22,7 @@ var (
 	seed      = big.NewInt(1)
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
 	fee       = assets.NewLink(100)
-	raw       = vrf.RawRandomnessRequestLog{keyHash, seed, jobID, sender,
+	raw       = RawRandomnessRequestLog{keyHash, seed, jobID, sender,
 		(*big.Int)(fee), types.Log{
 			// A raw, on-the-wire RandomnessRequestLog is the concat of fields as uint256's
 			Data: append(append(append(
@@ -36,11 +36,11 @@ var (
 )
 
 func TestVRFParseRandomnessRequestLog(t *testing.T) {
-	r := vrf.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
+	r := models.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
 	rawLog, err := r.RawData()
 	require.NoError(t, err)
 	assert.Equal(t, rawLog, raw.Raw.Data)
-	nR, err := vrf.ParseRandomnessRequestLog(models.Log{
+	nR, err := models.ParseRandomnessRequestLog(models.Log{
 		Data:   rawLog,
 		Topics: []common.Hash{common.Hash{}, jobID},
 	})
