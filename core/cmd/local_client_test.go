@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -267,6 +268,77 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
 	}
+}
+
+func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
+	beginningNonce := uint(7)
+	endingNonce := uint(10)
+	gasPrice := big.NewInt(100000000000)
+	gasLimit := uint64(3000000)
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("beginningNonce", beginningNonce, "")
+	set.Uint("endingNonce", endingNonce, "")
+	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
+	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	c := cli.NewContext(nil, set, nil)
+
+	// {"range_start", beginningNonce},
+	// Use the a non-transactional db for this test because we need to
+	// test multiple connections to the datbase, and changes made within
+	// the transaction cannot be seen from another connection.
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
+	defer cleanup()
+	config.Config.Dialect = orm.DialectPostgres
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
+	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+	defer connectedCleanup()
+
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, 7, 42)
+
+	// Use the same config as the connectedStore so that the advisory
+	// lock ID is the same. We set the config to be Postgres Without
+	// Lock, because the db locking stratgey is decided when we
+	// initialize the store/ORM.
+	config.Config.Dialect = orm.DialectPostgresWithoutLock
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+	store.KeyStore.Unlock(cltest.Password)
+	require.NoError(t, connectedStore.Start())
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Stop").Return(nil)
+	gethClient := new(mocks.GethClient)
+	store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+
+	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+	client := cmd.Client{
+		Config:                 config.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	config.Config.Dialect = orm.DialectTransactionWrappedPostgres
+
+	for i := beginningNonce; i <= endingNonce; i++ {
+		n := i
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return uint(tx.Nonce()) == n
+		})).Once().Return(nil)
+	}
+
+	// We set the dialect back after initialization so that we can check
+	// that it was set back to WithoutLock at the end of the test.
+	assert.NoError(t, client.RebroadcastTransactions(c))
+	// Check that the Dialect was set back when the command was run.
+	assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
+
+	app.AssertExpectations(t)
+	gethClient.AssertExpectations(t)
 }
 
 func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
