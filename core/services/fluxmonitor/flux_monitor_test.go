@@ -356,7 +356,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 
 	checker.ExportedPollIfEligible(1, 1)
 
-	job, err = store.FindJob(job.ID)
+	job, err = store.FindJobWithErrors(job.ID)
 	require.NoError(t, err)
 	require.Len(t, job.Errors, 1)
 

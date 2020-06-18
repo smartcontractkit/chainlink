@@ -265,7 +265,8 @@ func (c *ConfigWhitelist) SetID(value string) error {
 // the total link earned from that job
 type JobSpec struct {
 	models.JobSpec
-	Earnings *assets.Link `json:"earnings"`
+	Errors   []models.JobSpecError `json:"errors"`
+	Earnings *assets.Link          `json:"earnings"`
 }
 
 // MarshalJSON returns the JSON data of the Job and its Initiators.
