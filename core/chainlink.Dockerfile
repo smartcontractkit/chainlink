@@ -6,7 +6,6 @@ FROM smartcontract/builder-cache:1.0.34-2020-06-07T0002Z
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 COPY GNUmakefile VERSION ./
-COPY tools/bin/ldflags ./tools/bin/
 
 # Install yarn dependencies
 COPY yarn.lock package.json .yarnrc ./
@@ -25,15 +24,7 @@ COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY evm-contracts/package.json ./evm-contracts/
 RUN make yarndep
 
-# Do go mod download in a cacheable step
-ADD go.mod go.sum ./
-RUN go mod download
 
-# Env vars needed for chainlink build
-ARG COMMIT_SHA
-ARG ENVIRONMENT
-
-# Install chainlink
 COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY operator_ui ./operator_ui
 COPY styleguide ./styleguide
@@ -45,10 +36,34 @@ COPY belt ./belt
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers ./evm-test-helpers
 COPY evm-contracts ./evm-contracts
+
+# Build operator-ui and the smart contracts
+RUN make contracts-operator-ui-build
+
+# Build the golang binary
+
+FROM smartcontract/builder-cache:1.0.34-2020-06-07T0002Z
+
+# Have to reintroduce ENV vars from builder image
+ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+COPY GNUmakefile VERSION ./
+COPY tools/bin/ldflags ./tools/bin/
+
+# Env vars needed for chainlink build
+ADD go.mod go.sum ./
+RUN go mod download
+
+# Env vars needed for chainlink build
+ARG COMMIT_SHA
+ARG ENVIRONMENT
+
+COPY --from=0 /chainlink/evm-contracts/abi ./evm-contracts/abi
+COPY --from=0 /chainlink/operator_ui/dist ./operator_ui/dist
 COPY core core
 COPY packr packr
 
-RUN make install-chainlink
+RUN make chainlink-build
 
 # Final layer: ubuntu with chainlink binary
 FROM ubuntu:18.04
@@ -58,7 +73,7 @@ RUN apt-get update && apt-get install -y ca-certificates
 
 WORKDIR /root
 
-COPY --from=0 /go/bin/chainlink /usr/local/bin/
+COPY --from=1 /go/bin/chainlink /usr/local/bin/
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
