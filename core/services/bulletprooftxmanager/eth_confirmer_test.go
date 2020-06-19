@@ -292,6 +292,27 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.Len(t, attempt3_1.EthReceipts, 0)
 	})
 
+	t.Run("ignores partially hydrated receipt that comes from querying parity too early", func(t *testing.T) {
+		receipt := gethTypes.Receipt{
+			TxHash: attempt3_1.Hash,
+		}
+		gethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt3_1.Hash
+		})).Return(&receipt, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.CheckForReceipts())
+
+		// No receipt, but no error either
+		etx, err := store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, models.EthTxUnconfirmed, etx.State)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt3_1 = etx.EthTxAttempts[0]
+		require.Len(t, attempt3_1.EthReceipts, 0)
+	})
+
 	t.Run("handles case where eth_receipt already exists somehow", func(t *testing.T) {
 		ethReceipt := cltest.MustInsertEthReceipt(t, store, 42, cltest.NewHash(), attempt3_1.Hash)
 
