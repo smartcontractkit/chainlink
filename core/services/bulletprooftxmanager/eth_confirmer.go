@@ -116,7 +116,7 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 			// it may be possible to use goroutines here to speed it up by
 			// issuing `fetchReceipt` requests in parallel
 			receipt, err := ec.fetchReceipt(attempt.Hash)
-			if isParityQueriedReceiptTooEarly(err) {
+			if isParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
 				logger.Debugw("EthConfirmer: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
 				break
 			} else if err != nil {
@@ -167,6 +167,10 @@ func (ec *ethConfirmer) fetchReceipt(hash gethCommon.Hash) (*gethTypes.Receipt, 
 }
 
 func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) error {
+	if receipt.BlockNumber == nil {
+		return errors.Errorf("receipt was missing block number: %#v", receipt)
+	}
+
 	return ec.store.Transaction(func(tx *gorm.DB) error {
 		receiptJSON, err := json.Marshal(receipt)
 		if err != nil {
