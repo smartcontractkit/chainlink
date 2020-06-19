@@ -21,6 +21,7 @@ import kyber from './kyber.png'
 import orchid from './orchid.png'
 import tornadoCash from './tornadocash.png'
 import bamboorelay from './bamboorelay.png'
+import bancor from './bancor.png'
 
 // Listing Thumbnails
 
@@ -45,6 +46,7 @@ import kyberTn from './kyber_tn.png'
 import orchidTn from './orchid_tn.png'
 import tornadoCashTn from './tornadocash_tn.png'
 import bamboorelayTn from './bamboorelay_tn.png'
+import bancorTn from './bancor_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -179,5 +181,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://bamboorelay.com',
     imageLg: bamboorelay,
     imageTn: bamboorelayTn,
+  },
+  {
+    name: 'Bancor',
+    url: 'https://www.bancor.network',
+    imageLg: bancor,
+    imageTn: bancorTn,
   },
 ]
