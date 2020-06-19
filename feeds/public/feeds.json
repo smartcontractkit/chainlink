@@ -949,6 +949,31 @@
   },
   {
     "compareOffchain": "",
+    "contractAddress": "0x560B06e8897A0E52DbD5723271886BbCC5C1f52a",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": null,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "BNT / USD",
+    "networkId": 1,
+    "pair": [
+      "BNT",
+      "USD"
+    ],
+    "path": "bnt-usd",
+    "sponsored": [
+      "Bancor"
+    ],
+    "threshold": 2,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
     "contractAddress": "0xA417221ef64b1549575C977764E651c9FAB50141",
     "contractType": "aggregator",
     "contractVersion": 2,
