@@ -9,6 +9,7 @@ GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := core/chainlink.Dockerfile
+DOCKER_TAG ?= latest
 
 # SGX is disabled by default, but turned on when building from Docker
 SGX_ENABLED ?= no
@@ -25,7 +26,7 @@ else
 	SGX_BUILD_ENCLAVE :=
 endif
 
-TAGGED_REPO := $(REPO):$(VERSION)
+TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -103,7 +104,6 @@ docker: ## Build the docker image.
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		--build-arg SGX_SIMULATION=$(SGX_SIMULATION) \
 		-t $(TAGGED_REPO) \
-		-t $(REPO):$(COMMIT_SHA) \
 		-f $(DOCKERFILE) \
 		.
 
