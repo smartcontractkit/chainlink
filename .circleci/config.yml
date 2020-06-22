@@ -334,11 +334,11 @@ jobs:
               echo "export AWS_ENVIRONMENT_NAME=${awsEnvironmentName}"
             } >> "$BASH_ENV"
       - run:
-        - name: "Push to ECR"
-        - command: |
-          for tag in "${CIRLCE_TAG} ${CIRCLE_SHA1}"; do
-            docker push "${AWS_ECR_REPO/chainlink:${tag}"
-          done
+          name: "Push to ECR"
+          command: |
+            for tag in "${CIRLCE_TAG} ${CIRCLE_SHA1}"; do
+              docker push "${AWS_ECR_REPO/chainlink:${tag}"
+            done
   build-chainlink-sgx:
     resource_class: xlarge
     machine:
