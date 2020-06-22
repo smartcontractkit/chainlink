@@ -1,6 +1,7 @@
 version: 2.1
 orbs:
   aws-ecr: circleci/aws-ecr@6.9.1
+  aws-cli: circleci/aws-cli@1.1.0
 jobs:
   core-go-test:
     resource_class: xlarge
@@ -295,6 +296,12 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
+      - aws-cli/install
+      - aws-cli/configure:
+          aws-access-key-id: "AWS_ACCESS_KEY_ID"
+          aws-region: "AWS_DEFAULT_REGION"
+          aws-secret-access-key: "AWS_SECRET_ACCESS_KEY"
+          version: "2"
       - aws-ecr/ecr-login:
           account-url: "AWS_ECR_ACCOUNT_URL"
           profile-name: "default"
