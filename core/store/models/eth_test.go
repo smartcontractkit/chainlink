@@ -354,3 +354,17 @@ func TestBlock_Unmarshal(t *testing.T) {
 
 	assert.Len(t, block.Transactions, 2)
 }
+
+func TestHead_EarliestInChain(t *testing.T) {
+	head := models.Head{
+		Number: 3,
+		Parent: &models.Head{
+			Number: 2,
+			Parent: &models.Head{
+				Number: 1,
+			},
+		},
+	}
+
+	assert.Equal(t, int64(1), head.EarliestInChain().Number)
+}

@@ -269,6 +269,11 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 	}
 }
 
+// NewHeadFromBlockHeader returns a new Head from geth's types.Header
+func NewHeadFromBlockHeader(h types.Header) Head {
+	return NewHead(h.Number, h.Hash(), h.ParentHash, h.Time)
+}
+
 // String returns a string representation of this number.
 func (h *Head) String() string {
 	return h.ToInt().String()

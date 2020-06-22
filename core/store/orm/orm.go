@@ -1086,8 +1086,8 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 }
 
 // Chain returns the chain of heads starting at hash and up to lookback parents
-// This can return nil if no head with the given hash is found
-func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
+// Returns RecordNotFound if no head with the given hash exists
+func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
 	rows, err := orm.db.Raw(`
 	WITH RECURSIVE chain AS (
 		SELECT * FROM heads WHERE hash = ?
@@ -1097,7 +1097,7 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
 	) SELECT id, hash, number, parent_hash, timestamp, created_at FROM chain LIMIT ?
 	`, hash, lookback).Rows()
 	if err != nil {
-		return nil, err
+		return models.Head{}, err
 	}
 	defer logger.ErrorIfCalling(rows.Close)
 	var firstHead *models.Head
@@ -1105,7 +1105,7 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
 	for rows.Next() {
 		h := models.Head{}
 		if err := rows.Scan(&h.ID, &h.Hash, &h.Number, &h.ParentHash, &h.Timestamp, &h.CreatedAt); err != nil {
-			return nil, err
+			return models.Head{}, err
 		}
 		if firstHead == nil {
 			firstHead = &h
@@ -1114,7 +1114,20 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
 		}
 		prevHead = &h
 	}
-	return firstHead, nil
+	if firstHead == nil {
+		return models.Head{}, gorm.ErrRecordNotFound
+	}
+	return *firstHead, nil
+}
+
+// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
+func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
+	head := &models.Head{}
+	err := orm.db.Where("hash = ?", hash).First(head).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return head, err
 }
 
 // LastHead returns the head with the highest number. In the case of ties (e.g.
