@@ -1720,3 +1720,107 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	})
 
 }
+
+func TestORM_FindOrCreateFluxMonitorRoundStats(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+	var roundID uint32 = 1
+
+	fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
+	require.NoError(t, err)
+	require.Equal(t, roundID, fmrs.RoundID)
+	require.Equal(t, address, fmrs.Aggregator)
+
+	count, err := store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+
+	fmrs, err = store.FindOrCreateFluxMonitorRoundStats(address, roundID)
+	require.NoError(t, err)
+	require.Equal(t, roundID, fmrs.RoundID)
+	require.Equal(t, address, fmrs.Aggregator)
+
+	count, err = store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
+
+func TestORM_DeleteFluxMonitorRoundsBackThrough(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+
+	for round := uint32(0); round < 10; round++ {
+		_, err := store.FindOrCreateFluxMonitorRoundStats(address, round)
+		require.NoError(t, err)
+	}
+
+	count, err := store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 10, count)
+
+	err = store.DeleteFluxMonitorRoundsBackThrough(cltest.NewAddress(), 5)
+	require.NoError(t, err)
+
+	count, err = store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 10, count)
+
+	err = store.DeleteFluxMonitorRoundsBackThrough(address, 5)
+	require.NoError(t, err)
+
+	count, err = store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 5, count)
+}
+
+func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+
+	for round := uint32(0); round < 10; round++ {
+		_, err := store.FindOrCreateFluxMonitorRoundStats(address, round)
+		require.NoError(t, err)
+	}
+
+	count, err := store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 10, count)
+
+	roundID, err := store.MostRecentFluxMonitorRoundID(cltest.NewAddress())
+	require.Error(t, err)
+	require.Equal(t, uint32(0), roundID)
+
+	roundID, err = store.MostRecentFluxMonitorRoundID(address)
+	require.NoError(t, err)
+	require.Equal(t, uint32(9), roundID)
+}
+
+func TestORM_IncrFluxMonitorRoundSubmissions(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+	var roundID uint32 = 1
+
+	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
+		err := store.IncrFluxMonitorRoundSubmissions(address, roundID)
+		require.NoError(t, err)
+		fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
+		require.NoError(t, err)
+		require.Equal(t, expectedCount, fmrs.NumSubmissions)
+	}
+}
