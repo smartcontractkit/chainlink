@@ -1579,7 +1579,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 		}
 		require.NotEqual(t, competingHead1.Hash, h.Hash)
 		require.NotEqual(t, competingHead2.Hash, h.Hash)
-		h = h.Parent
+		h = *h.Parent
 		count++
 	}
 	assert.Equal(t, 8, count)
@@ -1593,7 +1593,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 		if h.Parent == nil {
 			break
 		}
-		h = h.Parent
+		h = *h.Parent
 		count++
 	}
 	assert.Equal(t, 2, count)
@@ -1608,10 +1608,9 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.Equal(t, baseOfForkHash, head.Parent.Parent.Hash)
 	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
 
-	// Returns nil if hash has no matches
-	h, err = store.Chain(cltest.NewHash(), 12)
-	require.NoError(t, err)
-	require.Nil(t, h)
+	// Returns error if hash has no matches
+	_, err = store.Chain(cltest.NewHash(), 12)
+	require.Error(t, err)
 }
 
 func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
