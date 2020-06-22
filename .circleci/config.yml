@@ -1,4 +1,6 @@
 version: 2.1
+orbs:
+  aws-ecr: circleci/aws-ecr@6.9.1
 jobs:
   core-go-test:
     resource_class: xlarge
@@ -293,6 +295,14 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
+      - aws-ecr/ecr-login:
+          account-url: "AWS_ECR_ACCOUNT_URL"
+          profile-name: "default"
+          region: "AWS_REGION"
+      - aws-ecr/push-image:
+          account-url: "AWS_ECR_ACCOUNT_URL"
+          repo: "${AWS_ECR_REPO}"
+          tag: "${CIRCLE_TAG},${CIRCLE_SHA1}"
   build-chainlink-sgx:
     resource_class: xlarge
     machine:
