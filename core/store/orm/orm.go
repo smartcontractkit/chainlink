@@ -1298,6 +1298,8 @@ func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, erro
 	return orm.FindJob(lc.JobID)
 }
 
+// FindOrCreateFluxMonitorRoundStats find the round stats record for agiven oracle on a given round, or creates
+// it if no record exists
 func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
 	orm.MustEnsureAdvisoryLock()
 	var stats models.FluxMonitorRoundStats
@@ -1305,6 +1307,8 @@ func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, rou
 	return stats, err
 }
 
+// DeleteFluxMonitorRoundsBackThrough deletes all the RoundStat records for a given oracle address
+// starting from the most recent round back through the given round
 func (orm *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Exec(`
@@ -1314,16 +1318,20 @@ func (orm *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, ro
     `, aggregator, roundID).Error
 }
 
+// MostRecentFluxMonitorRoundID finds roundID of the most recent round that the provided oracle
+// address submitted to
 func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error) {
 	orm.MustEnsureAdvisoryLock()
 	var stats models.FluxMonitorRoundStats
-	err := orm.db.First(&stats, "aggregator = ?", aggregator).Order("round_id DESC").Error
+	err := orm.db.Order("round_id DESC").First(&stats, "aggregator = ?", aggregator).Error
 	if err != nil {
 		return 0, err
 	}
 	return stats.RoundID, nil
 }
 
+// IncrFluxMonitorRoundSubmissions trys to create a RoundStat record for the given oracle
+// at the given round. If one already exists, it increments the num_submissions column.
 func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Exec(`
@@ -1333,7 +1341,7 @@ func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, round
             ?, ?, 0, 1
         ) ON CONFLICT (aggregator, round_id)
         DO UPDATE
-        SET num_submissions = excluded.num_submissions + 1
+        SET num_submissions = flux_monitor_round_stats.num_submissions + 1
     `, aggregator, roundID).Error
 }
 
