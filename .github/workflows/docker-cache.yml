@@ -45,17 +45,30 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Publish to ECR
-        uses: kciter/aws-ecr-action@v1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          access_key_id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          secret_access_key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          account_id: "${{ secrets.AWS_ACCOUNT_ID }}"
-          repo: "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink"
-          region: us-west-2
-          create_repo: false
-          tags: "${{ github.sha }},1.0.35"
-          Dockerfile: "./Dockerfile"
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws-region: "us-west-2"
+          role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
+          role-external-id: "${{ secrets.AWS_ROLE_EXTERNAL_ID }}"
+          role-duration-seconds: 1200
+          role-session-name: "BuilderCacheBuildAndPush"
+
+      - name: Login to AWS ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Push image to AWS ECR
+        env:
+          ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
+          ECR_REPOSITORY: "chainlink/builder-cache"
+          IMAGE_TAG1: "${{ steps.updateCacheFile.outputs.builderVersion }}"
+          IMAGE_TAG2: "${{ github.sha }}"
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG1
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG2
 
       - name: Update docker files
         uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
