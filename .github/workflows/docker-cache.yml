@@ -1,12 +1,13 @@
 name: Update cache image
 
-on:
-  schedule:
-    # Run every Sunday at midnight
-    - cron: '0 0 * * 0'
-
-  repository_dispatch:
-    types: build-docker-cache
+#on:
+#  schedule:
+#     Run every Sunday at midnight
+#    - cron: '0 0 * * 0'
+#
+#  repository_dispatch:
+#    types: build-docker-cache
+on: push
 
 jobs:
   update-cache:
@@ -26,24 +27,24 @@ jobs:
         with:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
-      - name: Update Cache File
-        id: updateCacheFile
-        uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
-        with:
-          actionType: 'UPDATE_CACHE_FILE'
+      #- name: Update Cache File
+      #  id: updateCacheFile
+      #  uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
+      #  with:
+      #    actionType: 'UPDATE_CACHE_FILE'
 
       - name: Get current date
         id: getDate
         run: echo "::set-output name=date::$(date -u +"%Y-%m-%dT%H%MZ")"
 
-      - name: Publish to Docker Hub
-        uses: elgohr/Publish-Docker-Github-Action@2.14
-        with:
-          name: 'smartcontract/builder-cache'
-          dockerfile: 'builder-cache.Dockerfile'
-          tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+      #- name: Publish to Docker Hub
+      #  uses: elgohr/Publish-Docker-Github-Action@2.14
+      #  with:
+      #    name: 'smartcontract/builder-cache'
+      #    dockerfile: 'builder-cache.Dockerfile'
+      #    tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
+      #    username: ${{ secrets.DOCKER_USERNAME }}
+      #    password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -68,13 +69,13 @@ jobs:
           docker build -t $ECR_REGISTRY:$IMAGE_TAG .
           docker push $ECR_REGISTRY:$IMAGE_TAG
 
-      - name: Update docker files
-        uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
-        with:
-          actionType: 'UPDATE_DOCKER_FILES'
+      #- name: Update docker files
+      #  uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
+      #  with:
+      #    actionType: 'UPDATE_DOCKER_FILES'
 
-      - name: Open PR with updated cache and docker files
-        uses: peter-evans/create-pull-request@v2.7.0
-        with:
-          title: 'Update docker cache image'
-          commit-message: 'Update docker cache image'
+      #- name: Open PR with updated cache and docker files
+      #  uses: peter-evans/create-pull-request@v2.7.0
+      #  with:
+      #    title: 'Update docker cache image'
+      #    commit-message: 'Update docker cache image'
