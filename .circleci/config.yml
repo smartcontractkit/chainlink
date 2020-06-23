@@ -530,10 +530,11 @@ workflows:
             tags:
               only: /^v.*/
       - build-publish-chainlink-ecr:
+          requires:
+            - build-publish-chainlink
           filters:
-            branches:
-              only:
-                - "chore/#173337176-publish-to-ecr"
+            tags:
+              only: /^v.*/
       - reportcoverage:
           requires:
             - core-go-test
