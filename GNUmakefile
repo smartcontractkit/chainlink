@@ -3,6 +3,7 @@
 ENVIRONMENT ?= release
 
 REPO := smartcontract/chainlink
+ECR_REPO := 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
 GOBIN ?= $(GOPATH)/bin
@@ -104,6 +105,8 @@ docker: ## Build the docker image.
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		--build-arg SGX_SIMULATION=$(SGX_SIMULATION) \
 		-t $(TAGGED_REPO) \
+		-t ${ECR_REPO}:${VERSION} \
+		-t ${ECR_REPO}:${COMMIT_SHA} \
 		-f $(DOCKERFILE) \
 		.
 
