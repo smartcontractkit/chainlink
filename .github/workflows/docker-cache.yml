@@ -54,21 +54,19 @@ jobs:
           role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
           role-external-id: "${{ secrets.AWS_ROLE_EXTERNAL_ID }}"
           role-duration-seconds: 1200
-          role-session-name: "BuilderCacheBuildAndPush"
+          role-session-name: "BuilderCache"
 
       - name: Login to AWS ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Push image to AWS ECR
+      - name: Build and push image to AWS ECR
         env:
           ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
-          ECR_REPOSITORY: "chainlink/builder-cache"
-          IMAGE_TAG1: "${{ steps.updateCacheFile.outputs.builderVersion }}"
-          IMAGE_TAG2: "${{ github.sha }}"
+          IMAGE_TAG: "${{ github.sha }}"
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG1
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG2
+          docker build -t $ECR_REGISTRY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY:$IMAGE_TAG
 
       - name: Update docker files
         uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
