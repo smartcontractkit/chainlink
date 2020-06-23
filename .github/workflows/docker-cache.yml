@@ -46,6 +46,9 @@ jobs:
       #    username: ${{ secrets.DOCKER_USERNAME }}
       #    password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Print env
+        run: echo "${{ secrets.AWS_ROLE_TO_ASSUME }}"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -53,9 +56,8 @@ jobs:
           aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           aws-region: "us-west-2"
           role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
-          #role-external-id: "${{ secrets.AWS_ROLE_EXTERNAL_ID }}"
           role-duration-seconds: 1200
-          role-session-name: "BuilderCache"
+          role-session-name: "BuilderCacheGHA"
 
       - name: Login to AWS ECR
         id: login-ecr
