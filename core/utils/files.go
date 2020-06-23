@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"syscall"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -20,6 +21,14 @@ func FileExists(name string) bool {
 
 func TooPermissive(fileMode, maxAllowedPerms os.FileMode) bool {
 	return fileMode&^maxAllowedPerms != 0
+}
+
+func IsFileOwnedByChainlink(fileInfo os.FileInfo) (bool, error) {
+	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return false, errors.Errorf("Unable to determine file owner of %s", fileInfo.Name())
+	}
+	return int(stat.Uid) == os.Getuid(), nil
 }
 
 // Ensures that the given path exists, that it's a directory, and that it has
