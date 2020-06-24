@@ -29,16 +29,17 @@ jobs:
       - name: Configure AWS CLI
         run: |
           # Get temporary credentials to access resoures available to specific role
-          temporaryCredientials=$(
+          temporaryCredentials=$(
             aws sts assume-role \
               --role-arn "${AWS_ROLE_TO_ASSUME}" \
               --role-session-name "gha-${GITHUB_REPOSITORY}-${GITHUB_WORKFLOW}-${GITHUB_RUN_NUMBER}"
           )
+          echo $temporaryCredentials
 
           # Deconstruct json response, extracting aws credentials
-          accessKeyID=$(echo $temporaryCredientials | jq .Credentials.AccessKeyId | xargs)
-          secretAccessKey=$(echo $temporaryCredientials | jq .Credentials.SecretAccessKey | xargs)
-          sessionToken=$(echo $temporaryCredientials | jq .Credentials.SessionToken | xargs)
+          accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
+          secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
+          sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
 
           # Store aws creds in .aws folder
           aws configure set aws_access_key_id ${accessKeyID}
