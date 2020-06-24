@@ -19,26 +19,112 @@ jobs:
         with:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          aws-region: "us-west-2"
-          role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
-          role-duration-seconds: 1200
-
-      - name: Login to AWS ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build and push image to AWS ECR
-        env:
-          ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
-          IMAGE_TAG: "${{ github.sha }}"
+      - name: Free disk space
         run: |
-          docker build -t $ECR_REGISTRY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY:$IMAGE_TAG
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo apt clean
+          df -h
+
+      #- name: Update Cache File
+      #  id: updateCacheFile
+      #  uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
+      #  with:
+      #    actionType: 'UPDATE_CACHE_FILE'
+
+      - name: Get current date
+        id: getDate
+        run: echo "::set-output name=date::$(date -u +"%Y-%m-%dT%H%MZ")"
+
+      #- name: Publish to Docker Hub
+      #  uses: elgohr/Publish-Docker-Github-Action@2.14
+      #  with:
+      #    name: 'smartcontract/builder-cache'
+      #    dockerfile: 'builder-cache.Dockerfile'
+      #    tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
+      #    username: ${{ secrets.DOCKER_USERNAME }}
+      #    password: ${{ secrets.DOCKER_PASSWORD }}
+
+
+      - name: Publish the build-cache image to ECR
+        uses: elgohr/Publish-Docker-Github-Action@2.17
+        with:
+          name: ${{ secrets.AWS_ECR_ACCOUNT_URL }}
+          username: ${{ steps.ecr.outputs.username }}
+          password: ${{ steps.ecr.outputs.password }}
+          registry: ${{ steps.ecr.outputs.registry }}
+          dockerfile: builder-cache.Dockerfile
+          #tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
+          tags: ${{ steps.getDate.outputs.date }}
+
+      #- name: Update docker files
+      #  uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
+      #  with:
+      #    actionType: 'UPDATE_DOCKER_FILES'
+
+      #- name: Open PR with updated cache and docker files
+      #  uses: peter-evans/create-pull-request@v2.7.0
+      #  with:
+      #    title: 'Update docker cache image'
+      #    commit-message: 'Update docker cache image'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      #- name: Login to ECR
+      #  id: ecr
+      #  uses: elgohr/ecr-login-action@0.0.6
+      #  with:
+      #    access_key: ${{ secrets.AWS_ACCESS_KEY }}
+      #    secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #    region: ${{ secrets.AWS_REGION }}
+
+      #- name: Publish the build-cache image to ECR
+      #  uses: elgohr/Publish-Docker-Github-Action@2.17
+      #  with:
+      #    name: ${{ secrets.AWS_ECR_ACCOUNT_URL }}
+      #    username: ${{ steps.ecr.outputs.username }}
+      #    password: ${{ steps.ecr.outputs.password }}
+      #    registry: ${{ steps.ecr.outputs.registry }}
+      #    dockerfile: builder-cache.Dockerfile
+      #    tags: ${{  }},
+
+      #- name: Configure AWS Credentials
+      #  uses: aws-actions/configure-aws-credentials@v1
+      #  with:
+      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+      #    aws-region: "us-west-2"
+      #    role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
+      #    role-duration-seconds: 1200
+
+      #- name: Login to AWS ECR
+      #  id: login-ecr
+      #  uses: aws-actions/amazon-ecr-login@v1
+
+      #- name: Build and push image to AWS ECR
+      #  env:
+      #    ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
+      #    IMAGE_TAG: "${{ github.sha }}"
+      #  run: |
+      #    docker build -t $ECR_REGISTRY:$IMAGE_TAG -f ./builder-cache.Dockerfile .
+      #    docker push $ECR_REGISTRY:$IMAGE_TAG
 
 
 
@@ -145,39 +231,3 @@ jobs:
 
 
 
-      #- name: Free disk space
-      #  run: |
-      #    sudo swapoff -a
-      #    sudo rm -f /swapfile
-      #    sudo apt clean
-      #    df -h
-
-      #- name: Update Cache File
-      #  id: updateCacheFile
-      #  uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
-      #  with:
-      #    actionType: 'UPDATE_CACHE_FILE'
-
-      #- name: Get current date
-      #  id: getDate
-      #  run: echo "::set-output name=date::$(date -u +"%Y-%m-%dT%H%MZ")"
-
-      #- name: Publish to Docker Hub
-      #  uses: elgohr/Publish-Docker-Github-Action@2.14
-      #  with:
-      #    name: 'smartcontract/builder-cache'
-      #    dockerfile: 'builder-cache.Dockerfile'
-      #    tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
-      #    username: ${{ secrets.DOCKER_USERNAME }}
-      #    password: ${{ secrets.DOCKER_PASSWORD }}
-
-      #- name: Update docker files
-      #  uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
-      #  with:
-      #    actionType: 'UPDATE_DOCKER_FILES'
-
-      #- name: Open PR with updated cache and docker files
-      #  uses: peter-evans/create-pull-request@v2.7.0
-      #  with:
-      #    title: 'Update docker cache image'
-      #    commit-message: 'Update docker cache image'
