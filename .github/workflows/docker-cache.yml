@@ -54,6 +54,13 @@ jobs:
           echo "::set-env name=AWS_ACCOUNT_ID::${accountID}";
           echo "::set-env name=AWS_ECR_ACCOUNT_URL::${accountID}.dkr.ecr.us-west-2.amazonaws.com/builder-cache"
 
+      - name: docker login to ECR
+        env:
+          AWS_DEFAULT_REGION: '${{ secrets.AWS_DEFAULT_REGION }}'
+          AWS_ECR_ACCOUNT_URL: '${{ secrets.AWS_ECR_ACCOUNT_URL }}'
+        run: |
+          aws ecr get-login-password --region "${AWS_DEFAULT_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
+
 
 #on:
 #  schedule:
