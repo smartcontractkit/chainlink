@@ -19,14 +19,6 @@ jobs:
         with:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
-      - name: Change GITHUB_REF env var because hashes are not allowed in the branch name
-        uses: allenevans/set-env@v1.0.0
-        with:
-          overwrite: true
-          GITHUB_REF: "$(echo $GITHUB_REF | sed -e 's/\\#/-/g')"
-        #run:
-        #  echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -49,6 +41,14 @@ jobs:
           docker push $ECR_REGISTRY:$IMAGE_TAG
 
 
+
+      #- name: Change GITHUB_REF env var because hashes are not allowed in the branch name
+      #  uses: allenevans/set-env@v1.0.0
+      #  with:
+      #    overwrite: true
+      #    GITHUB_REF: "$(echo $GITHUB_REF | sed -e 's/\\#/-/g')"
+      #  #run:
+      #  #  echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
 
 
 
