@@ -19,90 +19,99 @@ jobs:
         with:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
-      - name: Install AWS CLI
-        run: |
-          curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
-          rm awscliv2.zip
+      - name: Change GITHUB_REF env var because hashes are not allowed in the branch name
+        uses: allenevans/set-env@v1.0.0
+        with:
+          overwrite: true
+          GITHUB_REF: "$(echo $GITHUB_REF | sed -e 's/\\#/-/g')"
+        #run:
+        #  echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
 
-      - name: Configure AWS CLI
-        run: |
-          # Get temporary credentials to access resoures available to specific role
-          temporaryCredentials=$(
-            aws sts assume-role \
-              --role-arn "${AWS_ROLE_TO_ASSUME}" \
-              --role-session-name "gha-${GITHUB_REPOSITORY}-${GITHUB_WORKFLOW}-${GITHUB_RUN_NUMBER}"
-          )
-          echo $temporaryCredentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws-region: "us-west-2"
+          role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
+          role-duration-seconds: 1200
 
-          # Deconstruct json response, extracting aws credentials
-          accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
-          secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
-          sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
-
-          # Store aws creds in .aws folder
-          aws configure set aws_access_key_id ${accessKeyID}
-          aws configure set aws_secret_access_key ${secretAccessKey}
-          aws configure set aws_session_token ${sessionToken}
-
-          # Override old keys with the temporary ones.
-          export AWS_ACCESS_KEY_ID="${accessKeyID}"
-          export AWS_SECRET_ACCESS_KEY="${secretAccessKey}"
-          export AWS_SESSION_TOKEN="${sessionToken}"
-
-          # Use temporary keys to get account ID
-          accountID=$(aws sts get-caller-identity --output text --query 'Account')
-
-          # Allows subsequent steps to use correct credentials
-          echo "::set-env name=AWS_ACCESS_KEY_ID::${accessKeyID}";
-          echo "::set-env name=AWS_SECRET_ACCESS_KEY::${secretAccessKey}";
-          echo "::set-env name=AWS_SESSION_TOKEN::${sessionToken}";
-          echo "::set-env name=AWS_ACCOUNT_ID::${accountID}";
-          echo "::set-env name=AWS_ECR_ACCOUNT_URL::${accountID}.dkr.ecr.us-west-2.amazonaws.com/builder-cache"
-
-
-      - name: Docker login to ECR
+      - name: Login to AWS ECR
         id: login-ecr
-        run: |
-          aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build and push image to AWS ECR
         env:
           ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
           IMAGE_TAG: "${{ github.sha }}"
         run: |
-          docker build -t $ECR_REGISTRY:$IMAGE_TAG -f ./builder-cache.Dockerfile .
+          docker build -t $ECR_REGISTRY:$IMAGE_TAG .
           docker push $ECR_REGISTRY:$IMAGE_TAG
 
 
 
 
 
-      #- name: Change GITHUB_REF env var because hashes are not allowed in the branch name
-      #  run:
-      #    echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
 
-      #- name: Configure AWS Credentials
-      #  uses: aws-actions/configure-aws-credentials@v1
-      #  with:
-      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-      #    aws-region: "us-west-2"
-      #    role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
-      #    role-duration-seconds: 1200
+      #- name: Install AWS CLI
+      #  run: |
+      #    curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      #    unzip awscliv2.zip
+      #    sudo ./aws/install
+      #    rm awscliv2.zip
 
-      #- name: Login to AWS ECR
+      #- name: Configure AWS CLI
+      #  run: |
+      #    # Get temporary credentials to access resoures available to specific role
+      #    temporaryCredentials=$(
+      #      aws sts assume-role \
+      #        --role-arn "${AWS_ROLE_TO_ASSUME}" \
+      #        --role-session-name "gha-${GITHUB_REPOSITORY}-${GITHUB_WORKFLOW}-${GITHUB_RUN_NUMBER}"
+      #    )
+      #    echo $temporaryCredentials
+
+      #    # Deconstruct json response, extracting aws credentials
+      #    accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
+      #    secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
+      #    sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
+
+      #    # Store aws creds in .aws folder
+      #    aws configure set aws_access_key_id ${accessKeyID}
+      #    aws configure set aws_secret_access_key ${secretAccessKey}
+      #    aws configure set aws_session_token ${sessionToken}
+
+      #    # Override old keys with the temporary ones.
+      #    export AWS_ACCESS_KEY_ID="${accessKeyID}"
+      #    export AWS_SECRET_ACCESS_KEY="${secretAccessKey}"
+      #    export AWS_SESSION_TOKEN="${sessionToken}"
+
+      #    # Use temporary keys to get account ID
+      #    accountID=$(aws sts get-caller-identity --output text --query 'Account')
+
+      #    # Allows subsequent steps to use correct credentials
+      #    echo "::set-env name=AWS_ACCESS_KEY_ID::${accessKeyID}";
+      #    echo "::set-env name=AWS_SECRET_ACCESS_KEY::${secretAccessKey}";
+      #    echo "::set-env name=AWS_SESSION_TOKEN::${sessionToken}";
+      #    echo "::set-env name=AWS_ACCOUNT_ID::${accountID}";
+      #    echo "::set-env name=AWS_ECR_ACCOUNT_URL::${accountID}.dkr.ecr.us-west-2.amazonaws.com/builder-cache"
+
+
+      #- name: Docker login to ECR
       #  id: login-ecr
-      #  uses: aws-actions/amazon-ecr-login@v1
+      #  run: |
+      #    aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
 
       #- name: Build and push image to AWS ECR
       #  env:
       #    ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
       #    IMAGE_TAG: "${{ github.sha }}"
       #  run: |
-      #    docker build -t $ECR_REGISTRY:$IMAGE_TAG .
+      #    docker build -t $ECR_REGISTRY:$IMAGE_TAG -f ./builder-cache.Dockerfile .
       #    docker push $ECR_REGISTRY:$IMAGE_TAG
+
+
+
+
 
 
 
