@@ -20,11 +20,11 @@ jobs:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
       - name: Change GITHUB_REF env var because hashes are not allowed in the branch name
+        run:
+          echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
-        env:
-          GITHUB_REF: "$(echo "${GITHUB_REF}" | sed -e 's/\#/-/g')"
         with:
           aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
           aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
