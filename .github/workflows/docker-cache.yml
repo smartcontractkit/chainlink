@@ -7,24 +7,26 @@ name: Update cache image
 #
 #  repository_dispatch:
 #    types: build-docker-cache
+
 on: push
 
 jobs:
   update-cache:
     runs-on: ubuntu-latest
-    steps:
-      # ssh checkout needed for https://github.com/peter-evans/create-pull-request/blob/master/docs/concepts-guidelines.md#push-using-ssh-deploy-keys
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
+    steps:
       - name: Free disk space
         run: |
           sudo swapoff -a
           sudo rm -f /swapfile
           sudo apt clean
           df -h
+
+      # ssh checkout needed for https://github.com/peter-evans/create-pull-request/blob/master/docs/concepts-guidelines.md#push-using-ssh-deploy-keys
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
       #- name: Update Cache File
       #  id: updateCacheFile
@@ -36,7 +38,7 @@ jobs:
         id: getDate
         run: echo "::set-output name=date::$(date -u +"%Y-%m-%dT%H%MZ")"
 
-      #- name: Publish to Docker Hub
+      #- name: Publish to Registry
       #  uses: elgohr/Publish-Docker-Github-Action@2.14
       #  with:
       #    name: 'smartcontract/builder-cache'
@@ -45,6 +47,13 @@ jobs:
       #    username: ${{ secrets.DOCKER_USERNAME }}
       #    password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Login to ECR
+        id: ecr
+        uses: elgohr/ecr-login-action@0.0.6
+        with:
+          access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: ${{ secrets.AWS_REGION }}
 
       - name: Publish the build-cache image to ECR
         uses: elgohr/Publish-Docker-Github-Action@2.17
@@ -67,167 +76,3 @@ jobs:
       #  with:
       #    title: 'Update docker cache image'
       #    commit-message: 'Update docker cache image'
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      #- name: Login to ECR
-      #  id: ecr
-      #  uses: elgohr/ecr-login-action@0.0.6
-      #  with:
-      #    access_key: ${{ secrets.AWS_ACCESS_KEY }}
-      #    secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #    region: ${{ secrets.AWS_REGION }}
-
-      #- name: Publish the build-cache image to ECR
-      #  uses: elgohr/Publish-Docker-Github-Action@2.17
-      #  with:
-      #    name: ${{ secrets.AWS_ECR_ACCOUNT_URL }}
-      #    username: ${{ steps.ecr.outputs.username }}
-      #    password: ${{ steps.ecr.outputs.password }}
-      #    registry: ${{ steps.ecr.outputs.registry }}
-      #    dockerfile: builder-cache.Dockerfile
-      #    tags: ${{  }},
-
-      #- name: Configure AWS Credentials
-      #  uses: aws-actions/configure-aws-credentials@v1
-      #  with:
-      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-      #    aws-region: "us-west-2"
-      #    role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
-      #    role-duration-seconds: 1200
-
-      #- name: Login to AWS ECR
-      #  id: login-ecr
-      #  uses: aws-actions/amazon-ecr-login@v1
-
-      #- name: Build and push image to AWS ECR
-      #  env:
-      #    ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
-      #    IMAGE_TAG: "${{ github.sha }}"
-      #  run: |
-      #    docker build -t $ECR_REGISTRY:$IMAGE_TAG -f ./builder-cache.Dockerfile .
-      #    docker push $ECR_REGISTRY:$IMAGE_TAG
-
-
-
-      #- name: Change GITHUB_REF env var because hashes are not allowed in the branch name
-      #  uses: allenevans/set-env@v1.0.0
-      #  with:
-      #    overwrite: true
-      #    GITHUB_REF: "$(echo $GITHUB_REF | sed -e 's/\\#/-/g')"
-      #  #run:
-      #  #  echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
-
-
-
-
-      #- name: Install AWS CLI
-      #  run: |
-      #    curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-      #    unzip awscliv2.zip
-      #    sudo ./aws/install
-      #    rm awscliv2.zip
-
-      #- name: Configure AWS CLI
-      #  run: |
-      #    # Get temporary credentials to access resoures available to specific role
-      #    temporaryCredentials=$(
-      #      aws sts assume-role \
-      #        --role-arn "${AWS_ROLE_TO_ASSUME}" \
-      #        --role-session-name "gha-${GITHUB_REPOSITORY}-${GITHUB_WORKFLOW}-${GITHUB_RUN_NUMBER}"
-      #    )
-      #    echo $temporaryCredentials
-
-      #    # Deconstruct json response, extracting aws credentials
-      #    accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
-      #    secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
-      #    sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
-
-      #    # Store aws creds in .aws folder
-      #    aws configure set aws_access_key_id ${accessKeyID}
-      #    aws configure set aws_secret_access_key ${secretAccessKey}
-      #    aws configure set aws_session_token ${sessionToken}
-
-      #    # Override old keys with the temporary ones.
-      #    export AWS_ACCESS_KEY_ID="${accessKeyID}"
-      #    export AWS_SECRET_ACCESS_KEY="${secretAccessKey}"
-      #    export AWS_SESSION_TOKEN="${sessionToken}"
-
-      #    # Use temporary keys to get account ID
-      #    accountID=$(aws sts get-caller-identity --output text --query 'Account')
-
-      #    # Allows subsequent steps to use correct credentials
-      #    echo "::set-env name=AWS_ACCESS_KEY_ID::${accessKeyID}";
-      #    echo "::set-env name=AWS_SECRET_ACCESS_KEY::${secretAccessKey}";
-      #    echo "::set-env name=AWS_SESSION_TOKEN::${sessionToken}";
-      #    echo "::set-env name=AWS_ACCOUNT_ID::${accountID}";
-      #    echo "::set-env name=AWS_ECR_ACCOUNT_URL::${accountID}.dkr.ecr.us-west-2.amazonaws.com/builder-cache"
-
-
-      #- name: Docker login to ECR
-      #  id: login-ecr
-      #  run: |
-      #    aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
-
-      #- name: Build and push image to AWS ECR
-      #  env:
-      #    ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
-      #    IMAGE_TAG: "${{ github.sha }}"
-      #  run: |
-      #    docker build -t $ECR_REGISTRY:$IMAGE_TAG -f ./builder-cache.Dockerfile .
-      #    docker push $ECR_REGISTRY:$IMAGE_TAG
-
-
-
-
-
-
-
-
-      #- name: Change GITHUB_REF env var because hashes are not allowed in the branch name
-      #  run:
-      #    echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
-
-      #- name: Configure AWS Credentials
-      #  uses: aws-actions/configure-aws-credentials@v1
-      #  with:
-      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-      #    aws-region: "us-west-2"
-      #    role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
-      #    role-duration-seconds: 1200
-
-      #- name: Login to AWS ECR
-      #  id: login-ecr
-      #  uses: aws-actions/amazon-ecr-login@v1
-
-      #- name: Build and push image to AWS ECR
-      #  env:
-      #    ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
-      #    IMAGE_TAG: "${{ github.sha }}"
-      #  run: |
-      #    docker build -t $ECR_REGISTRY:$IMAGE_TAG .
-      #    docker push $ECR_REGISTRY:$IMAGE_TAG
-
-
-
-
-
