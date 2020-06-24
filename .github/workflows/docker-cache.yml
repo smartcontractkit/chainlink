@@ -47,13 +47,27 @@ jobs:
       #    username: ${{ secrets.DOCKER_USERNAME }}
       #    password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # TODO REMOVE ME
+      #- name: Login to ECR
+      #  id: ecr
+      #  uses: elgohr/ecr-login-action@1.0.0
+      #  with:
+      #    access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #    secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #    region: ${{ secrets.AWS_DEFAULT_REGION }}
+
       - name: Login to ECR
-        id: ecr
-        uses: elgohr/ecr-login-action@1.0.0
-        with:
-          access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          region: ${{ secrets.AWS_DEFAULT_REGION }}
+        id: get-ecr-login
+        uses:  Konsentus/action.assume-ecr-login@master
+        env:
+          AWS_REGION: eu-west-2
+          AWS_ACCOUNT_ROLE: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          AWS_ACCOUNT_ID: "795953128386"
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: "Login to AWS ECR"
+        run: ${{ steps.get-ecr-login.outputs.login }}
 
       - name: Publish the build-cache image to ECR
         uses: elgohr/Publish-Docker-Github-Action@2.17
