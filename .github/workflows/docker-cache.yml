@@ -46,8 +46,8 @@ jobs:
       #    username: ${{ secrets.DOCKER_USERNAME }}
       #    password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Print env
-        run: echo "${{ secrets.AWS_ROLE_TO_ASSUME }}"
+      - name: Change GITHUB_REF env var because hashes are not allowed in the branch name
+        run: export GITHUB_REF=$(echo "${GITHUB_REF}" | sed -e 's/\#/-/g')
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -57,7 +57,7 @@ jobs:
           aws-region: "us-west-2"
           role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
           role-duration-seconds: 1200
-          role-session-name: "BuilderCacheGHA"
+          #role-session-name: "BuilderCacheGHA"
 
       - name: Login to AWS ECR
         id: login-ecr
