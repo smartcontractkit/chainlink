@@ -61,6 +61,13 @@ jobs:
         run: |
           aws ecr get-login-password --region "${AWS_DEFAULT_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
 
+      - name: Build and push docker image
+        env:
+          AWS_ECR_ACCOUNT_URL: '${{ secrets.AWS_ECR_ACCOUNT_URL }}'
+        run: |
+          docker build -t "${AWS_ECR_ACCOUNT_URL}:test" -f "./builder-cache.Dockerfile" .
+          docker push "${AWS_ECR_ACCOUNT_URL}:test"
+
 
 #on:
 #  schedule:
