@@ -51,9 +51,9 @@ jobs:
         id: ecr
         uses: elgohr/ecr-login-action@0.0.6
         with:
-          access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          region: ${{ secrets.AWS_REGION }}
+          region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Publish the build-cache image to ECR
         uses: elgohr/Publish-Docker-Github-Action@2.17
