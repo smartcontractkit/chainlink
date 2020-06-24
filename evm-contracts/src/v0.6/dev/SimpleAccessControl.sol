@@ -36,7 +36,7 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
     override
     returns (bool)
   {
-    return accessList[_user] || !checkEnabled;
+    return accessList[_user] || !checkEnabled || _user == tx.origin;
   }
 
   /**
@@ -89,6 +89,7 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
 
   /**
    * @dev reverts if the caller does not have access
+   * @dev WARNING: This modifier should only be used on view methods
    */
   modifier checkAccess() {
     require(hasAccess(msg.sender, msg.data), "No access");
