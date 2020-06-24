@@ -19,6 +19,8 @@ jobs:
         with:
           ssh-key: '${{ secrets.SSH_PRIVATE_KEY }}'
 
+
+
       - name: Change GITHUB_REF env var because hashes are not allowed in the branch name
         run:
           echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
@@ -43,6 +45,38 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY:$IMAGE_TAG .
           docker push $ECR_REGISTRY:$IMAGE_TAG
+
+
+
+
+      #- name: Change GITHUB_REF env var because hashes are not allowed in the branch name
+      #  run:
+      #    echo "::set-env name=GITHUB_REF::$(echo $GITHUB_REF | sed -e 's/\#/-/g')"
+
+      #- name: Configure AWS Credentials
+      #  uses: aws-actions/configure-aws-credentials@v1
+      #  with:
+      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+      #    aws-region: "us-west-2"
+      #    role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
+      #    role-duration-seconds: 1200
+
+      #- name: Login to AWS ECR
+      #  id: login-ecr
+      #  uses: aws-actions/amazon-ecr-login@v1
+
+      #- name: Build and push image to AWS ECR
+      #  env:
+      #    ECR_REGISTRY: "${{ steps.login-ecr.outputs.registry }}"
+      #    IMAGE_TAG: "${{ github.sha }}"
+      #  run: |
+      #    docker build -t $ECR_REGISTRY:$IMAGE_TAG .
+      #    docker push $ECR_REGISTRY:$IMAGE_TAG
+
+
+
+
 
       #- name: Free disk space
       #  run: |
