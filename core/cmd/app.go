@@ -433,7 +433,7 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",
-					Usage:  "Send <amount> Wei from node ETH account <fromAddress> to destination <toAddress>.",
+					Usage:  "Send <amount> Eth from node ETH account <fromAddress> to destination <toAddress>.",
 					Action: client.SendEther,
 				},
 				{
