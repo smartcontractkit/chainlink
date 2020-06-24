@@ -49,7 +49,7 @@ jobs:
 
       - name: Login to ECR
         id: ecr
-        uses: elgohr/ecr-login-action@0.0.6
+        uses: elgohr/ecr-login-action@1.0.0
         with:
           access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
