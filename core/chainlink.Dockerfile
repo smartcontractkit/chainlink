@@ -73,10 +73,19 @@ FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y ca-certificates
 
-WORKDIR /root
+# Creating chainlink user
+RUN mkdir -p /home/chainlink/bin/
+RUN echo "chainlink:x:1000:" >> /etc/group
+RUN echo "chainlink::1000:1000:chainlink user:/home/chainlink:/bin/bash" >> /etc/passwd
+RUN chown -R chainlink:chainlink /home/chainlink
 
-COPY --from=1 /go/bin/chainlink /usr/local/bin/
+COPY --from=1 /go/bin/chainlink /home/chainlink/bin/
+RUN chown chainlink:chainlink /home/chainlink/bin/chainlink
+
+USER chainlink
+WORKDIR /home/chainlink
+
 
 EXPOSE 6688
-ENTRYPOINT ["chainlink"]
+ENTRYPOINT ["/home/chainlink/bin/chainlink"]
 CMD ["local", "node"]
