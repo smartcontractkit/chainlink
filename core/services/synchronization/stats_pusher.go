@@ -26,7 +26,7 @@ var (
 	})
 )
 
-//go:generate mockery -name StatsPusher -output ../../internal/mocks/ -case=underscore
+//go:generate mockery --name StatsPusher --output ../../internal/mocks/ --case=underscore
 
 // StatsPusher polls for events and pushes them via a WebSocketClient. Events
 // are consumed by the Explorer. Currently there is only one event type: an

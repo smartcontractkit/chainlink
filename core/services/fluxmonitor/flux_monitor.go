@@ -25,9 +25,9 @@ import (
 	"github.com/tevino/abool"
 )
 
-//go:generate mockery -name Service -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
+//go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name DeviationChecker --output ../../internal/mocks/ --case=underscore
 
 type RunManager interface {
 	Create(

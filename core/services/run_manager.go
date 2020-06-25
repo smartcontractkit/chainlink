@@ -28,7 +28,7 @@ func (err RecurringScheduleJobError) Error() string {
 	return err.msg
 }
 
-//go:generate mockery -name RunManager -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name RunManager --output ../internal/mocks/ --case=underscore
 
 // RunManager supplies methods for queueing, resuming and cancelling jobs in
 // the RunQueue
