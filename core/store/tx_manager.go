@@ -722,31 +722,32 @@ func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int 
 	return BumpGas(txm.config, originalGasPrice)
 }
 
-// BumpGas returns a new gas price increased by the largest of:
-// - A configured percentage bump (ETH_GAS_BUMP_PERCENT)
-// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI)
-// - The configured default base gas price (ETH_GAS_PRICE_DEFAULT)
+// BumpGas computes the next gas price to attempt as the largest of:
+// - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
+// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
+// The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
 func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) *big.Int {
-	// Similar logic is used in geth
-	// See: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_list.go#L255
-	// And: https://github.com/ethereum/go-ethereum/blob/8d7aa9078f8a94c2c10b1d11e04242df0ea91e5b/core/tx_pool.go#L171
-	percentageMultiplier := big.NewInt(100 + int64(config.EthGasBumpPercent()))
-	minimumGasBumpByPercentage := new(big.Int).Div(
-		new(big.Int).Mul(
-			originalGasPrice,
-			percentageMultiplier,
-		),
-		big.NewInt(100),
-	)
-	minimumGasBumpByIncrement := new(big.Int).Add(originalGasPrice, config.EthGasBumpWei())
-	currentDefaultGasPrice := config.EthGasPriceDefault()
-	prices := []*big.Int{minimumGasBumpByPercentage, minimumGasBumpByIncrement, currentDefaultGasPrice}
-	max := utils.BigIntSlice(prices).Max()
-	if max.Cmp(config.EthMaxGasPriceWei()) > 0 {
-		logger.Errorf("bumped gas price of %v would exceed configured ETH_MAX_GAS_PRICE_WEI, capping at %v wei", max, config.EthMaxGasPriceWei())
+	baselinePrice := max(originalGasPrice, config.EthGasPriceDefault())
+
+	var priceByPercentage = new(big.Int)
+	priceByPercentage.Mul(baselinePrice, big.NewInt(int64(100+config.EthGasBumpPercent())))
+	priceByPercentage.Div(priceByPercentage, big.NewInt(100))
+
+	var priceByIncrement = new(big.Int)
+	priceByIncrement.Add(baselinePrice, config.EthGasBumpWei())
+
+	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
+	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
 		return config.EthMaxGasPriceWei()
 	}
-	return max
+	return bumpedGasPrice
+}
+
+func max(a, b *big.Int) *big.Int {
+	if a.Cmp(b) >= 0 {
+		return a
+	}
+	return b
 }
 
 // bumpGas attempts a new transaction with an increased gas cost
