@@ -519,37 +519,6 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	return *linkBalance, nil
 }
 
-// WithdrawLINK withdraws the given amount of LINK from the contract to the
-// configured withdrawal address. If wr.ContractAddress is empty (zero address),
-// funds are withdrawn from configured OracleContractAddress.
-func (txm *EthTxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	oracle, err := eth.GetContractCodec("Oracle")
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	data, err := oracle.EncodeMessageCall("withdraw", wr.DestinationAddress, (*big.Int)(wr.Amount))
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	contractAddress := &wr.ContractAddress
-	if (*contractAddress == common.Address{}) {
-		if txm.config.OracleContractAddress() == nil {
-			return common.Hash{}, errors.New(
-				"OracleContractAddress not set; cannot withdraw")
-		}
-		contractAddress = txm.config.OracleContractAddress()
-	}
-
-	tx, err := txm.CreateTx(*contractAddress, data)
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	return tx.Hash, nil
-}
-
 // CheckAttempt retrieves a receipt for a TxAttempt, and check if it meets the
 // minimum number of confirmations
 func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*models.TxReceipt, AttemptState, error) {
