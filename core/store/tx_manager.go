@@ -60,7 +60,7 @@ var (
 	})
 )
 
-//go:generate mockery -name TxManager -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name TxManager --output ../internal/mocks/ --case=underscore
 
 // TxManager represents an interface for interacting with the blockchain
 type TxManager interface {
