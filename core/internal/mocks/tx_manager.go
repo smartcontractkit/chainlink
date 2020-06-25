@@ -611,26 +611,3 @@ func (_m *TxManager) SubscribeToNewHeads(ctx context.Context, channel chan<- typ
 
 	return r0, r1
 }
-
-// WithdrawLINK provides a mock function with given fields: wr
-func (_m *TxManager) WithdrawLINK(wr models.WithdrawalRequest) (common.Hash, error) {
-	ret := _m.Called(wr)
-
-	var r0 common.Hash
-	if rf, ok := ret.Get(0).(func(models.WithdrawalRequest) common.Hash); ok {
-		r0 = rf(wr)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Hash)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(models.WithdrawalRequest) error); ok {
-		r1 = rf(wr)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
