@@ -381,15 +381,16 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		}{i.Name}, nil
 	case models.InitiatorFluxMonitor:
 		return struct {
-			Address           common.Address  `json:"address"`
-			RequestData       models.JSON     `json:"requestData"`
-			Feeds             models.JSON     `json:"feeds"`
-			Threshold         float32         `json:"threshold"`
-			AbsoluteThreshold float32         `json:"absoluteThreshold"`
-			Precision         int32           `json:"precision"`
-			PollingInterval   models.Duration `json:"pollingInterval"`
+			Address           common.Address         `json:"address"`
+			RequestData       models.JSON            `json:"requestData"`
+			Feeds             models.JSON            `json:"feeds"`
+			Threshold         float32                `json:"threshold"`
+			AbsoluteThreshold float32                `json:"absoluteThreshold"`
+			Precision         int32                  `json:"precision"`
+			PollTimer         models.PollTimerConfig `json:"pollTimer,omitempty"`
+			IdleTimer         models.IdleTimerConfig `json:"idleTimer,omitempty"`
 		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.AbsoluteThreshold,
-			i.Precision, i.PollTimer.Period}, nil
+			i.Precision, i.PollTimer, i.IdleTimer}, nil
 	case models.InitiatorRandomnessLog:
 		return struct{ Address common.Address }{i.Address}, nil
 	default:
