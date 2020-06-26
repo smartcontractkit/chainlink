@@ -343,7 +343,7 @@ func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *
 func findNextUnstartedTransactionFromAddress(tx *gorm.DB, etx *models.EthTx, fromAddress gethCommon.Address) error {
 	err := tx.
 		Where("from_address = ? AND state = 'unstarted'", fromAddress).
-		Order("created_at ASC, id ASC").
+		Order("value ASC, created_at ASC, id ASC").
 		First(etx).
 		Error
 	return err
