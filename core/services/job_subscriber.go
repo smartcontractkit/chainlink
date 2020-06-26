@@ -21,7 +21,7 @@ var (
 	})
 )
 
-//go:generate mockery -name JobSubscriber  -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name JobSubscriber  --output ../internal/mocks/ --case=underscore
 
 // JobSubscriber listens for push notifications of event logs from the ethereum
 // node's websocket for specific jobs by subscribing to ethLogs.

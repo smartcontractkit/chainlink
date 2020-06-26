@@ -22,7 +22,7 @@ var (
 	})
 )
 
-//go:generate mockery -name RunQueue -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name RunQueue --output ../internal/mocks/ --case=underscore
 
 // RunQueue safely handles coordinating job runs.
 type RunQueue interface {

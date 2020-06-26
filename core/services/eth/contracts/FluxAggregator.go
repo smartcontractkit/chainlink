@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockery -name FluxAggregator -output ../../../internal/mocks/ -case=underscore
+//go:generate mockery --name FluxAggregator --output ../../../internal/mocks/ --case=underscore
 
 type FluxAggregator interface {
 	eth.ConnectedContract
