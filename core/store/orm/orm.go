@@ -1214,13 +1214,11 @@ func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 
 // FirstOrCreateEncryptedSecretKey returns the first key found or creates a new one in the orm.
 func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedSecretKey) error {
-	orm.MustEnsureAdvisoryLock()
 	return orm.db.FirstOrCreate(k).Error
 }
 
 // DeleteEncryptedSecretKey deletes k from the encrypted keys table, or errors
 func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedSecretKey) error {
-	orm.MustEnsureAdvisoryLock()
 	return orm.db.Delete(k).Error
 }
 
