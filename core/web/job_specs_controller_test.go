@@ -490,6 +490,35 @@ func TestJobSpecsController_Show(t *testing.T) {
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
 }
 
+func TestJobSpecsController_Show_FluxMonitorJob(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	j := cltest.NewJobWithFluxMonitorInitiator()
+	app.Store.CreateJob(&j)
+
+	resp, cleanup := client.Get("/v2/specs/" + j.ID.String())
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	var respJob presenters.JobSpec
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
+	require.Equal(t, len(respJob.Initiators), len(j.Initiators))
+	require.Equal(t, respJob.Initiators[0].Address, j.Initiators[0].Address)
+	require.Equal(t, respJob.Initiators[0].RequestData, j.Initiators[0].RequestData)
+	require.Equal(t, respJob.Initiators[0].Feeds, j.Initiators[0].Feeds)
+	require.Equal(t, respJob.Initiators[0].Threshold, j.Initiators[0].Threshold)
+	require.Equal(t, respJob.Initiators[0].AbsoluteThreshold, j.Initiators[0].AbsoluteThreshold)
+	require.Equal(t, respJob.Initiators[0].IdleTimer, j.Initiators[0].IdleTimer)
+	require.Equal(t, respJob.Initiators[0].PollTimer, j.Initiators[0].PollTimer)
+	require.Equal(t, respJob.Initiators[0].Precision, j.Initiators[0].Precision)
+}
+
 func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 	t.Parallel()
 
