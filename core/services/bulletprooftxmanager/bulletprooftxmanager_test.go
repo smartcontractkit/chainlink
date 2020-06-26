@@ -16,14 +16,14 @@ func TestBulletproofTxManager_BumpGas(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	t.Run("returns default gas price if that is largest", func(t *testing.T) {
+	t.Run("returns gas price based on default if that is largest", func(t *testing.T) {
 		config.Set("ETH_GAS_BUMP_PERCENT", 10)
 		config.Set("ETH_GAS_BUMP_WEI", 5)
 		config.Set("ETH_GAS_PRICE_DEFAULT", 30)
 
 		originalGasPrice := big.NewInt(10)
 
-		assert.Equal(t, big.NewInt(30), bulletprooftxmanager.BumpGas(config, originalGasPrice))
+		assert.Equal(t, big.NewInt(35), bulletprooftxmanager.BumpGas(config, originalGasPrice))
 	})
 
 	t.Run("returns percentage bump if that is largest", func(t *testing.T) {
@@ -39,7 +39,7 @@ func TestBulletproofTxManager_BumpGas(t *testing.T) {
 	t.Run("returns fixed size bump if that is largest", func(t *testing.T) {
 		config.Set("ETH_GAS_BUMP_PERCENT", 10)
 		config.Set("ETH_GAS_BUMP_WEI", 5)
-		config.Set("ETH_GAS_PRICE_DEFAULT", 30)
+		config.Set("ETH_GAS_PRICE_DEFAULT", 25)
 
 		originalGasPrice := big.NewInt(29)
 
