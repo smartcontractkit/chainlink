@@ -36,7 +36,7 @@ type GethClientWrapper interface {
 }
 
 // NotifyNewEthTx allows to notify the ethBroadcaster of a new transaction
-//go:generate mockery -name NotifyNewEthTx -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name NotifyNewEthTx --output ../internal/mocks/ --case=underscore
 type NotifyNewEthTx interface {
 	Trigger()
 }

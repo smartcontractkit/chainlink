@@ -34,7 +34,7 @@ func (c *headTrackableCallback) Connect(*models.Head) error {
 func (c *headTrackableCallback) Disconnect()                   {}
 func (c *headTrackableCallback) OnNewLongestChain(models.Head) {}
 
-//go:generate mockery -name Application -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name Application --output ../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {

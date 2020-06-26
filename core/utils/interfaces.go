@@ -16,7 +16,7 @@ type Afterer interface {
 
 // AfterNower is an interface that fulfills the `After()` and `Now()`
 // methods.
-//go:generate mockery -name AfterNower -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name AfterNower --output ../internal/mocks/ --case=underscore
 type AfterNower interface {
 	After(d time.Duration) <-chan time.Time
 	Now() time.Time

@@ -14,9 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-//go:generate mockery -name LogBroadcaster -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name LogListener -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name LogBroadcast -output ../../internal/mocks/ -case=underscore
+//go:generate mockery --name LogBroadcaster --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name LogListener --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name LogBroadcast --output ../../internal/mocks/ --case=underscore
 
 // The LogBroadcaster manages log subscription requests for the Chainlink node.  Instead
 // of creating a new websocket subscription for each request, it multiplexes all subscriptions
