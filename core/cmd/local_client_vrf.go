@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -22,6 +23,7 @@ func vRFKeyStore(cli *Client) *store.VRFKeyStore {
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the password file
 func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
+	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	password, err := getPassword(c)
 	if err != nil {
 		return err
