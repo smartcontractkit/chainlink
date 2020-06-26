@@ -122,7 +122,21 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
 	})
 
-	t.Run("sends two EthTxs in order starting from the earliest", func(t *testing.T) {
+	t.Run("sends 3 EthTxs in order with higher value last, and lower values starting from the earliest", func(t *testing.T) {
+		// Higher value
+		expensiveEthTx := models.EthTx{
+			FromAddress:    defaultFromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: []byte{42, 42, 0},
+			Value:          assets.NewEthValue(242),
+			GasLimit:       gasLimit,
+			CreatedAt:      time.Unix(0, 0),
+			State:          models.EthTxUnstarted,
+		}
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(2) && tx.Value().Cmp(big.NewInt(242)) == 0
+		})).Return(nil).Once()
+
 		// Earlier
 		earlierEthTx := models.EthTx{
 			FromAddress:    defaultFromAddress,
@@ -130,7 +144,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			EncodedPayload: []byte{42, 42, 0},
 			Value:          value,
 			GasLimit:       gasLimit,
-			CreatedAt:      time.Unix(0, 0),
+			CreatedAt:      time.Unix(0, 1),
 			State:          models.EthTxUnstarted,
 		}
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -183,7 +197,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			return true
 		})).Return(nil).Once()
 
-		// Insertion order deliberately reversed to test order by created at
+		// Insertion order deliberately reversed to test ordering
+		require.NoError(t, store.GetRawDB().Save(&expensiveEthTx).Error)
 		require.NoError(t, store.GetRawDB().Save(&laterEthTx).Error)
 		require.NoError(t, store.GetRawDB().Save(&earlierEthTx).Error)
 
