@@ -23,6 +23,7 @@ contract Flags is Owned, SimpleAccessControl {
   function getFlag(address subject)
     public
     view
+    checkAccess()
     returns (bool)
   {
     return flags[subject];
