@@ -39,7 +39,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Contains(t, cwl.EthereumURL, "ws://127.0.0.1:")
 	assert.Equal(t, big.NewInt(3), cwl.ChainID)
 	assert.Contains(t, cwl.ClientNodeURL, "http://127.0.0.1:")
-	assert.Equal(t, uint64(6), cwl.MinOutgoingConfirmations)
+	assert.Equal(t, uint64(6), cwl.MinRequiredOutgoingConfirmations)
 	assert.Equal(t, uint32(1), cwl.MinIncomingConfirmations)
 	assert.Equal(t, uint64(3), cwl.EthGasBumpThreshold)
 	assert.Equal(t, uint64(300), cwl.MinimumRequestExpiration)

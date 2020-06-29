@@ -136,7 +136,7 @@ export default class FluxOperations {
   > {
     return async (dispatch: Dispatch) => {
       try {
-        const payload = await FluxOperations.contractInstance.minimumAnswers()
+        const payload = await FluxOperations.contractInstance.minSubmissionCount()
         dispatch(actions.setMinumumAnswers(payload))
       } catch {
         console.error('Could not fetch minimum answers')

@@ -16,11 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -378,7 +376,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-// NewRunLog create eth.Log for given jobid, address, block, and json
+// NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
 	jobID *models.ID,
@@ -386,8 +384,8 @@ func NewRunLog(
 	requester common.Address,
 	blk int,
 	json string,
-) eth.Log {
-	return eth.Log{
+) models.Log {
+	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
@@ -402,11 +400,11 @@ func NewRunLog(
 
 // NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
 // the randomness request log represented by r.
-func NewRandomnessRequestLog(t *testing.T, r vrf.RandomnessRequestLog,
-	emitter common.Address, blk int) eth.Log {
+func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
+	emitter common.Address, blk int) models.Log {
 	rawData, err := r.RawData()
 	require.NoError(t, err)
-	return eth.Log{
+	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        rawData,
@@ -426,8 +424,8 @@ func NewServiceAgreementExecutionLog(
 	executionRequester common.Address,
 	blockHeight int,
 	serviceAgreementJSON string,
-) eth.Log {
-	return eth.Log{
+) models.Log {
+	return models.Log{
 		Address:     logEmitter,
 		BlockNumber: uint64(blockHeight),
 		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
@@ -803,6 +801,7 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 func GetDefaultFromAddress(t *testing.T, store *strpkg.Store) common.Address {
 	keys, err := store.Keys()
 	require.NoError(t, err)
+	require.Len(t, keys, 1)
 	key := keys[0]
 	return key.Address.Address()
 }
@@ -829,10 +828,11 @@ func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, store *strpkg.St
 
 func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, blockHash common.Hash, txHash common.Hash) models.EthReceipt {
 	r := models.EthReceipt{
-		BlockNumber: blockNumber,
-		BlockHash:   blockHash,
-		TxHash:      txHash,
-		Receipt:     []byte(`{"foo":42}`),
+		BlockNumber:      blockNumber,
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: uint(NewRandomInt64()),
+		Receipt:          []byte(`{"foo":42}`),
 	}
 	require.NoError(t, s.GetRawDB().Save(&r).Error)
 	return r

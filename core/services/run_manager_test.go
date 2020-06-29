@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
@@ -364,7 +363,7 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.TaskRuns[0].Status)
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.GetStatus())
 
-			confirmedReceipt := eth.TxReceipt{
+			confirmedReceipt := models.TxReceipt{
 				Hash:        initiatingTxHash,
 				BlockHash:   &test.receiptBlockHash,
 				BlockNumber: cltest.Int(3),

@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"fmt"
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -30,6 +30,20 @@ const (
 	// from the eth node before we consider it to be an error
 	maxEthNodeRequestTime = 2 * time.Minute
 )
+
+// SendEther creates a transaction that transfers the given value of ether
+func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (models.EthTx, error) {
+	ethtx := models.EthTx{
+		FromAddress:    from,
+		ToAddress:      to,
+		EncodedPayload: []byte{},
+		Value:          value,
+		GasLimit:       s.Config.EthGasLimitDefault(),
+		State:          models.EthTxUnstarted,
+	}
+	err := s.GetRawDB().Create(&ethtx).Error
+	return ethtx, err
+}
 
 func newAttempt(s *strpkg.Store, etx models.EthTx, gasPrice *big.Int) (models.EthTxAttempt, error) {
 	attempt := models.EthTxAttempt{}
@@ -79,14 +93,32 @@ func sendTransaction(gethClientWrapper strpkg.GethClientWrapper, a models.EthTxA
 		return errors.WithStack(gethClient.SendTransaction(ctx, signedTx))
 	})
 
-	gasPriceGwei := fmt.Sprintf("%.2f", float64(a.GasPrice.ToInt().Int64())/1000000000)
-	logger.Debugf("BulletproofTxManager: Attempting transaction (eth_tx_attempt.id: %v): 0x%x at gas price %s Gwei", a.ID, signedTx.Hash(), gasPriceGwei)
+	logger.Debugw("BulletproofTxManager: Broadcasting transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64())
 	sendErr := SendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
-		logger.Debugf("transaction with hash %s already in mempool", signedTx.Hash())
+		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())
 		return nil
 	}
 	return SendError(err)
+}
+
+// sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
+// May be useful for clearing stuck nonces
+func sendEmptyTransaction(gethClientWrapper strpkg.GethClientWrapper, keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+	to := utils.ZeroAddress
+	value := big.NewInt(0)
+	payload := []byte{}
+	tx := gethTypes.NewTransaction(nonce, to, value, gasLimit, gasPriceWei, payload)
+	signedTx, err := keyStore.SignTx(account, tx, chainID)
+	if err != nil {
+		return signedTx, errors.Wrap(err, "sendEmptyTransaction failed")
+	}
+	err = gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
+		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+		defer cancel()
+		return errors.Wrap(gethClient.SendTransaction(ctx, signedTx), "sendEmptyTransaction failed")
+	})
+	return signedTx, err
 }
 
 // BumpGas returns a new gas price increased by the largest of:

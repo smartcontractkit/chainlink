@@ -40,10 +40,7 @@ const Page = () => {
           </p>
         </section>
         <section>
-          <Listing
-            compareOffchain={useOffchainQuery()}
-            enableHealth={useHealthQuery()}
-          />
+          <Listing enableDetails={useDetails()} />
         </section>
       </div>
 
@@ -53,14 +50,9 @@ const Page = () => {
   )
 }
 
-function useOffchainQuery(): boolean {
+function useDetails(): boolean {
   const query = new URLSearchParams(useLocation().search)
-  return query.get('compare-offchain') === 'true'
-}
-
-function useHealthQuery(): boolean {
-  const query = new URLSearchParams(useLocation().search)
-  return query.get('health') === 'true'
+  return query.get('details') === 'true'
 }
 
 export default Page

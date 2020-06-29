@@ -1,6 +1,7 @@
 pragma solidity 0.6.6;
 
 import "../interfaces/AggregatorInterface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 import "../Owned.sol";
 
 /**
@@ -9,9 +10,10 @@ import "../Owned.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, Owned {
+contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
-  AggregatorInterface public aggregator;
+  AggregatorV3Interface public aggregator;
+  AggregatorV3Interface public proposedAggregator;
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -22,13 +24,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
-    external
+    public
     view
     virtual
     override
-    returns (int256)
+    returns (int256 answer)
   {
-    return _latestAnswer();
+    ( , answer, , , ) = latestRoundData();
   }
 
   /**
@@ -36,13 +38,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
-    external
+    public
     view
     virtual
     override
-    returns (uint256)
+    returns (uint256 updatedAt)
   {
-    return _latestTimestamp();
+    ( , , , updatedAt, ) = latestRoundData();
   }
 
   /**
@@ -51,13 +53,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
-    returns (int256)
+    returns (int256 answer)
   {
-    return _getAnswer(_roundId);
+    ( , answer, , , ) = getRoundData(_roundId);
   }
 
   /**
@@ -66,13 +68,13 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
-    returns (uint256)
+    returns (uint256 updatedAt)
   {
-    return _getTimestamp(_roundId);
+    ( , , , updatedAt, ) = getRoundData(_roundId);
   }
 
   /**
@@ -80,20 +82,20 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
-    external
+    public
     view
     virtual
     override
-    returns (uint256)
+    returns (uint256 roundId)
   {
-    return _latestRound();
+    ( roundId, , , , ) = latestRoundData();
   }
 
   /**
    * @notice get data about a round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
-   * Note that different underlying implementations of AggregatorInterface
+   * Note that different underlying implementations of AggregatorV3Interface
    * have slightly different semantics for some of the return values. Consumers
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
@@ -102,16 +104,16 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV3Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
@@ -123,14 +125,14 @@ contract AggregatorProxy is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _getRoundData(_roundId);
+    return aggregator.getRoundData(_roundId);
   }
 
   /**
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
-   * Note that different underlying implementations of AggregatorInterface
+   * Note that different underlying implementations of AggregatorV3Interface
    * have slightly different semantics for some of the return values. Consumers
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
@@ -138,16 +140,16 @@ contract AggregatorProxy is AggregatorInterface, Owned {
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV3Interface implementations return meaningful values)
    * @return updatedAt is the timestamp when the round last was updated (i.e.
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
-   * (Only some AggregatorInterface implementations return meaningful values)
+   * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
   function latestRoundData()
-    external
+    public
     view
     virtual
     override
@@ -159,7 +161,60 @@ contract AggregatorProxy is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _latestRoundData();
+    return aggregator.latestRoundData();
+  }
+
+  /**
+   * @notice Used if an aggregator contract has been proposed.
+   * @param _roundId the round ID to retrieve the round data for
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorV3Interface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+  */
+  function proposedGetRoundData(uint256 _roundId)
+    public
+    view
+    virtual
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return proposedAggregator.getRoundData(_roundId);
+  }
+
+  /**
+   * @notice Used if an aggregator contract has been proposed.
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorV3Interface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+  */
+  function proposedLatestRoundData()
+    public
+    view
+    virtual
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return proposedAggregator.latestRoundData();
   }
 
   /**
@@ -200,85 +255,39 @@ contract AggregatorProxy is AggregatorInterface, Owned {
   }
 
   /**
-   * @notice Allows the owner to update the aggregator address.
+   * @notice Allows the owner to propose a new address for the aggregator
    * @param _aggregator The new address for the aggregator contract
    */
-  function setAggregator(address _aggregator)
-    public
+  function proposeAggregator(address _aggregator)
+    external
     onlyOwner()
   {
-    aggregator = AggregatorInterface(_aggregator);
+    proposedAggregator = AggregatorV3Interface(_aggregator);
+  }
+
+  /**
+   * @notice Allows the owner to confirm and change the address
+   * to the proposed aggregator
+   * @dev Reverts if the given address doesn't match what was previously
+   * proposed
+   * @param _aggregator The new address for the aggregator contract
+   */
+  function confirmAggregator(address _aggregator)
+    external
+    onlyOwner()
+  {
+    require(_aggregator == address(proposedAggregator), "Invalid proposed aggregator");
+    delete proposedAggregator;
+    setAggregator(_aggregator);
   }
 
   /*
    * Internal
    */
 
-  function _latestAnswer()
+  function setAggregator(address _aggregator)
     internal
-    view
-    returns (int256)
   {
-    return aggregator.latestAnswer();
-  }
-
-  function _latestTimestamp()
-    internal
-    view
-    returns (uint256)
-  {
-    return aggregator.latestTimestamp();
-  }
-
-  function _getAnswer(uint256 _roundId)
-    internal
-    view
-    returns (int256)
-  {
-    return aggregator.getAnswer(_roundId);
-  }
-
-  function _getTimestamp(uint256 _roundId)
-    internal
-    view
-    returns (uint256)
-  {
-    return aggregator.getTimestamp(_roundId);
-  }
-
-  function _latestRound()
-    internal
-    view
-    returns (uint256)
-  {
-    return aggregator.latestRound();
-  }
-
-  function _getRoundData(uint256 _roundId)
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return aggregator.getRoundData(_roundId);
-  }
-
-  function _latestRoundData()
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return aggregator.latestRoundData();
+    aggregator = AggregatorV3Interface(_aggregator);
   }
 }

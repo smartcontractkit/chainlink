@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -27,12 +26,12 @@ const (
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
-	ToAddress        common.Address       `json:"address"`
-	FromAddress      common.Address       `json:"fromAddress,omitempty"`
-	FunctionSelector eth.FunctionSelector `json:"functionSelector"`
-	DataPrefix       hexutil.Bytes        `json:"dataPrefix"`
-	DataFormat       string               `json:"format"`
-	GasLimit         uint64               `json:"gasLimit,omitempty"`
+	ToAddress        common.Address          `json:"address"`
+	FromAddress      common.Address          `json:"fromAddress,omitempty"`
+	FunctionSelector models.FunctionSelector `json:"functionSelector"`
+	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
+	DataFormat       string                  `json:"format"`
+	GasLimit         uint64                  `json:"gasLimit,omitempty"`
 
 	// GasPrice only needed for legacy tx manager
 	GasPrice *utils.Big `json:"gasPrice" gorm:"type:numeric"`
@@ -124,7 +123,7 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *store.Store) models.RunOutput {
 	var minRequiredOutgoingConfirmations uint64
 	if e.MinRequiredOutgoingConfirmations == 0 {
-		minRequiredOutgoingConfirmations = s.Config.MinOutgoingConfirmations()
+		minRequiredOutgoingConfirmations = s.Config.MinRequiredOutgoingConfirmations()
 	} else {
 		minRequiredOutgoingConfirmations = e.MinRequiredOutgoingConfirmations
 	}
@@ -140,8 +139,14 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
 
-	output := models.JSON{}
-	output, err = output.Add("result", (*hash).Hex())
+	hexHash := (*hash).Hex()
+
+	output := input.Data()
+	output, err = output.MultiAdd(models.KV{
+		"result": hexHash,
+		// HACK: latestOutgoingTxHash is used for backwards compatibility with the stats pusher
+		"latestOutgoingTxHash": hexHash,
+	})
 	if err != nil {
 		err = errors.Wrap(err, "checkEthTxForReceipt failed")
 		logger.Error(err)
@@ -154,7 +159,7 @@ func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmat
 	receipt := models.EthReceipt{}
 	err := db.
 		Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", ethTxID).
-		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = ?", models.EthTxConfirmed).
+		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed'").
 		Where("eth_receipts.block_number <= (SELECT max(number) - ? FROM heads)", minRequiredOutgoingConfirmations).
 		First(&receipt).
 		Error
@@ -312,11 +317,11 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 }
 
 func addReceiptToResult(
-	receipt eth.TxReceipt,
+	receipt models.TxReceipt,
 	input models.RunInput,
 	data models.JSON,
 ) models.RunOutput {
-	receipts := []eth.TxReceipt{}
+	receipts := []models.TxReceipt{}
 
 	ethereumReceipts := input.Data().Get("ethereumReceipts").String()
 	if ethereumReceipts != "" {

@@ -34,17 +34,24 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
 	}
+	hash, err := key.Hash()
+	hashStr := hash.Hex()
+	if err != nil {
+		hashStr = "error while computing hash of public key: " + err.Error()
+	}
 	fmt.Printf(`Created keypair.
 
 Compressed public key (use this for interactions with the chainlink node):
   %s
-Uncompressed public key (use this for interactions with the VRFCoordinator):
+Uncompressed public key (use this to register key with the VRFCoordinator):
+  %s
+Hash of public key (use this to request randomness from your consuming contract):
   %s
 
 The following command will export the encrypted secret key from the db to <save_path>:
 
 chainlink local vrf export -f <save_path> -pk %s
-`, key, uncompressedKey, key)
+`, key, uncompressedKey, hashStr, key)
 	return nil
 }
 
@@ -212,14 +219,34 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 	// TODO(alx) Figure out how to make a nice box out of this, like the other
 	// commands do.
 	fmt.Println(
-		`********************************************************************
-Public keys of encrypted keys in database
-********************************************************************`)
-	for _, key := range keys {
-		fmt.Println(key)
+		`*********************************************************************************
+Public keys of encrypted keys in database (compressed, uncompressed, hash)
+*********************************************************************************`)
+	for keyidx, key := range keys {
+		fmt.Println("compressed  ", key)
+		uncompressed, err := key.StringUncompressed()
+		if err != nil {
+			logger.Infow("keys",
+				fmt.Sprintf("while computing uncompressed representation of %+v: %s",
+					key, err))
+			uncompressed = "error while computing uncompressed representation: " +
+				err.Error()
+		}
+		fmt.Println("uncompressed", uncompressed)
+		hash, err := key.Hash()
+		if err != nil {
+			logger.Infow("keys", "while computing hash of %+v: %s", key, hash)
+			fmt.Println("hash        ", "error while computing hash of %+v: "+err.Error())
+		} else {
+			fmt.Println("hash        ", hash.Hex())
+		}
+		if keyidx != len(keys)-1 {
+			fmt.Println(
+				"---------------------------------------------------------------------------------")
+		}
 	}
 	fmt.Println(
-		"********************************************************************")
+		"*********************************************************************************")
 	logger.Infow("keys", "keys", keys)
 	return nil
 }

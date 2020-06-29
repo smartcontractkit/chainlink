@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -185,8 +184,8 @@ func TestEncumbrance_ABI(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fs := func(s string) eth.FunctionSelector {
-				return eth.BytesToFunctionSelector(hexutil.MustDecode(s))
+			fs := func(s string) models.FunctionSelector {
+				return models.BytesToFunctionSelector(hexutil.MustDecode(s))
 			}
 			enc := models.Encumbrance{
 				Payment:                test.payment,

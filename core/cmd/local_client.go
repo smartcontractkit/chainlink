@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -26,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	clipkg "github.com/urfave/cli"
@@ -227,6 +229,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	endingNonce := c.Uint("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint64("gasLimit")
+	addressHex := c.String("address")
+
+	addressBytes, err := hexutil.Decode(addressHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode address"))
+	}
+	address := gethCommon.BytesToAddress(addressBytes)
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
@@ -249,9 +258,23 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	err = store.Start()
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
+	if store.Config.EnableBulletproofTxManager() {
+		logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+
+		ec := bulletprooftxmanager.NewEthConfirmer(store, cli.Config)
+		err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
+	} else {
+		logger.Infof("Rebroadcasting legacy transactions from %v to %v", beginningNonce, endingNonce)
+
+		err = rebroadcastLegacyTransactions(store, beginningNonce, endingNonce, gasPriceWei, overrideGasLimit)
+	}
+	return cli.errorOut(err)
+}
+
+func rebroadcastLegacyTransactions(store *strpkg.Store, beginningNonce uint, endingNonce uint, gasPriceWei uint64, overrideGasLimit uint64) (err error) {
 	lastHead, err := store.LastHead()
 	if err != nil {
 		return err
@@ -445,7 +468,7 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	db, err := gorm.Open("postgres", cli.Config.DatabaseURL())
+	db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
 	if err != nil {
 		return cli.errorOut(err)
 	}

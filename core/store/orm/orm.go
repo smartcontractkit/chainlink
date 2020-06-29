@@ -16,11 +16,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -251,7 +251,7 @@ func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
 	tx := orm.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%s", r)
+			err = errors.Errorf("%s", r)
 			tx.Rollback()
 			return
 		}
@@ -260,7 +260,7 @@ func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
 	err = fc(tx)
 
 	if err == nil {
-		err = tx.Commit().Error
+		err = errors.WithStack(tx.Commit().Error)
 	}
 
 	// Makesure rollback when Block error or Commit error
@@ -1086,8 +1086,8 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 }
 
 // Chain returns the chain of heads starting at hash and up to lookback parents
-// This can return nil if no head with the given hash is found
-func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
+// Returns RecordNotFound if no head with the given hash exists
+func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
 	rows, err := orm.db.Raw(`
 	WITH RECURSIVE chain AS (
 		SELECT * FROM heads WHERE hash = ?
@@ -1097,7 +1097,7 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
 	) SELECT id, hash, number, parent_hash, timestamp, created_at FROM chain LIMIT ?
 	`, hash, lookback).Rows()
 	if err != nil {
-		return nil, err
+		return models.Head{}, err
 	}
 	defer logger.ErrorIfCalling(rows.Close)
 	var firstHead *models.Head
@@ -1105,7 +1105,7 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
 	for rows.Next() {
 		h := models.Head{}
 		if err := rows.Scan(&h.ID, &h.Hash, &h.Number, &h.ParentHash, &h.Timestamp, &h.CreatedAt); err != nil {
-			return nil, err
+			return models.Head{}, err
 		}
 		if firstHead == nil {
 			firstHead = &h
@@ -1114,7 +1114,20 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (*models.Head, error) {
 		}
 		prevHead = &h
 	}
-	return firstHead, nil
+	if firstHead == nil {
+		return models.Head{}, gorm.ErrRecordNotFound
+	}
+	return *firstHead, nil
+}
+
+// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
+func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
+	head := &models.Head{}
+	err := orm.db.Where("hash = ?", hash).First(head).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return head, err
 }
 
 // LastHead returns the head with the highest number. In the case of ties (e.g.
@@ -1200,20 +1213,20 @@ func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
 }
 
 // FirstOrCreateEncryptedSecretKey returns the first key found or creates a new one in the orm.
-func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedSecretKey) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.FirstOrCreate(k).Error
 }
 
 // DeleteEncryptedSecretKey deletes k from the encrypted keys table, or errors
-func (orm *ORM) DeleteEncryptedSecretVRFKey(k *models.EncryptedSecretVRFKey) error {
+func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedSecretKey) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Delete(k).Error
 }
 
 // FindEncryptedSecretKeys retrieves matches to where from the encrypted keys table, or errors
-func (orm *ORM) FindEncryptedSecretVRFKeys(where ...models.EncryptedSecretVRFKey) (
-	retrieved []*models.EncryptedSecretVRFKey, err error) {
+func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedSecretKey) (
+	retrieved []*vrfkey.EncryptedSecretKey, err error) {
 	orm.MustEnsureAdvisoryLock()
 	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
 	for _, constraint := range where {
@@ -1245,7 +1258,7 @@ func (orm *ORM) getDefaultKey() (models.Key, error) {
 }
 
 // HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(rawLog eth.RawLog, JobID *models.ID) (bool, error) {
+func (orm *ORM) HasConsumedLog(rawLog models.RawLog, JobID *models.ID) (bool, error) {
 	lc := models.LogConsumption{
 		BlockHash: rawLog.GetBlockHash(),
 		LogIndex:  rawLog.GetIndex(),
@@ -1285,6 +1298,8 @@ func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, erro
 	return orm.FindJob(lc.JobID)
 }
 
+// FindOrCreateFluxMonitorRoundStats find the round stats record for agiven oracle on a given round, or creates
+// it if no record exists
 func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
 	orm.MustEnsureAdvisoryLock()
 	var stats models.FluxMonitorRoundStats
@@ -1292,6 +1307,8 @@ func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, rou
 	return stats, err
 }
 
+// DeleteFluxMonitorRoundsBackThrough deletes all the RoundStat records for a given oracle address
+// starting from the most recent round back through the given round
 func (orm *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Exec(`
@@ -1301,16 +1318,20 @@ func (orm *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, ro
     `, aggregator, roundID).Error
 }
 
+// MostRecentFluxMonitorRoundID finds roundID of the most recent round that the provided oracle
+// address submitted to
 func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error) {
 	orm.MustEnsureAdvisoryLock()
 	var stats models.FluxMonitorRoundStats
-	err := orm.db.First(&stats, "aggregator = ?", aggregator).Order("round_id DESC").Error
+	err := orm.db.Order("round_id DESC").First(&stats, "aggregator = ?", aggregator).Error
 	if err != nil {
 		return 0, err
 	}
 	return stats.RoundID, nil
 }
 
+// IncrFluxMonitorRoundSubmissions trys to create a RoundStat record for the given oracle
+// at the given round. If one already exists, it increments the num_submissions column.
 func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.db.Exec(`
@@ -1320,7 +1341,7 @@ func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, round
             ?, ?, 0, 1
         ) ON CONFLICT (aggregator, round_id)
         DO UPDATE
-        SET num_submissions = excluded.num_submissions + 1
+        SET num_submissions = flux_monitor_round_stats.num_submissions + 1
     `, aggregator, roundID).Error
 }
 

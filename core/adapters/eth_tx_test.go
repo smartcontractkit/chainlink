@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -91,7 +90,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
 			txData := hexutil.MustDecode(test.output)
 			txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, txData, gasPrice.ToInt(), gasLimit).Once().Return(tx, nil)
-			txManager.On("CheckAttempt", mock.Anything, mock.Anything).Once().Return(&eth.TxReceipt{}, test.receiptState, nil)
+			txManager.On("CheckAttempt", mock.Anything, mock.Anything).Once().Return(&models.TxReceipt{}, test.receiptState, nil)
 
 			store.TxManager = txManager
 
@@ -124,7 +123,7 @@ func TestEthTxAdapter_Perform_BytesFormatWithDataPrefix(t *testing.T) {
 			"000000000000000000000000000000000000000000000000000000000000000a"+ // length in bytes
 			"63c3b66e6669726d656400000000000000000000000000000000000000000000"), // encoded string left padded
 		mock.Anything, mock.Anything).Return(tx, nil)
-	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&eth.TxReceipt{}, strpkg.Unconfirmed, nil)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{DataFormat: "bytes", DataPrefix: hexutil.MustDecode("0x88888888")}
@@ -145,7 +144,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_StillPending(t *t
 
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
-	txManager.On("BumpGasUntilSafe", mock.Anything).Return(&eth.TxReceipt{}, strpkg.Confirmed, nil)
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(&models.TxReceipt{}, strpkg.Confirmed, nil)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
@@ -170,7 +169,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
 	receiptHash := cltest.NewHash()
-	receipt := &eth.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
+	receipt := &models.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
 	txManager.On("BumpGasUntilSafe", mock.Anything).Return(receipt, strpkg.Safe, nil)
 	store.TxManager = txManager
 
@@ -185,7 +184,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T
 	assert.Equal(t, receiptHash.String(), output.Result().String())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
-	var receipts []eth.TxReceipt
+	var receipts []models.TxReceipt
 	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	require.Len(t, receipts, 1)
 	assert.Equal(t, receipt, &receipts[0])
@@ -205,7 +204,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
 	receiptHash := cltest.NewHash()
-	receipt := &eth.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
+	receipt := &models.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
 	txManager.On("BumpGasUntilSafe", mock.Anything).Return(receipt, strpkg.Safe, nil)
 	store.TxManager = txManager
 
@@ -224,7 +223,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	assert.Equal(t, receiptHash.String(), output.Result().String())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
-	var receipts []eth.TxReceipt
+	var receipts []models.TxReceipt
 	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	require.Len(t, receipts, 2)
 
@@ -471,7 +470,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 		}),
 		mock.Anything,
 		mock.Anything).Once().Return(tx, nil)
-	txManager.On("CheckAttempt", txAttempt, uint64(0)).Return(&eth.TxReceipt{}, strpkg.Confirmed, nil)
+	txManager.On("CheckAttempt", txAttempt, uint64(0)).Return(&models.TxReceipt{}, strpkg.Confirmed, nil)
 
 	result = adapter.Perform(input, store)
 	require.NoError(t, result.Error())
@@ -493,7 +492,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 	toAddress := cltest.NewAddress()
 	gasLimit := uint64(42)
-	functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	dataPrefix := hexutil.MustDecode("0x88888888")
 
 	t.Run("with valid data and empty DataFormat writes to database and returns run output pending outgoing confirmations", func(t *testing.T) {
@@ -661,7 +660,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			Number: 13,
 		}))
 		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
-		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		data := cltest.JSONFromString(t, `{"foo": "bar", "result": "some old bollocks"}`)
+		input := models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
 
 		// Do the thing
 		runOutput := adapter.Perform(*input, store)
@@ -669,6 +669,10 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		require.NoError(t, runOutput.Error())
 		assert.Equal(t, models.RunStatusCompleted, runOutput.Status())
 		assert.Equal(t, confirmedAttemptHash.Hex(), runOutput.Result().String())
+		// Does not clobber previously assigned data
+		assert.Equal(t, "bar", runOutput.Get("foo").String())
+		// Assigns latestOutgoingTxHash for legacy compatibility
+		assert.Equal(t, confirmedAttemptHash.Hex(), runOutput.Get("latestOutgoingTxHash").String())
 	})
 
 	t.Run("with confirmed transaction with exactly one attempt with exactly one receipt that is older than minRequiredOutgoingConfirmations, returns output complete with transaction hash pulled from receipt", func(t *testing.T) {
@@ -718,7 +722,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, store, 1, cltest.NewHash(), confirmedAttemptHash)
 		require.NoError(t, store.IdempotentInsertHead(models.Head{
 			Hash:   cltest.NewHash(),
-			Number: int64(store.Config.MinOutgoingConfirmations()) + 2,
+			Number: int64(store.Config.MinRequiredOutgoingConfirmations()) + 2,
 		}))
 		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)

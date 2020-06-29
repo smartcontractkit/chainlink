@@ -119,10 +119,14 @@ beforeAll(async () => {
 beforeEach(async () => {
   t.printHeading('Running Test')
   fluxMonitorJob = JSON.parse(JSON.stringify(fluxMonitorJobTemplate)) // perform a deep clone
+  const minSubmissionValue = 1
+  const maxSubmissionValue = 1000000000
   const deployingContract = await fluxAggregatorFactory.deploy(
     linkToken.address,
     MINIMUM_CONTRACT_PAYMENT,
     10,
+    minSubmissionValue,
+    maxSubmissionValue,
     1,
     ethers.utils.formatBytes32String('ETH/USD'),
   )
