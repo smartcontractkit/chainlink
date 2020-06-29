@@ -36,6 +36,8 @@ describe('Flags', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(flags, [
       'getFlag',
+      'disableSetters',
+      'enableSetters',
       'setFlagsOff',
       'setFlagsOn',
       // Ownable methods:
@@ -90,11 +92,11 @@ describe('Flags', () => {
       })
     })
 
-    describe('when called by a non-owner', () => {
+    describe('when called by a non-enabled setter', () => {
       it('updates the warning flag', async () => {
         await matchers.evmRevert(
           flags.connect(personas.Neil).setFlagsOn([consumer.address]),
-          'Only callable by owner',
+          'Only callable by enabled setters',
         )
       })
     })
@@ -193,6 +195,88 @@ describe('Flags', () => {
         it('does not revert', async () => {
           await consumer.getFlag(consumer.address)
         })
+      })
+    })
+  })
+
+  describe('#enableSetters', () => {
+    it('allows the setter to set flags on', async () => {
+      await flags
+        .connect(personas.Nelly)
+        .enableSetters([personas.Ned.address, personas.Neil.address])
+
+      await flags.connect(personas.Ned).setFlagsOn([consumer.address])
+    })
+
+    it('does not allow the setter to set flags off', async () => {
+      await flags.connect(personas.Nelly).enableSetters([personas.Ned.address])
+
+      await matchers.evmRevert(
+        flags.connect(personas.Ned).setFlagsOff([consumer.address]),
+        'Only callable by owner',
+      )
+    })
+
+    it('emits an event announcing the setter being enabled', async () => {
+      const tx = await flags
+        .connect(personas.Nelly)
+        .enableSetters([personas.Ned.address])
+      const receipt = await tx.wait()
+
+      const event = matchers.eventExists(
+        receipt,
+        flags.interface.events.SetterEnabled,
+      )
+      assert.equal(personas.Ned.address, h.eventArgs(event).setter)
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          flags.connect(personas.Neil).enableSetters([personas.Ned.address]),
+          'Only callable by owner',
+        )
+      })
+    })
+  })
+
+  describe('#disabledSetters', () => {
+    beforeEach(async () => {
+      await flags.connect(personas.Nelly).enableSetters([personas.Ned.address])
+    })
+
+    it('does not allow the setter to set flags on', async () => {
+      await flags.connect(personas.Ned).setFlagsOn([consumer.address])
+
+      await flags
+        .connect(personas.Nelly)
+        .disableSetters([personas.Ned.address, personas.Neil.address])
+
+      await matchers.evmRevert(
+        flags.connect(personas.Ned).setFlagsOn([consumer.address]),
+        'Only callable by enabled setters',
+      )
+    })
+
+    it('emits an event announcing the setter being disabled', async () => {
+      const tx = await flags
+        .connect(personas.Nelly)
+        .disableSetters([personas.Ned.address])
+      const receipt = await tx.wait()
+
+      const event = matchers.eventExists(
+        receipt,
+        flags.interface.events.SetterDisabled,
+      )
+      assert.equal(personas.Ned.address, h.eventArgs(event).setter)
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          flags.connect(personas.Neil).disableSetters([personas.Ned.address]),
+          'Only callable by owner',
+        )
       })
     })
   })
