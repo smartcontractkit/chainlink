@@ -36,8 +36,8 @@ describe('Flags', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(flags, [
       'getFlag',
-      'setFlagOff',
-      'setFlagOn',
+      'setFlagsOff',
+      'setFlagsOn',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -52,12 +52,12 @@ describe('Flags', () => {
     ])
   })
 
-  describe('#setFlagOn', () => {
+  describe('#setFlagsOn', () => {
     describe('when called by the owner', () => {
       it('updates the warning flag', async () => {
         assert.equal(false, await flags.getFlag(consumer.address))
 
-        await flags.connect(personas.Nelly).setFlagOn(consumer.address)
+        await flags.connect(personas.Nelly).setFlagsOn([consumer.address])
 
         assert.equal(true, await flags.getFlag(consumer.address))
       })
@@ -65,7 +65,7 @@ describe('Flags', () => {
       it('emits an event log', async () => {
         const tx = await flags
           .connect(personas.Nelly)
-          .setFlagOn(consumer.address)
+          .setFlagsOn([consumer.address])
         const receipt = await tx.wait()
 
         const event = matchers.eventExists(
@@ -74,15 +74,16 @@ describe('Flags', () => {
         )
         assert.equal(consumer.address, h.eventArgs(event).subject)
       })
+
       describe('if a flag has already been raised', () => {
         beforeEach(async () => {
-          await flags.connect(personas.Nelly).setFlagOn(consumer.address)
+          await flags.connect(personas.Nelly).setFlagsOn([consumer.address])
         })
 
         it('emits an event log', async () => {
           const tx = await flags
             .connect(personas.Nelly)
-            .setFlagOn(consumer.address)
+            .setFlagsOn([consumer.address])
           const receipt = await tx.wait()
           assert.equal(0, receipt.events?.length)
         })
@@ -92,23 +93,23 @@ describe('Flags', () => {
     describe('when called by a non-owner', () => {
       it('updates the warning flag', async () => {
         await matchers.evmRevert(
-          flags.connect(personas.Neil).setFlagOn(consumer.address),
+          flags.connect(personas.Neil).setFlagsOn([consumer.address]),
           'Only callable by owner',
         )
       })
     })
   })
 
-  describe('#setFlagOff', () => {
+  describe('#setFlagsOff', () => {
     beforeEach(async () => {
-      await flags.connect(personas.Nelly).setFlagOn(consumer.address)
+      await flags.connect(personas.Nelly).setFlagsOn([consumer.address])
     })
 
     describe('when called by the owner', () => {
       it('updates the warning flag', async () => {
         assert.equal(true, await flags.getFlag(consumer.address))
 
-        await flags.connect(personas.Nelly).setFlagOff(consumer.address)
+        await flags.connect(personas.Nelly).setFlagsOff([consumer.address])
 
         assert.equal(false, await flags.getFlag(consumer.address))
       })
@@ -116,7 +117,7 @@ describe('Flags', () => {
       it('emits an event log', async () => {
         const tx = await flags
           .connect(personas.Nelly)
-          .setFlagOff(consumer.address)
+          .setFlagsOff([consumer.address])
         const receipt = await tx.wait()
 
         const event = matchers.eventExists(
@@ -128,13 +129,13 @@ describe('Flags', () => {
 
       describe('if a flag has already been raised', () => {
         beforeEach(async () => {
-          await flags.connect(personas.Nelly).setFlagOff(consumer.address)
+          await flags.connect(personas.Nelly).setFlagsOff([consumer.address])
         })
 
         it('emits an event log', async () => {
           const tx = await flags
             .connect(personas.Nelly)
-            .setFlagOff(consumer.address)
+            .setFlagsOff([consumer.address])
           const receipt = await tx.wait()
           assert.equal(0, receipt.events?.length)
         })
@@ -144,7 +145,7 @@ describe('Flags', () => {
     describe('when called by a non-owner', () => {
       it('updates the warning flag', async () => {
         await matchers.evmRevert(
-          flags.connect(personas.Neil).setFlagOff(consumer.address),
+          flags.connect(personas.Neil).setFlagsOff([consumer.address]),
           'Only callable by owner',
         )
       })

@@ -30,32 +30,40 @@ contract Flags is Owned, SimpleAccessControl {
   }
 
   /**
-   * @notice allows owner to enable the warning flag for an address.
-   * @param subject The contract address being checked for a warning.
+   * @notice allows owner to enable the warning flags for mulitple addresses.
+   * @param subjects List of the contract addresses whose flag is being raised
    */
-  function setFlagOn(address subject)
-    public
+  function setFlagsOn(address[] calldata subjects)
+    external
     onlyOwner()
     returns (bool)
   {
-    if (!flags[subject]) {
-      flags[subject] = true;
-      emit FlagOn(subject);
+    for (uint256 i = 0; i < subjects.length; i++) {
+      address subject = subjects[i];
+
+      if (!flags[subject]) {
+        flags[subject] = true;
+        emit FlagOn(subject);
+      }
     }
   }
 
   /**
-   * @notice allows owner to disable the warning flag for an address.
-   * @param subject The contract address being checked for a warning.
+   * @notice allows owner to disable the warning flags for mulitple addresses.
+   * @param subjects List of the contract addresses whose flag is being lowered
    */
-  function setFlagOff(address subject)
-    public
+  function setFlagsOff(address[] calldata subjects)
+    external
     onlyOwner()
     returns (bool)
   {
-    if (flags[subject]) {
-      flags[subject] = false;
-      emit FlagOff(subject);
+    for (uint256 i = 0; i < subjects.length; i++) {
+      address subject = subjects[i];
+
+      if (flags[subject]) {
+        flags[subject] = false;
+        emit FlagOff(subject);
+      }
     }
   }
 
