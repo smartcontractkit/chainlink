@@ -180,6 +180,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     public
     view
     virtual
+    hasProposal()
     returns (
       uint256 roundId,
       int256 answer,
@@ -206,6 +207,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     public
     view
     virtual
+    hasProposal()
     returns (
       uint256 roundId,
       int256 answer,
@@ -289,5 +291,10 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     internal
   {
     aggregator = AggregatorV3Interface(_aggregator);
+  }
+
+  modifier hasProposal() {
+    require(address(proposedAggregator) != address(0), "No proposed aggregator present");
+    _;
   }
 }

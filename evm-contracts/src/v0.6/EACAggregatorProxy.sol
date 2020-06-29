@@ -203,6 +203,7 @@ contract EACAggregatorProxy is AggregatorProxy {
     public
     view
     checkAccess()
+    hasProposal()
     override
     returns (
       uint256 roundId,
@@ -230,6 +231,7 @@ contract EACAggregatorProxy is AggregatorProxy {
     public
     view
     checkAccess()
+    hasProposal()
     override
     returns (
       uint256 roundId,
