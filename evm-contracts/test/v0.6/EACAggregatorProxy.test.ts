@@ -191,6 +191,20 @@ describe('AccessControlledAggregatorProxy', () => {
         matchers.bigNum(answer2, round.answer)
       })
     })
+
+    describe('without a proposed aggregator', () => {
+      it('proposedGetRoundData reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await proxy.proposedGetRoundData(1)
+        }, 'No proposed aggregator present')
+      })
+
+      it('proposedLatestRoundData reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await proxy.proposedLatestRoundData()
+        }, 'No proposed aggregator present')
+      })
+    })
   })
 
   describe('#setController', () => {
