@@ -7,6 +7,7 @@ import "./SafeMath64.sol";
 import "./SafeMath32.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/AggregatorInterface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 import "../Owned.sol";
 
 /**
@@ -17,7 +18,7 @@ import "../Owned.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract FluxAggregator is AggregatorInterface, Owned {
+contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
@@ -70,6 +71,9 @@ contract FluxAggregator is AggregatorInterface, Owned {
   uint32 public timeout;
   uint8 public override decimals;
   string public override description;
+
+  int256 immutable public minSubmissionValue;
+  int256 immutable public maxSubmissionValue;
 
   uint256 constant public override version = 3;
 
@@ -137,12 +141,16 @@ contract FluxAggregator is AggregatorInterface, Owned {
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
+    int256 _minSubmissionValue,
+    int256 _maxSubmissionValue,
     uint8 _decimals,
     string memory _description
   ) public {
     linkToken = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
+    minSubmissionValue = _minSubmissionValue;
+    maxSubmissionValue = _maxSubmissionValue;
     decimals = _decimals;
     description = _description;
     rounds[0].updatedAt = uint64(block.timestamp.sub(uint256(_timeout)));
@@ -157,6 +165,8 @@ contract FluxAggregator is AggregatorInterface, Owned {
     external
   {
     bytes memory error = validateOracleRound(msg.sender, uint32(_roundId));
+    require(_submission >= minSubmissionValue, "value below minSubmissionValue");
+    require(_submission <= maxSubmissionValue, "value above maxSubmissionValue");
     require(error.length == 0, string(error));
 
     oracleInitializeNewRound(uint32(_roundId));
@@ -300,13 +310,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
-    external
+    public
     view
     virtual
     override
     returns (int256)
   {
-    return _latestAnswer();
+    return rounds[latestRoundId].answer;
   }
 
   /**
@@ -314,13 +324,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
-    external
+    public
     view
     virtual
     override
     returns (uint256)
   {
-    return _latestTimestamp();
+    return rounds[latestRoundId].updatedAt;
   }
 
   /**
@@ -328,7 +338,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
-    external
+    public
     view
     override
     returns (uint256)
@@ -353,13 +363,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
     returns (int256)
   {
-    return _getAnswer(_roundId);
+    return rounds[uint32(_roundId)].answer;
   }
 
   /**
@@ -368,13 +378,13 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
     returns (uint256)
   {
-    return _getTimestamp(_roundId);
+    return rounds[uint32(_roundId)].updatedAt;
   }
 
   /**
@@ -396,7 +406,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
   function getRoundData(uint256 _roundId)
-    external
+    public
     view
     virtual
     override
@@ -408,7 +418,14 @@ contract FluxAggregator is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _getRoundData(_roundId);
+    Round memory r = rounds[uint32(_roundId)];
+    return (
+      _roundId,
+      r.answer,
+      r.startedAt,
+      r.updatedAt,
+      r.answeredInRound
+    );
   }
 
   /**
@@ -416,9 +433,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values. Consumers are encouraged to
    * use this more fully featured method over the "legacy" getAnswer/
-   * latestAnswer/getTimestamp/latestTimestamp functions. Consumers are
-   * encouraged to check that they're receiving fresh data by inspecting the
-   * updatedAt and answeredInRound return values.
+   * latestAnswer/getTimestamp/latestTimestamp functions.
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started. This is 0
@@ -433,7 +448,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
    * maxSubmissions) answer and updatedAt may change between queries.
    */
    function latestRoundData()
-    external
+    public
     view
     virtual
     override
@@ -445,7 +460,7 @@ contract FluxAggregator is AggregatorInterface, Owned {
       uint256 answeredInRound
     )
   {
-    return _latestRoundData();
+    return getRoundData(latestRoundId);
   }
 
 
@@ -621,26 +636,16 @@ contract FluxAggregator is AggregatorInterface, Owned {
 
     if (_queriedRoundId > 0) {
       Round storage round = rounds[_queriedRoundId];
-
-      _eligibleToSubmit = eligibleForSpecificRound(_oracle, _queriedRoundId);
-      _roundId = _queriedRoundId;
-      _latestSubmission = oracles[_oracle].latestSubmission;
-      _startedAt = round.startedAt;
-      _timeout = round.details.timeout;
-      _availableFunds = availableFunds;
-      _oracleCount = oracleCount();
-      _paymentAmount = _paymentAmount + (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount);
       return (
-        _eligibleToSubmit,
-        _roundId,
-        _latestSubmission,
-        _startedAt,
-        _timeout,
-        _availableFunds,
-        _oracleCount,
-        _paymentAmount
+        eligibleForSpecificRound(_oracle, _queriedRoundId),
+        _queriedRoundId,
+        oracles[_oracle].latestSubmission,
+        round.startedAt,
+        round.details.timeout,
+        availableFunds,
+        oracleCount(),
+        (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount)
       );
-
     } else {
       return oracleRoundStateSuggestRound(_oracle);
     }
@@ -709,92 +714,6 @@ contract FluxAggregator is AggregatorInterface, Owned {
     );
   }
 
-
-  /**
-   * Internal
-   */
-
-  /**
-   * @dev Internal implementation for latestAnswer
-   */
-  function _latestAnswer()
-    internal
-    view
-    returns (int256)
-  {
-    return rounds[latestRoundId].answer;
-  }
-
-  /**
-   * @dev Internal implementation of latestTimestamp
-   */
-  function _latestTimestamp()
-    internal
-    view
-    returns (uint256)
-  {
-    return rounds[latestRoundId].updatedAt;
-  }
-
-  /**
-   * @dev Internal implementation of getAnswer
-   */
-  function _getAnswer(uint256 _roundId)
-    internal
-    view
-    returns (int256)
-  {
-    return rounds[uint32(_roundId)].answer;
-  }
-
-  /**
-   * @dev Internal implementation of getTimestamp
-   */
-  function _getTimestamp(uint256 _roundId)
-    internal
-    view
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].updatedAt;
-  }
-
-  /**
-   * @dev Internal implementation of getRoundData
-   */
-  function _getRoundData(uint256 _roundId)
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    Round memory r = rounds[uint32(_roundId)];
-    return (
-      _roundId,
-      r.answer,
-      r.startedAt,
-      r.updatedAt,
-      r.answeredInRound
-    );
-  }
-
-  function _latestRoundData()
-    internal
-    view
-    returns (
-      uint256 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint256 answeredInRound
-    )
-  {
-    return _getRoundData(latestRoundId);
-  }
 
   /**
    * Private

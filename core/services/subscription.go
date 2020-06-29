@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -109,7 +109,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log eth.Log) {
+func (sub InitiatorSubscription) dispatchLog(log models.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Initiator.JobSpecID.String()),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Initiator.JobSpecID.String())
 
@@ -175,9 +175,9 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ethereum node subscription.
 type ManagedSubscription struct {
 	logSubscriber   eth.LogSubscriber
-	logs            chan eth.Log
+	logs            chan models.Log
 	ethSubscription eth.Subscription
-	callback        func(eth.Log)
+	callback        func(models.Log)
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
@@ -185,10 +185,10 @@ type ManagedSubscription struct {
 func NewManagedSubscription(
 	logSubscriber eth.LogSubscriber,
 	filter ethereum.FilterQuery,
-	callback func(eth.Log),
+	callback func(models.Log),
 ) (*ManagedSubscription, error) {
 	ctx := context.Background()
-	logs := make(chan eth.Log)
+	logs := make(chan models.Log)
 	es, err := logSubscriber.SubscribeToLogs(ctx, logs, filter)
 	if err != nil {
 		return nil, err

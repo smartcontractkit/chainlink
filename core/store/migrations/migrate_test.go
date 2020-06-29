@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gormigrate "gopkg.in/gormigrate.v1"
@@ -58,8 +58,8 @@ func TestMigrate_Migration1560881855(t *testing.T) {
 		require.NoError(t, migrations.MigrateTo(db, "1560924400"))
 
 		befCreation := time.Now()
-		jobSpecID := uuid.Must(uuid.NewV4())
-		jobID := uuid.Must(uuid.NewV4())
+		jobSpecID := uuid.NewV4()
+		jobID := uuid.NewV4()
 		query := fmt.Sprintf(`
 INSERT INTO run_results (amount) VALUES (2);
 INSERT INTO job_specs (id) VALUES ('%s');

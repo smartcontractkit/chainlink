@@ -127,5 +127,6 @@ func (fm *concreteFluxMonitor) CreateJob(t *testing.T,
 	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], nil, fm.runManager,
 		fm.store.ORM, models.MustMakeDuration(100*time.Second))
 	require.NoError(t, err, "could not create deviation checker")
-	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, uint32(nextRound.Uint64()))
+	payment := fm.store.Config.MinimumContractPayment()
+	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, uint32(nextRound.Uint64()), payment)
 }

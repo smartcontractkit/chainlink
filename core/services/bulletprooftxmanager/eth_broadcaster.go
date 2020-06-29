@@ -128,7 +128,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 				wg.Add(1)
 				go func(k models.Key) {
 					if err := eb.ProcessUnstartedEthTxs(k); err != nil {
-						logger.Errorf("Error in ProcessUnstartedEthTxs: %s", err)
+						logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
 					}
 					wg.Done()
 				}(key)
@@ -356,6 +356,7 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTx
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
+	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "txHash", attempt.Hash.Hex())
 	etx.State = models.EthTxUnconfirmed
 	attempt.State = models.EthTxAttemptBroadcast
 	return store.Transaction(func(tx *gorm.DB) error {
@@ -398,6 +399,10 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 	if etx.State != models.EthTxInProgress {
 		return errors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
+	if etx.Error == nil {
+		return errors.New("expected error field to be set")
+	}
+	logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", *etx.Error)
 	etx.Nonce = nil
 	etx.State = models.EthTxFatalError
 	return store.Transaction(func(tx *gorm.DB) error {

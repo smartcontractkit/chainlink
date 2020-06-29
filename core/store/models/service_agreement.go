@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,11 +31,11 @@ type Encumbrance struct {
 	// Address of aggregator contract
 	Aggregator EIP55Address `json:"aggregator" gorm:"not null"`
 	// selector for initialization method on aggregator contract
-	AggInitiateJobSelector eth.FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
+	AggInitiateJobSelector FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
 	// selector for fulfillment (oracle reporting) method on aggregator contract
-	AggFulfillSelector eth.FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
-	CreatedAt          time.Time            `json:"-"`
-	UpdatedAt          time.Time            `json:"-"`
+	AggFulfillSelector FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
+	CreatedAt          time.Time        `json:"-"`
+	UpdatedAt          time.Time        `json:"-"`
 }
 
 // UnsignedServiceAgreement contains the information to sign a service agreement
@@ -69,8 +68,8 @@ type ServiceAgreementRequest struct {
 	EndAt                  AnyTime                `json:"endAt"`
 	Oracles                EIP55AddressCollection `json:"oracles"`
 	Aggregator             EIP55Address           `json:"aggregator"`
-	AggInitiateJobSelector eth.FunctionSelector   `json:"aggInitiateJobSelector"`
-	AggFulfillSelector     eth.FunctionSelector   `json:"aggFulfillSelector"`
+	AggInitiateJobSelector FunctionSelector       `json:"aggInitiateJobSelector"`
+	AggFulfillSelector     FunctionSelector       `json:"aggFulfillSelector"`
 	StartAt                AnyTime                `json:"startAt"`
 }
 
