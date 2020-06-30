@@ -132,6 +132,7 @@ type Whitelist struct {
 	ClientNodeURL                    string          `json:"clientNodeUrl"`
 	DatabaseTimeout                  models.Duration `json:"databaseTimeout"`
 	Dev                              bool            `json:"chainlinkDev"`
+	LeetMode                         bool            `json:"leetMode"`
 	EthereumURL                      string          `json:"ethUrl"`
 	EthGasBumpThreshold              uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei                    *big.Int        `json:"ethGasBumpWei"`
@@ -381,16 +382,15 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		}{i.Name}, nil
 	case models.InitiatorFluxMonitor:
 		return struct {
-			Address           common.Address         `json:"address"`
-			RequestData       models.JSON            `json:"requestData"`
-			Feeds             models.JSON            `json:"feeds"`
-			Threshold         float32                `json:"threshold"`
-			AbsoluteThreshold float32                `json:"absoluteThreshold"`
-			Precision         int32                  `json:"precision"`
-			PollTimer         models.PollTimerConfig `json:"pollTimer,omitempty"`
-			IdleTimer         models.IdleTimerConfig `json:"idleTimer,omitempty"`
+			Address           common.Address  `json:"address"`
+			RequestData       models.JSON     `json:"requestData"`
+			Feeds             models.JSON     `json:"feeds"`
+			Threshold         float32         `json:"threshold"`
+			AbsoluteThreshold float32         `json:"absoluteThreshold"`
+			Precision         int32           `json:"precision"`
+			PollingInterval   models.Duration `json:"pollingInterval"`
 		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.AbsoluteThreshold,
-			i.Precision, i.PollTimer, i.IdleTimer}, nil
+			i.Precision, i.PollTimer.Period}, nil
 	case models.InitiatorRandomnessLog:
 		return struct{ Address common.Address }{i.Address}, nil
 	default:
