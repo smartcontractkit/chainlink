@@ -2,7 +2,7 @@ pragma solidity 0.6.6;
 
 
 import "../Owned.sol";
-import "../dev/SimpleAccessControl.sol";
+import "../dev/SimpleReadAccessController.sol";
 
 
 /**
@@ -11,7 +11,7 @@ import "../dev/SimpleAccessControl.sol";
  * The owner can set flags, or designate other addresses to set flags. The
  * owner must turn the flags off, other setters cannot.
  */
-contract Flags is Owned, SimpleAccessControl {
+contract Flags is Owned, SimpleReadAccessController {
 
   mapping(address => bool) private flags;
   mapping(address => bool) private setters;
