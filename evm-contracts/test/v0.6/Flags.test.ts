@@ -116,7 +116,7 @@ describe('Flags', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           flags.connect(personas.Neil).setFlagsOn([consumer.address]),
-          'No access',
+          'No flagging access',
         )
       })
     })
@@ -235,7 +235,7 @@ describe('Flags', () => {
 
       await matchers.evmRevert(
         flags.connect(personas.Neil).setFlagsOn([consumer.address]),
-        'No access',
+        'No flagging access',
       ) // raises with new controller
     })
 
