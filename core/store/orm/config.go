@@ -391,6 +391,11 @@ func (c Config) OracleContractAddress() *common.Address {
 	return c.getWithFallback("OracleContractAddress", parseAddress).(*common.Address)
 }
 
+// LeetMode leets
+func (c Config) LeetMode() bool {
+	return c.viper.GetBool(EnvVarName("LeetMode"))
+}
+
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
 	return c.getWithFallback("LogLevel", parseLogLevel).(LogLevel)

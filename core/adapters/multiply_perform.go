@@ -17,7 +17,8 @@ import (
 //
 // For example, if input value is "99.994" and the adapter's "times" is
 // set to "100", the result's value will be "9999.4".
-func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
+func (ma *Multiply) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+	var result string
 	val := input.Result()
 	dec, err := decimal.NewFromString(val.String())
 	if err != nil {
@@ -25,7 +26,12 @@ func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOut
 	}
 	if ma.Times != nil {
 		dec = dec.Mul(*ma.Times)
-		dec = dec.Round(0)
+		if store != nil && store.Config.LeetMode() {
+			dec = dec.Round(0)
+			result = fmt.Sprintf("%v.1337", dec.String())
+		} else {
+			result = dec.String()
+		}
 	}
-	return models.NewRunOutputCompleteWithResult(fmt.Sprintf("%v.1337", dec.String()))
+	return models.NewRunOutputCompleteWithResult(result)
 }

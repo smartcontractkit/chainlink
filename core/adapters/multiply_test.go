@@ -105,6 +105,38 @@ func TestMultiply_Perform(t *testing.T) {
 		json  string
 		want  string
 	}{
+		{"by 100", *mustDecimal(t, "100"), `{"result":"1.23"}`, "123"},
+		{"float", *mustDecimal(t, "100"), `{"result":1.23}`, "123"},
+		{"negative", *mustDecimal(t, "-5"), `{"result":"1.23"}`, "-6.15"},
+		{"no times parameter", *mustDecimal(t, "1"), `{"result":"3.14"}`, "3.14"},
+		{"zero", *mustDecimal(t, "0"), `{"result":"1.23"}`, "0"},
+		{"large value", *mustDecimal(t, "1000000000000000000"), `{"result":"1.23"}`, "1230000000000000000"},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			input := cltest.NewRunInputWithString(t, test.json)
+			adapter := adapters.Multiply{Times: &test.Times}
+			result := adapter.Perform(input, nil)
+
+			require.NoError(t, result.Error())
+			assert.Equal(t, test.want, result.Result().String())
+		})
+	}
+}
+
+func TestMultiply_Perform_LeetMode(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.Config.Set("LEET_MODE", true)
+
+	tests := []struct {
+		name  string
+		Times decimal.Decimal
+		json  string
+		want  string
+	}{
 		{"by 100", *mustDecimal(t, "100"), `{"result":"1.23"}`, "123.1337"},
 		{"float", *mustDecimal(t, "100"), `{"result":1.23}`, "123.1337"},
 		{"negative", *mustDecimal(t, "-5"), `{"result":"1.23"}`, "-6.1337"},
@@ -118,7 +150,7 @@ func TestMultiply_Perform(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			input := cltest.NewRunInputWithString(t, test.json)
 			adapter := adapters.Multiply{Times: &test.Times}
-			result := adapter.Perform(input, nil)
+			result := adapter.Perform(input, store)
 
 			require.NoError(t, result.Error())
 			assert.Equal(t, test.want, result.Result().String())
