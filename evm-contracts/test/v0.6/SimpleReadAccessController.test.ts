@@ -94,6 +94,14 @@ describe('SimpleReadAccessController', () => {
         )
         expect(helpers.eventArgs(event).user).toEqual(personas.Eddy.address)
       })
+
+      describe('when called twice', () => {
+        it('does not emit a log', async () => {
+          const tx2 = await controller.addAccess(personas.Eddy.address)
+          const receipt = await tx2.wait()
+          assert.equal(receipt.events?.length, 0)
+        })
+      })
     })
   })
 
@@ -130,6 +138,14 @@ describe('SimpleReadAccessController', () => {
           controller.interface.events.RemovedAccess,
         )
         expect(helpers.eventArgs(event).user).toEqual(personas.Eddy.address)
+      })
+
+      describe('when called twice', () => {
+        it('does not emit a log', async () => {
+          const tx2 = await controller.removeAccess(personas.Eddy.address)
+          const receipt = await tx2.wait()
+          assert.equal(receipt.events?.length, 0)
+        })
       })
     })
   })
@@ -172,6 +188,14 @@ describe('SimpleReadAccessController', () => {
           ),
         )
       })
+
+      describe('when called twice', () => {
+        it('does not emit a log', async () => {
+          const tx2 = await controller.disableAccessCheck()
+          const receipt = await tx2.wait()
+          assert.equal(receipt.events?.length, 0)
+        })
+      })
     })
   })
 
@@ -208,6 +232,14 @@ describe('SimpleReadAccessController', () => {
             controller.interface.events.CheckAccessEnabled,
           ),
         )
+      })
+
+      describe('when called twice', () => {
+        it('does not emit a log', async () => {
+          const tx2 = await controller.enableAccessCheck()
+          const receipt = await tx2.wait()
+          assert.equal(receipt.events?.length, 0)
+        })
       })
     })
   })
