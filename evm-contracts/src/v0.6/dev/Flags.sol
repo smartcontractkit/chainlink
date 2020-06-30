@@ -13,7 +13,7 @@ import "./AccessControllerInterface.sol";
  */
 contract Flags is SimpleReadAccessController {
 
-  AccessControllerInterface public flaggingAccessController;
+  AccessControllerInterface public raisingAccessController;
 
   mapping(address => bool) private flags;
 
@@ -24,12 +24,15 @@ contract Flags is SimpleReadAccessController {
     address indexed subject
   );
 
+  /**
+   * @param racAddress address for the raising access controller.
+   */
   constructor(
-    address acAddress
+    address racAddress
   )
     public
   {
-    setFlaggingAccessController(acAddress);
+    setRaisingAccessController(racAddress);
   }
 
   /**
@@ -51,7 +54,7 @@ contract Flags is SimpleReadAccessController {
    * @notice allows owner to enable the warning flags for mulitple addresses.
    * @param subjects List of the contract addresses whose flag is being raised
    */
-  function setFlagsOn(address[] calldata subjects)
+  function raiseFlags(address[] calldata subjects)
     external
   {
     require(allowedToRaiseFlags(), "Not allowed to raise flags");
@@ -70,7 +73,7 @@ contract Flags is SimpleReadAccessController {
    * @notice allows owner to disable the warning flags for mulitple addresses.
    * @param subjects List of the contract addresses whose flag is being lowered
    */
-  function setFlagsOff(address[] calldata subjects)
+  function lowerFlags(address[] calldata subjects)
     external
     onlyOwner()
   {
@@ -86,15 +89,15 @@ contract Flags is SimpleReadAccessController {
 
   /**
    * @notice allows owner to change the access controller for flagging addresses.
-   * @param acAddress new address for flagging access controller.
+   * @param racAddress new address for the raising access controller.
    */
-  function setFlaggingAccessController(
-    address acAddress
+  function setRaisingAccessController(
+    address racAddress
   )
     public
     onlyOwner()
   {
-    flaggingAccessController = AccessControllerInterface(acAddress);
+    raisingAccessController = AccessControllerInterface(racAddress);
   }
 
 
@@ -105,7 +108,7 @@ contract Flags is SimpleReadAccessController {
     returns (bool)
   {
     return msg.sender == owner ||
-      flaggingAccessController.hasAccess(msg.sender, msg.data);
+      raisingAccessController.hasAccess(msg.sender, msg.data);
   }
 
 }
