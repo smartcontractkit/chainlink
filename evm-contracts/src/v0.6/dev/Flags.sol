@@ -42,12 +42,31 @@ contract Flags is SimpleReadAccessController {
    * indicates that no flag was raised.
    */
   function getFlag(address subject)
-    public
+    external
     view
     checkAccess()
     returns (bool)
   {
     return flags[subject];
+  }
+
+  /**
+   * @notice read the warning flag status of a contract address.
+   * @param subjects An array of addresses being checked for a flag.
+   * A true value for any flag indicates that a flag was raised and a false
+   * value indicates that no flag was raised.
+   */
+  function getFlags(address[] calldata subjects)
+    external
+    view
+    checkAccess()
+    returns (bool[] memory)
+  {
+    bool[] memory responses = new bool[](subjects.length);
+    for (uint256 i = 0; i < subjects.length; i++) {
+      responses[i] = flags[subjects[i]];
+    }
+    return responses;
   }
 
   /**
