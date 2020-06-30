@@ -27,6 +27,7 @@ type ConfigReader interface {
 	Dev() bool
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool
+	LeetMode() bool
 	MaximumServiceDuration() models.Duration
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
