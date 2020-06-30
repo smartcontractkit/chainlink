@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [0.8.8] - 2020-06-29
+- Added LEETMODE feature flag
+
+## [0.8.8] - 2020-06-29
 
 ### Added
 
