@@ -14,13 +14,23 @@ contract FlagsTestHelper {
   }
 
   function getFlag(
-    address target
+    address subject
   )
-    public
+    external
     view
     returns(bool)
   {
-    return flags.getFlag(target);
+    return flags.getFlag(subject);
+  }
+
+  function getFlags(
+    address[] calldata subjects
+  )
+    external
+    view
+    returns(bool[] memory)
+  {
+    return flags.getFlags(subjects);
   }
 
 }

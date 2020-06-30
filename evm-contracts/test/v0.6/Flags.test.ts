@@ -43,6 +43,7 @@ describe('Flags', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(flags, [
       'getFlag',
+      'getFlags',
       'lowerFlags',
       'raiseFlags',
       'raisingAccessController',
@@ -216,6 +217,36 @@ describe('Flags', () => {
           await consumer.getFlag(consumer.address)
         })
       })
+    })
+  })
+
+  describe('#getFlags', () => {
+    beforeEach(async () => {
+      await flags.connect(personas.Nelly).disableAccessCheck()
+      await flags
+        .connect(personas.Nelly)
+        .raiseFlags([personas.Neil.address, personas.Norbert.address])
+    })
+
+    it('respects the access controls of #getFlag', async () => {
+      await flags.connect(personas.Nelly).enableAccessCheck()
+
+      await matchers.evmRevert(consumer.getFlag(consumer.address), 'No access')
+
+      await flags.connect(personas.Nelly).addAccess(consumer.address)
+
+      await consumer.getFlag(consumer.address)
+    })
+
+    it('returns the flags in the order they are requested', async () => {
+      const response = await consumer.getFlags([
+        personas.Nelly.address,
+        personas.Neil.address,
+        personas.Ned.address,
+        personas.Norbert.address,
+      ])
+
+      assert.deepEqual([false, true, false, true], response)
     })
   })
 
