@@ -1,7 +1,6 @@
 pragma solidity 0.6.6;
 
 
-import "../Owned.sol";
 import "./SimpleReadAccessController.sol";
 import "./AccessControllerInterface.sol";
 
@@ -12,7 +11,7 @@ import "./AccessControllerInterface.sol";
  * The owner can set flags, or designate other addresses to set flags. The
  * owner must turn the flags off, other setters cannot.
  */
-contract Flags is Owned, SimpleReadAccessController {
+contract Flags is SimpleReadAccessController {
 
   AccessControllerInterface public flaggingAccessController;
 
