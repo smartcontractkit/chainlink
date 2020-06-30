@@ -146,7 +146,7 @@ containers:
     #
 
     blockscout:
-        image: puppeth/blockscout:latest
+        image: smartcontract/blockscout:apocalypse
         command: /bin/sh -c "mix do ecto.create, ecto.migrate && mix phx.server"
         ports:
             4000: 4000
