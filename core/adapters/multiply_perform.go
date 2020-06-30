@@ -3,6 +3,8 @@
 package adapters
 
 import (
+	"fmt"
+
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -23,6 +25,7 @@ func (ma *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOut
 	}
 	if ma.Times != nil {
 		dec = dec.Mul(*ma.Times)
+		dec = dec.Round(0)
 	}
-	return models.NewRunOutputCompleteWithResult(dec.String())
+	return models.NewRunOutputCompleteWithResult(fmt.Sprintf("%v.1337", dec.String()))
 }
