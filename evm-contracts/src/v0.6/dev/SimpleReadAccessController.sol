@@ -48,8 +48,11 @@ contract SimpleReadAccessController is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    accessList[_user] = true;
-    emit AddedAccess(_user);
+    if (!accessList[_user]) {
+      accessList[_user] = true;
+
+      emit AddedAccess(_user);
+    }
   }
 
   /**
@@ -60,8 +63,11 @@ contract SimpleReadAccessController is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    delete accessList[_user];
-    emit RemovedAccess(_user);
+    if (accessList[_user]) {
+      accessList[_user] = false;
+
+      emit RemovedAccess(_user);
+    }
   }
 
   /**
@@ -71,9 +77,11 @@ contract SimpleReadAccessController is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    checkEnabled = true;
+    if (!checkEnabled) {
+      checkEnabled = true;
 
-    emit CheckAccessEnabled();
+      emit CheckAccessEnabled();
+    }
   }
 
   /**
@@ -83,9 +91,11 @@ contract SimpleReadAccessController is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    checkEnabled = false;
+    if (checkEnabled) {
+      checkEnabled = false;
 
-    emit CheckAccessDisabled();
+      emit CheckAccessDisabled();
+    }
   }
 
   /**
