@@ -57,7 +57,6 @@ contract Flags is SimpleReadAccessController {
    */
   function setFlagsOn(address[] calldata subjects)
     external
-    returns (bool)
   {
     require(msg.sender == owner ||
       flaggingAccessController.hasAccess(msg.sender, msg.data),
@@ -80,7 +79,6 @@ contract Flags is SimpleReadAccessController {
   function setFlagsOff(address[] calldata subjects)
     external
     onlyOwner()
-    returns (bool)
   {
     for (uint256 i = 0; i < subjects.length; i++) {
       address subject = subjects[i];
