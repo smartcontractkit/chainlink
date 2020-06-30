@@ -33,6 +33,7 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
   )
     public
     view
+    virtual
     override
     returns (bool)
   {
