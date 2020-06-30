@@ -23,12 +23,6 @@ contract Flags is SimpleReadAccessController {
   event FlagOff(
     address indexed subject
   );
-  event SetterEnabled(
-    address indexed setter
-  );
-  event SetterDisabled(
-    address indexed setter
-  );
 
   constructor(
     address acAddress
@@ -40,7 +34,9 @@ contract Flags is SimpleReadAccessController {
 
   /**
    * @notice read the warning flag status of a contract address.
-   * @param subject The contract address being checked for a warning.
+   * @param subject The contract address being checked for a flag.
+   * A true value indicates that a flag was raised and a false value
+   * indicates that no flag was raised.
    */
   function getFlag(address subject)
     public
