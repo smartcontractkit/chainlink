@@ -43,10 +43,10 @@ describe('Flags', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(flags, [
       'getFlag',
-      'flaggingAccessController',
-      'setFlaggingAccessController',
-      'setFlagsOff',
-      'setFlagsOn',
+      'lowerFlags',
+      'raiseFlags',
+      'raisingAccessController',
+      'setRaisingAccessController',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -61,12 +61,12 @@ describe('Flags', () => {
     ])
   })
 
-  describe('#setFlagsOn', () => {
+  describe('#raiseFlags', () => {
     describe('when called by the owner', () => {
       it('updates the warning flag', async () => {
         assert.equal(false, await flags.getFlag(consumer.address))
 
-        await flags.connect(personas.Nelly).setFlagsOn([consumer.address])
+        await flags.connect(personas.Nelly).raiseFlags([consumer.address])
 
         assert.equal(true, await flags.getFlag(consumer.address))
       })
@@ -74,7 +74,7 @@ describe('Flags', () => {
       it('emits an event log', async () => {
         const tx = await flags
           .connect(personas.Nelly)
-          .setFlagsOn([consumer.address])
+          .raiseFlags([consumer.address])
         const receipt = await tx.wait()
 
         const event = matchers.eventExists(
@@ -86,13 +86,13 @@ describe('Flags', () => {
 
       describe('if a flag has already been raised', () => {
         beforeEach(async () => {
-          await flags.connect(personas.Nelly).setFlagsOn([consumer.address])
+          await flags.connect(personas.Nelly).raiseFlags([consumer.address])
         })
 
         it('emits an event log', async () => {
           const tx = await flags
             .connect(personas.Nelly)
-            .setFlagsOn([consumer.address])
+            .raiseFlags([consumer.address])
           const receipt = await tx.wait()
           assert.equal(0, receipt.events?.length)
         })
@@ -107,7 +107,7 @@ describe('Flags', () => {
       })
 
       it('sets the flags', async () => {
-        await flags.connect(personas.Neil).setFlagsOn([consumer.address]),
+        await flags.connect(personas.Neil).raiseFlags([consumer.address]),
           assert.equal(true, await flags.getFlag(consumer.address))
       })
     })
@@ -115,23 +115,23 @@ describe('Flags', () => {
     describe('when called by a non-enabled setter', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
-          flags.connect(personas.Neil).setFlagsOn([consumer.address]),
-          'No flagging access',
+          flags.connect(personas.Neil).raiseFlags([consumer.address]),
+          'Not allowed to raise flags',
         )
       })
     })
   })
 
-  describe('#setFlagsOff', () => {
+  describe('#lowerFlags', () => {
     beforeEach(async () => {
-      await flags.connect(personas.Nelly).setFlagsOn([consumer.address])
+      await flags.connect(personas.Nelly).raiseFlags([consumer.address])
     })
 
     describe('when called by the owner', () => {
       it('updates the warning flag', async () => {
         assert.equal(true, await flags.getFlag(consumer.address))
 
-        await flags.connect(personas.Nelly).setFlagsOff([consumer.address])
+        await flags.connect(personas.Nelly).lowerFlags([consumer.address])
 
         assert.equal(false, await flags.getFlag(consumer.address))
       })
@@ -139,7 +139,7 @@ describe('Flags', () => {
       it('emits an event log', async () => {
         const tx = await flags
           .connect(personas.Nelly)
-          .setFlagsOff([consumer.address])
+          .lowerFlags([consumer.address])
         const receipt = await tx.wait()
 
         const event = matchers.eventExists(
@@ -151,13 +151,13 @@ describe('Flags', () => {
 
       describe('if a flag has already been raised', () => {
         beforeEach(async () => {
-          await flags.connect(personas.Nelly).setFlagsOff([consumer.address])
+          await flags.connect(personas.Nelly).lowerFlags([consumer.address])
         })
 
         it('emits an event log', async () => {
           const tx = await flags
             .connect(personas.Nelly)
-            .setFlagsOff([consumer.address])
+            .lowerFlags([consumer.address])
           const receipt = await tx.wait()
           assert.equal(0, receipt.events?.length)
         })
@@ -167,7 +167,7 @@ describe('Flags', () => {
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
-          flags.connect(personas.Neil).setFlagsOff([consumer.address]),
+          flags.connect(personas.Neil).lowerFlags([consumer.address]),
           'Only callable by owner',
         )
       })
@@ -219,7 +219,7 @@ describe('Flags', () => {
     })
   })
 
-  describe('#setFlaggingAccessController', () => {
+  describe('#setRaisingAccessController', () => {
     it('updates access control rules', async () => {
       const controller2 = await accessControlFactory
         .connect(personas.Nelly)
@@ -227,15 +227,15 @@ describe('Flags', () => {
       await controller2.connect(personas.Nelly).enableAccessCheck()
 
       await controller.connect(personas.Nelly).addAccess(personas.Neil.address)
-      await flags.connect(personas.Neil).setFlagsOn([consumer.address]) // doesn't raise
+      await flags.connect(personas.Neil).raiseFlags([consumer.address]) // doesn't raise
 
       await flags
         .connect(personas.Nelly)
-        .setFlaggingAccessController(controller2.address)
+        .setRaisingAccessController(controller2.address)
 
       await matchers.evmRevert(
-        flags.connect(personas.Neil).setFlagsOn([consumer.address]),
-        'No flagging access',
+        flags.connect(personas.Neil).raiseFlags([consumer.address]),
+        'Not allowed to raise flags',
       ) // raises with new controller
     })
 
@@ -244,7 +244,7 @@ describe('Flags', () => {
         await matchers.evmRevert(
           flags
             .connect(personas.Neil)
-            .setFlaggingAccessController(controller.address),
+            .setRaisingAccessController(controller.address),
           'Only callable by owner',
         )
       })
