@@ -99,6 +99,19 @@ describe('Flags', () => {
       })
     })
 
+    describe('when called by an enabled setter', () => {
+      beforeEach(async () => {
+        await controller
+          .connect(personas.Nelly)
+          .addAccess(personas.Neil.address)
+      })
+
+      it('sets the flags', async () => {
+        await flags.connect(personas.Neil).setFlagsOn([consumer.address]),
+          assert.equal(true, await flags.getFlag(consumer.address))
+      })
+    })
+
     describe('when called by a non-enabled setter', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
