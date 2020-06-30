@@ -58,9 +58,7 @@ contract Flags is SimpleReadAccessController {
   function setFlagsOn(address[] calldata subjects)
     external
   {
-    require(msg.sender == owner ||
-      flaggingAccessController.hasAccess(msg.sender, msg.data),
-      "No access");
+    require(allowedToRaiseFlags(), "Not allowed to raise flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {
       address subject = subjects[i];
@@ -101,6 +99,17 @@ contract Flags is SimpleReadAccessController {
     onlyOwner()
   {
     flaggingAccessController = AccessControllerInterface(acAddress);
+  }
+
+
+  // PRIVATE
+
+  function allowedToRaiseFlags()
+    private
+    returns (bool)
+  {
+    return msg.sender == owner ||
+      flaggingAccessController.hasAccess(msg.sender, msg.data);
   }
 
 }
