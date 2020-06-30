@@ -1,2 +1,6 @@
 container_data
 .blockade
+./container_data
+./postgres_data
+venv
+node_modules

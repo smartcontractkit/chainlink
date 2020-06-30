@@ -1,6 +1,54 @@
-
-
 # Apocalypse stress test
+
+## Setup
+1. install pyenv. Don't use your `which python`.
+```
+brew install pyenv
+```
+2. install python v2.7.18. Blockade does not work with python3.
+```
+pyenv install 2.7.18
+```
+3. install blockade.
+```
+pip install blockade
+```
+4. install node deps
+```
+npm install
+```
+5. build docker images
+```
+./scripts/env-build-images
+```
+6. build the `smartcontract/external-adapter` image
+```
+docker build -t smartcontract/external-adapter:latest -f tools/external-adapter/Dockerfile .
+```
+7. pull the latest postgres image
+```
+docker pull postgres:lastest
+```
+8. pull the latest puppeth image
+```
+docker pull puppeth/blockscout:latest
+```
+9. Start the blockade environment
+```
+blockade --verbose up
+```
+10. Sync data:
+```
+./scripts/config sync
+```
+11. Run a scenario
+```
+node ./index.js
+```
+OR
+```
+node ./scenarios/flux-monitor.js
+```
 
 ## Accounts
 
