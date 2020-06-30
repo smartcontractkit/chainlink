@@ -105,12 +105,12 @@ func TestMultiply_Perform(t *testing.T) {
 		json  string
 		want  string
 	}{
-		{"by 100", *mustDecimal(t, "100"), `{"result":"1.23"}`, "123"},
-		{"float", *mustDecimal(t, "100"), `{"result":1.23}`, "123"},
-		{"negative", *mustDecimal(t, "-5"), `{"result":"1.23"}`, "-6.15"},
-		{"no times parameter", *mustDecimal(t, "1"), `{"result":"3.14"}`, "3.14"},
-		{"zero", *mustDecimal(t, "0"), `{"result":"1.23"}`, "0"},
-		{"large value", *mustDecimal(t, "1000000000000000000"), `{"result":"1.23"}`, "1230000000000000000"},
+		{"by 100", *mustDecimal(t, "100"), `{"result":"1.23"}`, "123.1337"},
+		{"float", *mustDecimal(t, "100"), `{"result":1.23}`, "123.1337"},
+		{"negative", *mustDecimal(t, "-5"), `{"result":"1.23"}`, "-6.1337"},
+		{"no times parameter", *mustDecimal(t, "1"), `{"result":"3.14"}`, "3.1337"},
+		{"zero", *mustDecimal(t, "0"), `{"result":"1.23"}`, "0.1337"},
+		{"large value", *mustDecimal(t, "1000000000000000000"), `{"result":"1.23"}`, "1230000000000000000.1337"},
 	}
 
 	for _, tt := range tests {
