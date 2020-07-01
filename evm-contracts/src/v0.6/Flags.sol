@@ -2,7 +2,7 @@ pragma solidity 0.6.6;
 
 
 import "./SimpleReadAccessController.sol";
-import "./AccessControllerInterface.sol";
+import "./interfaces/AccessControllerInterface.sol";
 
 
 /**
@@ -134,6 +134,7 @@ contract Flags is SimpleReadAccessController {
 
   function allowedToRaiseFlags()
     private
+    view
     returns (bool)
   {
     return msg.sender == owner ||

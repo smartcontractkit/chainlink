@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../dev/SimpleReadAccessController.sol";
+import "../SimpleReadAccessController.sol";
 
 contract AccessControlTestHelper is SimpleReadAccessController {
 
