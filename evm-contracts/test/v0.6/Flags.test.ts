@@ -121,6 +121,40 @@ describe('Flags', () => {
         )
       })
     })
+
+    describe('when called when there is no raisingAccessController', () => {
+      beforeEach(async () => {
+        const tx = await flags
+          .connect(personas.Nelly)
+          .setRaisingAccessController(
+            '0x0000000000000000000000000000000000000000',
+          )
+        const receipt = await tx.wait()
+        const event = matchers.eventExists(
+          receipt,
+          flags.interface.events.RaisingAccessControllerChanged,
+        )
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          h.eventArgs(event).current,
+        )
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          await flags.raisingAccessController(),
+        )
+      })
+
+      it('owner succeeds', async () => {
+        await flags.connect(personas.Nelly).raiseFlags([consumer.address])
+        assert.equal(true, await flags.getFlag(consumer.address))
+      })
+
+      it('non-owner reverts', async () => {
+        await matchers.evmRevert(
+          flags.connect(personas.Neil).raiseFlags([consumer.address]),
+        )
+      })
+    })
   })
 
   describe('#lowerFlags', () => {
