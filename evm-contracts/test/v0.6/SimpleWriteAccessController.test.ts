@@ -1,10 +1,9 @@
 import { contract, helpers, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { SimpleAccessControlFactory } from '../../ethers/v0.6/SimpleAccessControlFactory'
-import { AccessControlTestHelperFactory } from '../../ethers/v0.6/AccessControlTestHelperFactory'
+import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
 import { ethers } from 'ethers'
 
-const controllerFactory = new AccessControlTestHelperFactory()
+const controllerFactory = new SimpleWriteAccessControllerFactory()
 const provider = setup.provider()
 let personas: setup.Personas
 let tx: ethers.ContractTransaction
@@ -12,16 +11,15 @@ beforeAll(async () => {
   await setup.users(provider).then(u => (personas = u.personas))
 })
 
-describe('SimpleAccessControl', () => {
-  let controller: contract.Instance<SimpleAccessControlFactory>
-  const value = 17
+describe('SimpleWriteAccessController', () => {
+  let controller: contract.Instance<SimpleWriteAccessControllerFactory>
   const deployment = setup.snapshot(provider, async () => {
-    controller = await controllerFactory.connect(personas.Carol).deploy(value)
+    controller = await controllerFactory.connect(personas.Carol).deploy()
   })
   beforeEach(deployment)
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(new SimpleAccessControlFactory(), [
+    matchers.publicAbi(new SimpleWriteAccessControllerFactory(), [
       'hasAccess',
       'addAccess',
       'disableAccessCheck',
@@ -43,7 +41,7 @@ describe('SimpleAccessControl', () => {
 
   describe('#hasAccess', () => {
     it('allows unauthorized calls originating from the same account', async () => {
-      assert.isTrue(
+      assert.isFalse(
         await controller
           .connect(personas.Eddy)
           .hasAccess(personas.Eddy.address, '0x00'),
