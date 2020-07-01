@@ -5,7 +5,13 @@ import "./AccessControllerInterface.sol";
 
 /**
  * @title SimpleReadAccessController
- * @notice Allows the owner to set access for addresses
+ * @notice Gives access to:
+ * - any externally owned account (note that offchain actors can always read
+ * any contract storage regardless of onchain access control measures, so this
+ * does not weaken the access control while improving usability)
+ * - accounts explicitly added to an access list
+ * @dev SimpleReadAccessController is not suitable for access controlling writes
+ * since it grants any externally owned account access!
  */
 contract SimpleReadAccessController is AccessControllerInterface, Owned {
 

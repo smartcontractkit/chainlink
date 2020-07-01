@@ -38,8 +38,8 @@ contract Flags is SimpleReadAccessController {
   /**
    * @notice read the warning flag status of a contract address.
    * @param subject The contract address being checked for a flag.
-   * A true value indicates that a flag was raised and a false value
-   * indicates that no flag was raised.
+   * @return A true value indicates that a flag was raised and a
+   * false value indicates that no flag was raised.
    */
   function getFlag(address subject)
     external
@@ -53,8 +53,8 @@ contract Flags is SimpleReadAccessController {
   /**
    * @notice read the warning flag status of a contract address.
    * @param subjects An array of addresses being checked for a flag.
-   * A true value for any flag indicates that a flag was raised and a false
-   * value indicates that no flag was raised.
+   * @return An array of bools where a true value for any flag indicates that
+   * a flag was raised and a false value indicates that no flag was raised.
    */
   function getFlags(address[] calldata subjects)
     external
