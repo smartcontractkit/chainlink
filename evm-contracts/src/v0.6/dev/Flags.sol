@@ -74,7 +74,9 @@ contract Flags is SimpleReadAccessController {
   }
 
   /**
-   * @notice allows owner to enable the warning flags for mulitple addresses.
+   * @notice enable the warning flags for mulitple addresses.
+   * Access is controlled by raisingAccessController, except for owner
+   * who always has access.
    * @param subjects List of the contract addresses whose flag is being raised
    */
   function raiseFlags(address[] calldata subjects)
@@ -111,7 +113,7 @@ contract Flags is SimpleReadAccessController {
   }
 
   /**
-   * @notice allows owner to change the access controller for flagging addresses.
+   * @notice allows owner to change the access controller for raising flags.
    * @param racAddress new address for the raising access controller.
    */
   function setRaisingAccessController(
