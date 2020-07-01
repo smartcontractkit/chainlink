@@ -134,6 +134,7 @@ contract Flags is SimpleReadAccessController {
 
   function allowedToRaiseFlags()
     private
+    view
     returns (bool)
   {
     return msg.sender == owner ||
