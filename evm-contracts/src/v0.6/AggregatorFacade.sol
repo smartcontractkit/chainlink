@@ -1,7 +1,7 @@
 pragma solidity 0.6.6;
 
-import "../interfaces/AggregatorInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
+import "./interfaces/AggregatorInterface.sol";
+import "./interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title A facade forAggregator versions to conform to the new v0.6
