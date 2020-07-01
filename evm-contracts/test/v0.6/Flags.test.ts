@@ -251,12 +251,14 @@ describe('Flags', () => {
   })
 
   describe('#setRaisingAccessController', () => {
-    it('updates access control rules', async () => {
-      const controller2 = await accessControlFactory
-        .connect(personas.Nelly)
-        .deploy()
-      await controller2.connect(personas.Nelly).enableAccessCheck()
+    let controller2: any
 
+    beforeEach(async () => {
+      controller2 = await accessControlFactory.connect(personas.Nelly).deploy()
+      await controller2.connect(personas.Nelly).enableAccessCheck()
+    })
+
+    it('updates access control rules', async () => {
       await controller.connect(personas.Nelly).addAccess(personas.Neil.address)
       await flags.connect(personas.Neil).raiseFlags([consumer.address]) // doesn't raise
 
@@ -270,12 +272,26 @@ describe('Flags', () => {
       ) // raises with new controller
     })
 
+    it('emits a log announcing the change', async () => {
+      const tx = await flags
+        .connect(personas.Nelly)
+        .setRaisingAccessController(controller2.address)
+      const receipt = await tx.wait()
+
+      const event = matchers.eventExists(
+        receipt,
+        flags.interface.events.RaisingAccessControllerChanged,
+      )
+      assert.equal(controller.address, h.eventArgs(event).previous)
+      assert.equal(controller2.address, h.eventArgs(event).current)
+    })
+
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           flags
             .connect(personas.Neil)
-            .setRaisingAccessController(controller.address),
+            .setRaisingAccessController(controller2.address),
           'Only callable by owner',
         )
       })
