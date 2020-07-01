@@ -4,10 +4,13 @@ import "../Owned.sol";
 import "./AccessControllerInterface.sol";
 
 /**
- * @title SimpleAccessControl
- * @notice Allows the owner to set access for addresses
+ * @title SimpleWriteAccessController
+ * @notice Gives access to accounts explicitly added to an access list by the
+ * controller's owner.
+ * @dev does not make any special permissions for externally, see
+ * SimpleReadAccessController for that.
  */
-contract SimpleAccessControl is AccessControllerInterface, Owned {
+contract SimpleWriteAccessController is AccessControllerInterface, Owned {
 
   bool public checkEnabled;
   mapping(address => bool) internal accessList;
@@ -33,10 +36,11 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
   )
     public
     view
+    virtual
     override
     returns (bool)
   {
-    return accessList[_user] || !checkEnabled || _user == tx.origin;
+    return accessList[_user] || !checkEnabled;
   }
 
   /**
@@ -47,8 +51,11 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    accessList[_user] = true;
-    emit AddedAccess(_user);
+    if (!accessList[_user]) {
+      accessList[_user] = true;
+
+      emit AddedAccess(_user);
+    }
   }
 
   /**
@@ -59,8 +66,11 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    delete accessList[_user];
-    emit RemovedAccess(_user);
+    if (accessList[_user]) {
+      accessList[_user] = false;
+
+      emit RemovedAccess(_user);
+    }
   }
 
   /**
@@ -70,9 +80,11 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    checkEnabled = true;
+    if (!checkEnabled) {
+      checkEnabled = true;
 
-    emit CheckAccessEnabled();
+      emit CheckAccessEnabled();
+    }
   }
 
   /**
@@ -82,14 +94,15 @@ contract SimpleAccessControl is AccessControllerInterface, Owned {
     external
     onlyOwner()
   {
-    checkEnabled = false;
+    if (checkEnabled) {
+      checkEnabled = false;
 
-    emit CheckAccessDisabled();
+      emit CheckAccessDisabled();
+    }
   }
 
   /**
    * @dev reverts if the caller does not have access
-   * @dev WARNING: This modifier should only be used on view methods
    */
   modifier checkAccess() {
     require(hasAccess(msg.sender, msg.data), "No access");
