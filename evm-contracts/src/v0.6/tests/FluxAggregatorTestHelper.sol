@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../dev/FluxAggregator.sol";
+import "../FluxAggregator.sol";
 
 contract FluxAggregatorTestHelper is Owned {
 

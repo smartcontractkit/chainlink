@@ -1,94 +1,117 @@
 pragma solidity 0.6.6;
 
-import "../interfaces/AggregatorInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../Owned.sol";
+import "./AggregatorProxy.sol";
+import "./interfaces/AccessControllerInterface.sol";
 
 /**
- * @title A trusted proxy for updating where current answers are read from
+ * @title External Access Controlled Aggregator Proxy
+ * @notice A trusted proxy for updating where current answers are read from
  * @notice This contract provides a consistent address for the
- * CurrentAnwerInterface but delegates where it reads from to the owner, who is
+ * Aggregator and AggregatorV3Interface but delegates where it reads from to the owner, who is
  * trusted to update it.
+ * @notice Only access enabled addresses are allowed to access getters for
+ * aggregated answers and round information.
  */
-contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
+contract EACAggregatorProxy is AggregatorProxy {
 
-  AggregatorV3Interface public aggregator;
-  AggregatorV3Interface public proposedAggregator;
+  AccessControllerInterface public accessController;
 
-  constructor(address _aggregator) public Owned() {
-    setAggregator(_aggregator);
+  constructor(
+    address _aggregator,
+    address _accessController
+  )
+    public
+    AggregatorProxy(_aggregator)
+  {
+    setController(_accessController);
+  }
+
+  /**
+   * @notice Allows the owner to update the accessController contract address.
+   * @param _accessController The new address for the accessController contract
+   */
+  function setController(address _accessController)
+    public
+    onlyOwner()
+  {
+    accessController = AccessControllerInterface(_accessController);
   }
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestAnswer()
     public
     view
-    virtual
     override
-    returns (int256 answer)
+    checkAccess()
+    returns (int256)
   {
-    ( , answer, , , ) = latestRoundData();
+    return super.latestAnswer();
   }
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
     public
     view
-    virtual
     override
-    returns (uint256 updatedAt)
+    checkAccess()
+    returns (uint256)
   {
-    ( , , , updatedAt, ) = latestRoundData();
+    return super.latestTimestamp();
   }
 
   /**
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use getRoundData instead.
    */
   function getAnswer(uint256 _roundId)
     public
     view
-    virtual
     override
-    returns (int256 answer)
+    checkAccess()
+    returns (int256)
   {
-    ( , answer, , , ) = getRoundData(_roundId);
+    return super.getAnswer(_roundId);
   }
 
   /**
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use getRoundData instead.
    */
   function getTimestamp(uint256 _roundId)
     public
     view
-    virtual
     override
-    returns (uint256 updatedAt)
+    checkAccess()
+    returns (uint256)
   {
-    ( , , , updatedAt, ) = getRoundData(_roundId);
+    return super.getTimestamp(_roundId);
   }
 
   /**
    * @notice get the latest completed round where the answer was updated
+   * @dev overridden function to add the checkAccess() modifier
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
     public
     view
-    virtual
     override
-    returns (uint256 roundId)
+    checkAccess()
+    returns (uint256)
   {
-    ( roundId, , , , ) = latestRoundData();
+    return super.latestRound();
   }
 
   /**
@@ -115,7 +138,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function getRoundData(uint256 _roundId)
     public
     view
-    virtual
+    checkAccess()
     override
     returns (
       uint256 roundId,
@@ -125,7 +148,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return aggregator.getRoundData(_roundId);
+    return super.getRoundData(_roundId);
   }
 
   /**
@@ -151,7 +174,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function latestRoundData()
     public
     view
-    virtual
+    checkAccess()
     override
     returns (
       uint256 roundId,
@@ -161,7 +184,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return aggregator.latestRoundData();
+    return super.latestRoundData();
   }
 
   /**
@@ -179,7 +202,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function proposedGetRoundData(uint256 _roundId)
     public
     view
-    virtual
+    checkAccess()
+    override
     returns (
       uint256 roundId,
       int256 answer,
@@ -188,7 +212,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return proposedAggregator.getRoundData(_roundId);
+    return super.proposedGetRoundData(_roundId);
   }
 
   /**
@@ -205,7 +229,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function proposedLatestRoundData()
     public
     view
-    virtual
+    checkAccess()
+    override
     returns (
       uint256 roundId,
       int256 answer,
@@ -214,80 +239,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return proposedAggregator.latestRoundData();
+    return super.proposedLatestRoundData();
   }
 
   /**
-   * @notice represents the number of decimals the aggregator responses represent.
+   * @dev reverts if the caller does not have access by the accessController contract
    */
-  function decimals()
-    external
-    view
-    override
-    returns (uint8)
-  {
-    return aggregator.decimals();
-  }
-
-  /**
-   * @notice the version number representing the type of aggregator the proxy
-   * points to.
-   */
-  function version()
-    external
-    view
-    override
-    returns (uint256)
-  {
-    return aggregator.version();
-  }
-
-  /**
-   * @notice returns the description of the aggregator the proxy points to.
-   */
-  function description()
-    external
-    view
-    override
-    returns (string memory)
-  {
-    return aggregator.description();
-  }
-
-  /**
-   * @notice Allows the owner to propose a new address for the aggregator
-   * @param _aggregator The new address for the aggregator contract
-   */
-  function proposeAggregator(address _aggregator)
-    external
-    onlyOwner()
-  {
-    proposedAggregator = AggregatorV3Interface(_aggregator);
-  }
-
-  /**
-   * @notice Allows the owner to confirm and change the address
-   * to the proposed aggregator
-   * @dev Reverts if the given address doesn't match what was previously
-   * proposed
-   * @param _aggregator The new address for the aggregator contract
-   */
-  function confirmAggregator(address _aggregator)
-    external
-    onlyOwner()
-  {
-    require(_aggregator == address(proposedAggregator), "Invalid proposed aggregator");
-    delete proposedAggregator;
-    setAggregator(_aggregator);
-  }
-
-  /*
-   * Internal
-   */
-
-  function setAggregator(address _aggregator)
-    internal
-  {
-    aggregator = AggregatorV3Interface(_aggregator);
+  modifier checkAccess() {
+    require(accessController.hasAccess(msg.sender, msg.data), "No access");
+    _;
   }
 }
