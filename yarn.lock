@@ -8247,11 +8247,6 @@ compression@^1.7.4:
     safe-buffer "5.1.2"
     vary "~1.1.2"
 
-compute-scroll-into-view@1.0.11:
-  version "1.0.11"
-  resolved "https://registry.npmjs.org/compute-scroll-into-view/-/compute-scroll-into-view-1.0.11.tgz#7ff0a57f9aeda6314132d8994cce7aeca794fecf"
-  integrity sha512-uUnglJowSe0IPmWOdDtrlHXof5CTIJitfJEyITHBW6zDVOGu9Pjk5puaLM73SLcwak0L4hEjO7Td88/a6P5i7A==
-
 concat-map@0.0.1:
   version "0.0.1"
   resolved "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz#d8a96bd77fd68df7793a73036a3ba0d5405d477b"
@@ -8582,7 +8577,7 @@ create-react-context@0.3.0, create-react-context@^0.3.0:
     gud "^1.0.0"
     warning "^4.0.3"
 
-create-react-context@^0.2.1, create-react-context@^0.2.2:
+create-react-context@^0.2.1:
   version "0.2.3"
   resolved "https://registry.npmjs.org/create-react-context/-/create-react-context-0.2.3.tgz#9ec140a6914a22ef04b8b09b7771de89567cb6f3"
   integrity sha512-CQBmD0+QGgTaxDL3OX1IDXYqjkp2It4RIbcb99jS6AEg27Ga+a9G3JtK6SIu0HBwPLZlmwt9F7UwWA4Bn92Rag==
@@ -11426,11 +11421,6 @@ executable@4.1.1:
   integrity sha512-8iA79xD3uAch729dUG8xaaBBFGaEa0wdD2VkYLFHwlqosEj/jT66AzcreRDSgV7ehnNLBW2WR5jIXwGKjVdTLg==
   dependencies:
     pify "^2.2.0"
-
-exenv@^1.2.0:
-  version "1.2.2"
-  resolved "https://registry.npmjs.org/exenv/-/exenv-1.2.2.tgz#2ae78e85d9894158670b03d47bec1f03bd91bb9d"
-  integrity sha1-KueOhdmJQVhnCwPUe+wfA72Ru50=
 
 exit-hook@^1.0.0:
   version "1.1.1"
@@ -20837,18 +20827,6 @@ react-copy-to-clipboard@^5.0.1:
     copy-to-clipboard "^3"
     prop-types "^15.5.8"
 
-react-create-ref@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.npmjs.org/react-create-ref/-/react-create-ref-1.0.1.tgz#c0cbeec9e05b608c9f9434fafbecbcc46750293d"
-  integrity sha512-pryn9uefKa5HPfmgf1Gl93+hwN2rqXeipLSdnq6Q9M7Pd00sx617GyOtluqVoQ0XlvvYJ8Bw/uTorXvH+fgUGQ==
-
-react-day-picker@^7.2.4:
-  version "7.4.0"
-  resolved "https://registry.npmjs.org/react-day-picker/-/react-day-picker-7.4.0.tgz#1b3dfe76a81864518d241214ba658da25903b7df"
-  integrity sha512-dqfr96EY7mHSpbW23hJI6of2JvxClDfHLNQ7VqctxBvNsJIzEiwh3zS8hEhqNza7xuR0vC4KN517zxndgb3/fw==
-  dependencies:
-    prop-types "^15.6.2"
-
 react-dev-utils@^10.0.0:
   version "10.0.0"
   resolved "https://registry.npmjs.org/react-dev-utils/-/react-dev-utils-10.0.0.tgz#bd2d16426c7e4cbfed1b46fb9e2ac98ec06fcdfa"
@@ -21121,20 +21099,10 @@ react-lazy-load@^3.0.13:
     lodash.throttle "^4.0.0"
     prop-types "^15.5.8"
 
-react-lifecycles-compat@^3.0.0, react-lifecycles-compat@^3.0.2, react-lifecycles-compat@^3.0.4:
+react-lifecycles-compat@^3.0.2, react-lifecycles-compat@^3.0.4:
   version "3.0.4"
   resolved "https://registry.npmjs.org/react-lifecycles-compat/-/react-lifecycles-compat-3.0.4.tgz#4f1a273afdfc8f3488a8c516bfda78f872352362"
   integrity sha512-fBASbA6LnOU9dOU2eW7aQ8xmYBSXUIWr+UmF9b1efZBazGNO+rcXT/icdKnYm2pTwcRylVUYwW7H1PHfLekVzA==
-
-react-modal@^3.8.1:
-  version "3.11.1"
-  resolved "https://registry.npmjs.org/react-modal/-/react-modal-3.11.1.tgz#2a0d6877c9e98f123939ea92d2bb4ad7fa5a17f9"
-  integrity sha512-8uN744Yq0X2lbfSLxsEEc2UV3RjSRb4yDVxRQ1aGzPo86QjNOwhQSukDb8U8kR+636TRTvfMren10fgOjAy9eA==
-  dependencies:
-    exenv "^1.2.0"
-    prop-types "^15.5.10"
-    react-lifecycles-compat "^3.0.0"
-    warning "^4.0.3"
 
 react-popper-tooltip@^2.8.3:
   version "2.10.1"
@@ -21191,21 +21159,6 @@ react-resize-detector@^4.2.1:
     prop-types "^15.7.2"
     raf-schd "^4.0.2"
     resize-observer-polyfill "^1.5.1"
-
-react-responsive-ui@^0.14.177:
-  version "0.14.182"
-  resolved "https://registry.npmjs.org/react-responsive-ui/-/react-responsive-ui-0.14.182.tgz#cf701c8643a1494df536c0ce323ae963dd5ab304"
-  integrity sha512-qXmVYFVTF0DrzcOc+HYAvb4bjeKnWNkiE2PsdwhxCHvFsdet/2jSSuKUMew7FyGYNknSSz3NAyZ55i03pKqH1g==
-  dependencies:
-    classnames "^2.2.5"
-    create-react-context "^0.2.2"
-    lodash "^4.17.4"
-    prop-types "^15.7.2"
-    react-create-ref "^1.0.1"
-    react-day-picker "^7.2.4"
-    react-lifecycles-compat "^3.0.2"
-    react-modal "^3.8.1"
-    scroll-into-view-if-needed "^2.2.16"
 
 react-router-dom@^4.3.1:
   version "4.3.1"
@@ -21491,14 +21444,13 @@ react-textarea-autosize@^7.1.0:
     "@babel/runtime" "^7.1.2"
     prop-types "^15.6.0"
 
-react-time-ago@^5.0.7:
-  version "5.0.7"
-  resolved "https://registry.npmjs.org/react-time-ago/-/react-time-ago-5.0.7.tgz#a24b1e65ee29aa9ad063354d3dcb7d28a2dd3e73"
-  integrity sha512-E4laf5QSSPk9TcX+JssIt+1LCPe+3leRp43i6oVLoI4Viepv7nyxHqQCr/wrEvz+0OAxs16QzeHp9pZcfwp44A==
+react-time-ago@^6.0.0:
+  version "6.0.0"
+  resolved "https://registry.npmjs.org/react-time-ago/-/react-time-ago-6.0.0.tgz#dd2bac5dea344597f795128778e1b6c79377782c"
+  integrity sha512-o3Usm9bk22fVZCV3j/9RkA4vGGCG97/9ZxHKxkfVX6KkB14U8qtug6KRlxZb+tHXi27KoQdsF+Lof9BpxmwKXQ==
   dependencies:
     javascript-time-ago "^2.0.2"
     prop-types "^15.6.0"
-    react-responsive-ui "^0.14.177"
 
 react-transition-group@^2.2.1:
   version "2.9.0"
@@ -22576,13 +22528,6 @@ schema-utils@^2.6.4:
   dependencies:
     ajv "^6.10.2"
     ajv-keywords "^3.4.1"
-
-scroll-into-view-if-needed@^2.2.16:
-  version "2.2.20"
-  resolved "https://registry.npmjs.org/scroll-into-view-if-needed/-/scroll-into-view-if-needed-2.2.20.tgz#3a46847a72233a3af9770e55df450f2a7f2e2a0e"
-  integrity sha512-P9kYMrhi9f6dvWwTGpO5I3HgjSU/8Mts7xL3lkoH5xlewK7O9Obdc5WmMCzppln7bCVGNmf3qfoZXrpCeyNJXw==
-  dependencies:
-    compute-scroll-into-view "1.0.11"
 
 scrypt-js@2.0.3:
   version "2.0.3"
