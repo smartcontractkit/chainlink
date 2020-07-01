@@ -21,7 +21,7 @@ contract SimpleReadAccessController is SimpleWriteAccessController {
    */
   function hasAccess(
     address _user,
-    bytes memory
+    bytes memory _calldata
   )
     public
     view
@@ -29,7 +29,7 @@ contract SimpleReadAccessController is SimpleWriteAccessController {
     override
     returns (bool)
   {
-    return accessList[_user] || !checkEnabled || _user == tx.origin;
+    return super.hasAccess(_user, _calldata) || _user == tx.origin;
   }
 
 }
