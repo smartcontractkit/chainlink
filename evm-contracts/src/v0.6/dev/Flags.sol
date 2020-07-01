@@ -23,6 +23,10 @@ contract Flags is SimpleReadAccessController {
   event FlagOff(
     address indexed subject
   );
+  event RaisingAccessControllerChanged(
+    address indexed previous,
+    address indexed current
+  );
 
   /**
    * @param racAddress address for the raising access controller.
@@ -116,7 +120,11 @@ contract Flags is SimpleReadAccessController {
     public
     onlyOwner()
   {
+    address previous = address(raisingAccessController);
+
     raisingAccessController = AccessControllerInterface(racAddress);
+
+    emit RaisingAccessControllerChanged(previous, racAddress);
   }
 
 
