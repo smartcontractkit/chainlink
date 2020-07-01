@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../dev/Flags.sol";
+import "../Flags.sol";
 
 contract FlagsTestHelper {
   Flags public flags;

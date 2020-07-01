@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 
 import "./vendor/SafeMath.sol";
-import "./dev/SignedSafeMath.sol";
+import "./SignedSafeMath.sol";
 
 library Median {
   using SignedSafeMath for int256;
