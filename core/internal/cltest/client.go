@@ -37,6 +37,11 @@ func (c *SimulatedBackendClient) GethClient(f func(c eth.GethClient) error) erro
 	return nil
 }
 
+// RPCClient is a noop, solely needed to conform to GethClientWrapper interface
+func (c *SimulatedBackendClient) RPCClient(f func(c eth.RPCClient) error) error {
+	return nil
+}
+
 // Close terminates the underlying blockchain's update loop.
 func (c *SimulatedBackendClient) Close() {
 	c.b.Close()

@@ -273,7 +273,7 @@ func (ec *ethConfirmer) newAttemptWithGasBump(etx models.EthTx) (models.EthTxAtt
 		previousGasPrice := etx.EthTxAttempts[0].GasPrice
 		bumpedGasPrice = BumpGas(ec.config, previousGasPrice.ToInt())
 	} else {
-		logger.Error("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
+		logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
 			"Falling back to default gas price instead."+
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 		bumpedGasPrice = ec.config.EthGasPriceDefault()

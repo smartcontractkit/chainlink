@@ -26,6 +26,13 @@ type GethClient interface {
 	HeaderByNumber(ctx context.Context, n *big.Int) (*gethTypes.Header, error)
 }
 
+// RPCClient is an interface that represents go-ethereum's raw rpcclient
+// https://github.com/ethereum/go-ethereum/blob/master/rpc/client.go
+//go:generate mockery --name RPCClient --output ../../internal/mocks/ --case=underscore
+type RPCClient interface {
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+}
+
 //go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
@@ -79,6 +86,7 @@ type CallerSubscriber interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	Subscribe(context.Context, interface{}, ...interface{}) (Subscription, error)
 	GethClient(func(gethClient GethClient) error) error
+	RPCClient(func(rpcClient RPCClient) error) error
 }
 
 // GetNonce returns the nonce (transaction count) for a given address.
