@@ -34,7 +34,7 @@
     "@chainlink/json-api-client": "0.0.1",
     "@chainlink/redux": "0.0.1",
     "@chainlink/ts-helpers": "0.0.1",
-    "antd": "^3.23.3",
+    "antd": "^4.4.0",
     "classnames": "^2.2.6",
     "core-js": "^3.6.4",
     "d3": "^5.16.0",
