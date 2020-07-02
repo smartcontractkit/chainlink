@@ -71,16 +71,31 @@ func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 
 // SimpleGethWrapper offers an easy way to mock the eth client
 type SimpleGethWrapper struct {
-	c eth.GethClient
+	g eth.GethClient
+	r eth.RPCClient
 }
 
-func NewSimpleGethWrapper(c eth.GethClient) *SimpleGethWrapper {
-	wrapper := SimpleGethWrapper{c: c}
+func NewSimpleGethWrapper(clients ...interface{}) *SimpleGethWrapper {
+	wrapper := SimpleGethWrapper{}
+	for _, client := range clients {
+		switch c := client.(type) {
+		case eth.GethClient:
+			wrapper.g = c
+		case eth.RPCClient:
+			wrapper.r = c
+		default:
+			panic("unrecognised client type")
+		}
+	}
 	return &wrapper
 }
 
 func (wrapper *SimpleGethWrapper) GethClient(f func(c eth.GethClient) error) error {
-	return f(wrapper.c)
+	return f(wrapper.g)
+}
+
+func (wrapper *SimpleGethWrapper) RPCClient(f func(r eth.RPCClient) error) error {
+	return f(wrapper.r)
 }
 
 // EthMock is a mock ethereum client
@@ -97,6 +112,11 @@ type EthMock struct {
 
 // GethClient is a noop, solely needed to conform to GethClientWrapper interface
 func (mock *EthMock) GethClient(f func(c eth.GethClient) error) error {
+	return nil
+}
+
+// RPCClient is a noop, solely needed to conform to GethClientWrapper interface
+func (mock *EthMock) RPCClient(f func(c eth.RPCClient) error) error {
 	return nil
 }
 
