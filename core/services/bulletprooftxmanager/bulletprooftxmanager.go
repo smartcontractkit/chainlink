@@ -139,7 +139,7 @@ func withAdvisoryLock(s *strpkg.Store, classID int32, objectID int32, f func() e
 	}
 	defer logger.ErrorIfCalling(conn.Close)
 	if err := tryAdvisoryLock(ctx, conn, classID, objectID); err != nil {
-		return err
+		return errors.Wrap(err, "tryAdvisoryLock failed")
 	}
 	defer logger.ErrorIfCalling(func() error { return advisoryUnlock(ctx, conn, classID, objectID) })
 	return f()
