@@ -21,6 +21,8 @@ containers:
             # SECURE_COOKIES: false
             CHAINLINK_TLS_PORT: "0"
             FEATURE_FLUX_MONITOR: true
+            # Enable profiling
+            CHAINLINK_DEV: true
         depends_on:
             - chainlink_neil_key_import
             - paritynet
@@ -70,6 +72,8 @@ containers:
             # SECURE_COOKIES: false
             CHAINLINK_TLS_PORT: "0"
             FEATURE_FLUX_MONITOR: true
+            # Enable profiling
+            CHAINLINK_DEV: true
         depends_on:
             - chainlink_nelly_key_import
             - postgres_chainlink_nelly
