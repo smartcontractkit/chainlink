@@ -23,6 +23,7 @@ import tornadoCash from './tornadocash.png'
 import bamboorelay from './bamboorelay.png'
 import bancor from './bancor.png'
 import bullionix from './bullionix.png'
+import gelato from './gelato.png'
 
 // Listing Thumbnails
 
@@ -49,6 +50,7 @@ import tornadoCashTn from './tornadocash_tn.png'
 import bamboorelayTn from './bamboorelay_tn.png'
 import bancorTn from './bancor_tn.png'
 import bullionixTn from './bullionix_tn.png'
+import gelatoTn from './gelato_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -195,5 +197,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://bullionix.io',
     imageLg: bullionix,
     imageTn: bullionixTn,
+  },
+  {
+    name: 'Gelato',
+    url: 'https://gelato.network',
+    imageLg: gelato,
+    imageTn: gelatoTn,
   },
 ]
