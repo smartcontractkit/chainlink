@@ -128,7 +128,7 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 					return errors.Errorf("invariant violation: expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
 				}
 				if err := ec.saveReceipt(*receipt, etx.ID); err != nil {
-					return err
+					return errors.Wrap(err, "CheckForReceipts saveReceipt failed")
 				}
 				break
 			} else {
@@ -198,12 +198,12 @@ func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) er
 
 func (ec *ethConfirmer) BumpGasWhereNecessary(blockHeight int64) error {
 	if err := ec.handleAnyInProgressAttempts(blockHeight); err != nil {
-		return err
+		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
 	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.GetRawDB(), blockHeight, int64(ec.config.EthGasBumpThreshold()))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
 	}
 	if len(etxs) > 0 {
 		logger.Debugf("EthConfirmer: Bumping gas for %v transactions", len(etxs))
@@ -211,15 +211,15 @@ func (ec *ethConfirmer) BumpGasWhereNecessary(blockHeight int64) error {
 	for _, etx := range etxs {
 		attempt, err := ec.newAttemptWithGasBump(etx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "newAttemptWithGasBump failed")
 		}
 
 		if err := ec.saveInProgressAttempt(&attempt); err != nil {
-			return err
+			return errors.Wrap(err, "saveInProgressAttempt failed")
 		}
 
 		if err := ec.handleInProgressAttempt(etx, attempt, blockHeight, true); err != nil {
-			return err
+			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
 	return nil
@@ -230,11 +230,11 @@ func (ec *ethConfirmer) BumpGasWhereNecessary(blockHeight int64) error {
 func (ec *ethConfirmer) handleAnyInProgressAttempts(blockHeight int64) error {
 	attempts, err := getInProgressEthTxAttempts(ec.store)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
 		if err := ec.handleInProgressAttempt(a.EthTx, a, blockHeight, false); err != nil {
-			return err
+			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
 	return nil
@@ -308,11 +308,11 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 			"You should consider increasing ETH_GAS_PRICE_DEFAULT", a.GasPrice, sendError.Error(), bumpedGasPrice)
 		replacementAttempt, err := newAttempt(ec.store, etx, bumpedGasPrice)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "newAttempt failed")
 		}
 
 		if err := saveReplacementInProgressAttempt(ec.store, a, &replacementAttempt); err != nil {
-			return err
+			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(etx, replacementAttempt, blockHeight, isVirginAttempt)
 	}
@@ -453,7 +453,7 @@ func saveExternalWalletUsedNonce(s *store.Store, etx *models.EthTx, a models.Eth
 	etx.BroadcastAt = nil
 	return s.Transaction(func(tx *gorm.DB) error {
 		if err := deleteInProgressAttempt(tx, a); err != nil {
-			return err
+			return errors.Wrap(err, "deleteInProgressAttempt failed")
 		}
 		return errors.Wrap(tx.Save(etx).Error, "saveExternalWalletUsedNonce failed")
 	})
@@ -476,13 +476,13 @@ func saveSentAttempt(db *gorm.DB, a *models.EthTxAttempt) error {
 func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(head models.Head) error {
 	etxs, err := findTransactionsConfirmedAtOrAboveBlockHeight(ec.store.GetRawDB(), head.EarliestInChain().Number)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "findTransactionsConfirmedAtOrAboveBlockHeight failed")
 	}
 
 	for _, etx := range etxs {
 		if !hasReceiptInLongestChain(etx, head) {
 			if err := ec.markForRebroadcast(etx); err != nil {
-				return err
+				return errors.Wrapf(err, "markForRebroadcast failed for etx %v", etx.ID)
 			}
 		}
 	}
@@ -533,10 +533,10 @@ func (ec *ethConfirmer) markForRebroadcast(etx models.EthTx) error {
 	// Put it back in progress and delete the receipt
 	err := ec.store.Transaction(func(tx *gorm.DB) error {
 		if err := deleteAllReceipts(tx, etx.ID); err != nil {
-			return err
+			return errors.Wrapf(err, "deleteAllReceipts failed for etx %v", etx.ID)
 		}
 		if err := unconfirmEthTx(tx, etx); err != nil {
-			return err
+			return errors.Wrapf(err, "unconfirmEthTx failed for etx %v", etx.ID)
 		}
 		return unbroadcastAttempt(tx, a)
 	})

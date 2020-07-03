@@ -744,7 +744,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(retryableErrorExample)).Once()
 
 		// Do the thing
-		require.EqualError(t, eb.ProcessUnstartedEthTxs(key), fmt.Sprintf("error while sending transaction %v: insufficient funds for transfer", etx.ID))
+		err = eb.ProcessUnstartedEthTxs(key)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: insufficient funds for transfer", etx.ID))
 
 		// Check it was saved correctly with its attempt
 		etx, err = store.FindEthTxWithAttempts(etx.ID)
@@ -1018,7 +1020,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 
 	// First one gets the lock
 	go func() {
-		err := eb1.ProcessUnstartedEthTxs(key)
+		err = eb1.ProcessUnstartedEthTxs(key)
 		assert.NoError(t, err)
 		close(chFinish)
 	}()
@@ -1029,7 +1031,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 	g.Eventually(chSendingTx).Should(gomega.BeClosed())
 
 	// Second node's attempt to get lock fails
-	require.EqualError(t, eb2.ProcessUnstartedEthTxs(key), fmt.Sprintf("could not get advisory lock for classID, objectID %v, %v", 0, key.ID))
+	err = eb2.ProcessUnstartedEthTxs(key)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), fmt.Sprintf("could not get advisory lock for classID, objectID %v, %v", 0, key.ID))
 
 	// Resume original run
 	close(chMidway)
