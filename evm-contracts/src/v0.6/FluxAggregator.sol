@@ -772,7 +772,8 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   }
 
   function updateRoundAnswer(uint32 _roundId)
-    private
+    internal
+    virtual
   {
     if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.minSubmissions) return;
 
