@@ -12,8 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -24,16 +23,48 @@ const evmWordSize = 32
 // EthTxABIEncode holds the Address to send the result to and the FunctionABI
 // to use for encoding arguments.
 type EthTxABIEncode struct {
-	// Ethereum address of the contract this task calls
-	Address common.Address `json:"address"`
+	ToAddress                        gethCommon.Address
+	FromAddress                      gethCommon.Address
+	GasPrice                         *utils.Big
+	GasLimit                         uint64
+	MinRequiredOutgoingConfirmations uint64
+
 	// ABI of contract function this task calls
-	FunctionABI abi.Method `json:"functionABI"`
-	GasPrice    *utils.Big `json:"gasPrice" gorm:"type:numeric"`
-	GasLimit    uint64     `json:"gasLimit"`
+	functionABI abi.Method
+}
+
+// GetToAddress implements the EthTxCommon interface
+func (e *EthTxABIEncode) GetToAddress() gethCommon.Address {
+	return e.ToAddress
+}
+
+// GetFromAddress implements the EthTxCommon interface
+func (e *EthTxABIEncode) GetFromAddress() gethCommon.Address {
+	return e.FromAddress
+}
+
+// GetGasLimit implements the EthTxCommon interface
+func (e *EthTxABIEncode) GetGasLimit() uint64 {
+	return e.GasLimit
+}
+
+// GetGasPrice implements the EthTxCommon interface
+func (e *EthTxABIEncode) GetGasPrice() *utils.Big {
+	return e.GasPrice
+}
+
+// GetMinRequiredOutgoingConfirmations implements the EthTxCommon interface
+func (e *EthTxABIEncode) GetMinRequiredOutgoingConfirmations() uint64 {
+	return e.MinRequiredOutgoingConfirmations
+}
+
+// GetEncodedPayload implements the EthTxCommon interface
+func (e *EthTxABIEncode) GetEncodedPayload(input models.RunInput) ([]byte, error) {
+	return e.abiEncode(input)
 }
 
 // TaskType returns the type of Adapter.
-func (etx *EthTxABIEncode) TaskType() models.TaskType {
+func (e *EthTxABIEncode) TaskType() models.TaskType {
 	return TaskTypeEthTxABIEncode
 }
 
@@ -41,9 +72,10 @@ func (etx *EthTxABIEncode) TaskType() models.TaskType {
 // accept spurious fields. (In particular, we wan't to ensure that we don't
 // get spurious fields in the FunctionABI, so that users don't get any wrong
 // ideas about what parts of the ABI we use for encoding data.)
-func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
+func (e *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 	var fields struct {
-		Address     common.Address
+		Address     gethCommon.Address
+		FromAddress gethCommon.Address
 		FunctionABI struct {
 			Name   string
 			Inputs abi.Arguments
@@ -58,40 +90,30 @@ func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	etx.Address = fields.Address
-	etx.FunctionABI.Name = fields.FunctionABI.Name
-	etx.FunctionABI.Inputs = fields.FunctionABI.Inputs
-	etx.GasPrice = fields.GasPrice
-	etx.GasLimit = fields.GasLimit
+	e.ToAddress = fields.Address
+	e.FromAddress = fields.FromAddress
+	e.functionABI.Name = fields.FunctionABI.Name
+	e.functionABI.Inputs = fields.FunctionABI.Inputs
+	e.GasPrice = fields.GasPrice
+	e.GasLimit = fields.GasLimit
 	return nil
 }
 
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTxABIEncode) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	if !store.TxManager.Connected() {
-		return pendingOutgoingConfirmationsOrConnection(input)
-	}
-	if !input.Status().PendingOutgoingConfirmations() {
-		data, err := etx.abiEncode(&input)
-		if err != nil {
-			err = errors.Wrap(err, "while constructing EthTxABIEncode data")
-			return models.NewRunOutputError(err)
-		}
-		return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
-	}
-	return ensureTxRunResult(input, store)
+func (e *EthTxABIEncode) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	return findOrInsertEthTx(e, input, store)
 }
 
 // abiEncode ABI-encodes the arguments passed in a RunResult's result field
 // according to etx.FunctionABI
-func (etx *EthTxABIEncode) abiEncode(input *models.RunInput) ([]byte, error) {
+func (e *EthTxABIEncode) abiEncode(input models.RunInput) ([]byte, error) {
 	args, ok := input.Data().Get("result").Value().(map[string]interface{})
 	if !ok {
 		return nil, errors.Errorf("json result is not an object")
 	}
-	return abiEncode(&etx.FunctionABI, args)
+	return abiEncode(&e.functionABI, args)
 }
 
 // abiEncode ABI-encodes the arguments in args according to fnABI.

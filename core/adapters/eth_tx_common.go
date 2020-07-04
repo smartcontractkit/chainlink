@@ -20,9 +20,12 @@ type EthTxCommon interface {
 	GetGasPrice() *utils.Big
 	// MinRequiredOutgoingConfirmations only works with bulletprooftxmanager
 	GetMinRequiredOutgoingConfirmations() uint64
+
+	GetEncodedPayload(input models.RunInput) ([]byte, error)
 }
 
-func findOrInsertEthTx(e EthTxCommon, input models.RunInput, store *strpkg.Store, payloadCB func() ([]byte, error)) models.RunOutput {
+// TODO(sam): https://www.pivotaltracker.com/story/show/173280188
+func findOrInsertEthTx(e EthTxCommon, input models.RunInput, store *strpkg.Store) models.RunOutput {
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
 	if err != nil {
 		err = errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed")
@@ -32,7 +35,7 @@ func findOrInsertEthTx(e EthTxCommon, input models.RunInput, store *strpkg.Store
 	if trtx != nil {
 		return checkForConfirmation(e, *trtx, input, store)
 	}
-	return insertEthTx(e, input, store, payloadCB)
+	return insertEthTx(e, input, store)
 }
 
 func checkForConfirmation(e EthTxCommon, trtx models.EthTaskRunTx, input models.RunInput, store *strpkg.Store) models.RunOutput {
@@ -46,8 +49,8 @@ func checkForConfirmation(e EthTxCommon, trtx models.EthTaskRunTx, input models.
 	}
 }
 
-func insertEthTx(e EthTxCommon, input models.RunInput, store *strpkg.Store, payloadCB func() ([]byte, error)) models.RunOutput {
-	encodedPayload, err := payloadCB()
+func insertEthTx(e EthTxCommon, input models.RunInput, store *strpkg.Store) models.RunOutput {
+	encodedPayload, err := e.GetEncodedPayload(input)
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed while constructing EthTx data")
 		return models.NewRunOutputError(err)

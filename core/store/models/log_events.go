@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -423,10 +425,17 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 		return JSON{}, err
 	}
 
+	ev, err := contracts.DecodeOracleRequestLogEvent(log)
+	if err != nil {
+		return JSON{}, err
+	}
+	req := ev.toOracleRequest()
+
 	return js.MultiAdd(KV{
 		"address":          log.Address.String(),
 		"dataPrefix":       bytesToHex(dataPrefixBytes),
 		"functionSelector": OracleFulfillmentFunctionID20190128withoutCast,
+		"oracleRequest":    req,
 	})
 }
 
@@ -459,4 +468,76 @@ type LogCursor struct {
 	Initialized bool   `gorm:"not null;default true"`
 	BlockIndex  int64  `gorm:"not null;default 0"`
 	LogIndex    int64  `gorm:"not null;default 0"`
+}
+
+// From evm-contracts/v0.6/Oracle.sol
+// event OracleRequest(
+//   bytes32 indexed specId,
+//   address requester,
+//   bytes32 requestId,
+//   uint256 payment,
+//   address callbackAddr,
+//   bytes4 callbackFunctionId,
+//   uint256 cancelExpiration,
+//   uint256 dataVersion,
+//   bytes data
+// );
+
+// OracleRequestEvent represents an emitted Oracle request log
+type OracleRequestEvent struct {
+	Log
+	SpecId             []byte
+	Requester          common.Address
+	RequestId          []byte
+	Payment            *big.Int
+	CallbackAddr       common.Address
+	CallbackFunctionId []byte
+	CancelExpiration   *big.Int
+	DataVersion        *big.Int
+	Data               []byte
+}
+
+// DecodeOracleRequestLogEvent attempts to decode the log into an OracleRequestEvent
+// Returns error if the log data is not the correct shape
+func (rawLog Log) DecodeOracleRequestLogEvent(reqEvent OracleRequestEvent, err error) {
+	// TODO: Use UnpackLog to decode log into a struct representing the request
+	oracleCodec, err := eth.GetV6ContractCodec("Oracle")
+	if err != nil {
+		return reqEvent, err
+	}
+	reqEvent = OracleRequestEvent{}
+	err = oracleCodec.UnpackLog(&reqEvent, "OracleRequest", *rawLog)
+	if err != nil {
+		return reqEvent, err
+	}
+	return reqEvent, nil
+}
+
+func (re OracleRequestEvent) toOracleRequest() OracleRequest {
+	req := OracleRequest{}
+
+	req.SpecID = common.BytesToHash(re.specId)
+	req.Requester = re.requester
+	req.RequestID = common.BytesToHash(re.requestId)
+	req.Payment = re.payment
+	req.CallbackAddr = re.callbackAddr
+	req.CallbackFunctionID = BytesToFunctionSelector(re.CallbackFunctionId)
+	req.CancelExpiration = time.Unix(re.cancelExpiration.Int64())
+	req.DataVersion = re.dataVersion
+	req.Data = re.data
+
+	return req
+}
+
+// OracleRequest represents an OracleRequestEvent with nicer types
+type OracleRequest struct {
+	SpecID             common.Hash
+	Requester          common.Address
+	RequestID          common.Hash
+	Payment            assets.Link
+	CallbackAddr       common.Address
+	CallbackFunctionID FunctionSelector
+	CancelExpiration   time.Time
+	DataVersion        *big.Int
+	Data               []byte
 }

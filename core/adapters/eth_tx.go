@@ -40,6 +40,7 @@ type EthTx struct {
 	MinRequiredOutgoingConfirmations uint64 `json:"minRequiredOutgoingConfirmations,omitempty"`
 }
 
+// GetToAddress implements the EthTxCommon interface
 func (e *EthTx) GetToAddress() gethCommon.Address {
 	return e.ToAddress
 }
@@ -66,16 +67,28 @@ func (e *EthTx) GetFromAddresses() []gethCommon.Address {
 	return []gethCommon.Address{e.FromAddress}
 }
 
+// GetGasLimit implements the EthTxCommon interface
 func (e *EthTx) GetGasLimit() uint64 {
 	return e.GasLimit
 }
 
+// GetGasPrice implements the EthTxCommon interface
 func (e *EthTx) GetGasPrice() *utils.Big {
 	return e.GasPrice
 }
 
+// GetMinRequiredOutgoingConfirmations implements the EthTxCommon interface
 func (e *EthTx) GetMinRequiredOutgoingConfirmations() uint64 {
 	return e.MinRequiredOutgoingConfirmations
+}
+
+// GetEncodedPayload implements the EthTxCommon interface
+func (e *EthTx) GetEncodedPayload(input models.RunInput) ([]byte, error) {
+	txData, err := getTxData(e, input)
+	if err != nil {
+		return nil, err
+	}
+	return utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData), nil
 }
 
 // TaskType returns the type of Adapter.
@@ -93,15 +106,8 @@ func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOu
 	return e.legacyPerform(input, store)
 }
 
-// TODO(sam): https://www.pivotaltracker.com/story/show/173280188
 func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	return findOrInsertEthTx(e, input, store, func() ([]byte, error) {
-		txData, err := getTxData(e, input)
-		if err != nil {
-			return nil, err
-		}
-		return utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData), nil
-	})
+	return findOrInsertEthTx(e, input, store)
 }
 
 func (e *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models.RunOutput {
