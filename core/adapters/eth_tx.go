@@ -203,15 +203,19 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 		return common.HexToHash(result.Str).Bytes(), nil
 	}
 
-	payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen)
-	if len(e.DataPrefix) > 0 {
-		payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
-	}
 	output, err := utils.EVMTranscodeJSONWithFormat(result, e.DataFormat)
 	if err != nil {
 		return []byte{}, err
 	}
-	return utils.ConcatBytes(payloadOffset, output), nil
+	if e.DataFormat == DataFormatBytes || len(e.DataPrefix) > 0 {
+		payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen)
+		if len(e.DataPrefix) > 0 {
+			payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
+			return utils.ConcatBytes(payloadOffset, output), nil
+		}
+		return utils.ConcatBytes(payloadOffset, output), nil
+	}
+	return utils.ConcatBytes(output), nil
 }
 
 func createTxRunResult(
