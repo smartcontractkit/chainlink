@@ -13,6 +13,8 @@ import './AnswerValidatorInterface.sol';
 contract ValidatingAggregator is FluxAggregator {
   AnswerValidatorInterface public answerValidator;
 
+  uint256 private constant VALIDATOR_GAS_LIMIT = 100000;
+
   event AnswerValidatorSet(
     address indexed previous,
     address indexed current
@@ -71,10 +73,19 @@ contract ValidatingAggregator is FluxAggregator {
     private
   {
     AnswerValidatorInterface av = answerValidator; // cache storage reads
-    if (address(av) != address(0)) {
-      uint32 prevAnswerRoundId = rounds[_roundId - 1].answeredInRound;
-      int256 prevRoundAnswer = rounds[_roundId - 1].answer;
-      av.validate(prevAnswerRoundId, prevRoundAnswer, _roundId, _newAnswer);
+    if (address(av) == address(0)) return;
+
+    uint32 prevAnswerRoundId = rounds[_roundId - 1].answeredInRound;
+    int256 prevRoundAnswer = rounds[_roundId - 1].answer;
+   try av.validate.gas(VALIDATOR_GAS_LIMIT)(
+      prevAnswerRoundId,
+      prevRoundAnswer,
+      _roundId,
+      _newAnswer
+    ) returns (bool _) {
+      return;
+    } catch {
+      return;
     }
   }
 
