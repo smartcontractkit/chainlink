@@ -59,12 +59,24 @@ contract ValidatingAggregator is FluxAggregator {
     rounds[_roundId].answeredInRound = _roundId;
     latestRoundId = _roundId;
 
-    if (address(answerValidator) != address(0)) {
-      int256 prevRoundAnswer = rounds[_roundId - 1].answer; // FIXME take first round into account
-      answerValidator.validate(prevRoundAnswer, newAnswer);
+    if (_roundId > 1) {
+      validateAnswer(_roundId, newAnswer);
     }
 
     emit AnswerUpdated(newAnswer, _roundId, now);
+  }
+
+  function validateAnswer(
+    uint32 _roundId,
+    int256 _newAnswer
+  )
+    private
+  {
+    AnswerValidatorInterface av = answerValidator; // cache storage reads
+    if (address(av) != address(0)) {
+      int256 prevRoundAnswer = rounds[_roundId - 1].answer;
+      av.validate(prevRoundAnswer, _newAnswer);
+    }
   }
 
 }
