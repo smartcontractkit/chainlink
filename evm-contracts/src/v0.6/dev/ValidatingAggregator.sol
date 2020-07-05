@@ -59,9 +59,7 @@ contract ValidatingAggregator is FluxAggregator {
     rounds[_roundId].answeredInRound = _roundId;
     latestRoundId = _roundId;
 
-    if (_roundId > 1) {
-      validateAnswer(_roundId, newAnswer);
-    }
+    validateAnswer(_roundId, newAnswer);
 
     emit AnswerUpdated(newAnswer, _roundId, now);
   }
@@ -74,8 +72,9 @@ contract ValidatingAggregator is FluxAggregator {
   {
     AnswerValidatorInterface av = answerValidator; // cache storage reads
     if (address(av) != address(0)) {
+      uint32 prevAnswerRoundId = rounds[_roundId - 1].answeredInRound;
       int256 prevRoundAnswer = rounds[_roundId - 1].answer;
-      av.validate(prevRoundAnswer, _newAnswer);
+      av.validate(prevAnswerRoundId, prevRoundAnswer, _roundId, _newAnswer);
     }
   }
 
