@@ -4,8 +4,8 @@ import '../dev/AnswerValidatorInterface.sol';
 
 contract AnswerValidatorTestHelper is AnswerValidatorInterface {
   event Validated(
-    int256 previous,
-    int256 current
+    int256 indexed previous,
+    int256 indexed current
   );
 
   function validate(
