@@ -8,14 +8,14 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ValidatingAggregatorFactory } from '../../ethers/v0.6/ValidatingAggregatorFactory'
 import { AnswerValidatorTestHelperFactory } from '../../ethers/v0.6/AnswerValidatorTestHelperFactory'
-import { AnswerValidatorGasGuzzlerFactory } from '../../ethers/v0.6/AnswerValidatorGasGuzzlerFactory'
+import { GasGuzzlerFactory } from '../../ethers/v0.6/GasGuzzlerFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const fluxAggregatorFactory = new ValidatingAggregatorFactory()
 const answerValidatorFactory = new AnswerValidatorTestHelperFactory()
-const gasGuzzlerFactory = new AnswerValidatorGasGuzzlerFactory()
+const gasGuzzlerFactory = new GasGuzzlerFactory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 beforeAll(async () => {
@@ -39,7 +39,7 @@ describe('ValidatingAggregator', () => {
   let aggregator: contract.Instance<ValidatingAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
   let validator: contract.Instance<AnswerValidatorTestHelperFactory>
-  let gasGuzzler: contract.Instance<AnswerValidatorGasGuzzlerFactory>
+  let gasGuzzler: contract.Instance<GasGuzzlerFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
