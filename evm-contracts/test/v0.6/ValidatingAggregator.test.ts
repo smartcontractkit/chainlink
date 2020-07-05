@@ -8,12 +8,14 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ValidatingAggregatorFactory } from '../../ethers/v0.6/ValidatingAggregatorFactory'
 import { AnswerValidatorTestHelperFactory } from '../../ethers/v0.6/AnswerValidatorTestHelperFactory'
+import { AnswerValidatorGasGuzzlerFactory } from '../../ethers/v0.6/AnswerValidatorGasGuzzlerFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const fluxAggregatorFactory = new ValidatingAggregatorFactory()
 const answerValidatorFactory = new AnswerValidatorTestHelperFactory()
+const gasGuzzlerFactory = new AnswerValidatorGasGuzzlerFactory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 beforeAll(async () => {
@@ -37,6 +39,7 @@ describe('ValidatingAggregator', () => {
   let aggregator: contract.Instance<ValidatingAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
   let validator: contract.Instance<AnswerValidatorTestHelperFactory>
+  let gasGuzzler: contract.Instance<AnswerValidatorGasGuzzlerFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
@@ -812,6 +815,29 @@ describe('ValidatingAggregator', () => {
         )
         matchers.bigNum(0, h.bigNum(event.topics[1]))
         matchers.bigNum(answer, h.bigNum(event.topics[2]))
+      })
+    })
+
+    describe('when the answer validator eats all gas', () => {
+      beforeEach(async () => {
+        await updateFutureRounds(aggregator, { minAnswers: 1, maxAnswers: 1 })
+        oracles = [personas.Nelly]
+
+        gasGuzzler = await gasGuzzlerFactory.connect(personas.Carol).deploy()
+        await aggregator
+          .connect(personas.Carol)
+          .setAnswerValidator(gasGuzzler.address)
+        assert.equal(gasGuzzler.address, await aggregator.answerValidator())
+      })
+
+      it('still updates', async () => {
+        matchers.bigNum(0, await aggregator.latestAnswer())
+
+        await aggregator
+          .connect(personas.Nelly)
+          .submit(nextRound, answer, { gasLimit: 500000 })
+
+        matchers.bigNum(answer, await aggregator.latestAnswer())
       })
     })
   })
