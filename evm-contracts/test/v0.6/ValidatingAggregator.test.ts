@@ -785,6 +785,56 @@ describe('ValidatingAggregator', () => {
         )
       })
     })
+
+    describe('when an answer validator is set', () => {
+      const previousAnswer = 99
+
+      beforeEach(async () => {
+        await updateFutureRounds(aggregator, { minAnswers: 1, maxAnswers: 1 })
+        oracles = [personas.Nelly]
+
+        validator = await answerValidatorFactory
+          .connect(personas.Carol)
+          .deploy()
+        await aggregator
+          .connect(personas.Carol)
+          .setAnswerValidator(validator.address)
+        assert.equal(validator.address, await aggregator.answerValidator())
+      })
+
+      it('does not validate on the first reported answer', async () => {
+        const tx = await aggregator
+          .connect(personas.Nelly)
+          .submit(nextRound, answer)
+        const receipt = await tx.wait()
+        console.log(receipt.events)
+
+        matchers.eventDoesNotExist(
+          receipt,
+          validator.interface.events.Validated,
+        )
+      })
+
+      describe('updates after the first answer', async () => {
+        beforeEach(async () => {
+          await advanceRound(aggregator, oracles, previousAnswer)
+        })
+
+        it('changes the answer validator', async () => {
+          const tx = await aggregator
+            .connect(personas.Nelly)
+            .submit(nextRound, answer)
+          const receipt = await tx.wait()
+
+          const event = matchers.eventExists(
+            receipt,
+            validator.interface.events.Validated,
+          )
+          matchers.bigNum(previousAnswer, h.bigNum(event.topics[1]))
+          matchers.bigNum(answer, h.bigNum(event.topics[2]))
+        })
+      })
+    })
   })
 
   describe('#setAnswerValidator', () => {
