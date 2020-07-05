@@ -124,3 +124,21 @@ export function eventExists(
 
   return event
 }
+
+/**
+ * Assert that an event doesnt exist
+ *
+ * @param receipt The contract receipt to find the event in
+ * @param eventDescription A description of the event to search by
+ */
+export function eventDoesNotExist(
+  receipt: ContractReceipt,
+  eventDescription: EventDescription,
+) {
+  const event = findEventIn(receipt, eventDescription)
+  if (event) {
+    throw Error(
+      `Found ${eventDescription.name} in transaction receipt, when expecting no instances`,
+    )
+  }
+}
