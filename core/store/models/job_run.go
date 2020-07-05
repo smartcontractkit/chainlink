@@ -228,7 +228,26 @@ type RunRequest struct {
 	Requester     *common.Address
 	CreatedAt     time.Time
 	Payment       *assets.Link
-	RequestParams JSON `gorm:"default: '{}';not null"`
+	RequestParams JSON          `gorm:"default: '{}';not null"`
+	OracleRequest OracleRequest `gorm:"foreignkey:RequestID;association_foreignkey:RequestID,association_autoupdate:false"`
+}
+
+//tOracleRequest represents an oracle request log event
+// Currently hangs off the run_request but should really hang off a log_consumption
+type OracleRequest struct {
+	SpecID             common.Hash
+	Requester          common.Address
+	RequestID          common.Hash `gorm:"primary_key"`
+	Payment            assets.Link
+	CallbackAddr       common.Address
+	CallbackFunctionID FunctionSelector
+	CancelExpiration   time.Time
+	DataVersion        *big.Int
+	Data               []byte
+}
+
+func (OracleRequest) TableName() string {
+	return "events_oracle_request"
 }
 
 // NewRunRequest returns a new RunRequest instance.

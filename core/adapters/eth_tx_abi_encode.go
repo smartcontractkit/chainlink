@@ -30,7 +30,7 @@ type EthTxABIEncode struct {
 	MinRequiredOutgoingConfirmations uint64
 
 	// ABI of contract function this task calls
-	functionABI abi.Method
+	FunctionABI abi.Method
 }
 
 // GetToAddress implements the EthTxCommon interface
@@ -92,8 +92,8 @@ func (e *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 
 	e.ToAddress = fields.Address
 	e.FromAddress = fields.FromAddress
-	e.functionABI.Name = fields.FunctionABI.Name
-	e.functionABI.Inputs = fields.FunctionABI.Inputs
+	e.FunctionABI.Name = fields.FunctionABI.Name
+	e.FunctionABI.Inputs = fields.FunctionABI.Inputs
 	e.GasPrice = fields.GasPrice
 	e.GasLimit = fields.GasLimit
 	return nil
@@ -113,7 +113,7 @@ func (e *EthTxABIEncode) abiEncode(input models.RunInput) ([]byte, error) {
 	if !ok {
 		return nil, errors.Errorf("json result is not an object")
 	}
-	return abiEncode(&e.functionABI, args)
+	return abiEncode(&e.FunctionABI, args)
 }
 
 // abiEncode ABI-encodes the arguments in args according to fnABI.

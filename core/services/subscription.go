@@ -149,26 +149,38 @@ func runJob(runManager RunManager, le models.LogRequest) {
 	initiator := le.GetInitiator()
 
 	if err := le.ValidateRequester(); err != nil {
-		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
-		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		handleErrored(runManager, le, jobSpecID, initiator, err)
 		return
 	}
 
 	rr, err := le.RunRequest()
+
 	if err != nil {
-		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
-		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		handleErrored(runManager, le, jobSpecID, initiator, err)
 		return
 	}
+
+	// HACK: This has to go here to avoid a horrific import cycle in log_events
+	req, err := eth.DecodeOracleRequestLogEvent(le.GetLog())
+	if err != nil {
+		fmt.Println("DecodeOracleRequestLogEvent", err)
+		handleErrored(runManager, le, jobSpecID, initiator, err)
+		return
+	}
+	rr.OracleRequest = req
 
 	_, err = runManager.Create(jobSpecID, &initiator, le.BlockNumber(), &rr)
 	if err != nil {
 		logger.Errorw(err.Error(), le.ForLogger()...)
 	}
+}
+
+func handleErrored(runManager RunManager, le models.LogRequest, jobSpecID *models.ID, initiator models.Initiator, err error) {
+	if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
+		logger.Errorw(e.Error())
+	}
+	logger.Errorw(err.Error(), le.ForLogger()...)
+	return
 }
 
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an

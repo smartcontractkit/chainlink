@@ -65,7 +65,7 @@ func TestEthTxABIEncodeAdapter_UnmarshallJSON(t *testing.T) {
 func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	uint256Type, err := abi.NewType("uint256", "", []abi.ArgumentMarshaling{})
 	var adapterUnderTest = adapters.EthTxABIEncode{
-		Address: common.HexToAddress(
+		ToAddress: common.HexToAddress(
 			"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 		FunctionABI: abi.Method{
 			Name:    "verifyVRFProof",
@@ -132,7 +132,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			rlp := data[0].([]interface{})[0].(string)
 			tx, e := utils.DecodeEthereumTx(rlp)
 			assert.NoError(t, e)
-			assert.Equal(t, adapterUnderTest.Address.String(), tx.To().String())
+			assert.Equal(t, adapterUnderTest.ToAddress.String(), tx.To().String())
 			assert.Equal(t, expectedAsHex, hexutil.Encode(tx.Data()))
 			return nil
 		})

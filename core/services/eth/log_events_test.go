@@ -1,0 +1,34 @@
+package eth_test
+
+import (
+	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
+	// "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestLogEvents_DecodeOracleRequestLogEvent(t *testing.T) {
+	t.Parallel()
+
+	log := cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json")
+	req, err := eth.DecodeOracleRequestLogEvent(log)
+	require.NoError(t, err)
+
+	// https://ropsten.etherscan.io/tx/0xcc15aac0dc072cab0b2a9a0d0338e1e565f0bf0ad0fc4ce2efa03b8d4d11465c#eventlog
+
+	require.Equal(t, "0x6439346639646133333264343431636361663731363936343034643364643139", req.SpecID.Hex())
+	require.Equal(t, "0xA210E3779eF173d16e375d4B55D1f4242D6E0905", req.Requester.Hex())
+	require.Equal(t, "0x31640bffe866175cacd5ea8f6dfd79236222e2ebab68c76dbeac29f04f89be2c", req.RequestID.Hex())
+	require.Equal(t, "1.000000000000000000", req.Payment.String())
+	require.Equal(t, "0xA210E3779eF173d16e375d4B55D1f4242D6E0905", req.CallbackAddr.Hex())
+	require.Equal(t, "0x4357855e", req.CallbackFunctionID.String())
+	require.Equal(t, int64(1592246420), req.CancelExpiration.Unix())
+	require.Equal(t, int64(1), req.DataVersion.Int64())
+
+	expectedCBOR := []byte{0x63, 0x67, 0x65, 0x74, 0x78, 0x3f, 0x68, 0x74, 0x74, 0x70, 0x73, 0x3a, 0x2f, 0x2f, 0x6d, 0x69, 0x6e, 0x2d, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x6f, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x72, 0x65, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x61, 0x74, 0x61, 0x2f, 0x70, 0x72, 0x69, 0x63, 0x65, 0x3f, 0x66, 0x73, 0x79, 0x6d, 0x3d, 0x45, 0x54, 0x48, 0x26, 0x74, 0x73, 0x79, 0x6d, 0x73, 0x3d, 0x55, 0x53, 0x44, 0x64, 0x70, 0x61, 0x74, 0x68, 0x63, 0x55, 0x53, 0x44, 0x65, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x18, 0x64}
+	require.Equal(t, expectedCBOR, req.Data)
+
+}
