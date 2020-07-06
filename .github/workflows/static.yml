@@ -67,3 +67,11 @@ jobs:
       - uses: actions/checkout@v2
       - run: go get -v golang.org/x/lint/golint
       - run: set +e ; d="$($HOME/go/bin/golint -min_confidence 1 ./... | grep -v comment)" ; if [ -z "$d" ]; then exit 0 ; else echo "golint check output:" ; echo "$d" ; exit 1 ; fi ; set -e
+  exportloopref:
+    name: exportloopref
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go get github.com/kyoh86/exportloopref/cmd/exportloopref
+      - run: $HOME/go/bin/exportloopref ./...

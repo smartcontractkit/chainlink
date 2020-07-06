@@ -1228,7 +1228,8 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedSecretKey) (
 	orm.MustEnsureAdvisoryLock()
 	var anonWhere []interface{} // Find needs "where" contents coerced to interface{}
 	for _, constraint := range where {
-		anonWhere = append(anonWhere, &constraint)
+		c := constraint
+		anonWhere = append(anonWhere, &c)
 	}
 	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
 }
