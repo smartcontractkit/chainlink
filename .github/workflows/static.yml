@@ -72,5 +72,5 @@ jobs:
     steps:
       - uses: actions/setup-go@v2
       - uses: actions/checkout@v2
-      - run: go get -v github.com/kyoh86/exportloopref/cmd/exportloopref
+      - run: go get -v github.com/nishanths/exhaustive/...
       - run: $HOME/go/bin/exhaustive -default-signifies-exhaustive ./...
