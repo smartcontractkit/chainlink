@@ -18,15 +18,6 @@ jobs:
       - run: go get -v golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
       - run: go mod download
       - run: go vet -vettool=$HOME/go/bin/shadow ./...
-  bodyclose:
-    name: bodyclose
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
-      - run: go get -v github.com/timakin/bodyclose
-      - run: go mod download
-      - run: go vet -vettool=$HOME/go/bin/bodyclose ./...
   imports:
     name: imports
     runs-on: ubuntu-latest
