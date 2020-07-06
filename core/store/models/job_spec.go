@@ -125,14 +125,13 @@ func (j JobSpec) InitiatorsFor(types ...string) []Initiator {
 //
 // Returns nil if not found.
 func (j JobSpec) InitiatorExternal(name string) *Initiator {
-	var found Initiator
 	for _, i := range j.InitiatorsFor(InitiatorExternal) {
 		if strings.EqualFold(i.Name, name) {
-			found = i
-			break
+			found := i
+			return &found
 		}
 	}
-	return &found
+	return nil
 }
 
 // IsLogInitiated Returns true if any of the job's initiators are triggered by event logs.
