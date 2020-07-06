@@ -21,7 +21,18 @@ export default (jobs, count) => {
         },
       ]
       const createdAt = config.createdAt || new Date().toISOString()
-      const runs = c.runs || []
+      const errors = c.errors || []
+      let runs = c.runs || []
+
+      runs = runs.map(r =>
+        Object.assign(
+          {},
+          { createdAt: isoDate(Date.now()) },
+          { result: {} },
+          { jobId: id },
+          r,
+        ),
+      )
 
       return {
         type: 'specs',
@@ -33,15 +44,8 @@ export default (jobs, count) => {
           minPayment: minPay,
           createdAt,
           earnings,
-          runs: runs.map(r =>
-            Object.assign(
-              {},
-              { createdAt: isoDate(Date.now()) },
-              { result: {} },
-              { jobId: id },
-              r,
-            ),
-          ),
+          runs,
+          errors,
         },
       }
     }),

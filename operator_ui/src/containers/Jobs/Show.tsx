@@ -8,7 +8,7 @@ import {
 } from '@material-ui/core'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
-import { fetchJob, fetchJobRuns } from 'actions'
+import { fetchJob, fetchJobRuns } from 'actionCreators'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
@@ -193,8 +193,7 @@ export const Show: React.FC<Props> = ({
   }, [fetchJob, fetchJobRuns, jobSpecId])
   return (
     <div>
-      {/* TODO: Regional nav should handle job = undefined */}
-      {job && <RegionalNav jobSpecId={jobSpecId} job={job} />}
+      <RegionalNav jobSpecId={jobSpecId} job={job} />
       <Content>
         <Details
           job={job}

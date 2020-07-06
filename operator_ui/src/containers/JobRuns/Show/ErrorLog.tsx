@@ -1,7 +1,7 @@
 import Grid from '@material-ui/core/Grid'
 import { Theme, withStyles, WithStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { fetchJobRun } from 'actions'
+import { fetchJobRun } from 'actionCreators'
 import Content from 'components/Content'
 import StatusCard from 'components/JobRuns/StatusCard'
 import { AppState } from 'src/reducers'

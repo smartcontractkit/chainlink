@@ -172,6 +172,18 @@ func (orm *ORM) FindJob(id *models.ID) (models.JobSpec, error) {
 	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
 }
 
+// FindJobWithErrors looks up a Job by its ID and preloads JobSpecErrors.
+func (orm *ORM) FindJobWithErrors(id *models.ID) (models.JobSpec, error) {
+	var job models.JobSpec
+	err := orm.
+		preloadJobs().
+		Preload("Errors", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped().Order("id asc")
+		}).
+		First(&job, "id = ?", id).Error
+	return job, err
+}
+
 // FindInitiator returns the single initiator defined by the passed ID.
 func (orm *ORM) FindInitiator(ID int64) (models.Initiator, error) {
 	orm.MustEnsureAdvisoryLock()
@@ -324,6 +336,42 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 		return nil, errors.Wrap(err, "error obtaining link earned from job_runs")
 	}
 	return earned, nil
+}
+
+// UpsertErrorFor upserts a JobSpecError record, incrementing the occurrences counter by 1
+// if the record is found
+func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
+	jse := models.NewJobSpecError(jobID, description)
+	err := orm.db.
+		Set(
+			"gorm:insert_option",
+			`ON CONFLICT (job_spec_id, description)
+			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1`,
+		).
+		Create(&jse).
+		Error
+
+	logger.ErrorIf(err, fmt.Sprintf("Unable to create JobSpecError: %v", err))
+}
+
+// FindJobSpecError looks for a JobSpecError record with the given jobID and description
+func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.JobSpecError, error) {
+	jobSpecErr := &models.JobSpecError{}
+	err := orm.db.
+		Where("job_spec_id = ? AND description = ?", jobID, description).
+		First(&jobSpecErr).Error
+	return jobSpecErr, err
+}
+
+// DeleteJobSpecError removes a JobSpecError
+func (orm *ORM) DeleteJobSpecError(ID int64) error {
+	result := orm.db.Exec("DELETE FROM job_spec_errors WHERE id = ?", ID)
+	if result.Error != nil {
+		return result.Error
+	} else if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // CreateExternalInitiator inserts a new external initiator
