@@ -574,7 +574,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	var attempt1_2 models.EthTxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(20000000000)
+		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
 		ethTx := gethTypes.Transaction{}
@@ -626,7 +626,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	var attempt1_3 models.EthTxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(30000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
 
 		ethTx := gethTypes.Transaction{}
@@ -667,7 +667,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	require.NoError(t, store.GetRawDB().Save(&attempt1_3).Error)
 
 	t.Run("does not save new attempt for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(30000000000)
+		expectedBumpedGasPrice := big.NewInt(36000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
 
 		ethTx := gethTypes.Transaction{}
@@ -719,7 +719,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	var attempt2_2 models.EthTxAttempt
 
 	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(20000000000)
+		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.GasPrice.ToInt().Int64())
 
 		ethTx := gethTypes.Transaction{}
@@ -790,7 +790,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	require.NoError(t, store.GetRawDB().Save(&attempt2_2).Error)
 
 	t.Run("handles case where nonce is too low but receipt is nil indicating that an external wallet used the nonce (until finalized)", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(30000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.GasPrice.ToInt().Int64())
 
 		ethTx := gethTypes.Transaction{}
