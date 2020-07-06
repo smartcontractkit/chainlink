@@ -9,7 +9,7 @@ import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import React, { useState, useEffect } from 'react'
-import { RouteComponentProps } from 'react-router'
+import { RouteComponentProps } from 'react-router-dom'
 
 const renderFetching = () => (
   <TableRow>

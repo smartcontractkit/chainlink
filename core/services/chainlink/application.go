@@ -224,9 +224,6 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 	app.Scheduler.AddJob(job)
 
-	// XXX: Add mechanism to asynchronously communicate when a job spec has
-	// an ethereum interaction error.
-	// https://www.pivotaltracker.com/story/show/170349568
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
 	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
 	return nil

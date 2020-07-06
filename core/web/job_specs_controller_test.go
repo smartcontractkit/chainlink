@@ -487,6 +487,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
 	require.Len(t, j.Initiators, 1)
 	require.Len(t, respJob.Initiators, 1)
+	require.Len(t, respJob.Errors, 1)
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
 }
 
@@ -554,6 +555,8 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
+	app.Store.UpsertErrorFor(j.ID, "job spec error description")
+
 	jr1 := cltest.NewJobRun(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))
 	jr2 := cltest.NewJobRun(j)
@@ -596,7 +599,7 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 	defer cleanup()
 
-	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
+	resp, err := http.Get(app.Server.URL + "/v2/specs/garbage")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
 }
