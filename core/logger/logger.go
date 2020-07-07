@@ -10,13 +10,17 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"sync"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-var logger *Logger
+var (
+	logger *Logger
+	mtx    sync.RWMutex
+)
 
 func init() {
 	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
@@ -36,6 +40,8 @@ func init() {
 }
 
 func GetLogger() *Logger {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	return logger
 }
 
@@ -59,6 +65,8 @@ func (l *Logger) Write(b []byte) (int, error) {
 
 // SetLogger sets the internal logger to the given input.
 func SetLogger(zl *zap.Logger) {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if logger != nil {
 		defer func() {
 			if err := logger.Sync(); err != nil {
@@ -98,68 +106,94 @@ func CreateProductionLogger(
 
 // Infow logs an info message and any additional given information.
 func Infow(msg string, keysAndValues ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Infow(msg, keysAndValues...)
 }
 
 // Debugw logs a debug message and any additional given information.
 func Debugw(msg string, keysAndValues ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Debugw(msg, keysAndValues...)
 }
 
 // Warnw logs a debug message and any additional given information.
 func Warnw(msg string, keysAndValues ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Warnw(msg, keysAndValues...)
 }
 
 // Errorw logs an error message, any additional given information, and includes
 // stack trace.
 func Errorw(msg string, keysAndValues ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Errorw(msg, keysAndValues...)
 }
 
 // Infof formats and then logs the message.
 func Infof(format string, values ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Info(fmt.Sprintf(format, values...))
 }
 
 // Debugf formats and then logs the message.
 func Debugf(format string, values ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Debug(fmt.Sprintf(format, values...))
 }
 
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Warn(fmt.Sprintf(format, values...))
 }
 
 // Panicf formats and then logs the message before panicking.
 func Panicf(format string, values ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Panic(fmt.Sprintf(format, values...))
 }
 
 // Info logs an info message.
 func Info(args ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Info(args...)
 }
 
 // Debug logs a debug message.
 func Debug(args ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Debug(args...)
 }
 
 // Warn logs a message at the warn level.
 func Warn(args ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Warn(args...)
 }
 
 // Error logs an error message.
 func Error(args ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Error(args...)
 }
 
 // WarnIf logs the error if present.
 func WarnIf(err error) {
 	if err != nil {
+		mtx.RLock()
+		defer mtx.RUnlock()
 		logger.Warn(err)
 	}
 }
@@ -167,6 +201,8 @@ func WarnIf(err error) {
 // ErrorIf logs the error if present.
 func ErrorIf(err error, optionalMsg ...string) {
 	if err != nil {
+		mtx.RLock()
+		defer mtx.RUnlock()
 		if len(optionalMsg) > 0 {
 			logger.Error(errors.Wrap(err, optionalMsg[0]))
 		} else {
@@ -179,6 +215,8 @@ func ErrorIf(err error, optionalMsg ...string) {
 func ErrorIfCalling(f func() error, optionalMsg ...string) {
 	err := f()
 	if err != nil {
+		mtx.RLock()
+		defer mtx.RUnlock()
 		e := errors.Wrap(err, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 		if len(optionalMsg) > 0 {
 			logger.Error(errors.Wrap(e, optionalMsg[0]))
@@ -191,12 +229,16 @@ func ErrorIfCalling(f func() error, optionalMsg ...string) {
 // PanicIf logs the error if present.
 func PanicIf(err error) {
 	if err != nil {
+		mtx.RLock()
+		defer mtx.RUnlock()
 		logger.Panic(err)
 	}
 }
 
 // Fatal logs a fatal message then exits the application.
 func Fatal(args ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Fatal(args...)
 }
 
@@ -212,10 +254,14 @@ func Fatalf(format string, values ...interface{}) {
 
 // Panic logs a panic message then panics.
 func Panic(args ...interface{}) {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	logger.Panic(args...)
 }
 
 // Sync flushes any buffered log entries.
 func Sync() error {
+	mtx.RLock()
+	defer mtx.RUnlock()
 	return logger.Sync()
 }

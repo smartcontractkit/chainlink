@@ -71,6 +71,8 @@ const (
 	SessionSecret = "clsession_test_secret"
 	// DefaultKey is the address of the fixture key
 	DefaultKey = "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	// AllowUnstarted enable an application that can be used in tests without being started
+	AllowUnstarted = "allow_unstarted"
 )
 
 var storeCounter uint64
@@ -204,6 +206,7 @@ type TestApplication struct {
 	Started          bool
 	EthMock          *EthMock
 	Backend          *backends.SimulatedBackend
+	allowUnstarted   bool
 }
 
 func newWSServer() (*httptest.Server, func()) {
@@ -293,6 +296,12 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
 
+	for _, flag := range flags {
+		if flag == AllowUnstarted {
+			ta.allowUnstarted = true
+		}
+	}
+
 	ta.Config = tc
 	ta.Server = server
 	ta.wsServer = tc.wsServer
@@ -365,6 +374,9 @@ func (ta *TestApplication) Stop() error {
 	ta.t.Helper()
 
 	if !ta.Started {
+		if ta.allowUnstarted {
+			return nil
+		}
 		ta.t.Fatal("TestApplication Stop() called on an unstarted application")
 	}
 

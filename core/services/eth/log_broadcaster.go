@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/tevino/abool"
 )
 
 //go:generate mockery --name LogBroadcaster --output ../../internal/mocks/ --case=underscore
@@ -48,8 +49,8 @@ type logBroadcaster struct {
 	ethClient     Client
 	orm           orm
 	backfillDepth uint64
-	connected     bool
-	started       bool
+	connected     *abool.AtomicBool
+	started       *abool.AtomicBool
 
 	listeners        map[common.Address]map[LogListener]struct{}
 	chAddListener    chan registration
@@ -66,6 +67,8 @@ func NewLogBroadcaster(ethClient Client, orm orm, backfillDepth uint64) LogBroad
 		ethClient:        ethClient,
 		orm:              orm,
 		backfillDepth:    backfillDepth,
+		connected:        abool.New(),
+		started:          abool.New(),
 		listeners:        make(map[common.Address]map[LogListener]struct{}),
 		chAddListener:    make(chan registration),
 		chRemoveListener: make(chan registration),
@@ -141,7 +144,7 @@ func (sub managedSubscription) Unsubscribe() {
 
 func (b *logBroadcaster) Start() error {
 	go b.awaitInitialSubscribers()
-	b.started = true
+	b.started.Set()
 	return nil
 }
 
@@ -172,9 +175,9 @@ func (b *logBroadcaster) addresses() []common.Address {
 
 func (b *logBroadcaster) Stop() {
 	close(b.chStop)
-	if b.started {
+	if b.started.IsSet() {
 		<-b.chDone
-		b.started = false
+		b.started.UnSet()
 
 	}
 }
@@ -184,7 +187,7 @@ func (b *logBroadcaster) Register(address common.Address, listener LogListener) 
 	case b.chAddListener <- registration{address, listener}:
 	case <-b.chStop:
 	}
-	return b.connected
+	return b.connected.IsSet()
 }
 
 func (b *logBroadcaster) Unregister(address common.Address, listener LogListener) {
@@ -292,7 +295,7 @@ func (b *logBroadcaster) deliverBackfilledLogs(logs []models.Log, chBackfilledLo
 }
 
 func (b *logBroadcaster) notifyConnect() {
-	b.connected = true
+	b.connected.Set()
 	for _, listeners := range b.listeners {
 		for listener := range listeners {
 			listener.OnConnect()
@@ -301,7 +304,7 @@ func (b *logBroadcaster) notifyConnect() {
 }
 
 func (b *logBroadcaster) notifyDisconnect() {
-	b.connected = false
+	b.connected.UnSet()
 	for _, listeners := range b.listeners {
 		for listener := range listeners {
 			listener.OnDisconnect()

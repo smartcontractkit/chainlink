@@ -72,8 +72,8 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
-	var events []*models.SyncEvent
-	err = store.AllSyncEvents(func(event *models.SyncEvent) error {
+	var events []models.SyncEvent
+	err = store.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -112,8 +112,8 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
-	var events []*models.SyncEvent
-	err = store.AllSyncEvents(func(event *models.SyncEvent) error {
+	var events []models.SyncEvent
+	err = store.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})

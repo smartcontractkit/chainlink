@@ -1084,22 +1084,17 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		dev              bool
 		gasPrice         *utils.Big
 		gasLimit         uint64
 		expectedGasPrice *utils.Big
 		expectedGasLimit uint64
 	}{
-		{"dev", true, customGasPrice, customGasLimit, customGasPrice, customGasLimit},
-		{"dev but not set", true, nil, 0, defaultGasPrice, config.EthGasLimitDefault()},
-		{"not dev", false, customGasPrice, customGasLimit, defaultGasPrice, config.EthGasLimitDefault()},
-		{"not dev not set", false, nil, 0, defaultGasPrice, config.EthGasLimitDefault()},
+		{"not dev", customGasPrice, customGasLimit, defaultGasPrice, config.EthGasLimitDefault()},
+		{"not dev not set", nil, 0, defaultGasPrice, config.EthGasLimitDefault()},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			config.Set("CHAINLINK_DEV", test.dev)
-
 			ethMock.Context("manager.CreateTx", func(ethMock *cltest.EthMock) {
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 			})

@@ -26,6 +26,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"github.com/tevino/abool"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 	null "gopkg.in/guregu/null.v3"
@@ -207,24 +208,25 @@ type Sleeper interface {
 // BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
 	backoff.Backoff
-	beenRun bool
+	beenRun *abool.AtomicBool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
 // sleep for 0 seconds initially, then backs off from 1 second minimum
 // to 10 seconds maximum.
 func NewBackoffSleeper() *BackoffSleeper {
-	return &BackoffSleeper{Backoff: backoff.Backoff{
-		Min: 1 * time.Second,
-		Max: 10 * time.Second,
-	}}
+	return &BackoffSleeper{
+		Backoff: backoff.Backoff{
+			Min: 1 * time.Second,
+			Max: 10 * time.Second,
+		},
+		beenRun: abool.New(),
+	}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
 func (bs *BackoffSleeper) Sleep() {
-	if !bs.beenRun {
-		time.Sleep(0)
-		bs.beenRun = true
+	if bs.beenRun.SetToIf(false, true) {
 		return
 	}
 	time.Sleep(bs.Backoff.Duration())
@@ -232,8 +234,7 @@ func (bs *BackoffSleeper) Sleep() {
 
 // After returns the duration for the next stop, and increments the backoff.
 func (bs *BackoffSleeper) After() time.Duration {
-	if !bs.beenRun {
-		bs.beenRun = true
+	if bs.beenRun.SetToIf(false, true) {
 		return 0
 	}
 	return bs.Backoff.Duration()
@@ -241,7 +242,7 @@ func (bs *BackoffSleeper) After() time.Duration {
 
 // Duration returns the current duration value.
 func (bs *BackoffSleeper) Duration() time.Duration {
-	if !bs.beenRun {
+	if !bs.beenRun.IsSet() {
 		return 0
 	}
 	return bs.ForAttempt(bs.Attempt())
@@ -249,7 +250,7 @@ func (bs *BackoffSleeper) Duration() time.Duration {
 
 // Reset resets the backoff intervals.
 func (bs *BackoffSleeper) Reset() {
-	bs.beenRun = false
+	bs.beenRun.UnSet()
 	bs.Backoff.Reset()
 }
 
