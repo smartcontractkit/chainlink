@@ -75,18 +75,15 @@ contract ValidatingAggregator is FluxAggregator {
     AnswerValidatorInterface av = answerValidator; // cache storage reads
     if (address(av) == address(0)) return;
 
-    uint32 prevAnswerRoundId = rounds[_roundId - 1].answeredInRound;
-    int256 prevRoundAnswer = rounds[_roundId - 1].answer;
-   try av.validate.gas(VALIDATOR_GAS_LIMIT)(
+    uint32 prevRound = _roundId.sub(1);
+    uint32 prevAnswerRoundId = rounds[prevRound].answeredInRound;
+    int256 prevRoundAnswer = rounds[prevRound].answer;
+    try av.validate.gas(VALIDATOR_GAS_LIMIT)(
       prevAnswerRoundId,
       prevRoundAnswer,
       _roundId,
       _newAnswer
-    ) returns (bool _) {
-      return;
-    } catch {
-      return;
-    }
+    ) returns (bool _) { } catch { }
   }
 
 }
