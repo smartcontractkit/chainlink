@@ -289,6 +289,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
   function setAggregator(address _aggregator)
     internal
+    virtual
   {
     aggregator = AggregatorV3Interface(_aggregator);
   }
