@@ -47,6 +47,7 @@ describe('HistoricDeviationValidator', () => {
       'THRESHOLD_MULTIPLIER',
       'flaggingThreshold',
       'flags',
+      'setFlaggingThreshold',
       'validate',
       // Owned methods:
       'acceptOwnership',
@@ -152,6 +153,51 @@ describe('HistoricDeviationValidator', () => {
           )
         const receipt = await tx.wait()
         assert.equal(0, receipt.events?.length)
+      })
+    })
+  })
+
+  describe('#setFlaggingThreshold', () => {
+    const newThreshold = 777
+
+    it('changes the flagging thresold', async () => {
+      assert.equal(flaggingThreshold, await validator.flaggingThreshold())
+
+      await validator.connect(personas.Carol).setFlaggingThreshold(newThreshold)
+
+      assert.equal(newThreshold, await validator.flaggingThreshold())
+    })
+
+    it('emits a log event only when actually changed', async () => {
+      const tx = await validator
+        .connect(personas.Carol)
+        .setFlaggingThreshold(newThreshold)
+      const receipt = await tx.wait()
+      const eventLog = matchers.eventExists(
+        receipt,
+        validator.interface.events.FlaggingThresholdUpdated,
+      )
+
+      assert.equal(flaggingThreshold, h.eventArgs(eventLog).previous)
+      assert.equal(newThreshold, h.eventArgs(eventLog).current)
+
+      const sameChangeTx = await validator
+        .connect(personas.Carol)
+        .setFlaggingThreshold(newThreshold)
+      const sameChangeReceipt = await sameChangeTx.wait()
+      assert.equal(0, sameChangeReceipt.events?.length)
+      matchers.eventDoesNotExist(
+        sameChangeReceipt,
+        validator.interface.events.FlaggingThresholdUpdated,
+      )
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          validator.connect(personas.Neil).setFlaggingThreshold(newThreshold),
+          'Only callable by owner',
+        )
       })
     })
   })
