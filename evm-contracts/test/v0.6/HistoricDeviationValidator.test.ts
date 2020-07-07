@@ -34,8 +34,7 @@ describe('HistoricDeviationValidator', () => {
     flags = await flagsFactory.connect(personas.Carol).deploy(ac.address)
     validator = await validatorFactory
       .connect(personas.Carol)
-      .deploy(flags.address, ac.address, flaggingThreshold)
-    await ac.connect(personas.Carol).addAccess(personas.Nelly.address)
+      .deploy(flags.address, flaggingThreshold)
     await ac.connect(personas.Carol).addAccess(validator.address)
   })
 
@@ -46,7 +45,6 @@ describe('HistoricDeviationValidator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(validatorFactory, [
       'THRESHOLD_MULTIPLIER',
-      'accessController',
       'flaggingThreshold',
       'flags',
       'validate',
@@ -60,7 +58,6 @@ describe('HistoricDeviationValidator', () => {
   describe('#constructor', () => {
     it('sets the arguments passed in', async () => {
       assert.equal(flags.address, await validator.flags())
-      assert.equal(ac.address, await validator.accessController())
       matchers.bigNum(flaggingThreshold, await validator.flaggingThreshold())
     })
   })
@@ -103,7 +100,7 @@ describe('HistoricDeviationValidator', () => {
         const receipt = await tx.wait()
         assert(receipt)
         if (receipt && receipt.gasUsed) {
-          assert.isAbove(100000, receipt.gasUsed.toNumber())
+          assert.isAbove(60000, receipt.gasUsed.toNumber())
         }
       })
     })
@@ -136,7 +133,7 @@ describe('HistoricDeviationValidator', () => {
         const receipt = await tx.wait()
         assert(receipt)
         if (receipt && receipt.gasUsed) {
-          assert.isAbove(27500, receipt.gasUsed.toNumber())
+          assert.isAbove(23500, receipt.gasUsed.toNumber())
         }
       })
     })
@@ -155,15 +152,6 @@ describe('HistoricDeviationValidator', () => {
           )
         const receipt = await tx.wait()
         assert.equal(0, receipt.events?.length)
-      })
-    })
-
-    describe('when called by an unpermissioned address', () => {
-      it('reverts', async () => {
-        await matchers.evmRevert(
-          validator.connect(personas.Neil).validate(0, 0, 0, 0),
-          'Access denied',
-        )
       })
     })
   })

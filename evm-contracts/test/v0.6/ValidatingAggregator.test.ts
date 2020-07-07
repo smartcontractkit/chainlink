@@ -903,10 +903,8 @@ describe('ValidatingAggregator', () => {
       flags = await flagsFactory.connect(personas.Carol).deploy(ac.address)
       validator = await validatorFactory
         .connect(personas.Carol)
-        .deploy(flags.address, ac.address, flaggingThreshold)
-      await ac.connect(personas.Carol).addAccess(personas.Nelly.address)
+        .deploy(flags.address, flaggingThreshold)
       await ac.connect(personas.Carol).addAccess(validator.address)
-      await ac.connect(personas.Carol).addAccess(aggregator.address)
 
       await aggregator
         .connect(personas.Carol)
