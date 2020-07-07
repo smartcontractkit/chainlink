@@ -9,12 +9,18 @@ import { ethers } from 'ethers'
 import { ValidatingAggregatorFactory } from '../../ethers/v0.6/ValidatingAggregatorFactory'
 import { AnswerValidatorTestHelperFactory } from '../../ethers/v0.6/AnswerValidatorTestHelperFactory'
 import { GasGuzzlerFactory } from '../../ethers/v0.6/GasGuzzlerFactory'
+import { HistoricDeviationValidatorFactory } from '../../ethers/v0.6/HistoricDeviationValidatorFactory'
+import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
+import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const fluxAggregatorFactory = new ValidatingAggregatorFactory()
 const answerValidatorFactory = new AnswerValidatorTestHelperFactory()
+const validatorFactory = new HistoricDeviationValidatorFactory()
+const flagsFactory = new FlagsFactory()
+const acFactory = new SimpleWriteAccessControllerFactory()
 const gasGuzzlerFactory = new GasGuzzlerFactory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 
@@ -883,6 +889,53 @@ describe('ValidatingAggregator', () => {
           'Only callable by owner',
         )
       })
+    })
+  })
+
+  describe('integrating with historic deviation checker', () => {
+    let validator: contract.Instance<HistoricDeviationValidatorFactory>
+    let flags: contract.Instance<FlagsFactory>
+    let ac: contract.Instance<SimpleWriteAccessControllerFactory>
+    const flaggingThreshold = 1000 // 1%
+
+    beforeEach(async () => {
+      ac = await acFactory.connect(personas.Carol).deploy()
+      flags = await flagsFactory.connect(personas.Carol).deploy(ac.address)
+      validator = await validatorFactory
+        .connect(personas.Carol)
+        .deploy(flags.address, ac.address, flaggingThreshold)
+      await ac.connect(personas.Carol).addAccess(personas.Nelly.address)
+      await ac.connect(personas.Carol).addAccess(validator.address)
+      await ac.connect(personas.Carol).addAccess(aggregator.address)
+
+      await aggregator
+        .connect(personas.Carol)
+        .setAnswerValidator(validator.address)
+
+      oracles = [personas.Nelly]
+      const minMax = oracles.length
+      await addOracles(aggregator, oracles, minMax, minMax, rrDelay)
+    })
+
+    it('raises a flag on with high enough deviation', async () => {
+      await aggregator.connect(personas.Nelly).submit(nextRound, 100)
+      nextRound++
+
+      const tx = await aggregator.connect(personas.Nelly).submit(nextRound, 102)
+      const receipt = await tx.wait()
+      const event = matchers.eventExists(receipt, flags.interface.events.FlagOn)
+
+      assert.equal(flags.address, event.address)
+      assert.equal(aggregator.address, h.evmWordToAddress(event.topics[1]))
+    })
+
+    it('does not raise a flag with low enough deviation', async () => {
+      await aggregator.connect(personas.Nelly).submit(nextRound, 100)
+      nextRound++
+
+      const tx = await aggregator.connect(personas.Nelly).submit(nextRound, 101)
+      const receipt = await tx.wait()
+      matchers.eventDoesNotExist(receipt, flags.interface.events.FlagOn)
     })
   })
 })
