@@ -13,6 +13,11 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
   uint32 public flaggingThreshold;
   Flags public flags;
 
+  event FlaggingThresholdUpdated(
+    uint24 indexed previous,
+    uint24 indexed current
+  );
+
   constructor(
     address newFlags,
     uint24 newFT
@@ -20,7 +25,7 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
     public
   {
     flags = Flags(newFlags);
-    flaggingThreshold = newFT;
+    setFlaggingThreshold(newFT);
   }
 
   function validate(
@@ -41,6 +46,19 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
     }
 
     return true;
+  }
+
+  function setFlaggingThreshold(uint24 newFT)
+    public
+    onlyOwner()
+  {
+    uint24 previousFT = uint24(flaggingThreshold);
+
+    if (previousFT != newFT) {
+      flaggingThreshold = newFT;
+
+      emit FlaggingThresholdUpdated(previousFT, newFT);
+    }
   }
 
 
