@@ -33,6 +33,7 @@ const (
 
 type GethClientWrapper interface {
 	GethClient(func(gethClient eth.GethClient) error) error
+	RPCClient(func(rpcClient eth.RPCClient) error) error
 }
 
 // NotifyNewEthTx allows to notify the ethBroadcaster of a new transaction
@@ -115,6 +116,20 @@ func (wrapper *lazyRPCWrapper) GethClient(callback func(gethClient eth.GethClien
 	client := gethClient.NewClient(wrapper.client)
 
 	return callback(client)
+}
+
+// RPCClient allows callers to access go-ethereum's rpcclient through the
+// wrapper's rate limiting
+func (wrapper *lazyRPCWrapper) RPCClient(callback func(rpcClient eth.RPCClient) error) error {
+	err := wrapper.lazyDialInitializer()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	logger.ErrorIf(wrapper.limiter.Wait(ctx))
+
+	return callback(wrapper.client)
 }
 
 func (wrapper *lazyRPCWrapper) Call(result interface{}, method string, args ...interface{}) error {
