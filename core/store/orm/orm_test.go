@@ -824,12 +824,12 @@ func TestORM_MarkRan(t *testing.T) {
 
 	require.NoError(t, store.CreateInitiator(&initr))
 
-	assert.NoError(t, store.MarkRan(&initr, true))
+	assert.NoError(t, store.MarkRan(initr, true))
 	ir, err := store.FindInitiator(initr.ID)
 	assert.NoError(t, err)
 	assert.True(t, ir.Ran)
 
-	assert.Error(t, store.MarkRan(&initr, true))
+	assert.Error(t, store.MarkRan(initr, true))
 }
 
 func TestORM_FindUser(t *testing.T) {
@@ -1012,8 +1012,8 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	events := []models.SyncEvent{}
-	err = orm.AllSyncEvents(func(event *models.SyncEvent) error {
-		events = append(events, *event)
+	err = orm.AllSyncEvents(func(event models.SyncEvent) error {
+		events = append(events, event)
 		return nil
 	})
 	require.NoError(t, err)
@@ -1245,14 +1245,14 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 	require.NoError(t, err)
 	earlier := models.Key{Address: earlierAddress, JSON: testJSON}
 
-	require.NoError(t, orm.UpsertKey(earlier))
+	require.NoError(t, orm.CreateKeyIfNotExists(earlier))
 	time.Sleep(10 * time.Millisecond)
 
 	laterAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
 	require.NoError(t, err)
 	later := models.Key{Address: laterAddress, JSON: testJSON}
 
-	require.NoError(t, orm.UpsertKey(later))
+	require.NoError(t, orm.CreateKeyIfNotExists(later))
 
 	keys, err := store.Keys()
 	require.NoError(t, err)
@@ -1279,7 +1279,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 
 	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	require.NoError(t, err)
-	require.NoError(t, orm.UpsertKey(seed))
+	require.NoError(t, orm.CreateKeyIfNotExists(seed))
 
 	require.True(t, isDirEmpty(t, keysDir))
 	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)

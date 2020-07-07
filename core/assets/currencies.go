@@ -14,27 +14,14 @@ import (
 
 var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
 
-// Memo for {1, 10, 100, 1000, ...}. See getDenominator
-var denominators = []*big.Int{big.NewInt(1)}
-
 // getDenominator returns 10**precision.
 func getDenominator(precision int) *big.Int {
-	d := denominators[len(denominators)-1]
+	d := big.NewInt(1)
 	base := big.NewInt(10)
-	// Extend denominators until it contains 10**precision, if necessary
-	remainingPowers := precision - len(denominators) + 1
-	for i := 0; i < remainingPowers; i++ {
-		d = big.NewInt(1).Mul(d, base)
-		denominators = append(denominators, d)
+	for i := 0; i < precision; i++ {
+		d.Mul(d, base)
 	}
-	if len(denominators) < precision+1 {
-		panic(errors.Errorf(
-			"failed to extend denominators far enough to capture precision: "+
-				"%s has length %d, but we need length %d", denominators,
-			len(denominators), precision))
-	}
-	// Return a copy of the answer, so the memo can't be messed up
-	return big.NewInt(0).Set(denominators[precision])
+	return d
 }
 
 func format(i *big.Int, precision int) string {

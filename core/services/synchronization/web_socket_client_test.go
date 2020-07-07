@@ -150,7 +150,10 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 
 	wsserver.WriteCloseMessage()
 	wsserver.Close()
-	time.Sleep(100 * time.Millisecond)
+
+	// Must be longer than synchronization.closeTimeout
+	time.Sleep(1100 * time.Millisecond)
+
 	assert.Equal(t, synchronization.ConnectionStatusError, wsclient.Status())
 
 }

@@ -24,6 +24,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -556,7 +557,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				logBroadcast.On("MarkConsumed").Return(nil).Once()
 				deviationChecker.HandleLog(logBroadcast, nil)
 
-				<-chBlock
+				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
+
 				// idleDuration 2
 				roundState3 := contracts.FluxAggregatorRoundState{ReportableRoundID: 3, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
 				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
@@ -593,6 +595,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	initr.PollTimer.Disabled = true
 	initr.IdleTimer.Disabled = true
 
+	ch := make(chan struct{})
+
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
@@ -602,7 +606,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 		LatestAnswer:      answerBigInt,
 		StartedAt:         0,
 		Timeout:           0,
-	}, nil).Once()
+	}, nil).
+		Run(func(mock.Arguments) { close(ch) }).
+		Once()
 
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
@@ -615,10 +621,12 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	)
 	require.NoError(t, err)
 
+	deviationChecker.ExportedRoundState()
 	deviationChecker.Start()
 	deviationChecker.OnConnect()
 
-	deviationChecker.ExportedPollIfEligible(0, 0)
+	gomega.NewGomegaWithT(t).Eventually(ch).Should(gomega.BeClosed())
+
 	deviationChecker.Stop()
 
 	fetcher.AssertExpectations(t)
@@ -645,6 +653,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
+	chRoundState1 := make(chan struct{})
+	chRoundState2 := make(chan struct{})
+
 	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
 
 	startedAt := uint64(time.Now().Unix())
@@ -655,14 +666,18 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		LatestAnswer:      answerBigInt,
 		StartedAt:         startedAt,
 		Timeout:           timeout,
-	}, nil).Once()
+	}, nil).Once().
+		Run(func(mock.Arguments) { close(chRoundState1) }).
+		Once()
 	fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
 		ReportableRoundID: 1,
 		EligibleToSubmit:  false,
 		LatestAnswer:      answerBigInt,
 		StartedAt:         startedAt,
 		Timeout:           timeout,
-	}, nil).Once()
+	}, nil).Once().
+		Run(func(mock.Arguments) { close(chRoundState2) }).
+		Once()
 
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
@@ -675,10 +690,12 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	)
 	require.NoError(t, err)
 
+	deviationChecker.ExportedRoundState()
 	deviationChecker.Start()
 	deviationChecker.OnConnect()
 
-	deviationChecker.ExportedPollIfEligible(0, 0)
+	gomega.NewGomegaWithT(t).Eventually(chRoundState1).Should(gomega.BeClosed())
+	gomega.NewGomegaWithT(t).Eventually(chRoundState2).Should(gomega.BeClosed())
 
 	time.Sleep(time.Duration(2*timeout) * time.Second)
 	deviationChecker.Stop()
