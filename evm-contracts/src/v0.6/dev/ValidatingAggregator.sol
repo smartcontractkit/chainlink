@@ -15,7 +15,7 @@ contract ValidatingAggregator is FluxAggregator {
 
   uint256 private constant VALIDATOR_GAS_LIMIT = 100000;
 
-  event AnswerValidatorSet(
+  event AnswerValidatorUpdated(
     address indexed previous,
     address indexed current
   );
@@ -45,7 +45,7 @@ contract ValidatingAggregator is FluxAggregator {
     if (previous != _newValidator) {
       answerValidator = AnswerValidatorInterface(_newValidator);
 
-      emit AnswerValidatorSet(previous, _newValidator);
+      emit AnswerValidatorUpdated(previous, _newValidator);
     }
   }
 
