@@ -868,16 +868,23 @@ describe('ValidatingAggregator', () => {
         .connect(personas.Carol)
         .setAnswerValidator(validator.address)
       const receipt = await tx.wait()
-      const eventLog = h.eventArgs(receipt.events?.[0])
+      const eventLog = matchers.eventExists(
+        receipt,
+        aggregator.interface.events.AnswerValidatorUpdated,
+      )
 
-      assert.equal(emptyAddress, eventLog.previous)
-      assert.equal(validator.address, eventLog.current)
+      assert.equal(emptyAddress, h.eventArgs(eventLog).previous)
+      assert.equal(validator.address, h.eventArgs(eventLog).current)
 
       const sameChangeTx = await aggregator
         .connect(personas.Carol)
         .setAnswerValidator(validator.address)
       const sameChangeReceipt = await sameChangeTx.wait()
       assert.equal(0, sameChangeReceipt.events?.length)
+      matchers.eventDoesNotExist(
+        sameChangeReceipt,
+        aggregator.interface.events.AnswerValidatorUpdated,
+      )
     })
 
     describe('when called by a non-owner', () => {
