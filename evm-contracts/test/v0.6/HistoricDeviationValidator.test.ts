@@ -47,6 +47,7 @@ describe('HistoricDeviationValidator', () => {
       'THRESHOLD_MULTIPLIER',
       'flaggingThreshold',
       'flags',
+      'setFlagsAddress',
       'setFlaggingThreshold',
       'validate',
       // Owned methods:
@@ -196,6 +197,51 @@ describe('HistoricDeviationValidator', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
           validator.connect(personas.Neil).setFlaggingThreshold(newThreshold),
+          'Only callable by owner',
+        )
+      })
+    })
+  })
+
+  describe('#setFlagsAddress', () => {
+    const newFlagsAddress = '0x0123456789012345678901234567890123456789'
+
+    it('changes the flags address', async () => {
+      assert.equal(flags.address, await validator.flags())
+
+      await validator.connect(personas.Carol).setFlagsAddress(newFlagsAddress)
+
+      assert.equal(newFlagsAddress, await validator.flags())
+    })
+
+    it('emits a log event only when actually changed', async () => {
+      const tx = await validator
+        .connect(personas.Carol)
+        .setFlagsAddress(newFlagsAddress)
+      const receipt = await tx.wait()
+      const eventLog = matchers.eventExists(
+        receipt,
+        validator.interface.events.FlagsAddressUpdated,
+      )
+
+      assert.equal(flags.address, h.eventArgs(eventLog).previous)
+      assert.equal(newFlagsAddress, h.eventArgs(eventLog).current)
+
+      const sameChangeTx = await validator
+        .connect(personas.Carol)
+        .setFlagsAddress(newFlagsAddress)
+      const sameChangeReceipt = await sameChangeTx.wait()
+      assert.equal(0, sameChangeReceipt.events?.length)
+      matchers.eventDoesNotExist(
+        sameChangeReceipt,
+        validator.interface.events.FlagsAddressUpdated,
+      )
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          validator.connect(personas.Neil).setFlagsAddress(newFlagsAddress),
           'Only callable by owner',
         )
       })
