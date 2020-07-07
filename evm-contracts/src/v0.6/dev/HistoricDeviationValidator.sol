@@ -11,18 +11,15 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
   uint32 constant public THRESHOLD_MULTIPLIER = 100000;
 
   uint32 public flaggingThreshold;
-  AccessControllerInterface public accessController;
   Flags public flags;
 
   constructor(
     address newFlags,
-    address newEAC,
     uint24 newFT
   )
     public
   {
     flags = Flags(newFlags);
-    accessController = AccessControllerInterface(newEAC);
     flaggingThreshold = newFT;
   }
 
@@ -36,7 +33,6 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
     override
     returns (bool)
   {
-    require(accessController.hasAccess(msg.sender, msg.data), "Access denied");
     if (previous == 0) return true;
 
     if (percentDiff(previous, current) > flaggingThreshold) {
