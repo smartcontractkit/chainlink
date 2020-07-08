@@ -12,9 +12,9 @@ import "../Owned.sol";
  */
 contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
+  uint16 public epoch;
   AggregatorV3Interface public aggregator;
   AggregatorV3Interface public proposedAggregator;
-  uint16 public epoch;
   mapping(uint16 => AggregatorV3Interface) public epochAggregators;
 
   uint256 constant private EPOCH_OFFSET = 32;
@@ -141,7 +141,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       updatedAt,
       answeredInRound
     ) = epochAggregators[reqEpoch].getRoundData(reqRound);
-    return (addEpoch(roundId), answer, startedAt, updatedAt, addEpoch(answeredInRound));
+
+    return (
+      addEpoch(reqEpoch, roundId),
+      answer,
+      startedAt,
+      updatedAt,
+      addEpoch(reqEpoch, answeredInRound)
+    );
   }
 
   /**
@@ -177,6 +184,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
+    uint16 currentEpoch = epoch; // cache storage reads
     (
       roundId,
       answer,
@@ -184,7 +192,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       updatedAt,
       answeredInRound
     ) = aggregator.latestRoundData();
-    return (addEpoch(roundId), answer, startedAt, updatedAt, addEpoch(answeredInRound));
+
+    return (
+      addEpoch(currentEpoch, roundId),
+      answer,
+      startedAt,
+      updatedAt,
+      addEpoch(currentEpoch, answeredInRound)
+    );
   }
 
   /**
@@ -322,13 +337,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   // PRIVATE
 
   function addEpoch(
-    uint256 originalId
+    uint256 _epoch,
+    uint256 _originalId
   )
     private
     view
     returns (uint256)
   {
-    return (epoch * EPOCH_BASE) + originalId;
+    return (_epoch * EPOCH_BASE) + _originalId;
   }
 
   function parseRequestId(
