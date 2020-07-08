@@ -4,9 +4,11 @@ import './AnswerValidatorInterface.sol';
 import '../interfaces/FlagsInterface.sol';
 import '../Owned.sol';
 import '../vendor/SafeMath.sol';
+import '../SignedSafeMath.sol';
 
 contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
   using SafeMath for uint256;
+  using SignedSafeMath for int256;
 
   uint32 constant public THRESHOLD_MULTIPLIER = 100000;
 
@@ -88,8 +90,8 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
     private
     returns (uint256)
   {
-    uint256 difference = absolute(current - previous);
-    return difference.mul(THRESHOLD_MULTIPLIER).div(absolute(previous));
+    uint256 difference = abs(current - previous);
+    return difference.mul(THRESHOLD_MULTIPLIER).div(abs(previous));
   }
 
   function arrayifyMsgSender()
@@ -101,16 +103,13 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
       return addresses;
   }
 
-  function absolute(
+  function abs(
     int256 value
   )
     private
     returns (uint256)
   {
-    if (value < 0) {
-      return uint256(value * -1);
-    }
-    return uint256(value);
+    return uint256(value < 0 ? value.mul(-1): value);
   }
 
 }
