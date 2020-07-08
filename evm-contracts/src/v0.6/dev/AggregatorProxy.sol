@@ -14,6 +14,12 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
   AggregatorV3Interface public aggregator;
   AggregatorV3Interface public proposedAggregator;
+  uint16 public epoch;
+  mapping(uint16 => AggregatorV3Interface) public epochAggregators;
+
+  uint256 constant private EPOCH_OFFSET = 32;
+  uint256 constant private EPOCH_BASE = 2 ** EPOCH_OFFSET;
+  uint256 constant private EPOCH_MASK = 0xFFFF << EPOCH_OFFSET;
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -100,7 +106,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
    * of them.
-   * @param _roundId the round ID to retrieve the round data for
+   * @param _requestId the round ID to retrieve the round data for
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
@@ -112,7 +118,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint256 _requestId)
     public
     view
     virtual
@@ -125,7 +131,17 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return aggregator.getRoundData(_roundId);
+    uint16 reqEpoch;
+    uint256 reqRound;
+    (reqEpoch, reqRound) = parseRequestId(_requestId);
+    (
+      roundId,
+      answer,
+      startedAt,
+      updatedAt,
+      answeredInRound
+    ) = epochAggregators[reqEpoch].getRoundData(reqRound);
+    return (addEpoch(roundId), answer, startedAt, updatedAt, addEpoch(answeredInRound));
   }
 
   /**
@@ -161,7 +177,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return aggregator.latestRoundData();
+    (
+      roundId,
+      answer,
+      startedAt,
+      updatedAt,
+      answeredInRound
+    ) = aggregator.latestRoundData();
+    return (addEpoch(roundId), answer, startedAt, updatedAt, addEpoch(answeredInRound));
   }
 
   /**
@@ -283,19 +306,52 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     setAggregator(_aggregator);
   }
 
+
   /*
    * Internal
    */
 
   function setAggregator(address _aggregator)
     internal
-    virtual
   {
+    epoch++;
+    epochAggregators[epoch] = AggregatorV3Interface(_aggregator);
     aggregator = AggregatorV3Interface(_aggregator);
   }
+
+  // PRIVATE
+
+  function addEpoch(
+    uint256 originalId
+  )
+    private
+    view
+    returns (uint256)
+  {
+    return (epoch * EPOCH_BASE) + originalId;
+  }
+
+  function parseRequestId(
+    uint256 requestId
+  )
+    private
+    view
+    returns (uint16, uint256)
+  {
+    uint256 offsetEpochId = EPOCH_MASK & requestId;
+    uint16 epochId = uint16(offsetEpochId >> EPOCH_OFFSET);
+
+    uint256 requestIdMask = (2**EPOCH_OFFSET) - 1;
+    uint256 roundId = requestId & requestIdMask;
+
+    return (epochId, roundId);
+  }
+
+  // MODIFIERS
 
   modifier hasProposal() {
     require(address(proposedAggregator) != address(0), "No proposed aggregator present");
     _;
   }
+
 }
