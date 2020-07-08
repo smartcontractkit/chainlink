@@ -1,7 +1,7 @@
-pragma solidity 0.6.6;
+pragma solidity ^0.6.0;
 
 import './AnswerValidatorInterface.sol';
-import '../Flags.sol';
+import '../interfaces/FlagsInterface.sol';
 import '../Owned.sol';
 import '../vendor/SafeMath.sol';
 
@@ -11,7 +11,7 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
   uint32 constant public THRESHOLD_MULTIPLIER = 100000;
 
   uint32 public flaggingThreshold;
-  Flags public flags;
+  FlagsInterface public flags;
 
   event FlaggingThresholdUpdated(
     uint24 indexed previous,
@@ -72,7 +72,7 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
     address previous = address(flags);
 
     if (previous != newFlags) {
-      flags = Flags(newFlags);
+      flags = FlagsInterface(newFlags);
 
       emit FlagsAddressUpdated(previous, newFlags);
     }
