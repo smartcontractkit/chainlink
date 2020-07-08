@@ -53,8 +53,9 @@ contract EACAggregatorProxy is AggregatorProxy {
   }
 
   /**
-   * @notice Reads the last updated height from aggregator delegated to.
-   * @dev overridden function to add the checkAccess() modifier
+   * @notice get the latest completed round where the answer was updated. This
+   * ID includes the proxy's epoch, to make sure round IDs increase even when
+   * switching to a newly deployed aggregator.
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestTimestamp()
@@ -124,7 +125,9 @@ contract EACAggregatorProxy is AggregatorProxy {
    * data from and validate that they can properly handle return data from all
    * of them.
    * @param _roundId the round ID to retrieve the round data for
-   * @return roundId is the round ID for which data was retrieved
+   * @return roundId is the round ID from the aggregator for which the data was
+   * retrieved combined with an epoch to ensure that round IDs get larger as
+   * time moves forward.
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
    * (Only some AggregatorV3Interface implementations return meaningful values)
@@ -160,7 +163,9 @@ contract EACAggregatorProxy is AggregatorProxy {
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
    * of them.
-   * @return roundId is the round ID for which data was retrieved
+   * @return roundId is the round ID from the aggregator for which the data was
+   * retrieved combined with an epoch to ensure that round IDs get larger as
+   * time moves forward.
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
    * (Only some AggregatorV3Interface implementations return meaningful values)
