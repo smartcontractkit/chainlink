@@ -1,8 +1,9 @@
 pragma solidity 0.6.6;
 
+import "../Owned.sol";
 import "../interfaces/AggregatorInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../Owned.sol";
+import "../vendor/SafeMath.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -11,6 +12,7 @@ import "../Owned.sol";
  * trusted to update it.
  */
 contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
+  using SafeMath for uint256;
 
   uint16 public epoch;
   AggregatorV3Interface public aggregator;
@@ -344,7 +346,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     view
     returns (uint256)
   {
-    return (_epoch * EPOCH_BASE) + _originalId;
+    return _epoch.mul(EPOCH_BASE).add(_originalId);
   }
 
   function parseRequestId(
@@ -357,7 +359,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     uint256 offsetEpochId = EPOCH_MASK & requestId;
     uint16 epochId = uint16(offsetEpochId >> EPOCH_OFFSET);
 
-    uint256 requestIdMask = (2**EPOCH_OFFSET) - 1;
+    uint256 requestIdMask = (2**EPOCH_OFFSET).sub(1);
     uint256 roundId = requestId & requestIdMask;
 
     return (epochId, roundId);
