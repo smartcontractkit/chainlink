@@ -25,6 +25,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   uint256 constant private EPOCH_OFFSET = 32;
   uint256 constant private EPOCH_BASE = 2 ** EPOCH_OFFSET;
   uint256 constant private EPOCH_MASK = 0xFFFF << EPOCH_OFFSET;
+  uint256 constant private REQUEST_ID_MASK = EPOCH_BASE - 1;
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -140,24 +141,18 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    uint16 reqEpoch;
-    uint256 reqRound;
-    (reqEpoch, reqRound) = parseRequestId(_requestId);
+    uint16 requestEpoch;
+    uint256 requestRoundId;
+    (requestEpoch, requestRoundId) = parseRequestId(_requestId);
     (
       roundId,
       answer,
       startedAt,
       updatedAt,
       answeredInRound
-    ) = epochAggregators[reqEpoch].getRoundData(reqRound);
-
-    return (
-      addEpoch(reqEpoch, roundId),
-      answer,
-      startedAt,
-      updatedAt,
-      addEpoch(reqEpoch, answeredInRound)
-    );
+    ) = epochAggregators[requestEpoch].getRoundData(requestRoundId);
+    roundId = addEpoch(requestEpoch, roundId);
+    answeredInRound = addEpoch(requestEpoch, answeredInRound);
   }
 
   /**
@@ -203,14 +198,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       updatedAt,
       answeredInRound
     ) = current.aggregator.latestRoundData();
-
-    return (
-      addEpoch(current.id, roundId),
-      answer,
-      startedAt,
-      updatedAt,
-      addEpoch(current.id, answeredInRound)
-    );
+    roundId = addEpoch(current.id, roundId);
+    answeredInRound = addEpoch(current.id, answeredInRound);
   }
 
   /**
@@ -367,13 +356,11 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     currentEpoch.aggregator = AggregatorV3Interface(_aggregator);
   }
 
-  // PRIVATE
-
   function addEpoch(
     uint256 _epoch,
     uint256 _originalId
   )
-    private
+    internal
     view
     returns (uint256)
   {
@@ -383,20 +370,22 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function parseRequestId(
     uint256 requestId
   )
-    private
+    internal
     view
     returns (uint16, uint256)
   {
     uint256 offsetEpochId = EPOCH_MASK & requestId;
     uint16 epochId = uint16(offsetEpochId >> EPOCH_OFFSET);
 
-    uint256 requestIdMask = (2**EPOCH_OFFSET).sub(1);
-    uint256 roundId = requestId & requestIdMask;
+    uint256 roundId = requestId & REQUEST_ID_MASK;
 
     return (epochId, roundId);
   }
 
-  // MODIFIERS
+
+  /*
+   * Modifiers
+   */
 
   modifier hasProposal() {
     require(address(proposedAggregator) != address(0), "No proposed aggregator present");
