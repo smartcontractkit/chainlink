@@ -256,6 +256,28 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(proxyId, round.answeredInRound)
       })
     })
+
+    it('reads round ID of a previous epoch', async () => {
+      const oldEpoch = epochBase.mul(await proxy.epoch())
+      aggregator2 = await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(decimals, response2)
+
+      await proxy.proposeAggregator(aggregator2.address)
+      await proxy.confirmAggregator(aggregator2.address)
+
+      const aggId = await aggregator.latestRound()
+      const proxyId = oldEpoch.add(aggId)
+
+      const round = await proxy.getRoundData(proxyId)
+      matchers.bigNum(proxyId, round.roundId)
+      matchers.bigNum(response, round.answer)
+      const nowSeconds = new Date().valueOf() / 1000
+      assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
+      assert.isBelow(round.startedAt.toNumber(), nowSeconds)
+      matchers.bigNum(round.startedAt, round.updatedAt)
+      matchers.bigNum(proxyId, round.answeredInRound)
+    })
   })
 
   describe('#latestRoundData', () => {
