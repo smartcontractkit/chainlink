@@ -1,7 +1,7 @@
 pragma solidity 0.6.6;
 
 
-import './../AggregatorProxy.sol';
+import './AggregatorProxy.sol';
 
 
 contract RoundAwareAggregatorProxy is AggregatorProxy {
