@@ -10,6 +10,7 @@ import { listingSelectors, listingOperations } from '../../state/ducks/listing'
 import { HealthCheck } from 'state/ducks/listing/reducers'
 import Sponsors from './Sponsors'
 import { Details } from './Details'
+import { humanizeUnixTimestamp } from '../../utils'
 
 interface StateProps {
   healthCheck?: HealthCheck
@@ -53,7 +54,7 @@ export const GridItem: React.FC<Props> = ({
   const healthCheckStatus = normalizeStatus(feed, answer, healthCheck)
 
   const classes = classNames('listing-grid__item', {
-    [`listing-grid__item--health-${healthClasses(
+    [`listing-grid__item--health listing-grid__item--health-${healthClasses(
       healthCheckStatus,
     )}`]: enableDetails,
   })
@@ -83,6 +84,9 @@ export const GridItem: React.FC<Props> = ({
             <>
               {feed.valuePrefix} {answer}
             </>
+          )}
+          {enableDetails && answerTimestamp && (
+            <div> {humanizeUnixTimestamp(answerTimestamp, 'LLL')}</div>
           )}
         </div>
         <Sponsors sponsors={feed.sponsored} />

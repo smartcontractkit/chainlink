@@ -21894,6 +21894,9 @@ hr {
   display: block;
   padding: 15px 0;
 }
+.listing-grid__item--health {
+  height: 200px;
+}
 .listing-grid__item--health-unknown {
   border-top: solid 3px #dcda22;
 }
