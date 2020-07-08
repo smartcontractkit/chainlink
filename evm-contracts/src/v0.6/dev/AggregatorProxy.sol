@@ -14,8 +14,11 @@ import "../vendor/SafeMath.sol";
 contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   using SafeMath for uint256;
 
-  uint16 public epoch;
-  AggregatorV3Interface public aggregator;
+  struct Epoch {
+    uint16 id;
+    AggregatorV3Interface aggregator;
+  }
+  Epoch private currentEpoch;
   AggregatorV3Interface public proposedAggregator;
   mapping(uint16 => AggregatorV3Interface) public epochAggregators;
 
@@ -192,21 +195,21 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    uint16 currentEpoch = epoch; // cache storage reads
+    Epoch memory current = currentEpoch; // cache storage reads
     (
       roundId,
       answer,
       startedAt,
       updatedAt,
       answeredInRound
-    ) = aggregator.latestRoundData();
+    ) = current.aggregator.latestRoundData();
 
     return (
-      addEpoch(currentEpoch, roundId),
+      addEpoch(current.id, roundId),
       answer,
       startedAt,
       updatedAt,
-      addEpoch(currentEpoch, answeredInRound)
+      addEpoch(current.id, answeredInRound)
     );
   }
 
@@ -266,6 +269,28 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   }
 
   /**
+   * @notice returns the current epoch's aggregator address.
+   */
+  function aggregator()
+    external
+    view
+    returns (address)
+  {
+    return address(currentEpoch.aggregator);
+  }
+
+  /**
+   * @notice returns the current epoch's ID.
+   */
+  function epoch()
+    external
+    view
+    returns (uint16)
+  {
+    return currentEpoch.id;
+  }
+
+  /**
    * @notice represents the number of decimals the aggregator responses represent.
    */
   function decimals()
@@ -274,7 +299,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint8)
   {
-    return aggregator.decimals();
+    return currentEpoch.aggregator.decimals();
   }
 
   /**
@@ -287,7 +312,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256)
   {
-    return aggregator.version();
+    return currentEpoch.aggregator.version();
   }
 
   /**
@@ -299,7 +324,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (string memory)
   {
-    return aggregator.description();
+    return currentEpoch.aggregator.description();
   }
 
   /**
@@ -337,9 +362,9 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function setAggregator(address _aggregator)
     internal
   {
-    epoch++;
-    epochAggregators[epoch] = AggregatorV3Interface(_aggregator);
-    aggregator = AggregatorV3Interface(_aggregator);
+    currentEpoch.id++;
+    epochAggregators[currentEpoch.id] = AggregatorV3Interface(_aggregator);
+    currentEpoch.aggregator = AggregatorV3Interface(_aggregator);
   }
 
   // PRIVATE
