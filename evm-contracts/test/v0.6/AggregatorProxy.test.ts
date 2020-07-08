@@ -6,6 +6,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { BigNumber } from 'ethers/utils'
 import { MockV2AggregatorFactory } from '../../ethers/v0.6/MockV2AggregatorFactory'
 import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { AggregatorProxyFactory } from '../../ethers/v0.6/AggregatorProxyFactory'
@@ -33,6 +34,7 @@ describe('AggregatorProxy', () => {
   const response = h.numToBytes32(54321)
   const response2 = h.numToBytes32(67890)
   const decimals = 18
+  const epochBase = h.bigNum(4294967296)
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<MockV3AggregatorFactory>
@@ -60,6 +62,8 @@ describe('AggregatorProxy', () => {
       'confirmAggregator',
       'decimals',
       'description',
+      'epoch',
+      'epochAggregators',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -79,6 +83,19 @@ describe('AggregatorProxy', () => {
     ])
   })
 
+  describe('constructor', () => {
+    it('sets the proxy epoch and aggregator', async () => {
+      matchers.bigNum(1, await proxy.epoch())
+      assert.equal(aggregator.address, await proxy.epochAggregators(1))
+    })
+  })
+
+  describe('#latestRound', () => {
+    it('pulls the rate from the aggregator', async () => {
+      matchers.bigNum(epochBase.add(1), await proxy.latestRound())
+    })
+  })
+
   describe('#latestAnswer', () => {
     it('pulls the rate from the aggregator', async () => {
       matchers.bigNum(response, await proxy.latestAnswer())
@@ -87,7 +104,13 @@ describe('AggregatorProxy', () => {
     })
 
     describe('after being updated to another contract', () => {
+      let preUpdateRoundId: BigNumber
+      let preUpdateAnswer: BigNumber
+
       beforeEach(async () => {
+        preUpdateRoundId = await proxy.latestRound()
+        preUpdateAnswer = await proxy.latestAnswer()
+
         aggregator2 = await aggregatorFactory
           .connect(defaultAccount)
           .deploy(decimals, response2)
@@ -102,6 +125,13 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(response2, await proxy.latestAnswer())
         const latestRound = await proxy.latestRound()
         matchers.bigNum(response2, await proxy.getAnswer(latestRound))
+      })
+
+      it('allows requests of to previous aggregators', async () => {
+        matchers.bigNum(
+          preUpdateAnswer,
+          await proxy.getAnswer(preUpdateRoundId),
+        )
       })
     })
   })
@@ -186,14 +216,17 @@ describe('AggregatorProxy', () => {
         })
 
         it('works for a valid roundId', async () => {
-          const roundId = await aggregator.latestRound()
-          const round = await proxy.getRoundData(roundId)
-          matchers.bigNum(roundId, round.roundId)
+          const aggId = await aggregator.latestRound()
+          const epoch = epochBase.mul(await proxy.epoch())
+          const proxyId = epoch.add(aggId)
+
+          const round = await proxy.getRoundData(proxyId)
+          matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
           assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
           matchers.bigNum(round.updatedAt, round.startedAt)
-          matchers.bigNum(roundId, round.answeredInRound)
+          matchers.bigNum(proxyId, round.answeredInRound)
         })
       })
     })
@@ -209,15 +242,18 @@ describe('AggregatorProxy', () => {
       })
 
       it('works for a valid round ID', async () => {
-        const roundId = await aggregator2.latestRound()
-        const round = await proxy.getRoundData(roundId)
-        matchers.bigNum(roundId, round.roundId)
+        const aggId = await aggregator2.latestRound()
+        const epoch = epochBase.mul(await proxy.epoch())
+        const proxyId = epoch.add(aggId)
+
+        const round = await proxy.getRoundData(proxyId)
+        matchers.bigNum(proxyId, round.roundId)
         matchers.bigNum(response2, round.answer)
         const nowSeconds = new Date().valueOf() / 1000
         assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
         assert.isBelow(round.startedAt.toNumber(), nowSeconds)
         matchers.bigNum(round.startedAt, round.updatedAt)
-        matchers.bigNum(roundId, round.answeredInRound)
+        matchers.bigNum(proxyId, round.answeredInRound)
       })
     })
   })
@@ -252,14 +288,17 @@ describe('AggregatorProxy', () => {
         })
 
         it('does not revert', async () => {
-          const roundId = await historicAggregator.latestRound()
+          const aggId = await aggregator2.latestRound()
+          const epoch = epochBase.mul(await proxy.epoch())
+          const proxyId = epoch.add(aggId)
+
           const round = await proxy.latestRoundData()
-          matchers.bigNum(roundId, round.roundId)
+          matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response2, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
           assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
           matchers.bigNum(round.updatedAt, round.startedAt)
-          matchers.bigNum(roundId, round.answeredInRound)
+          matchers.bigNum(proxyId, round.answeredInRound)
         })
 
         it('uses the decimals set in the constructor', async () => {
@@ -287,15 +326,18 @@ describe('AggregatorProxy', () => {
       })
 
       it('does not revert', async () => {
-        const roundId = await aggregator2.latestRound()
+        const aggId = await aggregator2.latestRound()
+        const epoch = epochBase.mul(await proxy.epoch())
+        const proxyId = epoch.add(aggId)
+
         const round = await proxy.latestRoundData()
-        matchers.bigNum(roundId, round.roundId)
+        matchers.bigNum(proxyId, round.roundId)
         matchers.bigNum(response2, round.answer)
         const nowSeconds = new Date().valueOf() / 1000
         assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
         assert.isBelow(round.startedAt.toNumber(), nowSeconds)
         matchers.bigNum(round.startedAt, round.updatedAt)
-        matchers.bigNum(roundId, round.answeredInRound)
+        matchers.bigNum(proxyId, round.answeredInRound)
       })
 
       it('uses the decimals of the aggregator', async () => {
@@ -363,15 +405,51 @@ describe('AggregatorProxy', () => {
     })
 
     describe('when called by the owner', () => {
-      it('sets the address of the new aggregator', async () => {
+      beforeEach(async () => {
         await proxy
           .connect(personas.Carol)
           .proposeAggregator(aggregator2.address)
+      })
+
+      it('sets the address of the new aggregator', async () => {
         await proxy
           .connect(personas.Carol)
           .confirmAggregator(aggregator2.address)
 
         assert.equal(aggregator2.address, await proxy.aggregator())
+      })
+
+      it('increases the epoch', async () => {
+        matchers.bigNum(1, await proxy.epoch())
+
+        await proxy
+          .connect(personas.Carol)
+          .confirmAggregator(aggregator2.address)
+
+        matchers.bigNum(2, await proxy.epoch())
+      })
+
+      it('increases the round ID', async () => {
+        matchers.bigNum(epochBase.add(1), await proxy.latestRound())
+
+        await proxy
+          .connect(personas.Carol)
+          .confirmAggregator(aggregator2.address)
+
+        matchers.bigNum(epochBase.mul(2).add(1), await proxy.latestRound())
+      })
+
+      it('sets the proxy epoch and aggregator', async () => {
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          await proxy.epochAggregators(2),
+        )
+
+        await proxy
+          .connect(personas.Carol)
+          .confirmAggregator(aggregator2.address)
+
+        assert.equal(aggregator2.address, await proxy.epochAggregators(2))
       })
     })
 
