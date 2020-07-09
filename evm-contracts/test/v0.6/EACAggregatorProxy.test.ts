@@ -40,7 +40,7 @@ describe('EACAggregatorProxy', () => {
   let aggregator: contract.Instance<MockV3AggregatorFactory>
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let proxy: contract.Instance<EACAggregatorProxyFactory>
-  const epochBase = h.bigNum(4294967296)
+  const epochBase = h.bigNum(2).pow(64)
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()

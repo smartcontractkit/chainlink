@@ -34,7 +34,7 @@ describe('AggregatorProxy', () => {
   const response = h.numToBytes32(54321)
   const response2 = h.numToBytes32(67890)
   const decimals = 18
-  const epochBase = h.bigNum(4294967296)
+  const epochBase = h.bigNum(2).pow(64)
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<MockV3AggregatorFactory>
