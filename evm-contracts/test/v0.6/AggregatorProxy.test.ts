@@ -34,7 +34,7 @@ describe('AggregatorProxy', () => {
   const response = h.numToBytes32(54321)
   const response2 = h.numToBytes32(67890)
   const decimals = 18
-  const epochBase = h.bigNum(2).pow(64)
+  const phaseBase = h.bigNum(2).pow(64)
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<MockV3AggregatorFactory>
@@ -62,8 +62,6 @@ describe('AggregatorProxy', () => {
       'confirmAggregator',
       'decimals',
       'description',
-      'epoch',
-      'epochAggregators',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -71,11 +69,13 @@ describe('AggregatorProxy', () => {
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
-      'version',
+      'phaseAggregators',
+      'phaseId',
       'proposeAggregator',
       'proposedAggregator',
       'proposedGetRoundData',
       'proposedLatestRoundData',
+      'version',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -84,15 +84,15 @@ describe('AggregatorProxy', () => {
   })
 
   describe('constructor', () => {
-    it('sets the proxy epoch and aggregator', async () => {
-      matchers.bigNum(1, await proxy.epoch())
-      assert.equal(aggregator.address, await proxy.epochAggregators(1))
+    it('sets the proxy phase and aggregator', async () => {
+      matchers.bigNum(1, await proxy.phaseId())
+      assert.equal(aggregator.address, await proxy.phaseAggregators(1))
     })
   })
 
   describe('#latestRound', () => {
     it('pulls the rate from the aggregator', async () => {
-      matchers.bigNum(epochBase.add(1), await proxy.latestRound())
+      matchers.bigNum(phaseBase.add(1), await proxy.latestRound())
     })
   })
 
@@ -127,11 +127,9 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(response2, await proxy.getAnswer(latestRound))
       })
 
-      it('allows requests of to previous aggregators', async () => {
-        matchers.bigNum(
-          preUpdateAnswer,
-          await proxy.getAnswer(preUpdateRoundId),
-        )
+      it('allows requests of old rounds to previous aggregators', async () => {
+        const actualAnswer = await proxy.getAnswer(preUpdateRoundId)
+        matchers.bigNum(preUpdateAnswer, actualAnswer)
       })
     })
   })
@@ -217,8 +215,8 @@ describe('AggregatorProxy', () => {
 
         it('works for a valid roundId', async () => {
           const aggId = await aggregator.latestRound()
-          const epoch = epochBase.mul(await proxy.epoch())
-          const proxyId = epoch.add(aggId)
+          const phaseId = phaseBase.mul(await proxy.phaseId())
+          const proxyId = phaseId.add(aggId)
 
           const round = await proxy.getRoundData(proxyId)
           matchers.bigNum(proxyId, round.roundId)
@@ -250,8 +248,8 @@ describe('AggregatorProxy', () => {
           .connect(personas.Carol)
           .updateRoundData(aggId, response2, 77, 42)
 
-        const epoch = epochBase.mul(await proxy.epoch())
-        const proxyId = epoch.add(aggId)
+        const phaseId = phaseBase.mul(await proxy.phaseId())
+        const proxyId = phaseId.add(aggId)
 
         const round = await proxy.getRoundData(proxyId)
         matchers.bigNum(proxyId, round.roundId)
@@ -262,8 +260,8 @@ describe('AggregatorProxy', () => {
       })
     })
 
-    it('reads round ID of a previous epoch', async () => {
-      const oldEpoch = epochBase.mul(await proxy.epoch())
+    it('reads round ID of a previous phase', async () => {
+      const oldphaseId = phaseBase.mul(await proxy.phaseId())
       aggregator2 = await aggregatorFactory
         .connect(defaultAccount)
         .deploy(decimals, response2)
@@ -272,7 +270,7 @@ describe('AggregatorProxy', () => {
       await proxy.confirmAggregator(aggregator2.address)
 
       const aggId = await aggregator.latestRound()
-      const proxyId = oldEpoch.add(aggId)
+      const proxyId = oldphaseId.add(aggId)
 
       const round = await proxy.getRoundData(proxyId)
       matchers.bigNum(proxyId, round.roundId)
@@ -316,8 +314,8 @@ describe('AggregatorProxy', () => {
 
         it('does not revert', async () => {
           const aggId = await historicAggregator.latestRound()
-          const epoch = epochBase.mul(await proxy.epoch())
-          const proxyId = epoch.add(aggId)
+          const phaseId = phaseBase.mul(await proxy.phaseId())
+          const proxyId = phaseId.add(aggId)
 
           const round = await proxy.latestRoundData()
           matchers.bigNum(proxyId, round.roundId)
@@ -361,8 +359,8 @@ describe('AggregatorProxy', () => {
           .connect(personas.Carol)
           .updateRoundData(aggId, response2, 77, 42)
 
-        const epoch = epochBase.mul(await proxy.epoch())
-        const proxyId = epoch.add(aggId)
+        const phaseId = phaseBase.mul(await proxy.phaseId())
+        const proxyId = phaseId.add(aggId)
 
         const round = await proxy.latestRoundData()
         matchers.bigNum(proxyId, round.roundId)
@@ -451,37 +449,37 @@ describe('AggregatorProxy', () => {
         assert.equal(aggregator2.address, await proxy.aggregator())
       })
 
-      it('increases the epoch', async () => {
-        matchers.bigNum(1, await proxy.epoch())
+      it('increases the phase', async () => {
+        matchers.bigNum(1, await proxy.phaseId())
 
         await proxy
           .connect(personas.Carol)
           .confirmAggregator(aggregator2.address)
 
-        matchers.bigNum(2, await proxy.epoch())
+        matchers.bigNum(2, await proxy.phaseId())
       })
 
       it('increases the round ID', async () => {
-        matchers.bigNum(epochBase.add(1), await proxy.latestRound())
+        matchers.bigNum(phaseBase.add(1), await proxy.latestRound())
 
         await proxy
           .connect(personas.Carol)
           .confirmAggregator(aggregator2.address)
 
-        matchers.bigNum(epochBase.mul(2).add(1), await proxy.latestRound())
+        matchers.bigNum(phaseBase.mul(2).add(1), await proxy.latestRound())
       })
 
-      it('sets the proxy epoch and aggregator', async () => {
+      it('sets the proxy phase and aggregator', async () => {
         assert.equal(
           '0x0000000000000000000000000000000000000000',
-          await proxy.epochAggregators(2),
+          await proxy.phaseAggregators(2),
         )
 
         await proxy
           .connect(personas.Carol)
           .confirmAggregator(aggregator2.address)
 
-        assert.equal(aggregator2.address, await proxy.epochAggregators(2))
+        assert.equal(aggregator2.address, await proxy.phaseAggregators(2))
       })
     })
 

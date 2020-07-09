@@ -40,7 +40,7 @@ describe('EACAggregatorProxy', () => {
   let aggregator: contract.Instance<MockV3AggregatorFactory>
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let proxy: contract.Instance<EACAggregatorProxyFactory>
-  const epochBase = h.bigNum(2).pow(64)
+  const phaseBase = h.bigNum(2).pow(64)
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
@@ -66,8 +66,6 @@ describe('EACAggregatorProxy', () => {
       'confirmAggregator',
       'decimals',
       'description',
-      'epoch',
-      'epochAggregators',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
@@ -75,6 +73,8 @@ describe('EACAggregatorProxy', () => {
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
+      'phaseAggregators',
+      'phaseId',
       'proposeAggregator',
       'proposedAggregator',
       'proposedGetRoundData',
@@ -98,11 +98,11 @@ describe('EACAggregatorProxy', () => {
     })
 
     it('#getAnswer', async () => {
-      await proxy.connect(personas.Carol).getAnswer(epochBase.add(1))
+      await proxy.connect(personas.Carol).getAnswer(phaseBase.add(1))
     })
 
     it('#getTimestamp', async () => {
-      await proxy.connect(personas.Carol).getTimestamp(epochBase.add(1))
+      await proxy.connect(personas.Carol).getTimestamp(phaseBase.add(1))
     })
 
     it('#latestRound', async () => {
@@ -110,7 +110,7 @@ describe('EACAggregatorProxy', () => {
     })
 
     it('#getRoundData', async () => {
-      await proxy.connect(personas.Carol).getRoundData(epochBase.add(1))
+      await proxy.connect(personas.Carol).getRoundData(phaseBase.add(1))
     })
 
     it('#proposedGetRoundData', async () => {
