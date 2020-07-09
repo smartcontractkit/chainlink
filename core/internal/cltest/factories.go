@@ -646,7 +646,7 @@ func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) mo
 		Address: a,
 		JSON:    JSONFromString(t, "{}"),
 	}
-	require.NoError(t, store.GetRawDB().Save(&key).Error)
+	require.NoError(t, store.DB.Save(&key).Error)
 	return key
 }
 
@@ -668,7 +668,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	n := nonce
 	etx.Nonce = &n
 	etx.State = models.EthTxUnconfirmed
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 	attempt := NewEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -677,7 +677,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = models.EthTxAttemptBroadcast
-	require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+	require.NoError(t, store.DB.Save(&attempt).Error)
 	etx, err := store.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
@@ -690,11 +690,11 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 	etx.BroadcastAt = &timeNow
 	etx.Nonce = &nonce
 	etx.State = models.EthTxConfirmed
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 	attempt := NewEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 	attempt.State = models.EthTxAttemptBroadcast
-	require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+	require.NoError(t, store.DB.Save(&attempt).Error)
 	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	return etx
 }
@@ -723,7 +723,7 @@ func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, store *strpkg.St
 	attempt := NewEthTxAttempt(t, etxID)
 	attempt.State = models.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(gasPrice))
-	require.NoError(t, store.GetRawDB().Create(&attempt).Error)
+	require.NoError(t, store.DB.Create(&attempt).Error)
 	return attempt
 }
 
@@ -735,7 +735,7 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 		TransactionIndex: uint(NewRandomInt64()),
 		Receipt:          []byte(`{"foo":42}`),
 	}
-	require.NoError(t, s.GetRawDB().Save(&r).Error)
+	require.NoError(t, s.DB.Save(&r).Error)
 	return r
 }
 
@@ -745,6 +745,6 @@ func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
 	etx.Error = &errStr
 	etx.State = models.EthTxFatalError
 
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 	return etx
 }

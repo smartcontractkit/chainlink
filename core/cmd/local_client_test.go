@@ -528,6 +528,6 @@ func TestClient_SetNextNonce(t *testing.T) {
 	require.NoError(t, client.SetNextNonce(c))
 
 	var key models.Key
-	require.NoError(t, store.GetRawDB().First(&key).Error)
+	require.NoError(t, store.DB.First(&key).Error)
 	require.Equal(t, int64(42), key.NextNonce)
 }

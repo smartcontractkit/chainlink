@@ -209,7 +209,7 @@ func (eb *ethBroadcaster) handleAnyInProgressEthTx(fromAddress gethCommon.Addres
 // It may or may not have been broadcast to an eth node.
 func getInProgressEthTx(store *store.Store, fromAddress gethCommon.Address) (*models.EthTx, error) {
 	etx := &models.EthTx{}
-	err := store.GetRawDB().Preload("EthTxAttempts").First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
+	err := store.DB.Preload("EthTxAttempts").First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
 	if gorm.IsRecordNotFoundError(err) {
 		return nil, nil
 	}
@@ -315,7 +315,7 @@ func (eb *ethBroadcaster) handleExternalWalletUsedNonce(etx *models.EthTx, etxAt
 // Returns nil if no transactions are in queue
 func (eb *ethBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*models.EthTx, error) {
 	etx := &models.EthTx{}
-	if err := findNextUnstartedTransactionFromAddress(eb.store.GetRawDB(), etx, fromAddress); err != nil {
+	if err := findNextUnstartedTransactionFromAddress(eb.store.DB, etx, fromAddress); err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			// Finish. No more transactions left to process. Hoorah!
 			return nil, nil
@@ -433,7 +433,7 @@ func GetNextNonce(db *gorm.DB, address gethCommon.Address) (*int64, error) {
 // getNextNonce returns keys.next_nonce for the given address
 // It loads it from the database, or if this is a brand new key, queries the eth node for the latest nonce
 func (eb *ethBroadcaster) getNextNonceWithInitialLoad(address gethCommon.Address) (int64, error) {
-	nonce, err := GetNextNonce(eb.store.GetRawDB(), address)
+	nonce, err := GetNextNonce(eb.store.DB, address)
 	if err != nil {
 		return 0, err
 	}
@@ -450,7 +450,7 @@ func (eb *ethBroadcaster) loadAndSaveNonce(address gethCommon.Address) (int64, e
 	if err != nil {
 		return 0, errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
 	}
-	res := eb.store.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE next_nonce IS NULL`, nonce)
+	res := eb.store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE next_nonce IS NULL`, nonce)
 	if res.Error != nil {
 		return 0, errors.Wrap(err, "GetNextNonce failed to save new nonce loaded from eth client")
 	}

@@ -33,14 +33,14 @@ func mustInsertInProgressEthTxWithAttempt(t *testing.T, store *store.Store, nonc
 	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
 	etx.State = models.EthTxInProgress
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 	attempt := cltest.NewEthTxAttempt(t, etx.ID)
 	tx := gethTypes.NewTransaction(uint64(nonce), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 	attempt.State = models.EthTxAttemptInProgress
-	require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+	require.NoError(t, store.DB.Save(&attempt).Error)
 	etx, err := store.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
@@ -85,7 +85,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 
 		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
 	})
@@ -116,8 +116,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			State:          models.EthTxFatalError,
 		}
 
-		require.NoError(t, store.GetRawDB().Save(&etxUnconfirmed).Error)
-		require.NoError(t, store.GetRawDB().Save(&etxWithError).Error)
+		require.NoError(t, store.DB.Save(&etxUnconfirmed).Error)
+		require.NoError(t, store.DB.Save(&etxWithError).Error)
 
 		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
 	})
@@ -198,9 +198,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Insertion order deliberately reversed to test ordering
-		require.NoError(t, store.GetRawDB().Save(&expensiveEthTx).Error)
-		require.NoError(t, store.GetRawDB().Save(&laterEthTx).Error)
-		require.NoError(t, store.GetRawDB().Save(&earlierEthTx).Error)
+		require.NoError(t, store.DB.Save(&expensiveEthTx).Error)
+		require.NoError(t, store.DB.Save(&laterEthTx).Error)
+		require.NoError(t, store.DB.Save(&earlierEthTx).Error)
 
 		// Do the thing
 		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
@@ -263,7 +263,7 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	// Simulate new key by manually setting nonce to null
-	require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = NULL`).Error)
+	require.NoError(t, store.DB.Exec(`UPDATE keys SET next_nonce = NULL`).Error)
 
 	// Use the real KeyStore loaded from database fixtures
 	store.KeyStore.Unlock(cltest.Password)
@@ -291,7 +291,7 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 		CreatedAt:      time.Unix(0, 0),
 		State:          models.EthTxUnstarted,
 	}
-	require.NoError(t, store.GetRawDB().Create(&ethTx).Error)
+	require.NoError(t, store.DB.Create(&ethTx).Error)
 
 	t.Run("when eth node returns error", func(t *testing.T) {
 		gethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
@@ -310,7 +310,7 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 		require.Nil(t, ethTx.Nonce)
 
 		// Check key to make sure it still doesn't have a nonce assigned
-		res := store.GetRawDB().Exec(`SELECT * FROM keys WHERE next_nonce IS NULL`)
+		res := store.DB.Exec(`SELECT * FROM keys WHERE next_nonce IS NULL`)
 		require.NoError(t, res.Error)
 		require.Equal(t, int64(1), res.RowsAffected)
 
@@ -390,8 +390,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			State:          models.EthTxInProgress,
 		}
 
-		require.NoError(t, store.GetRawDB().Create(&firstInProgress).Error)
-		err = store.GetRawDB().Create(&secondInProgress).Error
+		require.NoError(t, store.DB.Create(&firstInProgress).Error)
+		err = store.DB.Create(&secondInProgress).Error
 		require.Error(t, err)
 		assert.EqualError(t, err, "pq: duplicate key value violates unique constraint \"idx_only_one_in_progress_tx_per_account\"")
 	})
@@ -413,7 +413,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
 
-		require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -457,7 +457,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
 
-		require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -501,7 +501,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
 
-		require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -544,7 +544,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
 
-		require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -589,7 +589,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
 
-		require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -637,7 +637,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
 
-		require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
+		require.NoError(t, store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, defaultFromAddress.Bytes()).Error)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -675,7 +675,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 }
 
 func getLocalNextNonce(t *testing.T, str *store.Store, fromAddress gethCommon.Address) uint64 {
-	n, err := bulletprooftxmanager.GetNextNonce(str.GetRawDB(), fromAddress)
+	n, err := bulletprooftxmanager.GetNextNonce(str.DB, fromAddress)
 	require.NoError(t, err)
 	require.NotNil(t, n)
 	return uint64(*n)
@@ -718,13 +718,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 		taskRunID := cltest.MustInsertTaskRun(t, store)
 		ethTaskRunTx := models.EthTaskRunTx{
 			EthTxID:   etx.ID,
 			TaskRunID: taskRunID.UUID(),
 		}
-		require.NoError(t, store.GetRawDB().Save(&ethTaskRunTx).Error)
+		require.NoError(t, store.DB.Save(&ethTaskRunTx).Error)
 
 		// First send, nonce too low
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -755,7 +755,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Check that the second transaction was saved correctly with its attempt
 		var latestID int64
 		var etx2 models.EthTx
-		require.NoError(t, store.GetRawDB().Raw("SELECT max(id) FROM eth_txes").Row().Scan(&latestID))
+		require.NoError(t, store.DB.Raw("SELECT max(id) FROM eth_txes").Row().Scan(&latestID))
 		etx2, err = store.FindEthTxWithAttempts(latestID)
 		require.NoError(t, err)
 		require.NotNil(t, etx2.BroadcastAt)
@@ -775,16 +775,16 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Greater(t, etx2.CreatedAt.UnixNano(), etx1.CreatedAt.UnixNano())
 
 		// Check that the eth_task_run_tx was re-assigned
-		res := store.GetRawDB().Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx.ID)
+		res := store.DB.Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx.ID)
 		require.NoError(t, res.Error)
 		require.Equal(t, int64(0), res.RowsAffected)
-		res = store.GetRawDB().Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx2.ID)
+		res = store.DB.Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx2.ID)
 		require.NoError(t, res.Error)
 		require.Equal(t, int64(1), res.RowsAffected)
 
 		// Check that the local nonce was incremented by two
 		var finalNextNonce *int64
-		finalNextNonce, err = bulletprooftxmanager.GetNextNonce(store.GetRawDB(), defaultFromAddress)
+		finalNextNonce, err = bulletprooftxmanager.GetNextNonce(store.DB, defaultFromAddress)
 		require.NoError(t, err)
 		require.NotNil(t, finalNextNonce)
 		require.Equal(t, int64(2), *finalNextNonce)
@@ -802,7 +802,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
@@ -822,7 +822,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Len(t, etx.EthTxAttempts, 0)
 
 		// Check that the key had its nonce reset
-		require.NoError(t, store.GetRawDB().First(&key).Error)
+		require.NoError(t, store.DB.First(&key).Error)
 		// Saved NextNonce must be the same as before because this transaction
 		// was not accepted by the eth node and never can be
 		require.Equal(t, int64(localNextNonce), key.NextNonce)
@@ -842,7 +842,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
@@ -903,7 +903,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 
 		// First was underpriced
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -949,7 +949,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
@@ -1008,7 +1008,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 
 		kst.On("GetAccountByAddress", defaultFromAddress).Return(gethAccounts.Account{}, errors.New("authentication needed: password or unlock")).Once()
 
@@ -1025,7 +1025,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		assert.Len(t, etx.EthTxAttempts, 0)
 
 		// Check that the key did not have its nonce incremented
-		require.NoError(t, store.GetRawDB().First(&key).Error)
+		require.NoError(t, store.DB.First(&key).Error)
 		require.Equal(t, int64(localNonce), key.NextNonce)
 
 		kst.AssertExpectations(t)
@@ -1040,7 +1040,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 			GasLimit:       gasLimit,
 			State:          models.EthTxUnstarted,
 		}
-		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		require.NoError(t, store.DB.Save(&etx).Error)
 
 		signingAccount := gethAccounts.Account{Address: defaultFromAddress}
 		kst.On("GetAccountByAddress", defaultFromAddress).Return(signingAccount, nil).Once()
@@ -1067,7 +1067,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 		// Check that the key did not have its nonce incremented
 		var key models.Key
-		require.NoError(t, store.GetRawDB().First(&key).Error)
+		require.NoError(t, store.DB.First(&key).Error)
 		require.Equal(t, int64(localNonce), key.NextNonce)
 
 		kst.AssertExpectations(t)
@@ -1121,7 +1121,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 		return true
 	})).Return(nil).Once()
 
-	require.NoError(t, store1.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store1.DB.Save(&etx).Error)
 
 	// First one gets the lock
 	go func() {
@@ -1153,10 +1153,10 @@ func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 
 	// Fixture key has nonce 0
 	var key models.Key
-	require.NoError(t, store.GetRawDB().First(&key).Error)
+	require.NoError(t, store.DB.First(&key).Error)
 	require.Equal(t, int64(0), key.NextNonce)
 
-	nonce, err := bulletprooftxmanager.GetNextNonce(store.GetRawDB(), key.Address.Address())
+	nonce, err := bulletprooftxmanager.GetNextNonce(store.DB, key.Address.Address())
 	assert.NoError(t, err)
 	require.NotNil(t, nonce)
 	assert.Equal(t, int64(0), *nonce)
@@ -1168,18 +1168,18 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 
 	// Fixture key had nonce 0
 	var key models.Key
-	require.NoError(t, store.GetRawDB().First(&key).Error)
+	require.NoError(t, store.DB.First(&key).Error)
 	require.Equal(t, int64(0), key.NextNonce)
 
 	previouslyUpdatedAt := key.UpdatedAt
 
 	// Cannot increment if supplied nonce doesn't match existing
-	require.Error(t, bulletprooftxmanager.IncrementNextNonce(store.GetRawDB(), key.Address.Address(), int64(42)))
+	require.Error(t, bulletprooftxmanager.IncrementNextNonce(store.DB, key.Address.Address(), int64(42)))
 
-	require.NoError(t, bulletprooftxmanager.IncrementNextNonce(store.GetRawDB(), key.Address.Address(), int64(0)))
+	require.NoError(t, bulletprooftxmanager.IncrementNextNonce(store.DB, key.Address.Address(), int64(0)))
 
 	// Nonce bumped to 1
-	require.NoError(t, store.GetRawDB().First(&key).Error)
+	require.NoError(t, store.DB.First(&key).Error)
 	require.Equal(t, int64(1), key.NextNonce)
 	// Updated at
 	require.Greater(t, key.UpdatedAt.Unix(), previouslyUpdatedAt.Unix())

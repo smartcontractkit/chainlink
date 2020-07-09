@@ -627,7 +627,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0)
-		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
@@ -647,7 +647,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 1)
-		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
@@ -676,7 +676,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			Hash:   cltest.NewHash(),
 			Number: 12,
 		}))
-		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
@@ -705,7 +705,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			Hash:   cltest.NewHash(),
 			Number: 13,
 		}))
-		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		data := cltest.JSONFromString(t, `{"foo": "bar", "result": "some old bollocks"}`)
 		input := models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
 
@@ -740,7 +740,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			Hash:   cltest.NewHash(),
 			Number: 14,
 		}))
-		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
@@ -770,7 +770,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			Hash:   cltest.NewHash(),
 			Number: int64(store.Config.MinRequiredOutgoingConfirmations()) + 2,
 		}))
-		store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
+		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
 		// Do the thing
@@ -791,7 +791,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
 		etx := cltest.MustInsertFatalErrorEthTx(t, store)
-		require.NoError(t, store.GetRawDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID).Error)
+		require.NoError(t, store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID).Error)
 
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
