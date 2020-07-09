@@ -2805,7 +2805,7 @@ describe('FluxAggregator', () => {
     it('reverts if a round is not present', async () => {
       await matchers.evmRevert(
         aggregator.getRoundData(latestRoundId.add(1)),
-        'no round present for that ID',
+        'No data present',
       )
     })
   })
@@ -2836,10 +2836,7 @@ describe('FluxAggregator', () => {
     })
 
     it('reverts if a round is not present', async () => {
-      await matchers.evmRevert(
-        aggregator.latestRoundData(),
-        'no round present for that ID',
-      )
+      await matchers.evmRevert(aggregator.latestRoundData(), 'No data present')
     })
   })
 })
