@@ -135,7 +135,6 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 		models.InitiatorEthLog,
 		models.InitiatorRandomnessLog,
 		models.InitiatorRunLog,
-		models.InitiatorServiceAgreementExecutionLog,
 	)
 	return multierr.Append(merr, err)
 }
