@@ -26,6 +26,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   uint256 constant private PHASE_BASE = 2 ** PHASE_OFFSET;
   uint256 constant private PHASE_MASK = 0xFFFF << PHASE_OFFSET;
   uint256 constant private REQUEST_ID_MASK = ~PHASE_MASK;
+  bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes("No data present"));
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -42,7 +43,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = latestRoundData();
+    ( , answer, , , ) = tryLatestRoundData();
   }
 
   /**
@@ -56,7 +57,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = latestRoundData();
+    ( , , , updatedAt, ) = tryLatestRoundData();
   }
 
   /**
@@ -71,7 +72,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = getRoundData(_roundId);
+    ( , answer, , , ) = tryGetRoundData(_roundId);
   }
 
   /**
@@ -86,7 +87,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = getRoundData(_roundId);
+    ( , , , updatedAt, ) = tryGetRoundData(_roundId);
   }
 
   /**
@@ -102,7 +103,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 roundId)
   {
-    ( roundId, , , , ) = latestRoundData();
+    ( roundId, , , , ) = tryLatestRoundData();
   }
 
   /**
@@ -378,6 +379,54 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     uint256 roundId = _requestId & REQUEST_ID_MASK;
 
     return (phaseId, roundId);
+  }
+  function tryLatestRoundData()
+    internal
+    view
+    returns (uint256, int256, uint256, uint256, uint256)
+  {
+    try this.latestRoundData() returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    ) {
+      return (roundId, answer, startedAt, updatedAt, answeredInRound);
+    } catch Error(string memory reason) {
+      return handleRoundDataError(reason);
+    }
+  }
+
+  function tryGetRoundData(
+    uint256 _requestId
+  )
+    internal
+    view
+    returns (uint256, int256, uint256, uint256, uint256)
+  {
+    try this.getRoundData(_requestId) returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    ) {
+      return (roundId, answer, startedAt, updatedAt, answeredInRound);
+    } catch Error(string memory reason) {
+      return handleRoundDataError(reason);
+    }
+  }
+
+  function handleRoundDataError(
+    string memory reason
+  )
+    internal
+    view
+    returns (uint256, int256, uint256, uint256, uint256)
+  {
+    require(keccak256(bytes(reason)) == EXPECTED_V3_ERROR, reason);
+    return (0, 0, 0, 0, 0);
   }
 
 

@@ -11,6 +11,8 @@ import { MockV2AggregatorFactory } from '../../ethers/v0.6/MockV2AggregatorFacto
 import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { AggregatorProxyFactory } from '../../ethers/v0.6/AggregatorProxyFactory'
 import { AggregatorFacadeFactory } from '../../ethers/v0.6/AggregatorFacadeFactory'
+import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
+import { ReverterFactory } from '../../ethers/v0.6/ReverterFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
@@ -21,6 +23,8 @@ const aggregatorFactory = new MockV3AggregatorFactory()
 const historicAggregatorFactory = new MockV2AggregatorFactory()
 const aggregatorFacadeFactory = new AggregatorFacadeFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
+const fluxAggregatorFactory = new FluxAggregatorFactory()
+const reverterFactory = new ReverterFactory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -41,6 +45,9 @@ describe('AggregatorProxy', () => {
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let historicAggregator: contract.Instance<MockV2AggregatorFactory>
   let proxy: contract.Instance<AggregatorProxyFactory>
+  let flux: contract.Instance<FluxAggregatorFactory>
+  let reverter: contract.Instance<ReverterFactory>
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     aggregator = await aggregatorFactory
@@ -50,6 +57,9 @@ describe('AggregatorProxy', () => {
     proxy = await aggregatorProxyFactory
       .connect(defaultAccount)
       .deploy(aggregator.address)
+    flux = await fluxAggregatorFactory
+      .connect(personas.Carol)
+      .deploy(link.address, 0, 0, 0, 0, 18, 'TEST / LINK')
   })
 
   beforeEach(async () => {
@@ -94,6 +104,18 @@ describe('AggregatorProxy', () => {
     it('pulls the rate from the aggregator', async () => {
       matchers.bigNum(phaseBase.add(1), await proxy.latestRound())
     })
+
+    describe('when the relevant info is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert', async () => {
+        const actual = await proxy.latestRound()
+        matchers.bigNum(0, actual)
+      })
+    })
   })
 
   describe('#latestAnswer', () => {
@@ -101,6 +123,68 @@ describe('AggregatorProxy', () => {
       matchers.bigNum(response, await proxy.latestAnswer())
       const latestRound = await proxy.latestRound()
       matchers.bigNum(response, await proxy.getAnswer(latestRound))
+    })
+
+    describe('after being updated to another contract', () => {
+      beforeEach(async () => {
+        aggregator2 = await aggregatorFactory
+          .connect(defaultAccount)
+          .deploy(decimals, response2)
+        await link.transfer(aggregator2.address, deposit)
+        matchers.bigNum(response2, await aggregator2.latestAnswer())
+
+        await proxy.proposeAggregator(aggregator2.address)
+        await proxy.confirmAggregator(aggregator2.address)
+      })
+
+      it('pulls the rate from the new aggregator', async () => {
+        matchers.bigNum(response2, await proxy.latestAnswer())
+        const latestRound = await proxy.latestRound()
+        matchers.bigNum(response2, await proxy.getAnswer(latestRound))
+      })
+    })
+
+    describe('when the relevant info is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert when called with a non existant ID', async () => {
+        const actual = await proxy.latestAnswer()
+        matchers.bigNum(0, actual)
+      })
+    })
+  })
+
+  describe('#getAnswer', () => {
+    describe('when the relevant round is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert when called with a non existant ID', async () => {
+        const proxyId = phaseBase.mul(await proxy.phaseId()).add(1)
+        const actual = await proxy.getAnswer(proxyId)
+        matchers.bigNum(0, actual)
+      })
+    })
+
+    describe('when the answer reverts in a non-predicted way', () => {
+      it('reverts', async () => {
+        reverter = await reverterFactory.connect(defaultAccount).deploy()
+        await proxy.proposeAggregator(reverter.address)
+        await proxy.confirmAggregator(reverter.address)
+        assert.equal(reverter.address, await proxy.aggregator())
+
+        const proxyId = phaseBase.mul(await proxy.phaseId())
+
+        await matchers.evmRevert(
+          proxy.getAnswer(proxyId),
+          'Raised by Reverter.sol',
+        )
+      })
     })
 
     describe('after being updated to another contract', () => {
@@ -121,15 +205,24 @@ describe('AggregatorProxy', () => {
         await proxy.confirmAggregator(aggregator2.address)
       })
 
-      it('pulls the rate from the new aggregator', async () => {
-        matchers.bigNum(response2, await proxy.latestAnswer())
-        const latestRound = await proxy.latestRound()
-        matchers.bigNum(response2, await proxy.getAnswer(latestRound))
-      })
-
-      it('allows requests of old rounds to previous aggregators', async () => {
+      it('reports answers for previous phases', async () => {
         const actualAnswer = await proxy.getAnswer(preUpdateRoundId)
         matchers.bigNum(preUpdateAnswer, actualAnswer)
+      })
+    })
+  })
+
+  describe('#getTimestamp', () => {
+    describe('when the relevant round is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert when called with a non existant ID', async () => {
+        const proxyId = phaseBase.mul(await proxy.phaseId()).add(1)
+        const actual = await proxy.getTimestamp(proxyId)
+        matchers.bigNum(0, actual)
       })
     })
   })
@@ -185,6 +278,18 @@ describe('AggregatorProxy', () => {
         )
       })
     })
+
+    describe('when the relevant info is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert', async () => {
+        const actual = await proxy.latestTimestamp()
+        matchers.bigNum(0, actual)
+      })
+    })
   })
 
   describe('#getRoundData', () => {
@@ -199,9 +304,7 @@ describe('AggregatorProxy', () => {
 
       it('reverts', async () => {
         const latestRoundId = await historicAggregator.latestRound()
-        await matchers.evmRevert(async () => {
-          await proxy.getRoundData(latestRoundId)
-        })
+        await matchers.evmRevert(proxy.getRoundData(latestRoundId))
       })
 
       describe('when pointed at an Aggregator Facade', () => {
