@@ -132,7 +132,7 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 				}
 				break
 			} else {
-				logger.Debugw("EthConfirmer: still waiting for receipt", "txHash", attempt.Hash.Hex())
+				logger.Debugw("EthConfirmer: still waiting for receipt", "txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", etx.ID)
 			}
 		}
 	}

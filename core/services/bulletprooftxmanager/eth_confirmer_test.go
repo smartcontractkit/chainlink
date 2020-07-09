@@ -1185,8 +1185,6 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ec := bulletprooftxmanager.NewEthConfirmer(store, config)
 
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			fmt.Println("tx.Gas()", tx.Gas())
-			fmt.Println("default gas", config.EthGasPriceDefault())
 			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint64(tx.Gas()) == config.EthGasLimitDefault()
 		})).Return(nil).Once()
 

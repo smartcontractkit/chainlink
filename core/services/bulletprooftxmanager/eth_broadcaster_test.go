@@ -259,6 +259,95 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	})
 }
 
+func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	// Simulate new key by manually setting nonce to null
+	require.NoError(t, store.GetRawDB().Exec(`UPDATE keys SET next_nonce = NULL`).Error)
+
+	// Use the real KeyStore loaded from database fixtures
+	store.KeyStore.Unlock(cltest.Password)
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	gethClient := new(mocks.GethClient)
+	store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+
+	keys, err := store.Keys()
+	require.NoError(t, err)
+	key := keys[0]
+	defaultFromAddress := key.Address.Address()
+	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+	gasLimit := uint64(242)
+
+	ethTx := models.EthTx{
+		FromAddress:    defaultFromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: []byte{42, 42, 0},
+		Value:          assets.NewEthValue(0),
+		GasLimit:       gasLimit,
+		CreatedAt:      time.Unix(0, 0),
+		State:          models.EthTxUnstarted,
+	}
+	require.NoError(t, store.GetRawDB().Create(&ethTx).Error)
+
+	t.Run("when eth node returns error", func(t *testing.T) {
+		gethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
+			return account.Hex() == defaultFromAddress.Hex()
+		})).Return(uint64(0), errors.New("something exploded")).Once()
+
+		// First attempt errored
+		err = eb.ProcessUnstartedEthTxs(key)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "something exploded")
+
+		// Check ethTx that it has no nonce assigned
+		ethTx, err = store.FindEthTxWithAttempts(ethTx.ID)
+		require.NoError(t, err)
+
+		require.Nil(t, ethTx.Nonce)
+
+		// Check key to make sure it still doesn't have a nonce assigned
+		res := store.GetRawDB().Exec(`SELECT * FROM keys WHERE next_nonce IS NULL`)
+		require.NoError(t, res.Error)
+		require.Equal(t, int64(1), res.RowsAffected)
+
+		gethClient.AssertExpectations(t)
+	})
+
+	t.Run("when eth node returns nonce", func(t *testing.T) {
+		ethNodeNonce := uint64(42)
+
+		gethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
+			return account.Hex() == defaultFromAddress.Hex()
+		})).Return(ethNodeNonce, nil).Once()
+		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == ethNodeNonce
+		})).Return(nil).Once()
+
+		// Do the thing
+		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+
+		// Check ethTx that it has the correct nonce assigned
+		ethTx, err = store.FindEthTxWithAttempts(ethTx.ID)
+		require.NoError(t, err)
+
+		require.NotNil(t, ethTx.Nonce)
+		require.Equal(t, int64(ethNodeNonce), *ethTx.Nonce)
+
+		// Check key to make sure it has correct nonce assigned
+		keys, err := store.Keys()
+		require.NoError(t, err)
+		key := keys[0]
+
+		require.Equal(t, int64(43), key.NextNonce)
+
+		gethClient.AssertExpectations(t)
+	})
+}
+
 func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := assets.NewEthValue(142)
@@ -588,7 +677,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 func getLocalNextNonce(t *testing.T, str *store.Store, fromAddress gethCommon.Address) uint64 {
 	n, err := bulletprooftxmanager.GetNextNonce(str.GetRawDB(), fromAddress)
 	require.NoError(t, err)
-	return uint64(n)
+	require.NotNil(t, n)
+	return uint64(*n)
 }
 
 // Note that all of these tests share the same database, and ordering matters.
@@ -629,6 +719,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			State:          models.EthTxUnstarted,
 		}
 		require.NoError(t, store.GetRawDB().Save(&etx).Error)
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		ethTaskRunTx := models.EthTaskRunTx{
+			EthTxID:   etx.ID,
+			TaskRunID: taskRunID.UUID(),
+		}
+		require.NoError(t, store.GetRawDB().Save(&ethTaskRunTx).Error)
 
 		// First send, nonce too low
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -678,11 +774,20 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, etx1.GasLimit, etx2.GasLimit)
 		assert.Greater(t, etx2.CreatedAt.UnixNano(), etx1.CreatedAt.UnixNano())
 
+		// Check that the eth_task_run_tx was re-assigned
+		res := store.GetRawDB().Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx.ID)
+		require.NoError(t, res.Error)
+		require.Equal(t, int64(0), res.RowsAffected)
+		res = store.GetRawDB().Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx2.ID)
+		require.NoError(t, res.Error)
+		require.Equal(t, int64(1), res.RowsAffected)
+
 		// Check that the local nonce was incremented by two
-		var finalNextNonce int64
+		var finalNextNonce *int64
 		finalNextNonce, err = bulletprooftxmanager.GetNextNonce(store.GetRawDB(), defaultFromAddress)
 		require.NoError(t, err)
-		require.Equal(t, int64(2), finalNextNonce)
+		require.NotNil(t, finalNextNonce)
+		require.Equal(t, int64(2), *finalNextNonce)
 	})
 
 	t.Run("geth client returns an error in the fatal errors category", func(t *testing.T) {
@@ -1053,7 +1158,8 @@ func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 
 	nonce, err := bulletprooftxmanager.GetNextNonce(store.GetRawDB(), key.Address.Address())
 	assert.NoError(t, err)
-	assert.Equal(t, int64(0), nonce)
+	require.NotNil(t, nonce)
+	assert.Equal(t, int64(0), *nonce)
 }
 
 func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
