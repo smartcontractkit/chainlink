@@ -342,7 +342,8 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 		require.NoError(t, err)
 		key := keys[0]
 
-		require.Equal(t, int64(43), key.NextNonce)
+		require.NotNil(t, key.NextNonce)
+		require.Equal(t, int64(43), *key.NextNonce)
 
 		gethClient.AssertExpectations(t)
 	})
@@ -825,7 +826,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, store.DB.First(&key).Error)
 		// Saved NextNonce must be the same as before because this transaction
 		// was not accepted by the eth node and never can be
-		require.Equal(t, int64(localNextNonce), key.NextNonce)
+		require.NotNil(t, key.NextNonce)
+		require.Equal(t, int64(localNextNonce), *key.NextNonce)
 
 		gethClient.AssertExpectations(t)
 	})
@@ -1026,7 +1028,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 		// Check that the key did not have its nonce incremented
 		require.NoError(t, store.DB.First(&key).Error)
-		require.Equal(t, int64(localNonce), key.NextNonce)
+		require.NotNil(t, key.NextNonce)
+		require.Equal(t, int64(localNonce), *key.NextNonce)
 
 		kst.AssertExpectations(t)
 	})
@@ -1068,7 +1071,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		// Check that the key did not have its nonce incremented
 		var key models.Key
 		require.NoError(t, store.DB.First(&key).Error)
-		require.Equal(t, int64(localNonce), key.NextNonce)
+		require.NotNil(t, key.NextNonce)
+		require.Equal(t, int64(localNonce), *key.NextNonce)
 
 		kst.AssertExpectations(t)
 	})
@@ -1154,7 +1158,8 @@ func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 	// Fixture key has nonce 0
 	var key models.Key
 	require.NoError(t, store.DB.First(&key).Error)
-	require.Equal(t, int64(0), key.NextNonce)
+	require.NotNil(t, key.NextNonce)
+	require.Equal(t, int64(0), *key.NextNonce)
 
 	nonce, err := bulletprooftxmanager.GetNextNonce(store.DB, key.Address.Address())
 	assert.NoError(t, err)
@@ -1169,7 +1174,8 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	// Fixture key had nonce 0
 	var key models.Key
 	require.NoError(t, store.DB.First(&key).Error)
-	require.Equal(t, int64(0), key.NextNonce)
+	require.NotNil(t, key.NextNonce)
+	require.Equal(t, int64(0), *key.NextNonce)
 
 	previouslyUpdatedAt := key.UpdatedAt
 
@@ -1180,7 +1186,8 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 
 	// Nonce bumped to 1
 	require.NoError(t, store.DB.First(&key).Error)
-	require.Equal(t, int64(1), key.NextNonce)
+	require.NotNil(t, key.NextNonce)
+	require.Equal(t, int64(1), *key.NextNonce)
 	// Updated at
 	require.Greater(t, key.UpdatedAt.Unix(), previouslyUpdatedAt.Unix())
 }
