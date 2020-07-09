@@ -419,6 +419,9 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     )
   {
     Round memory r = rounds[uint32(_roundId)];
+
+    require(r.answeredInRound > 0, "no round present for that ID");
+
     return (
       _roundId,
       r.answer,
