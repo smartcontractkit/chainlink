@@ -25,7 +25,6 @@ cd $SRCROOT/integration
 ./runlog_test
 ./ethlog_test
 deploy_v05_contracts
-./service_agreement_test
 
 title 'End to end tests.'
 
