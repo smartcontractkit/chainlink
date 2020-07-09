@@ -16,11 +16,11 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
   struct Phase {
     uint16 id;
-    AggregatorV3Interface aggregator;
+    address aggregator;
   }
   Phase private currentPhase;
-  AggregatorV3Interface public proposedAggregator;
-  mapping(uint16 => AggregatorV3Interface) public phaseAggregators;
+  address public proposedAggregator;
+  mapping(uint16 => address) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
   uint256 constant private PHASE_BASE = 2 ** PHASE_OFFSET;
@@ -42,7 +42,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = latestRoundData();
+    return AggregatorInterface(currentPhase.aggregator).latestAnswer();
   }
 
   /**
@@ -56,37 +56,45 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = latestRoundData();
+    return AggregatorInterface(currentPhase.aggregator).latestTimestamp();
   }
 
   /**
    * @notice get past rounds answers
-   * @param _roundId the answer number to retrieve the answer for
+   * @param _requestId the answer number to retrieve the answer for
    * @dev deprecated. Use getRoundData instead.
    */
-  function getAnswer(uint256 _roundId)
+  function getAnswer(uint256 _requestId)
     public
     view
     virtual
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = getRoundData(_roundId);
+    (
+      uint256 requestRoundId, ,
+      address aggregator
+    ) = getRoundIdPhaseIdAndAggregator(_requestId);
+    return AggregatorInterface(aggregator).getAnswer(requestRoundId);
   }
 
   /**
    * @notice get block timestamp when an answer was last updated
-   * @param _roundId the answer number to retrieve the updated timestamp for
+   * @param _requestId the answer number to retrieve the updated timestamp for
    * @dev deprecated. Use getRoundData instead.
    */
-  function getTimestamp(uint256 _roundId)
+  function getTimestamp(uint256 _requestId)
     public
     view
     virtual
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = getRoundData(_roundId);
+    (
+      uint256 requestRoundId, ,
+      address aggregator
+    ) = getRoundIdPhaseIdAndAggregator(_requestId);
+    return AggregatorInterface(aggregator).getTimestamp(requestRoundId);
   }
 
   /**
@@ -102,7 +110,9 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 roundId)
   {
-    ( roundId, , , , ) = latestRoundData();
+    Phase memory current = currentPhase; // cache storage reads
+    uint256 roundId = AggregatorInterface(current.aggregator).latestRound();
+    return addPhase(current.id, roundId);
   }
 
   /**
@@ -141,16 +151,18 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    uint16 requestPhaseId;
-    uint256 requestRoundId;
-    (requestPhaseId, requestRoundId) = parseRequestId(_requestId);
+    (
+      uint256 requestRoundId,
+      uint16 requestPhaseId,
+      address aggregator
+    ) = getRoundIdPhaseIdAndAggregator(_requestId);
     (
       roundId,
       answer,
       startedAt,
       updatedAt,
       answeredInRound
-    ) = phaseAggregators[requestPhaseId].getRoundData(requestRoundId);
+    ) = AggregatorV3Interface(aggregator).getRoundData(requestRoundId);
     roundId = addPhase(requestPhaseId, roundId);
     answeredInRound = addPhase(requestPhaseId, answeredInRound);
   }
@@ -197,7 +209,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       startedAt,
       updatedAt,
       answeredInRound
-    ) = current.aggregator.latestRoundData();
+    ) = AggregatorV3Interface(current.aggregator).latestRoundData();
     roundId = addPhase(current.id, roundId);
     answeredInRound = addPhase(current.id, answeredInRound);
   }
@@ -227,7 +239,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return proposedAggregator.getRoundData(_roundId);
+    return AggregatorV3Interface(proposedAggregator).getRoundData(_roundId);
   }
 
   /**
@@ -254,7 +266,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    return proposedAggregator.latestRoundData();
+    return AggregatorV3Interface(proposedAggregator).latestRoundData();
   }
 
   /**
@@ -265,7 +277,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     view
     returns (address)
   {
-    return address(currentPhase.aggregator);
+    return currentPhase.aggregator;
   }
 
   /**
@@ -288,7 +300,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint8)
   {
-    return currentPhase.aggregator.decimals();
+    return AggregatorV3Interface(currentPhase.aggregator).decimals();
   }
 
   /**
@@ -301,7 +313,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256)
   {
-    return currentPhase.aggregator.version();
+    return AggregatorV3Interface(currentPhase.aggregator).version();
   }
 
   /**
@@ -313,7 +325,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (string memory)
   {
-    return currentPhase.aggregator.description();
+    return AggregatorV3Interface(currentPhase.aggregator).description();
   }
 
   /**
@@ -324,7 +336,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     external
     onlyOwner()
   {
-    proposedAggregator = AggregatorV3Interface(_aggregator);
+    proposedAggregator = _aggregator;
   }
 
   /**
@@ -352,8 +364,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     internal
   {
     currentPhase.id++;
-    phaseAggregators[currentPhase.id] = AggregatorV3Interface(_aggregator);
-    currentPhase.aggregator = AggregatorV3Interface(_aggregator);
+    phaseAggregators[currentPhase.id] = _aggregator;
+    currentPhase.aggregator = _aggregator;
   }
 
   function addPhase(
@@ -367,17 +379,21 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     return (_originalId & REQUEST_ID_MASK) | _phase.mul(PHASE_BASE);
   }
 
-  function parseRequestId(
+  function getRoundIdPhaseIdAndAggregator(
     uint256 _requestId
   )
     internal
     view
-    returns (uint16, uint256)
+    returns (uint256, uint16, address)
   {
-    uint16 phaseId = uint16((PHASE_MASK & _requestId) >> PHASE_OFFSET);
-    uint256 roundId = _requestId & REQUEST_ID_MASK;
+    uint16 requestPhaseId = uint16((PHASE_MASK & _requestId) >> PHASE_OFFSET);
+    uint256 requestRoundId = _requestId & REQUEST_ID_MASK;
 
-    return (phaseId, roundId);
+    return (
+      requestRoundId,
+      requestPhaseId,
+      phaseAggregators[requestPhaseId]
+    );
   }
 
 
