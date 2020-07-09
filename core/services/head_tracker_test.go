@@ -24,7 +24,7 @@ import (
 
 func firstHead(t *testing.T, store *strpkg.Store) models.Head {
 	h := models.Head{}
-	if err := store.GetRawDB().Order("number asc").First(&h).Error; err != nil {
+	if err := store.DB.Order("number asc").First(&h).Error; err != nil {
 		t.Fatal(err)
 	}
 	return h
