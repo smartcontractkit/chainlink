@@ -364,18 +364,18 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     view
     returns (uint256)
   {
-    return _epoch.mul(EPOCH_BASE).add(_originalId);
+    return (_originalId & REQUEST_ID_MASK) | _epoch.mul(EPOCH_BASE);
   }
 
   function parseRequestId(
-    uint256 requestId
+    uint256 _requestId
   )
     internal
     view
     returns (uint16, uint64)
   {
-    uint16 epochId = uint16((EPOCH_MASK & requestId) >> EPOCH_OFFSET);
-    uint64 roundId = uint64(requestId & REQUEST_ID_MASK);
+    uint16 epochId = uint16((EPOCH_MASK & _requestId) >> EPOCH_OFFSET);
+    uint64 roundId = uint64(_requestId & REQUEST_ID_MASK);
 
     return (epochId, roundId);
   }
