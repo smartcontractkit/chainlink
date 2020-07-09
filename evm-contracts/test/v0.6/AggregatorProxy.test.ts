@@ -242,17 +242,22 @@ describe('AggregatorProxy', () => {
       })
 
       it('works for a valid round ID', async () => {
-        const aggId = await aggregator2.latestRound()
+        const aggId = h
+          .bigNum(2)
+          .pow(128)
+          .add(2)
+        await aggregator2
+          .connect(personas.Carol)
+          .updateRoundData(aggId, response2, 77, 42)
+
         const epoch = epochBase.mul(await proxy.epoch())
         const proxyId = epoch.add(aggId)
 
         const round = await proxy.getRoundData(proxyId)
         matchers.bigNum(proxyId, round.roundId)
         matchers.bigNum(response2, round.answer)
-        const nowSeconds = new Date().valueOf() / 1000
-        assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
-        assert.isBelow(round.startedAt.toNumber(), nowSeconds)
-        matchers.bigNum(round.startedAt, round.updatedAt)
+        matchers.bigNum(42, round.startedAt)
+        matchers.bigNum(77, round.updatedAt)
         matchers.bigNum(proxyId, round.answeredInRound)
       })
     })
@@ -310,7 +315,7 @@ describe('AggregatorProxy', () => {
         })
 
         it('does not revert', async () => {
-          const aggId = await aggregator2.latestRound()
+          const aggId = await historicAggregator.latestRound()
           const epoch = epochBase.mul(await proxy.epoch())
           const proxyId = epoch.add(aggId)
 
@@ -348,17 +353,22 @@ describe('AggregatorProxy', () => {
       })
 
       it('does not revert', async () => {
-        const aggId = await aggregator2.latestRound()
+        const aggId = h
+          .bigNum(2)
+          .pow(128)
+          .add(2)
+        await aggregator2
+          .connect(personas.Carol)
+          .updateRoundData(aggId, response2, 77, 42)
+
         const epoch = epochBase.mul(await proxy.epoch())
         const proxyId = epoch.add(aggId)
 
         const round = await proxy.latestRoundData()
         matchers.bigNum(proxyId, round.roundId)
         matchers.bigNum(response2, round.answer)
-        const nowSeconds = new Date().valueOf() / 1000
-        assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
-        assert.isBelow(round.startedAt.toNumber(), nowSeconds)
-        matchers.bigNum(round.startedAt, round.updatedAt)
+        matchers.bigNum(42, round.startedAt)
+        matchers.bigNum(77, round.updatedAt)
         matchers.bigNum(proxyId, round.answeredInRound)
       })
 

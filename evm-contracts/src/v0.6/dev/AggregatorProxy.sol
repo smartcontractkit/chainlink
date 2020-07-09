@@ -25,7 +25,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   uint256 constant private EPOCH_OFFSET = 64;
   uint256 constant private EPOCH_BASE = 2 ** EPOCH_OFFSET;
   uint256 constant private EPOCH_MASK = 0xFFFF << EPOCH_OFFSET;
-  uint256 constant private REQUEST_ID_MASK = EPOCH_BASE - 1;
+  uint256 constant private REQUEST_ID_MASK = ~EPOCH_MASK;
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -142,7 +142,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     )
   {
     uint16 requestEpoch;
-    uint64 requestRoundId;
+    uint256 requestRoundId;
     (requestEpoch, requestRoundId) = parseRequestId(_requestId);
     (
       roundId,
@@ -372,10 +372,10 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   )
     internal
     view
-    returns (uint16, uint64)
+    returns (uint16, uint256)
   {
     uint16 epochId = uint16((EPOCH_MASK & _requestId) >> EPOCH_OFFSET);
-    uint64 roundId = uint64(_requestId & REQUEST_ID_MASK);
+    uint256 roundId = _requestId & REQUEST_ID_MASK;
 
     return (epochId, roundId);
   }
