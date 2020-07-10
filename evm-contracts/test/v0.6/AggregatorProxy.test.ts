@@ -428,7 +428,7 @@ describe('AggregatorProxy', () => {
           const roundId = await aggregator2.latestRound()
           await matchers.evmRevert(async () => {
             await proxy.proposedGetRoundData(roundId)
-          })
+          }, 'No proposed aggregator present')
         })
       })
     })
@@ -467,7 +467,7 @@ describe('AggregatorProxy', () => {
         it('reverts', async () => {
           await matchers.evmRevert(async () => {
             await proxy.proposedLatestRoundData()
-          })
+          }, 'No proposed aggregator present')
         })
       })
     })
