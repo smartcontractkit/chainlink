@@ -9,7 +9,7 @@ services:
       - devnet
   devnet:
     container_name: parity
-    image: smartcontract/devnet@sha256:19d5ae504e012c8dc12278ecb43ddd02b95fba7729af7211adba1bbe333d42f6
+    image: smartcontract/devnet@sha256:a5768cb8a6e4b2aecdbbae7e95ba00c2e3b9a252685f2a675f9fa0db8d30c45a
     user: root
     command: --config /devnet/miner.toml --db-path /devnet/database
     ports:
