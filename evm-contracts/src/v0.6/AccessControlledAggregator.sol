@@ -1,6 +1,6 @@
 pragma solidity 0.6.6;
 
-import "./FluxAggregator.sol";
+import "./dev/FluxAggregator.sol";
 import "./SimpleReadAccessController.sol";
 
 /**
