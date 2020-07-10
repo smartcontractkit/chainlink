@@ -140,16 +140,17 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint80 answeredInRound
     )
   {
-    (uint16 requestPhaseId, uint64 requestRoundId) = parseRequestId(_requestId);
+    (uint16 phaseId, uint64 requestRoundId) = parseRequestId(_requestId);
+
     (
-      roundId,
-      answer,
-      startedAt,
-      updatedAt,
-      answeredInRound
-    ) = phaseAggregators[requestPhaseId].getRoundData(requestRoundId);
-    roundId = addPhase(requestPhaseId, uint64(roundId));
-    answeredInRound = addPhase(requestPhaseId, uint64(answeredInRound));
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 ansIn
+    ) = phaseAggregators[phaseId].getRoundData(requestRoundId);
+
+    return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, phaseId);
   }
 
   /**
@@ -188,15 +189,16 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     )
   {
     Phase memory current = currentPhase; // cache storage reads
+
     (
-      roundId,
-      answer,
-      startedAt,
-      updatedAt,
-      answeredInRound
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 ansIn
     ) = current.aggregator.latestRoundData();
-    roundId = addPhase(current.id, uint64(roundId));
-    answeredInRound = addPhase(current.id, uint64(answeredInRound));
+
+    return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, current.id);
   }
 
   /**
@@ -361,7 +363,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     view
     returns (uint80)
   {
-    return uint80(_originalId | uint256(_phase) << PHASE_OFFSET);
+    return uint80(uint256(_phase) << PHASE_OFFSET | _originalId);
   }
 
   function parseRequestId(
@@ -381,16 +383,18 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     view
     returns (uint80, int256, uint256, uint256, uint80)
   {
-    try this.latestRoundData() returns (
+    Phase memory current = currentPhase; // cache storage reads
+
+    try current.aggregator.latestRoundData() returns (
       uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint80 answeredInRound
+      uint80 ansIn
     ) {
-      return (roundId, answer, startedAt, updatedAt, answeredInRound);
+      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, current.id);
     } catch Error(string memory reason) {
-      return handleRoundDataError(reason);
+      return handleExpectedV3Error(reason);
     }
   }
 
@@ -401,20 +405,23 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     view
     returns (uint80, int256, uint256, uint256, uint80)
   {
-    try this.getRoundData(uint80(_requestId)) returns (
+    (uint16 phaseId, uint64 requestRoundId) = parseRequestId(_requestId);
+    AggregatorV3Interface aggregator = phaseAggregators[phaseId];
+
+    try aggregator.getRoundData(uint80(requestRoundId)) returns (
       uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint80 answeredInRound
+      uint80 ansIn
     ) {
-      return (roundId, answer, startedAt, updatedAt, answeredInRound);
+      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, phaseId);
     } catch Error(string memory reason) {
-      return handleRoundDataError(reason);
+      return handleExpectedV3Error(reason);
     }
   }
 
-  function handleRoundDataError(
+  function handleExpectedV3Error(
     string memory reason
   )
     internal
@@ -422,9 +429,30 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     returns (uint80, int256, uint256, uint256, uint80)
   {
     require(keccak256(bytes(reason)) == EXPECTED_V3_ERROR, reason);
+
     return (0, 0, 0, 0, 0);
   }
 
+  function addPhaseIds(
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 answeredInRound,
+      uint16 phaseId
+  )
+    internal
+    view
+    returns (uint80, int256, uint256, uint256, uint80)
+  {
+    return (
+      addPhase(phaseId, uint64(roundId)),
+      answer,
+      startedAt,
+      updatedAt,
+      addPhase(phaseId, uint64(answeredInRound))
+    );
+  }
 
   /*
    * Modifiers
