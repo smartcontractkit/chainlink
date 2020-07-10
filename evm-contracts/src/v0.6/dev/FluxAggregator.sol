@@ -839,6 +839,8 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     uint32 prevRound = _roundId.sub(1);
     uint32 prevAnswerRoundId = rounds[prevRound].answeredInRound;
     int256 prevRoundAnswer = rounds[prevRound].answer;
+    // We do not want the validator to ever prevent reporting, so we limit its
+    // gas usage and catch any errors that may arise.
     try av.validate.gas(VALIDATOR_GAS_LIMIT)(
       prevAnswerRoundId,
       prevRoundAnswer,

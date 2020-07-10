@@ -25,13 +25,13 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
   );
 
   constructor(
-    address newFlags,
-    uint24 newFT
+    address _flagsAddress,
+    uint24 _flaggingThreshold
   )
     public
   {
-    setFlagsAddress(newFlags);
-    setFlaggingThreshold(newFT);
+    setFlagsAddress(_flagsAddress);
+    setFlaggingThreshold(_flaggingThreshold);
   }
 
   function validate(
@@ -54,29 +54,29 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
     return true;
   }
 
-  function setFlaggingThreshold(uint24 newFT)
+  function setFlaggingThreshold(uint24 _flaggingThreshold)
     public
     onlyOwner()
   {
     uint24 previousFT = uint24(flaggingThreshold);
 
-    if (previousFT != newFT) {
-      flaggingThreshold = newFT;
+    if (previousFT != _flaggingThreshold) {
+      flaggingThreshold = _flaggingThreshold;
 
-      emit FlaggingThresholdUpdated(previousFT, newFT);
+      emit FlaggingThresholdUpdated(previousFT, _flaggingThreshold);
     }
   }
 
-  function setFlagsAddress(address newFlags)
+  function setFlagsAddress(address _flagsAddress)
     public
     onlyOwner()
   {
     address previous = address(flags);
 
-    if (previous != newFlags) {
-      flags = FlagsInterface(newFlags);
+    if (previous != _flagsAddress) {
+      flags = FlagsInterface(_flagsAddress);
 
-      emit FlagsAddressUpdated(previous, newFlags);
+      emit FlagsAddressUpdated(previous, _flagsAddress);
     }
   }
 
