@@ -250,10 +250,12 @@ contract EACAggregatorProxy is AggregatorProxy {
   }
 
   /**
-   * @dev reverts if the caller does not have access by the accessController contract
+   * @dev reverts if the caller does not have access by the accessController
+   * contract or is the contract itself.
    */
   modifier checkAccess() {
-    require(accessController.hasAccess(msg.sender, msg.data), "No access");
+    bool tryCatchAccess = msg.sender == address(this);
+    require(tryCatchAccess || accessController.hasAccess(msg.sender, msg.data), "No access");
     _;
   }
 }

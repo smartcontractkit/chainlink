@@ -131,7 +131,7 @@ describe('EACAggregatorProxy', () => {
     })
   })
 
-  describe('if the caller is controllered', () => {
+  describe('if the caller is granted access', () => {
     beforeEach(async () => {
       await controller.addAccess(defaultAccount.address)
 
