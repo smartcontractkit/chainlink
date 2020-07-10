@@ -1,5 +1,10 @@
 import { utils } from 'ethers'
-import { registerPromiseHandler, createProvider, getArgs } from './common'
+import {
+  registerPromiseHandler,
+  createProvider,
+  getArgs,
+  DEVNET_ADDRESS,
+} from './common'
 
 /**
  * This script is used to fund a chainlink node address given a developer account.
@@ -14,6 +19,11 @@ async function main() {
     recipient: args.CHAINLINK_NODE_ADDRESS,
     signerAddress: args.DEVELOPER_ACCOUNT,
   })
+
+  await fundAddress({
+    recipient: DEVNET_ADDRESS,
+    signerAddress: args.DEVELOPER_ACCOUNT,
+  })
 }
 main()
 
@@ -22,6 +32,7 @@ interface Args {
   signerAddress: string
 }
 async function fundAddress({ recipient, signerAddress }: Args) {
+  console.log('Funding account from ' + signerAddress + ' to ' + recipient)
   const provider = createProvider()
   const signer = provider.getSigner(signerAddress)
 
