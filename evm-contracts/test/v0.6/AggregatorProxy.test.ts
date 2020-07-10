@@ -57,9 +57,10 @@ describe('AggregatorProxy', () => {
     proxy = await aggregatorProxyFactory
       .connect(defaultAccount)
       .deploy(aggregator.address)
+    const emptyAddress = '0x0000000000000000000000000000000000000000'
     flux = await fluxAggregatorFactory
       .connect(personas.Carol)
-      .deploy(link.address, 0, 0, 0, 0, 18, 'TEST / LINK')
+      .deploy(link.address, 0, 0, emptyAddress, 0, 0, 18, 'TEST / LINK')
   })
 
   beforeEach(async () => {

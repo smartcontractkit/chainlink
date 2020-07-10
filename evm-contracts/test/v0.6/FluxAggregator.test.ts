@@ -9,12 +9,23 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
+import { AnswerValidatorTestHelperFactory } from '../../ethers/v0.6/AnswerValidatorTestHelperFactory'
+import { GasGuzzlerFactory } from '../../ethers/v0.6/GasGuzzlerFactory'
+import { HistoricDeviationValidatorFactory } from '../../ethers/v0.6/HistoricDeviationValidatorFactory'
+import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
+import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const fluxAggregatorFactory = new FluxAggregatorFactory()
+const answerValidatorFactory = new AnswerValidatorTestHelperFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
+const validatorFactory = new HistoricDeviationValidatorFactory()
+const flagsFactory = new FlagsFactory()
+const acFactory = new SimpleWriteAccessControllerFactory()
+const gasGuzzlerFactory = new GasGuzzlerFactory()
+const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 beforeAll(async () => {
   personas = await setup.users(provider).then(x => x.personas)
@@ -37,6 +48,8 @@ describe('FluxAggregator', () => {
   let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
+  let validator: contract.Instance<AnswerValidatorTestHelperFactory>
+  let gasGuzzler: contract.Instance<GasGuzzlerFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
@@ -171,6 +184,7 @@ describe('FluxAggregator', () => {
         link.address,
         paymentAmount,
         timeout,
+        emptyAddress,
         minSubmissionValue,
         maxSubmissionValue,
         decimals,
@@ -218,6 +232,7 @@ describe('FluxAggregator', () => {
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
+      'setAnswerValidator',
       'submit',
       'timeout',
       'transferAdmin',
@@ -419,25 +434,19 @@ describe('FluxAggregator', () => {
       })
 
       it('does not set the timedout flag', async () => {
-        let round = await aggregator.getRoundData(nextRound)
-        assert.notEqual(round.roundId, round.answeredInRound)
+        matchers.evmRevert(
+          aggregator.getRoundData(nextRound),
+          'No data present',
+        )
 
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        round = await aggregator.getRoundData(nextRound)
+        const round = await aggregator.getRoundData(nextRound)
         assert.equal(nextRound, round.answeredInRound.toNumber())
       })
 
       it('updates the round details', async () => {
-        const roundBefore = await aggregator.getRoundData(nextRound)
-        matchers.bigNum(nextRound, roundBefore.roundId)
-        matchers.bigNum(0, roundBefore.answer)
-        assert.isFalse(roundBefore.startedAt.isZero())
-        matchers.bigNum(0, roundBefore.updatedAt)
-        matchers.bigNum(0, roundBefore.answeredInRound)
-
-        const roundBeforeLatest = await aggregator.latestRoundData()
-        matchers.bigNum(nextRound - 1, roundBeforeLatest.roundId)
+        matchers.evmRevert(aggregator.latestRoundData(), 'No data present')
 
         h.increaseTimeBy(15, provider)
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
@@ -445,7 +454,7 @@ describe('FluxAggregator', () => {
         const roundAfter = await aggregator.getRoundData(nextRound)
         matchers.bigNum(nextRound, roundAfter.roundId)
         matchers.bigNum(answer, roundAfter.answer)
-        matchers.bigNum(roundBefore.startedAt, roundAfter.startedAt)
+        assert.isFalse(roundAfter.startedAt.isZero())
         matchers.bigNum(
           await aggregator.getTimestamp(nextRound),
           roundAfter.updatedAt,
@@ -507,14 +516,17 @@ describe('FluxAggregator', () => {
       })
 
       it('sets the startedAt time for the reportingRound', async () => {
-        let round = await aggregator.getRoundData(nextRound)
-        matchers.bigNum(ethers.constants.Zero, round.startedAt)
+        matchers.evmRevert(
+          aggregator.getRoundData(nextRound),
+          'No data present',
+        )
 
         await aggregator.connect(oracles[0]).submit(nextRound, answer)
 
-        round = await aggregator.getRoundData(nextRound)
-
-        expect(round.startedAt).not.toBe(0)
+        matchers.evmRevert(
+          aggregator.getRoundData(nextRound),
+          'No data present',
+        )
       })
 
       it('announces a new round by emitting a log', async () => {
@@ -792,12 +804,14 @@ describe('FluxAggregator', () => {
 
       it('sets the previous round as timed out', async () => {
         const previousRound = nextRound - 1
-        let round = await aggregator.getRoundData(previousRound)
-        matchers.bigNum(0, round.answeredInRound)
+        matchers.evmRevert(
+          aggregator.getRoundData(previousRound),
+          'No data present',
+        )
 
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        round = await aggregator.getRoundData(previousRound)
+        const round = await aggregator.getRoundData(previousRound)
         assert.notEqual(round.roundId, round.answeredInRound)
         matchers.bigNum(previousRound - 1, round.answeredInRound)
       })
@@ -847,6 +861,56 @@ describe('FluxAggregator', () => {
             .submit(nextRound, maxSubmissionValue.add(1)),
           'value above maxSubmissionValue',
         )
+      })
+    })
+
+    describe('when an answer validator is set', () => {
+      beforeEach(async () => {
+        await updateFutureRounds(aggregator, { minAnswers: 1, maxAnswers: 1 })
+        oracles = [personas.Nelly]
+
+        validator = await answerValidatorFactory
+          .connect(personas.Carol)
+          .deploy()
+        await aggregator
+          .connect(personas.Carol)
+          .setAnswerValidator(validator.address)
+      })
+
+      it('calls out to the validator', async () => {
+        const tx = await aggregator
+          .connect(personas.Nelly)
+          .submit(nextRound, answer)
+        const receipt = await tx.wait()
+
+        const event = matchers.eventExists(
+          receipt,
+          validator.interface.events.Validated,
+        )
+        matchers.bigNum(0, h.bigNum(event.topics[1]))
+        matchers.bigNum(answer, h.bigNum(event.topics[2]))
+      })
+    })
+
+    describe('when the answer validator eats all gas', () => {
+      beforeEach(async () => {
+        await updateFutureRounds(aggregator, { minAnswers: 1, maxAnswers: 1 })
+        oracles = [personas.Nelly]
+
+        gasGuzzler = await gasGuzzlerFactory.connect(personas.Carol).deploy()
+        await aggregator
+          .connect(personas.Carol)
+          .setAnswerValidator(gasGuzzler.address)
+      })
+
+      it('still updates', async () => {
+        matchers.bigNum(0, await aggregator.latestAnswer())
+
+        await aggregator
+          .connect(personas.Nelly)
+          .submit(nextRound, answer, { gasLimit: 500000 })
+
+        matchers.bigNum(answer, await aggregator.latestAnswer())
       })
     })
   })
@@ -2810,7 +2874,7 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe.only('#latestRoundData', () => {
+  describe('#latestRoundData', () => {
     beforeEach(async () => {
       oracles = [personas.Nelly]
       const minMax = oracles.length
@@ -2837,6 +2901,92 @@ describe('FluxAggregator', () => {
 
     it('reverts if a round is not present', async () => {
       await matchers.evmRevert(aggregator.latestRoundData(), 'No data present')
+    })
+  })
+
+  describe('#setAnswerValidator', () => {
+    beforeEach(async () => {
+      validator = await answerValidatorFactory.connect(personas.Carol).deploy()
+    })
+
+    it('emits a log event showing the validator was changed', async () => {
+      const tx = await aggregator
+        .connect(personas.Carol)
+        .setAnswerValidator(validator.address)
+      const receipt = await tx.wait()
+      const eventLog = matchers.eventExists(
+        receipt,
+        aggregator.interface.events.AnswerValidatorUpdated,
+      )
+
+      assert.equal(emptyAddress, h.eventArgs(eventLog).previous)
+      assert.equal(validator.address, h.eventArgs(eventLog).current)
+
+      const sameChangeTx = await aggregator
+        .connect(personas.Carol)
+        .setAnswerValidator(validator.address)
+      const sameChangeReceipt = await sameChangeTx.wait()
+      assert.equal(0, sameChangeReceipt.events?.length)
+      matchers.eventDoesNotExist(
+        sameChangeReceipt,
+        aggregator.interface.events.AnswerValidatorUpdated,
+      )
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          aggregator
+            .connect(personas.Neil)
+            .setAnswerValidator(validator.address),
+          'Only callable by owner',
+        )
+      })
+    })
+  })
+
+  describe('integrating with historic deviation checker', () => {
+    let validator: contract.Instance<HistoricDeviationValidatorFactory>
+    let flags: contract.Instance<FlagsFactory>
+    let ac: contract.Instance<SimpleWriteAccessControllerFactory>
+    const flaggingThreshold = 1000 // 1%
+
+    beforeEach(async () => {
+      ac = await acFactory.connect(personas.Carol).deploy()
+      flags = await flagsFactory.connect(personas.Carol).deploy(ac.address)
+      validator = await validatorFactory
+        .connect(personas.Carol)
+        .deploy(flags.address, flaggingThreshold)
+      await ac.connect(personas.Carol).addAccess(validator.address)
+
+      await aggregator
+        .connect(personas.Carol)
+        .setAnswerValidator(validator.address)
+
+      oracles = [personas.Nelly]
+      const minMax = oracles.length
+      await addOracles(aggregator, oracles, minMax, minMax, rrDelay)
+    })
+
+    it('raises a flag on with high enough deviation', async () => {
+      await aggregator.connect(personas.Nelly).submit(nextRound, 100)
+      nextRound++
+
+      const tx = await aggregator.connect(personas.Nelly).submit(nextRound, 102)
+      const receipt = await tx.wait()
+      const event = matchers.eventExists(receipt, flags.interface.events.FlagOn)
+
+      assert.equal(flags.address, event.address)
+      assert.equal(aggregator.address, h.evmWordToAddress(event.topics[1]))
+    })
+
+    it('does not raise a flag with low enough deviation', async () => {
+      await aggregator.connect(personas.Nelly).submit(nextRound, 100)
+      nextRound++
+
+      const tx = await aggregator.connect(personas.Nelly).submit(nextRound, 101)
+      const receipt = await tx.wait()
+      matchers.eventDoesNotExist(receipt, flags.interface.events.FlagOn)
     })
   })
 })
