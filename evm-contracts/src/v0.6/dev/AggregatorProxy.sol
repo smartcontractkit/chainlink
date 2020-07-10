@@ -3,7 +3,6 @@ pragma solidity 0.6.6;
 import "../Owned.sol";
 import "../interfaces/AggregatorInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../vendor/SafeMath.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -12,7 +11,6 @@ import "../vendor/SafeMath.sol";
  * trusted to update it.
  */
 contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
-  using SafeMath for uint256;
 
   struct Phase {
     uint16 id;
@@ -23,7 +21,6 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   mapping(uint16 => AggregatorV3Interface) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
-  uint256 constant private PHASE_MASK = 0xFFFF << PHASE_OFFSET;
   bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes("No data present"));
 
   constructor(address _aggregator) public Owned() {
@@ -373,7 +370,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     view
     returns (uint16, uint64)
   {
-    uint16 phaseId = uint16((PHASE_MASK & _requestId) >> PHASE_OFFSET);
+    uint16 phaseId = uint16(_requestId >> PHASE_OFFSET);
     uint64 roundId = uint64(_requestId);
 
     return (phaseId, roundId);
