@@ -9,7 +9,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
-import { AnswerValidatorTestHelperFactory } from '../../ethers/v0.6/AnswerValidatorTestHelperFactory'
+import { AggregatorValidatorMockFactory } from '../../ethers/v0.6/AggregatorValidatorMockFactory'
 import { GasGuzzlerFactory } from '../../ethers/v0.6/GasGuzzlerFactory'
 import { HistoricDeviationValidatorFactory } from '../../ethers/v0.6/HistoricDeviationValidatorFactory'
 import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
@@ -19,7 +19,7 @@ let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const fluxAggregatorFactory = new FluxAggregatorFactory()
-const answerValidatorFactory = new AnswerValidatorTestHelperFactory()
+const validatorMockFactory = new AggregatorValidatorMockFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const validatorFactory = new HistoricDeviationValidatorFactory()
 const flagsFactory = new FlagsFactory()
@@ -48,7 +48,7 @@ describe('FluxAggregator', () => {
   let aggregator: contract.Instance<FluxAggregatorFactory>
   let link: contract.Instance<contract.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
-  let validator: contract.Instance<AnswerValidatorTestHelperFactory>
+  let validator: contract.Instance<AggregatorValidatorMockFactory>
   let gasGuzzler: contract.Instance<GasGuzzlerFactory>
   let nextRound: number
   let oracles: ethers.Wallet[]
@@ -232,7 +232,7 @@ describe('FluxAggregator', () => {
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
-      'setAnswerValidator',
+      'setValidator',
       'submit',
       'timeout',
       'transferAdmin',
@@ -864,17 +864,13 @@ describe('FluxAggregator', () => {
       })
     })
 
-    describe('when an answer validator is set', () => {
+    describe('when a validator is set', () => {
       beforeEach(async () => {
         await updateFutureRounds(aggregator, { minAnswers: 1, maxAnswers: 1 })
         oracles = [personas.Nelly]
 
-        validator = await answerValidatorFactory
-          .connect(personas.Carol)
-          .deploy()
-        await aggregator
-          .connect(personas.Carol)
-          .setAnswerValidator(validator.address)
+        validator = await validatorMockFactory.connect(personas.Carol).deploy()
+        await aggregator.connect(personas.Carol).setValidator(validator.address)
       })
 
       it('calls out to the validator', async () => {
@@ -900,7 +896,7 @@ describe('FluxAggregator', () => {
         gasGuzzler = await gasGuzzlerFactory.connect(personas.Carol).deploy()
         await aggregator
           .connect(personas.Carol)
-          .setAnswerValidator(gasGuzzler.address)
+          .setValidator(gasGuzzler.address)
       })
 
       it('still updates', async () => {
@@ -2904,19 +2900,19 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#setAnswerValidator', () => {
+  describe('#setValidator', () => {
     beforeEach(async () => {
-      validator = await answerValidatorFactory.connect(personas.Carol).deploy()
+      validator = await validatorMockFactory.connect(personas.Carol).deploy()
     })
 
     it('emits a log event showing the validator was changed', async () => {
       const tx = await aggregator
         .connect(personas.Carol)
-        .setAnswerValidator(validator.address)
+        .setValidator(validator.address)
       const receipt = await tx.wait()
       const eventLog = matchers.eventExists(
         receipt,
-        aggregator.interface.events.AnswerValidatorUpdated,
+        aggregator.interface.events.ValidatorUpdated,
       )
 
       assert.equal(emptyAddress, h.eventArgs(eventLog).previous)
@@ -2924,21 +2920,19 @@ describe('FluxAggregator', () => {
 
       const sameChangeTx = await aggregator
         .connect(personas.Carol)
-        .setAnswerValidator(validator.address)
+        .setValidator(validator.address)
       const sameChangeReceipt = await sameChangeTx.wait()
       assert.equal(0, sameChangeReceipt.events?.length)
       matchers.eventDoesNotExist(
         sameChangeReceipt,
-        aggregator.interface.events.AnswerValidatorUpdated,
+        aggregator.interface.events.ValidatorUpdated,
       )
     })
 
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
-          aggregator
-            .connect(personas.Neil)
-            .setAnswerValidator(validator.address),
+          aggregator.connect(personas.Neil).setValidator(validator.address),
           'Only callable by owner',
         )
       })
@@ -2959,9 +2953,7 @@ describe('FluxAggregator', () => {
         .deploy(flags.address, flaggingThreshold)
       await ac.connect(personas.Carol).addAccess(validator.address)
 
-      await aggregator
-        .connect(personas.Carol)
-        .setAnswerValidator(validator.address)
+      await aggregator.connect(personas.Carol).setValidator(validator.address)
 
       oracles = [personas.Nelly]
       const minMax = oracles.length

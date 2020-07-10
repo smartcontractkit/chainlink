@@ -1,12 +1,12 @@
 pragma solidity ^0.6.0;
 
-import './AnswerValidatorInterface.sol';
+import './AggregatorValidatorInterface.sol';
 import '../interfaces/FlagsInterface.sol';
 import '../Owned.sol';
 import '../vendor/SafeMath.sol';
 import '../SignedSafeMath.sol';
 
-contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
+contract HistoricDeviationValidator is Owned, AggregatorValidatorInterface {
   using SafeMath for uint256;
   using SignedSafeMath for int256;
 
@@ -90,8 +90,13 @@ contract HistoricDeviationValidator is Owned, AnswerValidatorInterface {
     private
     returns (uint256)
   {
-    uint256 difference = abs(current - previous);
-    return difference.mul(THRESHOLD_MULTIPLIER).div(abs(previous));
+    int256 difference;
+    if (current > previous) {
+      difference = current - previous;
+    } else {
+      difference = previous - current;
+    }
+    return abs(difference).mul(THRESHOLD_MULTIPLIER).div(abs(previous));
   }
 
   function arrayifyMsgSender()

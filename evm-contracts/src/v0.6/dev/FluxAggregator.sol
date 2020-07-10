@@ -7,7 +7,7 @@ import "../SafeMath32.sol";
 import "../SafeMath64.sol";
 import "../interfaces/AggregatorInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import './AnswerValidatorInterface.sol';
+import './AggregatorValidatorInterface.sol';
 import "../interfaces/LinkTokenInterface.sol";
 import "../vendor/SafeMath.sol";
 
@@ -61,7 +61,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
 
 
   LinkTokenInterface public linkToken;
-  AnswerValidatorInterface private answerValidator;
+  AggregatorValidatorInterface private validator;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
@@ -134,7 +134,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     bool authorized,
     uint32 delay
   );
-  event AnswerValidatorUpdated(
+  event ValidatorUpdated(
     address indexed previous,
     address indexed current
   );
@@ -146,7 +146,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
    * @param _paymentAmount The amount paid of LINK paid to each oracle per submission, in wei (units of 10⁻¹⁸ LINK)
    * @param _timeout is the number of seconds after the previous round that are
    * allowed to lapse before allowing an oracle to skip an unfinished round
-   * @param _answerValidator is an optional contract address for validating
+   * @param _validator is an optional contract address for validating
    * external validation of answers
    * @param _minSubmissionValue is an immutable check for a lower bound of what
    * submission values are accepted from an oracle
@@ -159,7 +159,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
-    address _answerValidator,
+    address _validator,
     int256 _minSubmissionValue,
     int256 _maxSubmissionValue,
     uint8 _decimals,
@@ -168,7 +168,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     linkToken = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
-    answerValidator = AnswerValidatorInterface(_answerValidator);
+    validator = AggregatorValidatorInterface(_validator);
     minSubmissionValue = _minSubmissionValue;
     maxSubmissionValue = _maxSubmissionValue;
     decimals = _decimals;
@@ -678,16 +678,16 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
    * @notice method to update the address which does external data validation.
    * @param _newValidator designates the address of the new validation contract.
    */
-  function setAnswerValidator(address _newValidator)
+  function setValidator(address _newValidator)
     external
     onlyOwner()
   {
-    address previous = address(answerValidator);
+    address previous = address(validator);
 
     if (previous != _newValidator) {
-      answerValidator = AnswerValidatorInterface(_newValidator);
+      validator = AggregatorValidatorInterface(_newValidator);
 
-      emit AnswerValidatorUpdated(previous, _newValidator);
+      emit ValidatorUpdated(previous, _newValidator);
     }
   }
 
@@ -833,7 +833,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   )
     private
   {
-    AnswerValidatorInterface av = answerValidator; // cache storage reads
+    AggregatorValidatorInterface av = validator; // cache storage reads
     if (address(av) == address(0)) return;
 
     uint32 prevRound = _roundId.sub(1);
