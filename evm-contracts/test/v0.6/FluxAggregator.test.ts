@@ -11,7 +11,7 @@ import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
 import { AggregatorValidatorMockFactory } from '../../ethers/v0.6/AggregatorValidatorMockFactory'
 import { GasGuzzlerFactory } from '../../ethers/v0.6/GasGuzzlerFactory'
-import { HistoricDeviationValidatorFactory } from '../../ethers/v0.6/HistoricDeviationValidatorFactory'
+import { DeviationFlaggingValidatorFactory } from '../../ethers/v0.6/DeviationFlaggingValidatorFactory'
 import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
 import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
 
@@ -21,7 +21,7 @@ const linkTokenFactory = new contract.LinkTokenFactory()
 const fluxAggregatorFactory = new FluxAggregatorFactory()
 const validatorMockFactory = new AggregatorValidatorMockFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
-const validatorFactory = new HistoricDeviationValidatorFactory()
+const validatorFactory = new DeviationFlaggingValidatorFactory()
 const flagsFactory = new FlagsFactory()
 const acFactory = new SimpleWriteAccessControllerFactory()
 const gasGuzzlerFactory = new GasGuzzlerFactory()
@@ -2940,7 +2940,7 @@ describe('FluxAggregator', () => {
   })
 
   describe('integrating with historic deviation checker', () => {
-    let validator: contract.Instance<HistoricDeviationValidatorFactory>
+    let validator: contract.Instance<DeviationFlaggingValidatorFactory>
     let flags: contract.Instance<FlagsFactory>
     let ac: contract.Instance<SimpleWriteAccessControllerFactory>
     const flaggingThreshold = 1000 // 1%
