@@ -254,8 +254,7 @@ contract EACAggregatorProxy is AggregatorProxy {
    * contract or is the contract itself.
    */
   modifier checkAccess() {
-    bool tryCatchAccess = msg.sender == address(this);
-    require(tryCatchAccess || accessController.hasAccess(msg.sender, msg.data), "No access");
+    require(accessController.hasAccess(msg.sender, msg.data), "No access");
     _;
   }
 }
