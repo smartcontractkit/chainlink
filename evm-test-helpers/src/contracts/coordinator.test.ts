@@ -5,7 +5,7 @@ describe('generateSAID test', () => {
     const sa: ServiceAgreement = {
       payment: '1000000000000000000',
       expiration: 300,
-      oracles: ['0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'],
+      oracles: ['0x7fc66c61f88A61DFB670627cA715Fe808057123e'],
       endAt: Math.round(new Date('2020-10-19T22:17:19Z').getTime() / 1000),
       aggregator: '0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF',
       aggInitiateJobSelector: '0xe16c4c94',
