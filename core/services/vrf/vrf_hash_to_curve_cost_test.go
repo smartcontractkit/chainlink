@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
@@ -43,10 +43,10 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	parsed, err := abi.JSON(strings.NewReader(
-		solidity_verifier_wrapper.VRFTestHelperABI))
+		solidity_vrf_verifier_wrapper.VRFTestHelperABI))
 	require.NoError(t, err, "could not parse VRF ABI")
 	address, _, vRFContract, err := bind.DeployContract(auth, parsed,
-		common.FromHex(solidity_verifier_wrapper.VRFTestHelperBin), backend)
+		common.FromHex(solidity_vrf_verifier_wrapper.VRFTestHelperBin), backend)
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return contract{vRFContract, address, &parsed, backend}, crypto.PubkeyToAddress(

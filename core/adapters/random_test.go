@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,14 +22,14 @@ import (
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
-func vrfVerifier(t *testing.T) *solidity_verifier_wrapper.VRFTestHelper {
+func vrfVerifier(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	ethereumKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	auth := bind.NewKeyedTransactor(ethereumKey)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
-	_, _, verifier, err := solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	require.NoError(t, err)
 	backend.Commit()
 	return verifier
