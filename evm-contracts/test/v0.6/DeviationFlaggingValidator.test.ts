@@ -5,13 +5,13 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { HistoricDeviationValidatorFactory } from '../../ethers/v0.6/HistoricDeviationValidatorFactory'
+import { DeviationFlaggingValidatorFactory } from '../../ethers/v0.6/DeviationFlaggingValidatorFactory'
 import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
 import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
 
 let personas: setup.Personas
 const provider = setup.provider()
-const validatorFactory = new HistoricDeviationValidatorFactory()
+const validatorFactory = new DeviationFlaggingValidatorFactory()
 const flagsFactory = new FlagsFactory()
 const acFactory = new SimpleWriteAccessControllerFactory()
 
@@ -19,8 +19,8 @@ beforeAll(async () => {
   personas = await setup.users(provider).then(x => x.personas)
 })
 
-describe('HistoricDeviationValidator', () => {
-  let validator: contract.Instance<HistoricDeviationValidatorFactory>
+describe('DeviationFlaggingValidator', () => {
+  let validator: contract.Instance<DeviationFlaggingValidatorFactory>
   let flags: contract.Instance<FlagsFactory>
   let ac: contract.Instance<SimpleWriteAccessControllerFactory>
   const flaggingThreshold = 10000 // 10%
