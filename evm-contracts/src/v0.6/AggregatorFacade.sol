@@ -84,14 +84,14 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
-    return _getRoundData(aggregator.latestRound());
+    return _getRoundData(uint80(aggregator.latestRound()));
   }
 
   /**
@@ -137,17 +137,17 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
    * @dev Note that for rounds that haven't yet received responses from all
    * oracles, answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     external
     view
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return _getRoundData(_roundId);
@@ -157,15 +157,15 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
    * Internal
    */
 
-  function _getRoundData(uint256 _roundId)
+  function _getRoundData(uint80 _roundId)
     internal
     view
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     answer = aggregator.getAnswer(_roundId);
