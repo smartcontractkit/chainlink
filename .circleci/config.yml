@@ -221,6 +221,7 @@ jobs:
       - store_artifacts:
           path: ./integration/logs
   feeds:
+    resource_class: large
     docker:
       - image: smartcontract/builder:1.0.33
     steps:
