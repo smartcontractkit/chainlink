@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.9] - 2020-07-13
+
+### Fixed
+- Support for multiple node addresses
+
 ## [0.8.8] - 2020-06-29
 
 ### Added
