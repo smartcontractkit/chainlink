@@ -47,6 +47,7 @@ describe('HistoricDeviationValidator', () => {
       'THRESHOLD_MULTIPLIER',
       'flaggingThreshold',
       'flags',
+      'isValid',
       'setFlagsAddress',
       'setFlaggingThreshold',
       'validate',
@@ -135,7 +136,7 @@ describe('HistoricDeviationValidator', () => {
         const receipt = await tx.wait()
         assert(receipt)
         if (receipt && receipt.gasUsed) {
-          assert.isAbove(23500, receipt.gasUsed.toNumber())
+          assert.isAbove(24000, receipt.gasUsed.toNumber())
         }
       })
     })
@@ -154,6 +155,40 @@ describe('HistoricDeviationValidator', () => {
           )
         const receipt = await tx.wait()
         assert.equal(0, receipt.events?.length)
+      })
+    })
+  })
+
+  describe('#isValid', () => {
+    const previousValue = 1000000
+
+    describe('with a validation larger than the deviation', () => {
+      const currentValue = 1100010
+      it('is not valid', async () => {
+        assert(!(await validator.isValid(0, previousValue, 1, currentValue)))
+      })
+    })
+
+    describe('with a validation smaller than the deviation', () => {
+      const currentValue = 1100009
+      it('is valid', async () => {
+        assert(await validator.isValid(0, previousValue, 1, currentValue))
+      })
+    })
+
+    describe('with positive previous and negative current', () => {
+      const previousValue = 1000000
+      const currentValue = -900000
+      it('correctly detects the difference', async () => {
+        assert(!(await validator.isValid(0, previousValue, 1, currentValue)))
+      })
+    })
+
+    describe('with negative previous and positive current', () => {
+      const previousValue = -900000
+      const currentValue = 1000000
+      it('correctly detects the difference', async () => {
+        assert(!(await validator.isValid(0, previousValue, 1, currentValue)))
       })
     })
   })
