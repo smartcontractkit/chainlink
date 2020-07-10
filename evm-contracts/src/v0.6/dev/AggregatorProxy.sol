@@ -347,9 +347,9 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function setAggregator(address _aggregator)
     internal
   {
-    currentPhase.id++;
-    phaseAggregators[currentPhase.id] = AggregatorV3Interface(_aggregator);
-    currentPhase.aggregator = AggregatorV3Interface(_aggregator);
+    uint16 id = currentPhase.id + 1;
+    currentPhase = Phase(id, AggregatorV3Interface(_aggregator));
+    phaseAggregators[id] = AggregatorV3Interface(_aggregator);
   }
 
   function addPhase(
