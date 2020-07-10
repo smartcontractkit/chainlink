@@ -36,22 +36,38 @@ contract HistoricDeviationValidator is Owned, AggregatorValidatorInterface {
 
   function validate(
     uint256 previousRoundId,
-    int256 previous,
-    uint256 currentRoundId,
-    int256 current
+    int256 previousAnswer,
+    uint256 roundId,
+    int256 answer
   )
     external
     override
     returns (bool)
   {
-    if (previous == 0) return true;
-
-    if (percentDiff(previous, current) > flaggingThreshold) {
+    if (!isValid(previousRoundId, previousAnswer, roundId, answer)) {
       flags.raiseFlags(arrayifyMsgSender());
       return false;
     }
 
     return true;
+  }
+
+  function isValid(
+    uint256 ,
+    int256 previousAnswer,
+    uint256 ,
+    int256 answer
+  )
+    public
+    view
+    returns (bool)
+  {
+    if (previousAnswer == 0) return true;
+
+    int256 change = previousAnswer.sub(answer);
+    uint256 percent = abs(change.mul(THRESHOLD_MULTIPLIER).div(previousAnswer));
+
+    return percent <= flaggingThreshold;
   }
 
   function setFlaggingThreshold(uint24 _flaggingThreshold)
@@ -83,22 +99,6 @@ contract HistoricDeviationValidator is Owned, AggregatorValidatorInterface {
 
   // PRIVATE
 
-  function percentDiff(
-    int256 previous,
-    int256 current
-  )
-    private
-    returns (uint256)
-  {
-    int256 difference;
-    if (current > previous) {
-      difference = current - previous;
-    } else {
-      difference = previous - current;
-    }
-    return abs(difference).mul(THRESHOLD_MULTIPLIER).div(abs(previous));
-  }
-
   function arrayifyMsgSender()
     private
     returns (address[] memory)
@@ -112,6 +112,7 @@ contract HistoricDeviationValidator is Owned, AggregatorValidatorInterface {
     int256 value
   )
     private
+    pure
     returns (uint256)
   {
     return uint256(value < 0 ? value.mul(-1): value);
