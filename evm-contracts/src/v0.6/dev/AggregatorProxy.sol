@@ -23,9 +23,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   mapping(uint16 => AggregatorV3Interface) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
-  uint256 constant private PHASE_BASE = 2 ** PHASE_OFFSET;
   uint256 constant private PHASE_MASK = 0xFFFF << PHASE_OFFSET;
-  uint256 constant private REQUEST_ID_MASK = ~PHASE_MASK;
   bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes("No data present"));
 
   constructor(address _aggregator) public Owned() {
@@ -142,9 +140,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       uint256 answeredInRound
     )
   {
-    uint16 requestPhaseId;
-    uint256 requestRoundId;
-    (requestPhaseId, requestRoundId) = parseRequestId(_requestId);
+    (uint16 requestPhaseId, uint64 requestRoundId) = parseRequestId(_requestId);
     (
       roundId,
       answer,
@@ -152,8 +148,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       updatedAt,
       answeredInRound
     ) = phaseAggregators[requestPhaseId].getRoundData(requestRoundId);
-    roundId = addPhase(requestPhaseId, roundId);
-    answeredInRound = addPhase(requestPhaseId, answeredInRound);
+    roundId = addPhase(requestPhaseId, uint64(roundId));
+    answeredInRound = addPhase(requestPhaseId, uint64(answeredInRound));
   }
 
   /**
@@ -199,8 +195,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
       updatedAt,
       answeredInRound
     ) = current.aggregator.latestRoundData();
-    roundId = addPhase(current.id, roundId);
-    answeredInRound = addPhase(current.id, answeredInRound);
+    roundId = addPhase(current.id, uint64(roundId));
+    answeredInRound = addPhase(current.id, uint64(answeredInRound));
   }
 
   /**
@@ -358,14 +354,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   }
 
   function addPhase(
-    uint256 _phase,
-    uint256 _originalId
+    uint16 _phase,
+    uint64 _originalId
   )
     internal
     view
-    returns (uint256)
+    returns (uint80)
   {
-    return (_originalId & REQUEST_ID_MASK) | _phase.mul(PHASE_BASE);
+    return uint80(_originalId | uint256(_phase) << PHASE_OFFSET);
   }
 
   function parseRequestId(
@@ -373,10 +369,10 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   )
     internal
     view
-    returns (uint16, uint256)
+    returns (uint16, uint64)
   {
     uint16 phaseId = uint16((PHASE_MASK & _requestId) >> PHASE_OFFSET);
-    uint256 roundId = _requestId & REQUEST_ID_MASK;
+    uint64 roundId = uint64(_requestId);
 
     return (phaseId, roundId);
   }
