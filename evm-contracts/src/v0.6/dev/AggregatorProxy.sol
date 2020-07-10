@@ -127,17 +127,17 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _requestId)
+  function getRoundData(uint80 _requestId)
     public
     view
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     (uint16 requestPhaseId, uint64 requestRoundId) = parseRequestId(_requestId);
@@ -180,11 +180,11 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     Phase memory current = currentPhase; // cache storage reads
@@ -211,17 +211,17 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
   */
-  function proposedGetRoundData(uint256 _roundId)
+  function proposedGetRoundData(uint80 _roundId)
     public
     view
     virtual
     hasProposal()
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return proposedAggregator.getRoundData(_roundId);
@@ -244,11 +244,11 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     virtual
     hasProposal()
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return proposedAggregator.latestRoundData();
@@ -379,14 +379,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function tryLatestRoundData()
     internal
     view
-    returns (uint256, int256, uint256, uint256, uint256)
+    returns (uint80, int256, uint256, uint256, uint80)
   {
     try this.latestRoundData() returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     ) {
       return (roundId, answer, startedAt, updatedAt, answeredInRound);
     } catch Error(string memory reason) {
@@ -399,14 +399,14 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   )
     internal
     view
-    returns (uint256, int256, uint256, uint256, uint256)
+    returns (uint80, int256, uint256, uint256, uint80)
   {
-    try this.getRoundData(_requestId) returns (
-      uint256 roundId,
+    try this.getRoundData(uint80(_requestId)) returns (
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     ) {
       return (roundId, answer, startedAt, updatedAt, answeredInRound);
     } catch Error(string memory reason) {
@@ -419,7 +419,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   )
     internal
     view
-    returns (uint256, int256, uint256, uint256, uint256)
+    returns (uint80, int256, uint256, uint256, uint80)
   {
     require(keccak256(bytes(reason)) == EXPECTED_V3_ERROR, reason);
     return (0, 0, 0, 0, 0);

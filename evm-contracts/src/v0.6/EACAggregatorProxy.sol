@@ -138,17 +138,17 @@ contract EACAggregatorProxy is AggregatorProxy {
    * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     public
     view
     checkAccess()
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return super.getRoundData(_roundId);
@@ -182,11 +182,11 @@ contract EACAggregatorProxy is AggregatorProxy {
     checkAccess()
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return super.latestRoundData();
@@ -204,18 +204,18 @@ contract EACAggregatorProxy is AggregatorProxy {
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
   */
-  function proposedGetRoundData(uint256 _roundId)
+  function proposedGetRoundData(uint80 _roundId)
     public
     view
     checkAccess()
     hasProposal()
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return super.proposedGetRoundData(_roundId);
@@ -239,11 +239,11 @@ contract EACAggregatorProxy is AggregatorProxy {
     hasProposal()
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return super.proposedLatestRoundData();

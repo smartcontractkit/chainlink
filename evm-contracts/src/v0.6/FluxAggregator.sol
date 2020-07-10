@@ -405,17 +405,17 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
    * maxSubmissions) answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     public
     view
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     Round memory r = rounds[uint32(_roundId)];
@@ -456,11 +456,11 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return getRoundData(latestRoundId);
