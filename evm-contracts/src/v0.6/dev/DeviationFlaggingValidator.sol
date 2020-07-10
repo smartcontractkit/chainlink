@@ -6,7 +6,7 @@ import '../Owned.sol';
 import '../vendor/SafeMath.sol';
 import '../SignedSafeMath.sol';
 
-contract HistoricDeviationValidator is Owned, AggregatorValidatorInterface {
+contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   using SafeMath for uint256;
   using SignedSafeMath for int256;
 
