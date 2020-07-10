@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 
 
-import './../FluxAggregator.sol';
+import './FluxAggregator.sol';
 import './AnswerValidatorInterface.sol';
 
 
