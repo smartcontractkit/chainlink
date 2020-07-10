@@ -17,8 +17,8 @@ import (
 //
 // By default, a key is assumed to represent an ethereum account.
 type Key struct {
-	ID        int32
-	Address   EIP55Address `gorm:"primary_key"`
+	ID        int32 `gorm:"primary_key"`
+	Address   EIP55Address
 	JSON      JSON
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
@@ -29,19 +29,19 @@ type Key struct {
 }
 
 // NewKeyFromFile creates an instance in memory from a key file on disk.
-func NewKeyFromFile(path string) (*Key, error) {
+func NewKeyFromFile(path string) (Key, error) {
 	dat, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return Key{}, err
 	}
 
 	js := gjson.ParseBytes(dat)
 	address, err := NewEIP55Address(common.HexToAddress(js.Get("address").String()).Hex())
 	if err != nil {
-		return nil, multierr.Append(errors.New("unable to create Key model"), err)
+		return Key{}, multierr.Append(errors.New("unable to create Key model"), err)
 	}
 
-	return &Key{Address: address, JSON: JSON{Result: js}}, nil
+	return Key{Address: address, JSON: JSON{Result: js}}, nil
 }
 
 // WriteToDisk writes this key to disk at the passed path.
