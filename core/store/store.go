@@ -306,8 +306,9 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 			continue
 		}
 
-		err = s.FirstOrCreateKey(key)
+		err = s.UpsertKey(key)
 		if err != nil {
+			fmt.Println("Balls", err)
 			merr = multierr.Append(err, merr)
 		}
 	}

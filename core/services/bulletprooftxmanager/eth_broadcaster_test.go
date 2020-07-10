@@ -1020,8 +1020,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 
 	// First one gets the lock
 	go func() {
-		err = eb1.ProcessUnstartedEthTxs(key)
-		assert.NoError(t, err)
+		err2 := eb1.ProcessUnstartedEthTxs(key)
+		assert.NoError(t, err2)
 		close(chFinish)
 	}()
 

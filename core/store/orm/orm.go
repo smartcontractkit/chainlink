@@ -1254,10 +1254,11 @@ func (orm *ORM) DeleteKey(address []byte) error {
 	return orm.db.Exec("DELETE FROM keys WHERE address = ?", address).Error
 }
 
-// FirstOrCreateKey returns the first key found or creates a new one in the orm.
-func (orm *ORM) FirstOrCreateKey(k *models.Key) error {
+// UpsertKey inserts a key if a key with that address doesn't exist already
+// If a key with this address exists, it overwrites the JSON
+func (orm *ORM) UpsertKey(k models.Key) error {
 	orm.MustEnsureAdvisoryLock()
-	return orm.db.FirstOrCreate(k).Error
+	return orm.db.Set("gorm:insert_option", "ON CONFLICT (address) DO UPDATE SET json=EXCLUDED.json, updated_at=NOW()").Create(&k).Error
 }
 
 // FirstOrCreateEncryptedSecretKey returns the first key found or creates a new one in the orm.
