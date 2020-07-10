@@ -343,10 +343,7 @@ describe('AggregatorProxy', () => {
       })
 
       it('works for a valid round ID', async () => {
-        const aggId = h
-          .bigNum(2)
-          .pow(128)
-          .add(2)
+        const aggId = phaseBase.sub(2)
         await aggregator2
           .connect(personas.Carol)
           .updateRoundData(aggId, response2, 77, 42)
@@ -454,10 +451,7 @@ describe('AggregatorProxy', () => {
       })
 
       it('does not revert', async () => {
-        const aggId = h
-          .bigNum(2)
-          .pow(128)
-          .add(2)
+        const aggId = phaseBase.sub(2)
         await aggregator2
           .connect(personas.Carol)
           .updateRoundData(aggId, response2, 77, 42)
