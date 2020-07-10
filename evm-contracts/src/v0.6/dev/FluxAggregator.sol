@@ -7,6 +7,7 @@ import "../SafeMath32.sol";
 import "../SafeMath64.sol";
 import "../interfaces/AggregatorInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
+import './AnswerValidatorInterface.sol';
 import "../interfaces/LinkTokenInterface.sol";
 import "../vendor/SafeMath.sol";
 
@@ -60,6 +61,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
 
 
   LinkTokenInterface public linkToken;
+  AnswerValidatorInterface private answerValidator;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
@@ -87,6 +89,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   uint256 constant private RESERVE_ROUNDS = 2;
   uint256 constant private MAX_ORACLE_COUNT = 77;
   uint32 constant private ROUND_MAX = 2**32-1;
+  uint256 private constant VALIDATOR_GAS_LIMIT = 100000;
   // An error specific to the Aggregator V3 Interface, to prevent possible
   // confusion around accidentally reading unset values as reported values.
   string constant private V3_NO_DATA_ERROR = "No data present";
@@ -131,19 +134,32 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     bool authorized,
     uint32 delay
   );
+  event AnswerValidatorUpdated(
+    address indexed previous,
+    address indexed current
+  );
 
   /**
-   * @notice Deploy with the address of the LINK token and initial payment amount
+   * @notice set up the aggregator with initial configuration
    * @dev Sets the LinkToken address and amount of LINK paid
    * @param _link The address of the LINK token
    * @param _paymentAmount The amount paid of LINK paid to each oracle per submission, in wei (units of 10⁻¹⁸ LINK)
    * @param _timeout is the number of seconds after the previous round that are
    * allowed to lapse before allowing an oracle to skip an unfinished round
+   * @param _answerValidator is an optional contract address for validating
+   * external validation of answers
+   * @param _minSubmissionValue is an immutable check for a lower bound of what
+   * submission values are accepted from an oracle
+   * @param _maxSubmissionValue is an immutable check for an upper bound of what
+   * submission values are accepted from an oracle
+   * @param _decimals represents the number of decimals to offset the answer by
+   * @param _description a short description of what is being reported
    */
   constructor(
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
+    address _answerValidator,
     int256 _minSubmissionValue,
     int256 _maxSubmissionValue,
     uint8 _decimals,
@@ -152,6 +168,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     linkToken = LinkTokenInterface(_link);
     paymentAmount = _paymentAmount;
     timeout = _timeout;
+    answerValidator = AnswerValidatorInterface(_answerValidator);
     minSubmissionValue = _minSubmissionValue;
     maxSubmissionValue = _maxSubmissionValue;
     decimals = _decimals;
@@ -657,6 +674,80 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     }
   }
 
+  /**
+   * @notice method to update the address which does external data validation.
+   * @param _newValidator designates the address of the new validation contract.
+   */
+  function setAnswerValidator(address _newValidator)
+    external
+    onlyOwner()
+  {
+    address previous = address(answerValidator);
+
+    if (previous != _newValidator) {
+      answerValidator = AnswerValidatorInterface(_newValidator);
+
+      emit AnswerValidatorUpdated(previous, _newValidator);
+    }
+  }
+
+
+  /**
+   * Private
+   */
+
+  function initializeNewRound(uint32 _roundId)
+    private
+  {
+    updateTimedOutRoundInfo(_roundId.sub(1));
+
+    reportingRoundId = _roundId;
+    rounds[_roundId].details.maxSubmissions = maxSubmissionCount;
+    rounds[_roundId].details.minSubmissions = minSubmissionCount;
+    rounds[_roundId].details.paymentAmount = paymentAmount;
+    rounds[_roundId].details.timeout = timeout;
+    rounds[_roundId].startedAt = uint64(block.timestamp);
+
+    emit NewRound(_roundId, msg.sender, rounds[_roundId].startedAt);
+  }
+
+  function oracleInitializeNewRound(uint32 _roundId)
+    private
+  {
+    if (!newRound(_roundId)) return;
+    uint256 lastStarted = oracles[msg.sender].lastStartedRound; // cache storage reads
+    if (_roundId <= lastStarted + restartDelay && lastStarted != 0) return;
+
+    initializeNewRound(_roundId);
+
+    oracles[msg.sender].lastStartedRound = _roundId;
+  }
+
+  function requesterInitializeNewRound(uint32 _roundId)
+    private
+  {
+    if (!newRound(_roundId)) return;
+    uint256 lastStarted = requesters[msg.sender].lastStartedRound; // cache storage reads
+    require(_roundId > lastStarted + requesters[msg.sender].delay || lastStarted == 0, "must delay requests");
+
+    initializeNewRound(_roundId);
+
+    requesters[msg.sender].lastStartedRound = _roundId;
+  }
+
+  function updateTimedOutRoundInfo(uint32 _roundId)
+    private
+  {
+    if (!timedOut(_roundId)) return;
+
+    uint32 prevId = _roundId.sub(1);
+    rounds[_roundId].answer = rounds[prevId].answer;
+    rounds[_roundId].answeredInRound = rounds[prevId].answeredInRound;
+    rounds[_roundId].updatedAt = uint64(block.timestamp);
+
+    delete rounds[_roundId].details;
+  }
+
   function eligibleForSpecificRound(address _oracle, uint32 _queriedRoundId)
     private
     view
@@ -720,66 +811,8 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     );
   }
 
-
-  /**
-   * Private
-   */
-
-  function initializeNewRound(uint32 _roundId)
-    private
-  {
-    updateTimedOutRoundInfo(_roundId.sub(1));
-
-    reportingRoundId = _roundId;
-    rounds[_roundId].details.maxSubmissions = maxSubmissionCount;
-    rounds[_roundId].details.minSubmissions = minSubmissionCount;
-    rounds[_roundId].details.paymentAmount = paymentAmount;
-    rounds[_roundId].details.timeout = timeout;
-    rounds[_roundId].startedAt = uint64(block.timestamp);
-
-    emit NewRound(_roundId, msg.sender, rounds[_roundId].startedAt);
-  }
-
-  function oracleInitializeNewRound(uint32 _roundId)
-    private
-  {
-    if (!newRound(_roundId)) return;
-    uint256 lastStarted = oracles[msg.sender].lastStartedRound; // cache storage reads
-    if (_roundId <= lastStarted + restartDelay && lastStarted != 0) return;
-
-    initializeNewRound(_roundId);
-
-    oracles[msg.sender].lastStartedRound = _roundId;
-  }
-
-  function requesterInitializeNewRound(uint32 _roundId)
-    private
-  {
-    if (!newRound(_roundId)) return;
-    uint256 lastStarted = requesters[msg.sender].lastStartedRound; // cache storage reads
-    require(_roundId > lastStarted + requesters[msg.sender].delay || lastStarted == 0, "must delay requests");
-
-    initializeNewRound(_roundId);
-
-    requesters[msg.sender].lastStartedRound = _roundId;
-  }
-
-  function updateTimedOutRoundInfo(uint32 _roundId)
-    private
-  {
-    if (!timedOut(_roundId)) return;
-
-    uint32 prevId = _roundId.sub(1);
-    rounds[_roundId].answer = rounds[prevId].answer;
-    rounds[_roundId].answeredInRound = rounds[prevId].answeredInRound;
-    rounds[_roundId].updatedAt = uint64(block.timestamp);
-
-    delete rounds[_roundId].details;
-  }
-
   function updateRoundAnswer(uint32 _roundId)
     internal
-    virtual
   {
     if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.minSubmissions) return;
 
@@ -789,7 +822,29 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     rounds[_roundId].answeredInRound = _roundId;
     latestRoundId = _roundId;
 
+    validateAnswer(_roundId, newAnswer);
+
     emit AnswerUpdated(newAnswer, _roundId, now);
+  }
+
+  function validateAnswer(
+    uint32 _roundId,
+    int256 _newAnswer
+  )
+    private
+  {
+    AnswerValidatorInterface av = answerValidator; // cache storage reads
+    if (address(av) == address(0)) return;
+
+    uint32 prevRound = _roundId.sub(1);
+    uint32 prevAnswerRoundId = rounds[prevRound].answeredInRound;
+    int256 prevRoundAnswer = rounds[prevRound].answer;
+    try av.validate.gas(VALIDATOR_GAS_LIMIT)(
+      prevAnswerRoundId,
+      prevRoundAnswer,
+      _roundId,
+      _newAnswer
+    ) returns (bool _) { } catch { }
   }
 
   function payOracle(uint32 _roundId)

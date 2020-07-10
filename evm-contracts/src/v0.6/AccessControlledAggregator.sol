@@ -10,10 +10,27 @@ import "./SimpleReadAccessController.sol";
  */
 contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessController {
 
+  /**
+   * @notice set up the aggregator with initial configuration
+   * @dev Sets the LinkToken address and amount of LINK paid
+   * @param _link The address of the LINK token
+   * @param _paymentAmount The amount paid of LINK paid to each oracle per submission, in wei (units of 10⁻¹⁸ LINK)
+   * @param _timeout is the number of seconds after the previous round that are
+   * allowed to lapse before allowing an oracle to skip an unfinished round
+   * @param _answerValidator is an optional contract address for validating
+   * external validation of answers
+   * @param _minSubmissionValue is an immutable check for a lower bound of what
+   * submission values are accepted from an oracle
+   * @param _maxSubmissionValue is an immutable check for an upper bound of what
+   * submission values are accepted from an oracle
+   * @param _decimals represents the number of decimals to offset the answer by
+   * @param _description a short description of what is being reported
+   */
   constructor(
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
+    address _answerValidator,
     int256 _minSubmissionValue,
     int256 _maxSubmissionValue,
     uint8 _decimals,
@@ -22,6 +39,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
     _link,
     _paymentAmount,
     _timeout,
+    _answerValidator,
     _minSubmissionValue,
     _maxSubmissionValue,
     _decimals,
