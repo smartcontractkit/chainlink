@@ -1941,3 +1941,60 @@ func TestORM_IncrFluxMonitorRoundSubmissions(t *testing.T) {
 		require.Equal(t, expectedCount, fmrs.NumSubmissions)
 	}
 }
+
+func TestORM_GetRoundRobinAddress(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	k0Address := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
+	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
+
+	require.NoError(t, store.UpsertKey(k1))
+	require.NoError(t, store.UpsertKey(k2))
+
+	t.Run("with no address filter, rotates between all addresses", func(t *testing.T) {
+		address, err := store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k0Address, address.Hex())
+
+		address, err = store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k1.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k2.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k0Address, address.Hex())
+	})
+
+	t.Run("with address filter, rotates between given addresses", func(t *testing.T) {
+		addresses := []common.Address{k1.Address.Address(), k2.Address.Address()}
+
+		address, err := store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k1.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k2.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k1.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k2.Address.Hex(), address.Hex())
+	})
+
+	t.Run("with address filter when no address matches", func(t *testing.T) {
+		_, err := store.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
+		require.Error(t, err)
+		require.Equal(t, "no keys available", err.Error())
+	})
+}

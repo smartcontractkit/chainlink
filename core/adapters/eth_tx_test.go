@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -550,6 +551,22 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
 
 		notifier.AssertExpectations(t)
+	})
+
+	t.Run("if FromAddresses is provided but no key matches, returns job error", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			FromAddresses:    []gethCommon.Address{cltest.NewAddress()},
+			GasLimit:         gasLimit,
+			FunctionSelector: functionSelector,
+			DataPrefix:       dataPrefix,
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		runOutput := adapter.Perform(*input, store)
+		require.EqualError(t, runOutput.Error(), "insertEthTx failed to pickFromAddress: no keys available")
+		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
 	})
 
 	t.Run("with bytes DataFormat writes correct encoded data to database", func(t *testing.T) {
