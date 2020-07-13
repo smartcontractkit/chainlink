@@ -110,7 +110,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
    * of them.
-   * @param _requestId the round ID to retrieve the round data for
+   * @param _requestId the requested round ID encoded with the phase ID
    * @return roundId is the round ID from the aggregator for which the data was
    * retrieved combined with an phase to ensure that round IDs get larger as
    * time moves forward.
@@ -375,6 +375,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
     return (phaseId, roundId);
   }
+
   function tryLatestRoundData()
     internal
     view
