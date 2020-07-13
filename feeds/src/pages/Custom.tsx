@@ -62,6 +62,7 @@ function parseConfig(config: Record<string, string>): FeedConfig {
     decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),
     heartbeat: uIntFrom(config.heartbeat ?? 0) ?? false,
     historyDays: uIntFrom(config.historyDays ?? 1),
+    formatDecimalPlaces: uIntFrom(config.formatDecimalPlaces ?? 0),
   }
 }
 
