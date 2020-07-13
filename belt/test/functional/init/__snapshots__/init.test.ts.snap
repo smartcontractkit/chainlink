@@ -1,0 +1,21 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`init tests should support partial updates to runtime config 1`] = `
+"{
+    \\"chainId\\": 4,
+    \\"mnemonic\\": \\" 'raise clutch area heavy horn course filter farm deny solid finger sudden' -c 4 -p fdf38d85d15e434e9b2ca152b7b1bc6f\\",
+    \\"infuraProjectId\\": \\" gdf38d85d15e434e9b2ca152b7b1bc6f\\",
+    \\"gasPrice\\": 40000000000,
+    \\"gasLimit\\": 8000000
+}"
+`;
+
+exports[`init tests should write to runtime config 1`] = `
+"{
+    \\"chainId\\": 4,
+    \\"mnemonic\\": \\" 'raise clutch area heavy horn course filter farm deny solid finger sudden' -c 4 -p fdf38d85d15e434e9b2ca152b7b1bc6f\\",
+    \\"infuraProjectId\\": \\"\\",
+    \\"gasPrice\\": 40000000000,
+    \\"gasLimit\\": 8000000
+}"
+`;
