@@ -23,7 +23,6 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
-	app.EthMock.RegisterSubscription("logs")
 
 	require.NoError(t, app.Start())
 
@@ -59,11 +58,6 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 				assert.NotEqual(t, "", createdSA.Signature.String())
 				assert.Equal(t, endAt, createdSA.Encumbrance.EndAt.Time)
 
-				var jobids []*models.ID
-				for _, j := range app.JobSubscriber.Jobs() {
-					jobids = append(jobids, j.ID)
-				}
-				assert.Contains(t, jobids, createdSA.JobSpec.ID)
 				app.EthMock.EventuallyAllCalled(t)
 			}
 		})
@@ -75,7 +69,6 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
-	app.EthMock.RegisterSubscription("logs")
 
 	require.NoError(t, app.Start())
 

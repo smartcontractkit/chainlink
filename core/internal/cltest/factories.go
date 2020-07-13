@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -114,14 +113,6 @@ func NewJobWithRunLogInitiator() models.JobSpec {
 			Address: NewAddress(),
 		},
 	}}
-	return j
-}
-
-// NewJobWithSALogInitiator creates new JobSpec with the ServiceAgreement
-// initiator
-func NewJobWithSALogInitiator() models.JobSpec {
-	j := NewJobWithRunLogInitiator()
-	j.Initiators[0].Type = models.InitiatorServiceAgreementExecutionLog
 	return j
 }
 
@@ -414,30 +405,6 @@ func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
 	}
 }
 
-// NewServiceAgreementExecutionLog creates a log event for the given jobid,
-// address, block, and json, to simulate a request for execution on a service
-// agreement.
-func NewServiceAgreementExecutionLog(
-	t *testing.T,
-	jobID *models.ID,
-	logEmitter common.Address,
-	executionRequester common.Address,
-	blockHeight int,
-	serviceAgreementJSON string,
-) models.Log {
-	return models.Log{
-		Address:     logEmitter,
-		BlockNumber: uint64(blockHeight),
-		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
-		Topics: []common.Hash{
-			models.ServiceAgreementExecutionLogTopic,
-			models.IDToTopic(jobID),
-			executionRequester.Hash(),
-			NewLink(t, "1000000000000000000").ToHash(),
-		},
-	}
-}
-
 func NewLink(t *testing.T, amount string) *assets.Link {
 	link := assets.NewLink(0)
 	link, ok := link.SetString(amount, 10)
@@ -450,48 +417,6 @@ func NewEth(t *testing.T, amount string) *assets.Eth {
 	eth, ok := eth.SetString(amount, 10)
 	assert.True(t, ok)
 	return eth
-}
-
-func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
-	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
-	buf.Write(utils.EVMWordUint64(1))
-	buf.Write(utils.EVMWordUint64(common.HashLength * 3))
-
-	cbor, err := JSONFromString(t, str).CBOR()
-	require.NoError(t, err)
-	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
-	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
-	buf.Write(common.RightPadBytes(cbor, paddedLength))
-
-	return buf.Bytes()
-}
-
-func StringToVersionedLogData20190123withFulfillmentParams(t *testing.T, internalID, str string) []byte {
-	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
-	buf := bytes.NewBuffer(requestID)
-
-	version := utils.EVMWordUint64(1)
-	buf.Write(version)
-
-	dataLocation := utils.EVMWordUint64(common.HashLength * 6)
-	buf.Write(dataLocation)
-
-	callbackAddr := utils.EVMWordUint64(0)
-	buf.Write(callbackAddr)
-
-	callbackFunc := utils.EVMWordUint64(0)
-	buf.Write(callbackFunc)
-
-	expiration := utils.EVMWordUint64(4000000000)
-	buf.Write(expiration)
-
-	cbor, err := JSONFromString(t, str).CBOR()
-	require.NoError(t, err)
-	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
-	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
-	buf.Write(common.RightPadBytes(cbor, paddedLength))
-
-	return buf.Bytes()
 }
 
 func StringToVersionedLogData20190207withoutIndexes(
@@ -639,30 +564,6 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	err = json.Unmarshal(bytes, &dst)
 	require.NoError(t, err)
 	return dst
-}
-
-// CreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
-func CreateServiceAgreementViaWeb(
-	t *testing.T,
-	app *TestApplication,
-	path string,
-	endAt time.Time,
-) models.ServiceAgreement {
-	client := app.NewHTTPClient()
-
-	agreementWithoutOracle := MustJSONSet(t, string(MustReadFile(t, path)), "endAt", utils.ISO8601UTC(endAt))
-	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
-	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
-
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
-	defer cleanup()
-
-	AssertServerResponse(t, resp, http.StatusOK)
-	responseSA := models.ServiceAgreement{}
-	err := ParseJSONAPIResponse(t, resp, &responseSA)
-	require.NoError(t, err)
-
-	return FindServiceAgreement(t, app.Store, responseSA.ID)
 }
 
 func NewRunInput(value models.JSON) models.RunInput {
