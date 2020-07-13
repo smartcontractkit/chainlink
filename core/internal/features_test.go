@@ -659,48 +659,6 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	createCompletedJobRun(200, uint64(0x101))
 }
 
-func TestIntegration_CreateServiceAgreement(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-
-	eth := app.EthMock
-	logs := make(chan models.Log, 1)
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("logs", logs)
-		eth.Register("eth_getTransactionCount", `0x100`)
-		eth.Register("eth_chainId", app.Store.Config.ChainID())
-	})
-	assert.NoError(t, app.StartAndConnect())
-	endAt := time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
-	sa := cltest.CreateServiceAgreementViaWeb(t, app, "fixtures/web/noop_agreement.json", endAt)
-
-	assert.NotEqual(t, "", sa.ID)
-	j := cltest.FindJob(t, app.Store, sa.JobSpecID)
-
-	assert.Equal(t, cltest.NewLink(t, "1000000000000000000"), sa.Encumbrance.Payment)
-	assert.Equal(t, uint64(300), sa.Encumbrance.Expiration)
-
-	assert.Equal(t, endAt, sa.Encumbrance.EndAt.Time)
-	assert.NotEqual(t, "", sa.ID)
-
-	// Request execution of the job associated with this ServiceAgreement
-	logs <- cltest.NewServiceAgreementExecutionLog(
-		t,
-		j.ID,
-		cltest.NewAddress(),
-		cltest.NewAddress(),
-		1,
-		`{}`)
-
-	runs := cltest.WaitForRuns(t, j, app.Store, 1)
-	cltest.WaitForJobRunToComplete(t, app.Store, runs[0])
-
-	eth.EventuallyAllCalled(t)
-
-}
-
 func TestIntegration_SyncJobRuns(t *testing.T) {
 	t.Parallel()
 	wsserver, wsserverCleanup := cltest.NewEventWebSocketServer(t)

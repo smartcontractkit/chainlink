@@ -162,33 +162,6 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			hexutil.Bytes{},
 		},
 		{
-			"runlog v0 matching address",
-			"runlog",
-			sharedAddr,
-			sharedAddr,
-			models.RunLogTopic0original,
-			cltest.StringToVersionedLogData0(t,
-				"id",
-				`{"value":"100"}`,
-			),
-		},
-		{
-			"runlog v20190123 w/o address",
-			"runlog",
-			noAddr,
-			cltest.NewAddress(),
-			models.RunLogTopic20190123withFullfillmentParams,
-			cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`),
-		},
-		{
-			"runlog v20190123 matching address",
-			"runlog",
-			sharedAddr,
-			sharedAddr,
-			models.RunLogTopic20190123withFullfillmentParams,
-			cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`),
-		},
-		{
 			"runlog v20190207 w/o address",
 			"runlog",
 			noAddr,
@@ -265,9 +238,6 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 		name string
 		data hexutil.Bytes
 	}{
-		{
-			"runlog w non-matching topic",
-			cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
 		{
 			"runlog w non-matching topic",
 			cltest.StringToVersionedLogData20190207withoutIndexes(t, "id", cltest.NewAddress(), `{"value":"100"}`),
