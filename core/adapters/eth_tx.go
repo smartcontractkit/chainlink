@@ -26,8 +26,10 @@ const (
 // EthTx holds the Address to send the result to and the FunctionSelector
 // to execute.
 type EthTx struct {
-	ToAddress        common.Address          `json:"address"`
+	ToAddress common.Address `json:"address"`
+	// NOTE: FromAddress is deprecated and kept for backwards compatibility, new job specs should use fromAddresses
 	FromAddress      common.Address          `json:"fromAddress,omitempty"`
+	FromAddresses    []common.Address        `json:"fromAddresses,omitempty"`
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
 	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
 	DataFormat       string                  `json:"format"`
@@ -80,6 +82,27 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunI
 	}
 }
 
+func (e *EthTx) pickFromAddress(input models.RunInput, store *store.Store) (common.Address, error) {
+	if len(e.FromAddresses) > 0 {
+		if e.FromAddress != utils.ZeroAddress {
+			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
+				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
+				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
+		}
+		return store.GetRoundRobinAddress(e.FromAddresses...)
+	}
+	if e.FromAddress == utils.ZeroAddress {
+		return store.GetRoundRobinAddress()
+	}
+	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
+{
+	"type": "EthTx",
+	"fromAddresses": ["%s"],
+} 
+`, input.TaskRunID(), e.FromAddress.Hex(), e.FromAddress.Hex())
+	return e.FromAddress, nil
+}
+
 func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.RunOutput {
 	txData, err := getTxData(e, input)
 	if err != nil {
@@ -89,16 +112,11 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 
 	taskRunID := input.TaskRunID()
 	toAddress := e.ToAddress
-	var fromAddress common.Address
-	if e.FromAddress == utils.ZeroAddress {
-		fromAddress, err = store.GetDefaultAddress()
-		if err != nil {
-			err = errors.Wrap(err, "insertEthTx failed to GetDefaultAddress")
-			logger.Error(err)
-			return models.NewRunOutputError(err)
-		}
-	} else {
-		fromAddress = e.FromAddress
+	fromAddress, err := e.pickFromAddress(input, store)
+	if err != nil {
+		err = errors.Wrap(err, "insertEthTx failed to pickFromAddress")
+		logger.Error(err)
+		return models.NewRunOutputError(err)
 	}
 	encodedPayload := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData)
 

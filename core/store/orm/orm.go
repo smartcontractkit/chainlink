@@ -1283,26 +1283,50 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedSecretKey) (
 	return retrieved, orm.db.Find(&retrieved, anonWhere...).Error
 }
 
-// GetDefaultAddress queries the database for the address of the primary default ethereum key
-func (orm *ORM) GetDefaultAddress() (common.Address, error) {
-	defaultKey, err := orm.getDefaultKey()
-	if err != nil {
-		return common.Address{}, err
-	}
-	return defaultKey.Address.Address(), err
-}
-
+// GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
+// This takes an optional param for a slice of addresses it should pick from. Leave empty to pick from all
+// addresses in the database.
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
-func (orm *ORM) getDefaultKey() (models.Key, error) {
-	availableKeys, err := orm.Keys()
-	if err != nil {
-		return models.Key{}, err
+func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
+	if len(addresses) > 0 {
+		args := make([]interface{}, len(addresses))
+		in := ""
+		for i, id := range addresses {
+			args[i] = id
+			if i == 0 {
+				in = fmt.Sprintf("$%v", i+1)
+			} else {
+				in = fmt.Sprintf("%s, $%v", in, i+1)
+			}
+		}
+
+		query := "UPDATE keys SET last_used = clock_timestamp() " +
+			"WHERE id IN (" +
+			"SELECT id FROM keys WHERE address IN (" + in + ") ORDER BY last_used ASC NULLS FIRST, id ASC LIMIT 1" +
+			") " +
+			"RETURNING address"
+		err = orm.db.DB().
+			QueryRow(query, args...).
+			Scan(&address)
+	} else {
+		query := "UPDATE keys SET last_used = clock_timestamp() " +
+			"WHERE id IN (" +
+			"SELECT id FROM keys ORDER BY last_used ASC NULLS FIRST, id ASC LIMIT 1" +
+			") " +
+			"RETURNING address"
+		err = orm.db.DB().
+			QueryRow(query).
+			Scan(&address)
 	}
-	if len(availableKeys) == 0 {
-		return models.Key{}, errors.New("no keys available")
+
+	if err != nil && err != sql.ErrNoRows {
+		return address, err
 	}
-	return availableKeys[0], nil
+	if err == sql.ErrNoRows {
+		return address, errors.New("no keys available")
+	}
+	return address, nil
 }
 
 // HasConsumedLog reports whether the given consumer had already consumed the given log

@@ -26,6 +26,7 @@ type Key struct {
 	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
 	// because we have a better view of our own transactions
 	NextNonce int64
+	LastUsed  *time.Time
 }
 
 // NewKeyFromFile creates an instance in memory from a key file on disk.
