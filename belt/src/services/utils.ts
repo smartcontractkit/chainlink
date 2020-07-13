@@ -49,7 +49,6 @@ export function getJsonFile(path: string): unknown {
   return JSON.parse(readFileSync(path, 'utf8'))
 }
 
-
 /**
  * Returns the network name for a given chainId.
  *
@@ -73,14 +72,15 @@ export function getNetworkName(chainId: number): string {
 /**
  * Finds and loads the ABI of a chainlink smart contract.
  *
- * @param config RuntimeConfig from .beltrc
+ * @param artifactsDir ABI directory e.g. 'abi'
  * @param versionedContractName e.g. 'v0.6/AccessControlledAggregator'
  */
 export function findABI(
+  artifactsDir: string,
   versionedContractName: string,
 ): { found: boolean; abi: any } {
   const cwd = process.cwd()
-  const artifactPath = join(cwd, 'abi', `${versionedContractName}.json`)
+  const artifactPath = join(cwd, artifactsDir, `${versionedContractName}.json`)
 
   const found = existsSync(artifactPath)
   if (!found) return { found, abi: null }

@@ -48,6 +48,11 @@ export default class Deploy extends Command {
       char: 'v',
       description: 'Value',
     }),
+    config: flags.string({
+      char: 'c',
+      default: 'app.config.json',
+      description: 'Location of the configuration file',
+    }),
   }
 
   static args: Parser.args.IArg[] = [
@@ -61,6 +66,10 @@ export default class Deploy extends Command {
   async run() {
     const { args, argv, flags } = this.parse(Deploy)
     const inputs = argv.slice(Object.keys(Deploy.args).length)
+
+    // Load app.config.json
+    const appConfig = await import('../services/config')
+    const { artifactsDir } = appConfig.load(flags.config)
 
     // Check .beltrc exists
     let config: RuntimeConfig
@@ -83,6 +92,7 @@ export default class Deploy extends Command {
 
     await this.deployContract(
       wallet,
+      artifactsDir,
       args.versionedContractName,
       inputs,
       overrides,
@@ -93,18 +103,20 @@ export default class Deploy extends Command {
    * Deploys a smart contract.
    *
    * @param wallet Ethers wallet (signer + provider)
+   * @param artifactsDir ABI directory e.g. 'abi'
    * @param versionedContractName Version and name of the chainlink contract e.g. v0.6/FluxAggregator
    * @param inputs Array of function inputs
    * @param overrides Contract call overrides e.g. gasLimit
    */
   private async deployContract(
     wallet: ethers.Wallet,
+    artifactsDir: string,
     versionedContractName: string,
     inputs: string[],
     overrides: DeployOverrides,
   ) {
     // Find contract ABI
-    const { found, abi } = findABI(versionedContractName)
+    const { found, abi } = findABI(artifactsDir, versionedContractName)
     if (!found) {
       this.error(
         chalk.red(

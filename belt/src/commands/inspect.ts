@@ -1,4 +1,4 @@
-import { Command } from '@oclif/command'
+import { Command, flags } from '@oclif/command'
 import * as Parser from '@oclif/parser'
 import { cli } from 'cli-ux'
 import { findABI } from '../services/utils'
@@ -14,6 +14,11 @@ export default class Inspect extends Command {
 
   static flags = {
     ...cli.table.flags(),
+    config: flags.string({
+      char: 'c',
+      default: 'app.config.json',
+      description: 'Location of the configuration file',
+    }),
   }
 
   static args: Parser.args.IArg[] = [
@@ -27,8 +32,12 @@ export default class Inspect extends Command {
   async run() {
     const { args, flags } = this.parse(Inspect)
 
+    // Load app.config.json
+    const appConfig = await import('../services/config')
+    const { artifactsDir } = appConfig.load(flags.config)
+
     // Find contract ABI
-    const { found, abi } = findABI(args.versionedContractName)
+    const { found, abi } = findABI(artifactsDir, args.versionedContractName)
     if (!found) {
       this.error(
         chalk.red(

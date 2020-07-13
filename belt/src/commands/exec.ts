@@ -13,7 +13,9 @@ import {
   initWallet,
 } from '../services/utils'
 
-const conf = new RuntimeConfigParser()
+// TODO: this is not working
+// ethers.utils.Logger.setLogLevel(ethers.utils.Logger.levels.OFF)
+const runtimeConfig = new RuntimeConfigParser()
 
 export interface ExecOverrides {
   gasPrice?: number
@@ -50,6 +52,11 @@ export default class Exec extends Command {
       char: 'v',
       description: 'Value',
     }),
+    config: flags.string({
+      char: 'c',
+      default: 'app.config.json',
+      description: 'Location of the configuration file',
+    }),
   }
 
   static args: Parser.args.IArg[] = [
@@ -72,10 +79,14 @@ export default class Exec extends Command {
     const { args, argv, flags } = this.parse(Exec)
     const inputs = argv.slice(Object.keys(Exec.args).length)
 
+    // Load app.config.json
+    const appConfig = await import('../services/config')
+    const { artifactsDir } = appConfig.load(flags.config)
+
     // Check .beltrc exists
     let config: RuntimeConfig
     try {
-      config = conf.load()
+      config = runtimeConfig.load()
     } catch (e) {
       this.error(chalk.red(e))
     }
@@ -93,6 +104,7 @@ export default class Exec extends Command {
 
     await this.execContract(
       wallet,
+      artifactsDir,
       args.versionedContractName,
       args.contractAddress,
       args.functionSignature,
@@ -105,6 +117,7 @@ export default class Exec extends Command {
    * Executes a smart contract write function.
    *
    * @param wallet Ethers wallet (signer + provider)
+   * @param artifactsDir ABI directory e.g. 'abi'
    * @param versionedContractName Version and name of the chainlink contract e.g. v0.6/FluxAggregator
    * @param contractAddress
    * @param functionSignature Solidity function signature e.g. baz(uint32,bool)
@@ -113,6 +126,7 @@ export default class Exec extends Command {
    */
   private async execContract(
     wallet: ethers.Wallet,
+    artifactsDir: string,
     versionedContractName: string,
     contractAddress: string,
     functionSignature: string,
@@ -120,7 +134,7 @@ export default class Exec extends Command {
     overrides: ExecOverrides,
   ) {
     // Find contract ABI
-    const { found, abi } = findABI(versionedContractName)
+    const { found, abi } = findABI(artifactsDir, versionedContractName)
     if (!found) {
       this.error(
         chalk.red(

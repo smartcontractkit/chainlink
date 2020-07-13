@@ -39,6 +39,11 @@ export default class Call extends Command {
       char: 'l',
       description: 'Gas limit',
     }),
+    config: flags.string({
+      char: 'c',
+      default: 'app.config.json',
+      description: 'Location of the configuration file',
+    }),
   }
 
   static args: Parser.args.IArg[] = [
@@ -61,6 +66,10 @@ export default class Call extends Command {
     const { args, argv, flags } = this.parse(Call)
     const inputs = argv.slice(Object.keys(Call.args).length)
 
+    // Load app.config.json
+    const appConfig = await import('../services/config')
+    const { artifactsDir } = appConfig.load(flags.config)
+
     // Check .beltrc exists
     let config: RuntimeConfig
     try {
@@ -80,6 +89,7 @@ export default class Call extends Command {
 
     await this.callContract(
       provider,
+      artifactsDir,
       args.versionedContractName,
       args.contractAddress,
       args.functionSignature,
@@ -92,6 +102,7 @@ export default class Call extends Command {
    * Calls a read-only smart contract function.
    *
    * @param provider Ethers infura provider
+   * * @param artifactsDir ABI directory e.g. 'abi'
    * @param versionedContractName Version and name of the chainlink contract e.g. v0.6/FluxAggregator
    * @param contractAddress
    * @param functionSignature Solidity function signature e.g. baz(uint32,bool)
@@ -100,6 +111,7 @@ export default class Call extends Command {
    */
   private async callContract(
     provider: ethers.providers.InfuraProvider,
+    artifactsDir: string,
     versionedContractName: string,
     contractAddress: string,
     functionSignature: string,
@@ -107,7 +119,7 @@ export default class Call extends Command {
     overrides: CallOverrides,
   ) {
     // Find contract ABI
-    const { found, abi } = findABI(versionedContractName)
+    const { found, abi } = findABI(artifactsDir, versionedContractName)
     if (!found) {
       this.error(
         chalk.red(
