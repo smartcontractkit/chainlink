@@ -394,9 +394,7 @@ describe('AggregatorProxy', () => {
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await proxy.latestRoundData()
-        })
+        await matchers.evmRevert(proxy.latestRoundData())
       })
 
       describe('when pointed at an Aggregator Facade', () => {
@@ -508,11 +506,10 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('does not update', async () => {
-        await matchers.evmRevert(async () => {
-          await proxy
-            .connect(personas.Neil)
-            .proposeAggregator(aggregator2.address)
-        })
+        await matchers.evmRevert(
+          proxy.connect(personas.Neil).proposeAggregator(aggregator2.address),
+          'Only callable by owner',
+        )
 
         assert.equal(aggregator.address, await proxy.aggregator())
       })
@@ -588,11 +585,10 @@ describe('AggregatorProxy', () => {
       })
 
       it('does not update', async () => {
-        await matchers.evmRevert(async () => {
-          await proxy
-            .connect(personas.Neil)
-            .confirmAggregator(aggregator2.address)
-        })
+        await matchers.evmRevert(
+          proxy.connect(personas.Neil).confirmAggregator(aggregator2.address),
+          'Only callable by owner',
+        )
 
         assert.equal(aggregator.address, await proxy.aggregator())
       })
@@ -631,9 +627,10 @@ describe('AggregatorProxy', () => {
 
         it('reverts', async () => {
           const roundId = await aggregator2.latestRound()
-          await matchers.evmRevert(async () => {
-            await proxy.proposedGetRoundData(roundId)
-          }, 'No proposed aggregator present')
+          await matchers.evmRevert(
+            proxy.proposedGetRoundData(roundId),
+            'No proposed aggregator present',
+          )
         })
       })
     })
@@ -670,9 +667,10 @@ describe('AggregatorProxy', () => {
         })
 
         it('reverts', async () => {
-          await matchers.evmRevert(async () => {
-            await proxy.proposedLatestRoundData()
-          }, 'No proposed aggregator present')
+          await matchers.evmRevert(
+            proxy.proposedLatestRoundData(),
+            'No proposed aggregator present',
+          )
         })
       })
     })
