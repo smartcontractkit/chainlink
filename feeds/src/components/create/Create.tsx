@@ -95,6 +95,13 @@ const Create: React.FC<CreateProps> = ({ form, history }) => {
           })(<InputNumber placeholder="6" style={{ width: '100%' }} />)}
         </Form.Item>
 
+        <Form.Item label="Format decimal places">
+          {getFieldDecorator('formatDecimalPlaces', {
+            rules: [{ required: true }],
+            initialValue: 0,
+          })(<InputNumber placeholder="6" style={{ width: '100%' }} />)}
+        </Form.Item>
+
         <Form.Item label="Answer multiply">
           {getFieldDecorator('multiply', {
             rules: [{ required: true }],
