@@ -96,12 +96,13 @@ export function findABI(
  * @param input array string e.g. '[0xe47D8b2CC42F07cdf05ca791bab47bc47Ed8B5CD]'
  */
 export function parseArrayInputs(input: string[]) {
+  const SPACE = ' '
   const result = input.map((i: string) => {
     if (i === '[]') return []
     const isArrayString = i.charAt(0) === '[' && i.charAt(i.length - 1) === ']'
     if (isArrayString) {
       const trimmed = i.slice(1, -1)
-      const arr = trimmed.split(',')
+      const arr = trimmed.split(SPACE)
       return arr
     }
     return i

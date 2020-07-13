@@ -219,8 +219,10 @@ EXAMPLES
   belt exec [<options>] <<version/contract> <address> <fsig> [<args>]
   belt exec v0.6/AccessControlledAggregator 0xe47D8b2CC42F07cdf05ca791bab47bc47Ed8B5CD 'addAccess(address)' 0xe47D8b2CC42F07cdf05ca791bab47bc47Ed8B5CD
   belt exec v0.6/AccessControlledAggregator 0xe47D8b2CC42F07cdf05ca791bab47bc47Ed8B5CD 'addOracles(address[],address[],uint32,uint32,uint32)'
-  [0x67b260DffCE59E890CfAe9ec733921357732f90a] [0xd9e6eCFfd3Acb20f80D1BCce3d078653B4E7f87D] 1 3 600
+  [0x67b260DffCE59E890CfAe9ec733921357732f90a 0x2aD9B7b9386c2f45223dDFc4A4d71C2957bAE19A] [0xd9e6eCFfd3Acb20f80D1BCce3d078653B4E7f87D 0x501698a6f6F762C79e4D28E3815C125E3f9Af996] 1 3 600
 ```
+
+> Array inputs can be specified as a space-separated array string: `"[0x0699a397c3cf614C9a7Db23a4Be28Fc4c8F3a755 0x2aD9B7b9386c2f45223dDFc4A4d81C2957bAE19A]"`
 
 ## `belt call`
 
