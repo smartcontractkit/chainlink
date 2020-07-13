@@ -10,7 +10,9 @@ import {
   parseArrayInputs,
   initWallet,
   getConstructorABI,
+  flattenContract,
 } from '../services/utils'
+import Etherscan from '../services/etherscan'
 
 const conf = new RuntimeConfigParser()
 
@@ -69,7 +71,7 @@ export default class Deploy extends Command {
 
     // Load app.config.json
     const appConfig = await import('../services/config')
-    const { artifactsDir } = appConfig.load(flags.config)
+    const { contractsDir, artifactsDir } = appConfig.load(flags.config)
 
     // Check .beltrc exists
     let config: RuntimeConfig
@@ -90,12 +92,21 @@ export default class Deploy extends Command {
     // Initialize ethers wallet (signer + provider)
     const wallet = initWallet(config)
 
-    await this.deployContract(
+    const contractAddress = await this.deployContract(
       wallet,
       artifactsDir,
       args.versionedContractName,
       inputs,
       overrides,
+    )
+    if (!contractAddress) this.error('Deployed contract address is undefined.')
+
+    await this.verifyContract(
+      contractsDir,
+      args.versionedContractName,
+      contractAddress,
+      config.chainId,
+      config.etherscanAPIKey,
     )
   }
 
@@ -153,12 +164,49 @@ export default class Deploy extends Command {
       cli.action.start(
         `Deploying ${versionedContractName} to ${contract.address} `,
       )
-      const receipt = await contract.deployTransaction.wait() // defaults to 1 confirmation
+      // TODO: add numConfirmations to .beltrc
+      const receipt = await contract.deployTransaction.wait(1) // wait for 1 confirmation
       cli.action.stop(`Deployed in tx ${receipt.transactionHash}`)
-      this.log(contract.address)
+      return contract.address
     } catch (e) {
       this.error(chalk.red(e))
     }
     return
+  }
+
+  /**
+   * Verifies a smart contract on Etherscan.
+   *
+   * @param contractsDir Contract directory e.g. 'src'
+   * @param versionedContractName Version and name of the chainlink contract e.g. v0.6/FluxAggregator
+   * @param contractAddress
+   * @param chainId
+   * @param etherscanAPIKey
+   */
+  private async verifyContract(
+    contractsDir: string,
+    versionedContractName: string,
+    contractAddress: string,
+    chainId: number,
+    etherscanAPIKey: string,
+  ) {
+    // Skip if contract is already verified
+    const etherscan = new Etherscan(chainId, etherscanAPIKey)
+    const isVerified = await etherscan.isVerified(contractAddress)
+    if (isVerified) {
+      this.error(
+        chalk.red(
+          `${versionedContractName} at ${contractAddress} already verified.`,
+        ),
+      )
+    }
+
+    // Flatten contract
+    const mergedSource = await flattenContract(
+      `${contractsDir}/${versionedContractName}`,
+    )
+    console.log(mergedSource.length)
+
+    // TODO: implement rest of verify (see commands/verify.ts)
   }
 }

@@ -2,6 +2,8 @@ import d from 'debug'
 import { ethers } from 'ethers'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+import process from 'process'
+import { merge } from 'sol-merger'
 import { ls } from 'shelljs'
 import * as config from './config'
 import { RuntimeConfig } from './runtimeConfig'
@@ -185,4 +187,16 @@ export function initWallet(config: RuntimeConfig): ethers.Wallet {
   let wallet = ethers.Wallet.fromMnemonic(config.mnemonic)
   wallet = wallet.connect(provider)
   return wallet
+}
+
+/**
+ * Flattens a contract
+ *
+ * @param filepath
+ */
+export async function flattenContract(filepath: string): Promise<string> {
+  const cwd = process.cwd()
+  const contractPath = join(cwd, `${filepath}.sol`)
+  const mergedSource = await merge(contractPath, { removeComments: false })
+  return mergedSource
 }

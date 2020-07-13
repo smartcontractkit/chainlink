@@ -1,11 +1,13 @@
 import { Command, flags } from '@oclif/command'
 import * as Parser from '@oclif/parser'
 import { cli } from 'cli-ux'
-import { findABI } from '../services/utils'
+import { findABI, flattenContract } from '../services/utils'
 import chalk from 'chalk'
-import { join } from 'path'
-import process from 'process'
-import { merge } from 'sol-merger'
+// import axios from 'axios'
+import { RuntimeConfig, RuntimeConfigParser } from '../services/runtimeConfig'
+import Etherscan from '../services/etherscan'
+
+const conf = new RuntimeConfigParser()
 
 export default class Verify extends Command {
   static description = 'Verifies a chainlink smart contract on Etherscan.'
@@ -43,6 +45,25 @@ export default class Verify extends Command {
     const appConfig = await import('../services/config')
     const { contractsDir, artifactsDir } = appConfig.load(flags.config)
 
+    // Check .beltrc exists
+    let config: RuntimeConfig
+    try {
+      config = conf.load()
+    } catch (e) {
+      this.error(chalk.red(e))
+    }
+
+    // Skip if contract is already verified
+    const etherscan = new Etherscan(config.chainId, config.etherscanAPIKey)
+    const isVerified = await etherscan.isVerified(args.contractAddress)
+    if (isVerified) {
+      this.error(
+        chalk.red(
+          `${args.versionedContractName} at ${args.contractAddress} already verified.`,
+        ),
+      )
+    }
+
     // Find contract ABI
     const { found, abi } = findABI(artifactsDir, args.versionedContractName)
     if (!found) {
@@ -52,41 +73,45 @@ export default class Verify extends Command {
         ),
       )
     }
-    console.log(abi) // May be needed by etherscan
-
-    // TODO: first, call etherscan to check if contract is already verified
-
-    // https://api.etherscan.io/api?module=contract&action=getsourcecode&address=0xBB9bc244D798123fDe783fCc1C72d3Bb8C189413&apikey=YourApiKeyToken
+    const abiMetadata = JSON.parse(abi['compilerOutput']['metadata'])
 
     // Flatten contract
-    // TODO: refactor to utils
-    const cwd = process.cwd()
-    const contractPath = join(
-      cwd,
-      contractsDir,
-      `${args.versionedContractName}.sol`,
+    const mergedSource = await flattenContract(
+      `${contractsDir}/${args.versionedContractName}`,
     )
-    const mergedSource = await merge(contractPath, { removeComments: false })
-    console.log(mergedSource)
+    console.log(mergedSource.length)
 
-    // TODO: call Etherscan API
+    // TODO: fetch constructor values
+    // Fetch the contract creation transaction to extract the input data
+    // const encodedConstructorArgs = await Etherscan.fetchConstructorValues(contractAddress)
 
-    // axios...
+    const params = {
+      apikey: config.etherscanAPIKey,
+      module: 'contract',
+      action: 'verifysourcecode',
+      contractaddress: args.contractAddress,
+      sourceCode: mergedSource,
+      codeformat: 'solidity-single-file',
+      contractname: abi.contractName,
+      compilerversion: abiMetadata.compiler.version,
+      optimizationUsed: abiMetadata.settings.optimizer.enabled,
+      runs: abiMetadata.settings.optimizer.runs,
+      constructorArguements: {}, // TODO
+      evmversion: abiMetadata.settings.evmVersion,
+      licenseType: 3, // (MIT)
+    }
 
-    // {
-    //   apikey: $('#apikey').val(),                     //A valid API-Key is required        
-    //   module: 'contract',                             //Do not change
-    //   action: 'verifysourcecode',                     //Do not change
-    //   contractaddress: $('#contractaddress').val(),   //Contract Address starts with 0x...     
-    //   sourceCode: $('#sourceCode').val(),             //Contract Source Code (Flattened if necessary)
-    //   codeformat: $('#codeformat').val(),             //solidity-single-file (default) or solidity-standard-json-input (for std-input-json-format support
-    //   contractname: $('#contractname').val(),         //ContractName (if codeformat=solidity-standard-json-input, then enter contractname as ex: erc20.sol:erc20)
-    //   compilerversion: $('#compilerversion').val(),   // see http://etherscan.io/solcversions for list of support versions
-    //   optimizationUsed: $('#optimizationUsed').val(), //0 = No Optimization, 1 = Optimization used (applicable when codeformat=solidity-single-file)
-    //   runs: 200,                                      //set to 200 as default unless otherwise  (applicable when codeformat=solidity-single-file)        
-    //   constructorArguements: $('#constructorArguements').val(),   //if applicable
-    //   evmversion: $('#evmVersion').val(),             //leave blank for compiler default, homestead, tangerineWhistle, spuriousDragon, byzantium, constantinople, petersburg, istanbul (applicable when codeformat=solidity-single-file)
-    //   licenseType: $('#licenseType').val(),
-    // }
+    // TODO: link libraries, pull info from ABI metadata
+
+    console.log(params)
+
+    // // TODO: call Etherscan verification API
+    // // TODO: hardcoded to ropsten
+    // const res = await axios.post('https://api-ropsten.etherscan.io/api', {
+    //   params,
+    // })
+    // console.log(res)
+
+    // TODO: check and poll for verification status
   }
 }
