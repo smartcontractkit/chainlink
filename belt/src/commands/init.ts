@@ -36,6 +36,10 @@ export default class Init extends Command {
       char: 'p',
       description: 'Infura project ID',
     }),
+    etherscanAPIKey: flags.string({
+      char: 'e',
+      description: 'Etherscan API key (for contract verification)',
+    }),
     gasPrice: flags.integer({
       char: 'g',
       description: 'Default gas price',
@@ -67,6 +71,7 @@ export default class Init extends Command {
         flags.chainId,
         flags.mnemonic,
         flags.infuraProjectId,
+        flags.etherscanAPIKey,
         flags.gasPrice,
         flags.gasLimit,
       )
@@ -86,6 +91,7 @@ export default class Init extends Command {
       chainId,
       mnemonic,
       infuraProjectId,
+      etherscanAPIKey,
       gasPrice,
       gasLimit,
     } = await cli.prompt([
@@ -109,6 +115,12 @@ export default class Init extends Command {
         default: current.infuraProjectId,
       },
       {
+        name: 'etherscanAPIKey',
+        type: 'input',
+        message: 'Enter etherscanAPIKey:',
+        default: current.etherscanAPIKey,
+      },
+      {
         name: 'gasPrice',
         type: 'input',
         message: 'Enter default gasPrice:',
@@ -126,6 +138,7 @@ export default class Init extends Command {
       chainId,
       mnemonic,
       infuraProjectId,
+      etherscanAPIKey,
       gasPrice,
       gasLimit,
     }
@@ -141,6 +154,7 @@ export default class Init extends Command {
    * @param chainId
    * @param mnemonic
    * @param infuraProjectId
+   * @param etherscanAPIKey
    * @param gasPrice default gas price
    * @param gasLimit default gas limit
    */
@@ -149,6 +163,7 @@ export default class Init extends Command {
     chainId?: number,
     mnemonic?: string,
     infuraProjectId?: string,
+    etherscanAPIKey?: string,
     gasPrice?: number,
     gasLimit?: number,
   ) {
@@ -159,6 +174,7 @@ export default class Init extends Command {
       chainId: chainId || current.chainId,
       mnemonic: mnemonic || current.mnemonic,
       infuraProjectId: infuraProjectId || current.infuraProjectId,
+      etherscanAPIKey: etherscanAPIKey || current.etherscanAPIKey,
       gasPrice: gasPrice || current.gasPrice,
       gasLimit: gasLimit || current.gasLimit,
     }

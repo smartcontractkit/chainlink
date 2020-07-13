@@ -10,6 +10,7 @@ describe('RuntimeConfig', () => {
       mnemonic:
         'raise clutch area heavy horn course filter farm deny solid finger sudden',
       infuraProjectId: 'fdf38d85d15e434e9b2ca152b7b1bc6f',
+      etherscanAPIKey: 'US123YA2UIC73Q58PU6YZYBEXK99FWSJB3',
       gasPrice: 40000000000, // 40 gwei
       gasLimit: 8000000,
     }

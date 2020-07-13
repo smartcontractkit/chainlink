@@ -6,6 +6,7 @@ export interface RuntimeConfig {
   chainId: number
   mnemonic: string
   infuraProjectId: string
+  etherscanAPIKey: string
   gasPrice: number
   gasLimit: number
 }
@@ -15,6 +16,7 @@ const DEFAULTS: RuntimeConfig = {
   chainId: 4,
   mnemonic: '',
   infuraProjectId: '',
+  etherscanAPIKey: '',
   gasPrice: 40000000000, // 40 gwei
   gasLimit: 8000000,
 }
