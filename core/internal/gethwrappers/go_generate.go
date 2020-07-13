@@ -10,6 +10,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFCoordinator.json solidity_vrf_coordinator_interface
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFConsumer.json solidity_vrf_consumer_interface
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json solidity_vrf_request_id
+//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFTestnetD20.json vrf_testnet_d20
+
 //go:generate go run ./generation/generate_link/wrap_link.go
 
 // To run these commands, you must either install docker, or the correct version
