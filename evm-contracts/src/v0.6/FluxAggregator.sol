@@ -87,6 +87,9 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   uint256 constant private RESERVE_ROUNDS = 2;
   uint256 constant private MAX_ORACLE_COUNT = 77;
   uint32 constant private ROUND_MAX = 2**32-1;
+  // An error specific to the Aggregator V3 Interface, to prevent possible
+  // confusion around accidentally reading unset values as reported values.
+  string constant private V3_NO_DATA_ERROR = "No data present";
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
@@ -420,7 +423,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   {
     Round memory r = rounds[uint32(_roundId)];
 
-    require(r.answeredInRound > 0, "No data present");
+    require(r.answeredInRound > 0, V3_NO_DATA_ERROR);
 
     return (
       _roundId,

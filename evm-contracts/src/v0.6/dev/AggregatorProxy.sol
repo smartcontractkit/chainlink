@@ -21,7 +21,10 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   mapping(uint16 => AggregatorV3Interface) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
-  bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes("No data present"));
+  // This is an error that the Flux Aggregator throws when you try to read
+  // data for a round that does not exist.
+  string constant private V3_NO_DATA_ERROR = "No data present";
+  bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes(V3_NO_DATA_ERROR));
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
