@@ -54,7 +54,7 @@ contract EACAggregatorProxy is AggregatorProxy {
 
   /**
    * @notice get the latest completed round where the answer was updated. This
-   * ID includes the proxy's epoch, to make sure round IDs increase even when
+   * ID includes the proxy's phase, to make sure round IDs increase even when
    * switching to a newly deployed aggregator.
    * @dev deprecated. Use latestRoundData instead.
    */
@@ -126,7 +126,7 @@ contract EACAggregatorProxy is AggregatorProxy {
    * of them.
    * @param _roundId the round ID to retrieve the round data for
    * @return roundId is the round ID from the aggregator for which the data was
-   * retrieved combined with an epoch to ensure that round IDs get larger as
+   * retrieved combined with a phase to ensure that round IDs get larger as
    * time moves forward.
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
@@ -164,7 +164,7 @@ contract EACAggregatorProxy is AggregatorProxy {
    * data from and validate that they can properly handle return data from all
    * of them.
    * @return roundId is the round ID from the aggregator for which the data was
-   * retrieved combined with an epoch to ensure that round IDs get larger as
+   * retrieved combined with a phase to ensure that round IDs get larger as
    * time moves forward.
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
