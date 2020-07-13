@@ -31,6 +31,7 @@ const carol = ethers.Wallet.createRandom().connect(provider)
 const linkTokenFactory = new contract.LinkTokenFactory(carol)
 const fluxAggregatorFactory = new FluxAggregatorFactory(carol)
 const deposit = h.toWei('1000')
+const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 const answerUpdated = fluxAggregatorFactory.interface.events.AnswerUpdated.name
 const oracleAdded =
@@ -125,6 +126,7 @@ beforeEach(async () => {
     linkToken.address,
     MINIMUM_CONTRACT_PAYMENT,
     10,
+    emptyAddress,
     minSubmissionValue,
     maxSubmissionValue,
     1,
