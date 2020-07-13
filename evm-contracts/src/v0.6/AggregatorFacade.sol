@@ -15,6 +15,10 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
 
   uint256 constant public override version = 2;
 
+  // An error specific to the Aggregator V3 Interface, to prevent possible
+  // confusion around accidentally reading unset values as reported values.
+  string constant private V3_NO_DATA_ERROR = "No data present";
+
   constructor(
     address _aggregator,
     uint8 _decimals,
@@ -170,12 +174,10 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
   {
     answer = aggregator.getAnswer(_roundId);
     updatedAt = uint64(aggregator.getTimestamp(_roundId));
-    if (updatedAt == 0) {
-      answeredInRound = 0;
-    } else {
-      answeredInRound = _roundId;
-    }
-    return (_roundId, answer, updatedAt, updatedAt, answeredInRound);
+
+    require(updatedAt > 0, V3_NO_DATA_ERROR);
+
+    return (_roundId, answer, updatedAt, updatedAt, _roundId);
   }
 
 }
