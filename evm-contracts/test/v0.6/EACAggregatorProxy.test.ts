@@ -6,7 +6,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { SimpleAccessControlFactory } from '../../ethers/v0.6/SimpleAccessControlFactory'
+import { SimpleReadAccessControllerFactory } from '../../ethers/v0.6/SimpleReadAccessControllerFactory'
 import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
 
@@ -15,7 +15,7 @@ let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
-const accessControlFactory = new SimpleAccessControlFactory()
+const accessControlFactory = new SimpleReadAccessControllerFactory()
 const aggregatorFactory = new MockV3AggregatorFactory()
 const proxyFactory = new EACAggregatorProxyFactory()
 
@@ -36,7 +36,7 @@ describe('AccessControlledAggregatorProxy', () => {
   const startedAt = 677
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let controller: contract.Instance<SimpleAccessControlFactory>
+  let controller: contract.Instance<SimpleReadAccessControllerFactory>
   let aggregator: contract.Instance<MockV3AggregatorFactory>
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let proxy: contract.Instance<EACAggregatorProxyFactory>
@@ -191,10 +191,24 @@ describe('AccessControlledAggregatorProxy', () => {
         matchers.bigNum(answer2, round.answer)
       })
     })
+
+    describe('without a proposed aggregator', () => {
+      it('proposedGetRoundData reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await proxy.proposedGetRoundData(1)
+        }, 'No proposed aggregator present')
+      })
+
+      it('proposedLatestRoundData reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await proxy.proposedLatestRoundData()
+        }, 'No proposed aggregator present')
+      })
+    })
   })
 
   describe('#setController', () => {
-    let newController: contract.Instance<SimpleAccessControlFactory>
+    let newController: contract.Instance<SimpleReadAccessControllerFactory>
 
     beforeEach(async () => {
       newController = await accessControlFactory

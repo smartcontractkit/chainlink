@@ -46,6 +46,7 @@ export interface JobSpec extends dbTypes.JobSpec {
   initiators: Initiators
   tasks: TaskSpecs
   runs: TaskRuns
+  errors: JobSpecErrors
 }
 
 export interface TaskRun
@@ -68,6 +69,14 @@ export interface TaskSpec {
   params?: object
 }
 
+export interface JobSpecError {
+  id: string
+  description: string
+  occurrences: number
+  createdAt: Date
+  updatedAt: Date
+}
+
 //REVIEW Not needed?
 export interface TxAttempt extends dbTypes.TxAttempt {}
 
@@ -85,3 +94,4 @@ export type TaskRuns = Array<TaskRun>
 export type TaskSpecs = Array<TaskSpec>
 export type TxAttempts = Array<TxAttempt>
 export type Transactions = Array<Transaction>
+export type JobSpecErrors = Array<JobSpecError>

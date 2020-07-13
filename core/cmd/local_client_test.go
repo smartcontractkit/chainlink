@@ -228,10 +228,18 @@ func TestClient_ImportKey(t *testing.T) {
 	set := flag.NewFlagSet("import", 0)
 	set.Parse([]string{"../internal/fixtures/keys/7fc66c61f88A61DFB670627cA715Fe808057123e.json"})
 	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ImportKey(c))
+	require.NoError(t, client.ImportKey(c))
+
+	// importing again simply upserts
+	require.NoError(t, client.ImportKey(c))
 
 	keys, err := app.GetStore().Keys()
 	require.NoError(t, err)
+
+	require.Len(t, keys, 2)
+	require.Equal(t, int32(1), keys[0].ID)
+	require.Greater(t, keys[1].ID, int32(1))
+
 	addresses := []string{}
 	for _, k := range keys {
 		addresses = append(addresses, k.Address.String())

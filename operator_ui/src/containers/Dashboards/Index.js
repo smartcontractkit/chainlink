@@ -12,7 +12,7 @@ import {
   fetchRecentJobRuns,
   fetchRecentlyCreatedJobs,
   fetchAccountBalance,
-} from 'actions'
+} from 'actionCreators'
 import accountBalanceSelector from 'selectors/accountBalance'
 import dashboardJobRunsCountSelector from 'selectors/dashboardJobRunsCount'
 import recentJobRunsSelector from 'selectors/recentJobRuns'

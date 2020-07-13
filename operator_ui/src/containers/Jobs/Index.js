@@ -9,7 +9,7 @@ import Content from 'components/Content'
 import BaseLink from 'components/BaseLink'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobsSelector from 'selectors/jobs'
-import { fetchJobs } from 'actions'
+import { fetchJobs } from 'actionCreators'
 
 export const Index = props => {
   document.title = 'Jobs'

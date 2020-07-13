@@ -25,7 +25,7 @@ var (
 	)
 )
 
-//go:generate mockery -name RunExecutor -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name RunExecutor --output ../internal/mocks/ --case=underscore
 
 // RunExecutor handles the actual running of the job tasks
 type RunExecutor interface {

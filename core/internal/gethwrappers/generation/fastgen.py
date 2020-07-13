@@ -29,7 +29,7 @@ thisdir = os.path.abspath(os.path.dirname(sys.argv[0]))
 godir = os.path.dirname(thisdir)
 gogenpath = os.path.join(godir, 'go_generate.go')
 
-abigenpath = 'go run ./generation/wrap.go'
+abigenpath = 'go run ./generation/generate/wrap.go'
 
 pkg_to_src = {}
 

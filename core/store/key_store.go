@@ -21,7 +21,7 @@ import (
 // For more information, see: https://github.com/ethereum/go-ethereum/issues/3731
 const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
 
-//go:generate mockery -name KeyStoreInterface -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name KeyStoreInterface --output ../internal/mocks/ --case=underscore
 type KeyStoreInterface interface {
 	Accounts() []accounts.Account
 	Wallets() []accounts.Wallet

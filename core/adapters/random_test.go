@@ -6,9 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -23,14 +22,14 @@ import (
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
-func vrfVerifier(t *testing.T) *solidity_verifier_wrapper.VRFTestHelper {
+func vrfVerifier(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	ethereumKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	auth := bind.NewKeyedTransactor(ethereumKey)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
-	_, _, verifier, err := solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	require.NoError(t, err)
 	backend.Commit()
 	return verifier
@@ -48,12 +47,11 @@ func TestRandom_Perform(t *testing.T) {
 	input := models.NewRunInput(&models.ID{}, models.ID{}, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)
 	require.NoError(t, result.Error(), "while running random adapter")
-	proof := hexutil.MustDecode(result.Result().String())
-	// Check that proof is a solidity bytes array containing the actual proof
-	length := big.NewInt(0).SetBytes(proof[:utils.EVMWordByteLen]).Uint64()
-	require.Equal(t, length, uint64(len(proof)-utils.EVMWordByteLen))
-	actualProof := proof[utils.EVMWordByteLen:]
-	randomOutput, err := vrfVerifier(t).RandomValueFromVRFProof(nil, actualProof)
+	proofArg := hexutil.MustDecode(result.Result().String())
+	var proof []byte
+	err = models.VRFFulfillMethod().Inputs.Unpack(&proof, proofArg)
+	require.NoError(t, err, "failed to unpack VRF proof from random adapter")
+	randomOutput, err := vrfVerifier(t).RandomValueFromVRFProof(nil, proof)
 	require.NoError(t, err, "proof was invalid")
 	expected := common.HexToHash(
 		"c0a5642a409290ac65d9d44a4c52e53f31921ff1b7d235c585193a18190c82f1")

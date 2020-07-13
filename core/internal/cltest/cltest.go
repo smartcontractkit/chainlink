@@ -1346,3 +1346,11 @@ func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun 
 	require.NoError(t, err)
 	return jr
 }
+
+func MustHexToUint64(t *testing.T, hex string) uint64 {
+	res, err := utils.HexToUint64(hex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}

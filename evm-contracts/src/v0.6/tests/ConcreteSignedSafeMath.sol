@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../dev/SignedSafeMath.sol";
+import "../SignedSafeMath.sol";
 
 contract ConcreteSignedSafeMath {
   function testAdd(int256 _a, int256 _b)

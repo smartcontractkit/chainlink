@@ -90,14 +90,17 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var sessions []models.Session
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions, err := app.Store.Sessions(0, 10)
+		sessions, err = app.Store.Sessions(0, 10)
 		assert.NoError(t, err)
-		for _, session := range sessions {
-			assert.NotEqual(t, session.ID, staleSession.ID)
-		}
 		return sessions
 	}).Should(gomega.HaveLen(1))
+
+	for _, session := range sessions {
+		assert.NotEqual(t, session.ID, staleSession.ID)
+	}
 }
 
 func TestSessionsController_Destroy(t *testing.T) {

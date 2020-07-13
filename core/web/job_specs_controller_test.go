@@ -487,7 +487,37 @@ func TestJobSpecsController_Show(t *testing.T) {
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
 	require.Len(t, j.Initiators, 1)
 	require.Len(t, respJob.Initiators, 1)
+	require.Len(t, respJob.Errors, 1)
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
+}
+
+func TestJobSpecsController_Show_FluxMonitorJob(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	j := cltest.NewJobWithFluxMonitorInitiator()
+	app.Store.CreateJob(&j)
+
+	resp, cleanup := client.Get("/v2/specs/" + j.ID.String())
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	var respJob presenters.JobSpec
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
+	require.Equal(t, len(respJob.Initiators), len(j.Initiators))
+	require.Equal(t, respJob.Initiators[0].Address, j.Initiators[0].Address)
+	require.Equal(t, respJob.Initiators[0].RequestData, j.Initiators[0].RequestData)
+	require.Equal(t, respJob.Initiators[0].Feeds, j.Initiators[0].Feeds)
+	require.Equal(t, respJob.Initiators[0].Threshold, j.Initiators[0].Threshold)
+	require.Equal(t, respJob.Initiators[0].AbsoluteThreshold, j.Initiators[0].AbsoluteThreshold)
+	require.Equal(t, respJob.Initiators[0].IdleTimer, j.Initiators[0].IdleTimer)
+	require.Equal(t, respJob.Initiators[0].PollTimer, j.Initiators[0].PollTimer)
+	require.Equal(t, respJob.Initiators[0].Precision, j.Initiators[0].Precision)
 }
 
 func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
@@ -524,6 +554,8 @@ func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
+
+	app.Store.UpsertErrorFor(j.ID, "job spec error description")
 
 	jr1 := cltest.NewJobRun(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))
@@ -567,7 +599,7 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 	defer cleanup()
 
-	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
+	resp, err := http.Get(app.Server.URL + "/v2/specs/garbage")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
 }

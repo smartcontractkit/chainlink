@@ -22,6 +22,7 @@ const JobsDefinition = universal(
   import('./containers/Jobs/Definition'),
   uniOpts,
 )
+const JobsErrors = universal(import('./containers/Jobs/Errors'), uniOpts)
 const JobsNew = universal(import('./containers/Jobs/New'), uniOpts)
 const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
 const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
@@ -122,6 +123,11 @@ class Private extends React.Component {
                   exact
                   path="/jobs/:jobSpecId/json"
                   component={JobsDefinition}
+                />
+                <PrivateRoute
+                  exact
+                  path="/jobs/:jobSpecId/errors"
+                  component={JobsErrors}
                 />
                 <PrivateRoute
                   exact

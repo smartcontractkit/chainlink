@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.9] - 2020-07-13
+
+### Added
+
+- Added a check on sensitive file ownership that gives a warning if certain files are not owned by the user running chainlink
+- Added mechanism to asynchronously communicate when a job spec has an ethereum interaction error (or any async error) with a UI screen
+- Gas Bumper now bumps based on the current gas price instead of the gas price of the original transaction
+
+### Fixed
+- Support for multiple node addresses
+
 ## [0.8.8] - 2020-06-29
 
 ### Added
@@ -16,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - HeadTracker now automatically backfills missing heads up to `ETH_FINALITY_DEPTH`
+- The strategy for gas bumping has been changed to produce a potentially higher gas cost in exchange for the transaction getting through faster.
 
 ### Breaking changes
 
@@ -41,6 +53,7 @@ This release contains a number of features aimed at improving the node's reliabi
 - `ETH_GAS_BUMP_THRESHOLD` default value has been decreased from 12 to 3
 - `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
 - `EthHeadTrackerHistoryDepth` specifies how many heads the head tracker should keep in the database. The default is 100. It is not recommended to change this setting.
+- Update README.md with links to mockery, jq, and gencodec as they are required to run `go generate ./...`
 
 ## [0.8.6] - 2020-06-08
 
