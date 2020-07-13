@@ -102,6 +102,7 @@ export function parseArrayInputs(input: string[]) {
     const isArrayString = i.charAt(0) === '[' && i.charAt(i.length - 1) === ']'
     if (isArrayString) {
       const trimmed = i.slice(1, -1)
+
       const arr = trimmed.split(SPACE)
       return arr
     }
