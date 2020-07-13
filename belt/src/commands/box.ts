@@ -41,6 +41,7 @@ export default class Box extends Command {
   static args: Parser.args.IArg[] = [
     {
       name: 'path',
+      default: '.',
       description: 'the path to the truffle box',
     },
   ]
