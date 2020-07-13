@@ -1,7 +1,7 @@
 pragma solidity 0.6.6;
 
 import "./AggregatorProxy.sol";
-import "./AccessControllerInterface.sol";
+import "./interfaces/AccessControllerInterface.sol";
 
 /**
  * @title External Access Controlled Aggregator Proxy
@@ -203,6 +203,7 @@ contract EACAggregatorProxy is AggregatorProxy {
     public
     view
     checkAccess()
+    hasProposal()
     override
     returns (
       uint256 roundId,
@@ -230,6 +231,7 @@ contract EACAggregatorProxy is AggregatorProxy {
     public
     view
     checkAccess()
+    hasProposal()
     override
     returns (
       uint256 roundId,

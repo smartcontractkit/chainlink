@@ -13,7 +13,7 @@ import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import React from 'react'
 import { connect } from 'react-redux'
-import { createJobRun, fetchJob } from '../../../actions'
+import { createJobRun, fetchJob } from 'actionCreators'
 import Link from '../../../components/Link'
 
 const navItemStyles = ({ palette, spacing }: Theme) =>

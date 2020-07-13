@@ -1,6 +1,6 @@
-pragma solidity 0.6.6;
+pragma solidity ^0.6.0;
 
-import "./vendor/SafeMath.sol";
+import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
 
 import "./interfaces/LinkTokenInterface.sol";
 
@@ -83,21 +83,22 @@ import "./VRFRequestIDBase.sol";
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
 
-  using SafeMath for uint256;
+  using SafeMath_Chainlink for uint256;
 
   /**
    * @notice fulfillRandomness handles the VRF response. Your contract must
    * @notice implement it.
    *
    * @dev The VRFCoordinator expects a calling contract to have a method with
-   * @dev this signature, and will call it once it has verified the proof
-   * @dev associated with the randomness.
+   * @dev this signature, and will trigger it once it has verified the proof
+   * @dev associated with the randomness (It is triggered via a call to
+   * @dev rawFulfillRandomness, below.)
    *
    * @param requestId The Id initially returned by requestRandomness
    * @param randomness the VRF output
    */
   function fulfillRandomness(bytes32 requestId, uint256 randomness)
-    external virtual;
+    internal virtual;
 
   /**
    * @notice requestRandomness initiates a request for VRF output given _seed
@@ -145,5 +146,13 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   constructor(address _vrfCoordinator, address _link) public {
     vrfCoordinator = _vrfCoordinator;
     LINK = LinkTokenInterface(_link);
+  }
+
+  // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF
+  // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
+  // the origin of the call
+  function rawFulfillRandomness(bytes32 requestId, uint256 randomness) external {
+    require(msg.sender == vrfCoordinator, "Only VRFCoordinator can fulfill");
+    fulfillRandomness(requestId, randomness);
   }
 }

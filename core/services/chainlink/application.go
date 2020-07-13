@@ -34,7 +34,7 @@ func (c *headTrackableCallback) Connect(*models.Head) error {
 func (c *headTrackableCallback) Disconnect()                   {}
 func (c *headTrackableCallback) OnNewLongestChain(models.Head) {}
 
-//go:generate mockery -name Application -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name Application --output ../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -224,9 +224,6 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 	app.Scheduler.AddJob(job)
 
-	// XXX: Add mechanism to asynchronously communicate when a job spec has
-	// an ethereum interaction error.
-	// https://www.pivotaltracker.com/story/show/170349568
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
 	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
 	return nil

@@ -25,9 +25,9 @@ import (
 	"github.com/tevino/abool"
 )
 
-//go:generate mockery -name Service -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name DeviationCheckerFactory -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name DeviationChecker -output ../../internal/mocks/ -case=underscore
+//go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name DeviationChecker --output ../../internal/mocks/ --case=underscore
 
 type RunManager interface {
 	Create(
@@ -194,6 +194,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 	if job.ID == nil {
 		err := errors.New("received job with nil ID")
 		logger.Error(err)
+		fm.store.UpsertErrorFor(job.ID, "Unable to add job - job has nil ID")
 		return err
 	}
 
@@ -213,6 +214,7 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 			timeout,
 		)
 		if err != nil {
+			fm.store.UpsertErrorFor(job.ID, "Unable to create deviation checker")
 			return errors.Wrap(err, "factory unable to create checker")
 		}
 		validCheckers = append(validCheckers, checker)
@@ -797,6 +799,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	roundState, err := p.roundState(0)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to determine eligibility to submit from FluxAggregator contract: %v", err), loggerFields...)
+		p.store.UpsertErrorFor(p.JobID(), "Unable to call roundState method on provided contract. Check contract address.")
 		return
 	}
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
@@ -805,6 +808,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, roundState.ReportableRoundID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), loggerFields...)
+		p.store.UpsertErrorFor(p.JobID(), "Error fetching Flux Monitor round stats from DB")
 		return
 	}
 
@@ -823,6 +827,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	polledAnswer, err := p.fetcher.Fetch()
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("can't fetch answer: %v", err), loggerFields...)
+		p.store.UpsertErrorFor(p.JobID(), "Error polling")
 		return
 	}
 

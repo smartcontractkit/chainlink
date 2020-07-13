@@ -9,7 +9,7 @@ import Form from 'components/Jobs/Form'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import Content from 'components/Content'
 import BaseLink from '../../components/BaseLink'
-import { createJobSpec } from 'actions'
+import { createJobSpec } from 'actionCreators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 
 const SuccessNotification = ({ data }) => (

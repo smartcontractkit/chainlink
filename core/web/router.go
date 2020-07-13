@@ -202,6 +202,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	unauthedv2.POST("/service_agreements", sa.Create)
 
 	j := JobSpecsController{app}
+	jsec := JobSpecErrorsController{app}
 
 	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
 	{
@@ -223,6 +224,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.GET("/runs/:RunID", jr.Show)
 		authv2.PUT("/runs/:RunID/cancellation", jr.Cancel)
+
+		authv2.DELETE("/job_spec_errors/:jobSpecErrorID", jsec.Destroy)
 
 		authv2.GET("/service_agreements/:SAID", sa.Show)
 

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -39,18 +40,15 @@ var (
 		Help:    "How long it took to execute all callbacks (ms) histogram",
 		Buckets: []float64{50, 100, 250, 500, 1000, 2000, 5000, 10000, 15000, 30000, 100000},
 	})
+
+	// kovanChainID is the Chain ID for Kovan test network
+	kovanChainID = big.NewInt(42)
 )
 
 const (
-	// Log a warning if OnNewLongestChain callback execution takes longer than this amount of time
-	callbackExecutionThreshold = 10 * time.Second
-
 	// The size of the buffer for the headers channel. Note that callback
 	// execution is synchronous and could take a non-trivial amount of time.
 	headsBufferSize = 5
-
-	// Maximum time we are allowed to spend backfilling heads
-	backfillTimeBudget = 15 * time.Second
 )
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
@@ -69,6 +67,13 @@ type HeadTracker struct {
 	started               bool
 	listenForNewHeadsWg   sync.WaitGroup
 	subscriptionSucceeded chan struct{}
+}
+
+type RawHead struct {
+	Number     string
+	Hash       string
+	ParentHash string
+	Timestamp  string
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
@@ -259,8 +264,8 @@ func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
 		ms := float64(elapsed.Milliseconds())
 		promCallbackDuration.Set(ms)
 		promCallbackDurationHist.Observe(ms)
-		if elapsed > callbackExecutionThreshold {
-			logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), callbackExecutionThreshold.String()), "blockNumber", number, "time", elapsed)
+		if elapsed > ht.callbackExecutionThreshold() {
+			logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.callbackExecutionThreshold().String()), "blockNumber", number, "time", elapsed)
 		} else {
 			logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed)
 		}
@@ -295,7 +300,7 @@ func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
 func (ht *HeadTracker) handleNewHighestHead(head models.Head) error {
 	// NOTE: We must set a hard time limit on this, backfilling heads should
 	// not block the head tracker
-	ctx, cancel := context.WithTimeout(context.Background(), backfillTimeBudget)
+	ctx, cancel := context.WithTimeout(context.Background(), ht.backfillTimeBudget())
 	defer cancel()
 
 	headWithChain, err := ht.GetChainWithBackfill(ctx, head, ht.store.Config.EthFinalityDepth())
@@ -305,6 +310,30 @@ func (ht *HeadTracker) handleNewHighestHead(head models.Head) error {
 
 	ht.onNewLongestChain(headWithChain)
 	return nil
+}
+
+func (ht *HeadTracker) isKovan() bool {
+	return ht.store.Config.ChainID().Cmp(kovanChainID) == 0
+}
+
+// Maximum time we are allowed to spend backfilling heads. This should be
+// somewhat shorter than the average time between heads to ensure we
+// don't starve the runqueue.
+func (ht *HeadTracker) backfillTimeBudget() time.Duration {
+	if ht.isKovan() {
+		return 3 * time.Second
+	}
+	return 10 * time.Second
+}
+
+// If total callback execution time exceeds this threshold we consider this to
+// be a problem and will log a warning.
+// Here we set it to the average time between blocks.
+func (ht *HeadTracker) callbackExecutionThreshold() time.Duration {
+	if ht.isKovan() {
+		return 4 * time.Second
+	}
+	return 13 * time.Second
 }
 
 // GetChainWithBackfill returns a chain of the given length, backfilling any
@@ -366,27 +395,35 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
 	logger.Debugw("HeadTracker: fetching head", "blockHeight", n)
-	var h *gethTypes.Header
-	if err := ht.store.GethClientWrapper.GethClient(func(c eth.GethClient) error {
-		var err error
-		h, err = c.HeaderByNumber(ctx, big.NewInt(n))
-		return err
-	}); err != nil {
-		if err.Error() == "not found" {
-			return models.Head{}, ethereum.NotFound
-		}
-		return models.Head{}, errors.Wrap(err, "GethClient.HeaderByNumber failed")
+	head, err := ht.fetchHead(ctx, n)
+	if err != nil {
+		return head, err
 	}
-
-	if h == nil {
-		return models.Head{}, errors.New("invariant violation: expected head to not be nil")
-	}
-
-	head := models.NewHeadFromBlockHeader(*h)
 	if err := ht.store.IdempotentInsertHead(head); err != nil {
-		return models.Head{}, err
+		return head, err
 	}
 	return head, nil
+}
+
+func (ht *HeadTracker) fetchHead(ctx context.Context, n int64) (head models.Head, err error) {
+	rh := RawHead{}
+	if err = ht.store.GethClientWrapper.RPCClient(func(rpc eth.RPCClient) error {
+		return rpc.CallContext(ctx, &rh, "eth_getBlockByNumber", utils.Uint64ToHex(uint64(n)), false)
+	}); err != nil {
+		return head, errors.Wrap(err, "error calling eth_getBlockByNumber")
+	}
+	if rh.Number == "" {
+		return head, ethereum.NotFound
+	}
+	number, err := utils.HexToUint64(rh.Number)
+	if err != nil {
+		return head, errors.Wrap(err, "could not decode head number")
+	}
+	time, err := utils.HexToUint64(rh.Timestamp)
+	if err != nil {
+		return head, errors.Wrap(err, "could not decode head timestamp")
+	}
+	return models.NewHead(big.NewInt(int64(number)), gethCommon.HexToHash(rh.Hash), gethCommon.HexToHash(rh.ParentHash), time), nil
 }
 
 func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {

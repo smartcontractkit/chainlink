@@ -68,8 +68,17 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunO
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	ethereumByteArray := fmt.Sprintf("0x%x", utils.EVMEncodeBytes(solidityProof[:]))
-	return models.NewRunOutputCompleteWithResult(ethereumByteArray)
+	vrfCoordinatorArgs, err := models.VRFFulfillMethod().Inputs.PackValues(
+		[]interface{}{
+			solidityProof[:], // geth expects slice, even if arg is constant-length
+		})
+	if err != nil {
+		return models.NewRunOutputError(errors.Wrapf(err,
+			"while packing VRF proof %s as argument to "+
+				"VRFCoordinator.fulfillRandomnessRequest", solidityProof))
+	}
+	return models.NewRunOutputCompleteWithResult(fmt.Sprintf("0x%x",
+		vrfCoordinatorArgs))
 }
 
 // getSeed returns the numeric seed for the vrf task, or an error

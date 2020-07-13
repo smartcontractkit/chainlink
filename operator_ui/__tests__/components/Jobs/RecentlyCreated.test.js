@@ -1,5 +1,5 @@
 import React from 'react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter } from 'react-router-dom'
 import { render } from 'enzyme'
 import RecentlyCreated from 'components/Jobs/RecentlyCreated'
 import isoDate, { MINUTE_MS, TWO_MINUTES_MS } from 'test-helpers/isoDate'

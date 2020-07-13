@@ -14,7 +14,7 @@ import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
 import BaseLink from '../components/BaseLink'
 import face from 'images/face.svg'
-import { submitSignOut } from 'actions'
+import { submitSignOut } from 'actionCreators'
 
 const styles = theme => {
   return {

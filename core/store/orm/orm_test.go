@@ -1245,14 +1245,14 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 	require.NoError(t, err)
 	earlier := models.Key{Address: earlierAddress, JSON: testJSON}
 
-	require.NoError(t, orm.FirstOrCreateKey(&earlier))
+	require.NoError(t, orm.UpsertKey(earlier))
 	time.Sleep(10 * time.Millisecond)
 
 	laterAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
 	require.NoError(t, err)
 	later := models.Key{Address: laterAddress, JSON: testJSON}
 
-	require.NoError(t, orm.FirstOrCreateKey(&later))
+	require.NoError(t, orm.UpsertKey(later))
 
 	keys, err := store.Keys()
 	require.NoError(t, err)
@@ -1279,7 +1279,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 
 	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	require.NoError(t, err)
-	require.NoError(t, orm.FirstOrCreateKey(seed))
+	require.NoError(t, orm.UpsertKey(seed))
 
 	require.True(t, isDirEmpty(t, keysDir))
 	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
@@ -1718,7 +1718,124 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		// But the second insert did not change the gas limit
 		assert.Equal(t, firstGasLimit, etrt.EthTx.GasLimit)
 	})
+}
 
+func TestORM_FindJobWithErrorsPreloadsJobSpecErrors(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job1 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job1))
+	job2 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job2))
+
+	description1, description2 := "description 1", "description 2"
+
+	store.UpsertErrorFor(job1.ID, description1)
+	store.UpsertErrorFor(job1.ID, description2)
+
+	job1, err := store.FindJobWithErrors(job1.ID)
+	require.NoError(t, err)
+	job2, err = store.FindJobWithErrors(job2.ID)
+	require.NoError(t, err)
+
+	assert.Len(t, job1.Errors, 2)
+	assert.Len(t, job2.Errors, 0)
+
+	assert.Equal(t, job1.Errors[0].Description, description1)
+	assert.Equal(t, job1.Errors[1].Description, description2)
+}
+
+func TestORM_UpsertErrorFor_Happy(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job1 := cltest.NewJob()
+	job2 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job1))
+	require.NoError(t, store.CreateJob(&job2))
+
+	description1, description2 := "description 1", "description 2"
+
+	store.UpsertErrorFor(job1.ID, description1)
+
+	tests := []struct {
+		jobID               *models.ID
+		description         string
+		expectedOccurrences uint
+	}{
+		{
+			job1.ID,
+			description1,
+			2, // duplicate
+		},
+		{
+			job1.ID,
+			description2,
+			1,
+		},
+		{
+			job2.ID,
+			description1,
+			1,
+		},
+		{
+			job2.ID,
+			description2,
+			1,
+		},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		testName := fmt.Sprintf(`Create JobSpecError with ID %v and description "%s"`, test.jobID, test.description)
+		t.Run(testName, func(t *testing.T) {
+			store.UpsertErrorFor(test.jobID, test.description)
+			jse, err := store.FindJobSpecError(test.jobID, test.description)
+			require.NoError(t, err)
+			require.Equal(t, test.expectedOccurrences, jse.Occurrences)
+		})
+	}
+}
+
+func TestORM_UpsertErrorFor_Error(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job))
+	description := "description"
+	store.UpsertErrorFor(job.ID, description)
+
+	tests := []struct {
+		name        string
+		jobID       *models.ID
+		description string
+	}{
+		{
+			"missing job",
+			models.NewID(),
+			description,
+		},
+		{
+			"missing description",
+			job.ID,
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			store.UpsertErrorFor(test.jobID, test.description)
+		})
+	}
 }
 
 func TestORM_FindOrCreateFluxMonitorRoundStats(t *testing.T) {

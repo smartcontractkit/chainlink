@@ -7,7 +7,7 @@ import List from 'components/Transactions/List'
 import Content from 'components/Content'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import transactionsSelector from 'selectors/transactions'
-import { fetchTransactions } from 'actions'
+import { fetchTransactions } from 'actionCreators'
 
 export const Index = props => {
   document.title = 'Transactions'

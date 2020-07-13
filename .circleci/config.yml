@@ -33,7 +33,10 @@ jobs:
             - '/go/pkg/mod'
       - run: yarn setup:contracts
       - run: go run ./core local db preparetest
-      - run: go test -v -p 4 -parallel 4 ./...
+      - run: go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep "\-\-\- FAIL" || echo "All passed!" # only show failures
+      - store_artifacts:
+          path: ./output.txt
+
   rust:
     docker:
       - image: smartcontract/builder:1.0.33
@@ -221,6 +224,7 @@ jobs:
       - store_artifacts:
           path: ./integration/logs
   feeds:
+    resource_class: large
     docker:
       - image: smartcontract/builder:1.0.33
     steps:

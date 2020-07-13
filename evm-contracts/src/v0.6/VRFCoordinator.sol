@@ -169,7 +169,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     // https://github.com/ethereum/solidity/issues/3506#issuecomment-553727797
     VRFConsumerBase v;
     bytes memory resp = abi.encodeWithSelector(
-      v.fulfillRandomness.selector, requestId, randomness);
+      v.rawFulfillRandomness.selector, requestId, randomness);
     // solhint-disable-next-line avoid-low-level-calls
     (bool success,) = callback.callbackContract.call(resp);
     delete callbacks[requestId]; // Be a good ethereum citizen

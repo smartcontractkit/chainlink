@@ -21,7 +21,7 @@ var (
 	})
 )
 
-//go:generate mockery -name JobSubscriber  -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name JobSubscriber  --output ../internal/mocks/ --case=underscore
 
 // JobSubscriber listens for push notifications of event logs from the ethereum
 // node's websocket for specific jobs by subscribing to ethLogs.
@@ -82,6 +82,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 
 	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
 	if err != nil {
+		js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
 		return err
 	}
 	js.addSubscription(sub)

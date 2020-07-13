@@ -8,7 +8,7 @@ import BridgeList from 'components/Bridges/List'
 import BaseLink from 'components/BaseLink'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import bridgesSelector from 'selectors/bridges'
-import { fetchBridges } from 'actions'
+import { fetchBridges } from 'actionCreators'
 import Content from 'components/Content'
 import Button from 'components/Button'
 

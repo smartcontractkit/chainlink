@@ -22,9 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_request_id"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_request_id"
 )
 
 // coordinator represents the universe in which a randomness request occurs and
@@ -34,7 +34,7 @@ type coordinator struct {
 	rootContract            *solidity_vrf_coordinator_interface.VRFCoordinator
 	linkContract            *link_token_interface.LinkToken
 	consumerContract        *solidity_vrf_consumer_interface.VRFConsumer
-	requestIDBase           *solidity_request_id.VRFRequestIDBaseTestHelper
+	requestIDBase           *solidity_vrf_request_id.VRFRequestIDBaseTestHelper
 	rootContractAddress     common.Address
 	consumerContractAddress common.Address
 	// Abstraction representation of the ethereum blockchain
@@ -91,7 +91,7 @@ func deployCoordinator(t *testing.T) coordinator {
 			carol, backend, coordinatorAddress, linkAddress)
 	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
 	_, _, requestIDBase, err :=
-		solidity_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend)
+		solidity_vrf_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend)
 	require.NoError(t, err, "failed to deploy VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
@@ -234,16 +234,21 @@ func TestFulfillRandomness(t *testing.T) {
 	randomnessRequestLog := requestRandomness(t, coordinator, keyHash, fee, seed)
 	proof := fulfillRandomnessRequest(t, coordinator, *randomnessRequestLog)
 	output, err := coordinator.consumerContract.RandomnessOutput(nil)
-	require.NoError(t, err, "failed to get VRF output from consuming contract, after randomness request was fulfilled")
-	assert.True(t, proof.Output.Cmp(output) == 0, "VRF output from randomness request fulfillment was different than provided!")
+	require.NoError(t, err, "failed to get VRF output from consuming contract, "+
+		"after randomness request was fulfilled")
+	assert.True(t, proof.Output.Cmp(output) == 0, "VRF output from randomness "+
+		"request fulfillment was different than provided!")
 	requestID, err := coordinator.consumerContract.RequestId(nil)
 	require.NoError(t, err, "failed to get requestId from VRFConsumer")
-	assert.Equal(t, randomnessRequestLog.RequestID(), common.Hash(requestID), "VRFConsumer has different request ID than logged from randomness request!")
+	assert.Equal(t, randomnessRequestLog.RequestID(), common.Hash(requestID),
+		"VRFConsumer has different request ID than logged from randomness request!")
 	neilBalance, err := coordinator.rootContract.WithdrawableTokens(
 		nil, coordinator.neil.From)
-	require.NoError(t, err, "failed to get neil's token balance, after he successfully fulfilled a randomness request")
+	require.NoError(t, err, "failed to get neil's token balance, after he "+
+		"successfully fulfilled a randomness request")
 	assert.True(t, neilBalance.Cmp(fee) == 0,
-		"neil's balance on VRFCoordinator was not paid his fee, despite succesfull fulfillment of randomness request!")
+		"neil's balance on VRFCoordinator was not paid his fee, despite "+
+			"successful fulfillment of randomness request!")
 }
 
 func TestWithdraw(t *testing.T) {

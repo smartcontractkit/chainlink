@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -38,14 +38,14 @@ import (
 // TODO(alx): This suit used to be much faster, presumably because all tests
 // were sharing a common global verifier (which is fine, because all methods are
 // pure.) Revert to that, and see if it helps.
-func deployVRFTestHelper(t *testing.T) *solidity_verifier_wrapper.VRFTestHelper {
+func deployVRFTestHelper(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to create root ethereum identity")
 	auth := bind.NewKeyedTransactor(key)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
-	_, _, verifier, err := solidity_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return verifier

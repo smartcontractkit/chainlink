@@ -151,10 +151,18 @@ func checkFilePermissions(rootDir string) error {
 		if utils.TooPermissive(fileInfo.Mode().Perm(), ownerPermsMask) {
 			newPerms := fileInfo.Mode().Perm() & ownerPermsMask
 			logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
-			err := utils.EnsureFilepathMaxPerms(path, newPerms)
+			err = utils.EnsureFilepathMaxPerms(path, newPerms)
 			if err != nil {
 				return err
 			}
+		}
+		owned, err := utils.IsFileOwnedByChainlink(fileInfo)
+		if err != nil {
+			logger.Warn(err)
+			continue
+		}
+		if !owned {
+			logger.Warnf("The file %v is not owned by the user running chainlink. This will be made mandatory in the future.", path)
 		}
 	}
 	return nil
