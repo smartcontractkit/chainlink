@@ -159,6 +159,7 @@ OPTIONS
   -l, --gasLimit=gasLimit  Gas limit
   -n, --nonce=nonce        Nonce
   -v, --value=value        Value
+  -c, --config=config  [default: app.config.json] Location of the configuration file
 EXAMPLES
   belt deploy [<options>] <version/contract> [<args>]
   belt deploy v0.6/AccessControlledAggregator 0x01be23585060835e02b77ef475b0cc51aa1e0709 160000000000000000 300 1 1000000000 18 LINK/USD
@@ -182,6 +183,7 @@ OPTIONS
   --no-truncate           do not truncate output to fit screen
   --output=csv|json|yaml  output in a more machine friendly format
   --sort=sort             property to sort by (prepend '-' for descending)
+  -c, --config=config  [default: app.config.json] Location of the configuration file
 EXAMPLES
   belt inspect [<options>] <version/contract>
   belt inspect v0.6/AccessControlledAggregator
@@ -215,6 +217,7 @@ OPTIONS
   -l, --gasLimit=gasLimit  Gas limit
   -n, --nonce=nonce        Nonce
   -v, --value=value        Value
+  -c, --config=config  [default: app.config.json] Location of the configuration file
 EXAMPLES
   belt exec [<options>] <<version/contract> <address> <fsig> [<args>]
   belt exec v0.6/AccessControlledAggregator 0xe47D8b2CC42F07cdf05ca791bab47bc47Ed8B5CD 'addAccess(address)' 0xe47D8b2CC42F07cdf05ca791bab47bc47Ed8B5CD
@@ -239,6 +242,7 @@ OPTIONS
   -f, --from=from          From address
   -h, --help               show CLI help
   -l, --gasLimit=gasLimit  Gas limit
+  -c, --config=config  [default: app.config.json] Location of the configuration file
 EXAMPLES
   belt call [<options>] <version/contract> <address> <fsig> [<args>]
   belt call v0.6/AccessControlledAggregator 0xe47D8b2CC42F07cdf05ca791bab47bc47Ed8B5CD 'description()'
