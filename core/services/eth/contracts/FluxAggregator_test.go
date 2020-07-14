@@ -104,7 +104,7 @@ func TestFluxAggregatorClient_DecodesLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), answerUpdatedLog.Current.Int64())
 	require.Equal(t, int64(2), answerUpdatedLog.RoundId.Int64())
-	require.Equal(t, int64(3), answerUpdatedLog.Timestamp.Int64())
+	require.Equal(t, int64(3), answerUpdatedLog.UpdatedAt.Int64())
 
 	type BadLogAnswerUpdated struct {
 		Current   *big.Int
