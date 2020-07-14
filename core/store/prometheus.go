@@ -23,7 +23,7 @@ var promETHBalance = promauto.NewGaugeVec(
 	[]string{"account"},
 )
 
-func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
+func PromUpdateEthBalance(balance *assets.Eth, from common.Address) {
 	balanceFloat, err := approximateFloat64(balance)
 
 	if err != nil {

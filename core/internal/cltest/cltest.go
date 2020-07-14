@@ -69,6 +69,8 @@ const (
 	Password = "password"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
+	// DefaultKey is the address of the fixture key
+	DefaultKey = "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
 )
 
 var storeCounter uint64
@@ -1353,4 +1355,10 @@ func MustHexToUint64(t *testing.T, hex string) uint64 {
 		t.Fatal(err)
 	}
 	return res
+}
+
+func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
+	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
+	require.NoError(t, err)
+	return k
 }
