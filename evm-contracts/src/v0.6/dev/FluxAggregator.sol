@@ -324,17 +324,6 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   }
 
   /**
-   * @notice get the ID of the round most recently reported on
-   */
-  function reportingRound()
-    external
-    view
-    returns (uint256)
-  {
-    return reportingRoundId;
-  }
-
-  /**
    * @notice get data about a round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
