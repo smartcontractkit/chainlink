@@ -523,13 +523,16 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
    */
   function requestNewRound()
     external
+    returns (uint32)
   {
     require(requesters[msg.sender].authorized, "not authorized requester");
 
     uint32 current = reportingRoundId;
     require(rounds[current].updatedAt > 0 || timedOut(current), "prev round must be supersedable");
 
-    requesterInitializeNewRound(current.add(1));
+    uint32 newRoundId = current.add(1);
+    requesterInitializeNewRound(newRoundId);
+    return newRoundId;
   }
 
   /**

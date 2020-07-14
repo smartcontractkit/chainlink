@@ -4,6 +4,8 @@ import "../dev/FluxAggregator.sol";
 
 contract FluxAggregatorTestHelper {
 
+  uint32 public requestedRoundId;
+
   event Here();
 
   function readLatestRoundData(address _aggregator)
@@ -24,6 +26,13 @@ contract FluxAggregatorTestHelper {
     external
   {
     FluxAggregator(_aggregator).oracleRoundState(_oracle, 0);
+    emit Here();
+  }
+
+  function requestNewRound(address _aggregator)
+    external
+  {
+    requestedRoundId = FluxAggregator(_aggregator).requestNewRound();
     emit Here();
   }
 
