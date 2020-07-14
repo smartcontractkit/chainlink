@@ -1912,6 +1912,16 @@ describe('FluxAggregator', () => {
       matchers.bigNum(nextRound, h.eventArgs(event).roundId)
     })
 
+    it('returns the new round ID', async () => {
+      testHelper = await testHelperFactory.connect(personas.Carol).deploy()
+      await aggregator.setRequesterPermissions(testHelper.address, true, 0)
+
+      assert.equal(await testHelper.requestedRoundId(), 0)
+      await testHelper.requestNewRound(aggregator.address)
+      // return value captured by test helper
+      assert.isAbove(await testHelper.requestedRoundId(), 0)
+    })
+
     describe('when there is a round in progress', () => {
       beforeEach(async () => {
         await aggregator.requestNewRound()
