@@ -55,7 +55,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
-		logNodeBalance(store)
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
@@ -201,20 +200,6 @@ func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
 	}
 	if replayFromBlock >= 0 {
 		config.Set(orm.EnvVarName("ReplayFromBlock"), replayFromBlock)
-	}
-}
-
-func logNodeBalance(store *strpkg.Store) {
-	accounts, err := presenters.ShowEthBalance(store)
-	logger.WarnIf(err)
-	for _, a := range accounts {
-		logger.Infow(a["message"], "address", a["address"], "ethBalance", a["balance"])
-	}
-
-	accounts, err = presenters.ShowLinkBalance(store)
-	logger.WarnIf(err)
-	for _, a := range accounts {
-		logger.Infow(a["message"], "address", a["address"], "linkBalance", a["balance"])
 	}
 }
 

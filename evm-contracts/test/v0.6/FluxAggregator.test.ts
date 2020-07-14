@@ -2781,4 +2781,62 @@ describe('FluxAggregator', () => {
       })
     })
   })
+
+  describe('#getRoundData', () => {
+    let latestRoundId: any
+    beforeEach(async () => {
+      oracles = [personas.Nelly]
+      const minMax = oracles.length
+      await addOracles(aggregator, oracles, minMax, minMax, rrDelay)
+      await advanceRound(aggregator, oracles, answer)
+      latestRoundId = await aggregator.latestRound()
+    })
+
+    it('returns the relevant round information', async () => {
+      const round = await aggregator.getRoundData(latestRoundId)
+      matchers.bigNum(latestRoundId, round.roundId)
+      matchers.bigNum(answer, round.answer)
+      const nowSeconds = new Date().valueOf() / 1000
+      assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
+      matchers.bigNum(round.updatedAt, round.startedAt)
+      matchers.bigNum(latestRoundId, round.answeredInRound)
+    })
+
+    it('reverts if a round is not present', async () => {
+      await matchers.evmRevert(
+        aggregator.getRoundData(latestRoundId.add(1)),
+        'No data present',
+      )
+    })
+  })
+
+  describe.only('#latestRoundData', () => {
+    beforeEach(async () => {
+      oracles = [personas.Nelly]
+      const minMax = oracles.length
+      await addOracles(aggregator, oracles, minMax, minMax, rrDelay)
+    })
+
+    describe('when an answer has already been received', () => {
+      beforeEach(async () => {
+        await advanceRound(aggregator, oracles, answer)
+      })
+
+      it('reverts if there is no latest round', async () => {
+        const round = await aggregator.latestRoundData()
+        const latestRoundId = await aggregator.latestRound()
+
+        matchers.bigNum(latestRoundId, round.roundId)
+        matchers.bigNum(answer, round.answer)
+        const nowSeconds = new Date().valueOf() / 1000
+        assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
+        matchers.bigNum(round.updatedAt, round.startedAt)
+        matchers.bigNum(latestRoundId, round.answeredInRound)
+      })
+    })
+
+    it('reverts if a round is not present', async () => {
+      await matchers.evmRevert(aggregator.latestRoundData(), 'No data present')
+    })
+  })
 })
