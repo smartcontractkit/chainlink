@@ -101,6 +101,7 @@ describe('AccessControlledAggregator', () => {
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
+      'validator',
       'version',
       // Owned methods:
       'acceptOwnership',
