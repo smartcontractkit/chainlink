@@ -58,10 +58,13 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     uint32 lastStartedRound;
   }
 
+  struct Funds {
+    uint128 available;
+    uint128 allocated;
+  }
+
   LinkTokenInterface public linkToken;
   AggregatorValidatorInterface public validator;
-  uint128 public allocatedFunds;
-  uint128 public availableFunds;
 
   // Round related params
   uint128 public paymentAmount;
@@ -98,6 +101,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   mapping(uint32 => Round) internal rounds;
   mapping(address => Requester) internal requesters;
   address[] private oracleAddresses;
+  Funds private recordedFunds;
 
   event AvailableFundsUpdated(
     uint256 indexed amount
@@ -273,7 +277,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     require(_maxSubmissions >= _minSubmissions, "max must equal/exceed min");
     require(oracleNum >= _maxSubmissions, "max cannot exceed total");
     require(oracleNum == 0 || oracleNum > _restartDelay, "delay cannot exceed total");
-    require(availableFunds >= requiredReserve(_paymentAmount), "insufficient funds for payment");
+    require(recordedFunds.available >= requiredReserve(_paymentAmount), "insufficient funds for payment");
     if (oracleCount() > 0) {
       require(_minSubmissions > 0, "min must be greater than 0");
     }
@@ -294,18 +298,40 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   }
 
   /**
+   * @notice the amount of payment yet to be withdrawn by oracles
+   */
+  function allocatedFunds()
+    external
+    view
+    returns (uint128)
+  {
+    return recordedFunds.allocated;
+  }
+
+  /**
+   * @notice the amount of future funding available to oracles
+   */
+  function availableFunds()
+    external
+    view
+    returns (uint128)
+  {
+    return recordedFunds.available;
+  }
+
+  /**
    * @notice recalculate the amount of LINK available for payouts
    */
   function updateAvailableFunds()
     public
   {
-    uint128 pastAvailableFunds = availableFunds;
+    Funds memory funds = recordedFunds;
 
-    uint256 available = linkToken.balanceOf(address(this)).sub(allocatedFunds);
-    availableFunds = uint128(available);
+    uint256 nowAvailable = linkToken.balanceOf(address(this)).sub(funds.allocated);
 
-    if (pastAvailableFunds != available) {
-      emit AvailableFundsUpdated(available);
+    if (funds.available != nowAvailable) {
+      recordedFunds.available = uint128(nowAvailable);
+      emit AvailableFundsUpdated(nowAvailable);
     }
   }
 
@@ -432,7 +458,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     require(available >= amount, "insufficient withdrawable funds");
 
     oracles[_oracle].withdrawable = available.sub(amount);
-    allocatedFunds = allocatedFunds.sub(amount);
+    recordedFunds.allocated = recordedFunds.allocated.sub(amount);
 
     assert(linkToken.transfer(_recipient, uint256(amount)));
   }
@@ -446,7 +472,8 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     external
     onlyOwner()
   {
-    require(uint256(availableFunds).sub(requiredReserve(paymentAmount)) >= _amount, "insufficient reserve funds");
+    uint256 available = uint256(recordedFunds.available);
+    require(available.sub(requiredReserve(paymentAmount)) >= _amount, "insufficient reserve funds");
     require(linkToken.transfer(_recipient, _amount), "token transfer failed");
     updateAvailableFunds();
   }
@@ -569,7 +596,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
         oracles[_oracle].latestSubmission,
         round.startedAt,
         round.details.timeout,
-        availableFunds,
+        recordedFunds.available,
         oracleCount(),
         (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount)
       );
@@ -709,7 +736,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
       oracle.latestSubmission,
       round.startedAt,
       round.details.timeout,
-      availableFunds,
+      recordedFunds.available,
       oracleCount(),
       _paymentAmount
     );
@@ -757,13 +784,13 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     private
   {
     uint128 payment = rounds[_roundId].details.paymentAmount;
-    uint128 available = availableFunds.sub(payment);
-
-    availableFunds = available;
-    allocatedFunds = allocatedFunds.add(payment);
+    Funds memory funds = recordedFunds;
+    funds.available = funds.available.sub(payment);
+    funds.allocated = funds.allocated.add(payment);
+    recordedFunds = funds;
     oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
 
-    emit AvailableFundsUpdated(available);
+    emit AvailableFundsUpdated(funds.available);
   }
 
   function recordSubmission(int256 _submission, uint32 _roundId)
