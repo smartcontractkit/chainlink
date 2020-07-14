@@ -1,8 +1,8 @@
 pragma solidity 0.6.6;
 
-import "./interfaces/AggregatorInterface.sol";
-import "./interfaces/AggregatorV3Interface.sol";
-import "./Owned.sol";
+import "../Owned.sol";
+import "../interfaces/AggregatorInterface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -12,8 +12,19 @@ import "./Owned.sol";
  */
 contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
-  AggregatorV3Interface public aggregator;
+  struct Phase {
+    uint16 id;
+    AggregatorV3Interface aggregator;
+  }
+  Phase private currentPhase;
   AggregatorV3Interface public proposedAggregator;
+  mapping(uint16 => AggregatorV3Interface) public phaseAggregators;
+
+  uint256 constant private PHASE_OFFSET = 64;
+  // This is an error that the Flux Aggregator throws when you try to read
+  // data for a round that does not exist.
+  string constant private V3_NO_DATA_ERROR = "No data present";
+  bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes(V3_NO_DATA_ERROR));
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -30,7 +41,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = latestRoundData();
+    ( , answer, , , ) = tryLatestRoundData();
   }
 
   /**
@@ -44,7 +55,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = latestRoundData();
+    ( , , , updatedAt, ) = tryLatestRoundData();
   }
 
   /**
@@ -59,7 +70,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = getRoundData(_roundId);
+    ( , answer, , , ) = tryGetRoundData(_roundId);
   }
 
   /**
@@ -74,11 +85,13 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = getRoundData(_roundId);
+    ( , , , updatedAt, ) = tryGetRoundData(_roundId);
   }
 
   /**
-   * @notice get the latest completed round where the answer was updated
+   * @notice get the latest completed round where the answer was updated. This
+   * ID includes the proxy's phase, to make sure round IDs increase even when
+   * switching to a newly deployed aggregator.
    * @dev deprecated. Use latestRoundData instead.
    */
   function latestRound()
@@ -88,7 +101,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 roundId)
   {
-    ( roundId, , , , ) = latestRoundData();
+    ( roundId, , , , ) = tryLatestRoundData();
   }
 
   /**
@@ -100,8 +113,12 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
    * of them.
-   * @param _roundId the round ID to retrieve the round data for
-   * @return roundId is the round ID for which data was retrieved
+   * @param _roundId the requested round ID as presented through the proxy, this
+   * is made up of the aggregator's round ID with the phase ID encoded in the
+   * two highest order bytes
+   * @return roundId is the round ID from the aggregator for which the data was
+   * retrieved combined with an phase to ensure that round IDs get larger as
+   * time moves forward.
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
    * (Only some AggregatorV3Interface implementations return meaningful values)
@@ -112,20 +129,30 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     public
     view
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
-    return aggregator.getRoundData(_roundId);
+    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
+
+    (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 ansIn
+    ) = phaseAggregators[phaseId].getRoundData(aggregatorRoundId);
+
+    return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, phaseId);
   }
 
   /**
@@ -137,7 +164,9 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * should determine what implementations they expect to receive
    * data from and validate that they can properly handle return data from all
    * of them.
-   * @return roundId is the round ID for which data was retrieved
+   * @return roundId is the round ID from the aggregator for which the data was
+   * retrieved combined with an phase to ensure that round IDs get larger as
+   * time moves forward.
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started.
    * (Only some AggregatorV3Interface implementations return meaningful values)
@@ -154,14 +183,24 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
-    return aggregator.latestRoundData();
+    Phase memory current = currentPhase; // cache storage reads
+
+    (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 ansIn
+    ) = current.aggregator.latestRoundData();
+
+    return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, current.id);
   }
 
   /**
@@ -176,17 +215,17 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
   */
-  function proposedGetRoundData(uint256 _roundId)
+  function proposedGetRoundData(uint80 _roundId)
     public
     view
     virtual
     hasProposal()
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return proposedAggregator.getRoundData(_roundId);
@@ -209,14 +248,36 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     virtual
     hasProposal()
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return proposedAggregator.latestRoundData();
+  }
+
+  /**
+   * @notice returns the current phase's aggregator address.
+   */
+  function aggregator()
+    external
+    view
+    returns (address)
+  {
+    return address(currentPhase.aggregator);
+  }
+
+  /**
+   * @notice returns the current phase's ID.
+   */
+  function phaseId()
+    external
+    view
+    returns (uint16)
+  {
+    return currentPhase.id;
   }
 
   /**
@@ -228,7 +289,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint8)
   {
-    return aggregator.decimals();
+    return currentPhase.aggregator.decimals();
   }
 
   /**
@@ -241,7 +302,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256)
   {
-    return aggregator.version();
+    return currentPhase.aggregator.version();
   }
 
   /**
@@ -253,7 +314,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (string memory)
   {
-    return aggregator.description();
+    return currentPhase.aggregator.description();
   }
 
   /**
@@ -283,6 +344,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     setAggregator(_aggregator);
   }
 
+
   /*
    * Internal
    */
@@ -290,11 +352,118 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
   function setAggregator(address _aggregator)
     internal
   {
-    aggregator = AggregatorV3Interface(_aggregator);
+    uint16 id = currentPhase.id + 1;
+    currentPhase = Phase(id, AggregatorV3Interface(_aggregator));
+    phaseAggregators[id] = AggregatorV3Interface(_aggregator);
   }
+
+  function addPhase(
+    uint16 _phase,
+    uint64 _originalId
+  )
+    internal
+    view
+    returns (uint80)
+  {
+    return uint80(uint256(_phase) << PHASE_OFFSET | _originalId);
+  }
+
+  function parseIds(
+    uint256 _roundId
+  )
+    internal
+    view
+    returns (uint16, uint64)
+  {
+    uint16 phaseId = uint16(_roundId >> PHASE_OFFSET);
+    uint64 aggregatorRoundId = uint64(_roundId);
+
+    return (phaseId, aggregatorRoundId);
+  }
+
+  function tryLatestRoundData()
+    internal
+    view
+    returns (uint80, int256, uint256, uint256, uint80)
+  {
+    Phase memory current = currentPhase; // cache storage reads
+
+    try current.aggregator.latestRoundData() returns (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 ansIn
+    ) {
+      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, current.id);
+    } catch Error(string memory reason) {
+      return handleExpectedV3Error(reason);
+    }
+  }
+
+  function tryGetRoundData(
+    uint256 _roundId
+  )
+    internal
+    view
+    returns (uint80, int256, uint256, uint256, uint80)
+  {
+    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
+    AggregatorV3Interface aggregator = phaseAggregators[phaseId];
+
+    try aggregator.getRoundData(uint80(aggregatorRoundId)) returns (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 ansIn
+    ) {
+      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, phaseId);
+    } catch Error(string memory reason) {
+      return handleExpectedV3Error(reason);
+    }
+  }
+
+  function handleExpectedV3Error(
+    string memory reason
+  )
+    internal
+    view
+    returns (uint80, int256, uint256, uint256, uint80)
+  {
+    require(keccak256(bytes(reason)) == EXPECTED_V3_ERROR, reason);
+
+    return (0, 0, 0, 0, 0);
+  }
+
+  function addPhaseIds(
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 answeredInRound,
+      uint16 phaseId
+  )
+    internal
+    view
+    returns (uint80, int256, uint256, uint256, uint80)
+  {
+    return (
+      addPhase(phaseId, uint64(roundId)),
+      answer,
+      startedAt,
+      updatedAt,
+      addPhase(phaseId, uint64(answeredInRound))
+    );
+  }
+
+  /*
+   * Modifiers
+   */
 
   modifier hasProposal() {
     require(address(proposedAggregator) != address(0), "No proposed aggregator present");
     _;
   }
+
 }

@@ -1,6 +1,0 @@
-[[headers]]
-  for = "/*"
-
-  [headers.values]
-    # Cache for 1 week
-    cache-control = "private, max-age=604800, must-revalidate"
