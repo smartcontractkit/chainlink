@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.10] - 2020-07-14
+
+### Fixed
+- Incorrect sequence on keys table in some edge cases
+
 ## [0.8.9] - 2020-07-13
 
 ### Added
