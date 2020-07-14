@@ -1,0 +1,2 @@
+/*.(js|css|json|png|gif|jpg|svg|woff|ico)
+  Cache-Control: private, max-age=604800, must-revalidate
