@@ -91,6 +91,8 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	fluxMonitor := fluxmonitor.New(store, runManager)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	balanceMonitor := services.NewBalanceMonitor(store, store.GethClientWrapper)
+
 	store.NotifyNewEthTx = ethBroadcaster
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
@@ -123,6 +125,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		headTrackables,
 		jobSubscriber,
 		pendingConnectionResumer,
+		balanceMonitor,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {

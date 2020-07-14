@@ -1239,6 +1239,13 @@ func (orm *ORM) Keys() ([]models.Key, error) {
 	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error
 }
 
+// KeyByAddress returns the key matching provided address
+func (orm *ORM) KeyByAddress(address common.Address) (models.Key, error) {
+	var key models.Key
+	err := orm.DB.Where("address = ?", address).First(&key).Error
+	return key, err
+}
+
 // KeyExists returns true if a key exists in the database for this address
 func (orm *ORM) KeyExists(address []byte) (bool, error) {
 	var key models.Key
