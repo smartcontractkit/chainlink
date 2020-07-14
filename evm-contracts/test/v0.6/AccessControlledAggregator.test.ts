@@ -77,7 +77,6 @@ describe('AccessControlledAggregator', () => {
       'getOracles',
       'getRoundData',
       'latestRoundData',
-      'latestSubmission',
       'linkToken',
       'maxSubmissionCount',
       'maxSubmissionValue',

@@ -58,7 +58,6 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     uint32 lastStartedRound;
   }
 
-
   LinkTokenInterface public linkToken;
   AggregatorValidatorInterface public validator;
   uint128 public allocatedFunds;
@@ -461,18 +460,6 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     require(uint256(availableFunds).sub(requiredReserve(paymentAmount)) >= _amount, "insufficient reserve funds");
     require(linkToken.transfer(_recipient, _amount), "token transfer failed");
     updateAvailableFunds();
-  }
-
-  /**
-   * @notice get the latest submission for any oracle
-   * @param _oracle is the address to lookup the latest submission for
-   */
-  function latestSubmission(address _oracle)
-    external
-    view
-    returns (int256, uint256)
-  {
-    return (oracles[_oracle].latestSubmission, oracles[_oracle].lastReportedRound);
   }
 
   /**
