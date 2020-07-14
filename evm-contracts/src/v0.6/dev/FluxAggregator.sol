@@ -822,9 +822,9 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     rounds[_roundId].answeredInRound = _roundId;
     latestRoundId = _roundId;
 
-    validateAnswer(_roundId, newAnswer);
-
     emit AnswerUpdated(newAnswer, _roundId, now);
+
+    validateAnswer(_roundId, newAnswer);
   }
 
   function validateAnswer(
