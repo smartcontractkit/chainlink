@@ -611,7 +611,7 @@ func (txm *EthTxManager) processAttempt(
 		if e != nil {
 			return receipt, state, errors.Wrap(e, "confirming confirmation attempt")
 		}
-		promUpdateEthBalance(ethBalance, tx.From)
+		PromUpdateEthBalance(ethBalance, tx.From)
 		return receipt, state, nil
 
 	case Unconfirmed:

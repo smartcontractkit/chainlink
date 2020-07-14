@@ -41,7 +41,7 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 		GasLimit:       s.Config.EthGasLimitDefault(),
 		State:          models.EthTxUnstarted,
 	}
-	err := s.GetRawDB().Create(&ethtx).Error
+	err := s.DB.Create(&ethtx).Error
 	return ethtx, err
 }
 
@@ -133,7 +133,7 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) *big.Int {
 
 func withAdvisoryLock(s *strpkg.Store, classID int32, objectID int32, f func() error) error {
 	ctx := context.Background()
-	conn, err := s.GetRawDB().DB().Conn(ctx)
+	conn, err := s.DB.DB().Conn(ctx)
 	if err != nil {
 		return errors.Wrap(err, "withAdvisoryLock failed")
 	}

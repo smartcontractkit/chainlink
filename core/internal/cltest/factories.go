@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -114,14 +113,6 @@ func NewJobWithRunLogInitiator() models.JobSpec {
 			Address: NewAddress(),
 		},
 	}}
-	return j
-}
-
-// NewJobWithSALogInitiator creates new JobSpec with the ServiceAgreement
-// initiator
-func NewJobWithSALogInitiator() models.JobSpec {
-	j := NewJobWithRunLogInitiator()
-	j.Initiators[0].Type = models.InitiatorServiceAgreementExecutionLog
 	return j
 }
 
@@ -414,30 +405,6 @@ func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
 	}
 }
 
-// NewServiceAgreementExecutionLog creates a log event for the given jobid,
-// address, block, and json, to simulate a request for execution on a service
-// agreement.
-func NewServiceAgreementExecutionLog(
-	t *testing.T,
-	jobID *models.ID,
-	logEmitter common.Address,
-	executionRequester common.Address,
-	blockHeight int,
-	serviceAgreementJSON string,
-) models.Log {
-	return models.Log{
-		Address:     logEmitter,
-		BlockNumber: uint64(blockHeight),
-		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
-		Topics: []common.Hash{
-			models.ServiceAgreementExecutionLogTopic,
-			models.IDToTopic(jobID),
-			executionRequester.Hash(),
-			NewLink(t, "1000000000000000000").ToHash(),
-		},
-	}
-}
-
 func NewLink(t *testing.T, amount string) *assets.Link {
 	link := assets.NewLink(0)
 	link, ok := link.SetString(amount, 10)
@@ -450,48 +417,6 @@ func NewEth(t *testing.T, amount string) *assets.Eth {
 	eth, ok := eth.SetString(amount, 10)
 	assert.True(t, ok)
 	return eth
-}
-
-func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
-	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
-	buf.Write(utils.EVMWordUint64(1))
-	buf.Write(utils.EVMWordUint64(common.HashLength * 3))
-
-	cbor, err := JSONFromString(t, str).CBOR()
-	require.NoError(t, err)
-	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
-	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
-	buf.Write(common.RightPadBytes(cbor, paddedLength))
-
-	return buf.Bytes()
-}
-
-func StringToVersionedLogData20190123withFulfillmentParams(t *testing.T, internalID, str string) []byte {
-	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
-	buf := bytes.NewBuffer(requestID)
-
-	version := utils.EVMWordUint64(1)
-	buf.Write(version)
-
-	dataLocation := utils.EVMWordUint64(common.HashLength * 6)
-	buf.Write(dataLocation)
-
-	callbackAddr := utils.EVMWordUint64(0)
-	buf.Write(callbackAddr)
-
-	callbackFunc := utils.EVMWordUint64(0)
-	buf.Write(callbackFunc)
-
-	expiration := utils.EVMWordUint64(4000000000)
-	buf.Write(expiration)
-
-	cbor, err := JSONFromString(t, str).CBOR()
-	require.NoError(t, err)
-	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
-	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
-	buf.Write(common.RightPadBytes(cbor, paddedLength))
-
-	return buf.Bytes()
 }
 
 func StringToVersionedLogData20190207withoutIndexes(
@@ -641,30 +566,6 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	return dst
 }
 
-// CreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
-func CreateServiceAgreementViaWeb(
-	t *testing.T,
-	app *TestApplication,
-	path string,
-	endAt time.Time,
-) models.ServiceAgreement {
-	client := app.NewHTTPClient()
-
-	agreementWithoutOracle := MustJSONSet(t, string(MustReadFile(t, path)), "endAt", utils.ISO8601UTC(endAt))
-	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
-	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
-
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
-	defer cleanup()
-
-	AssertServerResponse(t, resp, http.StatusOK)
-	responseSA := models.ServiceAgreement{}
-	err := ParseJSONAPIResponse(t, resp, &responseSA)
-	require.NoError(t, err)
-
-	return FindServiceAgreement(t, app.Store, responseSA.ID)
-}
-
 func NewRunInput(value models.JSON) models.RunInput {
 	jobRunID := models.NewID()
 	taskRunID := models.NewID()
@@ -745,7 +646,7 @@ func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) mo
 		Address: a,
 		JSON:    JSONFromString(t, "{}"),
 	}
-	require.NoError(t, store.GetRawDB().Save(&key).Error)
+	require.NoError(t, store.DB.Save(&key).Error)
 	return key
 }
 
@@ -767,7 +668,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	n := nonce
 	etx.Nonce = &n
 	etx.State = models.EthTxUnconfirmed
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 	attempt := NewEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -776,7 +677,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = models.EthTxAttemptBroadcast
-	require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+	require.NoError(t, store.DB.Save(&attempt).Error)
 	etx, err := store.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
@@ -789,11 +690,11 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 	etx.BroadcastAt = &timeNow
 	etx.Nonce = &nonce
 	etx.State = models.EthTxConfirmed
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 	attempt := NewEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 	attempt.State = models.EthTxAttemptBroadcast
-	require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+	require.NoError(t, store.DB.Save(&attempt).Error)
 	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	return etx
 }
@@ -822,7 +723,7 @@ func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, store *strpkg.St
 	attempt := NewEthTxAttempt(t, etxID)
 	attempt.State = models.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(gasPrice))
-	require.NoError(t, store.GetRawDB().Create(&attempt).Error)
+	require.NoError(t, store.DB.Create(&attempt).Error)
 	return attempt
 }
 
@@ -834,7 +735,7 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 		TransactionIndex: uint(NewRandomInt64()),
 		Receipt:          []byte(`{"foo":42}`),
 	}
-	require.NoError(t, s.GetRawDB().Save(&r).Error)
+	require.NoError(t, s.DB.Save(&r).Error)
 	return r
 }
 
@@ -844,6 +745,12 @@ func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
 	etx.Error = &errStr
 	etx.State = models.EthTxFatalError
 
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 	return etx
+}
+
+func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
+	k := models.Key{Address: models.EIP55Address(NewAddress().Hex()), JSON: JSONFromString(t, `{"key": "factory"}`)}
+	require.NoError(t, store.UpsertKey(k))
+	return k
 }

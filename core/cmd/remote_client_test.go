@@ -674,7 +674,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	assert.NoError(t, client.SendEther(c))
 
 	etx := models.EthTx{}
-	require.NoError(t, s.GetRawDB().First(&etx).Error)
+	require.NoError(t, s.DB.First(&etx).Error)
 	require.Equal(t, "100.500000000000000000", etx.Value.String())
 	require.Equal(t, from, etx.FromAddress)
 	require.Equal(t, to, etx.ToAddress.Hex())
