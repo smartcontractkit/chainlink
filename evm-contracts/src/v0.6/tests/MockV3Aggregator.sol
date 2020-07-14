@@ -43,7 +43,7 @@ contract MockV3Aggregator is AggregatorInterface, AggregatorV3Interface {
   }
 
   function updateRoundData(
-    uint256 _roundId,
+    uint80 _roundId,
     int256 _answer,
     uint256 _timestamp,
     uint256 _startedAt
@@ -56,16 +56,16 @@ contract MockV3Aggregator is AggregatorInterface, AggregatorV3Interface {
     getStartedAt[latestRound] = _startedAt;
   }
 
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     external
     view
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return (
@@ -82,19 +82,19 @@ contract MockV3Aggregator is AggregatorInterface, AggregatorV3Interface {
     view
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return (
-      latestRound,
+      uint80(latestRound),
       getAnswer[latestRound],
       getStartedAt[latestRound],
       getTimestamp[latestRound],
-      latestRound
+      uint80(latestRound)
     );
   }
 

@@ -51,6 +51,11 @@ func (a EIP55Address) String() string {
 	return string(a)
 }
 
+// Hex is idential to String but makes the API similar to common.Address
+func (a EIP55Address) Hex() string {
+	return a.String()
+}
+
 // Format implements fmt.Formatter
 func (a EIP55Address) Format(s fmt.State, c rune) {
 	_, err := fmt.Fprint(s, a.String())
