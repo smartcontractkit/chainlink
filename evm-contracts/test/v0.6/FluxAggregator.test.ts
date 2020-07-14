@@ -212,7 +212,6 @@ describe('FluxAggregator', () => {
       'getOracles',
       'getRoundData',
       'latestRoundData',
-      'latestSubmission',
       'linkToken',
       'maxSubmissionCount',
       'maxSubmissionValue',
@@ -307,19 +306,6 @@ describe('FluxAggregator', () => {
         receipt.logs?.[2].topics[1] ?? ethers.utils.bigNumberify(-1),
       )
       matchers.bigNum(expectedAvailable, logged)
-    })
-
-    it('updates the latest submission record for the oracle', async () => {
-      let latest = await aggregator.latestSubmission(personas.Neil.address)
-      assert.equal(0, latest[0].toNumber())
-      assert.equal(0, latest[1].toNumber())
-
-      const newAnswer = 427
-      await aggregator.connect(personas.Neil).submit(nextRound, newAnswer)
-
-      latest = await aggregator.latestSubmission(personas.Neil.address)
-      assert.equal(newAnswer, latest[0].toNumber())
-      assert.equal(nextRound, latest[1].toNumber())
     })
 
     it('emits a log event announcing submission details', async () => {
