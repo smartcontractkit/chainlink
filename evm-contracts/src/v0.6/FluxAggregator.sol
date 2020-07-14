@@ -87,6 +87,9 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   uint256 constant private RESERVE_ROUNDS = 2;
   uint256 constant private MAX_ORACLE_COUNT = 77;
   uint32 constant private ROUND_MAX = 2**32-1;
+  // An error specific to the Aggregator V3 Interface, to prevent possible
+  // confusion around accidentally reading unset values as reported values.
+  string constant private V3_NO_DATA_ERROR = "No data present";
 
   uint32 private reportingRoundId;
   uint32 internal latestRoundId;
@@ -405,20 +408,23 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
    * maxSubmissions) answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     public
     view
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     Round memory r = rounds[uint32(_roundId)];
+
+    require(r.answeredInRound > 0, V3_NO_DATA_ERROR);
+
     return (
       _roundId,
       r.answer,
@@ -453,11 +459,11 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return getRoundData(latestRoundId);

@@ -6,10 +6,13 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { BigNumber } from 'ethers/utils'
 import { MockV2AggregatorFactory } from '../../ethers/v0.6/MockV2AggregatorFactory'
 import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { AggregatorProxyFactory } from '../../ethers/v0.6/AggregatorProxyFactory'
 import { AggregatorFacadeFactory } from '../../ethers/v0.6/AggregatorFacadeFactory'
+import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
+import { ReverterFactory } from '../../ethers/v0.6/ReverterFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
@@ -20,6 +23,8 @@ const aggregatorFactory = new MockV3AggregatorFactory()
 const historicAggregatorFactory = new MockV2AggregatorFactory()
 const aggregatorFacadeFactory = new AggregatorFacadeFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
+const fluxAggregatorFactory = new FluxAggregatorFactory()
+const reverterFactory = new ReverterFactory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -33,12 +38,16 @@ describe('AggregatorProxy', () => {
   const response = h.numToBytes32(54321)
   const response2 = h.numToBytes32(67890)
   const decimals = 18
+  const phaseBase = h.bigNum(2).pow(64)
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<MockV3AggregatorFactory>
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let historicAggregator: contract.Instance<MockV2AggregatorFactory>
   let proxy: contract.Instance<AggregatorProxyFactory>
+  let flux: contract.Instance<FluxAggregatorFactory>
+  let reverter: contract.Instance<ReverterFactory>
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     aggregator = await aggregatorFactory
@@ -48,6 +57,9 @@ describe('AggregatorProxy', () => {
     proxy = await aggregatorProxyFactory
       .connect(defaultAccount)
       .deploy(aggregator.address)
+    flux = await fluxAggregatorFactory
+      .connect(personas.Carol)
+      .deploy(link.address, 0, 0, 0, 0, 18, 'TEST / LINK')
   })
 
   beforeEach(async () => {
@@ -67,16 +79,43 @@ describe('AggregatorProxy', () => {
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
-      'version',
+      'phaseAggregators',
+      'phaseId',
       'proposeAggregator',
       'proposedAggregator',
       'proposedGetRoundData',
       'proposedLatestRoundData',
+      'version',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('constructor', () => {
+    it('sets the proxy phase and aggregator', async () => {
+      matchers.bigNum(1, await proxy.phaseId())
+      assert.equal(aggregator.address, await proxy.phaseAggregators(1))
+    })
+  })
+
+  describe('#latestRound', () => {
+    it('pulls the rate from the aggregator', async () => {
+      matchers.bigNum(phaseBase.add(1), await proxy.latestRound())
+    })
+
+    describe('when the relevant info is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert', async () => {
+        const actual = await proxy.latestRound()
+        matchers.bigNum(0, actual)
+      })
+    })
   })
 
   describe('#latestAnswer', () => {
@@ -102,6 +141,88 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(response2, await proxy.latestAnswer())
         const latestRound = await proxy.latestRound()
         matchers.bigNum(response2, await proxy.getAnswer(latestRound))
+      })
+    })
+
+    describe('when the relevant info is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert when called with a non existant ID', async () => {
+        const actual = await proxy.latestAnswer()
+        matchers.bigNum(0, actual)
+      })
+    })
+  })
+
+  describe('#getAnswer', () => {
+    describe('when the relevant round is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert when called with a non existant ID', async () => {
+        const proxyId = phaseBase.mul(await proxy.phaseId()).add(1)
+        const actual = await proxy.getAnswer(proxyId)
+        matchers.bigNum(0, actual)
+      })
+    })
+
+    describe('when the answer reverts in a non-predicted way', () => {
+      it('reverts', async () => {
+        reverter = await reverterFactory.connect(defaultAccount).deploy()
+        await proxy.proposeAggregator(reverter.address)
+        await proxy.confirmAggregator(reverter.address)
+        assert.equal(reverter.address, await proxy.aggregator())
+
+        const proxyId = phaseBase.mul(await proxy.phaseId())
+
+        await matchers.evmRevert(
+          proxy.getAnswer(proxyId),
+          'Raised by Reverter.sol',
+        )
+      })
+    })
+
+    describe('after being updated to another contract', () => {
+      let preUpdateRoundId: BigNumber
+      let preUpdateAnswer: BigNumber
+
+      beforeEach(async () => {
+        preUpdateRoundId = await proxy.latestRound()
+        preUpdateAnswer = await proxy.latestAnswer()
+
+        aggregator2 = await aggregatorFactory
+          .connect(defaultAccount)
+          .deploy(decimals, response2)
+        await link.transfer(aggregator2.address, deposit)
+        matchers.bigNum(response2, await aggregator2.latestAnswer())
+
+        await proxy.proposeAggregator(aggregator2.address)
+        await proxy.confirmAggregator(aggregator2.address)
+      })
+
+      it('reports answers for previous phases', async () => {
+        const actualAnswer = await proxy.getAnswer(preUpdateRoundId)
+        matchers.bigNum(preUpdateAnswer, actualAnswer)
+      })
+    })
+  })
+
+  describe('#getTimestamp', () => {
+    describe('when the relevant round is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert when called with a non existant ID', async () => {
+        const proxyId = phaseBase.mul(await proxy.phaseId()).add(1)
+        const actual = await proxy.getTimestamp(proxyId)
+        matchers.bigNum(0, actual)
       })
     })
   })
@@ -157,6 +278,18 @@ describe('AggregatorProxy', () => {
         )
       })
     })
+
+    describe('when the relevant info is not available', () => {
+      beforeEach(async () => {
+        await proxy.proposeAggregator(flux.address)
+        await proxy.confirmAggregator(flux.address)
+      })
+
+      it('does not revert', async () => {
+        const actual = await proxy.latestTimestamp()
+        matchers.bigNum(0, actual)
+      })
+    })
   })
 
   describe('#getRoundData', () => {
@@ -171,9 +304,7 @@ describe('AggregatorProxy', () => {
 
       it('reverts', async () => {
         const latestRoundId = await historicAggregator.latestRound()
-        await matchers.evmRevert(async () => {
-          await proxy.getRoundData(latestRoundId)
-        })
+        await matchers.evmRevert(proxy.getRoundData(latestRoundId))
       })
 
       describe('when pointed at an Aggregator Facade', () => {
@@ -186,14 +317,17 @@ describe('AggregatorProxy', () => {
         })
 
         it('works for a valid roundId', async () => {
-          const roundId = await aggregator.latestRound()
-          const round = await proxy.getRoundData(roundId)
-          matchers.bigNum(roundId, round.roundId)
+          const aggId = await aggregator.latestRound()
+          const phaseId = phaseBase.mul(await proxy.phaseId())
+          const proxyId = phaseId.add(aggId)
+
+          const round = await proxy.getRoundData(proxyId)
+          matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
           assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
           matchers.bigNum(round.updatedAt, round.startedAt)
-          matchers.bigNum(roundId, round.answeredInRound)
+          matchers.bigNum(proxyId, round.answeredInRound)
         })
       })
     })
@@ -209,16 +343,43 @@ describe('AggregatorProxy', () => {
       })
 
       it('works for a valid round ID', async () => {
-        const roundId = await aggregator2.latestRound()
-        const round = await proxy.getRoundData(roundId)
-        matchers.bigNum(roundId, round.roundId)
+        const aggId = phaseBase.sub(2)
+        await aggregator2
+          .connect(personas.Carol)
+          .updateRoundData(aggId, response2, 77, 42)
+
+        const phaseId = phaseBase.mul(await proxy.phaseId())
+        const proxyId = phaseId.add(aggId)
+
+        const round = await proxy.getRoundData(proxyId)
+        matchers.bigNum(proxyId, round.roundId)
         matchers.bigNum(response2, round.answer)
-        const nowSeconds = new Date().valueOf() / 1000
-        assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
-        assert.isBelow(round.startedAt.toNumber(), nowSeconds)
-        matchers.bigNum(round.startedAt, round.updatedAt)
-        matchers.bigNum(roundId, round.answeredInRound)
+        matchers.bigNum(42, round.startedAt)
+        matchers.bigNum(77, round.updatedAt)
+        matchers.bigNum(proxyId, round.answeredInRound)
       })
+    })
+
+    it('reads round ID of a previous phase', async () => {
+      const oldphaseId = phaseBase.mul(await proxy.phaseId())
+      aggregator2 = await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(decimals, response2)
+
+      await proxy.proposeAggregator(aggregator2.address)
+      await proxy.confirmAggregator(aggregator2.address)
+
+      const aggId = await aggregator.latestRound()
+      const proxyId = oldphaseId.add(aggId)
+
+      const round = await proxy.getRoundData(proxyId)
+      matchers.bigNum(proxyId, round.roundId)
+      matchers.bigNum(response, round.answer)
+      const nowSeconds = new Date().valueOf() / 1000
+      assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
+      assert.isBelow(round.startedAt.toNumber(), nowSeconds)
+      matchers.bigNum(round.startedAt, round.updatedAt)
+      matchers.bigNum(proxyId, round.answeredInRound)
     })
   })
 
@@ -233,9 +394,7 @@ describe('AggregatorProxy', () => {
       })
 
       it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await proxy.latestRoundData()
-        })
+        await matchers.evmRevert(proxy.latestRoundData())
       })
 
       describe('when pointed at an Aggregator Facade', () => {
@@ -252,14 +411,17 @@ describe('AggregatorProxy', () => {
         })
 
         it('does not revert', async () => {
-          const roundId = await historicAggregator.latestRound()
+          const aggId = await historicAggregator.latestRound()
+          const phaseId = phaseBase.mul(await proxy.phaseId())
+          const proxyId = phaseId.add(aggId)
+
           const round = await proxy.latestRoundData()
-          matchers.bigNum(roundId, round.roundId)
+          matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response2, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
           assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
           matchers.bigNum(round.updatedAt, round.startedAt)
-          matchers.bigNum(roundId, round.answeredInRound)
+          matchers.bigNum(proxyId, round.answeredInRound)
         })
 
         it('uses the decimals set in the constructor', async () => {
@@ -287,15 +449,20 @@ describe('AggregatorProxy', () => {
       })
 
       it('does not revert', async () => {
-        const roundId = await aggregator2.latestRound()
+        const aggId = phaseBase.sub(2)
+        await aggregator2
+          .connect(personas.Carol)
+          .updateRoundData(aggId, response2, 77, 42)
+
+        const phaseId = phaseBase.mul(await proxy.phaseId())
+        const proxyId = phaseId.add(aggId)
+
         const round = await proxy.latestRoundData()
-        matchers.bigNum(roundId, round.roundId)
+        matchers.bigNum(proxyId, round.roundId)
         matchers.bigNum(response2, round.answer)
-        const nowSeconds = new Date().valueOf() / 1000
-        assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120)
-        assert.isBelow(round.startedAt.toNumber(), nowSeconds)
-        matchers.bigNum(round.startedAt, round.updatedAt)
-        matchers.bigNum(roundId, round.answeredInRound)
+        matchers.bigNum(42, round.startedAt)
+        matchers.bigNum(77, round.updatedAt)
+        matchers.bigNum(proxyId, round.answeredInRound)
       })
 
       it('uses the decimals of the aggregator', async () => {
@@ -339,11 +506,10 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('does not update', async () => {
-        await matchers.evmRevert(async () => {
-          await proxy
-            .connect(personas.Neil)
-            .proposeAggregator(aggregator2.address)
-        })
+        await matchers.evmRevert(
+          proxy.connect(personas.Neil).proposeAggregator(aggregator2.address),
+          'Only callable by owner',
+        )
 
         assert.equal(aggregator.address, await proxy.aggregator())
       })
@@ -363,15 +529,51 @@ describe('AggregatorProxy', () => {
     })
 
     describe('when called by the owner', () => {
-      it('sets the address of the new aggregator', async () => {
+      beforeEach(async () => {
         await proxy
           .connect(personas.Carol)
           .proposeAggregator(aggregator2.address)
+      })
+
+      it('sets the address of the new aggregator', async () => {
         await proxy
           .connect(personas.Carol)
           .confirmAggregator(aggregator2.address)
 
         assert.equal(aggregator2.address, await proxy.aggregator())
+      })
+
+      it('increases the phase', async () => {
+        matchers.bigNum(1, await proxy.phaseId())
+
+        await proxy
+          .connect(personas.Carol)
+          .confirmAggregator(aggregator2.address)
+
+        matchers.bigNum(2, await proxy.phaseId())
+      })
+
+      it('increases the round ID', async () => {
+        matchers.bigNum(phaseBase.add(1), await proxy.latestRound())
+
+        await proxy
+          .connect(personas.Carol)
+          .confirmAggregator(aggregator2.address)
+
+        matchers.bigNum(phaseBase.mul(2).add(1), await proxy.latestRound())
+      })
+
+      it('sets the proxy phase and aggregator', async () => {
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          await proxy.phaseAggregators(2),
+        )
+
+        await proxy
+          .connect(personas.Carol)
+          .confirmAggregator(aggregator2.address)
+
+        assert.equal(aggregator2.address, await proxy.phaseAggregators(2))
       })
     })
 
@@ -383,11 +585,10 @@ describe('AggregatorProxy', () => {
       })
 
       it('does not update', async () => {
-        await matchers.evmRevert(async () => {
-          await proxy
-            .connect(personas.Neil)
-            .confirmAggregator(aggregator2.address)
-        })
+        await matchers.evmRevert(
+          proxy.connect(personas.Neil).confirmAggregator(aggregator2.address),
+          'Only callable by owner',
+        )
 
         assert.equal(aggregator.address, await proxy.aggregator())
       })
@@ -426,9 +627,10 @@ describe('AggregatorProxy', () => {
 
         it('reverts', async () => {
           const roundId = await aggregator2.latestRound()
-          await matchers.evmRevert(async () => {
-            await proxy.proposedGetRoundData(roundId)
-          }, 'No proposed aggregator present')
+          await matchers.evmRevert(
+            proxy.proposedGetRoundData(roundId),
+            'No proposed aggregator present',
+          )
         })
       })
     })
@@ -465,9 +667,10 @@ describe('AggregatorProxy', () => {
         })
 
         it('reverts', async () => {
-          await matchers.evmRevert(async () => {
-            await proxy.proposedLatestRoundData()
-          }, 'No proposed aggregator present')
+          await matchers.evmRevert(
+            proxy.proposedLatestRoundData(),
+            'No proposed aggregator present',
+          )
         })
       })
     })
