@@ -41,6 +41,8 @@ type fluxAggregatorUniverse struct {
 	nallory *bind.TransactOpts // Node operator Flux Monitor Oracle (Baddie.)
 }
 
+var emptyList = []common.Address{}
+
 // newIdentity returns a go-ethereum abstraction of an ethereum account for
 // interacting with contract golang wrappers
 func newIdentity(t *testing.T) *bind.TransactOpts {
@@ -96,6 +98,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 		linkAddress,
 		big.NewInt(paymentAmount),
 		timeout,
+		common.Address{},
 		minSubmissionValue,
 		maxSubmissionValue,
 		decimals,
@@ -126,7 +129,7 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	// Add the participating oracles. Ends up with minAnswers=restartDelay=2,
 	// maxAnswers=3
 	oracleList := []common.Address{f.neil.From, f.ned.From, f.nallory.From}
-	_, err = f.aggregatorContract.AddOracles(f.sergey, oracleList, oracleList, 2, 3, 2)
+	_, err = f.aggregatorContract.ChangeOracles(f.sergey, emptyList, oracleList, oracleList, 2, 3, 2)
 	assert.NoError(t, err, "failed to add oracles to aggregator")
 	f.backend.Commit()
 
