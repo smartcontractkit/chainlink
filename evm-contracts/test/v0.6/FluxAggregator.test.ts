@@ -209,15 +209,10 @@ describe('FluxAggregator', () => {
       'decimals',
       'description',
       'getAdmin',
-      'getAnswer',
       'getOracles',
       'getRoundData',
-      'getTimestamp',
-      'latestAnswer',
-      'latestRound',
       'latestRoundData',
       'latestSubmission',
-      'latestTimestamp',
       'linkToken',
       'maxSubmissionCount',
       'maxSubmissionValue',
@@ -366,13 +361,19 @@ describe('FluxAggregator', () => {
       })
 
       it('does not update the answer', async () => {
-        matchers.bigNum(ethers.constants.Zero, await aggregator.latestAnswer())
+        await matchers.evmRevert(
+          aggregator.latestRoundData(),
+          'No data present',
+        )
 
         // Not updated because of changes by the owner setting minSubmissionCount to 3
         await aggregator.connect(personas.Ned).submit(nextRound, answer)
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        matchers.bigNum(ethers.constants.Zero, await aggregator.latestAnswer())
+        await matchers.evmRevert(
+          aggregator.latestRoundData(),
+          'No data present',
+        )
       })
     })
 
@@ -397,27 +398,31 @@ describe('FluxAggregator', () => {
       })
 
       it('updates the answer with the median', async () => {
-        matchers.bigNum(0, await aggregator.latestAnswer())
+        await matchers.evmRevert(
+          aggregator.latestRoundData(),
+          'No data present',
+        )
 
         await aggregator.connect(personas.Ned).submit(nextRound, 99)
-        matchers.bigNum(99, await aggregator.latestAnswer()) // ((100+99) / 2).to_i
+        let round = await aggregator.latestRoundData()
+        matchers.bigNum(99, round.answer)
 
         await aggregator.connect(personas.Nelly).submit(nextRound, 101)
 
-        matchers.bigNum(100, await aggregator.latestAnswer())
+        round = await aggregator.latestRoundData()
+        matchers.bigNum(100, round.answer)
       })
 
       it('updates the updated timestamp', async () => {
-        const originalTimestamp = await aggregator.latestTimestamp()
-        assert.isAbove(originalTimestamp.toNumber(), 0)
+        await matchers.evmRevert(
+          aggregator.latestRoundData(),
+          'No data present',
+        )
 
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
 
-        const currentTimestamp = await aggregator.latestTimestamp()
-        assert.isAbove(
-          currentTimestamp.toNumber(),
-          originalTimestamp.toNumber(),
-        )
+        const currentRound = await aggregator.latestRoundData()
+        assert.isAbove(currentRound.updatedAt.toNumber(), 0)
       })
 
       it('announces the new answer with a log event', async () => {
@@ -455,10 +460,6 @@ describe('FluxAggregator', () => {
         matchers.bigNum(nextRound, roundAfter.roundId)
         matchers.bigNum(answer, roundAfter.answer)
         assert.isFalse(roundAfter.startedAt.isZero())
-        matchers.bigNum(
-          await aggregator.getTimestamp(nextRound),
-          roundAfter.updatedAt,
-        )
         matchers.bigNum(nextRound, roundAfter.answeredInRound)
 
         assert.isBelow(
@@ -778,10 +779,10 @@ describe('FluxAggregator', () => {
 
       it('sets the info for the previous round', async () => {
         const previousRound = nextRound - 1
-        let updated = await aggregator.getTimestamp(previousRound)
-        let ans = await aggregator.getAnswer(previousRound)
-        assert.equal(0, updated.toNumber())
-        assert.equal(0, ans.toNumber())
+        await matchers.evmRevert(
+          aggregator.getRoundData(previousRound),
+          'No data present',
+        )
 
         const tx = await aggregator
           .connect(personas.Nelly)
@@ -790,15 +791,13 @@ describe('FluxAggregator', () => {
 
         const block = await provider.getBlock(receipt.blockHash ?? '')
 
-        updated = await aggregator.getTimestamp(previousRound)
-        ans = await aggregator.getAnswer(previousRound)
-        matchers.bigNum(ethers.utils.bigNumberify(block.timestamp), updated)
-        assert.equal(answer, ans.toNumber())
-
         const round = await aggregator.getRoundData(previousRound)
+        matchers.bigNum(
+          ethers.utils.bigNumberify(block.timestamp),
+          round.updatedAt,
+        )
         matchers.bigNum(previousRound, round.roundId)
-        matchers.bigNum(ans, round.answer)
-        matchers.bigNum(updated, round.updatedAt)
+        assert.equal(answer, round.answer.toNumber())
         matchers.bigNum(previousRound - 1, round.answeredInRound)
       })
 
@@ -900,55 +899,18 @@ describe('FluxAggregator', () => {
       })
 
       it('still updates', async () => {
-        matchers.bigNum(0, await aggregator.latestAnswer())
+        await matchers.evmRevert(
+          aggregator.latestRoundData(),
+          'No data present',
+        )
 
         await aggregator
           .connect(personas.Nelly)
           .submit(nextRound, answer, { gasLimit: 500000 })
 
-        matchers.bigNum(answer, await aggregator.latestAnswer())
+        const round = await aggregator.latestRoundData()
+        matchers.bigNum(answer, round.answer)
       })
-    })
-  })
-
-  describe('#getAnswer', () => {
-    const answers = [1, 10, 101, 1010, 10101, 101010, 1010101]
-
-    beforeEach(async () => {
-      await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-
-      for (const answer of answers) {
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
-        nextRound++
-      }
-    })
-
-    it('retrieves the answer recorded for past rounds', async () => {
-      for (let i = nextRound; i < nextRound; i++) {
-        const answer = await aggregator.getAnswer(i)
-        matchers.bigNum(ethers.utils.bigNumberify(answers[i - 1]), answer)
-      }
-    })
-  })
-
-  describe('#getTimestamp', () => {
-    beforeEach(async () => {
-      await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-
-      for (let i = 0; i < 10; i++) {
-        await aggregator.connect(personas.Neil).submit(nextRound, i + 1)
-        nextRound++
-      }
-    })
-
-    it('retrieves the answer recorded for past rounds', async () => {
-      let lastTimestamp = ethers.constants.Zero
-
-      for (let i = 1; i < nextRound; i++) {
-        const currentTimestamp = await aggregator.getTimestamp(i)
-        assert.isAtLeast(currentTimestamp.toNumber(), lastTimestamp.toNumber())
-        lastTimestamp = currentTimestamp
-      }
     })
   })
 
@@ -2843,34 +2805,59 @@ describe('FluxAggregator', () => {
   })
 
   describe('#getRoundData', () => {
-    let latestRoundId: any
+    const answers = [1, 10, 101, 1010, 10101, 101010, 1010101]
+
     beforeEach(async () => {
       oracles = [personas.Nelly]
       const minMax = oracles.length
       await addOracles(aggregator, oracles, minMax, minMax, rrDelay)
       await advanceRound(aggregator, oracles, answer)
-      latestRoundId = await aggregator.latestRound()
+
+      for (const answer of answers) {
+        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+        nextRound++
+      }
+      nextRound-- // offset bumping one extra in the last loop
+    })
+
+    it('retrieves the answer recorded for past rounds', async () => {
+      for (let i = nextRound; i < nextRound; i++) {
+        const round = await aggregator.getRoundData(i)
+        matchers.bigNum(ethers.utils.bigNumberify(answers[i - 1]), round.answer)
+      }
+    })
+
+    it('retrieves the updated timestamp recorded for past rounds', async () => {
+      let lastTimestamp = ethers.constants.Zero
+
+      for (let i = 1; i < nextRound; i++) {
+        const round = await aggregator.getRoundData(i)
+        assert.isAtLeast(round.updatedAt.toNumber(), lastTimestamp.toNumber())
+        lastTimestamp = round.updatedAt
+      }
     })
 
     it('returns the relevant round information', async () => {
-      const round = await aggregator.getRoundData(latestRoundId)
-      matchers.bigNum(latestRoundId, round.roundId)
-      matchers.bigNum(answer, round.answer)
+      const round = await aggregator.getRoundData(nextRound)
+      matchers.bigNum(nextRound, round.roundId)
+      matchers.bigNum(answers[answers.length - 1], round.answer)
       const nowSeconds = new Date().valueOf() / 1000
       assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
       matchers.bigNum(round.updatedAt, round.startedAt)
-      matchers.bigNum(latestRoundId, round.answeredInRound)
+      matchers.bigNum(nextRound, round.answeredInRound)
     })
 
     it('reverts if a round is not present', async () => {
       await matchers.evmRevert(
-        aggregator.getRoundData(latestRoundId.add(1)),
+        aggregator.getRoundData(nextRound + 1),
         'No data present',
       )
     })
   })
 
   describe('#latestRoundData', () => {
+    let latestRound: number
+
     beforeEach(async () => {
       oracles = [personas.Nelly]
       const minMax = oracles.length
@@ -2879,19 +2866,19 @@ describe('FluxAggregator', () => {
 
     describe('when an answer has already been received', () => {
       beforeEach(async () => {
+        latestRound = nextRound
         await advanceRound(aggregator, oracles, answer)
       })
 
       it('reverts if there is no latest round', async () => {
         const round = await aggregator.latestRoundData()
-        const latestRoundId = await aggregator.latestRound()
 
-        matchers.bigNum(latestRoundId, round.roundId)
+        matchers.bigNum(latestRound, round.roundId)
         matchers.bigNum(answer, round.answer)
         const nowSeconds = new Date().valueOf() / 1000
         assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
         matchers.bigNum(round.updatedAt, round.startedAt)
-        matchers.bigNum(latestRoundId, round.answeredInRound)
+        matchers.bigNum(latestRound, round.answeredInRound)
       })
     })
 

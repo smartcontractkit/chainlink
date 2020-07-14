@@ -5,7 +5,6 @@ import "../Owned.sol";
 import "../SafeMath128.sol";
 import "../SafeMath32.sol";
 import "../SafeMath64.sol";
-import "../interfaces/AggregatorInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import './AggregatorValidatorInterface.sol';
 import "../interfaces/LinkTokenInterface.sol";
@@ -19,7 +18,7 @@ import "../vendor/SafeMath.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
+contract FluxAggregator is AggregatorV3Interface, Owned {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
@@ -326,47 +325,6 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   }
 
   /**
-   * @notice get the most recently reported answer
-   * @dev deprecated. Use latestRoundData instead.
-   */
-  function latestAnswer()
-    public
-    view
-    virtual
-    override
-    returns (int256)
-  {
-    return rounds[latestRoundId].answer;
-  }
-
-  /**
-   * @notice get the most recent updated at timestamp
-   * @dev deprecated. Use latestRoundData instead.
-   */
-  function latestTimestamp()
-    public
-    view
-    virtual
-    override
-    returns (uint256)
-  {
-    return rounds[latestRoundId].updatedAt;
-  }
-
-  /**
-   * @notice get the ID of the last updated round
-   * @dev deprecated. Use latestRoundData instead.
-   */
-  function latestRound()
-    public
-    view
-    override
-    returns (uint256)
-  {
-    return latestRoundId;
-  }
-
-  /**
    * @notice get the ID of the round most recently reported on
    */
   function reportingRound()
@@ -375,36 +333,6 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
     returns (uint256)
   {
     return reportingRoundId;
-  }
-
-  /**
-   * @notice get past rounds answers
-   * @param _roundId the round number to retrieve the answer for
-   * @dev deprecated. Use getRoundData instead.
-   */
-  function getAnswer(uint256 _roundId)
-    public
-    view
-    virtual
-    override
-    returns (int256)
-  {
-    return rounds[uint32(_roundId)].answer;
-  }
-
-  /**
-   * @notice get timestamp when an answer was last updated
-   * @param _roundId the round number to retrieve the updated timestamp for
-   * @dev deprecated. Use getRoundData instead.
-   */
-  function getTimestamp(uint256 _roundId)
-    public
-    view
-    virtual
-    override
-    returns (uint256)
-  {
-    return rounds[uint32(_roundId)].updatedAt;
   }
 
   /**
