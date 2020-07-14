@@ -146,7 +146,7 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 		minRequiredOutgoingConfirmations = e.MinRequiredOutgoingConfirmations
 	}
 
-	hash, err := getConfirmedTxHash(ethTxID, s.GetRawDB(), minRequiredOutgoingConfirmations)
+	hash, err := getConfirmedTxHash(ethTxID, s.DB, minRequiredOutgoingConfirmations)
 
 	if err != nil {
 		logger.Error(err)

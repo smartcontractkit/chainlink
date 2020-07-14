@@ -96,7 +96,7 @@ func (ec *ethConfirmer) processHead(head models.Head) error {
 }
 
 func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
-	return ec.store.GetRawDB().Exec(
+	return ec.store.DB.Exec(
 		`UPDATE eth_tx_attempts SET broadcast_before_block_num = ? WHERE broadcast_before_block_num IS NULL AND state = 'broadcast'`,
 		blockNum,
 	).Error
@@ -132,7 +132,7 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 				}
 				break
 			} else {
-				logger.Debugw("EthConfirmer: still waiting for receipt", "txHash", attempt.Hash.Hex())
+				logger.Debugw("EthConfirmer: still waiting for receipt", "txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", etx.ID)
 			}
 		}
 	}
@@ -141,7 +141,7 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 
 func (ec *ethConfirmer) findUnconfirmedEthTxs() ([]models.EthTx, error) {
 	var etxs []models.EthTx
-	err := ec.store.GetRawDB().
+	err := ec.store.DB.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("eth_tx_attempts.gas_price DESC")
 		}).
@@ -201,7 +201,7 @@ func (ec *ethConfirmer) BumpGasWhereNecessary(blockHeight int64) error {
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
-	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.GetRawDB(), blockHeight, int64(ec.config.EthGasBumpThreshold()))
+	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.DB, blockHeight, int64(ec.config.EthGasBumpThreshold()))
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
 	}
@@ -242,7 +242,7 @@ func (ec *ethConfirmer) handleAnyInProgressAttempts(blockHeight int64) error {
 
 func getInProgressEthTxAttempts(s *store.Store) ([]models.EthTxAttempt, error) {
 	var attempts []models.EthTxAttempt
-	err := s.GetRawDB().
+	err := s.DB.
 		Preload("EthTx").
 		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'unconfirmed')").
 		Where("eth_tx_attempts.state = 'in_progress'").
@@ -285,7 +285,7 @@ func (ec *ethConfirmer) saveInProgressAttempt(attempt *models.EthTxAttempt) erro
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("saveInProgressAttempt failed: attempt state must be in_progress")
 	}
-	return errors.Wrap(ec.store.GetRawDB().Save(attempt).Error, "saveInProgressAttempt failed")
+	return errors.Wrap(ec.store.DB.Save(attempt).Error, "saveInProgressAttempt failed")
 }
 
 func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTxAttempt, blockHeight int64, isVirginAttempt bool) error {
@@ -329,7 +329,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 			"ACTION REQUIRED: Your node is BROKEN - this error should never happen in normal operation. "+
 			"Please consider raising an issue here: https://github.com/smartcontractkit/chainlink/issues", etx.ID, sendError, hexutil.Encode(a.SignedRawTx), blockHeight, isVirginAttempt)
 		// This will loop continously on every new head so it must be handled manually by the node operator!
-		return deleteInProgressAttempt(ec.store.GetRawDB(), a)
+		return deleteInProgressAttempt(ec.store.DB, a)
 	}
 
 	if sendError.IsNonceTooLowError() {
@@ -376,7 +376,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 			// On the extremely minute chance this is due to a network double
 			// send or something bizarre, we will fail to get a receipt for one
 			// of the other transactions and simply enter this loop again.
-			return deleteInProgressAttempt(ec.store.GetRawDB(), a)
+			return deleteInProgressAttempt(ec.store.DB, a)
 		}
 		// If we already sent the attempt, we have to assume the one who was
 		// confirmed was this one, so simply mark it as broadcast and wait for
@@ -407,7 +407,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 	}
 
 	if sendError == nil {
-		return saveSentAttempt(ec.store.GetRawDB(), &a)
+		return saveSentAttempt(ec.store.DB, &a)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the
@@ -474,7 +474,7 @@ func saveSentAttempt(db *gorm.DB, a *models.EthTxAttempt) error {
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(head models.Head) error {
-	etxs, err := findTransactionsConfirmedAtOrAboveBlockHeight(ec.store.GetRawDB(), head.EarliestInChain().Number)
+	etxs, err := findTransactionsConfirmedAtOrAboveBlockHeight(ec.store.DB, head.EarliestInChain().Number)
 	if err != nil {
 		return errors.Wrap(err, "findTransactionsConfirmedAtOrAboveBlockHeight failed")
 	}
@@ -577,7 +577,7 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 	logger.Info("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
 
 	for n := beginningNonce; n <= endingNonce; n++ {
-		etx, err := findEthTxWithNonce(ec.store.GetRawDB(), address, n)
+		etx, err := findEthTxWithNonce(ec.store.DB, address, n)
 		if err != nil {
 			return errors.Wrap(err, "ForceRebroadcast failed")
 		}

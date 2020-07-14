@@ -28,7 +28,7 @@ import (
 func mustInsertUnstartedEthTx(t *testing.T, s *store.Store) {
 	etx := cltest.NewEthTx(t, s)
 	etx.State = models.EthTxUnstarted
-	require.NoError(t, s.GetRawDB().Save(&etx).Error)
+	require.NoError(t, s.DB.Save(&etx).Error)
 }
 
 func newBroadcastEthTxAttempt(t *testing.T, etxID int64, store *store.Store, gasPrice ...int64) models.EthTxAttempt {
@@ -45,7 +45,7 @@ func mustInsertInProgressEthTx(t *testing.T, store *store.Store, nonce int64) mo
 	etx := cltest.NewEthTx(t, store)
 	etx.State = models.EthTxInProgress
 	etx.Nonce = &nonce
-	require.NoError(t, store.GetRawDB().Save(&etx).Error)
+	require.NoError(t, store.DB.Save(&etx).Error)
 
 	return etx
 }
@@ -80,7 +80,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 		n := int64(42)
 		attempt := newBroadcastEthTxAttempt(t, etx.ID, store, 2)
 		attempt.BroadcastBeforeBlockNum = &n
-		require.NoError(t, store.GetRawDB().Save(&attempt).Error)
+		require.NoError(t, store.DB.Save(&attempt).Error)
 
 		// Do the thing
 		require.NoError(t, ec.SetBroadcastBeforeBlockNum(headNum))
@@ -238,8 +238,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		attempt2_3.GasPrice = *utils.NewBig(big.NewInt(20))
 
 		// Insert order deliberately reversed to test sorting by gas price
-		require.NoError(t, store.GetRawDB().Create(&attempt2_3).Error)
-		require.NoError(t, store.GetRawDB().Create(&attempt2_2).Error)
+		require.NoError(t, store.DB.Create(&attempt2_3).Error)
+		require.NoError(t, store.DB.Create(&attempt2_2).Error)
 
 		// Most expensive attempt still unconfirmed
 		gethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
@@ -362,7 +362,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce := int64(0)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -372,7 +372,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 
 	t.Run("returns nothing when the transaction is in_progress", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -383,7 +383,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 
 	t.Run("ignores unconfirmed transactions with nil BroadcastBeforeBlockNum", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -393,14 +393,14 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 	attempt1_1 := etx1.EthTxAttempts[0]
 	attempt1_1.BroadcastBeforeBlockNum = &tooNew
-	require.NoError(t, store.GetRawDB().Save(&attempt1_1).Error)
+	require.NoError(t, store.DB.Save(&attempt1_1).Error)
 	attempt1_2 := newBroadcastEthTxAttempt(t, etx1.ID, store)
 	attempt1_2.BroadcastBeforeBlockNum = &onTheMoney
 	attempt1_2.GasPrice = *utils.NewBigI(30000)
-	require.NoError(t, store.GetRawDB().Save(&attempt1_2).Error)
+	require.NoError(t, store.DB.Save(&attempt1_2).Error)
 
 	t.Run("returns nothing when the transaction is unconfirmed with an attempt that is recent", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -410,10 +410,10 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 	attempt2_1 := etx2.EthTxAttempts[0]
 	attempt2_1.BroadcastBeforeBlockNum = &tooNew
-	require.NoError(t, store.GetRawDB().Save(&attempt2_1).Error)
+	require.NoError(t, store.DB.Save(&attempt2_1).Error)
 
 	t.Run("returns nothing when the transaction has attempts that are too new", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -424,11 +424,11 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	now := time.Now()
 	etxWithoutAttempts.BroadcastAt = &now
 	etxWithoutAttempts.State = models.EthTxUnconfirmed
-	require.NoError(t, store.GetRawDB().Save(&etxWithoutAttempts).Error)
+	require.NoError(t, store.DB.Save(&etxWithoutAttempts).Error)
 	nonce++
 
 	t.Run("returns the transaction if it is unconfirmed and has no attempts (note that this is an invariant violation, but we handle it anyway)", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 1)
@@ -439,10 +439,10 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 	attempt3_1 := etx3.EthTxAttempts[0]
 	attempt3_1.BroadcastBeforeBlockNum = &oldEnough
-	require.NoError(t, store.GetRawDB().Save(&attempt3_1).Error)
+	require.NoError(t, store.DB.Save(&attempt3_1).Error)
 
 	t.Run("returns the transaction if it is unconfirmed with an attempt that is older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -453,10 +453,10 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	attempt3_2 := newBroadcastEthTxAttempt(t, etx3.ID, store)
 	attempt3_2.BroadcastBeforeBlockNum = &oldEnough
 	attempt3_2.GasPrice = *utils.NewBigI(30000)
-	require.NoError(t, store.GetRawDB().Save(&attempt3_2).Error)
+	require.NoError(t, store.DB.Save(&attempt3_2).Error)
 
 	t.Run("returns the transaction if it is unconfirmed with two attempts that are older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -467,10 +467,10 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	attempt3_3 := newBroadcastEthTxAttempt(t, etx3.ID, store)
 	attempt3_3.BroadcastBeforeBlockNum = &tooNew
 	attempt3_3.GasPrice = *utils.NewBigI(40000)
-	require.NoError(t, store.GetRawDB().Save(&attempt3_3).Error)
+	require.NoError(t, store.DB.Save(&attempt3_3).Error)
 
 	t.Run("does not return the transaction if it has some older but one newer attempt", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.GetRawDB(), currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 1)
@@ -508,7 +508,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	nonce++
 	attempt1_1 := etx.EthTxAttempts[0]
 	attempt1_1.BroadcastBeforeBlockNum = &oldEnough
-	require.NoError(t, store.GetRawDB().Save(&attempt1_1).Error)
+	require.NoError(t, store.DB.Save(&attempt1_1).Error)
 	var err error
 
 	t.Run("returns on keystore error", func(t *testing.T) {
@@ -622,7 +622,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	})
 
 	attempt1_2.BroadcastBeforeBlockNum = &oldEnough
-	require.NoError(t, store.GetRawDB().Save(&attempt1_2).Error)
+	require.NoError(t, store.DB.Save(&attempt1_2).Error)
 	var attempt1_3 models.EthTxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
@@ -664,7 +664,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	})
 
 	attempt1_3.BroadcastBeforeBlockNum = &oldEnough
-	require.NoError(t, store.GetRawDB().Save(&attempt1_3).Error)
+	require.NoError(t, store.DB.Save(&attempt1_3).Error)
 
 	t.Run("does not save new attempt for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(36000000000)
@@ -709,13 +709,13 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	})
 
 	// Mark original tx as confirmed so we won't pick it up any more
-	require.NoError(t, store.GetRawDB().Exec(`UPDATE eth_txes SET state = 'confirmed'`).Error)
+	require.NoError(t, store.DB.Exec(`UPDATE eth_txes SET state = 'confirmed'`).Error)
 
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce)
 	nonce++
 	attempt2_1 := etx2.EthTxAttempts[0]
 	attempt2_1.BroadcastBeforeBlockNum = &oldEnough
-	require.NoError(t, store.GetRawDB().Save(&attempt2_1).Error)
+	require.NoError(t, store.DB.Save(&attempt2_1).Error)
 	var attempt2_2 models.EthTxAttempt
 
 	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
@@ -787,7 +787,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 
 	// Set BroadcastBeforeBlockNum again so the next test will pick it up
 	attempt2_2.BroadcastBeforeBlockNum = &oldEnough
-	require.NoError(t, store.GetRawDB().Save(&attempt2_2).Error)
+	require.NoError(t, store.DB.Save(&attempt2_2).Error)
 
 	t.Run("handles case where nonce is too low but receipt is nil indicating that an external wallet used the nonce (until finalized)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(30000000000)
@@ -842,7 +842,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	attempt3_1 := etx3.EthTxAttempts[0]
 	attempt3_1.BroadcastBeforeBlockNum = &oldEnough
 	attempt3_1.GasPrice = *utils.NewBig(big.NewInt(35000000000))
-	require.NoError(t, store.GetRawDB().Save(&attempt3_1).Error)
+	require.NoError(t, store.DB.Save(&attempt3_1).Error)
 
 	var attempt3_2 models.EthTxAttempt
 
@@ -884,7 +884,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	})
 
 	attempt3_2.BroadcastBeforeBlockNum = &oldEnough
-	require.NoError(t, store.GetRawDB().Save(&attempt3_2).Error)
+	require.NoError(t, store.DB.Save(&attempt3_2).Error)
 
 	t.Run("handles case where transaction is already known somehow", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(50400000000)
@@ -1048,8 +1048,8 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		attempt2.SignedRawTx = hexutil.MustDecode("0xf88c8301f3a98503b9aca000832ab98094f5fff180082d6017036b771ba883025c654bc93580a4daa6d556000000000000000000000000000000000000000000000000000000000000000026a0f25601065ee369b6470c0399a2334afcfbeb0b5c8f3d9a9042e448ed29b5bcbda05b676e00248b85faf4dd889f0e2dcf91eb867e23ac9eeb14a73f9e4c14972cdf")
 		attempt3 := newBroadcastEthTxAttempt(t, etx.ID, store, 40000)
 		attempt3.SignedRawTx = hexutil.MustDecode("0xf88c8301f3a88503b9aca0008316e36094151445852b0cfdf6a4cc81440f2af99176e8ad0880a4daa6d556000000000000000000000000000000000000000000000000000000000000000026a0dcb5a7ad52b96a866257134429f944c505820716567f070e64abb74899803855a04c13eff2a22c218e68da80111e1bb6dc665d3dea7104ab40ff8a0275a99f630d")
-		require.NoError(t, store.GetRawDB().Create(&attempt2).Error)
-		require.NoError(t, store.GetRawDB().Create(&attempt3).Error)
+		require.NoError(t, store.DB.Create(&attempt2).Error)
+		require.NoError(t, store.DB.Create(&attempt3).Error)
 
 		// Receipt is within head height but a different block hash
 		cltest.MustInsertEthReceipt(t, store, head.Parent.Number, cltest.NewHash(), attempt2.Hash)
@@ -1185,8 +1185,6 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ec := bulletprooftxmanager.NewEthConfirmer(store, config)
 
 		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			fmt.Println("tx.Gas()", tx.Gas())
-			fmt.Println("default gas", config.EthGasPriceDefault())
 			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint64(tx.Gas()) == config.EthGasLimitDefault()
 		})).Return(nil).Once()
 
