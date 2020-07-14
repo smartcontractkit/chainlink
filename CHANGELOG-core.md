@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.10] - 2020-07-14
+
 ### Added
 
 - Job specs now support pinning to multiple keys using the new `fromAddresses` field in the ethtx task spec.
@@ -31,6 +33,16 @@ If your node has multiple keys, you will need to take one of the three following
 
 If your node only has one key, no action is required.
 
+## [0.8.9] - 2020-07-13
+
+### Added
+
+- Added a check on sensitive file ownership that gives a warning if certain files are not owned by the user running chainlink
+- Added mechanism to asynchronously communicate when a job spec has an ethereum interaction error (or any async error) with a UI screen
+- Gas Bumper now bumps based on the current gas price instead of the gas price of the original transaction
+
+### Fixed
+- Support for multiple node addresses
 
 ## [0.8.8] - 2020-06-29
 
