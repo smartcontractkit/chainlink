@@ -236,6 +236,7 @@ describe('FluxAggregator', () => {
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
+      'validator',
       'version',
       // Owned methods:
       'acceptOwnership',
@@ -275,6 +276,10 @@ describe('FluxAggregator', () => {
 
     it('sets the version to 3', async () => {
       matchers.bigNum(3, await aggregator.version())
+    })
+
+    it('sets the validator', async () => {
+      assert.equal(emptyAddress, await aggregator.validator())
     })
   })
 
@@ -896,6 +901,7 @@ describe('FluxAggregator', () => {
         await aggregator
           .connect(personas.Carol)
           .setValidator(gasGuzzler.address)
+        assert.equal(gasGuzzler.address, await aggregator.validator())
       })
 
       it('still updates', async () => {
@@ -2890,6 +2896,7 @@ describe('FluxAggregator', () => {
   describe('#setValidator', () => {
     beforeEach(async () => {
       validator = await validatorMockFactory.connect(personas.Carol).deploy()
+      assert.equal(emptyAddress, await aggregator.validator())
     })
 
     it('emits a log event showing the validator was changed', async () => {
@@ -2897,6 +2904,8 @@ describe('FluxAggregator', () => {
         .connect(personas.Carol)
         .setValidator(validator.address)
       const receipt = await tx.wait()
+      assert.equal(validator.address, await aggregator.validator())
+
       const eventLog = matchers.eventExists(
         receipt,
         aggregator.interface.events.ValidatorUpdated,
@@ -2914,6 +2923,7 @@ describe('FluxAggregator', () => {
         sameChangeReceipt,
         aggregator.interface.events.ValidatorUpdated,
       )
+      assert.equal(validator.address, await aggregator.validator())
     })
 
     describe('when called by a non-owner', () => {
