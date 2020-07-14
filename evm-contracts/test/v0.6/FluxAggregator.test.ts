@@ -222,7 +222,6 @@ describe('FluxAggregator', () => {
       'oracleRoundState',
       'paymentAmount',
       'removeOracles',
-      'reportingRound',
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
@@ -497,27 +496,39 @@ describe('FluxAggregator', () => {
 
     describe('when a new highest round number is passed in', () => {
       it('increments the answer round', async () => {
-        matchers.bigNum(
-          ethers.constants.Zero,
-          await aggregator.reportingRound(),
+        const startingState = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          0,
         )
+        matchers.bigNum(1, startingState._roundId)
 
         await advanceRound(aggregator, oracles)
 
-        matchers.bigNum(ethers.constants.One, await aggregator.reportingRound())
+        const updatedState = await aggregator.oracleRoundState(
+          personas.Nelly.address,
+          0,
+        )
+        matchers.bigNum(2, updatedState._roundId)
       })
 
-      it('sets the startedAt time for the reportingRound', async () => {
+      it('sets the startedAt time for the reporting round', async () => {
         matchers.evmRevert(
           aggregator.getRoundData(nextRound),
           'No data present',
         )
 
-        await aggregator.connect(oracles[0]).submit(nextRound, answer)
+        const tx = await aggregator
+          .connect(oracles[0])
+          .submit(nextRound, answer)
+        await aggregator.connect(oracles[1]).submit(nextRound, answer)
+        await aggregator.connect(oracles[2]).submit(nextRound, answer)
+        const receipt = await tx.wait()
+        const block = await provider.getBlock(receipt.blockHash ?? '')
 
-        matchers.evmRevert(
-          aggregator.getRoundData(nextRound),
-          'No data present',
+        const round = await aggregator.getRoundData(nextRound)
+        matchers.bigNum(
+          ethers.utils.bigNumberify(block.timestamp),
+          round.startedAt,
         )
       })
 
@@ -758,7 +769,6 @@ describe('FluxAggregator', () => {
 
         await aggregator.connect(personas.Ned).submit(nextRound, answer)
         await aggregator.connect(personas.Nelly).submit(nextRound, answer)
-        assert.equal(nextRound, (await aggregator.reportingRound()).toNumber())
 
         await h.increaseTimeBy(timeout + 1, provider)
         nextRound++
