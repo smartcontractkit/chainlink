@@ -26,7 +26,7 @@ beforeAll(async () => {
   defaultAccount = users.roles.defaultAccount
 })
 
-describe('AccessControlledAggregatorProxy', () => {
+describe('EACAggregatorProxy', () => {
   const deposit = h.toWei('100')
   const answer = h.numToBytes32(54321)
   const answer2 = h.numToBytes32(54320)
@@ -40,6 +40,7 @@ describe('AccessControlledAggregatorProxy', () => {
   let aggregator: contract.Instance<MockV3AggregatorFactory>
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let proxy: contract.Instance<EACAggregatorProxyFactory>
+  const phaseBase = h.bigNum(2).pow(64)
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
@@ -72,6 +73,8 @@ describe('AccessControlledAggregatorProxy', () => {
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
+      'phaseAggregators',
+      'phaseId',
       'proposeAggregator',
       'proposedAggregator',
       'proposedGetRoundData',
@@ -95,11 +98,11 @@ describe('AccessControlledAggregatorProxy', () => {
     })
 
     it('#getAnswer', async () => {
-      await proxy.connect(personas.Carol).getAnswer(1)
+      await proxy.connect(personas.Carol).getAnswer(phaseBase.add(1))
     })
 
     it('#getTimestamp', async () => {
-      await proxy.connect(personas.Carol).getTimestamp(1)
+      await proxy.connect(personas.Carol).getTimestamp(phaseBase.add(1))
     })
 
     it('#latestRound', async () => {
@@ -107,7 +110,7 @@ describe('AccessControlledAggregatorProxy', () => {
     })
 
     it('#getRoundData', async () => {
-      await proxy.connect(personas.Carol).getRoundData(1)
+      await proxy.connect(personas.Carol).getRoundData(phaseBase.add(1))
     })
 
     it('#proposedGetRoundData', async () => {
@@ -128,7 +131,7 @@ describe('AccessControlledAggregatorProxy', () => {
     })
   })
 
-  describe('if the caller is controllered', () => {
+  describe('if the caller is granted access', () => {
     beforeEach(async () => {
       await controller.addAccess(defaultAccount.address)
 
@@ -159,11 +162,9 @@ describe('AccessControlledAggregatorProxy', () => {
     })
 
     it('getRoundData works', async () => {
-      const latestRound = await proxy.latestRound()
-      await proxy.latestRound()
-      const round = await proxy.getRoundData(latestRound)
-      await proxy.getRoundData(latestRound)
-      matchers.bigNum(roundId, round.roundId)
+      const proxyRoundId = await proxy.latestRound()
+      const round = await proxy.getRoundData(proxyRoundId)
+      matchers.bigNum(proxyRoundId, round.roundId)
       matchers.bigNum(answer, round.answer)
       matchers.bigNum(startedAt, round.startedAt)
       matchers.bigNum(timestamp, round.updatedAt)

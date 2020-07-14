@@ -108,17 +108,17 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
    * maxSubmissions) answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     public
     view
     override
     checkAccess()
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return super.getRoundData(_roundId);
@@ -151,11 +151,11 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
     override
     checkAccess()
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return super.latestRoundData();
