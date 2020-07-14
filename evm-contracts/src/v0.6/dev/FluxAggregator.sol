@@ -60,7 +60,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
 
   LinkTokenInterface public linkToken;
-  AggregatorValidatorInterface private validator;
+  AggregatorValidatorInterface public validator;
   uint128 public allocatedFunds;
   uint128 public availableFunds;
 
