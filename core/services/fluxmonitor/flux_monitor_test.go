@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const oracleCount uint32 = 17
+const oracleCount uint8 = 17
 
 var (
 	submitHash     = utils.MustHash("submit(uint256,int256)")
@@ -1093,7 +1093,7 @@ func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
 			state := contracts.FluxAggregatorRoundState{
 				AvailableFunds: big.NewInt(int64(test.funds)),
 				PaymentAmount:  big.NewInt(int64(payment)),
-				OracleCount:    uint32(oracleCount),
+				OracleCount:    uint8(oracleCount),
 			}
 			assert.Equal(t, test.want, checker.ExportedSufficientFunds(state))
 		})
