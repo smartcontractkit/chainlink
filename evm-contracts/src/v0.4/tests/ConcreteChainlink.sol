@@ -1,11 +1,12 @@
 pragma solidity 0.4.24;
 
 import "../Chainlink.sol";
-import "../vendor/CBOR.sol";
+import { CBOR as CBOR_Chainlink } from "../vendor/CBOR.sol";
+import { Buffer as Buffer_Chainlink } from "../vendor/Buffer.sol";
 
 contract ConcreteChainlink {
   using Chainlink for Chainlink.Request;
-  using CBOR for Buffer.buffer;
+  using CBOR_Chainlink for Buffer_Chainlink.buffer;
 
   Chainlink.Request private req;
 
