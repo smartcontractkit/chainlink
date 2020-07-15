@@ -18,26 +18,26 @@ else
   base_files="$base_files -f docker-compose.paritynet.yaml"
 fi
 
-base="docker-compose $base_files" # base config, used standalone for acceptance
-dev="$base -f docker-compose.dev.yaml" # config for cldev
-test="$base -f docker-compose.integration.yaml" # config to run integration tests
-ts_test="$base -f docker-compose.ts-integration.yaml" # config to run integration tests in typescript
-deps="$test -f docker-compose.deps.yaml" # config to bring up integration test dependencies
-dev_integration="$test -f docker-compose.dev-integration.yaml" # config to run integration tests in dev mode
+base="docker-compose $base_files"                                       # base config, used standalone for acceptance
+dev="$base -f docker-compose.dev.yaml"                                  # config for cldev
+test="$base -f docker-compose.integration.yaml"                         # config to run integration tests
+ts_test="$base -f docker-compose.ts-integration.yaml"                   # config to run integration tests in typescript
+deps="$test -f docker-compose.deps.yaml"                                # config to bring up integration test dependencies
+dev_integration="$test -f docker-compose.dev-integration.yaml"          # config to run integration tests in dev mode
 dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config to run integration tests in dev mode
 
-function save_test_logs {
+function save_test_logs() {
   mkdir -p logs
-  $ts_test logs --no-color node > ./logs/node.log
-  $ts_test logs --no-color node-2 > ./logs/node-2.log
-  $ts_test logs --no-color devnet > ./logs/devnet.log
-  $ts_test logs --no-color node-db > ./logs/node-db.log
-  $ts_test logs --no-color node-db-2 > ./logs/node-db-2.log
-  $ts_test logs --no-color explorer > ./logs/explorer.log
-  $ts_test logs --no-color explorer-db > ./logs/explorer-db.log
-  $ts_test logs --no-color external-adapter > ./logs/external-adapter.log
-  $test logs --no-color cypress-job-server > ./logs/cypress-job-server.log
-  $test logs --no-color echo-server > ./logs/echo-server.log
+  $ts_test logs --no-color node >./logs/node.log
+  $ts_test logs --no-color node-2 >./logs/node-2.log
+  $ts_test logs --no-color devnet >./logs/devnet.log
+  $ts_test logs --no-color node-db >./logs/node-db.log
+  $ts_test logs --no-color node-db-2 >./logs/node-db-2.log
+  $ts_test logs --no-color explorer >./logs/explorer.log
+  $ts_test logs --no-color explorer-db >./logs/explorer-db.log
+  $ts_test logs --no-color external-adapter >./logs/external-adapter.log
+  $test logs --no-color cypress-job-server >./logs/cypress-job-server.log
+  $test logs --no-color echo-server >./logs/echo-server.log
 }
 
 usage="compose -- A helper script for running common docker-compose commands\
@@ -81,7 +81,6 @@ case "$1" in
   logs)
     $base logs -f ${@:2}
     ;;
-
   cld)
     $dev build
     $dev up -d node
@@ -117,7 +116,7 @@ case "$1" in
     $deps up --exit-code-from wait-db wait-db
     $deps up --exit-code-from wait-db-2 wait-db-2
     set +e
-    $ts_test run  integration-ts /bin/sh -c \
+  $ts_test run integration-ts /bin/sh -c \
       "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
       && yarn workspace @chainlink/ci-ts test --runInBand ${@:2}"
     exit_code=$?
