@@ -6,8 +6,8 @@ DOCKER_COMPOSE_BUILD_OPTS=${DOCKER_COMPOSE_BUILD_OPTS-"--parallel"}
 
 # Enable buildkit support locally
 if [ -z $CI ]; then
-export COMPOSE_DOCKER_CLI_BUILD=1
-export DOCKER_BUILDKIT=1
+  export COMPOSE_DOCKER_CLI_BUILD=1
+  export DOCKER_BUILDKIT=1
 fi
 
 base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
@@ -25,6 +25,23 @@ ts_test="$base -f docker-compose.ts-integration.yaml"                   # config
 deps="$test -f docker-compose.deps.yaml"                                # config to bring up integration test dependencies
 dev_integration="$test -f docker-compose.dev-integration.yaml"          # config to run integration tests in dev mode
 dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config to run integration tests in dev mode
+
+clean_docker() {
+  $base down -v
+  $dev down -v
+  $test down -v
+  $deps down -v
+  $dev_integration down -v
+  $ts_test down -v
+}
+
+# Executed before command line args are parsed
+pre_hook() {
+  if [ "$CI" ]; then
+    # If this script is running in CI, clean up our state before running tests
+    clean_docker
+  fi
+}
 
 function save_test_logs() {
   mkdir -p logs
@@ -66,106 +83,102 @@ Commands:
 
     *                     Run docker-compose with base config"
 
+pre_hook
 case "$1" in
-  help)
-    echo "$usage"
-    ;;
-  clean)
-    $base down -v
-    $dev down -v
-    $test down -v
-    $deps down -v
-    $dev_integration down -v
-    $ts_test down -v
-    ;;
-  logs)
-    $base logs -f ${@:2}
-    ;;
-  cld)
-    $dev build
-    $dev up -d node
-    docker exec -it chainlink-node bash
-    $dev down -v
-    ;;
-  cldo)
-    $dev build
-    $dev up -d operator-ui
-    docker exec -it chainlink-node bash
-    $dev down -v
-    ;;
+help)
+  echo "$usage"
+  ;;
+clean)
+  clean_docker
+  ;;
+logs)
+  $base logs -f ${@:2}
+  ;;
+cld)
+  $dev build
+  $dev up -d node
+  docker exec -it chainlink-node bash
+  $dev down -v
+  ;;
+cldo)
+  $dev build
+  $dev up -d operator-ui
+  docker exec -it chainlink-node bash
+  $dev down -v
+  ;;
 
-  acceptance)
-    $base build $DOCKER_COMPOSE_BUILD_OPTS
-    $base up
-    ;;
+acceptance)
+  $base build $DOCKER_COMPOSE_BUILD_OPTS
+  $base up
+  ;;
 
-  test)
-    $test build $DOCKER_COMPOSE_BUILD_OPTS
-    $deps up --exit-code-from wait-db wait-db
-    $test up --exit-code-from integration
-    save_test_logs
-    $test down -v
-    ;;
-  test:dev)
-    $deps up --exit-code-from wait-db wait-db
-    $dev_integration up --exit-code-from integration
-    $dev_integration down -v
-    ;;
-  test:ts)
-    $ts_test build $DOCKER_COMPOSE_BUILD_OPTS
-    $deps up --exit-code-from wait-db wait-db
-    $deps up --exit-code-from wait-db-2 wait-db-2
-    set +e
+test)
+  $test build $DOCKER_COMPOSE_BUILD_OPTS
+  $deps up --exit-code-from wait-db wait-db
+  $test up --exit-code-from integration
+  save_test_logs
+  $test down -v
+  ;;
+test:dev)
+  $deps up --exit-code-from wait-db wait-db
+  $dev_integration up --exit-code-from integration
+  $dev_integration down -v
+  ;;
+test:ts)
+  $ts_test build $DOCKER_COMPOSE_BUILD_OPTS
+  $deps up --exit-code-from wait-db wait-db
+  $deps up --exit-code-from wait-db-2 wait-db-2
+  set +e
   $ts_test run integration-ts /bin/sh -c \
-      "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
+    "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
       && yarn workspace @chainlink/ci-ts test --runInBand ${@:2}"
-    exit_code=$?
-    set -e
-    save_test_logs
-    $ts_test down -v
-    exit $exit_code
-    ;;
-  test:ts:dev)
-    $deps up --exit-code-from wait-db wait-db
-    $deps up --exit-code-from wait-db-2 wait-db-2
-    set +e
-    $dev_ts_integration run integration-ts /bin/sh -c \
-      "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
+  exit_code=$?
+  set -e
+  save_test_logs
+  $ts_test down -v
+  exit $exit_code
+  ;;
+test:ts:dev)
+  $deps up --exit-code-from wait-db wait-db
+  $deps up --exit-code-from wait-db-2 wait-db-2
+  set +e
+  $dev_ts_integration run integration-ts /bin/sh -c \
+    "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
       && yarn workspace @chainlink/ci-ts test --verbose --runInBand ${@:2}"
-    exit_code=$?
-    set -e
-    save_test_logs
-    $dev_ts_integration down -v
-    exit $exit_code
-    ;;
-  integration | i)
-    $test ${@:2}
-    ;;
-  dev:integ | di)
-    $dev_integration ${@:2}
-    ;;
-  dev)
-    $dev ${@:2}
-    ;;
+  exit_code=$?
+  set -e
+  save_test_logs
+  $dev_ts_integration down -v
+  exit $exit_code
+  ;;
+integration | i)
+  $test ${@:2}
+  ;;
+dev:integ | di)
+  $dev_integration ${@:2}
+  ;;
+dev)
+  $dev ${@:2}
+  ;;
 
-  eth:restart)
-    $base rm --force --stop devnet
-    if [ $GETH_MODE ]; then
-      docker volume rm --force docker_geth-db-data
-    else
-      docker volume rm --force docker_parity-db-data
-    fi
-    $base up -d devnet
-    ;;
-  cl:restart)
-    $base stop node
-    $base rm --force --stop node-db
-    docker volume rm --force docker_node-db-data
-    ./compose eth:restart
-    $deps up --exit-code-from wait-db wait-db
-    $base start node
-    ;;
-  *)
-    $base $@
-    ;;
+eth:restart)
+  $base rm --force --stop devnet
+  if [ $GETH_MODE ]; then
+    docker volume rm --force docker_geth-db-data
+  else
+    docker volume rm --force docker_parity-db-data
+  fi
+  $base up -d devnet
+  ;;
+cl:restart)
+  $base stop node
+  $base rm --force --stop node-db
+  docker volume rm --force docker_node-db-data
+  ./compose eth:restart
+  $deps up --exit-code-from wait-db wait-db
+  $base start node
+  ;;
+*)
+  $base $@
+  ;;
 esac
