@@ -199,19 +199,24 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   }
 
   /**
-   * @notice called by the owner to add new Oracles and update the round
-   * related parameters
-   * @param _oracles is the list of addresses of the new Oracles being added
-   * @param _admins is the admin addresses of the new respective _oracles list.
+   * @notice called by the owner to remove and add new oracles as well as
+   * update the round related parameters that pertain to total oracle count
+   * @param _addedOracles is the list of addresses for the new Oracles being
+   * added
+   * @param _addedOracles is the list of addresses for the new Oracles being
+   * added
+   * @param _addedAdmins is the admin addresses for the new respective
+   * _addedOracles list
    * Only this address is allowed to access the respective oracle's funds.
    * @param _minSubmissions is the new minimum submission count for each round
    * @param _maxSubmissions is the new maximum submission count for each round
    * @param _restartDelay is the number of rounds an Oracle has to wait before
    * they can initiate a round
    */
-  function addOracles(
-    address[] calldata _oracles,
-    address[] calldata _admins,
+  function changeOracles(
+    address[] calldata _removedOracles,
+    address[] calldata _addedOracles,
+    address[] calldata _addedAdmins,
     uint32 _minSubmissions,
     uint32 _maxSubmissions,
     uint32 _restartDelay
@@ -219,11 +224,11 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     external
     onlyOwner()
   {
-    require(_oracles.length == _admins.length, "need same oracle and admin count");
-    require(uint256(oracleCount()).add(_oracles.length) <= MAX_ORACLE_COUNT, "max oracles allowed");
+    require(_addedOracles.length == _addedAdmins.length, "need same oracle and admin count");
+    require(uint256(oracleCount()).add(_addedOracles.length) <= MAX_ORACLE_COUNT, "max oracles allowed");
 
-    for (uint256 i = 0; i < _oracles.length; i++) {
-      addOracle(_oracles[i], _admins[i]);
+    for (uint256 i = 0; i < _addedOracles.length; i++) {
+      addOracle(_addedOracles[i], _addedAdmins[i]);
     }
 
     updateFutureRounds(paymentAmount, _minSubmissions, _maxSubmissions, _restartDelay, timeout);
