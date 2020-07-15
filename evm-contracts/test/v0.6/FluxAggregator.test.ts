@@ -88,7 +88,8 @@ describe('FluxAggregator', () => {
     maxAnswers: number,
     restartDelay: number,
   ): Promise<ethers.ContractTransaction> {
-    return aggregator.connect(personas.Carol).addOracles(
+    return aggregator.connect(personas.Carol).changeOracles(
+      [],
       oraclesAndAdmin.map(oracle => oracle.address),
       oraclesAndAdmin.map(admin => admin.address),
       minAnswers,
@@ -203,9 +204,9 @@ describe('FluxAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(fluxAggregatorFactory, [
       'acceptAdmin',
-      'addOracles',
       'allocatedFunds',
       'availableFunds',
+      'changeOracles',
       'decimals',
       'description',
       'getAdmin',
@@ -916,290 +917,304 @@ describe('FluxAggregator', () => {
     })
   })
 
-  describe('#addOracles', () => {
-    it('increases the oracle count', async () => {
-      const pastCount = await aggregator.oracleCount()
-      await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-      const currentCount = await aggregator.oracleCount()
-
-      matchers.bigNum(currentCount, pastCount + 1)
-    })
-
-    it('adds the address in getOracles', async () => {
-      await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
-      assert.deepEqual([personas.Neil.address], await aggregator.getOracles())
-    })
-
-    it('updates the round details', async () => {
-      await addOracles(
-        aggregator,
-        [personas.Neil, personas.Ned, personas.Nelly],
-        1,
-        3,
-        2,
-      )
-      matchers.bigNum(1, await aggregator.minSubmissionCount())
-      matchers.bigNum(3, await aggregator.maxSubmissionCount())
-      matchers.bigNum(2, await aggregator.restartDelay())
-    })
-
-    it('emits a log', async () => {
-      const tx = await aggregator
-        .connect(personas.Carol)
-        .addOracles([personas.Ned.address], [personas.Neil.address], 1, 1, 0)
-      const receipt = await tx.wait()
-
-      const oracleAddedEvent = h.eventArgs(receipt.events?.[0])
-      assert.equal(oracleAddedEvent.oracle, personas.Ned.address)
-      assert.isTrue(oracleAddedEvent.whitelisted)
-      const oracleAdminUpdatedEvent = h.eventArgs(receipt.events?.[1])
-      assert.equal(oracleAdminUpdatedEvent.oracle, personas.Ned.address)
-      assert.equal(oracleAdminUpdatedEvent.newAdmin, personas.Neil.address)
-    })
-
-    describe('when the oracle has already been added', () => {
-      beforeEach(async () => {
+  describe('#changeOracles', () => {
+    describe('adding oracles', () => {
+      it('increases the oracle count', async () => {
+        const pastCount = await aggregator.oracleCount()
         await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
+        const currentCount = await aggregator.oracleCount()
+
+        matchers.bigNum(currentCount, pastCount + 1)
       })
 
-      it('reverts', async () => {
-        await matchers.evmRevert(
-          addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay),
-          'oracle already enabled',
-        )
+      it('adds the address in getOracles', async () => {
+        await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
+        assert.deepEqual([personas.Neil.address], await aggregator.getOracles())
       })
-    })
 
-    describe('when called by anyone but the owner', () => {
-      it('reverts', async () => {
-        await matchers.evmRevert(
-          aggregator
-            .connect(personas.Neil)
-            .addOracles(
-              [personas.Neil.address],
-              [personas.Neil.address],
-              minAns,
-              maxAns,
-              rrDelay,
-            ),
-          'Only callable by owner',
-        )
-      })
-    })
-
-    describe('when an oracle gets added mid-round', () => {
-      beforeEach(async () => {
-        oracles = [personas.Neil, personas.Ned]
+      it('updates the round details', async () => {
         await addOracles(
           aggregator,
-          oracles,
-          oracles.length,
-          oracles.length,
-          rrDelay,
+          [personas.Neil, personas.Ned, personas.Nelly],
+          1,
+          3,
+          2,
         )
-
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
-
-        await addOracles(
-          aggregator,
-          [personas.Nelly],
-          oracles.length + 1,
-          oracles.length + 1,
-          rrDelay,
-        )
+        matchers.bigNum(1, await aggregator.minSubmissionCount())
+        matchers.bigNum(3, await aggregator.maxSubmissionCount())
+        matchers.bigNum(2, await aggregator.restartDelay())
       })
 
-      it('does not allow the oracle to update the round', async () => {
-        await matchers.evmRevert(
-          aggregator.connect(personas.Nelly).submit(nextRound, answer),
-          'not yet enabled oracle',
-        )
-      })
-
-      it('does allow the oracle to update future rounds', async () => {
-        // complete round
-        await aggregator.connect(personas.Ned).submit(nextRound, answer)
-
-        // now can participate in new rounds
-        await aggregator.connect(personas.Nelly).submit(nextRound + 1, answer)
-      })
-    })
-
-    describe('when an oracle is added after removed for a round', () => {
-      it('allows the oracle to update', async () => {
-        oracles = [personas.Neil, personas.Nelly]
-        await addOracles(
-          aggregator,
-          oracles,
-          oracles.length,
-          oracles.length,
-          rrDelay,
-        )
-
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
-        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
-        nextRound++
-
-        await aggregator
+      it('emits a log', async () => {
+        const tx = await aggregator
           .connect(personas.Carol)
-          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
+          .changeOracles(
+            [],
+            [personas.Ned.address],
+            [personas.Neil.address],
+            1,
+            1,
+            0,
+          )
+        const receipt = await tx.wait()
 
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
-        nextRound++
-
-        await addOracles(aggregator, [personas.Nelly], 1, 1, rrDelay)
-
-        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+        const oracleAddedEvent = h.eventArgs(receipt.events?.[0])
+        assert.equal(oracleAddedEvent.oracle, personas.Ned.address)
+        assert.isTrue(oracleAddedEvent.whitelisted)
+        const oracleAdminUpdatedEvent = h.eventArgs(receipt.events?.[1])
+        assert.equal(oracleAdminUpdatedEvent.oracle, personas.Ned.address)
+        assert.equal(oracleAdminUpdatedEvent.newAdmin, personas.Neil.address)
       })
-    })
 
-    describe('when an oracle is added and immediately removed mid-round', () => {
-      it('allows the oracle to update', async () => {
-        await addOracles(
-          aggregator,
-          oracles,
-          oracles.length,
-          oracles.length,
-          rrDelay,
-        )
+      describe('when the oracle has already been added', () => {
+        beforeEach(async () => {
+          await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
+        })
 
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
-        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
-        nextRound++
-
-        await aggregator
-          .connect(personas.Carol)
-          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
-
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
-        nextRound++
-
-        await addOracles(aggregator, [personas.Nelly], 1, 1, rrDelay)
-
-        await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+        it('reverts', async () => {
+          await matchers.evmRevert(
+            addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay),
+            'oracle already enabled',
+          )
+        })
       })
-    })
 
-    describe('when an oracle is re-added with a different admin address', () => {
-      it('reverts', async () => {
-        await addOracles(
-          aggregator,
-          oracles,
-          oracles.length,
-          oracles.length,
-          rrDelay,
-        )
+      describe('when called by anyone but the owner', () => {
+        it('reverts', async () => {
+          await matchers.evmRevert(
+            aggregator
+              .connect(personas.Neil)
+              .changeOracles(
+                [],
+                [personas.Neil.address],
+                [personas.Neil.address],
+                minAns,
+                maxAns,
+                rrDelay,
+              ),
+            'Only callable by owner',
+          )
+        })
+      })
 
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
+      describe('when an oracle gets added mid-round', () => {
+        beforeEach(async () => {
+          oracles = [personas.Neil, personas.Ned]
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          )
 
-        await aggregator
-          .connect(personas.Carol)
-          .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
+          await aggregator.connect(personas.Neil).submit(nextRound, answer)
 
-        await matchers.evmRevert(
-          aggregator
+          await addOracles(
+            aggregator,
+            [personas.Nelly],
+            oracles.length + 1,
+            oracles.length + 1,
+            rrDelay,
+          )
+        })
+
+        it('does not allow the oracle to update the round', async () => {
+          await matchers.evmRevert(
+            aggregator.connect(personas.Nelly).submit(nextRound, answer),
+            'not yet enabled oracle',
+          )
+        })
+
+        it('does allow the oracle to update future rounds', async () => {
+          // complete round
+          await aggregator.connect(personas.Ned).submit(nextRound, answer)
+
+          // now can participate in new rounds
+          await aggregator.connect(personas.Nelly).submit(nextRound + 1, answer)
+        })
+      })
+
+      describe('when an oracle is added after removed for a round', () => {
+        it('allows the oracle to update', async () => {
+          oracles = [personas.Neil, personas.Nelly]
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          )
+
+          await aggregator.connect(personas.Neil).submit(nextRound, answer)
+          await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+          nextRound++
+
+          await aggregator
             .connect(personas.Carol)
-            .addOracles(
-              [personas.Nelly.address],
-              [personas.Carol.address],
-              1,
-              1,
-              rrDelay,
-            ),
-          'owner cannot overwrite admin',
-        )
-      })
-    })
+            .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
 
-    const limit = 77
-    describe(`when adding more than ${limit} oracles`, () => {
-      let oracles: ethers.Wallet[]
+          await aggregator.connect(personas.Neil).submit(nextRound, answer)
+          nextRound++
 
-      beforeEach(async () => {
-        oracles = []
-        for (let i = 0; i < limit; i++) {
-          const account = await wallet.createWallet(provider, i + 100)
-          await personas.Default.sendTransaction({
-            to: account.address,
-            value: h.toWei('0.01'),
-          })
-          oracles.push(account)
-        }
+          await addOracles(aggregator, [personas.Nelly], 1, 1, rrDelay)
 
-        await link.transfer(
-          aggregator.address,
-          paymentAmount.mul(limit).mul(reserveRounds),
-        )
-        await aggregator.updateAvailableFunds()
-
-        let addresses = oracles.slice(0, 50).map(o => o.address)
-        await aggregator
-          .connect(personas.Carol)
-          .addOracles(addresses, addresses, 1, 50, rrDelay)
-        // add in two transactions to avoid gas limit issues
-        addresses = oracles.slice(50, 100).map(o => o.address)
-        await aggregator
-          .connect(personas.Carol)
-          .addOracles(addresses, addresses, 1, oracles.length, rrDelay)
+          await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+        })
       })
 
-      it('not use too much gas', async () => {
-        let tx: any
-        assert.deepEqual(
-          // test adveserial quickselect algo
-          [2, 4, 6, 8, 10, 12, 14, 16, 1, 9, 5, 11, 3, 13, 7, 15],
-          adverserialQuickselectList(16),
-        )
-        const inputs = adverserialQuickselectList(limit)
-        for (let i = 0; i < limit; i++) {
-          tx = await aggregator.connect(oracles[i]).submit(nextRound, inputs[i])
-        }
-        assert(!!tx)
-        if (tx) {
-          const receipt = await tx.wait()
-          assert.isAbove(400_000, receipt.gasUsed.toNumber())
-        }
-      })
+      describe('when an oracle is added and immediately removed mid-round', () => {
+        it('allows the oracle to update', async () => {
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          )
 
-      function adverserialQuickselectList(len: number): number[] {
-        const xs: number[] = []
-        const pi: number[] = []
-        for (let i = 0; i < len; i++) {
-          pi[i] = i
-          xs[i] = 0
-        }
+          await aggregator.connect(personas.Neil).submit(nextRound, answer)
+          await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+          nextRound++
 
-        for (let l = len; l > 0; l--) {
-          const pivot = Math.floor((l - 1) / 2)
-          xs[pi[pivot]] = l
-          const temp = pi[l - 1]
-          pi[l - 1] = pi[pivot]
-          pi[pivot] = temp
-        }
-        return xs
-      }
-
-      it('reverts when another oracle is added', async () => {
-        await matchers.evmRevert(
-          aggregator
+          await aggregator
             .connect(personas.Carol)
-            .addOracles(
-              [personas.Neil.address],
-              [personas.Neil.address],
-              limit + 1,
-              limit + 1,
-              rrDelay,
-            ),
-          'max oracles allowed',
+            .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
+
+          await aggregator.connect(personas.Neil).submit(nextRound, answer)
+          nextRound++
+
+          await addOracles(aggregator, [personas.Nelly], 1, 1, rrDelay)
+
+          await aggregator.connect(personas.Nelly).submit(nextRound, answer)
+        })
+      })
+
+      describe('when an oracle is re-added with a different admin address', () => {
+        it('reverts', async () => {
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          )
+
+          await aggregator.connect(personas.Neil).submit(nextRound, answer)
+
+          await aggregator
+            .connect(personas.Carol)
+            .removeOracles([personas.Nelly.address], 1, 1, rrDelay)
+
+          await matchers.evmRevert(
+            aggregator
+              .connect(personas.Carol)
+              .changeOracles(
+                [],
+                [personas.Nelly.address],
+                [personas.Carol.address],
+                1,
+                1,
+                rrDelay,
+              ),
+            'owner cannot overwrite admin',
+          )
+        })
+      })
+
+      const limit = 77
+      describe(`when adding more than ${limit} oracles`, () => {
+        let oracles: ethers.Wallet[]
+
+        beforeEach(async () => {
+          oracles = []
+          for (let i = 0; i < limit; i++) {
+            const account = await wallet.createWallet(provider, i + 100)
+            await personas.Default.sendTransaction({
+              to: account.address,
+              value: h.toWei('0.01'),
+            })
+            oracles.push(account)
+          }
+
+          await link.transfer(
+            aggregator.address,
+            paymentAmount.mul(limit).mul(reserveRounds),
+          )
+          await aggregator.updateAvailableFunds()
+
+          let addresses = oracles.slice(0, 50).map(o => o.address)
+          await aggregator
+            .connect(personas.Carol)
+            .changeOracles([], addresses, addresses, 1, 50, rrDelay)
+          // add in two transactions to avoid gas limit issues
+          addresses = oracles.slice(50, 100).map(o => o.address)
+          await aggregator
+            .connect(personas.Carol)
+            .changeOracles([], addresses, addresses, 1, oracles.length, rrDelay)
+        })
+
+        it('not use too much gas', async () => {
+          let tx: any
+          assert.deepEqual(
+            // test adveserial quickselect algo
+            [2, 4, 6, 8, 10, 12, 14, 16, 1, 9, 5, 11, 3, 13, 7, 15],
+            adverserialQuickselectList(16),
+          )
+          const inputs = adverserialQuickselectList(limit)
+          for (let i = 0; i < limit; i++) {
+            tx = await aggregator
+              .connect(oracles[i])
+              .submit(nextRound, inputs[i])
+          }
+          assert(!!tx)
+          if (tx) {
+            const receipt = await tx.wait()
+            assert.isAbove(400_000, receipt.gasUsed.toNumber())
+          }
+        })
+
+        function adverserialQuickselectList(len: number): number[] {
+          const xs: number[] = []
+          const pi: number[] = []
+          for (let i = 0; i < len; i++) {
+            pi[i] = i
+            xs[i] = 0
+          }
+
+          for (let l = len; l > 0; l--) {
+            const pivot = Math.floor((l - 1) / 2)
+            xs[pi[pivot]] = l
+            const temp = pi[l - 1]
+            pi[l - 1] = pi[pivot]
+            pi[pivot] = temp
+          }
+          return xs
+        }
+
+        it('reverts when another oracle is added', async () => {
+          await matchers.evmRevert(
+            aggregator
+              .connect(personas.Carol)
+              .changeOracles(
+                [],
+                [personas.Neil.address],
+                [personas.Neil.address],
+                limit + 1,
+                limit + 1,
+                rrDelay,
+              ),
+            'max oracles allowed',
+          )
+        })
+      })
+
+      it('reverts when minSubmissions is set to 0', async () => {
+        await matchers.evmRevert(
+          addOracles(aggregator, [personas.Neil], 0, 0, 0),
+          'min must be greater than 0',
         )
       })
-    })
-
-    it('reverts when minSubmissions is set to 0', async () => {
-      await matchers.evmRevert(
-        addOracles(aggregator, [personas.Neil], 0, 0, 0),
-        'min must be greater than 0',
-      )
     })
   })
 
@@ -1773,7 +1788,8 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracles(
+        .changeOracles(
+          [],
           [personas.Ned.address],
           [personas.Neil.address],
           minAns,
@@ -1826,7 +1842,8 @@ describe('FluxAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracles(
+        .changeOracles(
+          [],
           [personas.Ned.address],
           [personas.Neil.address],
           minAns,
