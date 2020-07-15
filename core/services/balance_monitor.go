@@ -87,7 +87,10 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 				if err != nil {
 					return errors.Wrap(err, "error getting balance")
 				}
-				ethBal := assets.NewEth(bal.Int64())
+				if bal == nil {
+					return errors.New("BalanceMonitor: invariant violation, bal may not be nil")
+				}
+				ethBal := assets.Eth(*bal)
 
 				bm.updateBalance(ethBal, k.Address.Address(), headNum)
 				return nil
@@ -104,16 +107,12 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 	wg.Wait()
 }
 
-func (bm *balanceMonitor) updateBalance(ethBal *assets.Eth, address gethCommon.Address, headNum *big.Int) {
-	if ethBal == nil {
-		logger.Error("BalanceMonitor: invariant violation, ethBal should never be nil")
-		return
-	}
-	store.PromUpdateEthBalance(ethBal, address)
+func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address, headNum *big.Int) {
+	store.PromUpdateEthBalance(&ethBal, address)
 
 	bm.ethBalancesMtx.Lock()
 	oldBal := bm.ethBalances[address]
-	bm.ethBalances[address] = ethBal
+	bm.ethBalances[address] = &ethBal
 	bm.ethBalancesMtx.Unlock()
 
 	loggerFields := []interface{}{
