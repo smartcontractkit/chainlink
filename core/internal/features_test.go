@@ -103,8 +103,6 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
-		eth.Register("eth_getBalance", "0x0100")
-		eth.Register("eth_call", "0x0100")
 	})
 	newHeads <- cltest.NewEthHeader(safe) // 23465
 
@@ -223,18 +221,14 @@ func TestIntegration_FeeBump(t *testing.T) {
 	// received sufficient confirmations, so we wait again...
 	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
-		eth.Register("eth_getBalance", "0x0000")
 	})
 	newHeads <- cltest.NewEthHeader(thirdTxConfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// Finally the third attempt gets to a minimum number of safe confirmations,
-	// the amount remaining in the account is printed (eth_getBalance, eth_call)
 	eth.Context("ethTx.Perform()#7", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
-		eth.Register("eth_getBalance", "0x100")
-		eth.Register("eth_call", "0x100")
 	})
 	newHeads <- cltest.NewEthHeader(thirdTxSafeAt)
 	eth.EventuallyAllCalled(t)
@@ -891,8 +885,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// Send a head w block number 10, high enough to mark ethtx as safe.
 	eth.Context("ethTx.Perform() for safe", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
-		eth.Register("eth_getBalance", "0x100")
-		eth.Register("eth_call", cltest.MustEVMUintHexFromBase10String(t, "256"))
 	})
 	newHeads <- cltest.NewEthHeader(1)
 
@@ -982,11 +974,9 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		eth.Register("eth_sendRawTransaction", attemptHash) // Initial tx attempt sent
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
-		eth.Register("eth_getBalance", "0x0100")
 	})
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
 		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
-		mock.Register("eth_call", hex)
 		mock.Register("eth_call", hex)
 	})
 	newRounds <- log
@@ -1138,8 +1128,6 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 			// set the confirmation to avoid messing with the head tracker too
 			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinRequiredOutgoingConfirmations())),
 		})
-		eth.Register("eth_getBalance", "0x0100")
-		eth.Register("eth_call", "0x0100")
 	}).During(func() {
 		app.RunManager.ResumeAllPendingConnection()
 		cltest.WaitForJobRunToComplete(t, app.Store, jr)
