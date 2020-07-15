@@ -68,9 +68,9 @@ describe('AccessControlledAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
       'acceptAdmin',
-      'addOracles',
       'allocatedFunds',
       'availableFunds',
+      'changeOracles',
       'decimals',
       'description',
       'getAdmin',
@@ -140,7 +140,8 @@ describe('AccessControlledAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracles(
+        .changeOracles(
+          [],
           [personas.Neil.address],
           [personas.Neil.address],
           minAns,
@@ -190,7 +191,8 @@ describe('AccessControlledAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracles(
+        .changeOracles(
+          [],
           [personas.Neil.address],
           [personas.Neil.address],
           minAns,
