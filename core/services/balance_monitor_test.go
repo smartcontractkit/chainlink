@@ -104,7 +104,9 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		g := cltest.NewSimpleGethWrapper(gethClient)
 		bm := services.NewBalanceMonitor(store, g)
 		k0bal := big.NewInt(42)
-		k1bal := big.NewInt(43)
+		// Deliberately larger than a 64 bit unsigned integer to test overflow
+		k1bal := big.NewInt(0)
+		k1bal.SetString("19223372036854776000", 10)
 
 		head := cltest.Head(0)
 
