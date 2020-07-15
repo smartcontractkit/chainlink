@@ -67,13 +67,12 @@ func TestConcreteFluxMonitor_Start_withEthereumDisabled(t *testing.T) {
 			defer cleanup()
 			runManager := new(mocks.RunManager)
 
-			fm := fluxmonitor.New(store, runManager)
-			logBroadcaster := fm.(fluxmonitor.MockableLogBroadcaster).MockLogBroadcaster()
+			lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+			fm := fluxmonitor.New(store, runManager, lb)
 
 			err := fm.Start()
 			require.NoError(t, err)
 			defer fm.Stop()
-			assert.Equal(t, test.wantStarted, logBroadcaster.Started)
 		})
 	}
 }
@@ -99,7 +98,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		fm := fluxmonitor.New(store, runManager)
+		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		require.NoError(t, lb.Start())
+		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())
 
@@ -131,7 +132,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		job := cltest.NewJobWithRunLogInitiator()
 		runManager := new(mocks.RunManager)
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		fm := fluxmonitor.New(store, runManager)
+		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		require.NoError(t, lb.Start())
+		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 
 		err := fm.Start()
