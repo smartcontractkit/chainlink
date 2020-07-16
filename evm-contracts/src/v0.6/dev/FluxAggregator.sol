@@ -319,8 +319,8 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   /**
    * @notice returns the number of oracles
    */
-  function oracleCount() public view returns (uint32) {
-    return uint32(oracleAddresses.length);
+  function oracleCount() public view returns (uint8) {
+    return uint8(oracleAddresses.length);
   }
 
   /**
@@ -566,7 +566,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
       uint64 _startedAt,
       uint64 _timeout,
       uint128 _availableFunds,
-      uint32 _oracleCount,
+      uint8 _oracleCount,
       uint128 _paymentAmount
     )
   {
@@ -685,7 +685,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
       uint64 _startedAt,
       uint64 _timeout,
       uint128 _availableFunds,
-      uint32 _oracleCount,
+      uint8 _oracleCount,
       uint128 _paymentAmount
     )
   {
@@ -864,7 +864,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     require(oracleEnabled(_oracle), "oracle not enabled");
 
     oracles[_oracle].endingRound = reportingRoundId.add(1);
-    address tail = oracleAddresses[oracleCount().sub(1)];
+    address tail = oracleAddresses[uint256(oracleCount()).sub(1)];
     uint16 index = oracles[_oracle].index;
     oracles[tail].index = index;
     delete oracles[_oracle].index;
