@@ -6,6 +6,13 @@ import '../Owned.sol';
 import '../vendor/SafeMath.sol';
 import '../SignedSafeMath.sol';
 
+/**
+ * @title The Deviation Flagging Validator contract
+ * @notice Checks the current value against the previous value, and makes sure
+ * that it does not deviate outside of some relative range. If the deviation
+ * threshold is passed then the validator raises a flag on the designated
+ * flag contract.
+ */
 contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   using SafeMath for uint256;
   using SignedSafeMath for int256;
@@ -24,16 +31,33 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     address indexed current
   );
 
+  /**
+   * @notice sets up the validator with its threshold and flag address.
+   * @param _flags sets the address of the flags contract
+   * @param _flaggingThreshold sets the threshold that will trigger a flag to be
+   * raised. Setting the value of 100,000 is equivalent to tolerating a 100%
+   * change compared to the previous price.
+   */
   constructor(
-    address _flagsAddress,
+    address _flags,
     uint24 _flaggingThreshold
   )
     public
   {
-    setFlagsAddress(_flagsAddress);
+    setFlagsAddress(_flags);
     setFlaggingThreshold(_flaggingThreshold);
   }
 
+  /**
+   * @notice checks whether the parameters count as valid by comparing the
+   * difference change to the flagging threshold.
+   * @param previousRoundId is ignored.
+   * @param previousAnswer is used as the median of the difference with the
+   * current answer to determine if the deviation threshold has been exceeded.
+   * @param roundId is ignored.
+   * @param answer is the latest answer which is compared for a ratio of change
+   * to make sure it has not execeeded the flagging threshold.
+   */
   function validate(
     uint256 previousRoundId,
     int256 previousAnswer,
@@ -52,6 +76,16 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     return true;
   }
 
+  /**
+   * @notice checks whether the parameters count as valid by comparing the
+   * difference change to the flagging threshold and raises a flag on the
+   * flagging contract if so. This method conforms to the
+   * AggregatorValidatorInterface.
+   * @param previousAnswer is used as the median of the difference with the
+   * current answer to determine if the deviation threshold has been exceeded.
+   * @param answer is the latest answer which is compared for a ratio of change
+   * to make sure it has not execeeded the flagging threshold.
+   */
   function isValid(
     uint256 ,
     int256 previousAnswer,
@@ -70,6 +104,12 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     return percent <= flaggingThreshold;
   }
 
+  /**
+   * @notice updates the flagging threshold
+   * @param _flaggingThreshold sets the threshold that will trigger a flag to be
+   * raised. Setting the value of 100,000 is equivalent to tolerating a 100%
+   * change compared to the previous price.
+   */
   function setFlaggingThreshold(uint24 _flaggingThreshold)
     public
     onlyOwner()
@@ -83,16 +123,20 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     }
   }
 
-  function setFlagsAddress(address _flagsAddress)
+  /**
+   * @notice updates the flagging contract address for raising flags
+   * @param _flags sets the address of the flags contract
+   */
+  function setFlagsAddress(address _flags)
     public
     onlyOwner()
   {
     address previous = address(flags);
 
-    if (previous != _flagsAddress) {
-      flags = FlagsInterface(_flagsAddress);
+    if (previous != _flags) {
+      flags = FlagsInterface(_flags);
 
-      emit FlagsAddressUpdated(previous, _flagsAddress);
+      emit FlagsAddressUpdated(previous, _flags);
     }
   }
 
