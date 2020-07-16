@@ -218,7 +218,7 @@ func currentBalance(t *testing.T, fa *fluxAggregatorUniverse) *big.Int {
 	return currentBalance
 }
 
-// updateAnswer simulates a call to fa's FluxAggregator contract from from, with
+// submitAnswer simulates a call to fa's FluxAggregator contract from from, with
 // the given roundId and answer, and checks that all the logs emitted by the
 // contract are correct
 func submitAnswer(t *testing.T, p answerParams) {
