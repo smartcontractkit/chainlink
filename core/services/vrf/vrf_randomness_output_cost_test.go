@@ -1,4 +1,4 @@
-package vrf
+package vrf_test
 
 import (
 	mrand "math/rand"
@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 )
 
 func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
@@ -16,7 +17,7 @@ func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
 	skNum := secp256k1.ToInt(sk)
 	nonce := randomScalar(t, r)
 	seed := randomUint256(t, r)
-	proof, err := generateProofWithNonce(skNum, seed, secp256k1.ToInt(nonce))
+	proof, err := vrf.GenerateProofWithNonce(skNum, seed, secp256k1.ToInt(nonce))
 	require.NoError(t, err, "failed to generate VRF proof")
 	mproof, err := proof.MarshalForSolidityVerifier()
 	require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")

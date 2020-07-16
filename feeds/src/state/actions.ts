@@ -1,5 +1,21 @@
-import { SetAnswersAction, SetHealthPriceAction } from './ducks/listing/actions'
 import {
+  FetchFeedsBeginAction,
+  FetchFeedsSuccessAction,
+  FetchFeedsErrorAction,
+  FetchAnswerSuccessAction,
+  FetchHealthPriceSuccessAction,
+} from './ducks/listing/actions'
+import {
+  ClearStateAction,
+  FetchFeedByPairBeginAction,
+  FetchFeedByPairSuccessAction,
+  FetchFeedByPairErrorAction,
+  FetchFeedByAddressBeginAction,
+  FetchFeedByAddressSuccessAction,
+  FetchFeedByAddressErrorAction,
+  FetchOracleNodesBeginAction,
+  FetchOracleNodesSuccessAction,
+  FetchOracleNodesErrorAction,
   SetOracleListAction,
   SetLatestAnswerAction,
   SetLatestCompletedAnswerIdAction,
@@ -11,8 +27,6 @@ import {
   SetLatestAnswerTimestampAction,
   SetAnswersHistoryAction,
   SetCurrentAddressAction,
-  SetConfigAction,
-  SetClearStateAction,
   SetEthGasPriceAction,
 } from './ducks/aggregator/actions'
 import { SetTooltipAction, SetDrawerAction } from './ducks/networkGraph/actions'
@@ -23,8 +37,21 @@ export interface InitialStateAction {
 
 export type Actions =
   | InitialStateAction
-  | SetAnswersAction
-  | SetHealthPriceAction
+  | ClearStateAction
+  | FetchFeedsBeginAction
+  | FetchFeedsSuccessAction
+  | FetchFeedsErrorAction
+  | FetchAnswerSuccessAction
+  | FetchHealthPriceSuccessAction
+  | FetchFeedByPairBeginAction
+  | FetchFeedByPairSuccessAction
+  | FetchFeedByPairErrorAction
+  | FetchFeedByAddressBeginAction
+  | FetchFeedByAddressSuccessAction
+  | FetchFeedByAddressErrorAction
+  | FetchOracleNodesBeginAction
+  | FetchOracleNodesSuccessAction
+  | FetchOracleNodesErrorAction
   | SetOracleListAction
   | SetLatestAnswerAction
   | SetLatestCompletedAnswerIdAction
@@ -36,8 +63,6 @@ export type Actions =
   | SetLatestAnswerTimestampAction
   | SetAnswersHistoryAction
   | SetCurrentAddressAction
-  | SetConfigAction
-  | SetClearStateAction
   | SetEthGasPriceAction
   | SetTooltipAction
   | SetDrawerAction

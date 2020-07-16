@@ -74,7 +74,6 @@ func (gu *gasUpdater) Connect(bn *models.Head) error {
 }
 
 func (gu *gasUpdater) Disconnect() {
-	return
 }
 
 // OnNewHead recalculates and sets global gas price on every head

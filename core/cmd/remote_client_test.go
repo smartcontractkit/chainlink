@@ -15,7 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -173,7 +176,7 @@ func TestClient_CreateServiceAgreement(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 
-	sa := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	sa := cltest.MustHelloWorldAgreement(t)
 	endAtISO8601 := EndAt.Format(time.RFC3339)
 	sa = strings.Replace(sa, "2019-10-19T22:17:19Z", endAtISO8601, 1)
 	tmpFile, err := ioutil.TempFile("", "sa.*.json")
@@ -243,7 +246,9 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			assert.NoError(t, err)
 
 			var exi models.ExternalInitiator
-			err = app.Store.ORM.Where("name", test.args[0], &exi)
+			err = app.Store.RawDB(func(db *gorm.DB) error {
+				return db.Where("name = ?", test.args[0]).Find(&exi).Error
+			})
 			require.NoError(t, err)
 
 			if len(test.args) > 1 {
@@ -525,7 +530,7 @@ func TestClient_ShowBridge(t *testing.T) {
 
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	bt := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
@@ -745,10 +750,10 @@ func TestClient_ChangePassword(t *testing.T) {
 	set.String("file", "../internal/fixtures/apicredentials", "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = otherClient.RemoteLogin(c)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		ChangePasswordRequest: models.ChangePasswordRequest{
@@ -861,6 +866,7 @@ func TestClient_CreateExtraKey(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	kst := app.Store.KeyStore.(*mocks.KeyStoreInterface)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -874,7 +880,11 @@ func TestClient_CreateExtraKey(t *testing.T) {
 
 	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
 
+	kst.On("Unlock", cltest.Password).Return(nil)
+	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
 	assert.NoError(t, client.CreateExtraKey(c))
+
+	kst.AssertExpectations(t)
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {

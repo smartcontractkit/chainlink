@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
 import { FunctionFragment } from 'ethers/utils'
-import { JsonRpcProvider, Log } from 'ethers/providers'
+import { JsonRpcProvider, Log, Filter } from 'ethers/providers'
+import { Config } from '../config'
 import { networkName, Networks } from '../utils'
 
 /**
@@ -18,8 +19,6 @@ export function createContract(
   return new ethers.Contract(address, contractInterface, provider)
 }
 
-const REACT_APP_INFURA_KEY = process.env.REACT_APP_INFURA_KEY
-
 /**
  * Initialize the infura provider for the given network
  *
@@ -29,7 +28,8 @@ export function createInfuraProvider(
   networkId: Networks = Networks.MAINNET,
 ): JsonRpcProvider {
   const provider = new ethers.providers.JsonRpcProvider(
-    `https://${networkName(networkId)}.infura.io/v3/${REACT_APP_INFURA_KEY}`,
+    Config.devProvider() ??
+      `https://${networkName(networkId)}.infura.io/v3/${Config.infuraKey()}`,
   )
   provider.pollingInterval = 8000
 
@@ -54,11 +54,6 @@ export function formatAnswer(
   return formatted.toString()
 }
 
-interface Filter {
-  fromBlock: any
-  toBlock: any
-}
-
 interface ChainlinkEvent {
   decode: Function
 }
@@ -78,7 +73,7 @@ interface Query {
 export async function getLogs(
   { provider, filter, eventInterface }: Query,
   /* eslint-disable-next-line @typescript-eslint/no-empty-function */
-  cb = () => {},
+  cb: any = () => {},
 ): Promise<any[]> {
   const logs = await provider.getLogs(filter)
   const result = logs

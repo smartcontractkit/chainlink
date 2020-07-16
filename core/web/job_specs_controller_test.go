@@ -56,8 +56,8 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 	body := cltest.ParseResponseBody(t, resp)
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, metaCount)
+	require.NoError(t, err)
+	require.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
 	jobs := []models.JobSpec{}
@@ -79,7 +79,7 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
 
-	assert.Len(t, jobs, 1)
+	require.Len(t, jobs, 1)
 	assert.Equal(t, models.InitiatorWeb, jobs[0].Initiators[0].Type, "should have the same type")
 	assert.NotEqual(t, true, jobs[0].Initiators[0].Ran, "should ignore fields for other initiators")
 }
@@ -148,7 +148,7 @@ func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 }
 
 func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec, error) {
-	j1 := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j1 := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	j1.CreatedAt = time.Now().AddDate(0, 0, -1)
 	err := app.Store.CreateJob(&j1)
 	if err != nil {
@@ -410,7 +410,7 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Response should be caller error")
 
-	expected := `{"errors":[{"detail":"Cron: Failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
+	expected := `{"errors":[{"detail":"Cron: failed to parse int from !: strconv.Atoi: parsing \"!\": invalid syntax"}]}`
 	body := string(cltest.ParseResponseBody(t, resp))
 	assert.Equal(t, expected, strings.TrimSpace(body))
 }
@@ -491,7 +491,7 @@ func TestJobSpecsController_Show(t *testing.T) {
 }
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
 	jr1 := cltest.NewJobRun(j)
@@ -555,5 +555,30 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+}
+
+func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+	job1 := cltest.NewJobWithLogInitiator()
+	job2 := cltest.NewJobWithLogInitiator()
+	require.NoError(t, app.Store.CreateJob(&job1))
+	require.NoError(t, app.Store.CreateJob(&job2))
+
+	resp, cleanup := client.Delete("/v2/specs/" + job1.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJob(job1.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+
+	resp, cleanup = client.Delete("/v2/specs/" + job2.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJob(job2.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }

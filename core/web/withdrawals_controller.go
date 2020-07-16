@@ -34,14 +34,14 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 	}
 
 	if wr.Amount.Cmp(naz) < 0 {
-		err := fmt.Errorf("Must withdraw at least %v LINK", naz.String())
+		err := fmt.Errorf("must withdraw at least %v LINK", naz.String())
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	addressWasNotSpecifiedInRequest := utils.ZeroAddress
 	if wr.DestinationAddress == addressWasNotSpecifiedInRequest {
-		jsonAPIError(c, http.StatusBadRequest, errors.New("Invalid withdrawal address"))
+		jsonAPIError(c, http.StatusBadRequest, errors.New("invalid withdrawal address"))
 		return
 	}
 
@@ -55,7 +55,7 @@ func (abc *WithdrawalsController) Create(c *gin.Context) {
 
 	if linkBalance.Cmp(wr.Amount) < 0 {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf(
-			"Insufficient link balance. Withdrawal Amount: %v "+
+			"insufficient link balance. Withdrawal Amount: %v "+
 				"Link Balance: %v",
 			wr.Amount.String(), linkBalance.String()))
 		return

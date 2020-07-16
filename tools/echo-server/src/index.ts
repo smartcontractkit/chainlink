@@ -18,7 +18,7 @@ app.all('*', function(req, res) {
   res.json({ headers, body })
 })
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 6688
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 6688
 app.listen(port, function() {
   console.log(chalk.green(`echo_server listening on port ${port}`))
 })

@@ -2,20 +2,15 @@ package migrations_test
 
 import (
 	"fmt"
-	"math/big"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1560881855"
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1570675883"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -26,26 +21,8 @@ import (
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
-func bootstrapORM(t *testing.T) (*orm.ORM, func()) {
-	tc, cleanup := cltest.NewConfig(t)
-	config := tc.Config
-
-	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
-	cleanupDB := cltest.PrepareTestDB(tc)
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal())
-	require.NoError(t, err)
-	orm.SetLogging(true)
-
-	return orm, func() {
-		assert.NoError(t, orm.Close())
-		cleanup()
-		os.RemoveAll(config.RootDir())
-		cleanupDB()
-	}
-}
-
 func TestMigrate_Migrations(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -73,44 +50,8 @@ func TestMigrate_Migrations(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMigrate_Migration1560791143(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	err := orm.RawDB(func(db *gorm.DB) error {
-		require.NoError(t, migrations.MigrateTo(db, "0"))
-
-		tx := migration0.Tx{
-			ID:       1337,
-			Data:     make([]byte, 10),
-			Value:    utils.NewBig(big.NewInt(1)),
-			GasPrice: utils.NewBig(big.NewInt(127)),
-		}
-		require.NoError(t, db.Create(&tx).Error)
-
-		require.NoError(t, migrations.MigrateTo(db, "1559081901"))
-		txFound := models.Tx{}
-		require.NoError(t, db.Where("id = ?", tx.ID).Find(&txFound).Error)
-
-		require.NoError(t, migrations.MigrateTo(db, "1560791143"))
-
-		txNoID := models.Tx{
-			Data:     make([]byte, 10),
-			Value:    utils.NewBig(big.NewInt(2)),
-			GasPrice: utils.NewBig(big.NewInt(119)),
-		}
-		require.NoError(t, db.Create(&txNoID).Error)
-		assert.Equal(t, uint64(1338), txNoID.ID)
-
-		noIDTxFound := models.Tx{}
-		require.NoError(t, db.Where("id = ?", tx.ID).Find(&noIDTxFound).Error)
-		return nil
-	})
-	require.NoError(t, err)
-}
-
 func TestMigrate_Migration1560881855(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -143,7 +84,7 @@ INSERT INTO job_runs (id, job_spec_id, overrides_id) VALUES ('%s', '%s', (SELECT
 }
 
 func TestMigrate_Migration1560881846(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -166,33 +107,8 @@ func TestMigrate_Migration1560881846(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMigrate_Migration1565139192(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	err := orm.RawDB(func(db *gorm.DB) error {
-		require.NoError(t, migrations.MigrateTo(db, "1565139192"))
-
-		specNoPayment := models.NewJobFromRequest(models.JobSpecRequest{})
-		specWithPayment := models.NewJobFromRequest(models.JobSpecRequest{
-			MinPayment: assets.NewLink(5),
-		})
-		specOneFound := models.JobSpec{}
-		specTwoFound := models.JobSpec{}
-
-		require.NoError(t, db.Create(&specWithPayment).Error)
-		require.NoError(t, db.Create(&specNoPayment).Error)
-		require.NoError(t, db.Where("id = ?", specNoPayment.ID).Find(&specOneFound).Error)
-		require.Nil(t, specNoPayment.MinPayment)
-		require.NoError(t, db.Where("id = ?", specWithPayment.ID).Find(&specTwoFound).Error)
-		require.Equal(t, assets.NewLink(5), specWithPayment.MinPayment)
-		return nil
-	})
-	require.NoError(t, err)
-}
-
 func TestMigrate_Migration1565210496(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -223,7 +139,7 @@ func TestMigrate_Migration1565210496(t *testing.T) {
 }
 
 func TestMigrate_Migration1565291711(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -253,7 +169,7 @@ func TestMigrate_Migration1565291711(t *testing.T) {
 }
 
 func TestMigrate_Migration1565877314(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -277,46 +193,9 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMigrate_Migration1570675883(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
-	defer cleanup()
-
-	err := orm.RawDB(func(db *gorm.DB) error {
-		require.NoError(t, migrations.MigrateTo(db, "0"))
-
-		overrides := models.RunResult{
-			Data: cltest.JSONFromString(t, `{"a": "b"}`),
-		}
-		require.NoError(t, db.Create(&overrides).Error)
-
-		jobSpec := migration0.JobSpec{
-			ID:        utils.NewBytes32ID(),
-			CreatedAt: time.Now(),
-		}
-		require.NoError(t, db.Create(&jobSpec).Error)
-		jobRun := migration0.JobRun{
-			ID:             utils.NewBytes32ID(),
-			JobSpecID:      jobSpec.ID,
-			OverridesID:    uint(overrides.ID),
-			CreationHeight: "0",
-			ObservedHeight: "0",
-		}
-		require.NoError(t, db.Create(&jobRun).Error)
-
-		require.NoError(t, migrations.MigrateTo(db, "1570675883"))
-
-		jobRunFound := migration1570675883.JobRun{}
-		require.NoError(t, db.Where("id = ?", jobRun.ID).Find(&jobRunFound).Error)
-		assert.Equal(t, `{"a": "b"}`, jobRunFound.Overrides.String())
-		require.Error(t, db.Where("id = ?", overrides.ID).Find(&overrides).Error)
-		return nil
-	})
-	require.NoError(t, err)
-}
-
 func TestMigrate_Migration1586369235(t *testing.T) {
 	// Make sure that the data still reads OK afterward
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -358,7 +237,7 @@ func TestMigrate_Migration1586369235(t *testing.T) {
 }
 
 func TestMigrate_NewerVersionGuard(t *testing.T) {
-	orm, cleanup := bootstrapORM(t)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := orm.RawDB(func(db *gorm.DB) error {

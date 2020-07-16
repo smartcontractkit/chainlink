@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react'
 import { Icon } from 'antd'
+import { FeedConfig } from 'config'
+import React, { useEffect, useRef } from 'react'
 import DeviationHistoryD3 from './DeviationGraph.d3'
-import { FeedConfig } from 'feeds'
 
 interface StateProps {
   answerHistory: any

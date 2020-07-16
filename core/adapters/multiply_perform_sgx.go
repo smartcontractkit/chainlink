@@ -12,9 +12,10 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
+	"unsafe"
+
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"unsafe"
 
 	"github.com/pkg/errors"
 )

@@ -20,7 +20,7 @@ import (
 // Encumbrance connects job specifications with on-chain encumbrances.
 type Encumbrance struct {
 	// Corresponds to requestDigest in solidity ServiceAgreement struct
-	ID uint `json:"-" gorm:"primary_key;auto_increment"`
+	ID int64 `json:"-" gorm:"primary_key;auto_increment"`
 	// Price to request a report based on this agreement
 	Payment *assets.Link `json:"payment,omitempty"`
 	// Expiration is the amount of time an oracle has to answer a request
@@ -35,6 +35,8 @@ type Encumbrance struct {
 	AggInitiateJobSelector eth.FunctionSelector `json:"aggInitiateJobSelector" gorm:"not null"`
 	// selector for fulfillment (oracle reporting) method on aggregator contract
 	AggFulfillSelector eth.FunctionSelector `json:"aggFulfillSelector" gorm:"not null"`
+	CreatedAt          time.Time            `json:"-"`
+	UpdatedAt          time.Time            `json:"-"`
 }
 
 // UnsignedServiceAgreement contains the information to sign a service agreement
@@ -50,11 +52,12 @@ type ServiceAgreement struct {
 	ID            string      `json:"id" gorm:"primary_key"`
 	CreatedAt     time.Time   `json:"createdAt" gorm:"index"`
 	Encumbrance   Encumbrance `json:"encumbrance"`
-	EncumbranceID uint        `json:"-"`
+	EncumbranceID int64       `json:"-"`
 	RequestBody   string      `json:"requestBody"`
 	Signature     Signature   `json:"signature" gorm:"type:varchar(255)"`
 	JobSpec       JobSpec     `gorm:"foreignkey:JobSpecID"`
 	JobSpecID     *ID         `json:"jobSpecId"`
+	UpdatedAt     time.Time   `json:"-"`
 }
 
 // ServiceAgreementRequest encodes external ServiceAgreement json representation.

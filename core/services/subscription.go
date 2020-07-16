@@ -149,8 +149,8 @@ func runJob(runManager RunManager, le models.LogRequest) {
 	initiator := le.GetInitiator()
 
 	if err := le.ValidateRequester(); err != nil {
-		if _, err := runManager.CreateErrored(jobSpecID, initiator, err); err != nil {
-			logger.Errorw(err.Error())
+		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
+			logger.Errorw(e.Error())
 		}
 		logger.Errorw(err.Error(), le.ForLogger()...)
 		return
@@ -158,8 +158,8 @@ func runJob(runManager RunManager, le models.LogRequest) {
 
 	rr, err := le.RunRequest()
 	if err != nil {
-		if _, err := runManager.CreateErrored(jobSpecID, initiator, err); err != nil {
-			logger.Errorw(err.Error())
+		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
+			logger.Errorw(e.Error())
 		}
 		logger.Errorw(err.Error(), le.ForLogger()...)
 		return

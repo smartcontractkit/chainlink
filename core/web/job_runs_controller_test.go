@@ -469,7 +469,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
 	jr := cltest.NewJobRun(j)
@@ -550,8 +550,8 @@ func TestJobRunsController_Cancel(t *testing.T) {
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-		run, err := app.Store.FindJobRun(run.ID)
+		r, err := app.Store.FindJobRun(run.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, models.RunStatusCancelled, run.GetStatus())
+		assert.Equal(t, models.RunStatusCancelled, r.GetStatus())
 	})
 }

@@ -32,23 +32,23 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, StatusCodeForError(err), err)
 		return
 	}
-	if err := services.ValidateBridgeType(btr, btc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+	if e := services.ValidateBridgeType(btr, btc.App.GetStore()); e != nil {
+		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
-	if err := services.ValidateBridgeTypeNotExist(btr, btc.App.GetStore()); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+	if e := services.ValidateBridgeTypeNotExist(btr, btc.App.GetStore()); e != nil {
+		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
-	if err := btc.App.GetStore().CreateBridgeType(bt); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if e := btc.App.GetStore().CreateBridgeType(bt); e != nil {
+		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
 	switch err.(type) {
 	case *pq.Error:
 		var apiErr error
 		if err.(pq.Error).Constraint == "external_initiators_name_key" {
-			apiErr = fmt.Errorf("Bridge Type %v conflict", bt.Name)
+			apiErr = fmt.Errorf("bridge Type %v conflict", bt.Name)
 		} else {
 			apiErr = err
 		}
@@ -141,16 +141,16 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("Error searching for bridge for BTC Destroy: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge for BTC Destroy: %+v", err))
 		return
 	}
 	jobFounds, err := btc.App.GetStore().AnyJobWithType(name)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("Error searching for associated jobs for BTC Destroy: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated jobs for BTC Destroy: %+v", err))
 		return
 	}
 	if jobFounds {
-		jsonAPIError(c, http.StatusConflict, fmt.Errorf("Can't remove the bridge because there are jobs associated with it: %+v", err))
+		jsonAPIError(c, http.StatusConflict, fmt.Errorf("can't remove the bridge because there are jobs associated with it: %+v", err))
 		return
 	}
 	if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {

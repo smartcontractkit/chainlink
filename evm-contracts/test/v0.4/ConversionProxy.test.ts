@@ -40,29 +40,37 @@ describe('ConversionProxy', () => {
   const ethDecimals = 18
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<AggregatorFactory>
-  let aggregatorFiat: contract.Instance<AggregatorFactory>
-  let aggregatorEth: contract.Instance<AggregatorFactory>
+  let aggregator: contract.CallableOverrideInstance<AggregatorFactory>
+  let aggregatorFiat: contract.CallableOverrideInstance<AggregatorFactory>
+  let aggregatorEth: contract.CallableOverrideInstance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
-  let proxy: contract.Instance<ConversionProxyFactory>
+  let proxy: contract.CallableOverrideInstance<ConversionProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = await aggregatorFactory
-      .connect(defaultAccount)
-      .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
-    aggregatorFiat = await aggregatorFactory
-      .connect(defaultAccount)
-      .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
-    aggregatorEth = await aggregatorFactory
-      .connect(defaultAccount)
-      .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+    aggregator = contract.callableAggregator(
+      await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+    )
+    aggregatorFiat = contract.callableAggregator(
+      await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+    )
+    aggregatorEth = contract.callableAggregator(
+      await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+    )
     await link.transfer(aggregator.address, deposit)
     await link.transfer(aggregatorFiat.address, deposit)
     await link.transfer(aggregatorEth.address, deposit)
-    proxy = await conversionProxyFactory
-      .connect(defaultAccount)
-      .deploy(fiatDecimals, aggregator.address, aggregatorFiat.address)
+    proxy = contract.callableAggregator(
+      await conversionProxyFactory
+        .connect(defaultAccount)
+        .deploy(fiatDecimals, aggregator.address, aggregatorFiat.address),
+    )
   }) // 690110508578
 
   beforeEach(async () => {

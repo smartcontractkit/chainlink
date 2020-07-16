@@ -4,11 +4,7 @@ import {
   ADMIN_USERNAME_HEADER,
   ADMIN_PASSWORD_HEADER,
 } from '../utils/constants'
-
-const EXPLORER_BASE_URL =
-  process.env.EXPLORER_BASE_URL || 'http://localhost:8080'
-const EXPLORER_ADMIN_USERNAME = process.env.EXPLORER_ADMIN_USERNAME
-const EXPLORER_ADMIN_PASSWORD = process.env.EXPLORER_ADMIN_PASSWORD
+import { Config } from '../config'
 
 interface CreateChainlinkNode {
   name: string
@@ -38,14 +34,14 @@ function logNotFound() {
 }
 
 export const add = async (name: string, url?: string) => {
-  const createNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes`
+  const createNodeUrl = `${Config.baseUrl()}/api/v1/admin/nodes`
   const data: CreateChainlinkNode = { name, url }
   const response = await fetch(createNodeUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      [ADMIN_USERNAME_HEADER]: EXPLORER_ADMIN_USERNAME,
-      [ADMIN_PASSWORD_HEADER]: EXPLORER_ADMIN_PASSWORD,
+      [ADMIN_USERNAME_HEADER]: Config.adminUsername(),
+      [ADMIN_PASSWORD_HEADER]: Config.adminPassword(),
     },
     body: JSON.stringify(data),
   })
@@ -76,13 +72,13 @@ export const add = async (name: string, url?: string) => {
 }
 
 export const remove = async (name: string) => {
-  const deleteNodeUrl = `${EXPLORER_BASE_URL}/api/v1/admin/nodes/${name}`
+  const deleteNodeUrl = `${Config.baseUrl()}/api/v1/admin/nodes/${name}`
   const response = await fetch(deleteNodeUrl, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
-      [ADMIN_USERNAME_HEADER]: EXPLORER_ADMIN_USERNAME,
-      [ADMIN_PASSWORD_HEADER]: EXPLORER_ADMIN_PASSWORD,
+      [ADMIN_USERNAME_HEADER]: Config.adminUsername(),
+      [ADMIN_PASSWORD_HEADER]: Config.adminPassword(),
     },
   })
 

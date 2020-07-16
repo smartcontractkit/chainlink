@@ -2,6 +2,10 @@
   "extends": "../tsconfig.es6.json",
   "compilerOptions": {
     "baseUrl": "src",
+    "incremental": false,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
     "noEmit": true,
     "allowJs": true,
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -13,6 +17,7 @@
   "include": ["src", "src/**/*.json", "@types"],
   "references": [
     { "path": "../tools/redux" },
-    { "path": "../tools/ts-helpers" }
+    { "path": "../tools/ts-helpers" },
+    { "path": "../tools/json-api-client" }
   ]
 }

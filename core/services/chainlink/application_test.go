@@ -15,9 +15,7 @@ import (
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, appCleanUp := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
+	app, appCleanUp := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer appCleanUp()
 
 	completed := abool.New()

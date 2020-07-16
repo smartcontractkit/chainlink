@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../dev/AggregatorInterface.sol";
+import "../interfaces/AggregatorInterface.sol";
 
 /**
  * @title The MockAggregator contract
@@ -17,6 +17,7 @@ contract MockAggregator is AggregatorInterface {
 
   mapping(uint256 => int256) public override getAnswer;
   mapping(uint256 => uint256) public override getTimestamp;
+  mapping(uint256 => uint256) private getStartedAt;
 
   constructor(
     uint8 _decimals,
@@ -34,5 +35,59 @@ contract MockAggregator is AggregatorInterface {
     latestRound++;
     getAnswer[latestRound] = _answer;
     getTimestamp[latestRound] = block.timestamp;
+  }
+
+  function updateRoundData(
+    uint256 _roundId,
+    int256 _answer,
+    uint256 _timestamp,
+    uint256 _startedAt
+  ) public {
+    latestRound = _roundId;
+    latestAnswer = _answer;
+    latestTimestamp = _timestamp;
+    getAnswer[latestRound] = _answer;
+    getTimestamp[latestRound] = _timestamp;
+    getStartedAt[latestRound] = _startedAt;
+  }
+
+  function getRoundData(uint256 _roundId)
+    external
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return (
+      _roundId,
+      getAnswer[_roundId],
+      getStartedAt[_roundId],
+      getTimestamp[_roundId],
+      _roundId
+    );
+  }
+
+  function latestRoundData()
+    external
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return (
+      latestRound,
+      getAnswer[latestRound],
+      getStartedAt[latestRound],
+      getTimestamp[latestRound],
+      latestRound
+    );
   }
 }

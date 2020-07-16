@@ -160,7 +160,7 @@ describe('Whitelisted', () => {
     })
 
     it('reverts when called by a non-owner', async () => {
-      matchers.evmRevert(
+      await matchers.evmRevert(
         whitelisted.connect(personas.Eddy).enableWhitelist(),
         'Only callable by owner',
       )
@@ -202,7 +202,7 @@ describe('Whitelisted', () => {
     })
 
     it('reverts when called by a non-owner', async () => {
-      matchers.evmRevert(
+      await matchers.evmRevert(
         whitelisted.connect(personas.Eddy).disableWhitelist(),
         'Only callable by owner',
       )

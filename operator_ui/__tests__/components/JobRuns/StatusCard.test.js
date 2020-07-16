@@ -28,14 +28,16 @@ describe('components/JobRuns/StatusCard', () => {
   }
   it('converts the given title to title case', () => {
     const component = mountWithTheme(
-      <StatusCard title={'pending_confirmations'} />,
+      <StatusCard title={'pending_incoming_confirmations'} />,
     )
-    expect(component.text()).toContain('Pending Confirmations')
+    expect(component.text()).toContain('Pending Incoming Confirmations')
   })
 
   it('can display children', () => {
     const withChildren = mountWithTheme(
-      <StatusCard title={'pending_confirmations'}>I am a child</StatusCard>,
+      <StatusCard title={'pending_incoming_confirmations'}>
+        I am a child
+      </StatusCard>,
     )
     expect(withChildren.text()).toContain('I am a child')
   })
@@ -78,7 +80,7 @@ describe('components/JobRuns/StatusCard', () => {
       <StatusCard title="errored" jobRun={erroredRun} />,
     )
     const pendingStatus = mountWithTheme(
-      <StatusCard title="pending_confirmations" jobRun={pendingRun} />,
+      <StatusCard title="pending_incoming_confirmations" jobRun={pendingRun} />,
     )
     expect(erroredStatus.text()).not.toContain('Link')
     expect(pendingStatus.text()).not.toContain('Link')

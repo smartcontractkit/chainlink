@@ -20,11 +20,8 @@ import (
 func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
-	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	app.Start()
-	err := app.Store.SaveUser(&user)
-	assert.NoError(t, err)
 	defer cleanup()
 
 	config := app.Store.Config
@@ -35,9 +32,9 @@ func TestSessionsController_Create(t *testing.T) {
 		password    string
 		wantSession bool
 	}{
-		{"incorrect pwd", "email@test.net", "incorrect", false},
-		{"incorrect email", "incorrect@test.net", "password123", false},
-		{"correct", "email@test.net", "password123", true},
+		{"incorrect pwd", cltest.APIEmail, "incorrect", false},
+		{"incorrect email", "incorrect@test.net", cltest.Password, false},
+		{"correct", cltest.APIEmail, cltest.Password, true},
 	}
 
 	for _, test := range tests {
@@ -67,7 +64,8 @@ func TestSessionsController_Create(t *testing.T) {
 				assert.Contains(t, string(b), `"attributes":{"authenticated":true}`)
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
-				sessions, err := app.Store.Sessions(0, 1)
+				// Ignore fixture session
+				sessions, err := app.Store.Sessions(1, 2)
 				assert.NoError(t, err)
 				assert.Empty(t, sessions)
 			}
@@ -78,18 +76,15 @@ func TestSessionsController_Create(t *testing.T) {
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	app.Start()
-	err := app.Store.SaveUser(&user)
-	assert.NoError(t, err)
 	defer cleanup()
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	require.NoError(t, app.Store.SaveSession(&staleSession))
 
-	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, "email@test.net", "password123")
+	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
 	assert.NoError(t, err)
 	defer resp.Body.Close()
@@ -98,6 +93,9 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
 		sessions, err := app.Store.Sessions(0, 10)
 		assert.NoError(t, err)
+		for _, session := range sessions {
+			assert.NotEqual(t, session.ID, staleSession.ID)
+		}
 		return sessions
 	}).Should(gomega.HaveLen(1))
 }
@@ -105,11 +103,8 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
-	seedUser := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
-	err := app.Store.SaveUser(&seedUser)
-	assert.NoError(t, err)
+	require.NoError(t, app.Start())
 
 	correctSession := models.NewSession()
 	require.NoError(t, app.Store.SaveSession(&correctSession))
@@ -150,13 +145,9 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	client := http.Client{}
-	user := cltest.MustUser("email@test.net", "password123")
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
-
-	app.Start()
-	err := app.Store.SaveUser(&user)
-	assert.NoError(t, err)
+	require.NoError(t, app.Start())
 
 	correctSession := models.NewSession()
 	require.NoError(t, app.Store.SaveSession(&correctSession))

@@ -15,6 +15,7 @@ import (
 // ConfigReader represents just the read side of the config
 type ConfigReader interface {
 	AllowOrigins() string
+	BlockBackfillDepth() uint64
 	BridgeResponseURL() *url.URL
 	ChainID() *big.Int
 	ClientNodeURL() string
@@ -53,6 +54,7 @@ type ConfigReader interface {
 	MinOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
+	MigrateDatabase() bool
 	Port() uint16
 	ReaperExpiration() models.Duration
 	RootDir() string

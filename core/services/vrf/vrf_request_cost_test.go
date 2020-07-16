@@ -1,6 +1,7 @@
-package vrf
+package vrf_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,7 +14,7 @@ func TestMeasureRandomnessRequestGasCost(t *testing.T) {
 
 	estimate := estimateGas(t, coordinator.backend, common.Address{},
 		coordinator.consumerContractAddress, coordinator.consumerABI,
-		"requestRandomness", common.BytesToHash(keyHash_[:]), fee, one)
+		"requestRandomness", common.BytesToHash(keyHash_[:]), fee, big.NewInt(1))
 
 	assert.Greater(t, estimate, uint64(174000),
 		"requestRandomness tx gas cost lower than expected")

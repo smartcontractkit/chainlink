@@ -22,7 +22,7 @@ func ExampleRun() {
 		KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
-		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config, "session"),
 		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},
 	}
 

@@ -178,34 +178,6 @@ func (_m *Application) NewBox() packr.Box {
 	return r0
 }
 
-// ResumeAllConfirming provides a mock function with given fields: currentBlockHeight
-func (_m *Application) ResumeAllConfirming(currentBlockHeight *big.Int) error {
-	ret := _m.Called(currentBlockHeight)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
-		r0 = rf(currentBlockHeight)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// ResumeAllConnecting provides a mock function with given fields:
-func (_m *Application) ResumeAllConnecting() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // ResumeAllInProgress provides a mock function with given fields:
 func (_m *Application) ResumeAllInProgress() error {
 	ret := _m.Called()
@@ -220,8 +192,36 @@ func (_m *Application) ResumeAllInProgress() error {
 	return r0
 }
 
-// ResumePending provides a mock function with given fields: runID, input
-func (_m *Application) ResumePending(runID *models.ID, input models.BridgeRunResult) error {
+// ResumeAllPendingConnection provides a mock function with given fields:
+func (_m *Application) ResumeAllPendingConnection() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ResumeAllPendingNextBlock provides a mock function with given fields: currentBlockHeight
+func (_m *Application) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
+	ret := _m.Called(currentBlockHeight)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
+		r0 = rf(currentBlockHeight)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ResumePendingBridge provides a mock function with given fields: runID, input
+func (_m *Application) ResumePendingBridge(runID *models.ID, input models.BridgeRunResult) error {
 	ret := _m.Called(runID, input)
 
 	var r0 error

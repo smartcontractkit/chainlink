@@ -63,9 +63,10 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			continue
 		}
 
-		if meetsMinimumConfirmations(&run, taskRun, run.ObservedHeight) {
+		if meetsMinRequiredIncomingConfirmations(&run, taskRun, run.ObservedHeight) {
 			start := time.Now()
 
+			// NOTE: adapters may define and return the new job run status in here
 			result := re.executeTask(&run, taskRun)
 
 			taskRun.ApplyOutput(result)
@@ -76,15 +77,15 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			logger.Debugw(fmt.Sprintf("Executed task %s", taskRun.TaskSpec.Type), run.ForLogger("task", taskRun.ID.String(), "elapsed", elapsed)...)
 
 		} else {
-			logger.Debugw("Pausing run pending confirmations",
-				run.ForLogger("required_height", taskRun.MinimumConfirmations)...,
+			logger.Debugw("Pausing run pending incoming confirmations",
+				run.ForLogger("required_height", taskRun.MinRequiredIncomingConfirmations)...,
 			)
-			taskRun.Status = models.RunStatusPendingConfirmations
-			run.SetStatus(models.RunStatusPendingConfirmations)
+			taskRun.Status = models.RunStatusPendingIncomingConfirmations
+			run.SetStatus(models.RunStatusPendingIncomingConfirmations)
 
 		}
 
-		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.OptimisticUpdateConflictError {
+		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.ErrOptimisticUpdateConflict {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {

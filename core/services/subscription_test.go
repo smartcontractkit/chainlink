@@ -29,7 +29,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store, cltest.NoRegisterGetBlockNumber)
+	eth := cltest.MockEthOnStore(t, store)
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
@@ -57,7 +57,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store, cltest.NoRegisterGetBlockNumber)
+	eth := cltest.MockEthOnStore(t, store)
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
@@ -79,7 +79,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store, cltest.NoRegisterGetBlockNumber)
+	eth := cltest.MockEthOnStore(t, store)
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
@@ -212,7 +212,7 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			eth := cltest.MockEthOnStore(t, store, cltest.NoRegisterGetBlockNumber)
+			eth := cltest.MockEthOnStore(t, store)
 			eth.Register("eth_getLogs", []ethpkg.Log{})
 			logChan := make(chan ethpkg.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
@@ -280,7 +280,7 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			eth := cltest.MockEthOnStore(t, store, cltest.NoRegisterGetBlockNumber)
+			eth := cltest.MockEthOnStore(t, store)
 			eth.Register("eth_getLogs", []ethpkg.Log{})
 			logChan := make(chan ethpkg.Log, 1)
 			eth.RegisterSubscription("logs", logChan)

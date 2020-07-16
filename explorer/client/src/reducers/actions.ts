@@ -1,11 +1,4 @@
-/**
- * NOTIFY_ERROR
- */
-
-export interface NotifyErrorAction {
-  type: 'NOTIFY_ERROR'
-  text: string
-}
+import * as jsonapi from '@chainlink/json-api-client'
 
 /**
  * ADMIN_SIGNIN_SUCCEEDED
@@ -24,7 +17,7 @@ export interface FetchAdminSigninSucceededAction {
 
 export interface FetchAdminSigninErrorAction {
   type: 'FETCH_ADMIN_SIGNIN_ERROR'
-  error: Error
+  errors: jsonapi.ErrorItem[]
 }
 
 /**
@@ -33,6 +26,14 @@ export interface FetchAdminSigninErrorAction {
 
 export interface FetchAdminSignoutSucceededAction {
   type: 'FETCH_ADMIN_SIGNOUT_SUCCEEDED'
+}
+
+/**
+ * FETCH_ADMIN_OPERATORS_BEGIN
+ */
+
+export type FetchAdminOperatorsBeginAction = {
+  type: 'FETCH_ADMIN_OPERATORS_BEGIN'
 }
 
 /**
@@ -64,7 +65,15 @@ export type FetchAdminOperatorsSucceededAction = {
 
 export type FetchAdminOperatorsErrorAction = {
   type: 'FETCH_ADMIN_OPERATORS_ERROR'
-  error: Error
+  errors: jsonapi.ErrorItem[]
+}
+
+/**
+ * FETCH_ADMIN_OPERATOR_BEGIN
+ */
+
+export type FetchAdminOperatorBeginAction = {
+  type: 'FETCH_ADMIN_OPERATOR_BEGIN'
 }
 
 /**
@@ -85,6 +94,23 @@ export interface AdminOperatorNormalizedData {
 export type FetchAdminOperatorSucceededAction = {
   type: 'FETCH_ADMIN_OPERATOR_SUCCEEDED'
   data: AdminOperatorNormalizedData
+}
+
+/**
+ * FETCH_ADMIN_OPERATOR_ERROR
+ */
+
+export type FetchAdminOperatorErrorAction = {
+  type: 'FETCH_ADMIN_OPERATOR_ERROR'
+  errors: jsonapi.ErrorItem[]
+}
+
+/**
+ * FETCH_ADMIN_HEADS_BEGIN
+ */
+
+export type FetchAdminHeadsBeginAction = {
+  type: 'FETCH_ADMIN_HEADS_BEGIN'
 }
 
 /**
@@ -116,7 +142,15 @@ export interface AdminHeadsNormalizedData {
 
 export type FetchAdminHeadsErrorAction = {
   type: 'FETCH_ADMIN_HEADS_ERROR'
-  error: Error
+  errors: jsonapi.ErrorItem[]
+}
+
+/**
+ * FETCH_ADMIN_HEAD_BEGIN
+ */
+
+export type FetchAdminHeadBeginAction = {
+  type: 'FETCH_ADMIN_HEAD_BEGIN'
 }
 
 /**
@@ -145,7 +179,15 @@ export type FetchAdminHeadSucceededAction = {
 
 export type FetchAdminHeadErrorAction = {
   type: 'FETCH_ADMIN_HEAD_ERROR'
-  error: Error
+  errors: jsonapi.ErrorItem[]
+}
+
+/**
+ * FETCH_JOB_RUNS_BEGIN
+ */
+
+export type FetchJobRunsBeginAction = {
+  type: 'FETCH_JOB_RUNS_BEGIN'
 }
 
 /**
@@ -173,6 +215,23 @@ export type FetchJobRunsSucceededAction = {
 }
 
 /**
+ * FETCH_JOB_RUNS_ERROR
+ */
+
+export type FetchJobRunsErrorAction = {
+  type: 'FETCH_JOB_RUNS_ERROR'
+  errors: jsonapi.ErrorItem[]
+}
+
+/**
+ * FETCH_JOB_RUN_BEGIN
+ */
+
+export type FetchJobRunBeginAction = {
+  type: 'FETCH_JOB_RUN_BEGIN'
+}
+
+/**
  * FETCH_JOB_RUN_SUCCEEDED
  */
 
@@ -192,23 +251,44 @@ export interface FetchJobRunSucceededAction {
   data: JobRunNormalizedData
 }
 
+/**
+ * FETCH_JOB_RUN_ERROR
+ */
+
+export type FetchJobRunErrorAction = {
+  type: 'FETCH_JOB_RUN_ERROR'
+  errors: jsonapi.ErrorItem[]
+}
+
+/**
+ * QUERY_UPDATED
+ */
+
 export interface UpdateQueryAction {
   type: 'QUERY_UPDATED'
   data?: string
 }
 
 export type Actions =
-  | NotifyErrorAction
   | FetchAdminSigninSucceededAction
   | FetchAdminSigninErrorAction
   | FetchAdminSignoutSucceededAction
+  | FetchAdminOperatorsBeginAction
   | FetchAdminOperatorsSucceededAction
   | FetchAdminOperatorsErrorAction
+  | FetchAdminOperatorBeginAction
   | FetchAdminOperatorSucceededAction
+  | FetchAdminOperatorErrorAction
+  | FetchAdminHeadsBeginAction
   | FetchAdminHeadsSucceededAction
   | FetchAdminHeadsErrorAction
+  | FetchAdminHeadBeginAction
   | FetchAdminHeadSucceededAction
   | FetchAdminHeadErrorAction
+  | FetchJobRunsBeginAction
   | FetchJobRunsSucceededAction
+  | FetchJobRunsErrorAction
+  | FetchJobRunBeginAction
   | FetchJobRunSucceededAction
+  | FetchJobRunErrorAction
   | UpdateQueryAction

@@ -39,26 +39,29 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586163842"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586342453"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586369235"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586871710"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586939705"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586949323"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1586956053"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587027516"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587580235"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587591248"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1587975059"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588088353"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588293486"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588757164"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588853064"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1589470036"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	gormigrate "gopkg.in/gormigrate.v1"
 )
 
-// Migrate iterates through available migrations, running and tracking
-// migrations that have not been run.
-func Migrate(db *gorm.DB) error {
-	return MigrateTo(db, "")
-}
+var migrations []*gormigrate.Migration
 
-// MigrateTo runs all migrations up to and including the specified migration ID
-func MigrateTo(db *gorm.DB, migrationID string) error {
-	options := *gormigrate.DefaultOptions
-	options.UseTransaction = true
-
-	migrations := []*gormigrate.Migration{
+func init() {
+	migrations = []*gormigrate.Migration{
 		{
 			ID:      "0",
 			Migrate: migration0.Migrate,
@@ -210,7 +213,74 @@ func MigrateTo(db *gorm.DB, migrationID string) error {
 			ID:      "1587027516",
 			Migrate: migration1587027516.Migrate,
 		},
+		{
+			ID:      "1587580235",
+			Migrate: migration1587580235.Migrate,
+		},
+		{
+			ID:      "1587591248",
+			Migrate: migration1587591248.Migrate,
+		},
+		{
+			ID:      "1587975059",
+			Migrate: migration1587975059.Migrate,
+		},
+		{
+			ID:      "1586956053",
+			Migrate: migration1586956053.Migrate,
+		},
+		{
+			ID:      "1588293486",
+			Migrate: migration1588293486.Migrate,
+		},
+		{
+			ID:      "1586949323",
+			Migrate: migration1586949323.Migrate,
+		},
+		{
+			ID:      "1588088353",
+			Migrate: migration1588088353.Migrate,
+		},
+		{
+			ID:      "1588757164",
+			Migrate: migration1588757164.Migrate,
+		},
+		{
+			ID:      "1588853064",
+			Migrate: migration1588853064.Migrate,
+		},
+		{
+			ID:      "1589470036",
+			Migrate: migration1589470036.Migrate,
+		},
+		{
+			ID:      "1586871710",
+			Migrate: migration1586871710.Migrate,
+		},
 	}
+}
+
+// GORMMigrate calls through to gorm's native migrate function with minimal
+// extra logic
+// Useful if the migrations table doesn't exist yet but we don't care
+func GORMMigrate(db *gorm.DB) error {
+	options := *gormigrate.DefaultOptions
+	options.UseTransaction = true
+
+	m := gormigrate.New(db, &options, migrations)
+	return m.Migrate()
+}
+
+// Migrate iterates through available migrations, running and tracking
+// migrations that have not been run.
+func Migrate(db *gorm.DB) error {
+	return MigrateTo(db, "")
+}
+
+// MigrateTo runs all migrations up to and including the specified migration ID
+func MigrateTo(db *gorm.DB, migrationID string) error {
+	options := *gormigrate.DefaultOptions
+	options.UseTransaction = true
 
 	m := gormigrate.New(db, &options, migrations)
 

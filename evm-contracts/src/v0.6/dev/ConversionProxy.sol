@@ -1,8 +1,8 @@
 pragma solidity 0.6.2;
 
-import "../dev/SignedSafeMath.sol";
-import "./AggregatorInterface.sol";
+import "./SignedSafeMath.sol";
 import "../Owned.sol";
+import "../interfaces/AggregatorInterface.sol";
 
 /**
  * @title The ConversionProxy contract for Solidity v0.6
@@ -66,7 +66,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * @return The converted answer with amount of precision as defined
    * by `decimals` of the `to` aggregator
    */
-  function latestAnswer() external view virtual override returns (int256) {
+  function latestAnswer()
+    external
+    virtual
+    override
+    returns (int256)
+  {
     return _latestAnswer();
   }
 
@@ -75,7 +80,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * aggregator
    * @return The value of latestTimestamp for the `from` aggregator
    */
-  function latestTimestamp() external view virtual override returns (uint256) {
+  function latestTimestamp()
+    external
+    virtual
+    override
+    returns (uint256)
+  {
     return _latestTimestamp();
   }
 
@@ -84,7 +94,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * aggregator
    * @return The value of latestRound for the `from` aggregator
    */
-  function latestRound() external view virtual override returns (uint256) {
+  function latestRound()
+    external
+    virtual
+    override
+    returns (uint256)
+  {
     return _latestRound();
   }
 
@@ -95,7 +110,12 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * aggregator with the amount of precision as defined by `decimals`
    * of the `to` aggregator
    */
-  function getAnswer(uint256 _roundId) external view virtual override returns (int256) {
+  function getAnswer(uint256 _roundId)
+    external
+    virtual
+    override
+    returns (int256)
+  {
     return _getAnswer(_roundId);
   }
 
@@ -105,36 +125,166 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * @return The timestamp of the `from` aggregator for the specified
    * `_roundId`
    */
-  function getTimestamp(uint256 _roundId) external view virtual override returns (uint256) {
+  function getTimestamp(uint256 _roundId)
+    external
+    virtual
+    override
+    returns (uint256)
+  {
     return _getTimestamp(_roundId);
+  }
+
+  /**
+   * @notice get data about a round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * @param _roundId the round ID to retrieve the round data for
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
+   */
+  function getRoundData(uint256 _roundId)
+    external
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRoundData(_roundId);
+  }
+
+  /**
+   * @notice get data about the latest round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started. This is 0
+   * if the round hasn't been started yet.
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed. answeredInRound may be smaller than roundId when the round
+   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * and was completed regularly.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
+   * maxSubmissions) answer and updatedAt may change between queries.
+   */
+  function latestRoundData()
+    external
+    virtual
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _latestRoundData();
   }
 
   /**
    * @notice Calls the `decimals()` function of the `to` aggregator
    * @return The amount of precision the converted answer will contain
    */
-  function decimals() external view override returns (uint8) {
+  function decimals()
+    external
+    override
+    returns (uint8)
+  {
     return to.decimals();
   }
 
-  function _latestAnswer() internal view returns (int256) {
+
+  function _latestAnswer()
+    internal
+    returns (int256)
+  {
     return convertAnswer(from.latestAnswer());
   }
 
-  function _latestTimestamp() internal view returns (uint256) {
+  function _latestTimestamp()
+    internal
+    returns (uint256)
+  {
     return from.latestTimestamp();
   }
 
-  function _latestRound() internal view returns (uint256) {
+  function _latestRound()
+    internal
+    returns (uint256)
+  {
     return from.latestRound();
   }
 
-  function _getAnswer(uint256 _roundId) internal view returns (int256) {
+  function _getAnswer(uint256 _roundId)
+    internal
+    returns (int256)
+  {
     return convertAnswer(from.getAnswer(_roundId));
   }
 
-  function _getTimestamp(uint256 _roundId) internal view returns (uint256) {
+  function _getTimestamp(uint256 _roundId)
+    internal
+    returns (uint256)
+  {
     return from.getTimestamp(_roundId);
+  }
+
+  function _getRoundData(uint256 _roundId)
+    internal
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    uint256 roundIdFrom;
+    int256 answerFrom;
+    uint256 startedAtFrom;
+    uint256 updatedAtFrom;
+    uint256 answeredInRoundFrom;
+
+    (roundIdFrom, answerFrom, startedAtFrom, updatedAtFrom, answeredInRoundFrom) = from.getRoundData(_roundId);
+    return (roundIdFrom, convertAnswer(answerFrom), startedAtFrom, updatedAtFrom, answeredInRoundFrom);
+  }
+
+  function _latestRoundData()
+    internal
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    uint256 roundIdFrom;
+    int256 answerFrom;
+    uint256 startedAtFrom;
+    uint256 updatedAtFrom;
+    uint256 answeredInRoundFrom;
+
+    (roundIdFrom, answerFrom, startedAtFrom, updatedAtFrom, answeredInRoundFrom) = from.getRoundData(_latestRound());
+    return (roundIdFrom, convertAnswer(answerFrom), startedAtFrom, updatedAtFrom, answeredInRoundFrom);
   }
 
   /**
@@ -144,7 +294,10 @@ contract ConversionProxy is AggregatorInterface, Owned {
    * @param _answerFrom The answer of the `from` aggregator
    * @return The converted answer
    */
-  function convertAnswer(int256 _answerFrom) internal view returns (int256) {
+  function convertAnswer(int256 _answerFrom)
+    internal
+    returns (int256)
+  {
     return _answerFrom.mul(to.latestAnswer()).div(int256(10 ** uint256(to.decimals())));
   }
 }

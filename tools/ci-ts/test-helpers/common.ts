@@ -218,32 +218,6 @@ export async function txWait(
 }
 
 /**
- * forces parity to mimic geth's behavior of mining a block every two seconds, by broadcasting a transaction
- * at the same interval from the provided account
- * @param wallet the account to send transactions from
- * @param interval the target interval at which to send those transactions
- */
-export function setRecurringTx(wallet: ethers.Wallet, interval = 2000): number {
-  let waitingForTx = false
-
-  const maybeBroadcast = async () => {
-    if (waitingForTx) return
-    waitingForTx = true
-    const receipt = wallet
-      .sendTransaction({
-        to: ethers.constants.AddressZero,
-        value: 0,
-      })
-      .then(txWait)
-    const timer = wait(interval)
-    await Promise.all([receipt, timer])
-    waitingForTx = false
-  }
-
-  return (setInterval(maybeBroadcast, 100) as unknown) as number
-}
-
-/**
  * adds a listener to the provided contract to watch for the provided
  * events; automatically parses the log data, logs the event emissions,
  * and logs the values of the event data

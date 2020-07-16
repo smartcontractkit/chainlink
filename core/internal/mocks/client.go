@@ -151,6 +151,27 @@ func (_m *Client) GetEthBalance(address common.Address) (*assets.Eth, error) {
 	return r0, r1
 }
 
+// GetLatestBlock provides a mock function with given fields:
+func (_m *Client) GetLatestBlock() (eth.Block, error) {
+	ret := _m.Called()
+
+	var r0 eth.Block
+	if rf, ok := ret.Get(0).(func() eth.Block); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(eth.Block)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetLogs provides a mock function with given fields: q
 func (_m *Client) GetLogs(q ethereum.FilterQuery) ([]eth.Log, error) {
 	ret := _m.Called(q)

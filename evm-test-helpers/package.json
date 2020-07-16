@@ -20,7 +20,7 @@
     "bn.js": "^4.11.0",
     "cbor": "^5.0.1",
     "chai": "^4.2.0",
-    "chalk": "^2.4.2",
+    "chalk": "^4.0.0",
     "debug": "^4.1.1",
     "ethers": "^4.0.45"
   },
@@ -33,7 +33,7 @@
     "@types/node": "^13.9.1",
     "jest": "^24.9.0",
     "jest-circus": "^25.1.0",
-    "rimraf": "^3.0.1",
+    "rimraf": "^3.0.2",
     "ts-jest": "^24.1.0",
     "typechain": "^1.0.5",
     "typechain-target-ethers": "^1.0.4",

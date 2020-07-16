@@ -89,7 +89,7 @@ type TxManager interface {
 // the local Config for the application, and the database.
 type EthTxManager struct {
 	eth.Client
-	keyStore            *KeyStore
+	keyStore            KeyStoreInterface
 	config              orm.ConfigReader
 	orm                 *orm.ORM
 	registeredAccounts  []accounts.Account
@@ -102,7 +102,7 @@ type EthTxManager struct {
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
-func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore *KeyStore, orm *orm.ORM) *EthTxManager {
+func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore KeyStoreInterface, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
 		Client:        client,
 		config:        config,
@@ -288,7 +288,7 @@ func (txm *EthTxManager) createTx(
 	}
 
 	return nil, fmt.Errorf(
-		"Transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
+		"transaction reattempt limit reached for 'nonce is too low' error. Limit: %v",
 		nonceReloadLimit,
 	)
 }
@@ -335,9 +335,9 @@ func (txm *EthTxManager) sendInitialTx(
 			return errors.Wrap(err, "TxManager#sendInitialTx SendRawTx")
 		}
 
-		txAttempt, err := txm.orm.AddTxAttempt(tx, tx)
-		if err != nil {
-			return errors.Wrap(err, "TxManager#sendInitialTx AddTxAttempt")
+		txAttempt, e := txm.orm.AddTxAttempt(tx, tx)
+		if e != nil {
+			return errors.Wrap(e, "TxManager#sendInitialTx AddTxAttempt")
 		}
 
 		logger.Debugw("Added Tx attempt #0", "txID", tx.ID, "txAttemptID", txAttempt.ID)
@@ -367,7 +367,7 @@ func (txm *EthTxManager) SignedRawTxWithBumpedGas(originalTx models.Tx, gasLimit
 	ma := txm.getAccount(originalTx.From)
 	rlp := new(bytes.Buffer)
 	if ma == nil {
-		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
+		return nil, fmt.Errorf("unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", originalTx.From.Hex())
 	}
 
 	transaction := types.NewTransaction(originalTx.Nonce, originalTx.To, originalTx.Value.ToInt(), gasLimit, &gasPrice, originalTx.Data)
@@ -504,7 +504,7 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 	linkBalance, err := txm.GetLINKBalance(*contractAddress)
 	if err != nil {
 		return assets.Link{}, multierr.Combine(
-			fmt.Errorf("Could not check LINK balance for %v",
+			fmt.Errorf("could not check LINK balance for %v",
 				contractAddress),
 			err)
 	}
@@ -559,7 +559,7 @@ func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight u
 
 	confirmedAt.Sub(confirmedAt, big.NewInt(1)) // confirmed at block counts as 1 conf
 
-	if new(big.Int).SetUint64(blockHeight).Cmp(confirmedAt) == -1 {
+	if big.NewInt(int64(blockHeight)).Cmp(confirmedAt) < 0 {
 		return receipt, Confirmed, nil
 	}
 
@@ -630,9 +630,9 @@ func (txm *EthTxManager) processAttempt(
 		// Update prometheus metric here as waiting on the transaction
 		// to be marked 'Safe' may be too delayed due to possible
 		// backlog of transaction confirmations.
-		ethBalance, err := txm.GetEthBalance(tx.From)
-		if err != nil {
-			return receipt, state, errors.Wrap(err, "confirming confirmation attempt")
+		ethBalance, e := txm.GetEthBalance(tx.From)
+		if e != nil {
+			return receipt, state, errors.Wrap(e, "confirming confirmation attempt")
 		}
 		promUpdateEthBalance(ethBalance, tx.From)
 		return receipt, state, nil
@@ -795,9 +795,9 @@ func (txm *EthTxManager) bumpGas(tx *models.Tx, attemptIndex int, blockHeight ui
 		}
 		if err != nil {
 			promTxAttemptFailed.Inc()
-			err := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
-			logger.Error(err)
-			return err
+			e := errors.Wrapf(err, "bumpGas from Tx #%s", txAttempt.Hash.Hex())
+			logger.Error(e)
+			return e
 		}
 
 		logger.Infow(
@@ -817,7 +817,7 @@ func (txm *EthTxManager) createAttempt(
 ) (*models.TxAttempt, error) {
 	ma := txm.getAccount(tx.From)
 	if ma == nil {
-		return nil, fmt.Errorf("Unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
+		return nil, fmt.Errorf("unable to locate %v as an available account in EthTxManager. Has TxManager been started or has the address been removed?", tx.From.Hex())
 	}
 
 	newTxAttempt, err := txm.newTx(

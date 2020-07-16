@@ -1,10 +1,10 @@
+import { Button, Drawer } from 'antd'
+import { FeedConfig } from 'config'
 import React, { useEffect, useState } from 'react'
-import { Drawer, Button } from 'antd'
 import { connect } from 'react-redux'
+import { AppState } from 'state'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
 import { etherscanAddress, humanizeUnixTimestamp, Networks } from 'utils'
-import { FeedConfig } from 'feeds'
-import { AppState } from 'state'
 
 interface OwnProps {
   config: FeedConfig

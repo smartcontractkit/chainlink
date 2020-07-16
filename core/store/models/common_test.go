@@ -358,3 +358,41 @@ func TestDuration_MarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestCron_UnmarshalJSON_Success(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"valid 5-field cron", `"CRON_TZ=UTC 0 0/5 * * *"`},
+		{"valid 6-field cron", `"CRON_TZ=UTC 30 0 0/5 * * *"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual models.Cron
+			err := json.Unmarshal([]byte(test.input), &actual)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     string
+		wantError string
+	}{
+		{"5-field cron without time zone", `"0 0/5 * * *"`, "Cron: specs must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *'"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual models.Cron
+			err := json.Unmarshal([]byte(test.input), &actual)
+			assert.EqualError(t, err, test.wantError)
+		})
+	}
+}

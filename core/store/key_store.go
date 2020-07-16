@@ -21,6 +21,21 @@ import (
 // For more information, see: https://github.com/ethereum/go-ethereum/issues/3731
 const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
 
+//go:generate mockery -name KeyStoreInterface -output ../internal/mocks/ -case=underscore
+type KeyStoreInterface interface {
+	Accounts() []accounts.Account
+	Wallets() []accounts.Wallet
+	GetFirstAccount() (accounts.Account, error)
+	HasAccounts() bool
+	Unlock(phrase string) error
+	NewAccount(passphrase string) (accounts.Account, error)
+	SignHash(hash common.Hash) (models.Signature, error)
+	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
+	GetAccounts() []accounts.Account
+
+	SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+}
+
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
 	*keystore.KeyStore
@@ -120,7 +135,7 @@ func (ks *KeyStore) unsafeSignHash(hash common.Hash) (models.Signature, error) {
 // ensures that an account exists during authentication.
 func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
 	if len(ks.Accounts()) == 0 {
-		return accounts.Account{}, errors.New("No Ethereum Accounts configured")
+		return accounts.Account{}, errors.New("no Ethereum Accounts configured")
 	}
 	return ks.Accounts()[0], nil
 }

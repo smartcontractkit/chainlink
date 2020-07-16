@@ -22,7 +22,6 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function latestAnswer()
     external
-    view
     override
     isWhitelisted()
     returns (int256)
@@ -36,7 +35,6 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function latestTimestamp()
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
@@ -51,7 +49,6 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function getAnswer(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (int256)
@@ -66,7 +63,6 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function getTimestamp(uint256 _roundId)
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
@@ -80,11 +76,82 @@ contract WhitelistedAggregatorProxy is AggregatorProxy, Whitelisted {
    */
   function latestRound()
     external
-    view
     override
     isWhitelisted()
     returns (uint256)
   {
     return _latestRound();
   }
+
+  /**
+   * @notice get data about a round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * Note that different underlying implementations of AggregatorInterface
+   * have slightly different semantics for some of the return values. Consumers
+   * should determine what implementations they expect to receive
+   * data from and validate that they can properly handle return data from all
+   * of them.
+   * @param _roundId the round ID to retrieve the round data for
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @dev Note that answer and updatedAt may change between queries.
+   */
+  function getRoundData(uint256 _roundId)
+    external
+    isWhitelisted()
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _getRoundData(_roundId);
+  }
+
+  /**
+   * @notice get data about the latest round. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
+   * Note that different underlying implementations of AggregatorInterface
+   * have slightly different semantics for some of the return values. Consumers
+   * should determine what implementations they expect to receive
+   * data from and validate that they can properly handle return data from all
+   * of them.
+   * @return roundId is the round ID for which data was retrieved
+   * @return answer is the answer for the given round
+   * @return startedAt is the timestamp when the round was started.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @return updatedAt is the timestamp when the round last was updated (i.e.
+   * answer was last computed)
+   * @return answeredInRound is the round ID of the round in which the answer
+   * was computed.
+   * (Only some AggregatorInterface implementations return meaningful values)
+   * @dev Note that answer and updatedAt may change between queries.
+   */
+  function latestRoundData()
+    external
+    isWhitelisted()
+    override
+    returns (
+      uint256 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint256 answeredInRound
+    )
+  {
+    return _latestRoundData();
+  }
+
 }

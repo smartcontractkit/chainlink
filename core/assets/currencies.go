@@ -4,8 +4,9 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/willf/pad"
@@ -140,20 +141,20 @@ func (l *Link) Scan(value interface{}) error {
 	case string:
 		decoded, ok := l.SetString(v, 10)
 		if !ok {
-			return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Link", value, value)
+			return fmt.Errorf("unable to set string %v of %T to base 10 big.Int for Link", value, value)
 		}
 		*l = *decoded
 	case []uint8:
 		// The SQL library returns numeric() types as []uint8 of the string representation
 		decoded, ok := l.SetString(string(v), 10)
 		if !ok {
-			return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Link", value, value)
+			return fmt.Errorf("unable to set string %v of %T to base 10 big.Int for Link", value, value)
 		}
 		*l = *decoded
 	case int64:
-		return fmt.Errorf("Unable to convert %v of %T to Link, is the sql type set to varchar?", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Link, is the sql type set to varchar?", value, value)
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Link", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Link", value, value)
 	}
 
 	return nil

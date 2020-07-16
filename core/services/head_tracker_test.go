@@ -106,7 +106,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID, cltest.NoRegisterGetBlockNumber)
+	eth := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
 	defer ht.Stop()
 

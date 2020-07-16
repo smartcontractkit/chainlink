@@ -1,13 +1,12 @@
-import { getConfig } from './config'
 import { openDbConnection } from './database'
 import { retireSessions } from './entity/Session'
 import { logger } from './logging'
 import server from './server'
 import { getVersion } from './utils/version'
+import { Config } from './config'
 
 async function main() {
-  const conf = getConfig()
-  const version = await getVersion(conf)
+  const version = await getVersion(Config.env())
   logger.info(version)
 
   const db = await openDbConnection()
@@ -16,7 +15,7 @@ async function main() {
     await retireSessions()
 
     logger.info('Starting Explorer Node')
-    await server(conf)
+    await server()
   } catch (e) {
     logger.error({
       msg: `Exception during startup: ${e.message}`,

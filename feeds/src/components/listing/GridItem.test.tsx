@@ -1,11 +1,10 @@
+import { partialAsFull } from '@chainlink/ts-helpers'
 import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import '@testing-library/jest-dom/extend-expect'
 import { render } from '@testing-library/react'
+import { FeedConfig } from 'config'
 import { Provider as ReduxProvider } from 'react-redux'
-import { partialAsFull } from '@chainlink/ts-helpers'
-import { FeedConfig } from 'feeds'
-import { ListingAnswer } from '../../state/ducks/listing/operations'
 import createStore from '../../state/createStore'
 import { GridItem } from './GridItem'
 
@@ -22,13 +21,9 @@ const AllTheProviders: React.FC = ({ children }) => {
 const feed = partialAsFull<FeedConfig>({
   name: 'pair name',
   path: '/link',
-  valuePrefix: 'prefix',
+  valuePrefix: '$',
   sponsored: ['sponsor 1', 'sponsor 2'],
 })
-const listingAnswer: ListingAnswer = {
-  answer: '10.1',
-  config: feed,
-}
 
 describe('components/listing/GridItem', () => {
   it('renders answer value with prefix', () => {
@@ -36,14 +31,16 @@ describe('components/listing/GridItem', () => {
       <AllTheProviders>
         <GridItem
           feed={feed}
-          listingAnswer={listingAnswer}
+          answer={'10.1'}
           enableHealth={false}
           compareOffchain={false}
+          fetchAnswer={jest.fn()}
+          fetchHealthStatus={jest.fn()}
         />
       </AllTheProviders>,
     )
 
     expect(container).toHaveTextContent('10.1')
-    expect(container).toHaveTextContent('prefix')
+    expect(container).toHaveTextContent('$')
   })
 })

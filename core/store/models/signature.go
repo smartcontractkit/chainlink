@@ -94,7 +94,7 @@ func (s Signature) Value() (driver.Value, error) {
 func (s *Signature) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to Signature", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Signature", value, value)
 	}
 
 	newSig, err := NewSignature(temp)

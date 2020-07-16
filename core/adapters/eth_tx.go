@@ -41,23 +41,23 @@ func (e *EthTx) TaskType() models.TaskType {
 // Perform creates the run result for the transaction if the existing run result
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
-func (etx *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
-		return pendingConfirmationsOrConnection(input)
+		return pendingOutgoingConfirmationsOrConnection(input)
 	}
 
-	if input.Status().PendingConfirmations() {
+	if input.Status().PendingOutgoingConfirmations() {
 		return ensureTxRunResult(input, store)
 	}
 
-	value, err := getTxData(etx, input)
+	value, err := getTxData(e, input)
 	if err != nil {
 		err = errors.Wrap(err, "while constructing EthTx data")
 		return models.NewRunOutputError(err)
 	}
 
-	data := utils.ConcatBytes(etx.FunctionSelector.Bytes(), etx.DataPrefix, value)
-	return createTxRunResult(etx.Address, etx.GasPrice, etx.GasLimit, data, input, store)
+	data := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
+	return createTxRunResult(e.Address, e.GasPrice, e.GasLimit, data, input, store)
 }
 
 // getTxData returns the data to save against the callback encoded according to
@@ -95,7 +95,7 @@ func createTxRunResult(
 		gasLimit,
 	)
 	if err != nil {
-		return models.NewRunOutputPendingConfirmationsWithData(input.Data())
+		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
 
 	output, err := models.JSON{}.Add("result", tx.Hash.String())
@@ -106,7 +106,7 @@ func createTxRunResult(
 	txAttempt := tx.Attempts[0]
 	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
 	if err != nil {
-		return models.NewRunOutputPendingConfirmationsWithData(output)
+		return models.NewRunOutputPendingOutgoingConfirmationsWithData(output)
 	}
 
 	logger.Debugw(
@@ -127,7 +127,7 @@ func createTxRunResult(
 		return addReceiptToResult(*receipt, input, output)
 	}
 
-	return models.NewRunOutputPendingConfirmationsWithData(output)
+	return models.NewRunOutputPendingOutgoingConfirmationsWithData(output)
 }
 
 func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutput {
@@ -177,7 +177,7 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 		return addReceiptToResult(*receipt, input, output)
 	}
 
-	return models.NewRunOutputPendingConfirmationsWithData(output)
+	return models.NewRunOutputPendingOutgoingConfirmationsWithData(output)
 }
 
 func addReceiptToResult(
@@ -207,11 +207,11 @@ func addReceiptToResult(
 	return models.NewRunOutputComplete(data)
 }
 
-func pendingConfirmationsOrConnection(input models.RunInput) models.RunOutput {
-	// If the input is not pending confirmations next time
+func pendingOutgoingConfirmationsOrConnection(input models.RunInput) models.RunOutput {
+	// If the input is not pending outgoing confirmations next time
 	// then it may submit a new transaction.
-	if input.Status().PendingConfirmations() {
-		return models.NewRunOutputPendingConfirmationsWithData(input.Data())
+	if input.Status().PendingOutgoingConfirmations() {
+		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
 	return models.NewRunOutputPendingConnection()
 }

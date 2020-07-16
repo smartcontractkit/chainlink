@@ -17,9 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -146,12 +147,18 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
-			Address:       NewAddress(),
-			RequestData:   models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:         models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
-			IdleThreshold: models.MustMakeDuration(time.Minute),
-			Threshold:     0.5,
-			Precision:     2,
+			Address:           NewAddress(),
+			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:             models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
+			Threshold:         0.5,
+			AbsoluteThreshold: 0.01,
+			IdleTimer: models.IdleTimerConfig{
+				Duration: models.MustMakeDuration(time.Minute),
+			},
+			PollTimer: models.PollTimerConfig{
+				Period: models.MustMakeDuration(time.Minute),
+			},
+			Precision: 2,
 		},
 	}}
 	return j
@@ -164,11 +171,12 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
-			Address:     NewAddress(),
-			RequestData: models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:       models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
-			Threshold:   0.5,
-			Precision:   2,
+			Address:           NewAddress(),
+			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:             models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			Threshold:         0.5,
+			AbsoluteThreshold: 0.01,
+			Precision:         2,
 		},
 	}}
 	return j
@@ -608,7 +616,7 @@ func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
 }
 
 // CreateJobRunWithStatus returns a new job run with the specified status that has been persisted
-func CreateJobRunWithStatus(t testing.TB, store *store.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
+func CreateJobRunWithStatus(t testing.TB, store *strpkg.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
 	run := NewJobRun(job)
 	run.SetStatus(status)
 	require.NoError(t, store.CreateJobRun(&run))
@@ -677,4 +685,20 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 
 func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
 	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+}
+
+func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
+	fluxAggregator := new(mocks.FluxAggregator)
+	runManager := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	initr := models.Initiator{
+		InitiatorParams: models.InitiatorParams{
+			PollTimer: models.PollTimerConfig{
+				Period: models.MustMakeDuration(time.Second),
+			},
+		},
+	}
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, nil, runManager, fetcher, func() {})
+	require.NoError(t, err)
+	return checker
 }

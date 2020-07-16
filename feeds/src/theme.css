@@ -21880,12 +21880,15 @@ hr {
   box-sizing: border-box;
   background-color: #f4f5f6;
   text-align: center;
-  min-height: 125px;
   margin-bottom: 18px;
   line-height: 1.8;
+  height: 169px;
 }
 .listing-grid__item:hover {
   background-color: #e0e6e8;
+}
+.listing-grid__item:hover img {
+  filter: grayscale(0%);
 }
 .listing-grid__item--link {
   display: block;
@@ -21906,19 +21909,24 @@ hr {
   background-color: #ffc0c0;
   border: solid 1px #ff1414;
 }
-.listing-grid__item--sponsored {
+.listing-grid__item--sponsors {
+  justify-content: center;
+  display: flex;
+  margin-top: 10px;
+}
+.listing-grid__item--sponsors-title {
   text-align: center;
-}
-.listing-grid__item--sponsored span {
-  color: #484c57;
-  font-size: 13px;
-  font-weight: bold;
-}
-.listing-grid__item--sponsored-title {
   color: #484c57;
   margin-top: 25px;
+  width: 100%;
 }
-.listing-grid__item--sponsored-popover {
+.listing-grid__item--sponsors__logo img {
+  filter: grayscale(100%);
+  width: 18px;
+  height: 18px;
+  margin: 0 5px;
+}
+.listing-grid__item--sponsors-popover {
   text-align: center;
 }
 .listing-grid__item--name {

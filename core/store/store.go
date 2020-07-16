@@ -25,13 +25,18 @@ import (
 	"golang.org/x/time/rate"
 )
 
+const (
+	// AutoMigrate is a flag that automatically migrates the DB when passed to initializeORM
+	AutoMigrate = "auto_migrate"
+)
+
 // Store contains fields for the database, Config, KeyStore, and TxManager
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
 	Config      *orm.Config
 	Clock       utils.AfterNower
-	KeyStore    *KeyStore
+	KeyStore    KeyStoreInterface
 	VRFKeyStore *VRFKeyStore
 	TxManager   TxManager
 	closeOnce   *sync.Once
@@ -51,7 +56,7 @@ func newLazyRPCWrapper(urlString string, limiter *rate.Limiter) (eth.CallerSubsc
 		return nil, err
 	}
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, fmt.Errorf("Ethereum url scheme must be websocket: %s", parsed.String())
+		return nil, fmt.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 	return &lazyRPCWrapper{
 		url:         parsed,
@@ -101,6 +106,11 @@ func (wrapper *lazyRPCWrapper) Subscribe(ctx context.Context, channel interface{
 	if err != nil {
 		return nil, err
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	wrapper.limiter.Wait(ctx)
+
 	return wrapper.client.EthSubscribe(ctx, channel, args...)
 }
 
@@ -128,12 +138,8 @@ func (ed *EthDialer) Dial(urlString string) (eth.CallerSubscriber, error) {
 
 // NewStore will create a new store using the Eth dialer
 func NewStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
-	return NewStoreWithDialer(config, NewEthDialer(config.MaxRPCCallsPerSecond()), shutdownSignal)
-}
-
-// NewStoreWithDialer creates a new store with the given config and dialer
-func NewStoreWithDialer(config *orm.Config, dialer Dialer, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
+	dialer := NewEthDialer(config.MaxRPCCallsPerSecond())
 	return newStoreWithDialerAndKeyStore(config, dialer, keyStore, shutdownSignal)
 }
 
@@ -153,7 +159,7 @@ func newStoreWithDialerAndKeyStore(
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
 
-	err := os.MkdirAll(config.RootDir(), os.FileMode(0700))
+	err := utils.EnsureDirAndPerms(config.RootDir(), os.FileMode(0700))
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
 	}
@@ -239,16 +245,19 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 }
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal)
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	err = orm.RawDB(func(db *gorm.DB) error {
-		return migrations.Migrate(db)
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "initializeORM#Migrate")
+	if config.MigrateDatabase() {
+		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+
+		err = orm.RawDB(func(db *gorm.DB) error {
+			return migrations.Migrate(db)
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "initializeORM#Migrate")
+		}
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil

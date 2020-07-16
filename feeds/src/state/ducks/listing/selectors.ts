@@ -1,8 +1,10 @@
+import { FeedConfig } from 'config'
 import { createSelector } from 'reselect'
-import { FeedConfig } from 'feeds'
 import { AppState } from 'state'
-import { ListingAnswer } from 'state/ducks/listing/operations'
 
+/**
+ * feed groups
+ */
 export interface ListingGroup {
   name: string
   feeds: FeedConfig[]
@@ -20,33 +22,52 @@ const GROUPS: Record<string, string[]> = {
 }
 const GROUP_ORDER: string[] = [FIAT_GROUP_NAME, ETH_GROUP_NAME]
 
-const feedsItems = (state: AppState) => state.feeds.items
-const feedsOrder = (state: AppState) => state.feeds.order
-
-export const orderedFeeds = createSelector(
-  [feedsItems, feedsOrder],
-  (items, order) => order.map(f => items[f]),
-)
-
-export const groups = createSelector([orderedFeeds], (feeds: FeedConfig[]) => {
+export const feedGroups = createSelector<
+  AppState,
+  FeedConfig[],
+  ListingGroup[]
+>([orderedFeeds], listedFeeds => {
   return GROUP_ORDER.map(groupName => {
-    const groupFeeds = feeds.filter(f => {
-      if (!f.listing) return false
-
+    const groupFeeds = listedFeeds.filter(f => {
       const quoteAssets = GROUPS[groupName] || []
       return quoteAssets.includes(f.pair[1])
     })
-    const group: ListingGroup = { feeds: groupFeeds, name: groupName }
 
-    return group
+    return { feeds: groupFeeds, name: groupName }
   })
 })
 
-export const answer = (
+function feedsItems(state: AppState) {
+  return state.listing.feedItems
+}
+
+function feedsOrder(state: AppState) {
+  return state.listing.feedOrder
+}
+
+function orderedFeeds(state: AppState) {
+  return createSelector([feedsItems, feedsOrder], (items, order) =>
+    order.map(f => items[f]),
+  )(state)
+}
+
+/**
+ * answers
+ */
+export function answer(
   state: AppState,
   contractAddress: FeedConfig['contractAddress'],
-) => {
-  return state.listing.answers.find(
-    (a: ListingAnswer) => a.config.contractAddress === contractAddress,
-  )
+) {
+  return createSelector<
+    AppState,
+    AppState['listing']['answers'],
+    string | undefined
+  >(
+    [listingAnswers],
+    answers => answers[contractAddress],
+  )(state)
+}
+
+function listingAnswers(state: AppState) {
+  return state.listing.answers
 }

@@ -1,35 +1,37 @@
+import { DispatchBinding } from '@chainlink/ts-helpers'
 import React, { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { connect } from 'react-redux'
 import { aggregatorOperations } from 'state/ducks/aggregator'
 import { AggregatorVis } from 'components/aggregatorVis'
 import { AnswerHistory } from 'components/answerHistory'
 import { DeviationHistory } from 'components/deviationHistory'
-import { OracleTable } from 'components/oracleTable'
 import { Header } from 'components/header'
+import { OracleTable } from 'components/oracleTable'
+import { FeedConfig } from 'config'
 import { parseQuery, uIntFrom } from 'utils'
 
-interface OwnProps {
-  history: any
-}
+interface OwnProps {}
 
 interface DispatchProps {
-  initContract: any
-  clearState: any
+  initContract: DispatchBinding<typeof aggregatorOperations.initContract>
 }
 
 interface Props extends OwnProps, DispatchProps {}
 
-const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
-  const [config] = useState(formatConfig(parseQuery(history.location.search)))
+const Page: React.FC<Props> = ({ initContract }) => {
+  const location = useLocation()
+  const [config] = useState<FeedConfig>(
+    parseConfig(parseQuery(location.search)),
+  )
 
   useEffect(() => {
-    initContract(config).catch(() => {
-      console.error('Could not initiate contract')
-    })
-    return () => {
-      clearState()
+    try {
+      initContract(config)
+    } catch (error) {
+      console.error('Could not initiate contract:', error)
     }
-  }, [initContract, clearState, config])
+  }, [initContract, config])
 
   return (
     <>
@@ -48,12 +50,16 @@ const Page: React.FC<Props> = ({ initContract, clearState, history }) => {
 
 const mapDispatchToProps = {
   initContract: aggregatorOperations.initContract,
-  clearState: aggregatorOperations.clearState,
 }
 
-function formatConfig(config: any) {
+/**
+ * Hydrate a feed config into its internal representation
+ *
+ * @param config The config in map format
+ */
+function parseConfig(config: Record<string, string>): FeedConfig {
   return {
-    ...config,
+    ...((config as unknown) as FeedConfig),
     networkId: uIntFrom(config.networkId ?? 0),
     contractVersion: 2,
     decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),

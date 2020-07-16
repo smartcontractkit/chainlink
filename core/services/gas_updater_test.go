@@ -119,6 +119,7 @@ func TestGasUpdater_OnNewHead_SetsGlobalGasPriceWhenHistoryFull(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("GAS_UPDATER_ENABLED", "true")
 	config.Set("GAS_UPDATER_BLOCK_DELAY", "0")
+	config.Set("GAS_UPDATER_TRANSACTION_PERCENTILE", "35")
 	config.Set("GAS_UPDATER_BLOCK_HISTORY_SIZE", "3")
 	config.Set("ETH_GAS_PRICE_DEFAULT", 42)
 	store, cleanup := cltest.NewStoreWithConfig(config)

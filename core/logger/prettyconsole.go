@@ -36,7 +36,7 @@ type PrettyConsole struct {
 // for better readability in console.
 func (pc PrettyConsole) Write(b []byte) (int, error) {
 	if !gjson.ValidBytes(b) {
-		return 0, fmt.Errorf("Unable to parse json for pretty console: %s", string(b))
+		return 0, fmt.Errorf("unable to parse json for pretty console: %s", string(b))
 	}
 	js := gjson.ParseBytes(b)
 	headline := generateHeadline(js)

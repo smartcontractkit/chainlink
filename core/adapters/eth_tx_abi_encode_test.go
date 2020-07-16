@@ -142,8 +142,8 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	app.EthMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
 			rlp := data[0].([]interface{})[0].(string)
-			tx, err := utils.DecodeEthereumTx(rlp)
-			assert.NoError(t, err)
+			tx, e := utils.DecodeEthereumTx(rlp)
+			assert.NoError(t, e)
 			assert.Equal(t, adapterUnderTest.Address.String(), tx.To().String())
 			assert.Equal(t, expectedAsHex, hexutil.Encode(tx.Data()))
 			return nil
@@ -157,6 +157,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	assert.NoError(t, err)
 	app.EthMock.EventuallyAllCalled(t)
 	txs, err := store.TxFrom(from)
+	assert.NoError(t, err, "failed to retrieve transactions for address 0x%x", from)
 	require.Len(t, txs, 1)
 	assert.Len(t, txs[0].Attempts, 1)
 }

@@ -42,15 +42,15 @@
     "@storybook/react": "^5.3.14",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^10.0.1",
-    "@types/react": "^16.9.17",
-    "@types/react-dom": "^16.9.6",
+    "@types/react": "^16.9.34",
+    "@types/react-dom": "^16.9.8",
     "@types/storybook__addon-links": "^5.2.1",
     "@types/storybook__react": "^4.0.2",
     "babel-loader": "^8.0.6",
     "depcheck": "^0.9.1",
     "jest": "^24.9.0",
     "jest-silent-reporter": "^0.1.2",
-    "react-docgen-typescript-loader": "^3.7.1",
+    "react-docgen-typescript-loader": "^3.7.2",
     "ts-jest": "^24.1.0",
     "webpack": "4.41.2"
   }

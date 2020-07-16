@@ -43,9 +43,15 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 			initrReq: models.InitiatorRequest{
 				Type: models.InitiatorFluxMonitor,
 				InitiatorParams: models.InitiatorParams{
-					IdleThreshold: models.MustMakeDuration(5 * time.Second),
-					Precision:     2,
-					Threshold:     5,
+					IdleTimer: models.IdleTimerConfig{
+						Duration: models.MustMakeDuration(5 * time.Second),
+					},
+					PollTimer: models.PollTimerConfig{
+						Period: models.MustMakeDuration(1 * time.Minute),
+					},
+					Precision:         2,
+					Threshold:         5,
+					AbsoluteThreshold: 0.01,
 				},
 			},
 			jobSpec: job,
@@ -53,10 +59,15 @@ func TestNewInitiatorFromRequest(t *testing.T) {
 				Type:      models.InitiatorFluxMonitor,
 				JobSpecID: job.ID,
 				InitiatorParams: models.InitiatorParams{
-					IdleThreshold:   models.MustMakeDuration(5 * time.Second),
-					PollingInterval: models.FluxMonitorDefaultInitiatorParams["PollingInterval"].Value.(models.Duration),
-					Precision:       2,
-					Threshold:       5,
+					IdleTimer: models.IdleTimerConfig{
+						Duration: models.MustMakeDuration(5 * time.Second),
+					},
+					PollTimer: models.PollTimerConfig{
+						Period: models.MustMakeDuration(1 * time.Minute),
+					},
+					Precision:         2,
+					Threshold:         5,
+					AbsoluteThreshold: 0.01,
 				},
 			},
 		},
@@ -95,22 +106,27 @@ func TestInitiatorParams(t *testing.T) {
 	i := models.Initiator{
 		JobSpecID: j.ID,
 		InitiatorParams: models.InitiatorParams{
-			Schedule:        schedule,
-			Time:            time,
-			Ran:             true,
-			Address:         address,
-			Requesters:      requesters,
-			Name:            "foo",
-			Body:            &json,
-			FromBlock:       big,
-			ToBlock:         big,
-			Topics:          topics,
-			RequestData:     json,
-			IdleThreshold:   duration,
-			Feeds:           json,
-			Threshold:       42.42,
-			Precision:       42,
-			PollingInterval: duration,
+			Schedule:          schedule,
+			Time:              time,
+			Ran:               true,
+			Address:           address,
+			Requesters:        requesters,
+			Name:              "foo",
+			Body:              &json,
+			FromBlock:         big,
+			ToBlock:           big,
+			Topics:            topics,
+			RequestData:       json,
+			Feeds:             json,
+			Threshold:         42.42,
+			AbsoluteThreshold: 54, // https://spooniom.com/6-9-42/
+			Precision:         42,
+			IdleTimer: models.IdleTimerConfig{
+				Duration: duration,
+			},
+			PollTimer: models.PollTimerConfig{
+				Period: duration,
+			},
 		},
 	}
 
@@ -130,11 +146,13 @@ func TestInitiatorParams(t *testing.T) {
 	assert.Equal(t, big, saved.InitiatorParams.ToBlock)
 	assert.Equal(t, topics, saved.InitiatorParams.Topics)
 	assert.Equal(t, json, saved.InitiatorParams.RequestData)
-	assert.Equal(t, duration, saved.InitiatorParams.IdleThreshold)
+	assert.Equal(t, duration, saved.InitiatorParams.IdleTimer.Duration)
 	assert.Equal(t, json, saved.InitiatorParams.Feeds)
 	assert.Equal(t, float32(42.42), saved.InitiatorParams.Threshold)
+	assert.Equal(t, i.InitiatorParams.AbsoluteThreshold,
+		saved.InitiatorParams.AbsoluteThreshold)
 	assert.Equal(t, int32(42), saved.InitiatorParams.Precision)
-	assert.Equal(t, duration, saved.InitiatorParams.PollingInterval)
+	assert.Equal(t, duration, saved.InitiatorParams.PollTimer.Period)
 
 }
 
@@ -143,7 +161,7 @@ func TestNewJobFromRequest(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	j1 := cltest.NewJobWithSchedule("* * * * 7")
+	j1 := cltest.NewJobWithSchedule("CRON_TZ=UTC * * * * 6")
 	require.NoError(t, store.CreateJob(&j1))
 
 	jsr := models.JobSpecRequest{
@@ -296,18 +314,4 @@ func TestNewTaskType(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestSetDefaultValues(t *testing.T) {
-	p := models.InitiatorParams{}
-	p.SetDefaultValues(models.InitiatorFluxMonitor)
-	assert.Equal(t,
-		models.FluxMonitorDefaultInitiatorParams["PollingInterval"].Value,
-		p.PollingInterval,
-		"failed to set default initiator parameter PollingInterval")
-	initialValue := models.MustMakeDuration(2 * time.Second)
-	p.PollingInterval = initialValue
-	p.SetDefaultValues(models.InitiatorFluxMonitor)
-	assert.Equal(t, initialValue, p.PollingInterval,
-		"altered explicitly set initiator parameter PollingInterval")
 }

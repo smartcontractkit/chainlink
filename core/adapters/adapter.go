@@ -39,8 +39,8 @@ var (
 	TaskTypeMultiply = models.MustNewTaskType("multiply")
 	// TaskTypeNoOp is the identifier for the NoOp adapter.
 	TaskTypeNoOp = models.MustNewTaskType("noop")
-	// TaskTypeNoOpPend is the identifier for the NoOpPend adapter.
-	TaskTypeNoOpPend = models.MustNewTaskType("nooppend")
+	// TaskTypeNoOpPendOutgoing is the identifier for the NoOpPendOutgoing adapter.
+	TaskTypeNoOpPendOutgoing = models.MustNewTaskType("nooppendoutgoing")
 	// TaskTypeSleep is the identifier for the Sleep adapter.
 	TaskTypeSleep = models.MustNewTaskType("sleep")
 	// TaskTypeWasm is the wasm interpereter adapter
@@ -127,8 +127,8 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 	case TaskTypeNoOp:
 		ba = &NoOp{}
 		err = unmarshalParams(task.Params, ba)
-	case TaskTypeNoOpPend:
-		ba = &NoOpPend{}
+	case TaskTypeNoOpPendOutgoing:
+		ba = &NoOpPendOutgoing{}
 		err = unmarshalParams(task.Params, ba)
 	case TaskTypeSleep:
 		ba = &Sleep{}
@@ -146,8 +146,8 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 		ba = &Quotient{}
 		err = unmarshalParams(task.Params, ba)
 	default:
-		bt, err := orm.FindBridge(task.Type)
-		if err != nil {
+		bt, e := orm.FindBridge(task.Type)
+		if e != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
 		b := Bridge{BridgeType: bt, Params: task.Params}

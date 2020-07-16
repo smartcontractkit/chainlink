@@ -13,7 +13,7 @@ import {
   UnknownResponseError,
   UnprocessableEntityError,
 } from '../errors'
-import fetchWithTimeout from '../fetchWithTimeout'
+import { fetchWithTimeout } from '../fetchWithTimeout'
 import * as http from './http'
 
 /**
@@ -167,15 +167,22 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 async function errorItems(response: Response): Promise<ErrorItem[]> {
-  const json = await response.json()
+  return response
+    .json()
+    .then(json => {
+      if (json.errors) {
+        return json.errors.map((e: ErrorsObject) => ({
+          status: response.status,
+          detail: e.detail,
+        }))
+      }
 
-  if (json.errors) {
-    return json.errors.map((e: ErrorsObject) => ({
-      status: response.status,
-      detail: e.detail,
-    }))
-  }
+      return defaultResponseErrors(response)
+    })
+    .catch(() => defaultResponseErrors(response))
+}
 
+function defaultResponseErrors(response: Response): ErrorItem[] {
   return [
     {
       status: response.status,
