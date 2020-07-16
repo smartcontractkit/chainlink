@@ -12,14 +12,23 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/araddon/dateparse"
-	"github.com/jinzhu/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/mrwonko/cron"
+	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+// CronParser is the global parser for crontabs.
+// It accepts the standard 5 field cron syntax as well as an optional 6th field
+// at the front to represent seconds.
+var CronParser cron.Parser
+
+func init() {
+	cronParserSpec := cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor
+	CronParser = cron.NewParser(cronParserSpec)
+}
 
 // RunStatus is a string that represents the run status
 type RunStatus string
@@ -29,8 +38,9 @@ const (
 	RunStatusUnstarted = RunStatus("unstarted")
 	// RunStatusInProgress is used for when a run is actively being executed.
 	RunStatusInProgress = RunStatus("in_progress")
-	// RunStatusPendingConfirmations is used for when a run is awaiting for block confirmations.
-	RunStatusPendingConfirmations = RunStatus("pending_confirmations")
+	// RunStatusPendingIncomingConfirmations is used for when a run is awaiting for incoming block confirmations
+	// e.g. waiting for the log event to be N blocks deep
+	RunStatusPendingIncomingConfirmations = RunStatus("pending_incoming_confirmations")
 	// RunStatusPendingConnection states that the run is waiting on a connection to the block chain.
 	RunStatusPendingConnection = RunStatus("pending_connection")
 	// RunStatusPendingBridge is used for when a run is waiting on the completion
@@ -38,6 +48,9 @@ const (
 	RunStatusPendingBridge = RunStatus("pending_bridge")
 	// RunStatusPendingSleep is used for when a run is waiting on a sleep function to finish.
 	RunStatusPendingSleep = RunStatus("pending_sleep")
+	// RunStatusPendingOutgoingConfirmations is used for when a run is waiting for outgoing block confirmations
+	// e.g. we have sent a transaction using ethtx and are now waiting for it to be N blocks deep
+	RunStatusPendingOutgoingConfirmations = RunStatus("pending_outgoing_confirmations")
 	// RunStatusErrored is used for when a run has errored and will not complete.
 	RunStatusErrored = RunStatus("errored")
 	// RunStatusCompleted is used for when a run has successfully completed execution.
@@ -56,9 +69,9 @@ func (s RunStatus) PendingBridge() bool {
 	return s == RunStatusPendingBridge
 }
 
-// PendingConfirmations returns true if the status is pending_confirmations.
-func (s RunStatus) PendingConfirmations() bool {
-	return s == RunStatusPendingConfirmations
+// PendingIncomingConfirmations returns true if the status is pending_incoming_confirmations.
+func (s RunStatus) PendingIncomingConfirmations() bool {
+	return s == RunStatusPendingIncomingConfirmations
 }
 
 // PendingConnection returns true if the status is pending_connection.
@@ -69,6 +82,11 @@ func (s RunStatus) PendingConnection() bool {
 // PendingSleep returns true if the status is pending_sleep.
 func (s RunStatus) PendingSleep() bool {
 	return s == RunStatusPendingSleep
+}
+
+// PendingOutgoingConfirmations returns true if the status is pending_incoming_confirmations.
+func (s RunStatus) PendingOutgoingConfirmations() bool {
+	return s == RunStatusPendingOutgoingConfirmations
 }
 
 // Completed returns true if the status is RunStatusCompleted.
@@ -88,7 +106,7 @@ func (s RunStatus) Errored() bool {
 
 // Pending returns true if the status is pending external or confirmations.
 func (s RunStatus) Pending() bool {
-	return s.PendingBridge() || s.PendingConfirmations() || s.PendingSleep() || s.PendingConnection()
+	return s.PendingBridge() || s.PendingIncomingConfirmations() || s.PendingOutgoingConfirmations() || s.PendingSleep() || s.PendingConnection()
 }
 
 // Finished returns true if the status is final and can't be changed.
@@ -119,7 +137,7 @@ func (s *RunStatus) Scan(value interface{}) error {
 	case string:
 		*s = RunStatus(v)
 	default:
-		return fmt.Errorf("Unable to convert %#v of %T to RunStatus", value, value)
+		return fmt.Errorf("unable to convert %#v of %T to RunStatus", value, value)
 	}
 	return nil
 }
@@ -147,7 +165,7 @@ func (j *JSON) Scan(value interface{}) error {
 	case []byte:
 		*j = JSON{Result: gjson.ParseBytes(v)}
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to JSON", value, value)
+		return fmt.Errorf("unable to convert %v of %T to JSON", value, value)
 	}
 	return nil
 }
@@ -247,7 +265,7 @@ func (j JSON) CBOR() ([]byte, error) {
 		return cbor.Marshal(v)
 	default:
 		var b []byte
-		return b, fmt.Errorf("Unable to coerce JSON to CBOR for type %T", v)
+		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
 	}
 }
 
@@ -295,7 +313,7 @@ func (w WebURL) Value() (driver.Value, error) {
 func (w *WebURL) Scan(value interface{}) error {
 	s, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to WebURL", value, value)
+		return fmt.Errorf("unable to convert %v of %T to WebURL", value, value)
 	}
 
 	u, err := url.ParseRequestURI(s)
@@ -391,13 +409,11 @@ func (t *AnyTime) Scan(value interface{}) error {
 		t.Valid = false
 		return nil
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Time", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Time", value, value)
 	}
 }
 
 // Cron holds the string that will represent the spec of the cron-job.
-// It uses 6 fields to represent the seconds (1), minutes (2), hours (3),
-// day of the month (4), month (5), and day of the week (6).
 type Cron string
 
 // UnmarshalJSON parses the raw spec stored in JSON-encoded
@@ -412,7 +428,11 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
-	_, err = cron.Parse(s)
+	if !strings.HasPrefix(s, "CRON_TZ=") {
+		return errors.New("Cron: specs must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *'")
+	}
+
+	_, err = CronParser.Parse(s)
 	if err != nil {
 		return fmt.Errorf("Cron: %v", err)
 	}
@@ -548,7 +568,7 @@ func (r AddressCollection) Value() (driver.Value, error) {
 func (r *AddressCollection) Scan(value interface{}) error {
 	str, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to AddressCollection", value, value)
+		return fmt.Errorf("unable to convert %v of %T to AddressCollection", value, value)
 	}
 
 	if len(str) == 0 {
@@ -566,9 +586,12 @@ func (r *AddressCollection) Scan(value interface{}) error {
 
 // Configuration stores key value pairs for overriding global configuration
 type Configuration struct {
-	gorm.Model
-	Name  string `gorm:"not null;unique;index"`
-	Value string `gorm:"not null"`
+	ID        int64  `gorm:"primary_key"`
+	Name      string `gorm:"not null;unique;index"`
+	Value     string `gorm:"not null"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
 // Merge returns a new map with all keys merged from right to left

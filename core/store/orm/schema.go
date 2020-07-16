@@ -15,6 +15,7 @@ import (
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
 	AllowOrigins                    string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
+	BlockBackfillDepth              string          `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BridgeResponseURL               url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                         big.Int         `env:"ETH_CHAIN_ID" default:"1"`
 	ClientNodeURL                   string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
@@ -38,7 +39,7 @@ type ConfigSchema struct {
 	EthereumDisabled                bool            `env:"ETH_DISABLED" default:"false"`
 	GasUpdaterBlockDelay            uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
 	GasUpdaterBlockHistorySize      uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
-	GasUpdaterTransactionPercentile uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"35"`
+	GasUpdaterTransactionPercentile uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled               bool            `env:"GAS_UPDATER_ENABLED" default:"false"`
 	JSONConsole                     bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress             string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
@@ -50,6 +51,7 @@ type ConfigSchema struct {
 	LogSQLStatements                bool            `env:"LOG_SQL" default:"false"`
 	LogSQLMigrations                bool            `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	DefaultMaxHTTPAttempts          uint            `env:"MAX_HTTP_ATTEMPTS" default:"5"`
+	MigrateDatabase                 bool            `env:"MIGRATE_DATABASE" default:"true"`
 	MinIncomingConfirmations        uint32          `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
 	MinOutgoingConfirmations        uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment          assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`

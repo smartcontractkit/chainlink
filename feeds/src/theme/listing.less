@@ -6,12 +6,15 @@
       box-sizing: border-box;
       background-color: #f4f5f6;
       text-align: center;
-      min-height: 125px;
       margin-bottom: 18px;
       line-height: 1.8;
+      height: 169px;
 
       &:hover {
         background-color: #e0e6e8;
+        img {
+          filter: grayscale(0%);
+        }
       }
 
       &--link {
@@ -33,17 +36,28 @@
         background-color: #ffc0c0;
         border: solid 1px #ff1414;
       }
-      &--sponsored {
-        text-align: center;
-        span {
-          color: #484c57;
-          font-size: 13px;
-          font-weight: bold;
-        }
+
+      &--sponsors {
+        justify-content: center;
+        display: flex;
+        margin-top: 10px;
+
         &-title {
+          text-align: center;
           color: #484c57;
           margin-top: 25px;
+          width: 100%;
         }
+
+        &__logo {
+          img {
+            filter: grayscale(100%);
+            width: 18px;
+            height: 18px;
+            margin: 0 5px;
+          }
+        }
+
         &-popover {
           text-align: center;
         }

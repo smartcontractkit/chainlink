@@ -3,8 +3,9 @@
 package mocks
 
 import (
-	models "github.com/smartcontractkit/chainlink/core/store/models"
 	big "math/big"
+
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -177,8 +178,8 @@ func (_m *Application) NewBox() packr.Box {
 	return r0
 }
 
-// ResumeAllConfirming provides a mock function with given fields: currentBlockHeight
-func (_m *Application) ResumeAllConfirming(currentBlockHeight *big.Int) error {
+// ResumeAllPendingNextBlock provides a mock function with given fields: currentBlockHeight
+func (_m *Application) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
 	ret := _m.Called(currentBlockHeight)
 
 	var r0 error
@@ -191,8 +192,8 @@ func (_m *Application) ResumeAllConfirming(currentBlockHeight *big.Int) error {
 	return r0
 }
 
-// ResumeAllConnecting provides a mock function with given fields:
-func (_m *Application) ResumeAllConnecting() error {
+// ResumeAllPendingConnection provides a mock function with given fields:
+func (_m *Application) ResumeAllPendingConnection() error {
 	ret := _m.Called()
 
 	var r0 error
@@ -219,8 +220,8 @@ func (_m *Application) ResumeAllInProgress() error {
 	return r0
 }
 
-// ResumePending provides a mock function with given fields: runID, input
-func (_m *Application) ResumePending(runID *models.ID, input models.BridgeRunResult) error {
+// ResumePendingBridge provides a mock function with given fields: runID, input
+func (_m *Application) ResumePendingBridge(runID *models.ID, input models.BridgeRunResult) error {
 	ret := _m.Called(runID, input)
 
 	var r0 error

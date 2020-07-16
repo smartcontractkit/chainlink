@@ -52,8 +52,8 @@ func bigFromHex(s string) *big.Int {
 	return n
 }
 
-// fieldSize is number of elements in secp256k1's base field, i.e. GF(fieldSize)
-var fieldSize = bigFromHex(
+// FieldSize is number of elements in secp256k1's base field, i.e. GF(FieldSize)
+var FieldSize = bigFromHex(
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F")
 
 var bi = big.NewInt
@@ -65,32 +65,31 @@ func add(addend1, addend2 *big.Int) *big.Int         { return i().Add(addend1, a
 func div(dividend, divisor *big.Int) *big.Int        { return i().Div(dividend, divisor) }
 func equal(left, right *big.Int) bool                { return left.Cmp(right) == 0 }
 func exp(base, exponent, modulus *big.Int) *big.Int  { return i().Exp(base, exponent, modulus) }
-func lsh(num *big.Int, bits uint) *big.Int           { return i().Lsh(num, bits) }
 func mul(multiplicand, multiplier *big.Int) *big.Int { return i().Mul(multiplicand, multiplier) }
 func mod(dividend, divisor *big.Int) *big.Int        { return i().Mod(dividend, divisor) }
 func sub(minuend, subtrahend *big.Int) *big.Int      { return i().Sub(minuend, subtrahend) }
 
 var (
 	// (fieldSize-1)/2: Half Fermat's Little Theorem exponent
-	eulersCriterionPower = div(sub(fieldSize, one), two)
+	eulersCriterionPower = div(sub(FieldSize, one), two)
 	// (fieldSize+1)/4: As long as P%4==3 and n=x^2 in GF(fieldSize), n^sqrtPower=±x
-	sqrtPower = div(add(fieldSize, one), four)
+	sqrtPower = div(add(FieldSize, one), four)
 )
 
 // IsSquare returns true iff x = y^2 for some y in GF(p)
 func IsSquare(x *big.Int) bool {
-	return equal(one, exp(x, eulersCriterionPower, fieldSize))
+	return equal(one, exp(x, eulersCriterionPower, FieldSize))
 }
 
 // SquareRoot returns a s.t. a^2=x, as long as x is a square
 func SquareRoot(x *big.Int) *big.Int {
-	return exp(x, sqrtPower, fieldSize)
+	return exp(x, sqrtPower, FieldSize)
 }
 
 // YSquared returns x^3+7 mod fieldSize, the right-hand side of the secp256k1
 // curve equation.
 func YSquared(x *big.Int) *big.Int {
-	return mod(add(exp(x, three, fieldSize), seven), fieldSize)
+	return mod(add(exp(x, three, FieldSize), seven), FieldSize)
 }
 
 // IsCurveXOrdinate returns true iff there is y s.t. y^2=x^3+7
@@ -133,13 +132,13 @@ func uint256ToBytes32(x *big.Int) []byte {
 	return common.LeftPadBytes(x.Bytes(), 32)
 }
 
-// fieldHash hashes xs uniformly into {0, ..., fieldSize-1}. msg is assumed to
+// FieldHash hashes xs uniformly into {0, ..., fieldSize-1}. msg is assumed to
 // already be a 256-bit hash
-func fieldHash(msg []byte) *big.Int {
+func FieldHash(msg []byte) *big.Int {
 	rv := utils.MustHash(string(msg)).Big()
 	// Hash recursively until rv < q. P(success per iteration) >= 0.5, so
 	// number of extra hashes is geometrically distributed, with mean < 1.
-	for rv.Cmp(fieldSize) >= 0 {
+	for rv.Cmp(FieldSize) >= 0 {
 		rv = utils.MustHash(string(common.BigToHash(rv).Bytes())).Big()
 	}
 	return rv
@@ -156,11 +155,11 @@ func HashToCurve(p kyber.Point, input *big.Int, ordinates func(x *big.Int),
 	if !(secp256k1.ValidPublicKey(p) && input.BitLen() <= 256 && input.Cmp(zero) >= 0) {
 		return nil, fmt.Errorf("bad input to vrf.HashToCurve")
 	}
-	x := fieldHash(append(hashToCurveHashPrefix, append(secp256k1.LongMarshal(p),
+	x := FieldHash(append(hashToCurveHashPrefix, append(secp256k1.LongMarshal(p),
 		uint256ToBytes32(input)...)...))
 	ordinates(x)
 	for !IsCurveXOrdinate(x) { // Hash recursively until x^3+7 is a square
-		x.Set(fieldHash(common.BigToHash(x).Bytes()))
+		x.Set(FieldHash(common.BigToHash(x).Bytes()))
 		ordinates(x)
 	}
 	y := SquareRoot(YSquared(x))
@@ -297,8 +296,8 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	c := ScalarFromCurvePoints(h, publicKey, gamma, uWitness, v)
 	// (m - c*secretKey) % GroupOrder
 	s := mod(sub(nonce, mul(c, secretKey)), secp256k1.GroupOrder)
-	if err := checkCGammaNotEqualToSHash(c, gamma, s, h); err != nil {
-		return nil, err
+	if e := checkCGammaNotEqualToSHash(c, gamma, s, h); e != nil {
+		return nil, e
 	}
 	outputHash := utils.MustHash(string(append(vrfRandomOutputHashPrefix,
 		secp256k1.LongMarshal(gamma)...)))

@@ -1,3 +1,147 @@
+import { FeedConfig, OracleNode } from 'config'
+
+/**
+ * aggregator/CLEAR_STATE
+ */
+export interface ClearStateAction {
+  type: 'aggregator/CLEAR_STATE'
+}
+
+export function clearState() {
+  return {
+    type: 'aggregator/CLEAR_STATE',
+  }
+}
+
+/**
+ * aggregator/FETCH_FEED_BY_PAIR_BEGIN
+ */
+export interface FetchFeedByPairBeginAction {
+  type: 'aggregator/FETCH_FEED_BY_PAIR_BEGIN'
+}
+
+export function fetchFeedByPairBegin() {
+  return {
+    type: 'aggregator/FETCH_FEED_BY_PAIR_BEGIN',
+  }
+}
+
+/**
+ * aggregator/FETCH_FEED_BY_PAIR_SUCCESS
+ */
+export interface FetchFeedByPairSuccessAction {
+  type: 'aggregator/FETCH_FEED_BY_PAIR_SUCCESS'
+  payload: FeedConfig
+}
+
+export function fetchFeedByPairSuccess(payload: FeedConfig) {
+  return {
+    type: 'aggregator/FETCH_FEED_BY_PAIR_SUCCESS',
+    payload,
+  }
+}
+
+/**
+ * aggregator/FETCH_FEED_BY_PAIR_ERROR
+ */
+export interface FetchFeedByPairErrorAction {
+  type: 'aggregator/FETCH_FEED_BY_PAIR_ERROR'
+  error: string
+}
+
+export function fetchFeedByPairError(error: string) {
+  return {
+    type: 'aggregator/FETCH_FEED_BY_PAIR_ERROR',
+    error,
+  }
+}
+
+/**
+ * aggregator/FETCH_FEED_BY_ADDRESS_BEGIN
+ */
+export interface FetchFeedByAddressBeginAction {
+  type: 'aggregator/FETCH_FEED_BY_ADDRESS_BEGIN'
+}
+
+export function fetchFeedByAddressBegin() {
+  return {
+    type: 'aggregator/FETCH_FEED_BY_ADDRESS_BEGIN',
+  }
+}
+
+/**
+ * aggregator/FETCH_FEED_BY_ADDRESS_SUCCESS
+ */
+export interface FetchFeedByAddressSuccessAction {
+  type: 'aggregator/FETCH_FEED_BY_ADDRESS_SUCCESS'
+  payload: FeedConfig
+}
+
+export function fetchFeedByAddressSuccess(payload: FeedConfig) {
+  return {
+    type: 'aggregator/FETCH_FEED_BY_ADDRESS_SUCCESS',
+    payload,
+  }
+}
+
+/**
+ * aggregator/FETCH_FEED_BY_ADDRESS_ERROR
+ */
+export interface FetchFeedByAddressErrorAction {
+  type: 'aggregator/FETCH_FEED_BY_ADDRESS_ERROR'
+  error: string
+}
+
+export function fetchFeedByAddressError(error: string) {
+  return {
+    type: 'aggregator/FETCH_FEED_BY_ADDRESS_ERROR',
+    error,
+  }
+}
+
+/**
+ * aggregator/FETCH_ORACLE_NODES_BEGIN
+ */
+export interface FetchOracleNodesBeginAction {
+  type: 'aggregator/FETCH_ORACLE_NODES_BEGIN'
+}
+
+export function fetchOracleNodesBegin() {
+  return {
+    type: 'aggregator/FETCH_ORACLE_NODES_BEGIN',
+  }
+}
+
+/**
+ * aggregator/FETCH_ORACLE_NODES_SUCCESS
+ */
+export interface FetchOracleNodesSuccessAction {
+  type: 'aggregator/FETCH_ORACLE_NODES_SUCCESS'
+  payload: OracleNode[]
+}
+
+export function fetchOracleNodesSuccess(payload: OracleNode[]) {
+  return {
+    type: 'aggregator/FETCH_ORACLE_NODES_SUCCESS',
+    payload,
+  }
+}
+
+/**
+ * aggregator/FETCH_ORACLE_NODES_ERROR
+ */
+export interface FetchOracleNodesErrorAction {
+  type: 'aggregator/FETCH_ORACLE_NODES_ERROR'
+  error: string
+}
+
+export function fetchOracleNodesError(error: string) {
+  return {
+    type: 'aggregator/FETCH_ORACLE_NODES_ERROR',
+    error,
+  }
+}
+
 /**
  * aggregator/ORACLE_LIST
  */
@@ -160,35 +304,6 @@ export function setContractAddress(payload: any) {
   return {
     type: 'aggregator/CONTRACT_ADDRESS',
     payload,
-  }
-}
-
-/**
- * aggregator/CONFIG
- */
-export interface SetConfigAction {
-  type: 'aggregator/CONFIG'
-  payload: any
-}
-
-export function setConfig(payload: any) {
-  return {
-    type: 'aggregator/CONFIG',
-    payload,
-  }
-}
-
-/**
- * aggregator/CLEAR_STATE
- */
-export interface SetClearStateAction {
-  type: 'aggregator/CLEAR_STATE'
-  payload: any
-}
-
-export function clearState() {
-  return {
-    type: 'aggregator/CLEAR_STATE',
   }
 }
 

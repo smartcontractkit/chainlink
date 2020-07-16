@@ -1,24 +1,30 @@
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/big"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/jinzhu/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )
@@ -48,8 +54,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
-	if err := checkFilePermissions(cli.Config.RootDir()); err != nil {
-		logger.Warn(err)
+	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
+		logger.Warn(e)
 	}
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
@@ -60,14 +66,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 	if len(c.String("vrfpassword")) != 0 {
-		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
-		if err != nil {
-			return cli.errorOut(errors.Wrapf(err,
+		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
+		if fileErr != nil {
+			return cli.errorOut(errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
 				c.String("vrfpassword")))
 		}
-		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
-			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
+		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); authErr != nil {
+			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
 		}
 	}
 
@@ -82,8 +88,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
 	logger.Info("API exposed for user ", user.Email)
-	if err := app.Start(); err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	if e := app.Start(); e != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
 	defer loggedStop(app)
 	err = logConfigVariables(store)
@@ -154,11 +160,7 @@ func logIfNonceOutOfSync(store *strpkg.Store) {
 }
 
 func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
-	if lastNonce+1 < nonce {
-		return true
-	}
-
-	return false
+	return lastNonce+1 < nonce
 }
 
 func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
@@ -205,9 +207,9 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 	overrideGasLimit := c.Uint64("gasLimit")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
+	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer app.Stop()
-
 	store := app.GetStore()
 
 	pwd, err := passwordFromFile(c.String("password"))
@@ -264,7 +266,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 
 		jobRunID, err := models.NewIDFromString(tx.SurrogateID.ValueOrZero())
 		if err != nil {
-			logger.Errorw("could not get UUID from surrogate ID", "SurrogateID", tx.SurrogateID.ValueOrZero())
+			logger.Infow("could not get UUID from surrogate ID", "SurrogateID", tx.SurrogateID.ValueOrZero())
 			continue
 		}
 		jobRun, err := store.FindJobRun(jobRunID)
@@ -274,7 +276,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 		}
 		for taskIndex := range jobRun.TaskRuns {
 			taskRun := &jobRun.TaskRuns[taskIndex]
-			if taskRun.Status == models.RunStatusPendingConfirmations {
+			if taskRun.Status == models.RunStatusPendingOutgoingConfirmations {
 				taskRun.Status = models.RunStatusErrored
 			}
 		}
@@ -287,6 +289,103 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 		}
 	}
 	return nil
+}
+
+// ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
+// This is useful to setup the database for testing
+func (cli *Client) ResetDatabase(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	config := orm.NewConfig()
+	if config.DatabaseURL() == "" {
+		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+	}
+	parsed, err := url.Parse(config.DatabaseURL())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	dbname := parsed.Path[1:]
+	if !strings.HasSuffix(dbname, "_test") {
+		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss", dbname))
+	}
+	logger.Infof("Resetting database: %#v", config.DatabaseURL())
+	if err := dropAndCreateDB(*parsed); err != nil {
+		return cli.errorOut(err)
+	}
+	if err := migrateTestDB(config); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+// PrepareTestDatabase calls ResetDatabase then loads fixtures required for tests
+func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
+	if err := cli.ResetDatabase(c); err != nil {
+		return cli.errorOut(err)
+	}
+	config := orm.NewConfig()
+	if err := insertFixtures(config); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+func dropAndCreateDB(parsed url.URL) error {
+	// Cannot drop the database if we are connected to it, so we must connect
+	// to a different one. template1 should be present on all postgres installations
+	dbname := parsed.Path[1:]
+	parsed.Path = "/template1"
+	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
+	if err != nil {
+		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
+	if err != nil {
+		return fmt.Errorf("unable to drop postgres database: %v", err)
+	}
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+	if err != nil {
+		return fmt.Errorf("unable to create postgres database: %v", err)
+	}
+	return nil
+}
+
+func migrateTestDB(config *orm.Config) error {
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault())
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+	err = orm.RawDB(func(db *gorm.DB) error {
+		return migrations.GORMMigrate(db)
+	})
+	if err != nil {
+		return fmt.Errorf("migrateTestDB failed: %v", err)
+	}
+	orm.SetLogging(config.LogSQLStatements())
+	return orm.Close()
+}
+
+func insertFixtures(config *orm.Config) error {
+	db, err := sql.Open(string(orm.DialectPostgres), config.DatabaseURL())
+	if err != nil {
+		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
+	}
+	defer db.Close()
+
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		return errors.New("could not get runtime.Caller(1)")
+	}
+	filepath := path.Join(path.Dir(filename), "../store/testdata/fixtures.sql")
+	fixturesSQL, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(string(fixturesSQL))
+	return err
 }
 
 // DeleteUser is run locally to remove the User row from the node's database.
@@ -311,43 +410,22 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("Must pass in filepath to key"))
 	}
 
-	src := c.Args().First()
-	kdir := cli.Config.KeysDir()
+	var (
+		srcKeyPath = c.Args().First()                      // ex: ./keys/mykey
+		srcKeyFile = filepath.Base(srcKeyPath)             // ex: mykey
+		dstDirPath = cli.Config.KeysDir()                  // ex: /clroot/keys
+		dstKeyPath = filepath.Join(dstDirPath, srcKeyFile) // ex: /clroot/keys/mykey
+	)
 
-	if !utils.FileExists(kdir) {
-		err := os.MkdirAll(kdir, os.FileMode(0700))
-		if err != nil {
-			return cli.errorOut(err)
-		}
+	err := utils.EnsureDirAndPerms(dstDirPath, 0700|os.ModeDir)
+	if err != nil {
+		return cli.errorOut(err)
 	}
 
-	if i := strings.LastIndex(src, "/"); i < 0 {
-		kdir += "/" + src
-	} else {
-		kdir += src[strings.LastIndex(src, "/"):]
-	}
-
-	if err := copyFile(src, kdir); err != nil {
+	err = utils.CopyFileWithPerms(srcKeyPath, dstKeyPath, 0600)
+	if err != nil {
 		return cli.errorOut(err)
 	}
 
 	return app.GetStore().SyncDiskKeyStoreToDB()
-}
-
-func copyFile(src, dst string) error {
-	from, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-
-	to, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-
-	_, err = io.Copy(to, from)
-
-	return err
 }

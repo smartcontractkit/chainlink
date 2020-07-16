@@ -1,17 +1,18 @@
-import React, { useState } from 'react'
+import { DispatchBinding } from '@chainlink/ts-helpers'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
-import { Col, Popover, Tooltip } from 'antd'
+import { Col, Tooltip } from 'antd'
 import classNames from 'classnames'
+import { FeedConfig } from 'config'
 import { AppState } from 'state'
-import { FeedConfig } from 'feeds'
-import { listingSelectors } from '../../state/ducks/listing'
-import { ListingAnswer } from 'state/ducks/listing/operations'
+import { listingSelectors, listingOperations } from '../../state/ducks/listing'
 import { HealthCheck } from 'state/ducks/listing/reducers'
+import Sponsors from './Sponsors'
 
 interface StateProps {
   healthCheck?: HealthCheck
-  listingAnswer?: ListingAnswer
+  answer?: string
 }
 
 interface OwnProps {
@@ -20,24 +21,41 @@ interface OwnProps {
   enableHealth: boolean
 }
 
-interface Props extends StateProps, OwnProps {}
+interface DispatchProps {
+  fetchAnswer: DispatchBinding<typeof listingOperations.fetchAnswer>
+  fetchHealthStatus: DispatchBinding<typeof listingOperations.fetchHealthStatus>
+}
+
+interface Props extends OwnProps, StateProps, DispatchProps {}
 
 const GRID = { xs: 24, sm: 12, md: 8 }
 
 export const GridItem: React.FC<Props> = ({
   feed,
-  listingAnswer,
+  answer,
   compareOffchain,
   enableHealth,
   healthCheck,
+  fetchAnswer,
+  fetchHealthStatus,
 }) => {
-  const status = normalizeStatus(feed, listingAnswer, healthCheck)
+  useEffect(() => {
+    fetchAnswer(feed)
+  }, [fetchAnswer, feed])
+  useEffect(() => {
+    if (enableHealth) {
+      fetchHealthStatus(feed)
+    }
+  }, [enableHealth, fetchHealthStatus, feed])
+
+  const status = normalizeStatus(feed, answer, healthCheck)
   const tooltipErrors = status.errors.join(', ')
   const title = `${status.result}${tooltipErrors}`
   const classes = classNames(
     'listing-grid__item',
     healthClasses(status, enableHealth),
   )
+
   const gridItem = (
     <div className={classes}>
       {compareOffchain && <CompareOffchain feed={feed} />}
@@ -48,22 +66,13 @@ export const GridItem: React.FC<Props> = ({
       >
         <div className="listing-grid__item--name">{feed.name}</div>
         <div className="listing-grid__item--answer">
-          {listingAnswer && (
+          {answer && (
             <>
-              {feed.valuePrefix} {listingAnswer.answer}
+              {feed.valuePrefix} {answer}
             </>
           )}
         </div>
-        {feed.sponsored && feed.sponsored.length > 0 && (
-          <>
-            <div className="listing-grid__item--sponsored-title">
-              Sponsored by
-            </div>
-            <div className="listing-grid__item--sponsored">
-              <Sponsored data={feed.sponsored} />
-            </div>
-          </>
-        )}
+        <Sponsors sponsors={feed.sponsored} />
       </Link>
     </div>
   )
@@ -80,46 +89,16 @@ interface CompareOffchainProps {
 }
 
 function CompareOffchain({ feed }: CompareOffchainProps) {
-  let content: any = 'No offchain comparison'
-
-  if (feed.compareOffchain) {
-    content = (
-      <a href={feed.compareOffchain} rel="noopener noreferrer">
-        Compare Offchain
-      </a>
-    )
-  }
+  const content = feed.compareOffchain ? (
+    <a href={feed.compareOffchain} rel="noopener noreferrer">
+      Compare Offchain
+    </a>
+  ) : (
+    'No offchain comparison'
+  )
 
   return (
     <div className="listing-grid__item--offchain-comparison">{content}</div>
-  )
-}
-
-function Sponsored({ data }: any) {
-  const [sliced] = useState(data.slice(0, 2))
-
-  if (data.length <= 2) {
-    return sliced.map((name: any, i: number) => [
-      i > 0 && ', ',
-      <span key={name}>{name}</span>,
-    ])
-  }
-
-  return (
-    <Popover
-      content={data.map((name: any) => (
-        <div className="listing-grid__item--sponsored-popover" key={name}>
-          {name}
-        </div>
-      ))}
-      title="Sponsored by"
-    >
-      {sliced.map((name: any, i: number) => [
-        i > 0 && ', ',
-        <span key={name}>{name}</span>,
-      ])}
-      , (+{data.length - 2})
-    </Popover>
   )
 }
 
@@ -148,16 +127,16 @@ function healthClasses(status: Status, enableHeath: boolean) {
 
 function normalizeStatus(
   feed: FeedConfig,
-  listingAnswer?: ListingAnswer,
+  rawAnswer?: string,
   healthCheck?: HealthCheck,
 ): Status {
   const errors: string[] = []
 
-  if (listingAnswer === undefined || healthCheck === undefined) {
+  if (rawAnswer === undefined || healthCheck === undefined) {
     return { result: 'unknown', errors }
   }
 
-  const answer = parseFloat(listingAnswer.answer)
+  const answer = parseFloat(rawAnswer ?? '0')
   const thresholdDiff = healthCheck.currentPrice * (feed.threshold / 100)
   const thresholdMin = Math.max(healthCheck.currentPrice - thresholdDiff, 0)
   const thresholdMax = healthCheck.currentPrice + thresholdDiff
@@ -184,13 +163,18 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
   ownProps,
 ) => {
   const contractAddress = ownProps.feed.contractAddress
-  const listingAnswer = listingSelectors.answer(state, contractAddress)
+  const answer = listingSelectors.answer(state, contractAddress)
   const healthCheck = state.listing.healthChecks[contractAddress]
 
   return {
-    listingAnswer,
+    answer,
     healthCheck,
   }
 }
 
-export default connect(mapStateToProps)(GridItem)
+const mapDispatchToProps = {
+  fetchAnswer: listingOperations.fetchAnswer,
+  fetchHealthStatus: listingOperations.fetchHealthStatus,
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(GridItem)

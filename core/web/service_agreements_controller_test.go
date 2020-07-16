@@ -28,7 +28,7 @@ func TestServiceAgreementsController_Create(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	base := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	base := cltest.MustHelloWorldAgreement(t)
 	base = strings.Replace(base, "2019-10-19T22:17:19Z", endAtISO8601, 1)
 	tests := []struct {
 		name     string
@@ -81,7 +81,7 @@ func TestServiceAgreementsController_Create_isIdempotent(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	base := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
+	base := cltest.MustHelloWorldAgreement(t)
 	base = strings.Replace(base, "2019-10-19T22:17:19Z", endAtISO8601, 1)
 	reader := bytes.NewBuffer([]byte(base))
 

@@ -31,7 +31,7 @@ func TestConfigController_Show(t *testing.T) {
 	cwl := presenters.ConfigWhitelist{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
 
-	assert.Equal(t, orm.LogLevel{Level: -1}, cwl.LogLevel)
+	assert.Equal(t, orm.LogLevel{Level: 0}, cwl.LogLevel)
 	assert.Contains(t, cwl.RootDir, "/tmp/chainlink_test/")
 	assert.Equal(t, uint16(6688), cwl.Port)
 	assert.Equal(t, uint16(6689), cwl.TLSPort)
@@ -46,6 +46,7 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, big.NewInt(5000000000), cwl.EthGasBumpWei)
 	assert.Equal(t, big.NewInt(20000000000), cwl.EthGasPriceDefault)
 	assert.Equal(t, orm.NewConfig().LinkContractAddress(), cwl.LinkContractAddress)
+	assert.Equal(t, orm.NewConfig().BlockBackfillDepth(), cwl.BlockBackfillDepth)
 	assert.Equal(t, assets.NewLink(100), cwl.MinimumContractPayment)
 	assert.Equal(t, (*common.Address)(nil), cwl.OracleContractAddress)
 	assert.Equal(t, time.Millisecond*500, cwl.DatabaseTimeout.Duration())

@@ -7,11 +7,17 @@ import (
 	"math/big"
 	"net/http"
 	"testing"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 )
 
 func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
@@ -19,16 +25,28 @@ func ExportedSetCheckerFactory(fm Service, fac DeviationCheckerFactory) {
 	impl.checkerFactory = fac
 }
 
-func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold float64) bool {
-	return p.pollIfEligible(threshold)
+func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold, absoluteThreshold float64) bool {
+	return p.pollIfEligible(DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
 }
 
 func (p *PollingDeviationChecker) ExportedSetStoredReportableRoundID(roundID *big.Int) {
 	p.reportableRoundID = roundID
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToLog(log interface{}) {
-	p.respondToLog(log)
+func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
+	p.respondToNewRoundLog(*log)
+}
+
+func (p *PollingDeviationChecker) ExportedSufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+	return p.sufficientFunds(state)
+}
+
+func (p *PollingDeviationChecker) ExportedSufficientPayment(payment *big.Int) bool {
+	return p.sufficientPayment(payment)
+}
+
+func ExportedConsumeLogBroadcast(lb eth.LogBroadcast, callback func()) {
+	consumeLogBroadcast(lb, callback)
 }
 
 func mustReadFile(t testing.TB, file string) string {
@@ -82,4 +100,18 @@ func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 	body := []byte(fmt.Sprintf(`{"result":%v}`, result))
 	require.NoError(t, json.Unmarshal(body, &data))
 	return data
+}
+
+// CreateJob is used in TestFluxMonitorAntiSpamLogic to create a
+// job with a specific answer and round, for testing nodes with malicious
+// behavior
+func (fm *concreteFluxMonitor) CreateJob(t *testing.T,
+	jobSpecId *models.ID, polledAnswer decimal.Decimal,
+	nextRound *big.Int) error {
+	jobSpec, err := fm.store.ORM.FindJob(jobSpecId)
+	require.NoError(t, err, "could not find job spec with that ID")
+	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], nil, fm.runManager,
+		fm.store.ORM, models.MustMakeDuration(100*time.Second))
+	require.NoError(t, err, "could not create deviation checker")
+	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, nextRound)
 }

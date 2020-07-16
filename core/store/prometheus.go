@@ -3,11 +3,12 @@ package store
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"math"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"

@@ -4,11 +4,13 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // EncryptedSecretKey contains encrypted private key to be serialized to DB
@@ -18,6 +20,8 @@ import (
 type EncryptedSecretKey struct {
 	PublicKey PublicKey     `gorm:"primary_key;type:varchar(68)"`
 	VRFKey    gethKeyStruct `json:"vrf_key" gorm:"type:text"`
+	CreatedAt time.Time     `json:"-"`
+	UpdatedAt time.Time     `json:"-"`
 }
 
 // passwordPrefix is added to the beginning of the passwords for
@@ -57,8 +61,8 @@ func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
 		return nil, errors.Wrapf(err, "could not encrypt vrf key")
 	}
 	rv := EncryptedSecretKey{}
-	if err := json.Unmarshal(keyJSON, &rv.VRFKey); err != nil {
-		return nil, errors.Wrapf(err, "geth returned unexpected key material")
+	if e := json.Unmarshal(keyJSON, &rv.VRFKey); e != nil {
+		return nil, errors.Wrapf(e, "geth returned unexpected key material")
 	}
 	rv.PublicKey = k.PublicKey
 	roundTripKey, err := rv.Decrypt(auth)
@@ -102,7 +106,7 @@ func (e *EncryptedSecretKey) WriteToDisk(path string) error {
 		return errors.Wrapf(err, "while marshaling key to save to %s", path)
 	}
 	userReadWriteOtherNoAccess := os.FileMode(0600)
-	return ioutil.WriteFile(path, keyJSON, userReadWriteOtherNoAccess)
+	return utils.WriteFileWithPerms(path, keyJSON, userReadWriteOtherNoAccess)
 }
 
 // MarshalText renders k as a text string

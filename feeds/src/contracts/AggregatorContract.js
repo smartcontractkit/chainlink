@@ -13,9 +13,9 @@ export default class AggregatorContract {
     filter: {},
     listener: {},
   }
-  answerIdInterval
-  provider
-  contract
+  answerIdInterval = null
+  provider = null
+  contract = null
 
   constructor(config, abi) {
     this.provider = createInfuraProvider(config.networkId)
@@ -91,27 +91,25 @@ export default class AggregatorContract {
     if (!this.alive) return
     const answerCounter = await this.provider.getStorageAt(this.address, 13)
     const bigNumberify = ethers.utils.bigNumberify(answerCounter)
-    return Number(bigNumberify)
+    return bigNumberify.toNumber()
   }
 
   async latestCompletedAnswer() {
     const completedAnswer = await this.contract.latestCompletedAnswer()
-    return Number(completedAnswer)
+    return completedAnswer.toNumber()
   }
 
   async minimumAnswers() {
     const minimumAnswers = await this.contract.minimumResponses()
-    return Number(minimumAnswers)
+    return minimumAnswers.toNumber()
   }
 
   async addBlockTimestampToLogs(logs) {
     if (_.isEmpty(logs)) return logs
 
-    const blockTimePromises = []
-
-    for (let i = 0; i < logs.length; i++) {
-      blockTimePromises.push(this.provider.getBlock(logs[i].meta.blockNumber))
-    }
+    const blockTimePromises = logs.map(log =>
+      this.provider.getBlock(log.meta.blockNumber),
+    )
     const blockTimes = await Promise.all(blockTimePromises)
 
     return logs.map((l, i) => {

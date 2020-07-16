@@ -1,7 +1,10 @@
-package vrf
+package vrf_test
 
 import (
+	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +15,8 @@ func TestMeasureFulfillmenttGasCost(t *testing.T) {
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	// Set up a request to fulfill
 	log := requestRandomness(t, coordinator, keyHash, fee, seed)
-	proof, err := generateProofWithNonce(secretKey, log.Seed, one /* nonce */)
+	proof, err := vrf.GenerateProofWithNonce(rawSecretKey, log.Seed,
+		big.NewInt(1) /* nonce */)
 	require.NoError(t, err, "could not generate VRF proof!")
 	// Set up the proof with which to fulfill request
 	proofBlob, err := proof.MarshalForSolidityVerifier()

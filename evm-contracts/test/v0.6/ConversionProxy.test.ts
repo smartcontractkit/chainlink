@@ -34,7 +34,7 @@ describe('ConversionProxy', () => {
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregatorFiat: contract.Instance<MockAggregatorFactory>
   let aggregatorEth: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.Instance<ConversionProxyFactory>
+  let proxy: contract.CallableOverrideInstance<ConversionProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
@@ -45,9 +45,11 @@ describe('ConversionProxy', () => {
     aggregatorEth = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(ethDecimals, ethAnswer)
-    proxy = await conversionProxyFactory
-      .connect(defaultAccount)
-      .deploy(aggregator.address, aggregatorFiat.address)
+    proxy = contract.callableAggregator(
+      await conversionProxyFactory
+        .connect(defaultAccount)
+        .deploy(aggregator.address, aggregatorFiat.address),
+    )
   })
 
   beforeEach(async () => {
@@ -58,13 +60,15 @@ describe('ConversionProxy', () => {
     matchers.publicAbi(conversionProxyFactory, [
       'decimals',
       'from',
-      'to',
+      'getAnswer',
+      'getRoundData',
+      'getTimestamp',
       'latestAnswer',
       'latestRound',
-      'getAnswer',
-      'setAddresses',
+      'latestRoundData',
       'latestTimestamp',
-      'getTimestamp',
+      'setAddresses',
+      'to',
       // Owned methods:
       'acceptOwnership',
       'owner',

@@ -55,11 +55,13 @@ func TestAuthenticateUserByToken(t *testing.T) {
 	var user models.User
 
 	token, err := user.GenerateAuthToken()
+	assert.NoError(t, err, "failed when generate auth token")
 	ok, err := models.AuthenticateUserByToken(token, &user)
 	require.NoError(t, err)
 	assert.True(t, ok, "authentication must be successful")
 
 	_, err = user.GenerateAuthToken()
+	assert.NoError(t, err, "failed to generate auth token")
 	ok, err = models.AuthenticateUserByToken(token, &user)
 	require.NoError(t, err)
 	assert.False(t, ok, "authentication must fail with past token")

@@ -27,13 +27,13 @@ describe('WhitelistedAggregator', () => {
   const description = 'LINK/USD'
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<WhitelistedAggregatorFactory>
+  let aggregator: contract.CallableOverrideInstance<WhitelistedAggregatorFactory>
   let nextRound: number
+
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await (aggregatorFactory as any)
-      .connect(personas.Carol)
-      .deploy(
+    aggregator = contract.callableAggregator(
+      await (aggregatorFactory as any).connect(personas.Carol).deploy(
         link.address,
         paymentAmount,
         timeout,
@@ -42,7 +42,8 @@ describe('WhitelistedAggregator', () => {
         // Remove when this PR gets merged:
         // https://github.com/ethereum-ts/TypeChain/pull/218
         { gasLimit: 8_000_000 },
-      )
+      ),
+    )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))
@@ -56,7 +57,7 @@ describe('WhitelistedAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
       'acceptAdmin',
-      'addOracle',
+      'addOracles',
       'allocatedFunds',
       'availableFunds',
       'decimals',
@@ -64,30 +65,28 @@ describe('WhitelistedAggregator', () => {
       'getAdmin',
       'getAnswer',
       'getOracles',
-      'getOriginatingRoundOfAnswer',
-      'getRoundStartedAt',
-      'getTimedOutStatus',
+      'getRoundData',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestSubmission',
       'latestTimestamp',
       'linkToken',
-      'maxAnswerCount',
-      'minAnswerCount',
+      'maxSubmissionCount',
+      'minSubmissionCount',
       'onTokenTransfer',
       'oracleCount',
+      'oracleRoundState',
       'paymentAmount',
-      'removeOracle',
+      'removeOracles',
       'reportingRound',
-      'reportingRoundStartedAt',
+      'requestNewRound',
       'restartDelay',
-      'roundState',
       'setRequesterPermissions',
-      'startNewRound',
+      'submit',
       'timeout',
       'transferAdmin',
-      'updateAnswer',
       'updateAvailableFunds',
       'updateFutureRounds',
       'withdrawFunds',
@@ -98,7 +97,7 @@ describe('WhitelistedAggregator', () => {
       'acceptOwnership',
       'owner',
       'transferOwnership',
-      // Owned methods:
+      // Whitelisted methods:
       'addToWhitelist',
       'disableWhitelist',
       'enableWhitelist',
@@ -133,14 +132,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -172,14 +171,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -213,14 +212,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {
@@ -250,14 +249,14 @@ describe('WhitelistedAggregator', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracle(
-          personas.Neil.address,
-          personas.Neil.address,
+        .addOracles(
+          [personas.Neil.address],
+          [personas.Neil.address],
           minAns,
           maxAns,
           rrDelay,
         )
-      await aggregator.connect(personas.Neil).updateAnswer(nextRound, answer)
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
     })
 
     describe('when the reader is not whitelisted', () => {

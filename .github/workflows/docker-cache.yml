@@ -2,8 +2,11 @@ name: Update cache image
 
 on:
   schedule:
-    # Run every day at midnight
-    - cron: '0 0 * * *'
+    # Run every Sunday at midnight
+    - cron: '0 0 * * 0'
+
+  repository_dispatch:
+    types: build-docker-cache
 
 jobs:
   update-cache:

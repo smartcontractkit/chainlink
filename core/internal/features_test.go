@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -46,7 +48,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 
 	initr := j.Initiators[0]
 	assert.Equal(t, models.InitiatorCron, initr.Type)
-	assert.Equal(t, "* * * * *", string(initr.Schedule), "Wrong cron schedule saved")
+	assert.Equal(t, "CRON_TZ=UTC * * * * * *", string(initr.Schedule), "Wrong cron schedule saved")
 }
 
 func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
@@ -92,7 +94,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
-	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -118,7 +120,8 @@ func TestIntegration_FeeBump(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
 	defer assertCalled()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	// Must use hardcoded key here since the hash has to match attempt1Hash
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.Key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
 	defer cleanup()
 	config := app.Config
 
@@ -168,7 +171,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
-	jr := cltest.WaitForJobRunToPendConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
 	eth.EventuallyAllCalled(t)
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -179,7 +182,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// At the next head, the transaction remains unconfirmed but the gas bump
 	// threshold has been met, so a new transaction is made with a higher amount
@@ -190,7 +193,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(firstTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
 
 	// Another head comes in and both transactions are still unconfirmed, more
@@ -201,7 +204,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxRemainsUnconfirmedAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// Now the second transaction attempt meets the gas bump threshold, so a
 	// final transaction attempt shoud be made
@@ -212,7 +215,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(secondTxGasBumpAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
 
 	// This third attempt has enough gas and gets confirmed, but has not yet
@@ -223,7 +226,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	})
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(thirdTxConfirmedAt)}
 	eth.EventuallyAllCalled(t)
-	jr = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// Finally the third attempt gets to a minimum number of safe confirmations,
 	// the amount remaining in the account is printed (eth_getBalance, eth_call)
@@ -345,16 +348,16 @@ func TestIntegration_RunLog(t *testing.T) {
 			runs, err := app.Store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			jr := runs[0]
-			cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+			cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 			require.Len(t, jr.TaskRuns, 1)
-			assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+			assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
 			blockIncrease := app.Store.Config.MinIncomingConfirmations()
 			minGlobalHeight := creationHeight + blockIncrease
 			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(minGlobalHeight)}
 			<-time.After(time.Second)
-			jr = cltest.JobRunStaysPendingConfirmations(t, app.Store, jr)
-			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].Confirmations.Uint32)
+			jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
+			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
 
 			safeNumber := creationHeight + requiredConfs
 			newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(safeNumber)}
@@ -369,7 +372,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			jr = cltest.WaitForJobRunStatus(t, app.Store, jr, test.wantStatus)
 			assert.True(t, jr.FinishedAt.Valid)
-			assert.Equal(t, requiredConfs, jr.TaskRuns[0].Confirmations.Uint32)
+			assert.Equal(t, requiredConfs, jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
 			assert.True(t, eth.AllCalled(), eth.Remaining())
 		})
 	}
@@ -422,10 +425,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	logs <- runlog
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
 	newHeads <- ethpkg.BlockHeader{Number: cltest.BigHexInt(logBlockNumber + 8)}
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, jr)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
 	confirmedReceipt := ethpkg.TxReceipt{
 		Hash:        runlog.TxHash,
@@ -705,6 +708,9 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", wsserver.URL.String())
 	app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("Accounts").Return([]accounts.Account{})
+	app.Store.KeyStore = kst
 	defer cleanup()
 
 	app.InstantClock()
@@ -726,6 +732,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, j.ID, run.JobSpecID)
 	cltest.WaitForJobRunToComplete(t, app.Store, run)
+	kst.AssertExpectations(t)
 }
 
 func TestIntegration_SleepAdapter(t *testing.T) {
@@ -743,7 +750,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	jr := cltest.CreateJobRunViaWeb(t, app, j, runInput)
 
 	cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusInProgress)
-	cltest.JobRunStays(t, app.Store, jr, models.RunStatusInProgress, time.Second)
+	cltest.JobRunStays(t, app.Store, jr, models.RunStatusInProgress, 3*time.Second)
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
@@ -849,7 +856,10 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// set up user
-	app.MustSeedUserAPIKey()
+	mockUser := cltest.MustRandomUser()
+	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
+	require.NoError(t, mockUser.SetAuthToken(&apiToken))
+	require.NoError(t, app.Store.SaveUser(&mockUser))
 
 	url := app.Config.ClientNodeURL() + "/v2/config"
 	headers := make(map[string]string)
@@ -866,6 +876,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
+	availableFunds := minPayment * 100
 
 	// Start, connect, and initialize node
 	newHeads := make(chan ethpkg.BlockHeader)
@@ -880,7 +891,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor initializes price", func(mock *cltest.EthMock) {
-		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 0, minPayment, minPayment, 1)
+		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		mock.Register("eth_call", hex)
 	})
 
@@ -900,6 +911,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	eth.Context("ethTx.Perform() for initial send", func(eth *cltest.EthMock) {
 		eth.Register("eth_sendRawTransaction", attemptHash)         // Initial tx attempt sent
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
+		eth.Register("eth_getLogs", []ethpkg.Log{})
 	})
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
@@ -908,7 +921,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
-	job.Initiators[0].InitiatorParams.PollingInterval = models.MustMakeDuration(15 * time.Second)
+	job.Initiators[0].InitiatorParams.PollTimer.Period = models.MustMakeDuration(15 * time.Second)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -932,7 +945,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		t,
 		"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", // from testdata/flux_monitor_job.json
 		requestParams.Get("address").String())
-	assert.Equal(t, "0xe6330cf7", requestParams.Get("functionSelector").String())
+	assert.Equal(t, "0x202ee0ed", requestParams.Get("functionSelector").String())
 	assert.Equal(
 		t,
 		"0x0000000000000000000000000000000000000000000000000000000000000002",
@@ -943,6 +956,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
+	availableFunds := minPayment * 100
 
 	// Start, connect, and initialize node
 	eth := app.EthMock
@@ -955,7 +969,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
-		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 0, minPayment, minPayment, 1)
+		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		mock.Register("eth_call", hex)
 	})
 
@@ -969,17 +983,23 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	newRounds := make(chan ethpkg.Log)
 	eth.RegisterSubscription("logs", newRounds)
 
+	eth.Context("Log Broadcaster backfills logs", func(mock *cltest.EthMock) {
+		eth.Register("eth_getBlockByNumber", ethpkg.Block{Number: hexutil.Uint64(1)})
+		eth.Register("eth_getLogs", []ethpkg.Log{})
+	})
+
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
 	job.Initiators[0].InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
-	job.Initiators[0].InitiatorParams.PollingInterval = models.MustMakeDuration(15 * time.Second)
+	job.Initiators[0].InitiatorParams.PollTimer.Period = models.MustMakeDuration(15 * time.Second)
+	job.Initiators[0].InitiatorParams.IdleTimer.Disabled = true
+	job.Initiators[0].InitiatorParams.IdleTimer.Duration = models.MustMakeDuration(0)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	_ = cltest.WaitForRuns(t, j, app.Store, 0)
-
 	eth.EventuallyAllCalled(t)
 
 	// Send a NewRound log event to trigger a run.
@@ -996,17 +1016,17 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 	})
 	eth.Context("Flux Monitor queries FluxAggregator.RoundState()", func(mock *cltest.EthMock) {
-		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 0, minPayment, minPayment, 1)
+		hex := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		mock.Register("eth_call", hex)
 	})
 	newRounds <- log
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
-	_ = cltest.WaitForJobRunToPendConfirmations(t, app.Store, jrs[0])
+	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
 	eth.EventuallyAllCalled(t)
 }
 
 func TestIntegration_RandomnessRequest(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.NoRegisterGetBlockNumber)
+	app, cleanup := cltest.NewApplicationWithKey(t)
 	defer cleanup()
 	eth := app.MockCallerSubscriberClient()
 	logs := make(chan ethpkg.Log, 1)
@@ -1054,7 +1074,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.Len(t, runs, 1)
 	jr := runs[0]
 	require.Len(t, jr.TaskRuns, 2)
-	assert.False(t, jr.TaskRuns[0].Confirmations.Valid)
+	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
 	require.True(t, eth.AllCalled(), eth.Remaining())
 	require.Len(t, attempts, 1)
@@ -1100,4 +1120,56 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 			assert.Fail(t, "message about log with bad source address not found")
 		}
 	}
+}
+
+// TestIntegration_EthTX_Reconnect tests that JobRuns that are interrupted due to
+// eth client connection issues are re-started appropriately. In particular, they
+// should broadcast a tx with the result of the original RunInput.
+func TestIntegration_EthTX_Reconnect(t *testing.T) {
+	t.Parallel()
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.EthMockRegisterChainID)
+	defer cfgCleanup()
+	defer cleanup()
+
+	eth := app.EthMock
+	newHeads := make(chan ethpkg.BlockHeader)
+	startHeight := 100
+	eth.RegisterSubscription("newHeads", newHeads)
+	eth.Register("eth_getTransactionCount", `0x100`)
+	require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(startHeight)))
+	require.NoError(t, app.StartAndConnect())
+
+	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
+	result := "0x11"
+	var jr models.JobRun
+	eth.ShouldCall(func(eth *cltest.EthMock) {
+		eth.Register("eth_sendRawTransaction", cltest.NewHash())
+		eth.RegisterError("eth_getTransactionReceipt", "connection closed")
+	}).During(func() {
+		jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
+		cltest.WaitForTxAttemptCount(t, app.Store, 1)
+		cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
+	})
+
+	confirmedHeight := startHeight + 1
+
+	eth.ShouldCall(func(eth *cltest.EthMock) {
+		eth.Register("eth_getTransactionReceipt", ethpkg.TxReceipt{
+			Hash: cltest.NewHash(),
+			// set the confirmation to avoid messing with the head tracker too
+			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinOutgoingConfirmations())),
+		})
+		eth.Register("eth_getBalance", "0x0100")
+		eth.Register("eth_call", "0x0100")
+	}).During(func() {
+		app.RunManager.ResumeAllPendingConnection()
+		cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	})
+
+	tx := cltest.GetLastTx(t, app.Store)
+	resultOnChain := hexutil.Encode(common.TrimLeftZeroes(tx.Data))
+
+	assert.Equal(t, result, resultOnChain)
 }

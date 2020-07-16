@@ -27,8 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
+	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,11 +39,6 @@ const LenientEthMock = "lenient"
 // EthMockRegisterChainID registers the common case of calling eth_chainId
 // and returns the store.config.ChainID
 const EthMockRegisterChainID = "eth_mock_register_chain_id"
-
-// NoRegisterGetBlockNumber prevents the EthMock from expecting to have eth_blockNumber
-// called by the LogBroadcaster at application startup.  Most of our tests should expect
-// this, so this flag should not be used frequently.
-const NoRegisterGetBlockNumber = "no_register_get_block_number"
 
 // MockCallerSubscriberClient create new EthMock Client
 func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock {
@@ -56,18 +51,12 @@ func (ta *TestApplication) MockCallerSubscriberClient(flags ...string) *EthMock 
 // MockEthOnStore given store return new EthMock Client
 func MockEthOnStore(t testing.TB, s *store.Store, flags ...string) *EthMock {
 	mock := &EthMock{t: t, strict: true}
-	registerGetBlockNumber := true
 	for _, flag := range flags {
 		if flag == LenientEthMock {
 			mock.strict = false
 		} else if flag == EthMockRegisterChainID {
 			mock.Register("eth_chainId", s.Config.ChainID())
-		} else if flag == NoRegisterGetBlockNumber {
-			registerGetBlockNumber = false
 		}
-	}
-	if registerGetBlockNumber {
-		mock.Register("eth_blockNumber", hexutil.Uint64(1))
 	}
 	eth := &eth.CallerSubscriberClient{CallerSubscriber: mock}
 	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
@@ -224,7 +213,17 @@ func (mock *EthMock) Call(result interface{}, method string, args ...interface{}
 // assignResult attempts to mimick more closely how go-ethereum actually does
 // Call, falling back to reflection if the values dont support the required
 // encoding interfaces
-func assignResult(result, response interface{}) error {
+func assignResult(result, response interface{}) (err error) {
+	defer func() {
+		if perr := recover(); perr != nil {
+			switch perr := perr.(type) {
+			case string:
+				err = errors.New(perr)
+			case error:
+				err = perr
+			}
+		}
+	}()
 	if unmarshaler, ok := result.(encoding.TextUnmarshaler); ok {
 		switch resp := response.(type) {
 		case encoding.TextMarshaler:
@@ -293,7 +292,7 @@ func (mock *EthMock) Subscribe(
 			case chan<- eth.BlockHeader:
 				fwdHeaders(channel, sub.channel)
 			default:
-				return nil, errors.New("Channel type not supported by ethMock")
+				return nil, errors.New("channel type not supported by ethMock")
 			}
 			return sub, nil
 		}
@@ -310,7 +309,7 @@ func (mock *EthMock) Subscribe(
 	} else if args[0] == "newHeads" {
 		return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed")
 	}
-	return nil, errors.New("Must RegisterSubscription before Subscribe")
+	return nil, errors.New("must RegisterSubscription before Subscribe")
 }
 
 // RegisterNewHeads registers a newheads subscription
@@ -595,9 +594,20 @@ func NewHTTPMockServer(
 	}
 }
 
+func NewHTTPMockServerWithAlterableResponse(
+	t *testing.T, response func() string) (server *httptest.Server) {
+	server = httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, response())
+		}))
+	return server
+}
+
 // MockCron represents a mock cron
 type MockCron struct {
 	Entries []MockCronEntry
+	nextID  cron.EntryID
 }
 
 // NewMockCron returns a new mock cron
@@ -609,15 +619,20 @@ func NewMockCron() *MockCron {
 func (*MockCron) Start() {}
 
 // Stop stops the mockcron
-func (*MockCron) Stop() {}
+func (*MockCron) Stop() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}
 
 // AddFunc appends a schedule to mockcron entries
-func (mc *MockCron) AddFunc(schd string, fn func()) error {
+func (mc *MockCron) AddFunc(schd string, fn func()) (cron.EntryID, error) {
 	mc.Entries = append(mc.Entries, MockCronEntry{
 		Schedule: schd,
 		Function: fn,
 	})
-	return nil
+	mc.nextID++
+	return mc.nextID, nil
 }
 
 // RunEntries run every function for each mockcron entry
@@ -686,10 +701,19 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
-func MustUser(email, pwd string) models.User {
-	r, err := models.NewUser(email, pwd)
+func MustRandomUser() models.User {
+	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
+	r, err := models.NewUser(email, Password)
 	if err != nil {
 		logger.Panic(err)
+	}
+	return r
+}
+
+func MustNewUser(t *testing.T, email, password string) models.User {
+	r, err := models.NewUser(email, password)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return r
 }
@@ -703,24 +727,25 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 		return user, err
 	}
 	m.Count += 1
-	user := MustUser(APIEmail, Password)
+	user := MustRandomUser()
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader) cmd.HTTPClient {
-	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{})
+func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader, sessionID string) cmd.HTTPClient {
+	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID})
 }
 
 type MockCookieAuthenticator struct {
-	Error error
+	SessionID string
+	Error     error
 }
 
 func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
-	return MustGenerateSessionCookie(APISessionID), m.Error
+	return MustGenerateSessionCookie(m.SessionID), m.Error
 }
 
 func (m MockCookieAuthenticator) Authenticate(models.SessionRequest) (*http.Cookie, error) {
-	return MustGenerateSessionCookie(APISessionID), m.Error
+	return MustGenerateSessionCookie(m.SessionID), m.Error
 }
 
 type MockSessionRequestBuilder struct {

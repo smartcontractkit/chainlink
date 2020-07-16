@@ -41,6 +41,8 @@ type Config struct {
 	viper           *viper.Viper
 	SecretGenerator SecretGenerator
 	runtimeStore    *ORM
+	Dialect         DialectName
+	AdvisoryLockID  int64
 }
 
 var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
@@ -66,7 +68,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		SecretGenerator: filePersistedSecretGenerator{},
 	}
 
-	if err := os.MkdirAll(config.RootDir(), os.FileMode(0700)); err != nil {
+	if err := utils.EnsureDirAndPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		logger.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
 	}
 
@@ -114,9 +116,33 @@ func (c Config) Set(name string, value interface{}) {
 	logger.Panicf("No configuration parameter for %s", name)
 }
 
+const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
+
+func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
+	if c.AdvisoryLockID == 0 {
+		return defaultPostgresAdvisoryLockID
+	} else {
+		return c.AdvisoryLockID
+	}
+}
+
+func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
+	if c.Dialect == "" {
+		return DialectPostgres
+	} else {
+		return c.Dialect
+	}
+}
+
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
+}
+
+// BlockBackfillDepth specifies the number of blocks before the current HEAD that the
+// log broadcaster will try to re-consume logs from
+func (c Config) BlockBackfillDepth() uint64 {
+	return c.viper.GetUint64(EnvVarName("BlockBackfillDepth"))
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
@@ -151,6 +177,12 @@ func (c Config) DatabaseTimeout() models.Duration {
 // a properly formatted URL, with a valid scheme (postgres://)
 func (c Config) DatabaseURL() string {
 	return c.viper.GetString(EnvVarName("DatabaseURL"))
+}
+
+// MigrateDatabase determines whether the database will be automatically
+// migrated on application startup if set to true
+func (c Config) MigrateDatabase() bool {
+	return c.viper.GetBool(EnvVarName("MigrateDatabase"))
 }
 
 // DefaultMaxHTTPAttempts defines the limit for HTTP requests.
@@ -539,7 +571,8 @@ func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	}
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
-	return key, ioutil.WriteFile(sessionPath, []byte(str), readWritePerms)
+	err := utils.WriteFileWithPerms(sessionPath, []byte(str), readWritePerms)
+	return key, err
 }
 
 func parseAddress(str string) (interface{}, error) {
@@ -552,13 +585,13 @@ func parseAddress(str string) (interface{}, error) {
 		val := common.BigToAddress(i)
 		return &val, nil
 	}
-	return nil, fmt.Errorf("Unable to parse '%s' into EIP55-compliant address", str)
+	return nil, fmt.Errorf("unable to parse '%s' into EIP55-compliant address", str)
 }
 
 func parseLink(str string) (interface{}, error) {
 	i, ok := new(assets.Link).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse '%v' into *assets.Link(base 10)", str)
+		return i, fmt.Errorf("unable to parse '%v' into *assets.Link(base 10)", str)
 	}
 	return i, nil
 }
@@ -581,7 +614,7 @@ func parseURL(s string) (interface{}, error) {
 func parseBigInt(str string) (interface{}, error) {
 	i, ok := new(big.Int).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse %v into *big.Int(base 10)", str)
+		return i, fmt.Errorf("unable to parse %v into *big.Int(base 10)", str)
 	}
 	return i, nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -133,7 +132,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
 	createdTx2, err := manager.CreateTx(to, data)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, createdTx1.From.Hex(), createdTx2.From.Hex(), "should come from a different account")
 
 	ethClient.AssertExpectations(t)
@@ -283,7 +282,6 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 
 			ethClient := new(mocks.Client)
 			config := cltest.NewTestConfig(t)
-			require.NoError(t, utils.JustError(store.KeyStore.NewAccount(cltest.Password)))
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 			manager := strpkg.NewEthTxManager(ethClient, config, store.KeyStore, store.ORM)
 			manager.Register(store.KeyStore.Accounts())
@@ -344,7 +342,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	to := cltest.NewAddress()
 	data := hexutil.MustDecode("0x0000abcdef")
 	_, err = manager.CreateTx(to, data)
-	assert.EqualError(t, err, "Transaction reattempt limit reached for 'nonce is too low' error. Limit: 3")
+	assert.EqualError(t, err, "transaction reattempt limit reached for 'nonce is too low' error. Limit: 3")
 
 	ethClient.AssertExpectations(t)
 }
@@ -771,7 +769,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.NoRegisterGetBlockNumber)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
 			defer cleanup()
 
 			store := app.Store
@@ -784,7 +782,6 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 			ethMock := app.EthMock
 			ethMock.ShouldCall(test.mockSetup).During(func() {
 				require.NoError(t, app.Store.ORM.CreateHead(cltest.Head(test.blockHeight)))
-				ethMock.Register("eth_blockNumber", hexutil.Uint64(1))
 				ethMock.Register("eth_chainId", store.Config.ChainID())
 				ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
 
@@ -951,7 +948,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
 	ethClient := new(mocks.Client)
-	txm := store.NewEthTxManager(
+	txm := strpkg.NewEthTxManager(
 		ethClient,
 		orm.NewConfig(),
 		nil,
@@ -960,7 +957,7 @@ func TestTxManager_ReloadNonce(t *testing.T) {
 
 	from := common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
 	account := accounts.Account{Address: from}
-	ma := store.NewManagedAccount(account, 0)
+	ma := strpkg.NewManagedAccount(account, 0)
 
 	nonce := uint64(234)
 	ethClient.On("GetNonce", from).Return(nonce, nil)

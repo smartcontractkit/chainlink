@@ -28,8 +28,6 @@ var partSec []kyber.Scalar
 var longterms []*dkg.DistKeyShare
 var randoms []*dkg.DistKeyShare
 
-var dss []*DSS
-
 var msg *big.Int
 
 var randomStream = cryptotest.NewStream(&testing.T{}, 0)
@@ -130,8 +128,8 @@ func TestDSSPartialSigs(t *testing.T) {
 	// enough partial sigs ?
 	for i := 2; i < nbParticipants; i++ {
 		dss := getDSS(i)
-		ps, err := dss.PartialSig()
-		require.Nil(t, err)
+		ps, e := dss.PartialSig()
+		require.Nil(t, e)
 		require.Nil(t, dss1.ProcessPartialSig(ps))
 	}
 	assert.True(t, dss1.EnoughPartialSig())

@@ -24,6 +24,7 @@ type Client interface {
 	SendRawTx(bytes []byte) (common.Hash, error)
 	GetTxReceipt(hash common.Hash) (*TxReceipt, error)
 	GetBlockHeight() (uint64, error)
+	GetLatestBlock() (Block, error)
 	GetBlockByNumber(hex string) (Block, error)
 	GetChainID() (*big.Int, error)
 	SubscribeToNewHeads(ctx context.Context, channel chan<- BlockHeader) (Subscription, error)
@@ -131,6 +132,14 @@ func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
 	var height hexutil.Uint64
 	err := client.Call(&height, "eth_blockNumber")
 	return uint64(height), err
+}
+
+// GetLatestBlock returns the last committed block of the best blockchain the
+// blockchain node is aware of.
+func (client *CallerSubscriberClient) GetLatestBlock() (Block, error) {
+	var block Block
+	err := client.Call(&block, "eth_getBlockByNumber", "latest", true)
+	return block, err
 }
 
 // GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".

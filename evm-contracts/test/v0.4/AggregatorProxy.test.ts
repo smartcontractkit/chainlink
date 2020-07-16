@@ -36,20 +36,24 @@ describe('AggregatorProxy', () => {
   const response2 = h.numToBytes32(67890)
 
   let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<AggregatorFactory>
-  let aggregator2: contract.Instance<AggregatorFactory>
+  let aggregator: contract.CallableOverrideInstance<AggregatorFactory>
+  let aggregator2: contract.CallableOverrideInstance<AggregatorFactory>
   let oc1: contract.Instance<OracleFactory>
-  let proxy: contract.Instance<AggregatorProxyFactory>
+  let proxy: contract.CallableOverrideInstance<AggregatorProxyFactory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address)
-    aggregator = await aggregatorFactory
-      .connect(defaultAccount)
-      .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+    aggregator = contract.callableAggregator(
+      await aggregatorFactory
+        .connect(defaultAccount)
+        .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+    )
     await link.transfer(aggregator.address, deposit)
-    proxy = await aggregatorProxyFactory
-      .connect(defaultAccount)
-      .deploy(aggregator.address)
+    proxy = contract.callableAggregator(
+      await aggregatorProxyFactory
+        .connect(defaultAccount)
+        .deploy(aggregator.address),
+    )
   })
 
   beforeEach(async () => {
@@ -96,9 +100,11 @@ describe('AggregatorProxy', () => {
 
     describe('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = await aggregatorFactory
-          .connect(defaultAccount)
-          .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+        aggregator2 = contract.callableAggregator(
+          await aggregatorFactory
+            .connect(defaultAccount)
+            .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+        )
         await link.transfer(aggregator2.address, deposit)
         const requestTx = await aggregator2.requestRateUpdate()
         const receipt = await requestTx.wait()
@@ -147,9 +153,11 @@ describe('AggregatorProxy', () => {
 
     describe('after being updated to another contract', () => {
       beforeEach(async () => {
-        aggregator2 = await aggregatorFactory
-          .connect(defaultAccount)
-          .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+        aggregator2 = contract.callableAggregator(
+          await aggregatorFactory
+            .connect(defaultAccount)
+            .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+        )
         await link.transfer(aggregator2.address, deposit)
 
         const requestTx = await aggregator2.requestRateUpdate()
@@ -193,9 +201,11 @@ describe('AggregatorProxy', () => {
     beforeEach(async () => {
       await proxy.transferOwnership(personas.Carol.address)
 
-      aggregator2 = await aggregatorFactory
-        .connect(defaultAccount)
-        .deploy(link.address, basePayment, 1, [oc1.address], [jobId1])
+      aggregator2 = contract.callableAggregator(
+        await aggregatorFactory
+          .connect(defaultAccount)
+          .deploy(link.address, basePayment, 1, [oc1.address], [jobId1]),
+      )
 
       assert.equal(aggregator.address, await proxy.aggregator())
     })
@@ -210,7 +220,7 @@ describe('AggregatorProxy', () => {
 
     describe('when called by a non-owner', () => {
       it('does not update', async () => {
-        matchers.evmRevert(async () => {
+        await matchers.evmRevert(async () => {
           await proxy.connect(personas.Neil).setAggregator(aggregator2.address)
         })
 

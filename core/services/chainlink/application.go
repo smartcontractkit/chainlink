@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -39,7 +38,7 @@ func (c *headTrackableCallback) OnNewHead(*models.Head) {}
 type Application interface {
 	Start() error
 	Stop() error
-	GetStore() *store.Store
+	GetStore() *strpkg.Store
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
@@ -62,7 +61,7 @@ type ChainlinkApplication struct {
 	GasUpdater               services.GasUpdater
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
-	Store                    *store.Store
+	Store                    *strpkg.Store
 	SessionReaper            services.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
@@ -75,7 +74,7 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := store.NewStore(config, shutdownSignal)
+	store := strpkg.NewStore(config, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
 	statsPusher := synchronization.NewStatsPusher(
@@ -178,7 +177,7 @@ func (app *ChainlinkApplication) Stop() error {
 }
 
 // GetStore returns the pointer to the store for the ChainlinkApplication.
-func (app *ChainlinkApplication) GetStore() *store.Store {
+func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
 }
 
@@ -250,7 +249,7 @@ func newPendingConnectionResumer(runManager services.RunManager) *pendingConnect
 }
 
 func (p *pendingConnectionResumer) Connect(head *models.Head) error {
-	return p.runManager.ResumeAllConnecting()
+	return p.runManager.ResumeAllPendingConnection()
 }
 
 func (p *pendingConnectionResumer) Disconnect()            {}

@@ -125,26 +125,26 @@ func (i *Uint32) Scan(value interface{}) error {
 	case int:
 		safe := uint32(typed)
 		if int(safe) != typed {
-			return fmt.Errorf("Unable to convert %v of %T to Uint32; overflow", value, value)
+			return fmt.Errorf("unable to convert %v of %T to Uint32; overflow", value, value)
 		}
 		*i = Uint32From(safe)
 	case int64:
 		safe := uint32(typed)
 		if int64(safe) != typed {
-			return fmt.Errorf("Unable to convert %v of %T to Uint32; overflow", value, value)
+			return fmt.Errorf("unable to convert %v of %T to Uint32; overflow", value, value)
 		}
 		*i = Uint32From(safe)
 	case uint:
 		safe := uint32(typed)
 		if uint(safe) != typed {
-			return fmt.Errorf("Unable to convert %v of %T to Uint32; overflow", value, value)
+			return fmt.Errorf("unable to convert %v of %T to Uint32; overflow", value, value)
 		}
 		*i = Uint32From(safe)
 	case uint32:
 		safe := typed
 		*i = Uint32From(safe)
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Uint32", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Uint32", value, value)
 	}
 	return nil
 }

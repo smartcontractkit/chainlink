@@ -31,7 +31,8 @@ describe('WhitelistedConversionProxy', () => {
 
   let aggregator: contract.Instance<MockAggregatorFactory>
   let aggregator2: contract.Instance<MockAggregatorFactory>
-  let proxy: contract.Instance<WhitelistedConversionProxyFactory>
+  let proxy: contract.CallableOverrideInstance<WhitelistedConversionProxyFactory>
+
   const deployment = setup.snapshot(provider, async () => {
     aggregator = await aggregatorFactory
       .connect(defaultAccount)
@@ -39,9 +40,11 @@ describe('WhitelistedConversionProxy', () => {
     aggregator2 = await aggregatorFactory
       .connect(defaultAccount)
       .deploy(decimals, fiatAnswer)
-    proxy = await whitelistedConversionProxyFactory
-      .connect(defaultAccount)
-      .deploy(aggregator.address, aggregator2.address)
+    proxy = contract.callableAggregator(
+      await whitelistedConversionProxyFactory
+        .connect(defaultAccount)
+        .deploy(aggregator.address, aggregator2.address),
+    )
   })
 
   beforeEach(async () => {
@@ -50,15 +53,17 @@ describe('WhitelistedConversionProxy', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(whitelistedConversionProxyFactory, [
+      'decimals',
+      'from',
       'getAnswer',
+      'getRoundData',
       'getTimestamp',
       'latestAnswer',
       'latestRound',
+      'latestRoundData',
       'latestTimestamp',
-      'decimals',
-      'from',
-      'to',
       'setAddresses',
+      'to',
       // Ownable methods:
       'acceptOwnership',
       'owner',

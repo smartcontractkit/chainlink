@@ -42,6 +42,7 @@ type LogNewRound struct {
 	eth.Log
 	RoundId   *big.Int
 	StartedBy common.Address
+	// seconds since unix epoch
 	StartedAt *big.Int
 }
 
@@ -73,18 +74,23 @@ func (fa *fluxAggregator) SubscribeToLogs(listener ethsvc.LogListener) (connecte
 }
 
 type FluxAggregatorRoundState struct {
-	ReportableRoundID uint32   `abi:"_reportableRoundId"`
+	ReportableRoundID uint32   `abi:"_roundId"`
 	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
-	LatestAnswer      *big.Int `abi:"_latestRoundAnswer"`
-	TimesOutAt        uint64   `abi:"_timesOutAt"`
+	LatestAnswer      *big.Int `abi:"_latestSubmission"`
+	Timeout           uint64   `abi:"_timeout"`
+	StartedAt         uint64   `abi:"_startedAt"`
 	AvailableFunds    *big.Int `abi:"_availableFunds"`
 	PaymentAmount     *big.Int `abi:"_paymentAmount"`
 	OracleCount       uint32   `abi:"_oracleCount"`
 }
 
+func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
+	return rs.StartedAt + rs.Timeout
+}
+
 func (fa *fluxAggregator) RoundState(oracle common.Address) (FluxAggregatorRoundState, error) {
 	var result FluxAggregatorRoundState
-	err := fa.Call(&result, "roundState", oracle)
+	err := fa.Call(&result, "oracleRoundState", oracle)
 	if err != nil {
 		return FluxAggregatorRoundState{}, errors.Wrap(err, "unable to encode message call")
 	}

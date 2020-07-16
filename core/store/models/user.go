@@ -20,6 +20,7 @@ type User struct {
 	TokenKey          string    `json:"tokenKey"`
 	TokenSalt         string    `json:"-"`
 	TokenHashedSecret string    `json:"-"`
+	UpdatedAt         time.Time `json:"-"`
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
@@ -41,7 +42,7 @@ func NewUser(email, plainPwd string) (User, error) {
 	}
 
 	if len(plainPwd) < 8 || len(plainPwd) > MaxBcryptPasswordLength {
-		return User{}, fmt.Errorf("Must enter a password with 8 - %v characters", MaxBcryptPasswordLength)
+		return User{}, fmt.Errorf("must enter a password with 8 - %v characters", MaxBcryptPasswordLength)
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)

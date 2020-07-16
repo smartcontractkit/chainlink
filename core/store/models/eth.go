@@ -38,6 +38,8 @@ type Tx struct {
 	Confirmed   bool        `gorm:"not null"`
 	SentAt      uint64      `gorm:"not null"`
 	SignedRawTx []byte      `gorm:"not null"`
+	CreatedAt   time.Time   `json:"-"`
+	UpdatedAt   time.Time   `json:"-"`
 }
 
 // String implements Stringer for Tx
@@ -80,6 +82,7 @@ type TxAttempt struct {
 	Confirmed   bool        `gorm:"not null"`
 	SentAt      uint64      `gorm:"not null"`
 	SignedRawTx []byte      `gorm:"not null"`
+	UpdatedAt   time.Time   `json:"-"`
 }
 
 // String implements Stringer for TxAttempt

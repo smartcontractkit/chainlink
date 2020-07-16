@@ -23,7 +23,6 @@
     "start:dev": "cross-env PORT=3002 react-scripts start",
     "prebuild": "yarn run build-theme",
     "build": "react-scripts build",
-    "postbuild": "./postbuild.sh",
     "clean": "rimraf -rf build",
     "test": "jest",
     "build-theme": "lessc --js src/theme/theme.less src/theme.css",
@@ -32,6 +31,7 @@
     "setup": "tsc -b"
   },
   "dependencies": {
+    "@chainlink/json-api-client": "0.0.1",
     "@chainlink/redux": "0.0.1",
     "@chainlink/ts-helpers": "0.0.1",
     "antd": "^3.23.3",
@@ -69,8 +69,9 @@
     "@types/redux-thunk": "^2.1.0",
     "cross-env": "^7.0.2",
     "jest": "^24.9.0",
+    "jest-transform-stub": "^2.0.0",
     "redux-mock-store": "^1.5.4",
-    "rimraf": "^3.0.1",
+    "rimraf": "^3.0.2",
     "ts-jest": "^24.1.0"
   }
 }

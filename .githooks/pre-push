@@ -1,3 +1,31 @@
 #!/bin/bash
 
-source tools/bin/check_if_rebase_needed
+set -e
+set -o pipefail
+set -u
+
+# This script should be saved in a git repo as a hook file, e.g. .git/hooks/pre-push.
+# It looks for scripts in the .git/hooks/pre-push.d directory and executes them in order,
+# passing along stdin. If any script exits with a non-zero status, this script exits.
+
+script_dir=$(dirname "$0")
+hook_name=$(basename "$0")
+
+hooks_dir="$script_dir/$hook_name.d"
+
+if [ -d "$hooks_dir" ]; then
+  stdin=$(cat /dev/stdin)
+
+  for hook in "$hooks_dir"/*; do
+    # echo "Running hook $hook_name/$hook"
+    printf '%s' "$stdin" | $hook "$@"
+
+    exit_code=$?
+
+    if [ $exit_code != 0 ]; then
+      exit $exit_code
+    fi
+  done
+fi
+
+exit 0

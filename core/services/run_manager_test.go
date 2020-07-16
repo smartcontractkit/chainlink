@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/eth"
@@ -18,6 +17,9 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -37,7 +39,7 @@ func makeJobRunWithInitiator(t *testing.T, store *strpkg.Store, job models.JobSp
 	return models.MakeJobRun(&job, time.Now(), &initr, big.NewInt(0), &models.RunRequest{})
 }
 
-func TestRunManager_ResumePending(t *testing.T) {
+func TestRunManager_ResumePendingBridge(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -54,7 +56,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 	t.Run("reject a run with an invalid state", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		require.NoError(t, store.CreateJobRun(&run))
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{})
 		assert.Error(t, err)
 	})
 
@@ -62,7 +64,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, models.NewJob())
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -75,7 +77,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{Status: models.RunStatusErrored})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{Status: models.RunStatusErrored})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -93,7 +95,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -109,7 +111,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 		run.SetStatus(models.RunStatusPendingBridge)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumePending(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
+		err := runManager.ResumePendingBridge(run.ID, models.BridgeRunResult{Data: input, Status: models.RunStatusCompleted})
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -123,7 +125,7 @@ func TestRunManager_ResumePending(t *testing.T) {
 	runQueue.AssertExpectations(t)
 }
 
-func TestRunManager_ResumeAllConfirming(t *testing.T) {
+func TestRunManager_ResumeAllPendingNextBlock(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -137,10 +139,10 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 
 	t.Run("reject a run with no tasks", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, models.NewJob())
-		run.SetStatus(models.RunStatusPendingConfirmations)
+		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumeAllConfirming(nil)
+		err := runManager.ResumeAllPendingNextBlock(nil)
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -148,29 +150,29 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 		assert.Equal(t, models.RunStatusErrored, run.GetStatus())
 	})
 
-	t.Run("leave in pending if not enough confirmations have been met yet", func(t *testing.T) {
+	t.Run("leave in pending if not enough incoming confirmations have been met yet", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
-		run.SetStatus(models.RunStatusPendingConfirmations)
-		run.TaskRuns[0].MinimumConfirmations = clnull.Uint32From(2)
+		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
+		run.TaskRuns[0].MinRequiredIncomingConfirmations = clnull.Uint32From(2)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumeAllConfirming(big.NewInt(0))
+		err := runManager.ResumeAllPendingNextBlock(big.NewInt(0))
 		require.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
 		require.NoError(t, err)
-		assert.Equal(t, models.RunStatusPendingConfirmations, run.GetStatus())
-		assert.Equal(t, uint32(1), run.TaskRuns[0].Confirmations.Uint32)
+		assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.GetStatus())
+		assert.Equal(t, uint32(1), run.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
 	})
 
-	t.Run("input, should go from pending -> in progress and save the input", func(t *testing.T) {
+	t.Run("input, should go from pending_incoming_confirmations -> in_progress and save the input", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
-		run.SetStatus(models.RunStatusPendingConfirmations)
-		run.TaskRuns[0].MinimumConfirmations = clnull.Uint32From(2)
+		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
+		run.TaskRuns[0].MinRequiredIncomingConfirmations = clnull.Uint32From(2)
 		require.NoError(t, store.CreateJobRun(&run))
 
 		observedHeight := big.NewInt(1)
-		err := runManager.ResumeAllConfirming(observedHeight)
+		err := runManager.ResumeAllPendingNextBlock(observedHeight)
 		require.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -181,7 +183,7 @@ func TestRunManager_ResumeAllConfirming(t *testing.T) {
 	runQueue.AssertExpectations(t)
 }
 
-func TestRunManager_ResumeAllConnecting(t *testing.T) {
+func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -198,7 +200,7 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 		run.SetStatus(models.RunStatusPendingConnection)
 		require.NoError(t, store.CreateJobRun(&run))
 
-		err := runManager.ResumeAllConnecting()
+		err := runManager.ResumeAllPendingConnection()
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -215,7 +217,7 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
 
 		require.NoError(t, store.CreateJobRun(&run))
-		err = runManager.ResumeAllConnecting()
+		err = runManager.ResumeAllPendingConnection()
 		assert.NoError(t, err)
 
 		run, err = store.FindJobRun(run.ID)
@@ -224,7 +226,7 @@ func TestRunManager_ResumeAllConnecting(t *testing.T) {
 	})
 }
 
-func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
+func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
 	defer cleanup()
@@ -241,13 +243,13 @@ func TestRunManager_ResumeAllConnecting_NotEnoughConfirmations(t *testing.T) {
 	run.SetStatus(models.RunStatusPendingConnection)
 	run.CreationHeight = utils.NewBig(big.NewInt(0))
 	run.ObservedHeight = run.CreationHeight
-	run.TaskRuns[0].MinimumConfirmations = clnull.Uint32From(807)
+	run.TaskRuns[0].MinRequiredIncomingConfirmations = clnull.Uint32From(807)
 	run.TaskRuns[0].Status = models.RunStatusPendingConnection
 	require.NoError(t, store.CreateJobRun(&run))
 
-	app.RunManager.ResumeAllConnecting()
+	app.RunManager.ResumeAllPendingConnection()
 
-	cltest.WaitForJobRunToPendConfirmations(t, store, run)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, store, run)
 }
 
 func TestRunManager_Create(t *testing.T) {
@@ -336,6 +338,9 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
+			kst := new(mocks.KeyStoreInterface)
+			kst.On("Accounts").Return([]accounts.Account{})
+			app.Store.KeyStore = kst
 			defer cleanup()
 
 			app.StartAndConnect()
@@ -355,9 +360,9 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			jr, err := app.RunManager.Create(job.ID, &initiator, creationHeight, rr)
 			require.NoError(t, err)
 
-			run := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
-			assert.Equal(t, models.RunStatusPendingConfirmations, run.TaskRuns[0].Status)
-			assert.Equal(t, models.RunStatusPendingConfirmations, run.GetStatus())
+			run := cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, *jr)
+			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.TaskRuns[0].Status)
+			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.GetStatus())
 
 			confirmedReceipt := eth.TxReceipt{
 				Hash:        initiatingTxHash,
@@ -368,16 +373,18 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 				meth.Register("eth_getTransactionReceipt", confirmedReceipt)
 			})
 
-			err = app.RunManager.ResumeAllConfirming(big.NewInt(2))
+			err = app.RunManager.ResumeAllPendingNextBlock(big.NewInt(2))
 			require.NoError(t, err)
 			run = cltest.WaitForJobRunStatus(t, app.Store, *jr, test.wantStatus)
 			assert.Equal(t, rr.RequestID, run.RunRequest.RequestID)
-			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].MinimumConfirmations.Uint32)
-			assert.True(t, run.TaskRuns[0].MinimumConfirmations.Valid)
-			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].Confirmations.Uint32, "task run should track its current confirmations")
-			assert.True(t, run.TaskRuns[0].Confirmations.Valid)
+			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].MinRequiredIncomingConfirmations.Uint32)
+			assert.True(t, run.TaskRuns[0].MinRequiredIncomingConfirmations.Valid)
+			assert.Equal(t, minimumConfirmations, run.TaskRuns[0].ObservedIncomingConfirmations.Uint32, "task run should track its current confirmations")
+			assert.True(t, run.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
 			assert.True(t, app.EthMock.AllCalled(), app.EthMock.Remaining())
+
+			kst.AssertExpectations(t)
 		})
 	}
 }
@@ -626,6 +633,9 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("Accounts").Return([]accounts.Account{})
+	app.Store.KeyStore = kst
 	defer cleanup()
 
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
@@ -651,13 +661,16 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	rr.RequestParams = cltest.JSONFromString(t, `{"random": "input"}`)
 	jr, err := app.RunManager.Create(job.ID, &initiator, futureCreationHeight, rr)
 	require.NoError(t, err)
-	cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, *jr)
 
-	err = app.RunManager.ResumeAllConfirming(pastCurrentHeight)
+	err = app.RunManager.ResumeAllPendingNextBlock(pastCurrentHeight)
 	require.NoError(t, err)
-	updatedJR := cltest.WaitForJobRunToPendConfirmations(t, app.Store, *jr)
-	assert.True(t, updatedJR.TaskRuns[0].Confirmations.Valid)
-	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].Confirmations.Uint32)
+
+	updatedJR := cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, *jr)
+	assert.True(t, updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Valid)
+	assert.Equal(t, uint32(0), updatedJR.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
+
+	kst.AssertExpectations(t)
 }
 
 func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
@@ -667,7 +680,8 @@ func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
 		status models.RunStatus
 	}{
 		{models.RunStatusPendingConnection},
-		{models.RunStatusPendingConfirmations},
+		{models.RunStatusPendingIncomingConfirmations},
+		{models.RunStatusPendingOutgoingConfirmations},
 	}
 
 	for _, test := range tests {
@@ -688,7 +702,7 @@ func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
 			runQueue.On("Run", mock.Anything).Return(nil)
 
 			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
-			runManager.ResumeAllConfirming(big.NewInt(3821))
+			runManager.ResumeAllPendingNextBlock(big.NewInt(3821))
 
 			runQueue.AssertExpectations(t)
 		})
@@ -772,7 +786,8 @@ func TestRunManager_ResumeAllInProgress_NotInProgress(t *testing.T) {
 		status models.RunStatus
 	}{
 		{models.RunStatusPendingConnection},
-		{models.RunStatusPendingConfirmations},
+		{models.RunStatusPendingIncomingConfirmations},
+		{models.RunStatusPendingOutgoingConfirmations},
 		{models.RunStatusPendingBridge},
 		{models.RunStatusCompleted},
 		{models.RunStatusCancelled},
@@ -809,7 +824,8 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 		status models.RunStatus
 	}{
 		{models.RunStatusPendingConnection},
-		{models.RunStatusPendingConfirmations},
+		{models.RunStatusPendingIncomingConfirmations},
+		{models.RunStatusPendingOutgoingConfirmations},
 		{models.RunStatusPendingBridge},
 		{models.RunStatusCompleted},
 		{models.RunStatusCancelled},
@@ -859,7 +875,7 @@ func TestRunManager_ValidateRun_PaymentBelowThreshold(t *testing.T) {
 
 	assert.Equal(t, models.RunStatusErrored, run.GetStatus())
 
-	expectedErrorMsg := fmt.Sprintf("Rejecting job %s with payment 1 below minimum threshold (2)", jobSpecID)
+	expectedErrorMsg := fmt.Sprintf("rejecting job %s with payment 1 below minimum threshold (2)", jobSpecID)
 	assert.Equal(t, expectedErrorMsg, run.Result.ErrorMessage.String)
 }
 
