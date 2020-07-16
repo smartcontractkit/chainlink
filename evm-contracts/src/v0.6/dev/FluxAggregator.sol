@@ -193,9 +193,12 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
     oracleInitializeNewRound(uint32(_roundId));
     recordSubmission(_submission, uint32(_roundId));
-    updateRoundAnswer(uint32(_roundId));
+    (bool updated, int256 newAnswer) = updateRoundAnswer(uint32(_roundId));
     payOracle(uint32(_roundId));
     deleteRoundDetails(uint32(_roundId));
+    if (updated) {
+      validateAnswer(uint32(_roundId), newAnswer);
+    }
   }
 
   /**
@@ -728,8 +731,11 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
   function updateRoundAnswer(uint32 _roundId)
     internal
+    returns (bool, int256)
   {
-    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.minSubmissions) return;
+    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.minSubmissions) {
+      return (false, 0);
+    }
 
     int256 newAnswer = Median.calculateInplace(rounds[_roundId].details.submissions);
     rounds[_roundId].answer = newAnswer;
@@ -739,7 +745,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
     emit AnswerUpdated(newAnswer, _roundId, now);
 
-    validateAnswer(_roundId, newAnswer);
+    return (true, newAnswer);
   }
 
   function validateAnswer(
