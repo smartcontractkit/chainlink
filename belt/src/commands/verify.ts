@@ -3,7 +3,7 @@ import * as Parser from '@oclif/parser'
 import { cli } from 'cli-ux'
 import { findABI, flattenContract } from '../services/utils'
 import chalk from 'chalk'
-// import axios from 'axios'
+import axios from 'axios'
 import { RuntimeConfig, RuntimeConfigParser } from '../services/runtimeConfig'
 import Etherscan from '../services/etherscan'
 
@@ -82,10 +82,11 @@ export default class Verify extends Command {
     console.log(mergedSource.length)
 
     // TODO: fetch constructor values
+    // https://github.com/rkalis/truffle-plugin-verify/blob/master/verify.js#L159
     // Fetch the contract creation transaction to extract the input data
     // const encodedConstructorArgs = await Etherscan.fetchConstructorValues(contractAddress)
 
-    const params = {
+    const verificationParams = {
       apikey: config.etherscanAPIKey,
       module: 'contract',
       action: 'verifysourcecode',
@@ -103,14 +104,14 @@ export default class Verify extends Command {
 
     // TODO: link libraries, pull info from ABI metadata
 
-    console.log(params)
+    console.log(verificationParams)
 
     // // TODO: call Etherscan verification API
     // // TODO: hardcoded to ropsten
-    // const res = await axios.post('https://api-ropsten.etherscan.io/api', {
-    //   params,
-    // })
-    // console.log(res)
+    const res = await axios.post('https://api-ropsten.etherscan.io/api', {
+      params: verificationParams,
+    })
+    console.log(res)
 
     // TODO: check and poll for verification status
   }
