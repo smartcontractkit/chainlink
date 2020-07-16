@@ -1,5 +1,4 @@
 module.exports = {
-  extends: 'react-static/.babelrc',
   presets: [
     '@babel/preset-react',
     '@babel/preset-env',

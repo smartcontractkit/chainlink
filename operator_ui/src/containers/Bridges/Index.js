@@ -1,5 +1,4 @@
 import React from 'react'
-import { withSiteData } from 'react-static'
 import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
 import Grid from '@material-ui/core/Grid'
@@ -73,4 +72,4 @@ export const ConnectedIndex = connect(
   matchRouteAndMapDispatchToProps({ fetchBridges }),
 )(Index)
 
-export default withSiteData(ConnectedIndex)
+export default ConnectedIndex
