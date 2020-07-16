@@ -1403,6 +1403,49 @@ describe('FluxAggregator', () => {
         )
       })
     })
+
+    describe('adding and removing oracles at once', () => {
+      beforeEach(async () => {
+        oracles = [personas.Neil, personas.Ned]
+        await addOracles(aggregator, oracles, 1, 1, rrDelay)
+      })
+
+      it('can swap out oracles', async () => {
+        assert.include(await aggregator.getOracles(), personas.Ned.address)
+        assert.notInclude(await aggregator.getOracles(), personas.Nelly.address)
+
+        await aggregator
+          .connect(personas.Carol)
+          .changeOracles(
+            [personas.Ned.address],
+            [personas.Nelly.address],
+            [personas.Nelly.address],
+            1,
+            1,
+            rrDelay,
+          )
+
+        assert.notInclude(await aggregator.getOracles(), personas.Ned.address)
+        assert.include(await aggregator.getOracles(), personas.Nelly.address)
+      })
+
+      it('is possible to remove and add the same address', async () => {
+        assert.include(await aggregator.getOracles(), personas.Ned.address)
+
+        await aggregator
+          .connect(personas.Carol)
+          .changeOracles(
+            [personas.Ned.address],
+            [personas.Ned.address],
+            [personas.Ned.address],
+            1,
+            1,
+            rrDelay,
+          )
+
+        assert.include(await aggregator.getOracles(), personas.Ned.address)
+      })
+    })
   })
 
   describe('#getOracles', () => {
