@@ -86,7 +86,6 @@ describe('AccessControlledAggregator', () => {
       'oracleCount',
       'oracleRoundState',
       'paymentAmount',
-      'removeOracles',
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
