@@ -1,3 +1,5 @@
+// Package gethwrappers provides tools for wrapping solidity contracts with
+// golang packages, using abigen.
 package gethwrappers
 
 // Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
