@@ -1951,8 +1951,8 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
 	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
 
-	require.NoError(t, store.UpsertKey(k1))
-	require.NoError(t, store.UpsertKey(k2))
+	require.NoError(t, store.CreateKeyIfNotExists(k1))
+	require.NoError(t, store.CreateKeyIfNotExists(k2))
 
 	t.Run("with no address filter, rotates between all addresses", func(t *testing.T) {
 		address, err := store.GetRoundRobinAddress()
