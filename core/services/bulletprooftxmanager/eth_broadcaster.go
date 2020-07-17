@@ -133,6 +133,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 					if err := eb.ProcessUnstartedEthTxs(k); err != nil {
 						logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
 					}
+
 					wg.Done()
 				}(key)
 			}
@@ -162,6 +163,14 @@ func (eb *ethBroadcaster) ProcessUnstartedEthTxs(key models.Key) error {
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
 func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address) error {
+	var n uint = 0
+	mark := time.Now()
+	defer func() {
+		if n > 0 {
+			logger.Debugw("EthBroadcaster: finished processUnstartedEthTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
+		}
+	}()
+
 	if err := eb.handleAnyInProgressEthTx(fromAddress); err != nil {
 		return errors.Wrap(err, "processUnstartedEthTxs failed")
 	}
@@ -174,6 +183,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		if etx == nil {
 			return nil
 		}
+		n++
 		attempt, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"reflect"
 	"sync"
 	"time"
 
@@ -265,9 +266,9 @@ func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
 		promCallbackDuration.Set(ms)
 		promCallbackDurationHist.Observe(ms)
 		if elapsed > ht.callbackExecutionThreshold() {
-			logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.callbackExecutionThreshold().String()), "blockNumber", number, "time", elapsed)
+			logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.callbackExecutionThreshold().String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		} else {
-			logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed)
+			logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		}
 	}(time.Now(), bh.Number.Int64())
 	head := models.NewHeadFromBlockHeader(bh)
@@ -362,9 +363,18 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 	if head.Number <= baseHeight {
 		return nil
 	}
-	logger.Debugw("HeadTracker: backfill heads", "n", head.Number-baseHeight, "fromBlockHeight", baseHeight, "toBlockHeight", head.Number-1)
-
+	mark := time.Now()
 	fetched := 0
+	defer func() {
+		logger.Debugw("HeadTracker: finished backfill",
+			"fetched", fetched,
+			"blockNumber", head.Number,
+			"time", time.Since(mark),
+			"id", "head_tracker",
+			"n", head.Number-baseHeight,
+			"fromBlockHeight", baseHeight,
+			"toBlockHeight", head.Number-1)
+	}()
 
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
@@ -389,7 +399,6 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 			break
 		}
 	}
-	logger.Debugw("HeadTracker: backfill complete", "fetched", fetched)
 	return nil
 }
 
@@ -431,8 +440,10 @@ func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
 	defer ht.headMutex.Unlock()
 	logger.Debugw("HeadTracker initiating callbacks", "headNum", headWithChain.Number, "chainLength", headWithChain.ChainLength())
 
-	for _, trackable := range ht.callbacks {
+	for i, trackable := range ht.callbacks {
+		start := time.Now()
 		trackable.OnNewLongestChain(headWithChain)
+		logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v", i), "callbackType", reflect.TypeOf(trackable), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", time.Since(start), "id", "head_tracker")
 	}
 }
 
