@@ -1,6 +1,7 @@
 pragma solidity >=0.4.24;
 
 interface AggregatorV3Interface {
+
   function decimals() external view returns (uint8);
   function description() external view returns (string memory);
   function version() external view returns (uint256);
@@ -29,6 +30,15 @@ interface AggregatorV3Interface {
       uint80 answeredInRound
     );
 
-  event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 timestamp);
-  event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
+  event NewRound(
+    uint256 indexed roundId,
+    address indexed startedBy,
+    uint256 startedAt
+  );
+  event AnswerUpdated(
+    int256 indexed current,
+    uint256 indexed roundId,
+    uint256 updatedAt
+  );
+
 }
