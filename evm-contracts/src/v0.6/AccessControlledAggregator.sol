@@ -1,6 +1,6 @@
 pragma solidity 0.6.6;
 
-import "./FluxAggregator.sol";
+import "./dev/FluxAggregator.sol";
 import "./SimpleReadAccessController.sol";
 
 /**
@@ -10,10 +10,26 @@ import "./SimpleReadAccessController.sol";
  */
 contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessController {
 
+  /**
+   * @notice set up the aggregator with initial configuration
+   * @param _link The address of the LINK token
+   * @param _paymentAmount The amount paid of LINK paid to each oracle per submission, in wei (units of 10⁻¹⁸ LINK)
+   * @param _timeout is the number of seconds after the previous round that are
+   * allowed to lapse before allowing an oracle to skip an unfinished round
+   * @param _validator is an optional contract address for validating
+   * external validation of answers
+   * @param _minSubmissionValue is an immutable check for a lower bound of what
+   * submission values are accepted from an oracle
+   * @param _maxSubmissionValue is an immutable check for an upper bound of what
+   * submission values are accepted from an oracle
+   * @param _decimals represents the number of decimals to offset the answer by
+   * @param _description a short description of what is being reported
+   */
   constructor(
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
+    address _validator,
     int256 _minSubmissionValue,
     int256 _maxSubmissionValue,
     uint8 _decimals,
@@ -22,73 +38,12 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
     _link,
     _paymentAmount,
     _timeout,
+    _validator,
     _minSubmissionValue,
     _maxSubmissionValue,
     _decimals,
     _description
   ){}
-
-  /**
-   * @notice get the most recently reported answer
-   * @dev overridden funcion to add the checkAccess() modifier
-   * @dev deprecated. Use latestRoundData instead.
-   */
-  function latestAnswer()
-    public
-    view
-    override
-    checkAccess()
-    returns (int256)
-  {
-    return super.latestAnswer();
-  }
-
-  /**
-   * @notice get the most recent updated at timestamp
-   * @dev overridden funcion to add the checkAccess() modifier
-   * @dev deprecated. Use latestRoundData instead.
-   */
-  function latestTimestamp()
-    public
-    view
-    override
-    checkAccess()
-    returns (uint256)
-  {
-    return super.latestTimestamp();
-  }
-
-  /**
-   * @notice get past rounds answers
-   * @dev overridden funcion to add the checkAccess() modifier
-   * @param _roundId the round number to retrieve the answer for
-   * @dev deprecated. Use getRoundData instead.
-   */
-  function getAnswer(uint256 _roundId)
-    public
-    view
-    override
-    checkAccess()
-    returns (int256)
-  {
-    return super.getAnswer(_roundId);
-  }
-
-  /**
-   * @notice get timestamp when an answer was last updated
-   * @dev overridden funcion to add the checkAccess() modifier
-   * @param _roundId the round number to retrieve the updated timestamp for
-   * @dev deprecated. Use getRoundData instead.
-   */
-  function getTimestamp(uint256 _roundId)
-    public
-    view
-    override
-    checkAccess()
-    returns (uint256)
-  {
-    return super.getTimestamp(_roundId);
-  }
 
   /**
    * @notice get data about a round. Consumers are encouraged to check
@@ -160,4 +115,5 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
   {
     return super.latestRoundData();
   }
+
 }

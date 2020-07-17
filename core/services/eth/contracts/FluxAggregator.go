@@ -50,7 +50,7 @@ type LogAnswerUpdated struct {
 	models.Log
 	Current   *big.Int
 	RoundId   *big.Int
-	Timestamp *big.Int
+	UpdatedAt *big.Int
 }
 
 var fluxAggregatorLogTypes = map[common.Hash]interface{}{
@@ -81,7 +81,7 @@ type FluxAggregatorRoundState struct {
 	StartedAt         uint64   `abi:"_startedAt"`
 	AvailableFunds    *big.Int `abi:"_availableFunds"`
 	PaymentAmount     *big.Int `abi:"_paymentAmount"`
-	OracleCount       uint32   `abi:"_oracleCount"`
+	OracleCount       uint8    `abi:"_oracleCount"`
 }
 
 func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
