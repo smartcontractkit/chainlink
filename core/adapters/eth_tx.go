@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -71,7 +70,8 @@ func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOu
 	return e.insertEthTx(input, store)
 }
 
-func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunInput, store *store.Store) models.RunOutput {
+func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
+	input models.RunInput, store *strpkg.Store) models.RunOutput {
 	switch trtx.EthTx.State {
 	case models.EthTxConfirmed:
 		return e.checkEthTxForReceipt(trtx.EthTx.ID, input, store)
@@ -82,7 +82,7 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx, input models.RunI
 	}
 }
 
-func (e *EthTx) pickFromAddress(input models.RunInput, store *store.Store) (common.Address, error) {
+func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (common.Address, error) {
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
 			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
@@ -103,7 +103,7 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *store.Store) (comm
 	return e.FromAddress, nil
 }
 
-func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.RunOutput {
+func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	txData, err := getTxData(e, input)
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed while constructing EthTx data")
@@ -138,7 +138,7 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *store.Store) models.Ru
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 }
 
-func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *store.Store) models.RunOutput {
+func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *strpkg.Store) models.RunOutput {
 	var minRequiredOutgoingConfirmations uint64
 	if e.MinRequiredOutgoingConfirmations == 0 {
 		minRequiredOutgoingConfirmations = s.Config.MinRequiredOutgoingConfirmations()
