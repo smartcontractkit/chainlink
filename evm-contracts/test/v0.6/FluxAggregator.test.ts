@@ -1166,7 +1166,7 @@ describe('FluxAggregator', () => {
               .connect(oracles[i])
               .submit(nextRound, inputs[i])
           }
-          assert(!!tx)
+          assert.isTrue(!!tx)
           if (tx) {
             const receipt = await tx.wait()
             assert.isAbove(400_000, receipt.gasUsed.toNumber())

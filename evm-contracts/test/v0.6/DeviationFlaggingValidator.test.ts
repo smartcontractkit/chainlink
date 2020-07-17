@@ -165,14 +165,18 @@ describe('DeviationFlaggingValidator', () => {
     describe('with a validation larger than the deviation', () => {
       const currentValue = 1100010
       it('is not valid', async () => {
-        assert(!(await validator.isValid(0, previousValue, 1, currentValue)))
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
       })
     })
 
     describe('with a validation smaller than the deviation', () => {
       const currentValue = 1100009
       it('is valid', async () => {
-        assert(await validator.isValid(0, previousValue, 1, currentValue))
+        assert.isTrue(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
       })
     })
 
@@ -180,7 +184,9 @@ describe('DeviationFlaggingValidator', () => {
       const previousValue = 1000000
       const currentValue = -900000
       it('correctly detects the difference', async () => {
-        assert(!(await validator.isValid(0, previousValue, 1, currentValue)))
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
       })
     })
 
@@ -188,7 +194,9 @@ describe('DeviationFlaggingValidator', () => {
       const previousValue = -900000
       const currentValue = 1000000
       it('correctly detects the difference', async () => {
-        assert(!(await validator.isValid(0, previousValue, 1, currentValue)))
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
       })
     })
   })
