@@ -2040,11 +2040,14 @@ describe('FluxAggregator', () => {
     it('returns the new round ID', async () => {
       testHelper = await testHelperFactory.connect(personas.Carol).deploy()
       await aggregator.setRequesterPermissions(testHelper.address, true, 0)
+      let roundId = await testHelper.requestedRoundId()
+      assert.equal(roundId.toNumber(), 0)
 
-      assert.equal(await testHelper.requestedRoundId(), 0)
       await testHelper.requestNewRound(aggregator.address)
+
       // return value captured by test helper
-      assert.isAbove(await testHelper.requestedRoundId(), 0)
+      roundId = await testHelper.requestedRoundId()
+      assert.isAbove(roundId.toNumber(), 0)
     })
 
     describe('when there is a round in progress', () => {

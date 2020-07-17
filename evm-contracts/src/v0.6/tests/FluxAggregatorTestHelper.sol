@@ -4,7 +4,7 @@ import "../dev/FluxAggregator.sol";
 
 contract FluxAggregatorTestHelper {
 
-  uint32 public requestedRoundId;
+  uint80 public requestedRoundId;
 
   event Here();
 
