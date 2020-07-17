@@ -51,24 +51,24 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   /**
    * @notice checks whether the parameters count as valid by comparing the
    * difference change to the flagging threshold.
-   * @param previousRoundId is ignored.
-   * @param previousAnswer is used as the median of the difference with the
+   * @param _previousRoundId is ignored.
+   * @param _previousAnswer is used as the median of the difference with the
    * current answer to determine if the deviation threshold has been exceeded.
-   * @param roundId is ignored.
-   * @param answer is the latest answer which is compared for a ratio of change
+   * @param _roundId is ignored.
+   * @param _answer is the latest answer which is compared for a ratio of change
    * to make sure it has not execeeded the flagging threshold.
    */
   function validate(
-    uint256 previousRoundId,
-    int256 previousAnswer,
-    uint256 roundId,
-    int256 answer
+    uint256 _previousRoundId,
+    int256 _previousAnswer,
+    uint256 _roundId,
+    int256 _answer
   )
     external
     override
     returns (bool)
   {
-    if (!isValid(previousRoundId, previousAnswer, roundId, answer)) {
+    if (!isValid(_previousRoundId, _previousAnswer, _roundId, _answer)) {
       flags.raiseFlags(arrayifyMsgSender());
       return false;
     }
@@ -81,27 +81,27 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
    * difference change to the flagging threshold and raises a flag on the
    * flagging contract if so. This method conforms to the
    * AggregatorValidatorInterface.
-   * @param previousAnswer is used as the median of the difference with the
+   * @param _previousAnswer is used as the median of the difference with the
    * current answer to determine if the deviation threshold has been exceeded.
-   * @param answer is the latest answer which is compared for a ratio of change
-   * to make sure it has not execeeded the flagging threshold.
+   * @param _answer is the current answer which is compared for a ratio of
+   * change * to make sure it has not execeeded the flagging threshold.
    */
   function isValid(
     uint256 ,
-    int256 previousAnswer,
+    int256 _previousAnswer,
     uint256 ,
-    int256 answer
+    int256 _answer
   )
     public
     view
     returns (bool)
   {
-    if (previousAnswer == 0) return true;
+    if (_previousAnswer == 0) return true;
 
-    int256 change = previousAnswer.sub(answer);
-    uint256 percent = abs(change.mul(THRESHOLD_MULTIPLIER).div(previousAnswer));
+    int256 change = _previousAnswer.sub(_answer);
+    uint256 changeRatio = abs(change.mul(THRESHOLD_MULTIPLIER).div(_previousAnswer));
 
-    return percent <= flaggingThreshold;
+    return changeRatio <= flaggingThreshold;
   }
 
   /**
