@@ -506,7 +506,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
    */
   function requestNewRound()
     external
-    returns (uint32)
+    returns (uint80)
   {
     require(requesters[msg.sender].authorized, "not authorized requester");
 
