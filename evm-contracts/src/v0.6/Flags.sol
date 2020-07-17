@@ -1,17 +1,20 @@
-pragma solidity 0.6.6;
+pragma solidity ^0.6.0;
 
 
 import "./SimpleReadAccessController.sol";
 import "./interfaces/AccessControllerInterface.sol";
+import "./interfaces/FlagsInterface.sol";
 
 
 /**
  * @title The Flags contract
  * @notice Allows flags to signal to any reader on the access control list.
  * The owner can set flags, or designate other addresses to set flags. The
- * owner must turn the flags off, other setters cannot.
+ * owner must turn the flags off, other setters cannot. An expected pattern is
+ * to allow addresses to raise flags on themselves, so if you are subscribing to
+ * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is SimpleReadAccessController {
+contract Flags is FlagsInterface, SimpleReadAccessController {
 
   AccessControllerInterface public raisingAccessController;
 
@@ -48,6 +51,7 @@ contract Flags is SimpleReadAccessController {
   function getFlag(address subject)
     external
     view
+    override
     checkAccess()
     returns (bool)
   {
@@ -63,6 +67,7 @@ contract Flags is SimpleReadAccessController {
   function getFlags(address[] calldata subjects)
     external
     view
+    override
     checkAccess()
     returns (bool[] memory)
   {
@@ -81,6 +86,7 @@ contract Flags is SimpleReadAccessController {
    */
   function raiseFlags(address[] calldata subjects)
     external
+    override
   {
     require(allowedToRaiseFlags(), "Not allowed to raise flags");
 
@@ -100,6 +106,7 @@ contract Flags is SimpleReadAccessController {
    */
   function lowerFlags(address[] calldata subjects)
     external
+    override
     onlyOwner()
   {
     for (uint256 i = 0; i < subjects.length; i++) {
@@ -120,6 +127,7 @@ contract Flags is SimpleReadAccessController {
     address racAddress
   )
     public
+    override
     onlyOwner()
   {
     address previous = address(raisingAccessController);

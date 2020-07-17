@@ -1007,7 +1007,7 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log contracts.Log
 	return []interface{}{
 		"round", log.RoundId,
 		"answer", log.Current.String(),
-		"timestamp", log.Timestamp.String(),
+		"timestamp", log.UpdatedAt.String(),
 		"contract", log.Address.Hex(),
 		"job", p.initr.JobSpecID,
 	}
