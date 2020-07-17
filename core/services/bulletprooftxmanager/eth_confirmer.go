@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -76,22 +77,30 @@ func (ec *ethConfirmer) ProcessHead(head models.Head) error {
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
 func (ec *ethConfirmer) processHead(head models.Head) error {
-	logger.Debugw("EthConfirmer: running SetBroadcastBeforeBlockNum", "headNum", head.Number)
 	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
 
-	logger.Debugw("EthConfirmer: running CheckForReceipts", "headNum", head.Number)
+	mark := time.Now()
+
 	if err := ec.CheckForReceipts(); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
-	logger.Debugw("EthConfirmer: running BumpGasWhereNecessary", "headNum", head.Number)
+	logger.Debugw("EthConfirmer: finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	mark = time.Now()
+
 	if err := ec.BumpGasWhereNecessary(head.Number); err != nil {
 		return errors.Wrap(err, "BumpGasWhereNecessary failed")
 	}
 
-	logger.Debugw("EthConfirmer: running EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number)
+	logger.Debugw("EthConfirmer: finished BumpGasWhereNecessary", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	mark = time.Now()
+
+	defer func() {
+		logger.Debugw("EthConfirmer: finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	}()
+
 	return errors.Wrap(ec.EnsureConfirmedTransactionsInLongestChain(head), "EnsureConfirmedTransactionsInLongestChain failed")
 }
 
