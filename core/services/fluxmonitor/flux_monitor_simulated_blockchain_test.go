@@ -178,7 +178,7 @@ func checkSubmission(t *testing.T, p answerParams,
 
 	var srlogs []*faw.FluxAggregatorSubmissionReceived
 	_ = cltest.GetLogs(t, &srlogs, ilogs)
-	assert.Len(t, srlogs, 1, "FluxAggregator did not emit correct SubmissionReceived log")
+	require.Len(t, srlogs, 1, "FluxAggregator did not emit correct SubmissionReceived log")
 	assert.Equal(t, uint32(p.roundId), srlogs[0].Round, "SubmissionReceived log has wrong round")
 	assert.Equal(t, p.from.From, srlogs[0].Oracle, "SubmissionReceived log has wrong oracle")
 
