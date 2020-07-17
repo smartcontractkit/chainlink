@@ -272,7 +272,7 @@ func (w *websocketClient) connect(ctx context.Context) error {
 
 var expectedCloseMessages = []int{websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure}
 
-const closeTimeout = 100 * time.Millisecond
+const CloseTimeout = 100 * time.Millisecond
 
 // readPump listens on the websocket connection for control messages and
 // response messages (text)
@@ -299,7 +299,7 @@ func (w *websocketClient) readPump(cancel context.CancelFunc) {
 			select {
 			case <-w.closeRequested:
 				w.closed <- struct{}{}
-			case <-time.After(closeTimeout):
+			case <-time.After(CloseTimeout):
 				logger.Warn("websocket readPump failed to notify closer")
 			}
 			return
@@ -330,7 +330,7 @@ func (w *websocketClient) Close() error {
 	select {
 	case w.closeRequested <- struct{}{}:
 		<-w.closed
-	case <-time.After(closeTimeout):
+	case <-time.After(CloseTimeout):
 		logger.Warn("websocketClient.Close failed to be notified from readPump")
 	}
 	return nil

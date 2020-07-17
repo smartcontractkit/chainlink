@@ -16,12 +16,8 @@ var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into curre
 
 // getDenominator returns 10**precision.
 func getDenominator(precision int) *big.Int {
-	d := big.NewInt(1)
-	base := big.NewInt(10)
-	for i := 0; i < precision; i++ {
-		d.Mul(d, base)
-	}
-	return d
+	x := big.NewInt(10)
+	return new(big.Int).Exp(x, big.NewInt(int64(precision)), nil)
 }
 
 func format(i *big.Int, precision int) string {

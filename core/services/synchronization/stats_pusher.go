@@ -24,7 +24,13 @@ var (
 		Name: "stats_pusher_events_sent",
 		Help: "The number of events pushed up to explorer",
 	})
+
+	gormCallbacksMutex *sync.RWMutex
 )
+
+func init() {
+	gormCallbacksMutex = new(sync.RWMutex)
+}
 
 //go:generate mockery --name StatsPusher --output ../../internal/mocks/ --case=underscore
 
@@ -252,12 +258,4 @@ func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Sco
 			return
 		}
 	}
-}
-
-var (
-	gormCallbacksMutex *sync.RWMutex
-)
-
-func init() {
-	gormCallbacksMutex = new(sync.RWMutex)
 }
