@@ -78,7 +78,7 @@ async function assertAggregatorValues(
   const [la, lr, rr, ls1, ls2] = await Promise.all([
     fluxAggregator.latestRoundData().then(res => res.answer),
     fluxAggregator.latestRoundData().then(res => res.roundId),
-    // get earliest eligible round ID by checking a non-existant address
+    // get earliest eligible round ID by checking a non-existent address
     fluxAggregator.oracleRoundState(emptyAddress, 0).then(res => res._roundId),
     fluxAggregator.oracleRoundState(node1Address, 0).then(res => res._roundId),
     fluxAggregator.oracleRoundState(node2Address, 0).then(res => res._roundId),

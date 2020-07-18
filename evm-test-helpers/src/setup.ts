@@ -125,7 +125,7 @@ interface Users {
 }
 
 /**
- * Generate roles and personas for tests along with their corrolated account addresses
+ * Generate roles and personas for tests along with their correlated account addresses
  */
 export async function users(
   provider: ethers.providers.JsonRpcProvider,

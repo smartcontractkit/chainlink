@@ -474,7 +474,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
   /**
    * @notice transfer the admin address for an oracle
-   * @param _oracle is the address of the oracle whose admin is being transfered
+   * @param _oracle is the address of the oracle whose admin is being transferred
    * @param _newAdmin is the new admin address
    */
   function transferAdmin(address _oracle, address _newAdmin)
@@ -488,7 +488,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
   /**
    * @notice accept the admin address transfer for an oracle
-   * @param _oracle is the address of the oracle whose admin is being transfered
+   * @param _oracle is the address of the oracle whose admin is being transferred
    */
   function acceptAdmin(address _oracle)
     external
@@ -541,7 +541,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
   /**
    * @notice called through LINK's transferAndCall to update available funds
-   * in the same transaction as the funds were transfered to the aggregator
+   * in the same transaction as the funds were transferred to the aggregator
    * @param _data is mostly ignored. It is checked for length, to be sure
    * nothing strange is passed in.
    */

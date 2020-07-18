@@ -359,7 +359,7 @@ const initContract = (config: FeedConfig) => {
     // Current answer and block height
     fetchLatestAnswer()(dispatch)
 
-    // initalise listeners
+    // initialise listeners
     initListeners()(dispatch, getState)
 
     if (config.history) {

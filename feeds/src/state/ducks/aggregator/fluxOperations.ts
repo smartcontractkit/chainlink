@@ -286,7 +286,7 @@ export default class FluxOperations {
       // Current answer
       FluxOperations.fetchLatestAnswer()(dispatch, getState)
 
-      // initalise listeners
+      // initialise listeners
       FluxOperations.initListeners()(dispatch, getState)
 
       if (config.history) {

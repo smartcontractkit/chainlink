@@ -294,7 +294,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 
 	// {"range_start", beginningNonce},
 	// Use the a non-transactional db for this test because we need to
-	// test multiple connections to the datbase, and changes made within
+	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
@@ -307,7 +307,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 
 	// Use the same config as the connectedStore so that the advisory
 	// lock ID is the same. We set the config to be Postgres Without
-	// Lock, because the db locking stratgey is decided when we
+	// Lock, because the db locking strategy is decided when we
 	// initialize the store/ORM.
 	config.Config.Dialect = orm.DialectPostgresWithoutLock
 	store, cleanup := cltest.NewStoreWithConfig(config)
@@ -374,7 +374,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.dbName, func(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
-			// test multiple connections to the datbase, and changes made within
+			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
 			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true)
 			defer cleanup()
@@ -395,7 +395,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 
 			// Use the same config as the connectedStore so that the advisory
 			// lock ID is the same. We set the config to be Postgres Without
-			// Lock, because the db locking stratgey is decided when we
+			// Lock, because the db locking strategy is decided when we
 			// initialize the store/ORM.
 			config.Config.Dialect = orm.DialectPostgresWithoutLock
 			store, cleanup := cltest.NewStoreWithConfig(config)
