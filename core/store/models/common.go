@@ -56,7 +56,7 @@ const (
 	// RunStatusCompleted is used for when a run has successfully completed execution.
 	RunStatusCompleted = RunStatus("completed")
 	// RunStatusCancelled is used to indicate a run is no longer desired.
-	RunStatusCancelled = RunStatus("cancelled")
+	RunStatusCancelled = RunStatus("canceled")
 )
 
 // Unstarted returns true if the status is the initial state.
@@ -94,8 +94,8 @@ func (s RunStatus) Completed() bool {
 	return s == RunStatusCompleted
 }
 
-// Cancelled returns true if the status is RunStatusCancelled.
-func (s RunStatus) Cancelled() bool {
+// Canceled returns true if the status is RunStatusCancelled.
+func (s RunStatus) Canceled() bool {
 	return s == RunStatusCancelled
 }
 

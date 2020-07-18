@@ -16,6 +16,6 @@ func TestConsumerBaseRejectsBadVRFCoordinator(t *testing.T) {
 	_, err := coordinator.consumerContract.RawFulfillRandomness(coordinator.neil,
 		keyHash, big.NewInt(0).SetBytes([]byte("a bad random value")))
 	require.Error(t, err)
-	// Verify that correct fulfilment is possible, in this setup
+	// Verify that correct fulfillment is possible, in this setup
 	_ = fulfillRandomnessRequest(t, coordinator, *log)
 }

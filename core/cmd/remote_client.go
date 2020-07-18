@@ -670,7 +670,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 // CancelJob cancels a running job
 func (cli *Client) CancelJobRun(c *clipkg.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the run id to be cancelled"))
+		return cli.errorOut(errors.New("Must pass the run id to be canceled"))
 	}
 
 	response, err := cli.HTTP.Put(fmt.Sprintf("/v2/runs/%s/cancellation", c.Args().First()), nil)

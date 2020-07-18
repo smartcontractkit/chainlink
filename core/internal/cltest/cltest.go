@@ -99,7 +99,7 @@ func init() {
 	// Perhaps txdb's built-in transaction emulation is broken in some subtle way?
 	// NOTE: That this will cause transaction BEGIN/ROLLBACK to effectively be
 	// a no-op, this should have no negative impact on normal test operation.
-	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
+	// If you MUST test BEGIN/ROLLBACK behavior, you will have to configure your
 	// store to use the raw DialectPostgres dialect and setup a one-use database.
 	// See BootstrapThrowawayORM() as a convenience function to help you do this.
 	txdb.Register("cloudsqlpostgres", "postgres", config.DatabaseURL(), txdb.SavePointOption(nil))

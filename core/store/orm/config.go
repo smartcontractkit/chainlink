@@ -296,7 +296,7 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
 // There is not a large performance penalty to setting this relatively high (on the order of hundreds)
 // It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
-// If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
+// If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behavior can occur including gaps in the nonce sequence that require manual intervention to fix.
 // Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 func (c Config) EthFinalityDepth() uint {
 	return c.viper.GetUint(EnvVarName("EthFinalityDepth"))

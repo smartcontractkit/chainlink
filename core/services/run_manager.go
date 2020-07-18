@@ -30,7 +30,7 @@ func (err RecurringScheduleJobError) Error() string {
 
 //go:generate mockery --name RunManager --output ../internal/mocks/ --case=underscore
 
-// RunManager supplies methods for queueing, resuming and cancelling jobs in
+// RunManager supplies methods for queueing, resuming and canceling jobs in
 // the RunQueue
 type RunManager interface {
 	Create(
@@ -345,7 +345,7 @@ func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 		return nil, err
 	}
 
-	logger.Debugw("Cancelling run", run.ForLogger()...)
+	logger.Debugw("Canceling run", run.ForLogger()...)
 	if run.GetStatus().Finished() {
 		return nil, fmt.Errorf("cannot cancel a run that has already finished")
 	}

@@ -321,7 +321,7 @@ declare module 'core/store/models' {
     logIndex: number
 
     /**
-     * The Removed field is true if this log was reverted due to a chain reorganisation.
+     * The Removed field is true if this log was reverted due to a chain reorganization.
      * You must pay attention to this field if you receive logs through a filter query.
      */
     removed: boolean

@@ -100,7 +100,7 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 			false, `{"links":{"next":"/v2/index?authToken=3123\u0026page=1\u0026size=1"},"data":[{"type":"testResources","id":"1","attributes":{"Title":"Item 1"}}],"meta":{"count":2}}`,
 		},
 		{
-			"json marshalling failure",
+			"json marshaling failure",
 			"/v2/index", 1, 0, 0, "",
 			true, ``,
 		},

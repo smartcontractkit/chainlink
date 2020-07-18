@@ -4,7 +4,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-// Migrate creates and optimises table indexes
+// Migrate creates and optimizes table indexes
 func Migrate(tx *gorm.DB) error {
 	// I can't believe we were missing this one
 	// Need `if not exists` because I created it manually on the kovan util node

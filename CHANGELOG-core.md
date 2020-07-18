@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for RunLogTopic0original and RunLogTopic20190123withFullfillmentParams logs has been dropped. This should not affect any users since these logs predate Chainlink's mainnet launch and have never been used on mainnet.
 
-IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by  defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
+IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by  defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behavior where nodes would only pick the earliest created key.
 
 This is done to allow increases in throughput when a node operator has multiple whitelisted addresses for their oracle.
 
@@ -51,7 +51,7 @@ If your node only has one key, no action is required.
 
 ### Added
 
-- `ethtx` tasks now support a new parameter, `minRequiredOutgoingConfirmations` which allows you to tune how many confirmations are required before moving on from an `ethtx` task on a per task basis (only works with BulletproofTxManager). If it is not supplied, the default of `MIN_OUTGOING_CONFIRMATIONS` is used (same as the old behaviour).
+- `ethtx` tasks now support a new parameter, `minRequiredOutgoingConfirmations` which allows you to tune how many confirmations are required before moving on from an `ethtx` task on a per task basis (only works with BulletproofTxManager). If it is not supplied, the default of `MIN_OUTGOING_CONFIRMATIONS` is used (same as the old behavior).
 
 ### Changed
 

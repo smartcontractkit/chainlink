@@ -116,7 +116,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	// It will never be triggered, so sleep tasks will run forever (or until
-	// cancelled)
+	// canceled)
 	clock := cltest.NewTriggerClock(t)
 	store.Clock = clock
 

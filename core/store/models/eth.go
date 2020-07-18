@@ -341,7 +341,7 @@ type Log struct {
 	// index of the log in the receipt
 	Index uint `json:"logIndex"`
 
-	// The Removed field is true if this log was reverted due to a chain reorganisation.
+	// The Removed field is true if this log was reverted due to a chain reorganization.
 	// You must pay attention to this field if you receive logs through a filter query.
 	Removed bool `json:"removed"`
 }

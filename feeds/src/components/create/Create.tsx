@@ -43,7 +43,7 @@ const Create: React.FC<CreateProps> = ({ form, history }) => {
   return (
     <>
       <Form.Item {...formTailLayout}>
-        <h2>Create Visualisation</h2>
+        <h2>Create Visualization</h2>
       </Form.Item>
 
       <Form {...formItemLayout}>

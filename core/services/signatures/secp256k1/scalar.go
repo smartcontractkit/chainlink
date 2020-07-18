@@ -150,7 +150,7 @@ func (s *secp256k1Scalar) MarshalBinary() ([]byte, error) {
 	// leftpad with zeros
 	rv := append(make([]byte, s.MarshalSize()-len(b)), b...)
 	if len(rv) != s.MarshalSize() {
-		return nil, fmt.Errorf("marshalled scalar to wrong length")
+		return nil, fmt.Errorf("marshaled scalar to wrong length")
 	}
 	return rv, nil
 }

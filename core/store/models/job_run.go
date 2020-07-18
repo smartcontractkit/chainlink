@@ -186,7 +186,7 @@ func (jr *JobRun) SetError(err error) {
 	jr.SetStatus(RunStatusErrored)
 }
 
-// Cancel sets this run as cancelled, it should no longer be processed.
+// Cancel sets this run as canceled, it should no longer be processed.
 func (jr *JobRun) Cancel() {
 	currentTaskRun := jr.NextTaskRun()
 	if currentTaskRun != nil {

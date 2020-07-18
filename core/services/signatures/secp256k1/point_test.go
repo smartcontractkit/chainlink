@@ -157,7 +157,7 @@ func TestPoint_Marshal(t *testing.T) {
 		q := newPoint()
 		err = q.UnmarshalBinary(serialized)
 		require.Nil(t, err)
-		require.True(t, p.Equal(q), "%v marshalled to %x, which "+
+		require.True(t, p.Equal(q), "%v marshaled to %x, which "+
 			"unmarshalled to %v", p, serialized, q)
 	}
 	p.X.SetInt(big.NewInt(0)) // 0³+7 is not a square in the base field.

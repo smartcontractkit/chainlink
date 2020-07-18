@@ -6,7 +6,7 @@ import (
 
 // Migrate converts all 32-bit primary keys into 64 bit integers.
 // In the (hopefully likely!) scenario that Chainlink is around for a long time, it's actually possible we might experience ID wraparounds.
-// If a node processes more than 2.147B jobs it could have undefined behaviour.
+// If a node processes more than 2.147B jobs it could have undefined behavior.
 // This is not strictly necessary for small tables e.g. configurations, but the cost is small and for consistency it is simply easier to use 64-bit integers as ID everywhere.
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`

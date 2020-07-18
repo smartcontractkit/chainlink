@@ -2,7 +2,7 @@
 name = "bigdecimal"
 version = "0.1.0"
 authors = ["Andrew Kubera"]
-description = "Arbitrary percision decimal numbers"
+description = "Arbitrary precision decimal numbers"
 documentation = "https://docs.rs/bigdecimal"
 homepage = "https://github.com/akubera/bigdecimal-rs"
 repository = "https://github.com/akubera/bigdecimal-rs"

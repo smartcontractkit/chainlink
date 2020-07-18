@@ -91,7 +91,7 @@ contract ChainlinkClient {
   }
 
   /**
-   * @notice Allows a request to be cancelled if it has not been fulfilled
+   * @notice Allows a request to be canceled if it has not been fulfilled
    * @dev Requires keeping track of the expiration value emitted from the oracle contract.
    * Deletes the request from the `pendingRequests` mapping.
    * Emits ChainlinkCancelled event.

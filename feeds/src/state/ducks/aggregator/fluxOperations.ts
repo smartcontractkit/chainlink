@@ -217,7 +217,7 @@ export default class FluxOperations {
   }
 
   /**
-   * Initialise aggregator contract and fill the store with all necessery data for a visualisation page.
+   * Initialize aggregator contract and fill the store with all necessery data for a visualization page.
    * @param config FeedsConfig
    */
 
@@ -286,7 +286,7 @@ export default class FluxOperations {
       // Current answer
       FluxOperations.fetchLatestAnswer()(dispatch, getState)
 
-      // initalise listeners
+      // initialise listeners
       FluxOperations.initListeners()(dispatch, getState)
 
       if (config.history) {

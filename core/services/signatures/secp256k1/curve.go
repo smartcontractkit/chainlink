@@ -29,13 +29,13 @@ func (*Secp256k1) String() string { return "Secp256k1" }
 var egScalar kyber.Scalar = newScalar(big.NewInt(0))
 var egPoint kyber.Point = &secp256k1Point{newFieldZero(), newFieldZero()}
 
-// ScalarLen returns the length of a marshalled Scalar
+// ScalarLen returns the length of a marshaled Scalar
 func (*Secp256k1) ScalarLen() int { return egScalar.MarshalSize() }
 
 // Scalar creates a new Scalar for the prime-order group on the secp256k1 curve
 func (*Secp256k1) Scalar() kyber.Scalar { return newScalar(big.NewInt(0)) }
 
-// PointLen returns the length of a marshalled Point
+// PointLen returns the length of a marshaled Point
 func (*Secp256k1) PointLen() int { return egPoint.MarshalSize() }
 
 // Point returns a new secp256k1 point

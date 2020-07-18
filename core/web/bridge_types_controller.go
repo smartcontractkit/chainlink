@@ -154,7 +154,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 	if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {
-		jsonAPIError(c, StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
+		jsonAPIError(c, StatusCodeForError(err), fmt.Errorf("failed to initialize BTC Destroy: %+v", err))
 		return
 	}
 

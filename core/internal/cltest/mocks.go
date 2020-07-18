@@ -84,7 +84,7 @@ func NewSimpleGethWrapper(clients ...interface{}) *SimpleGethWrapper {
 		case eth.RPCClient:
 			wrapper.r = c
 		default:
-			panic("unrecognised client type")
+			panic("unrecognized client type")
 		}
 	}
 	return &wrapper
@@ -557,7 +557,7 @@ type BlockedRunner struct {
 	Done chan struct{}
 }
 
-// Run runs the blocked runner, doesn't return until the channel is signalled
+// Run runs the blocked runner, doesn't return until the channel is signaled
 func (r BlockedRunner) Run(app chainlink.Application) error {
 	<-r.Done
 	return nil

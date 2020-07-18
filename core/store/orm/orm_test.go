@@ -210,7 +210,7 @@ func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
 	require.NoError(t, utils.JustError(store.Unscoped().FindJobRun(jr.ID)))
 }
 
-func TestORM_SaveJobRun_Cancelled(t *testing.T) {
+func TestORM_SaveJobRun_Canceled(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -225,7 +225,7 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	jr.SetStatus(models.RunStatusInProgress)
 	require.NoError(t, store.SaveJobRun(&jr))
 
-	// Save the updated at before saving with cancelled
+	// Save the updated at before saving with canceled
 	updatedAt := jr.UpdatedAt
 
 	jr.SetStatus(models.RunStatusCancelled)

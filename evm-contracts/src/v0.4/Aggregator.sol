@@ -167,8 +167,8 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   /**
    * @notice Cancels an outstanding Chainlink request.
    * The oracle contract requires the request ID and additional metadata to
-   * validate the cancellation. Only old answers can be cancelled.
-   * @param _requestId is the identifier for the chainlink request being cancelled
+   * validate the cancellation. Only old answers can be canceled.
+   * @param _requestId is the identifier for the chainlink request being canceled
    * @param _payment is the amount of LINK paid to the oracle for the request
    * @param _expiration is the time when the request expires
    */
