@@ -78,7 +78,7 @@ describe('utils/status', () => {
     expect(unfulfilledEthTx).toEqual(false)
   })
 
-  it('is Complete not fullfilled for a status of "completed" without ethtx successful transaction', () => {
+  it('is Complete not fulfilled for a status of "completed" without ethtx successful transaction', () => {
     const taskRuns: TaskRun[] = [COMPLETED_ETHTX_WITHOUT_STATUS]
     const jobRun = partialAsFull<JobRun>({
       status: 'completed',
