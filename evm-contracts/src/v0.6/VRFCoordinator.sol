@@ -179,7 +179,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
   /**
    * @dev Allows the oracle operator to withdraw their LINK
    * @param _recipient is the address the funds will be sent to
-   * @param _amount is the amount of LINK transfered from the Coordinator contract
+   * @param _amount is the amount of LINK transferred from the Coordinator contract
    */
   function withdraw(address _recipient, uint256 _amount)
     external

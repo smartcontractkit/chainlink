@@ -79,7 +79,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   }
 
   /**
-   * @notice enable the warning flags for mulitple addresses.
+   * @notice enable the warning flags for multiple addresses.
    * Access is controlled by raisingAccessController, except for owner
    * who always has access.
    * @param subjects List of the contract addresses whose flag is being raised
@@ -101,7 +101,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   }
 
   /**
-   * @notice allows owner to disable the warning flags for mulitple addresses.
+   * @notice allows owner to disable the warning flags for multiple addresses.
    * @param subjects List of the contract addresses whose flag is being lowered
    */
   function lowerFlags(address[] calldata subjects)
