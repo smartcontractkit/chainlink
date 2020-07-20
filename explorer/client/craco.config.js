@@ -30,7 +30,8 @@ module.exports = {
         __EXPLORER_CLIENT_VERSION__: JSON.stringify(clientPkg.version),
         __EXPLORER_SERVER_VERSION__: JSON.stringify(serverPkg.version),
         __GIT_SHA__: JSON.stringify(gitRevisionPlugin.commithash()),
-        __GIT_BRANCH__: JSON.stringify(gitRevisionPlugin.branch())
+        __GIT_BRANCH__: JSON.stringify(gitRevisionPlugin.branch()),
+        __REACT_APP_EXPLORER_GA_ID__: JSON.stringify(process.env.REACT_APP_EXPLORER_GA_ID)
       })
     ],
   },

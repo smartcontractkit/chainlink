@@ -8,6 +8,6 @@ export class Config {
   }
 
   static gaId(env = process.env): string {
-    return env.REACT_APP_EXPLORER_GA_ID ?? ''
+    return env.REACT_APP_EXPLORER_GA_ID ?? __REACT_APP_EXPLORER_GA_ID__ ?? ''
   }
 }
