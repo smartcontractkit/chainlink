@@ -84,7 +84,7 @@ func TestCreateLogConsumption_Errors(t *testing.T) {
 		LogIndex    uint
 		JobID       *models.ID
 	}{
-		{"non existant job", cltest.NewHash(), 0, models.NewID()},
+		{"non existent job", cltest.NewHash(), 0, models.NewID()},
 		{"duplicate record", logConsumption1.BlockHash, logConsumption1.LogIndex, logConsumption1.JobID},
 	}
 	for _, test := range tests {

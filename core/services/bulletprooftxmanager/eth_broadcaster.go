@@ -31,7 +31,7 @@ const (
 // somewhere has received the transaction successfully.
 //
 // This does not guarantee delivery! A whole host of other things can
-// subsequently go wrong such as transctions being evicted from the mempool,
+// subsequently go wrong such as transactions being evicted from the mempool,
 // eth nodes going offline etc. Responsibility for ensuring eventual inclusion
 // into the chain falls on the shoulders of the ethConfirmer.
 //

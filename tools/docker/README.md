@@ -37,7 +37,7 @@ Credentials for logging into the operator-ui can be found [here](../secrets/apic
 ### Doing local development on the core node
 
 Doing quick, iterative changes on the core codebase can still be achieved within the compose setup with the `cld` or `cldo` commands.
-The `cld` command will bring up the services that a chainlink node needs to connect to (explorer, parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repostiory bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
+The `cld` command will bring up the services that a chainlink node needs to connect to (explorer, parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repository bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
 
 This enables a user to make quick changes on either the container or the host, run `cldev` within the attached container, check the new behaviour of the re-built node, and repeat this process until the desired results are achieved.
 

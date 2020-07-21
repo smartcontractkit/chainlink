@@ -337,7 +337,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 			"IsVirginAttempt: %v\n"+
 			"ACTION REQUIRED: Your node is BROKEN - this error should never happen in normal operation. "+
 			"Please consider raising an issue here: https://github.com/smartcontractkit/chainlink/issues", etx.ID, sendError, hexutil.Encode(a.SignedRawTx), blockHeight, isVirginAttempt)
-		// This will loop continously on every new head so it must be handled manually by the node operator!
+		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return deleteInProgressAttempt(ec.store.DB, a)
 	}
 

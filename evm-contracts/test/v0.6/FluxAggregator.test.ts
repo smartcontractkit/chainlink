@@ -2393,7 +2393,7 @@ describe('FluxAggregator', () => {
           })
         })
 
-        describe('>= min sumbissions and oracle not included', () => {
+        describe('>= min submissions and oracle not included', () => {
           beforeEach(async () => {
             await advanceRound(aggregator, [
               personas.Neil,
@@ -2627,7 +2627,7 @@ describe('FluxAggregator', () => {
           })
         })
 
-        describe('>= min sumbissions and oracle not included', () => {
+        describe('>= min submissions and oracle not included', () => {
           beforeEach(async () => {
             await advanceRound(aggregator, [
               personas.Neil,
