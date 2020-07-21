@@ -93,7 +93,7 @@ Conceptually, **EthBroadcaster** assigns a nonce to a transaction and ensures th
 
 It does not guarantee eventual confirmation!
 
-A whole host of other things can subsequently go wrong such as transitions being evicted from the mempool, eth nodes crashing, netsplits between eth nodes, chain re-orgs etc. Responsibility for ensuring eventual inclusion into the longest chain falls on the shoulders of **EthConfirmer**.
+A whole host of other things can subsequently go wrong such as transactions being evicted from the mempool, eth nodes crashing, netsplits between eth nodes, chain re-orgs etc. Responsibility for ensuring eventual inclusion into the longest chain falls on the shoulders of **EthConfirmer**.
 
 **EthBroadcaster** makes the following guarantees:
 
