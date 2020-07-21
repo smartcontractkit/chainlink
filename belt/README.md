@@ -2,7 +2,7 @@
 
 A toolbelt for performing various commands on chainlink smart contracts.
 This cli tool is currently used within `@chainlink/contracts` for the usage of running
-build and development tools across multiple solidity contract revisions.
+build and development tools across multiple solidity contract versions.
 
 <!-- toc -->
 * [@chainlink/belt](#chainlinkbelt)
