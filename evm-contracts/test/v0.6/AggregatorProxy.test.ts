@@ -151,7 +151,7 @@ describe('AggregatorProxy', () => {
         await proxy.confirmAggregator(flux.address)
       })
 
-      it('does not revert when called with a non existant ID', async () => {
+      it('does not revert when called with a non existent ID', async () => {
         const actual = await proxy.latestAnswer()
         matchers.bigNum(0, actual)
       })
@@ -165,7 +165,7 @@ describe('AggregatorProxy', () => {
         await proxy.confirmAggregator(flux.address)
       })
 
-      it('does not revert when called with a non existant ID', async () => {
+      it('does not revert when called with a non existent ID', async () => {
         const proxyId = phaseBase.mul(await proxy.phaseId()).add(1)
         const actual = await proxy.getAnswer(proxyId)
         matchers.bigNum(0, actual)
@@ -220,7 +220,7 @@ describe('AggregatorProxy', () => {
         await proxy.confirmAggregator(flux.address)
       })
 
-      it('does not revert when called with a non existant ID', async () => {
+      it('does not revert when called with a non existent ID', async () => {
         const proxyId = phaseBase.mul(await proxy.phaseId()).add(1)
         const actual = await proxy.getTimestamp(proxyId)
         matchers.bigNum(0, actual)

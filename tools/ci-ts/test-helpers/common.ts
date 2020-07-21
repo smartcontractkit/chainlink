@@ -128,7 +128,7 @@ export async function waitForService(
  * default timeout of 30 seconds
  *
  * @param f function to run every second and check for truthy return value
- * @param errorMessage error message to print if unseccessful
+ * @param errorMessage error message to print if unsuccessful
  * @param timeout timeout
  */
 export async function assertAsync(

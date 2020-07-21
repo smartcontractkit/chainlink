@@ -12,7 +12,7 @@ contract VRFRequestIDBase {
    * @dev Of course, crucial security guranatees would be broken by repetition
    * @dev of the user-supplied seed, as all the other inputs can be anticipated
    * @dev and the user-specified seed is public once the initial request is
-   * @dev made, so if the oracle has reason to belive that a user-specified seed
+   * @dev made, so if the oracle has reason to believe that a user-specified seed
    * @dev will be repeated, it may be able to anticipate its future outputs. So
    * @dev it may make sense, for certain applications, for the VRF framework to
    * @dev simply refuse to operate, if given a seed it's seen before.

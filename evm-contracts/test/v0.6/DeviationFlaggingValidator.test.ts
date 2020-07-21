@@ -91,7 +91,7 @@ describe('DeviationFlaggingValidator', () => {
         )
       })
 
-      it('uses less than the gas alotted by the aggregator', async () => {
+      it('uses less than the gas allotted by the aggregator', async () => {
         const tx = await validator
           .connect(personas.Nelly)
           .validate(
@@ -124,7 +124,7 @@ describe('DeviationFlaggingValidator', () => {
         matchers.eventDoesNotExist(receipt, flags.interface.events.FlagOn)
       })
 
-      it('uses less than the gas alotted by the aggregator', async () => {
+      it('uses less than the gas allotted by the aggregator', async () => {
         const tx = await validator
           .connect(personas.Nelly)
           .validate(
