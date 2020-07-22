@@ -57,7 +57,6 @@ describe('EACAggregatorProxy', () => {
     proxy = await proxyFactory
       .connect(defaultAccount)
       .deploy(aggregator.address, controller.address)
-    testHelper = await testHelperFactory.connect(personas.Carol).deploy()
   })
 
   beforeEach(async () => {
@@ -211,6 +210,19 @@ describe('EACAggregatorProxy', () => {
         }, 'No proposed aggregator present')
       })
     })
+
+    describe('when read from a contract that is not permissioned', () => {
+      beforeEach(async () => {
+        testHelper = await testHelperFactory.connect(personas.Carol).deploy()
+      })
+
+      it('does not allow reading', async () => {
+        await matchers.evmRevert(
+          testHelper.readLatestRoundData(proxy.address),
+          'No access',
+        )
+      })
+    })
   })
 
   describe('#setController', () => {
@@ -240,6 +252,10 @@ describe('EACAggregatorProxy', () => {
     })
 
     describe('when set to the zero address', () => {
+      beforeEach(async () => {
+        testHelper = await testHelperFactory.connect(personas.Carol).deploy()
+      })
+
       it('allows anyone to read', async () => {
         await matchers.evmRevert(
           testHelper.readLatestRoundData(proxy.address),
