@@ -80,7 +80,7 @@ describe('Flags', () => {
 
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.FlagOn,
+          flags.interface.events.FlagRaised,
         )
         assert.equal(consumer.address, h.eventArgs(event).subject)
       })
@@ -132,7 +132,7 @@ describe('Flags', () => {
         const receipt = await tx.wait()
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.RaisingAccessControllerChanged,
+          flags.interface.events.RaisingAccessControllerUpdated,
         )
         assert.equal(
           '0x0000000000000000000000000000000000000000',
@@ -179,7 +179,7 @@ describe('Flags', () => {
 
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.FlagOff,
+          flags.interface.events.FlagLowered,
         )
         assert.equal(consumer.address, h.eventArgs(event).subject)
       })
@@ -314,7 +314,7 @@ describe('Flags', () => {
 
       const event = matchers.eventExists(
         receipt,
-        flags.interface.events.RaisingAccessControllerChanged,
+        flags.interface.events.RaisingAccessControllerUpdated,
       )
       assert.equal(controller.address, h.eventArgs(event).previous)
       assert.equal(controller2.address, h.eventArgs(event).current)
