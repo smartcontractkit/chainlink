@@ -30,6 +30,7 @@ import validationcapital from 'assets/nodes/validationcapital.png'
 import watez from 'assets/nodes/watez.png'
 import ztake from 'assets/nodes/ztake.png'
 import oneNode from 'assets/nodes/01node.png'
+import tSystems from 'assets/nodes/tsystems.png'
 
 interface Node {
   name: string
@@ -39,6 +40,11 @@ interface Node {
 
 const grid = { xs: 12, sm: 8, md: 6, lg: 4 }
 const list: Node[] = [
+  {
+    name: 'T-Systems',
+    url: 'https://www.t-systems.com',
+    src: tSystems,
+  },
   {
     name: 'LinkPool',
     url: 'https://linkpool.io',
