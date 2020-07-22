@@ -3097,7 +3097,10 @@ describe('FluxAggregator', () => {
 
       const tx = await aggregator.connect(personas.Nelly).submit(nextRound, 102)
       const receipt = await tx.wait()
-      const event = matchers.eventExists(receipt, flags.interface.events.FlagOn)
+      const event = matchers.eventExists(
+        receipt,
+        flags.interface.events.FlagRaised,
+      )
 
       assert.equal(flags.address, event.address)
       assert.equal(aggregator.address, h.evmWordToAddress(event.topics[1]))
@@ -3109,7 +3112,7 @@ describe('FluxAggregator', () => {
 
       const tx = await aggregator.connect(personas.Nelly).submit(nextRound, 101)
       const receipt = await tx.wait()
-      matchers.eventDoesNotExist(receipt, flags.interface.events.FlagOn)
+      matchers.eventDoesNotExist(receipt, flags.interface.events.FlagRaised)
     })
   })
 })

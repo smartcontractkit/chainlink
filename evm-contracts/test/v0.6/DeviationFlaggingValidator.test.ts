@@ -81,7 +81,7 @@ describe('DeviationFlaggingValidator', () => {
         const receipt = await tx.wait()
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.FlagOn,
+          flags.interface.events.FlagRaised,
         )
 
         assert.equal(flags.address, event.address)
@@ -121,7 +121,7 @@ describe('DeviationFlaggingValidator', () => {
             currentValue,
           )
         const receipt = await tx.wait()
-        matchers.eventDoesNotExist(receipt, flags.interface.events.FlagOn)
+        matchers.eventDoesNotExist(receipt, flags.interface.events.FlagRaised)
       })
 
       it('uses less than the gas allotted by the aggregator', async () => {

@@ -20,13 +20,13 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
   mapping(address => bool) private flags;
 
-  event FlagOn(
+  event FlagRaised(
     address indexed subject
   );
-  event FlagOff(
+  event FlagLowered(
     address indexed subject
   );
-  event RaisingAccessControllerChanged(
+  event RaisingAccessControllerUpdated(
     address indexed previous,
     address indexed current
   );
@@ -95,7 +95,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
       if (!flags[subject]) {
         flags[subject] = true;
-        emit FlagOn(subject);
+        emit FlagRaised(subject);
       }
     }
   }
@@ -114,7 +114,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
       if (flags[subject]) {
         flags[subject] = false;
-        emit FlagOff(subject);
+        emit FlagLowered(subject);
       }
     }
   }
@@ -134,7 +134,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
     raisingAccessController = AccessControllerInterface(racAddress);
 
-    emit RaisingAccessControllerChanged(previous, racAddress);
+    emit RaisingAccessControllerUpdated(previous, racAddress);
   }
 
 
