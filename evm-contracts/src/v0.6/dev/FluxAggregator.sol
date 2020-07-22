@@ -344,7 +344,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed. answeredInRound may be smaller than roundId when the round
-   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * timed out. answeredInRound is equal to roundId when the round didn't time out
    * and was completed regularly.
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
    * maxSubmissions) answer and updatedAt may change between queries.
@@ -389,7 +389,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed. answeredInRound may be smaller than roundId when the round
-   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * timed out. answeredInRound is equal to roundId when the round didn't time out
    * and was completed regularly.
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
    * maxSubmissions) answer and updatedAt may change between queries.
