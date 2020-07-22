@@ -79,8 +79,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   /**
    * @notice checks whether the parameters count as valid by comparing the
    * difference change to the flagging threshold and raises a flag on the
-   * flagging contract if so. This method conforms to the
-   * AggregatorValidatorInterface.
+   * flagging contract if so.
    * @param _previousAnswer is used as the median of the difference with the
    * current answer to determine if the deviation threshold has been exceeded.
    * @param _answer is the current answer which is compared for a ratio of
