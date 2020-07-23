@@ -1,7 +1,7 @@
 {
   "name": "@chainlink/test-helpers",
   "private": false,
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A collection of test helpers to facilitate testing chainlink's smart contracts",
   "main": "dist/src/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
