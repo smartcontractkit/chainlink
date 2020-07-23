@@ -219,7 +219,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 func TestClient_ImportKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -318,8 +322,8 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("Stop").Return(nil)
-	gethClient := new(mocks.GethClient)
-	store.GethClientWrapper = cltest.NewSimpleGethWrapper(gethClient)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
 	client := cmd.Client{
@@ -334,7 +338,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
-		gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return uint(tx.Nonce()) == n
 		})).Once().Return(nil)
 	}
@@ -346,7 +350,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
 
 	app.AssertExpectations(t)
-	gethClient.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 }
 
 func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {

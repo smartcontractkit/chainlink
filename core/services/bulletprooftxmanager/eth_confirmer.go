@@ -38,16 +38,16 @@ type EthConfirmer interface {
 }
 
 type ethConfirmer struct {
-	store             *store.Store
-	gethClientWrapper store.GethClientWrapper
-	config            orm.ConfigReader
+	store     *store.Store
+	ethClient eth.Client
+	config    orm.ConfigReader
 }
 
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
 	return &ethConfirmer{
-		store:             store,
-		gethClientWrapper: store.GethClientWrapper,
-		config:            config,
+		store:     store,
+		ethClient: store.EthClient,
+		config:    config,
 	}
 }
 
@@ -160,19 +160,13 @@ func (ec *ethConfirmer) findUnconfirmedEthTxs() ([]models.EthTx, error) {
 }
 
 func (ec *ethConfirmer) fetchReceipt(hash gethCommon.Hash) (*gethTypes.Receipt, error) {
-	var receipt *gethTypes.Receipt
-	err := ec.gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
-		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
-		defer cancel()
-		var err error
-		receipt, err = gethClient.TransactionReceipt(ctx, hash)
-		return err
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	receipt, err := ec.ethClient.TransactionReceipt(ctx, hash)
 	if err != nil && err.Error() == "not found" {
 		return nil, nil
 	}
 	return receipt, err
-
 }
 
 func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) error {
@@ -302,7 +296,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", a.ID, a.State)
 	}
 
-	sendError := sendTransaction(ec.gethClientWrapper, a)
+	sendError := sendTransaction(ec.ethClient, a)
 
 	if sendError.IsTerminallyUnderpriced() {
 		// This should really not ever happen in normal operation since we
@@ -608,7 +602,7 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 				logger.Errorf("ForceRebroadcast: failed to create new attempt for eth_tx %v: %s", etx.ID, err.Error())
 				continue
 			}
-			if err := sendTransaction(ec.gethClientWrapper, attempt); err != nil {
+			if err := sendTransaction(ec.ethClient, attempt); err != nil {
 				logger.Errorf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error())
 				continue
 			}
@@ -627,7 +621,7 @@ func (ec *ethConfirmer) sendEmptyTransaction(fromAddress gethCommon.Address, non
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(ethConfirmer).sendEmptyTransaction failed")
 	}
-	tx, err := sendEmptyTransaction(ec.gethClientWrapper, ec.store.KeyStore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), account, ec.config.ChainID())
+	tx, err := sendEmptyTransaction(ec.ethClient, ec.store.KeyStore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), account, ec.config.ChainID())
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(ethConfirmer).sendEmptyTransaction failed")
 	}

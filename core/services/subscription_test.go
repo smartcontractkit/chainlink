@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/mock/gomock"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -307,8 +306,8 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			txManager := new(mocks.TxManager)
-			store.TxManager = txManager
+			ethClient := new(mocks.Client)
+			store.EthClient = ethClient
 
 			currentHead := cltest.Head(test.currentHead)
 
@@ -325,8 +324,8 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
-			txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txManager.On("GetLogs", expectedQuery).Return([]models.Log{log}, nil)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
+			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
@@ -342,7 +341,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			<-executeJobChannel
 
-			txManager.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 			runManager.AssertExpectations(t)
 		})
 	}
@@ -366,10 +365,8 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			txmMock := new(mocks.TxManager)
-			store.TxManager = txmMock
+			ethClient := new(mocks.Client)
+			store.EthClient = ethClient
 
 			currentHead := cltest.Head(test.currentHead)
 
@@ -383,15 +380,16 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 				Addresses: []common.Address{initr.InitiatorParams.Address},
 				Topics: [][]common.Hash{
 					models.TopicsForInitiatorsWhichRequireJobSpecIDTopic[models.InitiatorRunLog],
-					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)}},
+					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)},
+				},
 			}
 
 			receipt := cltest.TxReceiptFromFixture(t, "../services/eth/testdata/runlogReceipt.json")
 			log := receipt.Logs[3]
 			log.Topics[1] = models.IDToTopic(job.ID)
 
-			txmMock.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txmMock.On("GetLogs", expectedQuery).Return([]models.Log{log}, nil)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
+			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
@@ -408,7 +406,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			<-executeJobChannel
 
 			runManager.AssertExpectations(t)
-			txmMock.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }

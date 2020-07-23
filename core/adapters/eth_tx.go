@@ -3,6 +3,7 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v3"
@@ -98,7 +100,7 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 {
 	"type": "EthTx",
 	"fromAddresses": ["%s"],
-} 
+}
 `, input.TaskRunID(), e.FromAddress.Hex(), e.FromAddress.Hex())
 	return e.FromAddress, nil
 }
@@ -267,13 +269,19 @@ func createTxRunResult(
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(output)
 	}
 
+	var receiptBlockNumber *big.Int
+	var receiptHash common.Hash
+	if receipt != nil {
+		receiptBlockNumber = receipt.BlockNumber
+		receiptHash = receipt.TxHash
+	}
 	logger.Debugw(
 		fmt.Sprintf("Tx #0 is %s", state),
 		"txHash", txAttempt.Hash.String(),
 		"txID", txAttempt.TxID,
-		"receiptBlockNumber", receipt.BlockNumber.ToInt(),
+		"receiptBlockNumber", receiptBlockNumber,
 		"currentBlockNumber", tx.SentAt,
-		"receiptHash", receipt.Hash.Hex(),
+		"receiptHash", receiptHash.Hex(),
 	)
 
 	if state == strpkg.Safe {
@@ -304,9 +312,9 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 
 	var output models.JSON
 
-	if receipt != nil && !receipt.Unconfirmed() {
+	if receipt != nil && !models.ReceiptIsUnconfirmed(receipt) {
 		// If the tx has been confirmed, record the hash in the output
-		hex := receipt.Hash.String()
+		hex := receipt.TxHash.String()
 		output, err = output.Add("result", hex)
 		if err != nil {
 			return models.NewRunOutputError(err)
@@ -339,13 +347,14 @@ func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutpu
 }
 
 func addReceiptToResult(
-	receipt models.TxReceipt,
+	receipt types.Receipt,
 	input models.RunInput,
 	data models.JSON,
 ) models.RunOutput {
-	receipts := []models.TxReceipt{}
+	receipts := []types.Receipt{}
 
 	ethereumReceipts := input.Data().Get("ethereumReceipts").String()
+	fmt.Println("RECEIPTS ~>", ethereumReceipts)
 	if ethereumReceipts != "" {
 		if err := json.Unmarshal([]byte(ethereumReceipts), &receipts); err != nil {
 			logger.Errorw("Error unmarshaling ethereum Receipts", "error", err)
@@ -358,7 +367,7 @@ func addReceiptToResult(
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	data, err = data.Add("result", receipt.Hash.String())
+	data, err = data.Add("result", receipt.TxHash.String())
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

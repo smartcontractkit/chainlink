@@ -13,12 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -227,7 +229,10 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 
 func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -253,7 +258,10 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -277,7 +285,10 @@ func TestRunManager_Create(t *testing.T) {
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -336,7 +347,19 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			defer cfgCleanup()
 			minimumConfirmations := uint32(2)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
-			app, cleanup := cltest.NewApplicationWithConfig(t, config, cltest.EthMockRegisterChainID)
+
+			gethClient := new(mocks.GethClient)
+			sub := new(mocks.Subscription)
+			app, cleanup := cltest.NewApplicationWithConfig(t, config,
+				eth.NewClientWith(nil, gethClient),
+			)
+			gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
+			gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil)
+			gethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+			gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Return(sub, nil)
+			sub.On("Err").Return(nil)
+			sub.On("Unsubscribe").Return()
+
 			kst := new(mocks.KeyStoreInterface)
 			kst.On("Accounts").Return([]accounts.Account{})
 			app.Store.KeyStore = kst
@@ -363,14 +386,11 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.TaskRuns[0].Status)
 			assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.GetStatus())
 
-			confirmedReceipt := models.TxReceipt{
-				Hash:        initiatingTxHash,
-				BlockHash:   &test.receiptBlockHash,
-				BlockNumber: cltest.Int(3),
-			}
-			app.EthMock.Context("validateOnMainChain", func(meth *cltest.EthMock) {
-				meth.Register("eth_getTransactionReceipt", confirmedReceipt)
-			})
+			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(&types.Receipt{
+				TxHash:      initiatingTxHash,
+				BlockHash:   test.receiptBlockHash,
+				BlockNumber: big.NewInt(3),
+			}, nil)
 
 			err = app.RunManager.ResumeAllPendingNextBlock(big.NewInt(2))
 			require.NoError(t, err)
@@ -631,15 +651,15 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 	defer cfgCleanup()
 	minimumConfirmations := uint32(2)
 	config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	app, cleanup := cltest.NewApplicationWithConfig(t, config,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("Accounts").Return([]accounts.Account{})
 	app.Store.KeyStore = kst
 	defer cleanup()
 
-	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_chainId", app.Store.Config.ChainID())
-	})
 	require.NoError(t, app.StartAndConnect())
 
 	store := app.GetStore()

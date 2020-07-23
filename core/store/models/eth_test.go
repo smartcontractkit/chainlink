@@ -175,26 +175,6 @@ func TestHead_ChainLength(t *testing.T) {
 	assert.Equal(t, uint32(3), head.ChainLength())
 }
 
-func TestLog_UnmarshalEmptyTxHash(t *testing.T) {
-	t.Parallel()
-
-	input := `{
-        "transactionHash": null,
-        "transactionIndex": "0x3",
-        "address": "0x1aee7c03606fca5035d204c3818d0660bb230e44",
-        "blockNumber": "0x8bf99b",
-        "topics": ["0xdeadbeefdeadbeedeadbeedeadbeefffdeadbeefdeadbeedeadbeedeadbeefff"],
-        "blockHash": "0xdb777676330c067e3c3a6dbfc2d51282cac5bcc1b7a884dd8d85ba72ca1f147e",
-        "data": "0xdeadbeef",
-        "logIndex": "0x5",
-        "transactionLogIndex": "0x3"
-    }`
-
-	var log models.Log
-	err := json.Unmarshal([]byte(input), &log)
-	assert.NoError(t, err)
-}
-
 func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
 	t.Parallel()
 
@@ -367,4 +347,24 @@ func TestHead_EarliestInChain(t *testing.T) {
 	}
 
 	assert.Equal(t, int64(1), head.EarliestInChain().Number)
+}
+
+func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"basic", "testdata/getTransactionReceipt.json", false},
+		{"runlog request", "testdata/runlogReceipt.json", false},
+		{"runlog response", "testdata/responseReceipt.json", true},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			receipt := cltest.TxReceiptFromFixture(t, test.path)
+			assert.Equal(t, test.want, models.ReceiptIndicatesRunLogFulfillment(receipt))
+		})
+	}
 }

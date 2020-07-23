@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -879,19 +878,21 @@ func TestTxManager_Register(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethMock := &cltest.EthMock{}
+	ethClient := new(mocks.Client)
 	txm := strpkg.NewEthTxManager(
-		&eth.CallerSubscriberClient{CallerSubscriber: ethMock},
+		ethClient,
 		orm.NewConfig(),
 		nil,
 		store.ORM,
 	)
 
-	ethMock.Register("eth_getTransactionCount", `0x2D0`)
+	ethClient.On("GetNonce", mock.Anything).Return(uint64(0x2d0))
+
 	account := accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")}
 	txm.Register([]accounts.Account{account})
 	txm.Connect(cltest.Head(1))
-	ethMock.EventuallyAllCalled(t)
+
+	ethClient.AssertExpectations(t)
 
 	aa := txm.NextActiveAccount()
 	assert.Equal(t, account.Address, aa.Address)
@@ -904,9 +905,9 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	ethMock := &cltest.EthMock{}
+	ethClient := new(mocks.Client)
 	txm := strpkg.NewEthTxManager(
-		&eth.CallerSubscriberClient{CallerSubscriber: ethMock},
+		ethClient,
 		orm.NewConfig(),
 		nil,
 		store.ORM,
@@ -917,12 +918,13 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 		accounts.Account{Address: common.HexToAddress("0xbf4ed7b27f1d666546e30d74d50d173d20bca002")},
 	}
 
-	ethMock.Register("eth_getTransactionCount", `0x1D0`)
-	ethMock.Register("eth_getTransactionCount", `0x2D0`)
+	ethClient.On("GetNonce", mock.Anything).Return(uint64(0x1d0), nil).Once()
+	ethClient.On("GetNonce", mock.Anything).Return(uint64(0x2d0), nil).Once()
 
 	txm.Register(accounts)
 	txm.Connect(cltest.Head(1))
-	ethMock.EventuallyAllCalled(t)
+
+	ethClient.AssertExpectations(t)
 
 	a0 := txm.NextActiveAccount()
 	assert.Equal(t, accounts[0].Address, a0.Address)
