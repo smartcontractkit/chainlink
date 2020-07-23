@@ -31,6 +31,8 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     address indexed current
   );
 
+  int256 constant private INT256_MIN = -2**255;
+
   /**
    * @notice sets up the validator with its threshold and flag address.
    * @param _flags sets the address of the flags contract
@@ -97,10 +99,11 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   {
     if (_previousAnswer == 0) return true;
 
-    int256 change = _previousAnswer.sub(_answer);
-    uint256 changeRatio = abs(change.mul(THRESHOLD_MULTIPLIER).div(_previousAnswer));
+    (int256 change, bool changeOk) = safeSub(_previousAnswer, _answer);
+    (int256 ratioNumerator, bool numOk) = safeMul(change, THRESHOLD_MULTIPLIER);
+    (int256 ratio, bool ratioOk) = safeDiv(ratioNumerator, _previousAnswer);
 
-    return changeRatio <= flaggingThreshold;
+    return abs(ratio) <= flaggingThreshold && changeOk && numOk && ratioOk;
   }
 
   /**
@@ -159,6 +162,59 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     returns (uint256)
   {
     return uint256(value < 0 ? value.mul(-1): value);
+  }
+
+  /**
+   * @dev Subtracts two signed integers, returns false 2nd param on overflow.
+   * Modified version of OpenZeppelin's SignedSafeMath.
+   */
+  function safeSub(int256 a, int256 b) internal pure returns (int256, bool) {
+    int256 c = a - b;
+    if (!((b >= 0 && c <= a) || (b < 0 && c > a))) {
+      return (0, false);
+    }
+
+    return (c, true);
+  }
+
+
+  /**
+   * @dev Multiplies two signed integers, returns false 2nd param on overflow.
+   * Modified version of OpenZeppelin's SignedSafeMath.
+   */
+  function safeMul(int256 a, int256 b) internal pure returns (int256, bool) {
+    // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+    // benefit is lost if 'b' is also tested.
+    // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+    if (a == 0) {
+      return (0, true);
+    }
+
+    if (a == -1 && b == INT256_MIN) {
+      return (0, false);
+    }
+
+    int256 c = a * b;
+    if (!(c / a == b)) {
+      return (0, false);
+    }
+
+    return (c, true);
+  }
+
+  /**
+   * @dev Divides two signed integers, returns false 2nd param on overflow.
+   * Modified version of OpenZeppelin's SignedSafeMath.
+   */
+  function safeDiv(int256 a, int256 b) internal pure returns (int256, bool) {
+    // don't need to check for 0 as that is checked in isValid
+    if (b == -1 && a == INT256_MIN) {
+      return (0, false);
+    }
+
+    int256 c = a / b;
+
+    return (c, true);
   }
 
 }
