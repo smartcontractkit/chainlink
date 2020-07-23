@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity 0.6.6;
 
 import './AggregatorValidatorInterface.sol';
 import '../interfaces/FlagsInterface.sol';
