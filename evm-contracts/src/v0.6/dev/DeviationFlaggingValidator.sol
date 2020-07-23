@@ -170,7 +170,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
    */
   function safeSub(int256 a, int256 b) internal pure returns (int256, bool) {
     int256 c = a - b;
-    if (!((b >= 0 && c <= a) || (b < 0 && c > a))) {
+    if ((b < 0 && c <= a) || (b >= 0 && c > a)) {
       return (0, false);
     }
 
