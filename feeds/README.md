@@ -72,11 +72,11 @@ Color Codes
 
 ### Override feeds & nodes JSON endpoints
 
-Override the urls with a URI encoded query param
+Override the urls with a URI encoded query param (NOTE: this is blocked on feeds.chain.link -- use locally or in our test environment instead)
 
 ```
-https://feeds.chain.link?feeds-json=https%3A%2F%2Fweiwatchers.com%2Ffeeds.json
-https://feeds.chain.link?nodes-json=https%3A%2F%2Fweiwatchers.com%2Fnodes.json
+https://<host>/?feeds-json=https%3A%2F%2Fweiwatchers.com%2Ffeeds-ropsten.json
+https://<host>/?nodes-json=https%3A%2F%2Fweiwatchers.com%2Fnodes-ropsten.json
 ```
 
 You can use the browser console to encode your URI:
