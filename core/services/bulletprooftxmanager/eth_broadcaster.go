@@ -49,9 +49,9 @@ type EthBroadcaster interface {
 }
 
 type ethBroadcaster struct {
-	store             *store.Store
-	gethClientWrapper store.GethClientWrapper
-	config            orm.ConfigReader
+	store     *store.Store
+	ethClient eth.Client
+	config    orm.ConfigReader
 
 	started    bool
 	stateMutex sync.RWMutex
@@ -66,12 +66,12 @@ type ethBroadcaster struct {
 // NewEthBroadcaster returns a new concrete ethBroadcaster
 func NewEthBroadcaster(store *store.Store, config orm.ConfigReader) EthBroadcaster {
 	return &ethBroadcaster{
-		store:             store,
-		config:            config,
-		gethClientWrapper: store.GethClientWrapper,
-		trigger:           make(chan struct{}, 1),
-		chStop:            make(chan struct{}),
-		chDone:            make(chan struct{}),
+		store:     store,
+		config:    config,
+		ethClient: store.EthClient,
+		trigger:   make(chan struct{}, 1),
+		chStop:    make(chan struct{}),
+		chDone:    make(chan struct{}),
 	}
 }
 
@@ -246,7 +246,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		broadcastAt = etx.CreatedAt
 	}
 
-	sendError := sendTransaction(eb.gethClientWrapper, attempt)
+	sendError := sendTransaction(eb.ethClient, attempt)
 
 	if sendError.Fatal() {
 		etx.Error = sendError.StrPtr()
@@ -481,14 +481,10 @@ func (eb *ethBroadcaster) loadAndSaveNonce(address gethCommon.Address) (int64, e
 }
 
 func (eb *ethBroadcaster) loadInitialNonceFromEthClient(account gethCommon.Address) (nextNonce uint64, err error) {
-	err = eb.gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
-		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
-		defer cancel()
-		nextNonce, err = gethClient.PendingNonceAt(ctx, account)
-		return errors.WithStack(err)
-	})
-
-	return nextNonce, err
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	nextNonce, err = eb.ethClient.PendingNonceAt(ctx, account)
+	return nextNonce, errors.WithStack(err)
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1

@@ -19,26 +19,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// SimulatedBackendClient is an eth.SimulatedBackendClient implementation using
-// a simulated blockchain backend. Note that not all RPC methods are implemented
-// here.
+// SimulatedBackendClient is an eth.Client implementation using a simulated
+// blockchain backend. Note that not all RPC methods are implemented here.
 type SimulatedBackendClient struct {
 	b       *backends.SimulatedBackend
 	t       testing.TB
 	chainId int
 }
 
-// GethClient is a noop, solely needed to conform to GethClientWrapper interface
-func (c *SimulatedBackendClient) GethClient(f func(c eth.GethClient) error) error {
-	return nil
-}
-
-// RPCClient is a noop, solely needed to conform to GethClientWrapper interface
-func (c *SimulatedBackendClient) RPCClient(f func(c eth.RPCClient) error) error {
+func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
 }
 
@@ -72,8 +64,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 
 // Call mocks the ethereum client RPC calls used by chainlink, copying the
 // return value into result.
-func (c *SimulatedBackendClient) Call(result interface{}, method string,
-	args ...interface{}) error {
+func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{}) error {
 	switch method {
 	case "eth_call":
 		callArgs, _, err := c.checkEthCallArgs(args)
@@ -105,39 +96,15 @@ func (c *SimulatedBackendClient) Call(result interface{}, method string,
 	}
 }
 
-// Subscribe is a dummy method present only to satisfy the eth.Client interface.
-// The original method is for subscribing to events observed by the RPC client,
-// but for a simulated backend that makes no sense.
-func (c *SimulatedBackendClient) Subscribe(ctx context.Context, namespace interface{},
-	channelAndArgs ...interface{}) (eth.Subscription, error) {
-	// if these are needed, there are subscribe methods on SimulatedBackend
-	panic("unimplemented")
-}
-
-// GetLogs returns all logs that respect the passed filter query.
-func (c *SimulatedBackendClient) GetLogs(q ethereum.FilterQuery) (logs []models.Log,
-	err error) {
-	rawLogs, err := c.b.FilterLogs(context.Background(), q)
-	if err != nil {
-		return nil, errors.Wrapf(err, "while querying for logs with %s", q)
-	}
-	for _, rawLog := range rawLogs {
-		logs = append(logs, ChainlinkEthLogFromGethLog(rawLog))
-	}
-	return logs, nil
+// FilterLogs returns all logs that respect the passed filter query.
+func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
+	return c.b.FilterLogs(ctx, q)
 }
 
 // SubscribeToLogs registers a subscription for push notifications of logs
 // from a given address.
-func (c *SimulatedBackendClient) SubscribeToLogs(ctx context.Context, channel chan<- models.Log,
-	q ethereum.FilterQuery) (eth.Subscription, error) {
-	ch := make(chan types.Log)
-	go func() {
-		for l := range ch {
-			channel <- ChainlinkEthLogFromGethLog(l)
-		}
-	}()
-	return c.b.SubscribeFilterLogs(ctx, q, ch)
+func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, channel chan<- types.Log) (ethereum.Subscription, error) {
+	return c.b.SubscribeFilterLogs(ctx, q, channel)
 }
 
 // currentBlockNumber returns index of *pending* block in simulated blockchain
@@ -224,28 +191,9 @@ func (c *SimulatedBackendClient) SendRawTx(
 	return tx.Hash(), err
 }
 
-// GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (c *SimulatedBackendClient) GetTxReceipt(
-	receipt common.Hash) (*models.TxReceipt, error) {
-	rawReceipt, err := c.b.TransactionReceipt(context.Background(), receipt)
-	if err != nil {
-		return nil, errors.Wrapf(err, "while retrieving tx receipt for %s", receipt)
-	}
-	if rawReceipt == nil {
-		// Calling code depends on getting empty TxReceipt, rather than nil
-		return &models.TxReceipt{}, nil
-	}
-	logs := []models.Log{}
-	for _, log := range rawReceipt.Logs {
-		logs = append(logs, ChainlinkEthLogFromGethLog(*log))
-	}
-	return &models.TxReceipt{BlockNumber: (*utils.Big)(rawReceipt.BlockNumber),
-		BlockHash: &rawReceipt.BlockHash, Hash: receipt, Logs: logs}, nil
-}
-
-// GetBlockHeight returns height of latest block in the simulated blockchain.
-func (c *SimulatedBackendClient) GetBlockHeight() (height uint64, err error) {
-	return c.currentBlockNumber().Uint64() - 1, nil
+// TransactionReceipt returns the transaction receipt for the given transaction hash.
+func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
+	return c.b.TransactionReceipt(ctx, receipt)
 }
 
 func (c *SimulatedBackendClient) blockNumber(
@@ -270,62 +218,53 @@ func (c *SimulatedBackendClient) blockNumber(
 		}
 	case *big.Int:
 		if n.Sign() < 0 {
-			return nil, fmt.Errorf("block number musts be non-negative")
+			return nil, fmt.Errorf("block number must be non-negative")
 		}
 		return n, nil
 	}
 	panic("can never reach here")
 }
 
-// GetBlockByNumber returns the block for the passed hex, or "latest",
-// "earliest", "pending". Includes all transactions
-func (c *SimulatedBackendClient) GetBlockByNumber(hex string) (block models.Block,
-	err error) {
-	blockNumber, err := c.blockNumber(hex)
-	if err != nil {
-		c.t.Fatalf("while getting block by number: %s", err)
-	}
-	b, err := c.b.BlockByNumber(context.Background(), blockNumber)
-	if err != nil {
-		return models.Block{}, errors.Wrapf(err, "while retrieving block %d",
-			blockNumber)
-	}
-	var txs []models.Transaction
-	for _, tx := range b.Transactions() {
-		txs = append(txs, models.Transaction{
-			GasPrice: hexutil.Uint64(tx.GasPrice().Uint64())})
-	}
-	return models.Block{Number: hexutil.Uint64(blockNumber.Uint64()),
-		Transactions: txs}, nil
+func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	return c.b.HeaderByNumber(ctx, n)
+}
+
+func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
+	return c.b.BlockByNumber(ctx, n)
 }
 
 // GetChainID returns the ethereum ChainID.
-func (c *SimulatedBackendClient) GetChainID() (*big.Int, error) {
+func (c *SimulatedBackendClient) ChainID(context.Context) (*big.Int, error) {
 	// The actual chain ID is c.b.Blockchain().Config().ChainID, but here we need
 	// to match the chain ID used by the testing harness.
 	return big.NewInt(int64(c.chainId)), nil
 }
 
+func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	return c.b.PendingNonceAt(ctx, account)
+}
+
+func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	return c.b.BalanceAt(ctx, account, blockNumber)
+}
+
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
-func (c *SimulatedBackendClient) SubscribeToNewHeads(ctx context.Context,
-	channel chan<- types.Header) (eth.Subscription, error) {
+func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel chan<- *types.Header) (ethereum.Subscription, error) {
 	ch := make(chan *types.Header)
 	go func() {
 		for h := range ch {
-			channel <- *h
+			channel <- h
 		}
 		close(channel)
 	}()
-	return c.b.SubscribeNewHead(context.Background(), ch)
+	return c.b.SubscribeNewHead(ctx, ch)
 }
 
-// GetLatestBlock returns the last committed block of the best blockchain the
-// blockchain node is aware of.
-func (c *SimulatedBackendClient) GetLatestBlock() (models.Block, error) {
-	height, err := c.GetBlockHeight()
-	if err != nil {
-		return models.Block{}, errors.Wrap(err, "while getting latest block")
-	}
-	return c.GetBlockByNumber(common.BigToHash(big.NewInt(int64(height))).Hex())
+func (c *SimulatedBackendClient) SendTransaction(context.Context, *types.Transaction) error {
+	panic("unimplemented")
+}
+
+func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	panic("unimplemented")
 }
