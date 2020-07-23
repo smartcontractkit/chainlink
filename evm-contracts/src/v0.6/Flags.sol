@@ -79,6 +79,21 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   }
 
   /**
+   * @notice enable the warning flag for an address.
+   * Access is controlled by raisingAccessController, except for owner
+   * who always has access.
+   * @param subject The contract address whose flag is being raised
+   */
+  function raiseFlag(address subject)
+    external
+    override
+  {
+    require(allowedToRaiseFlags(), "Not allowed to raise flags");
+
+    tryToRaiseFlag(subject);
+  }
+
+  /**
    * @notice enable the warning flags for multiple addresses.
    * Access is controlled by raisingAccessController, except for owner
    * who always has access.
@@ -91,12 +106,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
     require(allowedToRaiseFlags(), "Not allowed to raise flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {
-      address subject = subjects[i];
-
-      if (!flags[subject]) {
-        flags[subject] = true;
-        emit FlagRaised(subject);
-      }
+      tryToRaiseFlag(subjects[i]);
     }
   }
 
@@ -147,6 +157,15 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   {
     return msg.sender == owner ||
       raisingAccessController.hasAccess(msg.sender, msg.data);
+  }
+
+  function tryToRaiseFlag(address subject)
+    private
+  {
+    if (!flags[subject]) {
+      flags[subject] = true;
+      emit FlagRaised(subject);
+    }
   }
 
 }

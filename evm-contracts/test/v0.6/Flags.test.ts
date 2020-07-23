@@ -45,6 +45,7 @@ describe('Flags', () => {
       'getFlag',
       'getFlags',
       'lowerFlags',
+      'raiseFlag',
       'raiseFlags',
       'raisingAccessController',
       'setRaisingAccessController',
@@ -60,6 +61,101 @@ describe('Flags', () => {
       'checkEnabled',
       'hasAccess',
     ])
+  })
+
+  describe('#raiseFlag', () => {
+    describe('when called by the owner', () => {
+      it('updates the warning flag', async () => {
+        assert.equal(false, await flags.getFlag(consumer.address))
+
+        await flags.connect(personas.Nelly).raiseFlag(consumer.address)
+
+        assert.equal(true, await flags.getFlag(consumer.address))
+      })
+
+      it('emits an event log', async () => {
+        const tx = await flags
+          .connect(personas.Nelly)
+          .raiseFlag(consumer.address)
+        const receipt = await tx.wait()
+
+        const event = matchers.eventExists(
+          receipt,
+          flags.interface.events.FlagRaised,
+        )
+        assert.equal(consumer.address, h.eventArgs(event).subject)
+      })
+
+      describe('if a flag has already been raised', () => {
+        beforeEach(async () => {
+          await flags.connect(personas.Nelly).raiseFlag(consumer.address)
+        })
+
+        it('emits an event log', async () => {
+          const tx = await flags
+            .connect(personas.Nelly)
+            .raiseFlag(consumer.address)
+          const receipt = await tx.wait()
+          assert.equal(0, receipt.events?.length)
+        })
+      })
+    })
+
+    describe('when called by an enabled setter', () => {
+      beforeEach(async () => {
+        await controller
+          .connect(personas.Nelly)
+          .addAccess(personas.Neil.address)
+      })
+
+      it('sets the flags', async () => {
+        await flags.connect(personas.Neil).raiseFlag(consumer.address),
+          assert.equal(true, await flags.getFlag(consumer.address))
+      })
+    })
+
+    describe('when called by a non-enabled setter', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          flags.connect(personas.Neil).raiseFlag(consumer.address),
+          'Not allowed to raise flags',
+        )
+      })
+    })
+
+    describe('when called when there is no raisingAccessController', () => {
+      beforeEach(async () => {
+        const tx = await flags
+          .connect(personas.Nelly)
+          .setRaisingAccessController(
+            '0x0000000000000000000000000000000000000000',
+          )
+        const receipt = await tx.wait()
+        const event = matchers.eventExists(
+          receipt,
+          flags.interface.events.RaisingAccessControllerUpdated,
+        )
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          h.eventArgs(event).current,
+        )
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          await flags.raisingAccessController(),
+        )
+      })
+
+      it('succeeds for the owner', async () => {
+        await flags.connect(personas.Nelly).raiseFlag(consumer.address)
+        assert.equal(true, await flags.getFlag(consumer.address))
+      })
+
+      it('reverts for non-owner', async () => {
+        await matchers.evmRevert(
+          flags.connect(personas.Neil).raiseFlag(consumer.address),
+        )
+      })
+    })
   })
 
   describe('#raiseFlags', () => {
@@ -144,12 +240,12 @@ describe('Flags', () => {
         )
       })
 
-      it('owner succeeds', async () => {
+      it('succeeds for the owner', async () => {
         await flags.connect(personas.Nelly).raiseFlags([consumer.address])
         assert.equal(true, await flags.getFlag(consumer.address))
       })
 
-      it('non-owner reverts', async () => {
+      it('reverts for non-owners', async () => {
         await matchers.evmRevert(
           flags.connect(personas.Neil).raiseFlags([consumer.address]),
         )
