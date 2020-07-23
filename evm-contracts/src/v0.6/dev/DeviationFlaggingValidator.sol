@@ -71,7 +71,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     returns (bool)
   {
     if (!isValid(_previousRoundId, _previousAnswer, _roundId, _answer)) {
-      flags.raiseFlags(arrayifyMsgSender());
+      flags.raiseFlag(msg.sender);
       return false;
     }
 
@@ -144,15 +144,6 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
 
 
   // PRIVATE
-
-  function arrayifyMsgSender()
-    private
-    returns (address[] memory)
-  {
-      address[] memory addresses = new address[](1);
-      addresses[0] = msg.sender;
-      return addresses;
-  }
 
   function abs(
     int256 value
