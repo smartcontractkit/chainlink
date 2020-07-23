@@ -142,9 +142,11 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   {
     address previous = address(raisingAccessController);
 
-    raisingAccessController = AccessControllerInterface(racAddress);
+    if (previous != racAddress) {
+      raisingAccessController = AccessControllerInterface(racAddress);
 
-    emit RaisingAccessControllerUpdated(previous, racAddress);
+      emit RaisingAccessControllerUpdated(previous, racAddress);
+    }
   }
 
 
