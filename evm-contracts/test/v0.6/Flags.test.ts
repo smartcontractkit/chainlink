@@ -415,6 +415,22 @@ describe('Flags', () => {
       assert.equal(controller2.address, h.eventArgs(event).current)
     })
 
+    it('does not emit a log when there is no change', async () => {
+      await flags
+        .connect(personas.Nelly)
+        .setRaisingAccessController(controller2.address)
+
+      const tx = await flags
+        .connect(personas.Nelly)
+        .setRaisingAccessController(controller2.address)
+      const receipt = await tx.wait()
+
+      matchers.eventDoesNotExist(
+        receipt,
+        flags.interface.events.RaisingAccessControllerUpdated,
+      )
+    })
+
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
