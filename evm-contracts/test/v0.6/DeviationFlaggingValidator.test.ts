@@ -199,6 +199,48 @@ describe('DeviationFlaggingValidator', () => {
         )
       })
     })
+
+    describe('when the difference overflows', () => {
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .sub(1)
+      const currentValue = h.bigNum(-1)
+
+      it('does not revert and returns false', async () => {
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
+      })
+    })
+
+    describe('when the rounding overflows', () => {
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .div(10000)
+      const currentValue = h.bigNum(1)
+
+      it('does not revert and returns false', async () => {
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
+      })
+    })
+
+    describe('when the division overflows', () => {
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .sub(1)
+      const currentValue = h.bigNum(-1)
+
+      it('does not revert and returns false', async () => {
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
+      })
+    })
   })
 
   describe('#setFlaggingThreshold', () => {
