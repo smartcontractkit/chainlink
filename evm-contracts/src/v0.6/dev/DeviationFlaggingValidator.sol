@@ -103,7 +103,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     (int256 ratioNumerator, bool numOk) = safeMul(change, THRESHOLD_MULTIPLIER);
     (int256 ratio, bool ratioOk) = safeDiv(ratioNumerator, _previousAnswer);
 
-    return abs(ratio) <= flaggingThreshold && changeOk && numOk && ratioOk;
+    return changeOk && numOk && ratioOk && abs(ratio) <= flaggingThreshold;
   }
 
   /**
@@ -209,4 +209,3 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   }
 
 }
-
