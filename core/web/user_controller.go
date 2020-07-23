@@ -1,10 +1,12 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -158,7 +160,7 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
 	txm := store.TxManager
-	ethBalance, err := txm.GetEthBalance(account.Address)
+	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 	if err != nil {
 		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
@@ -176,7 +178,7 @@ func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts
 
 	return presenters.AccountBalance{
 		Address:     account.Address.Hex(),
-		EthBalance:  ethBalance,
+		EthBalance:  (*assets.Eth)(ethBalance),
 		LinkBalance: linkBalance,
 	}
 }

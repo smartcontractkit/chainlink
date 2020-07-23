@@ -45,7 +45,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	}
 
 	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, store.TxManager, runManager, nextHead, ReceiveLogRequest)
+		unsubscriber, err := NewInitiatorSubscription(initr, store.EthClient, runManager, nextHead, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
 		} else {
@@ -174,22 +174,22 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
-	logSubscriber   eth.LogSubscriber
+	logSubscriber   eth.Client
 	logs            chan models.Log
-	ethSubscription eth.Subscription
+	ethSubscription ethereum.Subscription
 	callback        func(models.Log)
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
 func NewManagedSubscription(
-	logSubscriber eth.LogSubscriber,
+	logSubscriber eth.Client,
 	filter ethereum.FilterQuery,
 	callback func(models.Log),
 ) (*ManagedSubscription, error) {
 	ctx := context.Background()
 	logs := make(chan models.Log)
-	es, err := logSubscriber.SubscribeToLogs(ctx, logs, filter)
+	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
 	if err != nil {
 		return nil, err
 	}
@@ -248,16 +248,16 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	}
 }
 
-// Manually retrieve old logs since SubscribeToLogs(logs, filter) only returns newly
+// Manually retrieve old logs since SubscribeFilterLogs(ctx, filter, chLogs) only returns newly
 // imported blocks: https://github.com/ethereum/go-ethereum/wiki/RPC-PUB-SUB#logs
-// Therefore TxManager.GetLogs does a one time retrieval of old logs.
+// Therefore TxManager.FilterLogs does a one time retrieval of old logs.
 func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
 	backfilledSet := map[string]bool{}
 	if q.FromBlock == nil {
 		return backfilledSet
 	}
 
-	logs, err := sub.logSubscriber.GetLogs(q)
+	logs, err := sub.logSubscriber.FilterLogs(context.TODO(), q)
 	if err != nil {
 		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 		return backfilledSet

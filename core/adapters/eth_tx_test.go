@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"syscall"
 	"testing"
@@ -18,6 +19,7 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -91,7 +93,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 			tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
 			txData := hexutil.MustDecode(test.output)
 			txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, txData, gasPrice.ToInt(), gasLimit).Once().Return(tx, nil)
-			txManager.On("CheckAttempt", mock.Anything, mock.Anything).Once().Return(&models.TxReceipt{}, test.receiptState, nil)
+			txManager.On("CheckAttempt", mock.Anything, mock.Anything).Once().Return(&types.Receipt{}, test.receiptState, nil)
 
 			store.TxManager = txManager
 
@@ -124,7 +126,7 @@ func TestEthTxAdapter_Perform_BytesFormatWithDataPrefix(t *testing.T) {
 			"000000000000000000000000000000000000000000000000000000000000000a"+ // length in bytes
 			"63c3b66e6669726d656400000000000000000000000000000000000000000000"), // encoded string left padded
 		mock.Anything, mock.Anything).Return(tx, nil)
-	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&types.Receipt{}, strpkg.Unconfirmed, nil)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{DataFormat: "bytes", DataPrefix: hexutil.MustDecode("0x88888888")}
@@ -150,7 +152,7 @@ func TestEthTxAdapter_Perform_Preformatted(t *testing.T) {
 	tx := &models.Tx{Attempts: []*models.TxAttempt{&models.TxAttempt{}}}
 	txManager.On("Connected").Maybe().Return(true)
 	txManager.On("CreateTxWithGas", mock.Anything, mock.Anything, hexutil.MustDecode(fs+hexPayload), mock.Anything, mock.Anything).Return(tx, nil)
-	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&models.TxReceipt{}, strpkg.Unconfirmed, nil)
+	txManager.On("CheckAttempt", mock.Anything, mock.Anything).Return(&types.Receipt{}, strpkg.Unconfirmed, nil)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{
@@ -174,7 +176,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_StillPending(t *t
 
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
-	txManager.On("BumpGasUntilSafe", mock.Anything).Return(&models.TxReceipt{}, strpkg.Confirmed, nil)
+	txManager.On("BumpGasUntilSafe", mock.Anything).Return(&types.Receipt{}, strpkg.Confirmed, nil)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
@@ -199,7 +201,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
 	receiptHash := cltest.NewHash()
-	receipt := &models.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
+	receipt := &types.Receipt{TxHash: receiptHash, BlockNumber: big.NewInt(129831), Logs: []*types.Log{}, PostState: []byte{}}
 	txManager.On("BumpGasUntilSafe", mock.Anything).Return(receipt, strpkg.Safe, nil)
 	store.TxManager = txManager
 
@@ -214,7 +216,8 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T
 	assert.Equal(t, receiptHash.String(), output.Result().String())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
-	var receipts []models.TxReceipt
+	fmt.Println("JSON ~>", receiptsJSON)
+	var receipts []types.Receipt
 	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	require.Len(t, receipts, 1)
 	assert.Equal(t, receipt, &receipts[0])
@@ -234,13 +237,17 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	txManager := new(mocks.TxManager)
 	txManager.On("Connected").Return(true)
 	receiptHash := cltest.NewHash()
-	receipt := &models.TxReceipt{Hash: receiptHash, BlockNumber: cltest.Int(129831)}
+	receipt := &types.Receipt{TxHash: receiptHash, BlockNumber: big.NewInt(129831), Logs: []*types.Log{}}
 	txManager.On("BumpGasUntilSafe", mock.Anything).Return(receipt, strpkg.Safe, nil)
 	store.TxManager = txManager
 
 	adapter := adapters.EthTx{}
 	data := cltest.JSONFromString(t, `{
-		"ethereumReceipts": [{}],
+		"ethereumReceipts": [{
+            "cumulativeGasUsed": "0x0",
+            "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "logs": []
+        }],
 		"result":"0x3f839aaf5915da8714313a57b9c0a362d1a9a3fac1210190ace5cf3b008d780f"
 	}`)
 	input := *models.NewRunInput(
@@ -253,7 +260,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	assert.Equal(t, receiptHash.String(), output.Result().String())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
-	var receipts []models.TxReceipt
+	var receipts []types.Receipt
 	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	require.Len(t, receipts, 2)
 
@@ -500,7 +507,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 		}),
 		mock.Anything,
 		mock.Anything).Once().Return(tx, nil)
-	txManager.On("CheckAttempt", txAttempt, uint64(0)).Return(&models.TxReceipt{}, strpkg.Confirmed, nil)
+	txManager.On("CheckAttempt", txAttempt, uint64(0)).Return(&types.Receipt{}, strpkg.Confirmed, nil)
 
 	result = adapter.Perform(input, store)
 	require.NoError(t, result.Error())

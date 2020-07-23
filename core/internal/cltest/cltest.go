@@ -39,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
@@ -242,7 +241,7 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
+func NewApplication(t testing.TB, flags ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	c, cfgCleanup := NewConfig(t)
@@ -260,7 +259,7 @@ func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithKey(t testing.TB, flags ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	config, cfgCleanup := NewConfig(t)
@@ -273,7 +272,7 @@ func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, fun
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flags...)
@@ -283,7 +282,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...strin
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
@@ -312,11 +311,16 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 }
 
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
-	t testing.TB, tc *TestConfig, backend *backends.SimulatedBackend,
-	flags ...string) (app *TestApplication, cleanup func()) {
+	t testing.TB,
+	tc *TestConfig,
+	backend *backends.SimulatedBackend,
+	flags ...interface{},
+) (app *TestApplication, cleanup func()) {
 	chainId := int(backend.Blockchain().Config().ChainID.Int64())
 	tc.Config.Set("ETH_CHAIN_ID", chainId)
+
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
+
 	var client SimulatedBackendClient
 	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
 		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
@@ -324,6 +328,8 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	} else {
 		log.Panic("SimulatedBackend only works on EthTxManager")
 	}
+	app.Store.EthClient = &client
+
 	// Clean out the mock registrations, since we don't need those...
 	app.EthMock.Responses = app.EthMock.Responses[:0]
 	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
@@ -345,7 +351,8 @@ func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
 
-	return ta.ChainlinkApplication.Start()
+	err := ta.ChainlinkApplication.Start()
+	return err
 }
 
 func (ta *TestApplication) StartAndConnect() error {
@@ -864,7 +871,9 @@ func WaitForJobRunStatus(
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
-		return jr.GetStatus()
+		st := jr.GetStatus()
+		fmt.Println("JOB RUN STATUS =", st)
+		return st
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
 	return jr
 }
@@ -1036,21 +1045,14 @@ func Head(val interface{}) *models.Head {
 	return &h
 }
 
-// EmptyBlock returns a new empty ethereum block
-func EmptyBlock() models.Block {
-	return models.Block{}
-}
-
 // BlockWithTransactions returns a new ethereum block with transactions
 // matching the given gas prices
-func BlockWithTransactions(gasPrices ...uint64) models.Block {
-	txs := make([]models.Transaction, len(gasPrices))
+func BlockWithTransactions(gasPrices ...int64) *types.Block {
+	txs := make([]*types.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i].GasPrice = hexutil.Uint64(gasPrice)
+		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
-	return models.Block{
-		Transactions: txs,
-	}
+	return types.NewBlock(&types.Header{}, txs, nil, nil)
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
@@ -1293,7 +1295,7 @@ func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,
 	answer, startAt, timeout, availableFunds, paymentAmount, oracleCount uint64,
-) string {
+) []byte {
 	var data []byte
 	if eligible {
 		data = append(data, utils.EVMWordUint64(1)...)
@@ -1307,7 +1309,7 @@ func MakeRoundStateReturnData(
 	data = append(data, utils.EVMWordUint64(availableFunds)...)
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
-	return hexutil.Encode(data)
+	return data
 }
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
