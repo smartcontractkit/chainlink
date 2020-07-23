@@ -1337,17 +1337,7 @@ func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address commo
 }
 
 // HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(rawLog models.RawLog, JobID *models.ID) (bool, error) {
-	lc := models.LogConsumption{
-		BlockHash: rawLog.GetBlockHash(),
-		LogIndex:  rawLog.GetIndex(),
-		JobID:     JobID,
-	}
-	return orm.LogConsumptionExists(&lc)
-}
-
-// LogConsumptionExists reports whether a given LogConsumption record already exists
-func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
+func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error) {
 	query := "SELECT exists (" +
 		"SELECT id FROM log_consumptions " +
 		"WHERE block_hash=$1 " +
@@ -1357,7 +1347,7 @@ func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
 
 	var exists bool
 	err := orm.DB.DB().
-		QueryRow(query, lc.BlockHash, lc.LogIndex, lc.JobID).
+		QueryRow(query, blockHash, logIndex, jobID).
 		Scan(&exists)
 	if err != nil && err != sql.ErrNoRows {
 		return false, err
@@ -1365,19 +1355,14 @@ func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
 	return exists, nil
 }
 
-// CreateLogConsumption creates a new LogConsumption record
-func (orm *ORM) CreateLogConsumption(lc *models.LogConsumption) error {
+// MarkLogConsumed creates a new LogConsumption record
+func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Create(lc).Error
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID)
+	return orm.DB.Create(&lc).Error
 }
 
-// FindLogConsumer finds the consuming job of a particular LogConsumption record
-func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, error) {
-	orm.MustEnsureAdvisoryLock()
-	return orm.FindJob(lc.JobID)
-}
-
-// FindOrCreateFluxMonitorRoundStats find the round stats record for agiven oracle on a given round, or creates
+// FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
 // it if no record exists
 func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
 	orm.MustEnsureAdvisoryLock()
@@ -1409,7 +1394,7 @@ func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32,
 	return stats.RoundID, nil
 }
 
-// IncrFluxMonitorRoundSubmissions trys to create a RoundStat record for the given oracle
+// IncrFluxMonitorRoundSubmissions trys to create a RoundStats record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
 func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
 	orm.MustEnsureAdvisoryLock()

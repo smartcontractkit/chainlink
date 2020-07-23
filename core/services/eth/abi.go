@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -18,7 +18,7 @@ type ContractCodec interface {
 	ABI() *abi.ABI
 	GetMethodID(method string) ([]byte, error)
 	EncodeMessageCall(method string, args ...interface{}) ([]byte, error)
-	UnpackLog(out interface{}, event string, log models.Log) error
+	UnpackLog(out interface{}, event string, log types.Log) error
 }
 
 // Contract holds the solidity contract's parsed ABI
@@ -106,6 +106,6 @@ func MustGetV6ContractEventID(name, eventName string) common.Hash {
 	return event.ID
 }
 
-func (cc *contractCodec) UnpackLog(out interface{}, event string, log models.Log) error {
+func (cc *contractCodec) UnpackLog(out interface{}, event string, log types.Log) error {
 	return gethUnpackLog(cc, out, event, log)
 }

@@ -1,17 +1,20 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func markInProgressIfSufficientIncomingConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *utils.Big, txManager store.TxManager) {
+func markInProgressIfSufficientIncomingConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *utils.Big, ethClient eth.Client) {
 	updateTaskRunObservedIncomingConfirmations(currentHeight, run, taskRun)
 
 	if !meetsMinRequiredIncomingConfirmations(run, taskRun, run.ObservedHeight) {
@@ -22,7 +25,7 @@ func markInProgressIfSufficientIncomingConfirmations(run *models.JobRun, taskRun
 		taskRun.Status = models.RunStatusPendingIncomingConfirmations
 		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
 
-	} else if err := validateOnMainChain(run, taskRun, txManager); err != nil {
+	} else if err := validateOnMainChain(run, taskRun, ethClient); err != nil {
 		logger.Warnw("Failure while trying to validate chain",
 			run.ForLogger("error", err)...,
 		)
@@ -35,13 +38,13 @@ func markInProgressIfSufficientIncomingConfirmations(run *models.JobRun, taskRun
 	}
 }
 
-func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, txManager store.TxManager) error {
+func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient eth.Client) error {
 	txhash := run.RunRequest.TxHash
 	if txhash == nil || !taskRun.MinRequiredIncomingConfirmations.Valid || taskRun.MinRequiredIncomingConfirmations.Uint32 == 0 {
 		return nil
 	}
 
-	receipt, err := txManager.GetTxReceipt(*txhash)
+	receipt, err := ethClient.TransactionReceipt(context.TODO(), *txhash)
 	if err != nil {
 		return err
 	}
@@ -68,9 +71,9 @@ func updateTaskRunObservedIncomingConfirmations(currentHeight *utils.Big, jr *mo
 	taskRun.ObservedIncomingConfirmations = clnull.Uint32From(uint32(diff.Int64()))
 }
 
-func invalidRequest(request models.RunRequest, receipt *models.TxReceipt) bool {
-	return receipt.Unconfirmed() ||
-		(request.BlockHash != nil && *request.BlockHash != *receipt.BlockHash)
+func invalidRequest(request models.RunRequest, receipt *types.Receipt) bool {
+	return models.ReceiptIsUnconfirmed(receipt) ||
+		(request.BlockHash != nil && *request.BlockHash != receipt.BlockHash)
 }
 
 func meetsMinRequiredIncomingConfirmations(

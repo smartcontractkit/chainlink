@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"context"
 	stderr "errors"
 	"os"
 	"os/signal"
@@ -94,7 +95,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
-	balanceMonitor := services.NewBalanceMonitor(store, store.GethClientWrapper)
+	balanceMonitor := services.NewBalanceMonitor(store)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -161,6 +162,7 @@ func (app *ChainlinkApplication) Start() error {
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
 		app.Store.Start(),
+		app.Store.EthClient.Dial(context.TODO()),
 		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),

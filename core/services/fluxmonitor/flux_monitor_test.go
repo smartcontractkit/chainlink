@@ -83,8 +83,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 	txm := new(mocks.TxManager)
 	store.TxManager = txm
-	txm.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(123)}, nil)
-	txm.On("GetLogs", mock.Anything).Return([]models.Log{}, nil)
+	txm.On("FilterLogs", mock.Anything).Return([]models.Log{}, nil)
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()

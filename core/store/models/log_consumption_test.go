@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateLogConsumption_Happy(t *testing.T) {
+func TestMarkLogConsumed_Happy(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -22,13 +22,11 @@ func TestCreateLogConsumption_Happy(t *testing.T) {
 	err = store.ORM.CreateJob(&job2)
 	require.NoError(t, err)
 
-	logConsumption1 := models.LogConsumption{
-		BlockHash: cltest.NewHash(),
-		LogIndex:  0,
-		JobID:     job1.ID,
-	}
+	blockHash1 := cltest.NewHash()
+	logIndex1 := uint(0)
+	jobID1 := job1.ID
 
-	err = store.ORM.CreateLogConsumption(&logConsumption1)
+	err = store.ORM.MarkLogConsumed(blockHash1, logIndex1, jobID1)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -37,26 +35,20 @@ func TestCreateLogConsumption_Happy(t *testing.T) {
 		LogIndex    uint
 		JobID       *models.ID
 	}{
-		{"different blockhash", cltest.NewHash(), logConsumption1.LogIndex, logConsumption1.JobID},
-		{"different log", logConsumption1.BlockHash, 1, logConsumption1.JobID},
-		{"different consumer", logConsumption1.BlockHash, logConsumption1.LogIndex, job2.ID},
+		{"different blockhash", cltest.NewHash(), logIndex1, jobID1},
+		{"different log", blockHash1, 1, jobID1},
+		{"different consumer", blockHash1, logIndex1, job2.ID},
 	}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			logConsumption2 := models.LogConsumption{
-				BlockHash: test.BlockHash,
-				LogIndex:  test.LogIndex,
-				JobID:     test.JobID,
-			}
-
-			err = store.ORM.CreateLogConsumption(&logConsumption2)
+			err = store.ORM.MarkLogConsumed(test.BlockHash, test.LogIndex, test.JobID)
 			require.NoError(t, err)
 		})
 	}
 
 }
 
-func TestCreateLogConsumption_Errors(t *testing.T) {
+func TestMarkLogConsumed_Errors(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -69,13 +61,11 @@ func TestCreateLogConsumption_Errors(t *testing.T) {
 	err = store.ORM.CreateJob(&job2)
 	require.NoError(t, err)
 
-	logConsumption1 := models.LogConsumption{
-		BlockHash: cltest.NewHash(),
-		LogIndex:  0,
-		JobID:     job1.ID,
-	}
+	blockHash1 := cltest.NewHash()
+	logIndex1 := uint(0)
+	jobID1 := job1.ID
 
-	err = store.ORM.CreateLogConsumption(&logConsumption1)
+	err = store.ORM.MarkLogConsumed(blockHash1, logIndex1, jobID1)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -85,16 +75,11 @@ func TestCreateLogConsumption_Errors(t *testing.T) {
 		JobID       *models.ID
 	}{
 		{"non existent job", cltest.NewHash(), 0, models.NewID()},
-		{"duplicate record", logConsumption1.BlockHash, logConsumption1.LogIndex, logConsumption1.JobID},
+		{"duplicate record", blockHash1, logIndex1, jobID1},
 	}
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			logConsumption2 := models.LogConsumption{
-				BlockHash: test.BlockHash,
-				LogIndex:  test.LogIndex,
-				JobID:     test.JobID,
-			}
-			err = store.ORM.CreateLogConsumption(&logConsumption2)
+			err = store.ORM.MarkLogConsumed(test.BlockHash, test.LogIndex, test.JobID)
 			require.Error(t, err)
 		})
 	}

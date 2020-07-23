@@ -1,7 +1,9 @@
 package eth_test
 
 import (
+	"context"
 	"encoding/json"
+	"net/url"
 	"testing"
 
 	"math/big"
@@ -20,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCallerSubscriberClient_GetTxReceipt(t *testing.T) {
+func TestEthClient_TransactionReceipt(t *testing.T) {
 	response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
 	mockServer, wsCleanup := cltest.NewWSServer(string(response))
 	defer wsCleanup()
@@ -29,12 +31,14 @@ func TestCallerSubscriberClient_GetTxReceipt(t *testing.T) {
 	defer cleanup()
 
 	ec := store.TxManager.(*strpkg.EthTxManager).Client
+	err := ec.Dial(context.Background())
+	require.NoError(t, err)
 
 	hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
-	receipt, err := ec.GetTxReceipt(hash)
+	receipt, err := ec.TransactionReceipt(context.Background(), hash)
 	assert.NoError(t, err)
-	assert.Equal(t, hash, receipt.Hash)
-	assert.Equal(t, cltest.Int(uint64(11)), receipt.BlockNumber)
+	assert.Equal(t, hash, receipt.TxHash)
+	assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
 }
 
 func TestTxReceipt_UnmarshalJSON(t *testing.T) {
@@ -61,57 +65,41 @@ func TestTxReceipt_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestTxReceipt_FulfilledRunlog(t *testing.T) {
-	tests := []struct {
-		name string
-		path string
-		want bool
-	}{
-		{"basic", "testdata/getTransactionReceipt.json", false},
-		{"runlog request", "testdata/runlogReceipt.json", false},
-		{"runlog response", "testdata/responseReceipt.json", true},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			receipt := cltest.TxReceiptFromFixture(t, test.path)
-			assert.Equal(t, test.want, receipt.FulfilledRunLog())
-		})
-	}
-}
-
-func TestCallerSubscriberClient_GetNonce(t *testing.T) {
+func TestEthClient_PendingNonceAt(t *testing.T) {
 	t.Parallel()
 
-	ethClientMock := new(mocks.CallerSubscriber)
-	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
+	server, cleanup := cltest.NewWSServer(`{
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": "0x100"
+    }`)
+	defer cleanup()
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	u.Scheme = "ws"
+
+	ethClient := eth.NewClient(u.String())
+	err = ethClient.Dial(context.Background())
+	require.NoError(t, err)
+
 	address := cltest.NewAddress()
-	response := "0x0100"
 
-	ethClientMock.On("Call", mock.Anything, "eth_getTransactionCount", address.String(), "pending").
-		Return(nil).
-		Run(func(args mock.Arguments) {
-			res := args.Get(0).(*string)
-			*res = response
-		})
-
-	result, err := ethClient.GetNonce(address)
+	result, err := ethClient.PendingNonceAt(context.Background(), address)
 	require.NoError(t, err)
 
 	var expected uint64 = 256
 	require.Equal(t, result, expected)
 }
 
-func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
+func TestEthClient_SendRawTx(t *testing.T) {
 	t.Parallel()
 
-	ethClientMock := new(mocks.CallerSubscriber)
-	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
+	rpcClient := new(mocks.RPCClient)
+	ethClient := eth.NewClientWith(rpcClient, nil)
 	txData := hexutil.MustDecode("0xdeadbeef")
 	returnedHash := cltest.NewHash()
 
-	ethClientMock.On("Call", mock.Anything, "eth_sendRawTransaction", "0xdeadbeef").
+	rpcClient.On("Call", mock.Anything, "eth_sendRawTransaction", "0xdeadbeef").
 		Return(nil).
 		Run(func(args mock.Arguments) {
 			res := args.Get(0).(*common.Hash)
@@ -123,7 +111,7 @@ func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
 	assert.Equal(t, result, returnedHash)
 }
 
-func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
+func TestEthClient_GetEthBalance(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -138,10 +126,11 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ethClientMock := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
 
-			ethClientMock.On("Call", mock.Anything, "eth_getBalance", mock.Anything, "latest").
+			rpcClient := new(mocks.RPCClient)
+			ethClient := eth.NewClientWith(rpcClient, nil)
+
+			rpcClient.On("Call", mock.Anything, "eth_getBalance", mock.Anything, "latest").
 				Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0).(*string)
@@ -155,7 +144,7 @@ func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
 	}
 }
 
-func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
+func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
 
 	expectedBig, _ := big.NewInt(0).SetString("100000000000000000000000000000000000000", 10)
@@ -173,8 +162,8 @@ func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 
-			ethClientMock := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
+			rpcClient := new(mocks.RPCClient)
+			ethClient := eth.NewClientWith(rpcClient, nil)
 
 			contractAddress := cltest.NewAddress()
 			userAddress := cltest.NewAddress()
@@ -186,7 +175,7 @@ func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
 				Data: data,
 			}
 
-			ethClientMock.On("Call", mock.Anything, "eth_call", callArgs, "latest").
+			rpcClient.On("Call", mock.Anything, "eth_call", callArgs, "latest").
 				Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0).(*string)

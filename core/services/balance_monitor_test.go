@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/stretchr/testify/assert"
 	// "github.com/stretchr/testify/require"
@@ -21,14 +22,18 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+
+		gethClient := new(mocks.GethClient)
+		cltest.MockEthOnStore(t, store,
+			eth.NewClientWith(nil, gethClient),
+		)
+
 		k0 := cltest.MustDefaultKey(t, store)
 		k0Addr := k0.Address.Address()
 		k1 := cltest.MustInsertRandomKey(t, store)
 		k1Addr := k1.Address.Address()
 
-		gethClient := new(mocks.GethClient)
-		g := cltest.NewSimpleGethWrapper(gethClient)
-		bm := services.NewBalanceMonitor(store, g)
+		bm := services.NewBalanceMonitor(store)
 		k0bal := big.NewInt(42)
 		k1bal := big.NewInt(43)
 		assert.Nil(t, bm.GetEthBalance(k0Addr))
@@ -52,12 +57,16 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("handles nil head", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+
+		gethClient := new(mocks.GethClient)
+		cltest.MockEthOnStore(t, store,
+			eth.NewClientWith(nil, gethClient),
+		)
+
 		k0 := cltest.MustDefaultKey(t, store)
 		k0Addr := k0.Address.Address()
 
-		gethClient := new(mocks.GethClient)
-		g := cltest.NewSimpleGethWrapper(gethClient)
-		bm := services.NewBalanceMonitor(store, g)
+		bm := services.NewBalanceMonitor(store)
 		k0bal := big.NewInt(42)
 
 		gethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
@@ -73,12 +82,16 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 	t.Run("recovers on error", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+
+		gethClient := new(mocks.GethClient)
+		cltest.MockEthOnStore(t, store,
+			eth.NewClientWith(nil, gethClient),
+		)
+
 		k0 := cltest.MustDefaultKey(t, store)
 		k0Addr := k0.Address.Address()
 
-		gethClient := new(mocks.GethClient)
-		g := cltest.NewSimpleGethWrapper(gethClient)
-		bm := services.NewBalanceMonitor(store, g)
+		bm := services.NewBalanceMonitor(store)
 
 		gethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(nil, errors.New("a little easter egg for the 4chan link marines error"))
 
@@ -96,14 +109,18 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		store.Config.Set("ETH_BALANCE_MONITOR_BLOCK_DELAY", 0)
+
+		gethClient := new(mocks.GethClient)
+		cltest.MockEthOnStore(t, store,
+			eth.NewClientWith(nil, gethClient),
+		)
+
 		k0 := cltest.MustDefaultKey(t, store)
 		k0Addr := k0.Address.Address()
 		k1 := cltest.MustInsertRandomKey(t, store)
 		k1Addr := k1.Address.Address()
 
-		gethClient := new(mocks.GethClient)
-		g := cltest.NewSimpleGethWrapper(gethClient)
-		bm := services.NewBalanceMonitor(store, g)
+		bm := services.NewBalanceMonitor(store)
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
