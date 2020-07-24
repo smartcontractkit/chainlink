@@ -12,7 +12,7 @@ import (
 
 // SeedData returns the request data needed to construct/validate a VRF proof,
 // modulo the key.
-func SeedData(t *testing.T, preseed *big.Int, blockHash common.Hash,
+func SeedData(t *testing.T, preSeed *big.Int, blockHash common.Hash,
 	blockNum int) vrf.PreSeedData {
 	seedAsSeed, err := vrf.BigToSeed(big.NewInt(0x10))
 	require.NoError(t, err, "seed %x out of range", 0x10)

@@ -15,10 +15,10 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	// Set up a request to fulfill
 	log := requestRandomness(t, coordinator, keyHash, fee, seed)
-	preseed, err := vrf.BigToSeed(log.Seed)
-	require.NoError(t, err, "preseed %x out of range", preseed)
+	preSeed, err := vrf.BigToSeed(log.Seed)
+	require.NoError(t, err, "pre-seed %x out of range", preSeed)
 	s := vrf.PreSeedData{
-		PreSeed:   preseed,
+		PreSeed:   preSeed,
 		BlockHash: log.Raw.Raw.BlockHash,
 		BlockNum:  log.Raw.Raw.BlockNumber,
 	}
