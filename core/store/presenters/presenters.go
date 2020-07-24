@@ -5,6 +5,7 @@ package presenters
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -83,7 +84,11 @@ func showBalanceForAccount(store *store.Store, account accounts.Account, balance
 func getBalance(store *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
 	switch balanceType {
 	case ethRequest:
-		return store.TxManager.GetEthBalance(account.Address)
+		bal, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
+		if err != nil {
+			return nil, err
+		}
+		return (*assets.Eth)(bal), nil
 	case linkRequest:
 		return store.TxManager.GetLINKBalance(account.Address)
 	}
