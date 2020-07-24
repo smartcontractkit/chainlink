@@ -70,7 +70,8 @@ type Subscription interface {
 type client struct {
 	GethClient
 	RPCClient
-	url string // For reestablishing the connection after a disconnect
+	url    string // For reestablishing the connection after a disconnect
+	mocked bool
 }
 
 var _ Client = (*client)(nil)
@@ -84,11 +85,14 @@ func NewClientWith(rpcClient RPCClient, gethClient GethClient) *client {
 	return &client{
 		GethClient: gethClient,
 		RPCClient:  rpcClient,
+		mocked:     true,
 	}
 }
 
 func (client *client) Dial(ctx context.Context) error {
-	if client.RPCClient != nil {
+	if client.mocked {
+		return nil
+	} else if client.RPCClient != nil || client.GethClient != nil {
 		panic("eth.Client.Dial(...) should only be called once during the application's lifetime.")
 	}
 
