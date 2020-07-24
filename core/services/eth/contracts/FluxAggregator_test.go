@@ -35,7 +35,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 
 	tests := []struct {
 		name                   string
-		response               string
+		response               []byte
 		expectedRoundID        uint32
 		expectedEligible       bool
 		expectedAnswer         *big.Int
@@ -57,7 +57,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
 				Run(func(args mock.Arguments) {
 					res := args.Get(0)
-					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
+					err := res.(encoding.TextUnmarshaler).UnmarshalText(test.response)
 					require.NoError(t, err)
 				})
 
