@@ -11,10 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
@@ -23,22 +23,41 @@ import (
 )
 
 func TestEthClient_TransactionReceipt(t *testing.T) {
-	response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
-	mockServer, wsCleanup := cltest.NewWSServer(string(response))
-	defer wsCleanup()
-	config := cltest.NewConfigWithWSServer(t, mockServer)
-	store, cleanup := cltest.NewStoreWithConfig(config)
-	defer cleanup()
+	t.Run("happy path", func(t *testing.T) {
+		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
+		mockServer, wsCleanup := cltest.NewWSServer(string(response))
+		defer wsCleanup()
+		u, err := url.Parse(mockServer.URL)
+		require.NoError(t, err)
+		u.Scheme = "ws"
 
-	ec := store.TxManager.(*strpkg.EthTxManager).Client
-	err := ec.Dial(context.Background())
-	require.NoError(t, err)
+		ethClient := eth.NewClient(u.String())
+		err = ethClient.Dial(context.Background())
+		require.NoError(t, err)
 
-	hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
-	receipt, err := ec.TransactionReceipt(context.Background(), hash)
-	assert.NoError(t, err)
-	assert.Equal(t, hash, receipt.TxHash)
-	assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
+		hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
+		receipt, err := ethClient.TransactionReceipt(context.Background(), hash)
+		assert.NoError(t, err)
+		assert.Equal(t, hash, receipt.TxHash)
+		assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
+	})
+
+	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
+		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt_notFound.json")
+		mockServer, wsCleanup := cltest.NewWSServer(string(response))
+		defer wsCleanup()
+		u, err := url.Parse(mockServer.URL)
+		require.NoError(t, err)
+		u.Scheme = "ws"
+
+		ethClient := eth.NewClient(u.String())
+		err = ethClient.Dial(context.Background())
+		require.NoError(t, err)
+
+		hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
+		_, err = ethClient.TransactionReceipt(context.Background(), hash)
+		require.Equal(t, ethereum.NotFound, err)
+	})
 }
 
 func TestTxReceipt_UnmarshalJSON(t *testing.T) {
