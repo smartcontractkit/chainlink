@@ -1329,22 +1329,6 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	return irv
 }
 
-// ChainlinkEthLogFromGethLog returns a copy of l as an models.Log. (They have
-// identical fields, but the field tags differ, and the types differ slightly.)
-func ChainlinkEthLogFromGethLog(l types.Log) models.Log {
-	return models.Log{
-		Address:     l.Address,
-		Topics:      l.Topics,
-		Data:        models.UntrustedBytes(l.Data),
-		BlockNumber: l.BlockNumber,
-		TxHash:      l.TxHash,
-		TxIndex:     l.TxIndex,
-		BlockHash:   l.BlockHash,
-		Index:       l.Index,
-		Removed:     l.Removed,
-	}
-}
-
 func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun {
 	jr, err := store.FindJobRun(id)
 	require.NoError(t, err)
