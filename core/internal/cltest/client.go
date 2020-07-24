@@ -112,11 +112,6 @@ func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
 }
 
-// GetNonce returns the nonce (transaction count) for a given address.
-func (c *SimulatedBackendClient) GetNonce(address common.Address) (nonce uint64, err error) {
-	return c.b.NonceAt(context.Background(), address, c.currentBlockNumber())
-}
-
 // GetEthBalance returns the balance of the given addresses in Ether.
 func (c *SimulatedBackendClient) GetEthBalance(address common.Address,
 ) (balance *assets.Eth, err error) {
