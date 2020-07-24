@@ -355,16 +355,16 @@ func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
 		path string
 		want bool
 	}{
-		{"basic", "testdata/getTransactionReceipt.json", false},
-		{"runlog request", "testdata/runlogReceipt.json", false},
-		{"runlog response", "testdata/responseReceipt.json", true},
+		{"basic", "../../services/eth/testdata/getTransactionReceipt.json", false},
+		{"runlog request", "../../services/eth/testdata/runlogReceipt.json", false},
+		{"runlog response", "../../services/eth/testdata/responseReceipt.json", true},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			receipt := cltest.TxReceiptFromFixture(t, test.path)
-			assert.Equal(t, test.want, models.ReceiptIndicatesRunLogFulfillment(receipt))
+			assert.Equal(t, test.want, models.ReceiptIndicatesRunLogFulfillment(*receipt))
 		})
 	}
 }
