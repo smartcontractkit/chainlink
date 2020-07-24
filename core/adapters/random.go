@@ -118,7 +118,8 @@ type block struct {
 	num  uint64      // Cardinal number of block
 }
 
-// getBlockData parses the block-related data from the JSON input
+// getBlockData parses the block-related data from the JSON input passed to the
+// random adapter
 func getBlockData(input models.RunInput) (block, error) {
 	hashBytes, err := extractHex(input, "blockHash")
 	if err != nil {
