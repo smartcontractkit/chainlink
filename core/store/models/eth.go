@@ -318,15 +318,6 @@ type Log = types.Log
 
 var emptyHash = common.Hash{}
 
-// TxReceipt holds the block number and the transaction hash of a signed
-// transaction that has been written to the blockchain.
-type TxReceipt struct {
-	BlockNumber *utils.Big   `json:"blockNumber"`
-	BlockHash   *common.Hash `json:"blockHash"`
-	Hash        common.Hash  `json:"transactionHash"`
-	Logs        []Log        `json:"logs"`
-}
-
 // Unconfirmed returns true if the transaction is not confirmed.
 func ReceiptIsUnconfirmed(txr *types.Receipt) bool {
 	return txr == nil || txr.TxHash == emptyHash || txr.BlockNumber == nil
