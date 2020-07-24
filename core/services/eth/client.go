@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,7 +29,6 @@ type Client interface {
 	RPCClient
 
 	Dial(ctx context.Context) error
-	GetEthBalance(address common.Address) (*assets.Eth, error)
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(bytes []byte) (common.Hash, error)
 }
@@ -103,18 +101,6 @@ func (client *client) Dial(ctx context.Context) error {
 	client.RPCClient = rpcClient
 	client.GethClient = ethclient.NewClient(rpcClient)
 	return nil
-}
-
-// GetEthBalance returns the balance of the given addresses in Ether.
-func (client *client) GetEthBalance(address common.Address) (*assets.Eth, error) {
-	result := ""
-	amount := new(assets.Eth)
-	err := client.logCall(&result, "eth_getBalance", address.Hex(), "latest")
-	if err != nil {
-		return amount, err
-	}
-	amount.SetString(result, 0)
-	return amount, nil
 }
 
 // CallArgs represents the data used to call the balance method of a contract.

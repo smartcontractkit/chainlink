@@ -381,29 +381,6 @@ func (_m *TxManager) GetERC20Balance(address common.Address, contractAddress com
 	return r0, r1
 }
 
-// GetEthBalance provides a mock function with given fields: address
-func (_m *TxManager) GetEthBalance(address common.Address) (*assets.Eth, error) {
-	ret := _m.Called(address)
-
-	var r0 *assets.Eth
-	if rf, ok := ret.Get(0).(func(common.Address) *assets.Eth); ok {
-		r0 = rf(address)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Eth)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
-		r1 = rf(address)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetLINKBalance provides a mock function with given fields: address
 func (_m *TxManager) GetLINKBalance(address common.Address) (*assets.Link, error) {
 	ret := _m.Called(address)
