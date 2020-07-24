@@ -14,12 +14,12 @@ import (
 // saved in DB encrypted with phrase. If p is given, its parameters are used for
 // key derivation from the phrase.
 func (ks *VRFKeyStore) CreateKey(phrase string, p ...vrfkey.ScryptParams,
-) (*vrfkey.PublicKey, error) {
+) (vrfkey.PublicKey, error) {
 	key := vrfkey.CreateKey()
 	if err := ks.Store(key, phrase, p...); err != nil {
-		return nil, err
+		return vrfkey.PublicKey{}, err
 	}
-	return &key.PublicKey, nil
+	return key.PublicKey, nil
 }
 
 // CreateWeakInMemoryEncryptedKeyXXXTestingOnly is for testing only! It returns
@@ -62,15 +62,15 @@ func (ks *VRFKeyStore) StoreInMemoryXXXTestingOnly(key *vrfkey.PrivateKey) {
 var zeroPublicKey = vrfkey.PublicKey{}
 
 // Delete removes keys with this public key from the keystore and the DB, if present.
-func (ks *VRFKeyStore) Delete(key *vrfkey.PublicKey) (err error) {
+func (ks *VRFKeyStore) Delete(key vrfkey.PublicKey) (err error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	if *key == zeroPublicKey {
+	if key == zeroPublicKey {
 		return fmt.Errorf("cannot delete the empty public key")
 	}
-	if _, found := ks.keys[*key]; found {
+	if _, found := ks.keys[key]; found {
 		err = ks.forget(key) // Destroy in-memory representation of key
-		delete(ks.keys, *key)
+		delete(ks.keys, key)
 	}
 	matches, err := ks.get(key)
 	if err != nil {
@@ -81,7 +81,7 @@ func (ks *VRFKeyStore) Delete(key *vrfkey.PublicKey) (err error) {
 		return AttemptToDeleteNonExistentKeyFromDB
 	}
 	return multierr.Append(err, ks.store.ORM.DeleteEncryptedSecretVRFKey(
-		&vrfkey.EncryptedSecretKey{PublicKey: *key}))
+		&vrfkey.EncryptedSecretKey{PublicKey: key}))
 }
 
 // Import adds this encrypted key to the DB and unlocks it in in-memory store
@@ -93,7 +93,7 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	if err := json.Unmarshal(keyjson, enckey); err != nil {
 		return fmt.Errorf("could not parse %s as EncryptedSecretKey json", keyjson)
 	}
-	extantMatchingKeys, err := ks.get(&enckey.PublicKey)
+	extantMatchingKeys, err := ks.get(enckey.PublicKey)
 	if err != nil {
 		return errors.Wrapf(err, "while checking for matching extant key in DB")
 	}
@@ -115,10 +115,14 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 
 // get retrieves all EncryptedSecretKey's associated with k, or all encrypted
 // keys if k is nil, or errors. Caller is responsible for locking the store
-func (ks *VRFKeyStore) get(k *vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, error) {
+func (ks *VRFKeyStore) get(k ...vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey,
+	error) {
+	if len(k) > 1 {
+		return nil, errors.Errorf("can get at most one secret key at a time")
+	}
 	var where []vrfkey.EncryptedSecretKey
-	if k != nil { // Search for this specific public key
-		where = append(where, vrfkey.EncryptedSecretKey{PublicKey: *k})
+	if len(k) == 1 { // Search for this specific public key
+		where = append(where, vrfkey.EncryptedSecretKey{PublicKey: k[0]})
 	}
 	keys, err := ks.store.FindEncryptedSecretVRFKeys(where...)
 	if err != nil {
@@ -129,16 +133,16 @@ func (ks *VRFKeyStore) get(k *vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, e
 
 // Get retrieves all EncryptedSecretKey's associated with k, or all encrypted
 // keys if k is nil, or errors
-func (ks *VRFKeyStore) Get(k *vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, error) {
+func (ks *VRFKeyStore) Get(k ...vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
-	return ks.get(k)
+	return ks.get(k...)
 }
 
 func (ks *VRFKeyStore) GetSpecificKey(
-	k *vrfkey.PublicKey) (*vrfkey.EncryptedSecretKey, error) {
-	if k == nil {
-		return nil, fmt.Errorf("can't retrieve nil key")
+	k vrfkey.PublicKey) (*vrfkey.EncryptedSecretKey, error) {
+	if k == (vrfkey.PublicKey{}) {
+		return nil, fmt.Errorf("can't retrieve zero key")
 	}
 	encryptedKey, err := ks.Get(k)
 	if err != nil {
@@ -156,9 +160,9 @@ func (ks *VRFKeyStore) GetSpecificKey(
 	return encryptedKey[0], nil
 }
 
-// ListKey lists the public keys contained in the db
+// ListKeys lists the public keys contained in the db
 func (ks *VRFKeyStore) ListKeys() (publicKeys []*vrfkey.PublicKey, err error) {
-	enc, err := ks.Get(nil)
+	enc, err := ks.Get()
 	if err != nil {
 		return nil, errors.Wrapf(err, "while listing db keys")
 	}
