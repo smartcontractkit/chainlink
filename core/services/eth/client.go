@@ -154,7 +154,7 @@ func (client *client) SendRawTx(bytes []byte) (common.Hash, error) {
 // when we're talking to a Parity node that has no receipt yet.
 func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	receipt, err := client.GethClient.TransactionReceipt(ctx, txHash)
-	if err != nil && strings.Contains(err.Error(), "missing required field 'transactionHash' for Log") {
+	if err != nil && strings.Contains(err.Error(), "missing required field 'transactionHash'") {
 		return nil, ethereum.NotFound
 	}
 	return receipt, err
