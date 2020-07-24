@@ -22,6 +22,7 @@ import (
 //go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name GethClient --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name RPCClient --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Subscription --output ../../internal/mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -55,6 +56,13 @@ type RPCClient interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	Close()
+}
+
+// This interface only exists so that we can generate a mock for it.  It is
+// identical to `ethereum.Subscription`.
+type Subscription interface {
+	Err() <-chan error
+	Unsubscribe()
 }
 
 // client implements the ethereum Client interface using a
