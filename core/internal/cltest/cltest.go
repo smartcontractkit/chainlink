@@ -238,12 +238,12 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flags ...interface{}) (*TestApplication, func()) {
+func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	c, cfgCleanup := NewConfig(t)
 
-	app, cleanup := NewApplicationWithConfig(t, c, flags...)
+	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("Accounts").Return([]accounts.Account{})
 	app.Store.KeyStore = kst
@@ -256,11 +256,11 @@ func NewApplication(t testing.TB, flags ...interface{}) (*TestApplication, func(
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t testing.TB, flags ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	config, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfigAndKey(t, config, flags...)
+	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -269,17 +269,17 @@ func NewApplicationWithKey(t testing.TB, flags ...interface{}) (*TestApplication
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, tc, flags...)
+	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
 	app.Store.KeyStore.Unlock(Password)
 
 	return app, cleanup
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
@@ -287,7 +287,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...interface{}
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
-	ta.EthMock = MockEthOnStore(t, app.Store, flags...)
+	ta.EthMock = MockEthOnStore(t, app.Store, flagsAndDeps...)
 	server := newServer(ta)
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
@@ -305,12 +305,12 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	tc *TestConfig,
 	backend *backends.SimulatedBackend,
-	flags ...interface{},
+	flagsAndDeps ...interface{},
 ) (app *TestApplication, cleanup func()) {
 	chainId := int(backend.Blockchain().Config().ChainID.Int64())
 	tc.Config.Set("ETH_CHAIN_ID", chainId)
 
-	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
+	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
 
 	var client SimulatedBackendClient
 	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
