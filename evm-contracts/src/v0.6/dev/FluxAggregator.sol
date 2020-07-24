@@ -760,12 +760,12 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     int256 prevRoundAnswer = rounds[prevRound].answer;
     // We do not want the validator to ever prevent reporting, so we limit its
     // gas usage and catch any errors that may arise.
-    try av.validate.gas(VALIDATOR_GAS_LIMIT)(
+    try av.validate{gas: VALIDATOR_GAS_LIMIT}(
       prevAnswerRoundId,
       prevRoundAnswer,
       _roundId,
       _newAnswer
-    ) returns (bool _) { } catch { }
+    ) {} catch {}
   }
 
   function payOracle(uint32 _roundId)
