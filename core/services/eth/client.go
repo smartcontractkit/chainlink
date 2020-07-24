@@ -89,7 +89,7 @@ func NewClientWith(rpcClient RPCClient, gethClient GethClient) *client {
 
 func (client *client) Dial(ctx context.Context) error {
 	if client.RPCClient != nil {
-		return nil
+		panic("eth.Client.Dial(...) should only be called once during the application's lifetime.")
 	}
 
 	rpcClient, err := rpc.DialContext(ctx, client.url)
