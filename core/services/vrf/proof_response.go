@@ -69,8 +69,8 @@ func UnmarshalProofResponse(m MarshaledOnChainResponse) (*ProofResponse, error) 
 	return &ProofResponse{P: proof, PreSeed: preSeed, BlockNum: blockNum}, nil
 }
 
-// ActualProof returns the proof implied by p, with the correct seed
-func (p ProofResponse) ActualProof(s PreSeedData) (Proof, error) {
+// CryptoProof returns the proof implied by p, with the correct seed
+func (p ProofResponse) CryptoProof(s PreSeedData) (Proof, error) {
 	proof := p.P // Copy P, which has wrong seed value
 	proof.Seed = FinalSeed(s)
 	valid, err := proof.VerifyVRFProof()

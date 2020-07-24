@@ -39,15 +39,15 @@ func TestRandom_Perform(t *testing.T) {
 	result := adapter.Perform(*input, store)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proofArg := hexutil.MustDecode(result.Result().String())
-	var rawProof []byte
-	err = models.VRFFulfillMethod().Inputs.Unpack(&rawProof, proofArg)
+	var wireProof []byte
+	err = models.VRFFulfillMethod().Inputs.Unpack(&wireProof, proofArg)
 	require.NoError(t, err, "failed to unpack VRF proof from random adapter")
 	var onChainResponse vrf.MarshaledOnChainResponse
-	require.Equal(t, copy(onChainResponse[:], rawProof),
+	require.Equal(t, copy(onChainResponse[:], wireProof),
 		vrf.OnChainResponseLength, "wrong response length")
 	response, err := vrf.UnmarshalProofResponse(onChainResponse)
 	require.NoError(t, err, "random adapter produced bad proof response")
-	actualProof, err := response.ActualProof(tvrf.SeedData(t, seed, hash, blockNum))
+	actualProof, err := response.CryptoProof(tvrf.SeedData(t, seed, hash, blockNum))
 	require.NoError(t, err, "could not extract proof from random adapter response")
 	expected := common.HexToHash(
 		"0x71a7c50918feaa753485ae039cb84ddd70c5c85f66b236138dea453a23d0f27e")
