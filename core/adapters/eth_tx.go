@@ -354,7 +354,6 @@ func addReceiptToResult(
 	receipts := []types.Receipt{}
 
 	ethereumReceipts := input.Data().Get("ethereumReceipts").String()
-	fmt.Println("RECEIPTS ~>", ethereumReceipts)
 	if ethereumReceipts != "" {
 		if err := json.Unmarshal([]byte(ethereumReceipts), &receipts); err != nil {
 			logger.Errorw("Error unmarshaling ethereum Receipts", "error", err)

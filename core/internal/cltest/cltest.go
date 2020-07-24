@@ -861,7 +861,6 @@ func WaitForJobRunStatus(
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		st := jr.GetStatus()
-		fmt.Println("JOB RUN STATUS =", st)
 		return st
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
 	return jr
