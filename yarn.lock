@@ -189,7 +189,7 @@
     solc "^0.5.5"
     solidity-parser-antlr "^0.4.2"
 
-"@0x/subproviders@^6.0.4", "@0x/subproviders@^6.0.7":
+"@0x/subproviders@^6.0.7":
   version "6.0.7"
   resolved "https://registry.yarnpkg.com/@0x/subproviders/-/subproviders-6.0.7.tgz#caa6cfb06add691a254908e8ec210bb4417b0665"
   integrity sha512-hhQtn2Rt+OmQoEIc2Ub2u4t/RTAj5VMP8kPxabkbz0eVFxcU4XYxfBJ1hBkG2F+reNhPGCQYmvZucLqWvgCH5Q==
@@ -1688,20 +1688,6 @@
   optionalDependencies:
     "@truffle/contract" "^4.1.8"
     ethers "^4.0.44"
-
-"@chainlink/test-helpers@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.npmjs.org/@chainlink/test-helpers/-/test-helpers-0.0.3.tgz#b18417b145ec5d9a958992922c68be109e35976a"
-  integrity sha512-zUOyNhB3VtliTUc+niYdyc6ZoSPgh6lIsPUkSqKV5hvzoMZtZLbClNGCKh9Nu/4vYTyz2iKcAR4TrqMe9riUzQ==
-  dependencies:
-    "@0x/sol-trace" "^3.0.7"
-    "@0x/subproviders" "^6.0.4"
-    bn.js "^4.11.0"
-    cbor "^5.0.1"
-    chai "^4.2.0"
-    chalk "^4.0.0"
-    debug "^4.1.1"
-    ethers "^4.0.45"
 
 "@cnakazawa/watch@^1.0.3":
   version "1.0.4"
@@ -7004,6 +6990,11 @@ bl@^3.0.0:
   dependencies:
     readable-stream "^3.0.1"
 
+blakejs@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.npmjs.org/blakejs/-/blakejs-1.1.0.tgz#69df92ef953aa88ca51a32df6ab1c54a155fc7a5"
+  integrity sha1-ad+S75U6qIylGjLfarHFShVfx6U=
+
 bluebird@3.5.0:
   version "3.5.0"
   resolved "https://registry.npmjs.org/bluebird/-/bluebird-3.5.0.tgz#791420d7f551eea2897453a8a77653f96606d67c"
@@ -7728,7 +7719,7 @@ chalk@^3.0.0:
     ansi-styles "^4.1.0"
     supports-color "^7.1.0"
 
-chalk@^4.0.0, chalk@^4.1.0:
+chalk@^4.1.0:
   version "4.1.0"
   resolved "https://registry.npmjs.org/chalk/-/chalk-4.1.0.tgz#4e14870a618d9e2edd97dd8345fd9d9dc315646a"
   integrity sha512-qwx12AxXe2Q5xQ43Ac//I6v5aXTipYrSESdOgzrN+9XjgEpyjpKuvSGaN4qE93f7TQTlerQQ8S+EQ0EyDoVL1A==
@@ -16731,12 +16722,12 @@ lodash@4.17.14:
   resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.14.tgz#9ce487ae66c96254fe20b599f21b6816028078ba"
   integrity sha512-mmKYbW3GLuJeX+iGP+Y7Gp1AiGHGbXHCOh/jZmrawMmsE7MS4znI3RL2FsjbqOyMayHInjOeykW7PEajUk1/xw==
 
-lodash@4.17.15, "lodash@>=3.5 <5", lodash@^4.15.0, lodash@^4.16.3, lodash@^4.16.5, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.2, lodash@^4.17.4, lodash@^4.17.5:
+lodash@4.17.15:
   version "4.17.15"
   resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.15.tgz#b447f6670a0455bbfeedd11392eff330ea097548"
   integrity sha512-8xOcRHvCjnocdS5cpwXQXVzmmh5e5+saE2QGoeQmbKmRS6J3VQppPOIt0MnmE+4xlZoumy0GPG0D0MVIQbNA1A==
 
-"lodash@>=3.5 <5", lodash@^4.15.0, lodash@^4.16.3, lodash@^4.16.5, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.19, lodash@^4.17.2, lodash@^4.17.3, lodash@^4.17.4, lodash@^4.17.5:
+"lodash@>=3.5 <5", lodash@^4.15.0, lodash@^4.16.3, lodash@^4.16.5, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.19, lodash@^4.17.2, lodash@^4.17.4, lodash@^4.17.5:
   version "4.17.19"
   resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.19.tgz#e48ddedbe30b3321783c5b4301fbd353bc1e4a4b"
   integrity sha512-JNvd8XER9GQX0v2qJgsaN/mzFCNA5BRe/j8JN9d+tWyGLSodKQHKFicdwNYzWwI3wjRnaKPsGj1XkBjx/F96DQ==
