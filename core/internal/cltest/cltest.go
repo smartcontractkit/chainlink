@@ -129,8 +129,8 @@ type TestConfig struct {
 func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
-	wsserver, cleanup := newWSServer()
-	return NewConfigWithWSServer(t, wsserver), cleanup
+	wsserver, url, cleanup := newWSServer()
+	return NewConfigWithWSServer(t, url, wsserver), cleanup
 }
 
 func NewRandomInt64() int64 {
@@ -175,21 +175,13 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 }
 
 // NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) *TestConfig {
 	t.Helper()
 
 	config := NewTestConfig(t)
-	config.SetEthereumServer(wsserver)
+	config.Set("ETH_URL", url)
+	config.wsServer = wsserver
 	return config
-}
-
-// SetEthereumServer sets the ethereum server for testconfig with given wsserver
-func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
-	u, err := url.Parse(wss.URL)
-	require.NoError(tc.t, err)
-	u.Scheme = "ws"
-	tc.Set("ETH_URL", u.String())
-	tc.wsServer = wss
 }
 
 // TestApplication holds the test application and test servers
@@ -205,25 +197,29 @@ type TestApplication struct {
 	Backend          *backends.SimulatedBackend
 }
 
-func newWSServer() (*httptest.Server, func()) {
-	return NewWSServer("")
+func newWSServer() (*httptest.Server, string, func()) {
+	return NewWSServer("", nil)
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string) (*httptest.Server, func()) {
+func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
 		conn, err := upgrader.Upgrade(w, r, nil)
 		logger.PanicIf(err)
 		for {
-			_, _, err = conn.ReadMessage()
+			_, data, err := conn.ReadMessage()
 			if err != nil {
 				break
 			}
+
+			if callback != nil {
+				callback(data)
+			}
+
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 			if err != nil {
 				break
@@ -231,7 +227,12 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 		}
 	})
 	server := httptest.NewServer(handler)
-	return server, func() {
+
+	u, err := url.Parse(server.URL)
+	logger.PanicIf(err)
+	u.Scheme = "ws"
+
+	return server, u.String(), func() {
 		server.Close()
 	}
 }
