@@ -634,6 +634,8 @@ func (q *BoundedPriorityQueue) Empty() bool {
 	return true
 }
 
-func WrapIfError(err *error, msg string) error {
-	return errors.Wrap(*err, msg)
+func WrapIfError(err *error, msg string) {
+	if *err != nil {
+		errors.Wrap(*err, msg)
+	}
 }
