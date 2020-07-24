@@ -782,7 +782,10 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 
 func TestORM_GetLastNonce_Valid(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
@@ -791,7 +794,6 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	ethMock.Register("eth_chainId", store.Config.ChainID())
 
 	assert.NoError(t, app.StartAndConnect())
 
