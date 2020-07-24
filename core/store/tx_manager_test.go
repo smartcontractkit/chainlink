@@ -208,7 +208,9 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	config, configCleanup := cltest.NewConfig(t)
 	defer configCleanup()
 
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -362,7 +364,10 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -374,7 +379,6 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	gasThreshold := sentAt + config.EthGasBumpThreshold()
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
-	ethMock.Register("eth_chainId", config.ChainID())
 	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(gasThreshold - 1)))
 	require.NoError(t, app.StartAndConnect())
 
@@ -398,7 +402,9 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -435,7 +441,9 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnderpricedTransaction(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -488,7 +496,9 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnder
 func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsReached(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -532,7 +542,9 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsR
 func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -569,7 +581,9 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
 		meth.Register("eth_getTransactionCount", "0x1")
@@ -625,7 +639,9 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			app, cleanup := cltest.NewApplicationWithKey(t,
+				cltest.EthMockRegisterGetBalance,
+			)
 			defer cleanup()
 			app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_getTransactionCount", "0x1")
@@ -669,7 +685,9 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
 		meth.Register("eth_getTransactionCount", "0x1")
@@ -761,7 +779,9 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+				cltest.EthMockRegisterGetBalance,
+			)
 			defer cleanup()
 
 			store := app.Store
@@ -791,7 +811,9 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 func TestTxManager_CheckAttempt(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -848,7 +870,9 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 func TestTxManager_CheckAttempt_error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	store := app.Store
@@ -1062,7 +1086,9 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 func TestTxManager_CreateTxWithGas(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	store := app.Store
 	config := store.Config

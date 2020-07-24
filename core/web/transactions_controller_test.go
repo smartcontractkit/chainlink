@@ -18,12 +18,14 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
 
@@ -60,11 +62,13 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
 	require.NoError(t, app.Start())
@@ -134,12 +138,14 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
 

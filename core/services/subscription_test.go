@@ -389,7 +389,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			log.Topics[1] = models.IDToTopic(job.ID)
 
 			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
-			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{log}, nil)
+			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{*log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
