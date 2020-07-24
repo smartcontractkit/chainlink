@@ -321,7 +321,7 @@ func (mock *EthMock) RegisterSubscription(name string, channels ...interface{}) 
 func channelFromSubscriptionName(name string) interface{} {
 	switch name {
 	case "logs":
-		return make(chan models.Log)
+		return make(chan gethTypes.Log)
 	case "newHeads":
 		return make(chan *gethTypes.Header)
 	default:
@@ -347,7 +347,7 @@ func (mock *EthMock) SubscribeFilterLogs(
 	if !mock.logsCalled {
 		mock.logsCalled = true
 		return &MockSubscription{
-			channel: make(chan models.Log),
+			channel: make(chan gethTypes.Log),
 			Errors:  make(chan error),
 		}, nil
 	}
@@ -488,8 +488,8 @@ func toBlockNumArg(number *big.Int) string {
 }
 
 func fwdLogs(actual, mock interface{}) {
-	logChan := actual.(chan<- models.Log)
-	mockChan := mock.(chan models.Log)
+	logChan := actual.(chan<- gethTypes.Log)
+	mockChan := mock.(chan gethTypes.Log)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -536,8 +536,8 @@ func (mes *MockSubscription) Unsubscribe() {
 	switch mes.channel.(type) {
 	case chan struct{}:
 		close(mes.channel.(chan struct{}))
-	case chan models.Log:
-		close(mes.channel.(chan models.Log))
+	case chan gethTypes.Log:
+		close(mes.channel.(chan gethTypes.Log))
 	case chan *gethTypes.Header:
 		close(mes.channel.(chan *gethTypes.Header))
 	default:
