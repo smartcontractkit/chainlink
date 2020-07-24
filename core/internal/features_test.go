@@ -78,13 +78,13 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	newHeads := make(chan *types.Header)
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
-	sentAt := uint64(23456)
-	confirmed := sentAt + config.EthGasBumpThreshold() + 1
-	safe := confirmed + config.MinRequiredOutgoingConfirmations() - 1
-	unconfirmedReceipt := models.TxReceipt{}
-	confirmedReceipt := models.TxReceipt{
-		Hash:        attempt1Hash,
-		BlockNumber: cltest.Int(confirmed),
+	sentAt := int64(23456)
+	confirmed := sentAt + int64(config.EthGasBumpThreshold()) + 1
+	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations()) - 1
+	unconfirmedReceipt := (*types.Receipt)(nil)
+	confirmedReceipt := &types.Receipt{
+		TxHash:      attempt1Hash,
+		BlockNumber: big.NewInt(confirmed),
 	}
 
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
@@ -102,7 +102,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
-	jr.ObservedHeight = confirmedReceipt.BlockNumber
+	jr.ObservedHeight = (*utils.Big)(confirmedReceipt.BlockNumber)
 	require.NoError(t, app.Store.SaveJobRun(&jr))
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
@@ -139,25 +139,25 @@ func TestIntegration_FeeBump(t *testing.T) {
 	attempt2Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002")
 	attempt3Hash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000003")
 
-	unconfirmedReceipt := models.TxReceipt{}
+	unconfirmedReceipt := (*types.Receipt)(nil)
 
 	// Enumerate the different block heights at which various state changes
 	// happen for the transaction attempts created during this test
-	firstTxSentAt := uint64(23456)
-	firstTxGasBumpAt := firstTxSentAt + config.EthGasBumpThreshold()
+	firstTxSentAt := int64(23456)
+	firstTxGasBumpAt := firstTxSentAt + int64(config.EthGasBumpThreshold())
 	firstTxRemainsUnconfirmedAt := firstTxGasBumpAt - 1
 
 	secondTxSentAt := firstTxGasBumpAt
-	secondTxGasBumpAt := secondTxSentAt + config.EthGasBumpThreshold()
+	secondTxGasBumpAt := secondTxSentAt + int64(config.EthGasBumpThreshold())
 	secondTxRemainsUnconfirmedAt := secondTxGasBumpAt - 1
 
 	thirdTxSentAt := secondTxGasBumpAt
 	thirdTxConfirmedAt := thirdTxSentAt + 1
-	thirdTxConfirmedReceipt := models.TxReceipt{
-		Hash:        attempt1Hash,
-		BlockNumber: cltest.Int(thirdTxConfirmedAt),
+	thirdTxConfirmedReceipt := &types.Receipt{
+		TxHash:      attempt1Hash,
+		BlockNumber: big.NewInt(thirdTxConfirmedAt),
 	}
-	thirdTxSafeAt := thirdTxSentAt + config.MinRequiredOutgoingConfirmations()
+	thirdTxSafeAt := thirdTxSentAt + int64(config.MinRequiredOutgoingConfirmations())
 
 	newHeads := make(chan *types.Header)
 	eth := app.EthMock
@@ -338,7 +338,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			defer cleanup()
 
 			eth := app.EthMock
-			logs := make(chan models.Log, 1)
+			logs := make(chan types.Log, 1)
 			newHeads := eth.RegisterNewHeads()
 			eth.Context("app.Start()", func(eth *cltest.EthMock) {
 				eth.RegisterSubscription("logs", logs)
@@ -347,12 +347,12 @@ func TestIntegration_RunLog(t *testing.T) {
 			require.NoError(t, app.Start())
 
 			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
-			requiredConfs := uint32(100)
+			requiredConfs := int64(100)
 
 			initr := j.Initiators[0]
 			assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
-			creationHeight := uint32(1)
+			creationHeight := int64(1)
 			runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 			runlog.BlockHash = test.logBlockHash
 			logs <- runlog
@@ -365,19 +365,19 @@ func TestIntegration_RunLog(t *testing.T) {
 			require.Len(t, jr.TaskRuns, 1)
 			assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
 
-			blockIncrease := app.Store.Config.MinIncomingConfirmations()
+			blockIncrease := int64(app.Store.Config.MinIncomingConfirmations())
 			minGlobalHeight := creationHeight + blockIncrease
 			newHeads <- cltest.NewEthHeader(uint64(minGlobalHeight))
 			<-time.After(time.Second)
 			jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
-			assert.Equal(t, uint32(creationHeight+blockIncrease), jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
+			assert.Equal(t, int64(creationHeight+blockIncrease), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
 
 			safeNumber := creationHeight + requiredConfs
 			newHeads <- cltest.NewEthHeader(uint64(safeNumber))
-			confirmedReceipt := models.TxReceipt{
-				Hash:        runlog.TxHash,
-				BlockHash:   &test.receiptBlockHash,
-				BlockNumber: cltest.Int(creationHeight),
+			confirmedReceipt := &types.Receipt{
+				TxHash:      runlog.TxHash,
+				BlockHash:   test.receiptBlockHash,
+				BlockNumber: big.NewInt(creationHeight),
 			}
 			eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
 				eth.Register("eth_getTransactionReceipt", confirmedReceipt)
@@ -385,7 +385,7 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			jr = cltest.WaitForJobRunStatus(t, app.Store, jr, test.wantStatus)
 			assert.True(t, jr.FinishedAt.Valid)
-			assert.Equal(t, requiredConfs, jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
+			assert.Equal(t, int64(requiredConfs), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
 			assert.True(t, eth.AllCalled(), eth.Remaining())
 		})
 	}
@@ -450,10 +450,10 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	newHeads <- cltest.NewEthHeader(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
-	confirmedReceipt := models.TxReceipt{
-		Hash:        runlog.TxHash,
-		BlockHash:   &runlog.BlockHash,
-		BlockNumber: cltest.Int(logBlockNumber),
+	confirmedReceipt := &types.Receipt{
+		TxHash:      runlog.TxHash,
+		BlockHash:   runlog.BlockHash,
+		BlockNumber: big.NewInt(int64(logBlockNumber)),
 	}
 	eth.Context("validateOnMainChain", func(ethMock *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
@@ -678,13 +678,13 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 
 	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
-		confirmedBlockNumber := blockNumber - app.Store.Config.MinRequiredOutgoingConfirmations()
+		confirmedBlockNumber := int64(blockNumber - app.Store.Config.MinRequiredOutgoingConfirmations())
 
 		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 			eth.Register("eth_sendRawTransaction", hash)
-			eth.RegisterOptional("eth_getTransactionReceipt", models.TxReceipt{
-				Hash:        hash,
-				BlockNumber: cltest.Int(confirmedBlockNumber),
+			eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{
+				TxHash:      hash,
+				BlockNumber: big.NewInt(confirmedBlockNumber),
 			})
 		})
 
@@ -944,10 +944,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Single task ethTx receives configuration from FM init and writes to chain.
 	attemptHash := cltest.NewHash()
-	confirmedReceipt := models.TxReceipt{
-		Hash:        attemptHash,
-		BlockNumber: cltest.Int(1),
-	}
 
 	// Initial tx attempt sent
 	rpcClient.On("Call", mock.Anything, "eth_sendRawTransaction", mock.Anything).
@@ -955,9 +951,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		Return(nil)
 
 	// Confirmed for gas bumped txattempt
-	rpcClient.On("Call", mock.Anything, "eth_getTransactionReceipt", mock.Anything).
-		Run(func(args mock.Arguments) { *args.Get(0).(*models.TxReceipt) = confirmedReceipt }).
-		Return(nil)
+	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+		Return(&types.Receipt{TxHash: attemptHash, BlockNumber: big.NewInt(1)}, nil)
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
@@ -1080,9 +1075,9 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	log.Address = job.Initiators[0].InitiatorParams.Address
 
 	attemptHash := cltest.NewHash()
-	confirmedReceipt := models.TxReceipt{
-		Hash:        attemptHash,
-		BlockNumber: cltest.Int(1),
+	confirmedReceipt := &types.Receipt{
+		TxHash:      attemptHash,
+		BlockNumber: big.NewInt(1),
 	}
 	// Initial tx attempt sent
 	rpcClient.On("Call", mock.Anything, "eth_sendRawTransaction", mock.Anything).
@@ -1090,14 +1085,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Return(nil)
 
 	// Confirmed for gas bumped txattempt
-	rpcClient.On("Call", mock.Anything, "eth_getTransactionReceipt", mock.Anything).
-		Run(func(args mock.Arguments) { *args.Get(0).(*models.TxReceipt) = confirmedReceipt }).
-		Return(nil)
+	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(confirmedReceipt, nil)
 
 	// Flux Monitor queries FluxAggregator.RoundState()
 	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			*args.Get(0).(*hexutil.Bytes) = cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
+			*args.Get(1).(*hexutil.Bytes) = cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		}).
 		Return(nil)
 
@@ -1131,9 +1124,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
 		eth.Register("eth_sendRawTransaction", txHash)
-		eth.Register("eth_getTransactionReceipt", models.TxReceipt{
-			Hash:        cltest.NewHash(),
-			BlockNumber: cltest.Int(blockNum),
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{
+			TxHash:      cltest.NewHash(),
+			BlockNumber: big.NewInt(int64(blockNum)),
 		})
 	})
 	config, cfgCleanup := cltest.NewConfig(t)
@@ -1243,7 +1236,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 
 	eth := app.EthMock
 	newHeads := make(chan *types.Header)
-	startHeight := 100
+	const startHeight = 100
 	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x100`)
 	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(startHeight)))
@@ -1261,13 +1254,13 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 		cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	})
 
-	confirmedHeight := startHeight + 1
+	confirmedHeight := int64(startHeight + 1)
 
 	eth.ShouldCall(func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", models.TxReceipt{
-			Hash: cltest.NewHash(),
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{
+			TxHash: cltest.NewHash(),
 			// set the confirmation to avoid messing with the head tracker too
-			BlockNumber: cltest.Int(confirmedHeight - int(app.Store.Config.MinRequiredOutgoingConfirmations())),
+			BlockNumber: big.NewInt(confirmedHeight - int64(app.Store.Config.MinRequiredOutgoingConfirmations())),
 		})
 	}).During(func() {
 		app.RunManager.ResumeAllPendingConnection()
