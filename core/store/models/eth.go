@@ -316,17 +316,6 @@ type UntrustedBytes []byte
 
 type Log = types.Log
 
-type Transaction struct {
-	GasPrice hexutil.Uint64 `json:"gasPrice"`
-}
-
-// Block represents a full block
-// See: https://github.com/ethereum/go-ethereum/blob/0e6ea9199ca701ee4c96220e873884327c8d18ff/core/types/block.go#L147
-type Block struct {
-	Number       hexutil.Uint64 `json:"number"`
-	Transactions []Transaction  `json:"transactions"`
-}
-
 var emptyHash = common.Hash{}
 
 // TxReceipt holds the block number and the transaction hash of a signed
