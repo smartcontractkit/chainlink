@@ -239,7 +239,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
 	goProofResponse, err := vrf.UnmarshalProofResponse(proofBlob)
 	require.NoError(t, err,
 		"could not rehydrate proof from blob sent to fulfillRandomnessRequest")
-	proof, err := goProofResponse.ActualProof(s)
+	proof, err := goProofResponse.CryptoProof(s)
 	require.NoError(t, err, "could not construct actual proof from proof response")
 	return proof
 }

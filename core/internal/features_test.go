@@ -1070,7 +1070,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.NoError(t, err, "problem parsing solidity proof")
 	preSeed, err := vrf.BigToSeed(seed)
 	require.NoError(t, err, "seed %x out of range", seed)
-	_, err = goProof.ActualProof(vrf.PreSeedData{
+	_, err = goProof.CryptoProof(vrf.PreSeedData{
 		PreSeed:   preSeed,
 		BlockHash: requestlog.BlockHash,
 		BlockNum:  uint64(blockNum),

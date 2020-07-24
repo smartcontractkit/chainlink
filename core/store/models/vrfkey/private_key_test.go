@@ -46,7 +46,7 @@ func TestMarshaledProof(t *testing.T) {
 	require.NoError(t, err)
 	goProof, err := vrf.UnmarshalProofResponse(proofResponse)
 	require.NoError(t, err)
-	actualProof, err := goProof.ActualProof(s)
+	actualProof, err := goProof.CryptoProof(s)
 	require.NoError(t, err)
 	proof, err := actualProof.MarshalForSolidityVerifier()
 	require.NoError(t, err)

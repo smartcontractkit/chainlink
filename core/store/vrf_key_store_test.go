@@ -93,7 +93,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	verifier := vrfVerifier() // Generated proof is valid
 	coordinatorProof, err := vrf.UnmarshalProofResponse(proof)
 	require.NoError(t, err)
-	verifierProof, err := coordinatorProof.ActualProof(s)
+	verifierProof, err := coordinatorProof.CryptoProof(s)
 	require.NoError(t, err, "recovered bad VRF proof")
 	wireProof, err := verifierProof.MarshalForSolidityVerifier()
 	require.NoError(t, err, "could not marshal vrf proof for on-chain verification")
