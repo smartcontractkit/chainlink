@@ -9,6 +9,7 @@ import { ethers } from 'ethers'
 import { SimpleReadAccessControllerFactory } from '../../ethers/v0.6/SimpleReadAccessControllerFactory'
 import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
+import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
@@ -17,7 +18,9 @@ const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const accessControlFactory = new SimpleReadAccessControllerFactory()
 const aggregatorFactory = new MockV3AggregatorFactory()
+const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const proxyFactory = new EACAggregatorProxyFactory()
+const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -40,6 +43,7 @@ describe('EACAggregatorProxy', () => {
   let aggregator: contract.Instance<MockV3AggregatorFactory>
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let proxy: contract.Instance<EACAggregatorProxyFactory>
+  let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   const phaseBase = h.bigNum(2).pow(64)
 
   const deployment = setup.snapshot(provider, async () => {
@@ -206,6 +210,19 @@ describe('EACAggregatorProxy', () => {
         }, 'No proposed aggregator present')
       })
     })
+
+    describe('when read from a contract that is not permissioned', () => {
+      beforeEach(async () => {
+        testHelper = await testHelperFactory.connect(personas.Carol).deploy()
+      })
+
+      it('does not allow reading', async () => {
+        await matchers.evmRevert(
+          testHelper.readLatestRoundData(proxy.address),
+          'No access',
+        )
+      })
+    })
   })
 
   describe('#setController', () => {
@@ -216,6 +233,7 @@ describe('EACAggregatorProxy', () => {
         .connect(defaultAccount)
         .deploy()
     })
+
     describe('when called by a stranger', () => {
       it('reverts', async () => {
         await matchers.evmRevert(async () => {
@@ -230,6 +248,23 @@ describe('EACAggregatorProxy', () => {
       it('updates the controller contract', async () => {
         await proxy.connect(defaultAccount).setController(newController.address)
         assert.equal(await proxy.accessController(), newController.address)
+      })
+    })
+
+    describe('when set to the zero address', () => {
+      beforeEach(async () => {
+        testHelper = await testHelperFactory.connect(personas.Carol).deploy()
+      })
+
+      it('allows anyone to read', async () => {
+        await matchers.evmRevert(
+          testHelper.readLatestRoundData(proxy.address),
+          'No access',
+        )
+
+        await proxy.connect(defaultAccount).setController(emptyAddress)
+
+        await testHelper.readLatestRoundData(proxy.address)
       })
     })
   })
