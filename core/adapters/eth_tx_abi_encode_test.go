@@ -14,10 +14,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -128,7 +128,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	hash := cltest.NewHash()
-	sentAt := uint64(23456)
+	sentAt := int64(23456)
 	confirmed := sentAt + 1
 	app.EthMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
@@ -139,7 +139,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			assert.Equal(t, expectedAsHex, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	receipt := models.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	receipt := &gethTypes.Receipt{TxHash: hash, BlockNumber: big.NewInt(confirmed)}
 	app.EthMock.Register("eth_getTransactionReceipt", receipt)
 	input := cltest.NewRunInputWithString(t, rawInput)
 	responseData := adapterUnderTest.Perform(input, store)
