@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.11] - 2020-07-27
+
 ### Added
 
 - Job specs now support pinning to multiple keys using the new `fromAddresses` field in the ethtx task spec.
