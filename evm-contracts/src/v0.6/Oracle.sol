@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity 0.6.6;
 
 import "./LinkTokenReceiver.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";

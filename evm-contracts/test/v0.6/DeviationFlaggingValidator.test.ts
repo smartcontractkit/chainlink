@@ -81,7 +81,7 @@ describe('DeviationFlaggingValidator', () => {
         const receipt = await tx.wait()
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.FlagOn,
+          flags.interface.events.FlagRaised,
         )
 
         assert.equal(flags.address, event.address)
@@ -121,7 +121,7 @@ describe('DeviationFlaggingValidator', () => {
             currentValue,
           )
         const receipt = await tx.wait()
-        matchers.eventDoesNotExist(receipt, flags.interface.events.FlagOn)
+        matchers.eventDoesNotExist(receipt, flags.interface.events.FlagRaised)
       })
 
       it('uses less than the gas allotted by the aggregator', async () => {
@@ -194,6 +194,48 @@ describe('DeviationFlaggingValidator', () => {
       const previousValue = -900000
       const currentValue = 1000000
       it('correctly detects the difference', async () => {
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
+      })
+    })
+
+    describe('when the difference overflows', () => {
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .sub(1)
+      const currentValue = h.bigNum(-1)
+
+      it('does not revert and returns false', async () => {
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
+      })
+    })
+
+    describe('when the rounding overflows', () => {
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .div(10000)
+      const currentValue = h.bigNum(1)
+
+      it('does not revert and returns false', async () => {
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        )
+      })
+    })
+
+    describe('when the division overflows', () => {
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .sub(1)
+      const currentValue = h.bigNum(-1)
+
+      it('does not revert and returns false', async () => {
         assert.isFalse(
           await validator.isValid(0, previousValue, 1, currentValue),
         )
