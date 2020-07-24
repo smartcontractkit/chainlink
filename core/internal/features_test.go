@@ -1068,10 +1068,10 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.Equal(t, copy(mProof[:], proof), vrf.OnChainResponseLength)
 	goProof, err := vrf.UnmarshalProofResponse(mProof)
 	require.NoError(t, err, "problem parsing solidity proof")
-	preseed, err := vrf.BigToSeed(seed)
+	preSeed, err := vrf.BigToSeed(seed)
 	require.NoError(t, err, "seed %x out of range", seed)
 	_, err = goProof.ActualProof(vrf.PreSeedData{
-		PreSeed:   preseed,
+		PreSeed:   preSeed,
 		BlockHash: requestlog.BlockHash,
 		BlockNum:  uint64(blockNum),
 	})

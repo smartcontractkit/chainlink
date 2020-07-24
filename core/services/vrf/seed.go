@@ -45,7 +45,7 @@ type PreSeedData struct {
 }
 
 // FinalSeed is the seed which is actually passed to the VRF proof generator,
-// given the preseed and the hash of the block in which the VRFCoordinator
+// given the pre-seed and the hash of the block in which the VRFCoordinator
 // emitted the log for the request this is responding to.
 func FinalSeed(s PreSeedData) (finalSeed *big.Int) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)

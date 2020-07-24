@@ -217,10 +217,10 @@ func TestRandomnessRequestLog(t *testing.T) {
 // fulfillRandomnessRequest is neil fulfilling randomness requested by log.
 func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
 	log models.RandomnessRequestLog) vrf.Proof {
-	preseed, err := vrf.BigToSeed(log.Seed)
-	require.NoError(t, err, "preseed %x out of range", preseed)
+	preSeed, err := vrf.BigToSeed(log.Seed)
+	require.NoError(t, err, "pre-seed %x out of range", preSeed)
 	s := vrf.PreSeedData{
-		PreSeed:   preseed,
+		PreSeed:   preSeed,
 		BlockHash: log.Raw.Raw.BlockHash,
 		BlockNum:  log.Raw.Raw.BlockNumber,
 	}

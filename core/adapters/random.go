@@ -154,7 +154,7 @@ func getPreSeed(input models.RunInput) (vrf.Seed, error) {
 		return vrf.Seed{}, err
 	}
 	if rv == nil {
-		return vrf.Seed{}, errors.Errorf("nil preseed from %+v", rawSeed)
+		return vrf.Seed{}, errors.Errorf("nil pre-seed from %+v", rawSeed)
 	}
 	return *rv, nil
 }

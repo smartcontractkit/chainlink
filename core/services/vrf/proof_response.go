@@ -14,8 +14,8 @@ import (
 // it can verify that the seed the oracle finally used is correct.
 type ProofResponse struct {
 	// Approximately the proof which will be checked on-chain. Note that this
-	// contains the preseed in place of the final seed. That should be computed as
-	// in FinalSeed.
+	// contains the pre-seed in place of the final seed. That should be computed
+	// as in FinalSeed.
 	P        Proof
 	PreSeed  Seed   // Seed received during VRF request
 	BlockNum uint64 // Height of the block in which tihs request was made
