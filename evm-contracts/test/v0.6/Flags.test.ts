@@ -5,7 +5,6 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-//import { ethers } from 'ethers'
 import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
 import { FlagsTestHelperFactory } from '../../ethers/v0.6/FlagsTestHelperFactory'
 import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'

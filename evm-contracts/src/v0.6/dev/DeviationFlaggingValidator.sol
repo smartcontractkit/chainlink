@@ -3,8 +3,7 @@ pragma solidity 0.6.6;
 import './AggregatorValidatorInterface.sol';
 import '../interfaces/FlagsInterface.sol';
 import '../Owned.sol';
-import '../vendor/SafeMath.sol';
-import '../SignedSafeMath.sol';
+import './CheckedMath.sol';
 
 /**
  * @title The Deviation Flagging Validator contract
@@ -14,8 +13,7 @@ import '../SignedSafeMath.sol';
  * flag contract.
  */
 contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
-  using SafeMath for uint256;
-  using SignedSafeMath for int256;
+  using CheckedMath for int256;
 
   uint32 constant public THRESHOLD_MULTIPLIER = 100000;
 
@@ -99,11 +97,12 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   {
     if (_previousAnswer == 0) return true;
 
-    (int256 change, bool changeOk) = safeSub(_previousAnswer, _answer);
-    (int256 ratioNumerator, bool numOk) = safeMul(change, THRESHOLD_MULTIPLIER);
-    (int256 ratio, bool ratioOk) = safeDiv(ratioNumerator, _previousAnswer);
+    (int256 change, bool changeOk) = _previousAnswer.sub(_answer);
+    (int256 ratioNumerator, bool numOk) = change.mul(THRESHOLD_MULTIPLIER);
+    (int256 ratio, bool ratioOk) = ratioNumerator.div(_previousAnswer);
+    (uint256 absRatio, bool absOk) = abs(ratio);
 
-    return changeOk && numOk && ratioOk && abs(ratio) <= flaggingThreshold;
+    return changeOk && numOk && ratioOk && absOk && absRatio <= flaggingThreshold;
   }
 
   /**
@@ -150,62 +149,11 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   )
     private
     pure
-    returns (uint256)
+    returns (uint256, bool)
   {
-    return uint256(value < 0 ? value.mul(-1): value);
-  }
-
-  /**
-   * @dev Subtracts two signed integers, returns false 2nd param on overflow.
-   * Modified version of OpenZeppelin's SignedSafeMath.
-   */
-  function safeSub(int256 a, int256 b) internal pure returns (int256, bool) {
-    int256 c = a - b;
-    if ((b < 0 && c <= a) || (b >= 0 && c > a)) {
-      return (0, false);
-    }
-
-    return (c, true);
-  }
-
-
-  /**
-   * @dev Multiplies two signed integers, returns false 2nd param on overflow.
-   * Modified version of OpenZeppelin's SignedSafeMath.
-   */
-  function safeMul(int256 a, int256 b) internal pure returns (int256, bool) {
-    // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-    // benefit is lost if 'b' is also tested.
-    // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-    if (a == 0) {
-      return (0, true);
-    }
-
-    if (a == -1 && b == INT256_MIN) {
-      return (0, false);
-    }
-
-    int256 c = a * b;
-    if (!(c / a == b)) {
-      return (0, false);
-    }
-
-    return (c, true);
-  }
-
-  /**
-   * @dev Divides two signed integers, returns false 2nd param on overflow.
-   * Modified version of OpenZeppelin's SignedSafeMath.
-   */
-  function safeDiv(int256 a, int256 b) internal pure returns (int256, bool) {
-    // don't need to check for 0 as that is checked in isValid
-    if (b == -1 && a == INT256_MIN) {
-      return (0, false);
-    }
-
-    int256 c = a / b;
-
-    return (c, true);
+    if (value >= 0) return (uint256(value), true);
+    if (value == CheckedMath.INT256_MIN) return (0, false);
+    return (uint256(value * -1), true);
   }
 
 }
