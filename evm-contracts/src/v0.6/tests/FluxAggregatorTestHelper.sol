@@ -1,10 +1,26 @@
 pragma solidity ^0.6.0;
 
-import "../FluxAggregator.sol";
+import "../dev/FluxAggregator.sol";
 
-contract FluxAggregatorTestHelper is Owned {
+contract FluxAggregatorTestHelper {
+
+  uint80 public requestedRoundId;
 
   event Here();
+
+  function readLatestRoundData(address _aggregator)
+    external
+  {
+    FluxAggregator(_aggregator).latestRoundData();
+    emit Here();
+  }
+
+  function readGetRoundData(address _aggregator, uint80 _roundID)
+    external
+  {
+    FluxAggregator(_aggregator).getRoundData(_roundID);
+    emit Here();
+  }
 
   function readOracleRoundState(address _aggregator, address _oracle)
     external
@@ -13,31 +29,10 @@ contract FluxAggregatorTestHelper is Owned {
     emit Here();
   }
 
-  function readLatestAnswer(address _aggregator)
+  function requestNewRound(address _aggregator)
     external
   {
-    FluxAggregator(_aggregator).latestAnswer();
-    emit Here();
-  }
-
-  function readLatestTimestamp(address _aggregator)
-    external
-  {
-    FluxAggregator(_aggregator).latestTimestamp();
-    emit Here();
-  }
-
-  function readGetAnswer(address _aggregator, uint256 _roundID)
-    external
-  {
-    FluxAggregator(_aggregator).getAnswer(_roundID);
-    emit Here();
-  }
-
-  function readGetTimestamp(address _aggregator, uint256 _roundID)
-    external
-  {
-    FluxAggregator(_aggregator).getTimestamp(_roundID);
+    requestedRoundId = FluxAggregator(_aggregator).requestNewRound();
     emit Here();
   }
 

@@ -248,7 +248,7 @@ func newStoreWithDialerAndKeyStore(
 // Start initiates all of Store's dependencies including the TxManager.
 func (s *Store) Start() error {
 	if s.Config.EnableBulletproofTxManager() {
-		if err := setNonceFromLegacyTxManager(s.GetRawDB()); err != nil {
+		if err := setNonceFromLegacyTxManager(s.DB); err != nil {
 			return err
 		}
 	} else {

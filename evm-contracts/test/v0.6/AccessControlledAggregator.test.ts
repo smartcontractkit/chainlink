@@ -13,6 +13,7 @@ const linkTokenFactory = new contract.LinkTokenFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const provider = setup.provider()
 let personas: setup.Personas
+
 beforeAll(async () => {
   await setup.users(provider).then(u => (personas = u.personas))
 })
@@ -29,6 +30,7 @@ describe('AccessControlledAggregator', () => {
   const description = 'LINK/USD'
   const minSubmissionValue = h.bigNum('1')
   const maxSubmissionValue = h.bigNum('100000000000000000000')
+  const emptyAddress = '0x0000000000000000000000000000000000000000'
 
   let link: contract.Instance<contract.LinkTokenFactory>
   let aggregator: contract.Instance<AccessControlledAggregatorFactory>
@@ -43,6 +45,7 @@ describe('AccessControlledAggregator', () => {
         link.address,
         paymentAmount,
         timeout,
+        emptyAddress,
         minSubmissionValue,
         maxSubmissionValue,
         decimals,
@@ -65,21 +68,15 @@ describe('AccessControlledAggregator', () => {
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
       'acceptAdmin',
-      'addOracles',
       'allocatedFunds',
       'availableFunds',
+      'changeOracles',
       'decimals',
       'description',
       'getAdmin',
-      'getAnswer',
       'getOracles',
       'getRoundData',
-      'getTimestamp',
-      'latestAnswer',
-      'latestRound',
       'latestRoundData',
-      'latestSubmission',
-      'latestTimestamp',
       'linkToken',
       'maxSubmissionCount',
       'maxSubmissionValue',
@@ -89,11 +86,10 @@ describe('AccessControlledAggregator', () => {
       'oracleCount',
       'oracleRoundState',
       'paymentAmount',
-      'removeOracles',
-      'reportingRound',
       'requestNewRound',
       'restartDelay',
       'setRequesterPermissions',
+      'setValidator',
       'submit',
       'timeout',
       'transferAdmin',
@@ -102,6 +98,7 @@ describe('AccessControlledAggregator', () => {
       'withdrawFunds',
       'withdrawPayment',
       'withdrawablePayment',
+      'validator',
       'version',
       // Owned methods:
       'acceptOwnership',
@@ -138,11 +135,12 @@ describe('AccessControlledAggregator', () => {
     })
   })
 
-  describe('#getAnswer', () => {
+  describe('#getRoundData', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracles(
+        .changeOracles(
+          [],
           [personas.Neil.address],
           [personas.Neil.address],
           minAns,
@@ -156,7 +154,7 @@ describe('AccessControlledAggregator', () => {
       describe('without explicit access', () => {
         it('reverts', async () => {
           await matchers.evmRevert(
-            testHelper.readGetAnswer(aggregator.address, 0),
+            testHelper.readGetRoundData(aggregator.address, nextRound),
             'No access',
           )
         })
@@ -165,7 +163,7 @@ describe('AccessControlledAggregator', () => {
       describe('with access', () => {
         it('succeeds', async () => {
           await aggregator.connect(personas.Carol).addAccess(testHelper.address)
-          await testHelper.readGetAnswer(aggregator.address, 0)
+          await testHelper.readGetRoundData(aggregator.address, nextRound)
         })
       })
     })
@@ -173,8 +171,7 @@ describe('AccessControlledAggregator', () => {
     describe('when read by a regular account', () => {
       describe('without explicit access', () => {
         it('succeeds', async () => {
-          const round = await aggregator.latestRound()
-          await aggregator.connect(personas.Eddy).getAnswer(round)
+          await aggregator.connect(personas.Eddy).getRoundData(nextRound)
         })
       })
 
@@ -183,18 +180,18 @@ describe('AccessControlledAggregator', () => {
           await aggregator
             .connect(personas.Carol)
             .addAccess(personas.Eddy.address)
-          const round = await aggregator.latestRound()
-          await aggregator.connect(personas.Eddy).getAnswer(round)
+          await aggregator.connect(personas.Eddy).getRoundData(nextRound)
         })
       })
     })
   })
 
-  describe('#getTimestamp', () => {
+  describe('#latestRoundData', () => {
     beforeEach(async () => {
       await aggregator
         .connect(personas.Carol)
-        .addOracles(
+        .changeOracles(
+          [],
           [personas.Neil.address],
           [personas.Neil.address],
           minAns,
@@ -208,7 +205,7 @@ describe('AccessControlledAggregator', () => {
       describe('without explicit access', () => {
         it('reverts', async () => {
           await matchers.evmRevert(
-            testHelper.readGetTimestamp(aggregator.address, 0),
+            testHelper.readLatestRoundData(aggregator.address),
             'No access',
           )
         })
@@ -217,7 +214,7 @@ describe('AccessControlledAggregator', () => {
       describe('with access', () => {
         it('succeeds', async () => {
           await aggregator.connect(personas.Carol).addAccess(testHelper.address)
-          await testHelper.readGetTimestamp(aggregator.address, 0)
+          await testHelper.readLatestRoundData(aggregator.address)
         })
       })
     })
@@ -225,11 +222,7 @@ describe('AccessControlledAggregator', () => {
     describe('when read by a regular account', () => {
       describe('without explicit access', () => {
         it('succeeds', async () => {
-          const round = await aggregator.latestRound()
-          const currentTimestamp = await aggregator
-            .connect(personas.Eddy)
-            .getTimestamp(round)
-          assert.isAbove(currentTimestamp.toNumber(), 0)
+          await aggregator.connect(personas.Eddy).latestRoundData()
         })
       })
 
@@ -238,117 +231,7 @@ describe('AccessControlledAggregator', () => {
           await aggregator
             .connect(personas.Carol)
             .addAccess(personas.Eddy.address)
-          const round = await aggregator.latestRound()
-          const currentTimestamp = await aggregator
-            .connect(personas.Eddy)
-            .getTimestamp(round)
-          assert.isAbove(currentTimestamp.toNumber(), 0)
-        })
-      })
-    })
-  })
-
-  describe('#latestAnswer', () => {
-    beforeEach(async () => {
-      await aggregator
-        .connect(personas.Carol)
-        .addOracles(
-          [personas.Neil.address],
-          [personas.Neil.address],
-          minAns,
-          maxAns,
-          rrDelay,
-        )
-      await aggregator.connect(personas.Neil).submit(nextRound, answer)
-    })
-
-    describe('when read by a contract', () => {
-      describe('without explicit access', () => {
-        it('reverts', async () => {
-          await matchers.evmRevert(
-            testHelper.readLatestAnswer(aggregator.address),
-            'No access',
-          )
-        })
-      })
-
-      describe('with access', () => {
-        it('succeeds', async () => {
-          await aggregator.connect(personas.Carol).addAccess(testHelper.address)
-          await testHelper.readLatestAnswer(aggregator.address)
-        })
-      })
-    })
-
-    describe('when read by a regular account', () => {
-      describe('without explicit access', () => {
-        it('succeeds', async () => {
-          await aggregator.connect(personas.Eddy).latestAnswer()
-        })
-      })
-
-      describe('with access', () => {
-        it('succeeds', async () => {
-          await aggregator
-            .connect(personas.Carol)
-            .addAccess(personas.Eddy.address)
-          await aggregator.connect(personas.Eddy).latestAnswer()
-        })
-      })
-    })
-  })
-
-  describe('#latestTimestamp', () => {
-    beforeEach(async () => {
-      await aggregator
-        .connect(personas.Carol)
-        .addOracles(
-          [personas.Neil.address],
-          [personas.Neil.address],
-          minAns,
-          maxAns,
-          rrDelay,
-        )
-      await aggregator.connect(personas.Neil).submit(nextRound, answer)
-    })
-
-    describe('when read by a contract', () => {
-      describe('without explicit access', () => {
-        it('reverts', async () => {
-          await matchers.evmRevert(
-            testHelper.readLatestTimestamp(aggregator.address),
-            'No access',
-          )
-        })
-      })
-
-      describe('with access', () => {
-        it('succeeds', async () => {
-          await aggregator.connect(personas.Carol).addAccess(testHelper.address)
-          await testHelper.readLatestTimestamp(aggregator.address)
-        })
-      })
-    })
-
-    describe('when read by a regular account', () => {
-      describe('without explicit access', () => {
-        it('succeeds', async () => {
-          const currentTimestamp = await aggregator
-            .connect(personas.Eddy)
-            .latestTimestamp()
-          assert.isAbove(currentTimestamp.toNumber(), 0)
-        })
-      })
-
-      describe('with access', () => {
-        it('succeeds', async () => {
-          await aggregator
-            .connect(personas.Carol)
-            .addAccess(personas.Eddy.address)
-          const currentTimestamp = await aggregator
-            .connect(personas.Eddy)
-            .latestTimestamp()
-          assert.isAbove(currentTimestamp.toNumber(), 0)
+          await aggregator.connect(personas.Eddy).latestRoundData()
         })
       })
     })

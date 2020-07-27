@@ -13,7 +13,7 @@
     "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
     "clean": "tsc -b --clean && rimraf -rf artifacts coverage tmp dist",
-    "build": "react-static build",
+    "build": "MAX_EXPORT_HTML_THREADS=1 react-static build",
     "setup": "tsc -b",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
@@ -38,7 +38,7 @@
     "json-api-normalizer": "^0.4.13",
     "json-pretty-html": "^1.1.2",
     "local-storage-fallback": "^4.1.1",
-    "lodash": "^4.17.13",
+    "lodash": "^4.17.19",
     "moment": "^2.24.0",
     "normalize-url": "^4.5.0",
     "numeral": "^2.0.6",

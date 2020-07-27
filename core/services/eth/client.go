@@ -24,6 +24,7 @@ type GethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*gethTypes.Receipt, error)
 	HeaderByNumber(ctx context.Context, n *big.Int) (*gethTypes.Header, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 }
 
 // RPCClient is an interface that represents go-ethereum's raw rpcclient

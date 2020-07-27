@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const oracleCount uint32 = 17
+const oracleCount uint8 = 17
 
 var (
 	submitHash     = utils.MustHash("submit(uint256,int256)")
@@ -67,13 +67,12 @@ func TestConcreteFluxMonitor_Start_withEthereumDisabled(t *testing.T) {
 			defer cleanup()
 			runManager := new(mocks.RunManager)
 
-			fm := fluxmonitor.New(store, runManager)
-			logBroadcaster := fm.(fluxmonitor.MockableLogBroadcaster).MockLogBroadcaster()
+			lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+			fm := fluxmonitor.New(store, runManager, lb)
 
 			err := fm.Start()
 			require.NoError(t, err)
 			defer fm.Stop()
-			assert.Equal(t, test.wantStarted, logBroadcaster.Started)
 		})
 	}
 }
@@ -99,7 +98,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		fm := fluxmonitor.New(store, runManager)
+		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		require.NoError(t, lb.Start())
+		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())
 
@@ -131,7 +132,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		job := cltest.NewJobWithRunLogInitiator()
 		runManager := new(mocks.RunManager)
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		fm := fluxmonitor.New(store, runManager)
+		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		require.NoError(t, lb.Start())
+		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 
 		err := fm.Start()
@@ -1090,7 +1093,7 @@ func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
 			state := contracts.FluxAggregatorRoundState{
 				AvailableFunds: big.NewInt(int64(test.funds)),
 				PaymentAmount:  big.NewInt(int64(payment)),
-				OracleCount:    uint32(oracleCount),
+				OracleCount:    uint8(oracleCount),
 			}
 			assert.Equal(t, test.want, checker.ExportedSufficientFunds(state))
 		})

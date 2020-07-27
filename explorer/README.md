@@ -59,7 +59,7 @@ $ yarn run dev # in another terminal
 
 Please see [TypeORM's migration guide](https://typeorm.io/#/migrations).
 
-## Running on seperate origins locally
+## Running on separate origins locally
 
 The client is able to run on a different origin than the server. The steps below outline a
 quick way of testing this locally via [ngrok.](https://ngrok.com/)
@@ -73,7 +73,7 @@ In a terminal pane:
 ngrok http 8080
 ```
 
-In a seperate terminal pane:
+In a separate terminal pane:
 
 ```sh
 # Setup ngrok to proxy the default client settings.
@@ -100,7 +100,7 @@ Note the usage of `DANGEROUSLY_DISABLE_HOST_CHECK`, it is described here: https:
 Using the safe `HOST` variable does not work with ngrok, so unforunately this is the only way of using ngrok with
 create react app. Consider running the client dev server in a VM or remote machine that is sandboxed.
 
-Another way of testing a seperate domain is to not use ngrok to forward the client, and to just use it locally via
+Another way of testing a separate domain is to not use ngrok to forward the client, and to just use it locally via
 `localhost:3001`. Make sure to set `EXPLORER_CLIENT_ORIGIN` to `http://localhost:3001` if so.
 
 You should now be able to visit the client via browser by using the forwarded ngrok url, or localhost.

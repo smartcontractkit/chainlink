@@ -20,7 +20,7 @@ switch (Config.env()) {
     break
   default:
     options.prettyPrint = { colorize: true }
-    options.level = 'debug'
+    options.level = 'trace'
 }
 export const logger = pino(options)
 
