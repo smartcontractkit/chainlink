@@ -1,7 +1,7 @@
 {
   "name": "@chainlink/test-helpers",
   "private": false,
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "A collection of test helpers to facilitate testing chainlink's smart contracts",
   "main": "dist/src/index.js",
   "repository": "https://github.com/smartcontractkit/chainlink",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@0x/sol-trace": "^3.0.7",
-    "@0x/subproviders": "^6.0.4",
+    "@0x/subproviders": "^6.1.1",
     "bn.js": "^4.11.0",
     "cbor": "^5.0.2",
     "chai": "^4.2.0",

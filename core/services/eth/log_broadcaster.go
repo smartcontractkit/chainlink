@@ -24,7 +24,7 @@ import (
 // relevant subscribers.
 type LogBroadcaster interface {
 	utils.DependentAwaiter
-	Start()
+	Start() error
 	Register(address common.Address, listener LogListener) (connected bool)
 	Unregister(address common.Address, listener LogListener)
 	Stop()
@@ -139,9 +139,10 @@ func (sub managedSubscription) Unsubscribe() {
 	close(sub.chRawLogs)
 }
 
-func (b *logBroadcaster) Start() {
+func (b *logBroadcaster) Start() error {
 	go b.awaitInitialSubscribers()
 	b.started = true
+	return nil
 }
 
 func (b *logBroadcaster) awaitInitialSubscribers() {

@@ -72,12 +72,12 @@ type addEntry struct {
 func New(
 	store *store.Store,
 	runManager RunManager,
+	logBroadcaster eth.LogBroadcaster,
 ) Service {
 	if store.Config.EthereumDisabled() {
 		return &concreteFluxMonitor{disabled: true}
 	}
 
-	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
@@ -126,7 +126,6 @@ func (fm *concreteFluxMonitor) Start() error {
 	}, models.InitiatorFluxMonitor)
 
 	wg.Wait()
-	fm.logBroadcaster.Start()
 
 	return err
 }
@@ -1008,7 +1007,7 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log contracts.Log
 	return []interface{}{
 		"round", log.RoundId,
 		"answer", log.Current.String(),
-		"timestamp", log.Timestamp.String(),
+		"timestamp", log.UpdatedAt.String(),
 		"contract", log.Address.Hex(),
 		"job", p.initr.JobSpecID,
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -62,6 +63,7 @@ type ChainlinkApplication struct {
 	JobSubscriber            services.JobSubscriber
 	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
+	LogBroadcaster           eth.LogBroadcaster
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
@@ -88,9 +90,12 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
-	fluxMonitor := fluxmonitor.New(store, runManager)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	balanceMonitor := services.NewBalanceMonitor(store, store.GethClientWrapper)
+
 	store.NotifyNewEthTx = ethBroadcaster
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
@@ -99,6 +104,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		JobSubscriber:            jobSubscriber,
 		GasUpdater:               gasUpdater,
 		EthBroadcaster:           ethBroadcaster,
+		LogBroadcaster:           logBroadcaster,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -123,6 +129,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		headTrackables,
 		jobSubscriber,
 		pendingConnectionResumer,
+		balanceMonitor,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {
@@ -157,6 +164,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
+		app.LogBroadcaster.Start(),
 		app.FluxMonitor.Start(),
 		app.EthBroadcaster.Start(),
 

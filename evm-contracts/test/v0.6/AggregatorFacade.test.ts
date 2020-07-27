@@ -130,12 +130,7 @@ describe('AggregatorFacade', () => {
 
     it('returns zero data for non-existing rounds', async () => {
       const roundId = 13371337
-      const round = await facade.getRoundData(roundId)
-      matchers.bigNum(roundId, round.roundId)
-      matchers.bigNum(0, round.answer)
-      matchers.bigNum(0, round.startedAt)
-      matchers.bigNum(0, round.updatedAt)
-      matchers.bigNum(0, round.answeredInRound)
+      await matchers.evmRevert(facade.getRoundData(roundId), 'No data present')
     })
   })
 
@@ -148,6 +143,21 @@ describe('AggregatorFacade', () => {
       matchers.bigNum(await facade.getTimestamp(latestId), round.startedAt)
       matchers.bigNum(await facade.getTimestamp(latestId), round.updatedAt)
       matchers.bigNum(latestId, round.answeredInRound)
+    })
+
+    describe('when there is no latest round', () => {
+      beforeEach(async () => {
+        aggregator = await aggregatorFactory
+          .connect(defaultAccount)
+          .deploy(link.address, 0, 1, [oc1.address], [jobId1])
+        facade = await aggregatorFacadeFactory
+          .connect(defaultAccount)
+          .deploy(aggregator.address, decimals, description)
+      })
+
+      it('assembles the requested round data', async () => {
+        await matchers.evmRevert(facade.latestRoundData(), 'No data present')
+      })
     })
   })
 })

@@ -604,14 +604,6 @@ func (txm *EthTxManager) processAttempt(
 			"jobRunId", jobRunID,
 		)
 
-		// Update prometheus metric here as waiting on the transaction
-		// to be marked 'Safe' may be too delayed due to possible
-		// backlog of transaction confirmations.
-		ethBalance, e := txm.GetEthBalance(tx.From)
-		if e != nil {
-			return receipt, state, errors.Wrap(e, "confirming confirmation attempt")
-		}
-		promUpdateEthBalance(ethBalance, tx.From)
 		return receipt, state, nil
 
 	case Unconfirmed:
@@ -698,21 +690,12 @@ func (txm *EthTxManager) handleSafe(
 		return errors.Wrap(err, "handleSafe MarkTxSafe failed")
 	}
 
-	var balanceErr error
 	minimumConfirmations := txm.config.MinRequiredOutgoingConfirmations()
-	ethBalance, err := txm.GetEthBalance(tx.From)
-	balanceErr = multierr.Append(balanceErr, err)
-	linkBalance, err := txm.GetLINKBalance(tx.From)
-	balanceErr = multierr.Append(balanceErr, err)
-
 	logger.Infow(
 		fmt.Sprintf("Tx #%d is safe", attemptIndex),
 		"minimumConfirmations", minimumConfirmations,
 		"txHash", txAttempt.Hash.String(),
 		"txID", txAttempt.TxID,
-		"ethBalance", ethBalance,
-		"linkBalance", linkBalance,
-		"err", balanceErr,
 	)
 
 	return nil

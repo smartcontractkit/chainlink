@@ -54,8 +54,17 @@ func (_m *LogBroadcaster) Register(address common.Address, listener eth.LogListe
 }
 
 // Start provides a mock function with given fields:
-func (_m *LogBroadcaster) Start() {
-	_m.Called()
+func (_m *LogBroadcaster) Start() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Stop provides a mock function with given fields:

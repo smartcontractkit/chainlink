@@ -15,6 +15,10 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
 
   uint256 constant public override version = 2;
 
+  // An error specific to the Aggregator V3 Interface, to prevent possible
+  // confusion around accidentally reading unset values as reported values.
+  string constant private V3_NO_DATA_ERROR = "No data present";
+
   constructor(
     address _aggregator,
     uint8 _decimals,
@@ -84,14 +88,14 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
-    return _getRoundData(aggregator.latestRound());
+    return _getRoundData(uint80(aggregator.latestRound()));
   }
 
   /**
@@ -137,17 +141,17 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
    * @dev Note that for rounds that haven't yet received responses from all
    * oracles, answer and updatedAt may change between queries.
    */
-  function getRoundData(uint256 _roundId)
+  function getRoundData(uint80 _roundId)
     external
     view
     virtual
     override
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     return _getRoundData(_roundId);
@@ -157,25 +161,23 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
    * Internal
    */
 
-  function _getRoundData(uint256 _roundId)
+  function _getRoundData(uint80 _roundId)
     internal
     view
     returns (
-      uint256 roundId,
+      uint80 roundId,
       int256 answer,
       uint256 startedAt,
       uint256 updatedAt,
-      uint256 answeredInRound
+      uint80 answeredInRound
     )
   {
     answer = aggregator.getAnswer(_roundId);
     updatedAt = uint64(aggregator.getTimestamp(_roundId));
-    if (updatedAt == 0) {
-      answeredInRound = 0;
-    } else {
-      answeredInRound = _roundId;
-    }
-    return (_roundId, answer, updatedAt, updatedAt, answeredInRound);
+
+    require(updatedAt > 0, V3_NO_DATA_ERROR);
+
+    return (_roundId, answer, updatedAt, updatedAt, _roundId);
   }
 
 }

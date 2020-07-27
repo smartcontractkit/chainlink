@@ -12,6 +12,6 @@ afterAll(async () => {
   try {
     await getConnection().close()
   } catch {
-    // swallow error or it supresses all other test output
+    // swallow error or it suppresses all other test output
   }
 })
