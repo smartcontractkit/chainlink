@@ -36,7 +36,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
       const secret = info.req.headers[SECRET_HEADER]
 
       if (typeof accessKey !== 'string' || typeof secret !== 'string') {
-        logger.info({
+        logger.warn({
           msg: 'client rejected, invalid authentication request',
           origin: info.origin,
           ...remote,
@@ -46,7 +46,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
 
       authenticate(accessKey, secret).then((session: Session | null) => {
         if (session === null) {
-          logger.info({
+          logger.warn({
             msg: 'client rejected, failed authentication',
             accessKey,
             origin: info.origin,
@@ -56,7 +56,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
           return
         }
 
-        logger.debug({
+        logger.info({
           msg: `websocket client successfully authenticated`,
           nodeID: session.chainlinkNodeId,
           origin: info.origin,
@@ -66,6 +66,12 @@ export const bootstrapRealtime = async (server: http.Server) => {
         const existingConnection = connections.get(accessKey)
         if (existingConnection) {
           existingConnection.close(NORMAL_CLOSE, 'Duplicate connection opened')
+          logger.warn({
+            msg: 'Duplicated connection opened',
+            nodeID: session.chainlinkNodeId,
+            origin: info.origin,
+            ...remote,
+          })
         }
         callback(true, 200)
       })
