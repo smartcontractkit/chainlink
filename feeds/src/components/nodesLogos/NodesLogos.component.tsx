@@ -31,6 +31,12 @@ import watez from 'assets/nodes/watez.png'
 import ztake from 'assets/nodes/ztake.png'
 import oneNode from 'assets/nodes/01node.png'
 import tSystems from 'assets/nodes/tsystems.png'
+import dextrac from 'assets/nodes/dextrac.png'
+import dmakers from 'assets/nodes/dmakers.png'
+import huobi from 'assets/nodes/huobi.png'
+import syncnode from 'assets/nodes/syncnode.png'
+import vulcanLink from 'assets/nodes/vulcanLink.png'
+import youbi from 'assets/nodes/youbi.png'
 
 interface Node {
   name: string
@@ -194,6 +200,36 @@ const list: Node[] = [
     name: '01Node',
     url: 'https://01node.com',
     src: oneNode,
+  },
+  {
+    name: 'DEXTRAC',
+    url: 'http://dex.trace.link',
+    src: dextrac,
+  },
+  {
+    name: 'dMakers',
+    url: 'https://dmakers.org',
+    src: dmakers,
+  },
+  {
+    name: 'Huobi',
+    url: 'https://www.huobi.com',
+    src: huobi,
+  },
+  {
+    name: 'SyncNode',
+    url: 'https://wallet.syncnode.ro',
+    src: syncnode,
+  },
+  {
+    name: 'Vulcan Link',
+    url: 'https://vulcan.link',
+    src: vulcanLink,
+  },
+  {
+    name: 'Youbi Capital',
+    url: 'http://www.youbicapital.com',
+    src: youbi,
   },
 ]
 
