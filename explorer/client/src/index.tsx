@@ -11,16 +11,21 @@ import './index.css'
 import * as serviceWorker from './serviceWorker'
 import { theme } from '@chainlink/styleguide'
 import ReactGA from 'react-ga'
-import { Config } from './config'
-
-ReactGA.initialize(Config.gaId())
-ReactGA.pageview(window.location.pathname + window.location.search)
+import * as api from './api/index'
 
 JavascriptTimeAgo.locale(en)
 moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
 
 const muiTheme = createMuiTheme(theme)
 const store = createStore()
+
+async function setGa(): Promise<void> {
+  const { gaId } = await api.v1.config.getConfig()
+  ReactGA.initialize(gaId)
+  ReactGA.pageview(window.location.pathname + window.location.search)
+}
+
+setGa()
 
 render(
   <MuiThemeProvider theme={muiTheme}>

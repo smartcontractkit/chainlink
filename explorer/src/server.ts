@@ -63,6 +63,7 @@ export default function server(): Promise<http.Server> {
   ADMIN_CONTROLLERS.forEach(c => app.use('/api/v1/admin', c))
 
   app.use('/api/v1', controllers.jobRuns)
+  app.use('/api/v1/config', controllers.config)
 
   app.get('/*', (_, res) => {
     res.sendFile(`${__dirname}/public/index.html`)

@@ -74,6 +74,10 @@ export class Config {
     return env.ETHERSCAN_HOST || 'ropsten.etherscan.io'
   }
 
+  static gaId(env = process.env): string {
+    return env.GA_ID
+  }
+
   static setEnv(key: string, value: string | number) {
     Object.assign(process.env, {
       [key]: value,

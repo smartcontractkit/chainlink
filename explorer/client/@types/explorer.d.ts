@@ -55,4 +55,8 @@ declare module 'explorer/models' {
     mixDigest: string
     nonce: string
   }
+
+  interface Config {
+    gaId: string
+  }
 }
