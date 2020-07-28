@@ -24,6 +24,10 @@ import (
 )
 
 var (
+	promCurrentHead = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "head_tracker_current_head",
+		Help: "The highest seen head number",
+	})
 	promNumHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "head_tracker_heads_received",
 		Help: "The total number of heads seen",
@@ -299,6 +303,7 @@ func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
 }
 
 func (ht *HeadTracker) handleNewHighestHead(head models.Head) error {
+	promCurrentHead.Set(float64(head.Number))
 	// NOTE: We must set a hard time limit on this, backfilling heads should
 	// not block the head tracker
 	ctx, cancel := context.WithTimeout(context.Background(), ht.backfillTimeBudget())
