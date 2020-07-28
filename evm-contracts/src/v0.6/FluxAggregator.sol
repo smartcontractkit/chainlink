@@ -1,14 +1,14 @@
 pragma solidity 0.6.6;
 
-import "../Median.sol";
-import "../Owned.sol";
-import "../SafeMath128.sol";
-import "../SafeMath32.sol";
-import "../SafeMath64.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import './AggregatorValidatorInterface.sol';
-import "../interfaces/LinkTokenInterface.sol";
-import "../vendor/SafeMath.sol";
+import "./Median.sol";
+import "./Owned.sol";
+import "./SafeMath128.sol";
+import "./SafeMath32.sol";
+import "./SafeMath64.sol";
+import "./interfaces/AggregatorValidatorInterface.sol";
+import "./interfaces/AggregatorV3Interface.sol";
+import "./interfaces/LinkTokenInterface.sol";
+import "./vendor/SafeMath.sol";
 
 /**
  * @title The Prepaid Aggregator contract
