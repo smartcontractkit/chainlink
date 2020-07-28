@@ -76,6 +76,7 @@ describe('AccessControlledAggregator', () => {
       'getAdmin',
       'getOracles',
       'getRoundData',
+      'latestAnswer',
       'latestRoundData',
       'linkToken',
       'maxSubmissionCount',
@@ -232,6 +233,57 @@ describe('AccessControlledAggregator', () => {
             .connect(personas.Carol)
             .addAccess(personas.Eddy.address)
           await aggregator.connect(personas.Eddy).latestRoundData()
+        })
+      })
+    })
+  })
+
+  describe('#latestAnswer', () => {
+    beforeEach(async () => {
+      await aggregator
+        .connect(personas.Carol)
+        .changeOracles(
+          [],
+          [personas.Neil.address],
+          [personas.Neil.address],
+          minAns,
+          maxAns,
+          rrDelay,
+        )
+      await aggregator.connect(personas.Neil).submit(nextRound, answer)
+    })
+
+    describe('when read by a contract', () => {
+      describe('without explicit access', () => {
+        it('reverts', async () => {
+          await matchers.evmRevert(
+            testHelper.readLatestAnswer(aggregator.address),
+            'No access',
+          )
+        })
+      })
+
+      describe('with access', () => {
+        it('succeeds', async () => {
+          await aggregator.connect(personas.Carol).addAccess(testHelper.address)
+          await testHelper.readLatestAnswer(aggregator.address)
+        })
+      })
+    })
+
+    describe('when read by a regular account', () => {
+      describe('without explicit access', () => {
+        it('succeeds', async () => {
+          await aggregator.connect(personas.Eddy).latestAnswer()
+        })
+      })
+
+      describe('with access', () => {
+        it('succeeds', async () => {
+          await aggregator
+            .connect(personas.Carol)
+            .addAccess(personas.Eddy.address)
+          await aggregator.connect(personas.Eddy).latestAnswer()
         })
       })
     })

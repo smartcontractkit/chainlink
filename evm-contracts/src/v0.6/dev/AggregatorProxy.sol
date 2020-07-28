@@ -32,13 +32,16 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
-   * @dev deprecated. Use latestRoundData instead.
+   * @dev deprecated. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestAnswer()
     public
     view
     virtual
-    override
+    override (AggregatorInterface, AggregatorV3Interface)
     returns (int256 answer)
   {
     ( , answer, , , ) = tryLatestRoundData();

@@ -60,8 +60,9 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * was computed. answeredInRound may be smaller than roundId when the round
    * timed out. answerInRound is equal to roundId when the round didn't time out
    * and was completed regularly.
-   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
-   * maxSubmissions) answer and updatedAt may change between queries.
+   * @dev overridden funcion to add the checkAccess() modifier
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet
+   * received maxSubmissions) answer and updatedAt may change between queries.
    */
   function getRoundData(uint80 _roundId)
     public
@@ -83,10 +84,9 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values. Consumers are encouraged to
-   * use this more fully featured method over the "legacy" getAnswer/
-   * latestAnswer/getTimestamp/latestTimestamp functions. Consumers are
-   * encouraged to check that they're receiving fresh data by inspecting the
-   * updatedAt and answeredInRound return values.
+   * use this more fully featured method over the "legacy" * latestAnswer
+   * functions. Consumers are encouraged to check that they're receiving fresh
+   * data by inspecting the updatedAt and answeredInRound return values.
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started. This is 0
@@ -97,8 +97,9 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * was computed. answeredInRound may be smaller than roundId when the round
    * timed out. answerInRound is equal to roundId when the round didn't time out
    * and was completed regularly.
-   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
-   * maxSubmissions) answer and updatedAt may change between queries.
+   * @dev overridden funcion to add the checkAccess() modifier
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet
+   * received maxSubmissions) answer and updatedAt may change between queries.
    */
   function latestRoundData()
     public
@@ -114,6 +115,24 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
     )
   {
     return super.latestRoundData();
+  }
+
+  /**
+   * @notice get the most recently reported answer
+   * @dev overridden funcion to add the checkAccess() modifier
+   * @dev deprecated. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
+   */
+  function latestAnswer()
+    public
+    view
+    override
+    checkAccess()
+    returns (int256)
+  {
+    return super.latestAnswer();
   }
 
 }

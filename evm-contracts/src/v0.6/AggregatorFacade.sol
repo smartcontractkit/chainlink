@@ -49,7 +49,7 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
     external
     view
     virtual
-    override
+    override (AggregatorInterface, AggregatorV3Interface)
     returns (int256)
   {
     return aggregator.latestAnswer();
