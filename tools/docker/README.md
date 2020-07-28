@@ -2,8 +2,6 @@
 
 The docker-compose configuration present in this directory allows for a user to quickly setup all of chainlink's services to perform actions like integration tests, acceptance tests, and development across multiple services.
 
-Docker specific scripts can be found in [bin](./bin).
-
 # Requirements
 
 - [docker-compose](https://docs.docker.com/compose/install/)
@@ -30,7 +28,7 @@ Acceptance can be accomplished by using the `acceptance` command.
 - The explorer can be reached at `http://localhost:8080`
 - The chainlink node can be reached at `http://localhost:6688`
 
-Credentials for logging into the operator-ui can be found [here](../secrets/apicredentals)
+Credentials for logging into the operator-ui can be found [here](../../core/internals/fixtures/apicredentials)
 
 ###
 
