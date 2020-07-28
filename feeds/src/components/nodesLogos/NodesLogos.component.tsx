@@ -37,6 +37,7 @@ import huobi from 'assets/nodes/huobi.png'
 import syncnode from 'assets/nodes/syncnode.png'
 import vulcanLink from 'assets/nodes/vulcanLink.png'
 import youbi from 'assets/nodes/youbi.png'
+import staked from 'assets/nodes/staked.png'
 
 interface Node {
   name: string
@@ -230,6 +231,11 @@ const list: Node[] = [
     name: 'Youbi Capital',
     url: 'http://www.youbicapital.com',
     src: youbi,
+  },
+  {
+    name: 'Staked',
+    url: 'http://www.staked.us',
+    src: staked,
   },
 ]
 
