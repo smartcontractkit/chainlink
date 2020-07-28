@@ -2342,6 +2342,31 @@ describe('FluxAggregator', () => {
               paymentAmount,
             })
           })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round ID!!!!!!!!!!', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: true,
+                roundId: 3,
+                latestSubmission: previousSubmission,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
+          })
         })
 
         describe('< min submissions and oracle included', () => {
@@ -2417,6 +2442,31 @@ describe('FluxAggregator', () => {
               availableFunds: baseFunds.sub(paymentAmount.mul(3)),
               oracleCount: oracles.length,
               paymentAmount,
+            })
+          })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round ID!!!!!!!!!!', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: true,
+                roundId: 3,
+                latestSubmission: previousSubmission,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(3)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
             })
           })
         })
@@ -2507,6 +2557,31 @@ describe('FluxAggregator', () => {
               paymentAmount,
             })
           })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: true,
+                roundId: 3,
+                latestSubmission: previousSubmission,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
+          })
         })
 
         describe('max submissions and oracle included', () => {
@@ -2542,6 +2617,31 @@ describe('FluxAggregator', () => {
               paymentAmount,
             })
           })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round ID!!!!!!!!!!', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: true,
+                roundId: 3,
+                latestSubmission: answer,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
+          })
         })
       })
 
@@ -2574,6 +2674,31 @@ describe('FluxAggregator', () => {
               availableFunds: baseFunds.sub(paymentAmount.mul(2)),
               oracleCount: oracles.length,
               paymentAmount,
+            })
+          })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round ID!!!!!!!!!!', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: false, // because of restart delay?
+                roundId: 3,
+                latestSubmission: previousSubmission,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(2)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
             })
           })
         })
@@ -2651,6 +2776,31 @@ describe('FluxAggregator', () => {
               availableFunds: baseFunds.sub(paymentAmount.mul(3)),
               oracleCount: oracles.length,
               paymentAmount,
+            })
+          })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round ID!!!!!!!!!!', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: false, // Is this because the oracle cannot start a new round with the restart delay?
+                roundId: 3,
+                latestSubmission: previousSubmission,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(3)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
             })
           })
         })
@@ -2741,6 +2891,31 @@ describe('FluxAggregator', () => {
               paymentAmount,
             })
           })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round ID!!!!!!!!!!', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: false,
+                roundId: 3,
+                latestSubmission: previousSubmission,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
+            })
+          })
         })
 
         describe('max submissions and oracle included', () => {
@@ -2774,6 +2949,31 @@ describe('FluxAggregator', () => {
               availableFunds: baseFunds.sub(paymentAmount.mul(4)),
               oracleCount: oracles.length,
               paymentAmount,
+            })
+          })
+
+          describe('and timed out', () => {
+            beforeEach(async () => {
+              await h.increaseTimeBy(timeout + 1, provider)
+              await h.mineBlock(provider)
+            })
+
+            it('suggests the next round ID!!!!!!!!!!', async () => {
+              const state = await aggregator.oracleRoundState(
+                personas.Nelly.address,
+                0,
+              )
+
+              await checkOracleRoundState(state, {
+                eligibleToSubmit: false,
+                roundId: 3,
+                latestSubmission: answer,
+                startedAt: ShouldNotBeSet,
+                timeout: 0,
+                availableFunds: baseFunds.sub(paymentAmount.mul(4)),
+                oracleCount: oracles.length,
+                paymentAmount,
+              })
             })
           })
         })

@@ -693,7 +693,9 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     Round storage round = rounds[0];
     OracleStatus storage oracle = oracles[_oracle];
 
-    bool shouldSupersede = oracle.lastReportedRound == reportingRoundId || !acceptingSubmissions(reportingRoundId);
+    bool shouldSupersede = oracle.lastReportedRound == reportingRoundId ||
+      timedOut(reportingRoundId) ||
+      !acceptingSubmissions(reportingRoundId);
     // Instead of nudging oracles to submit to the next round, the inclusion of
     // the shouldSupersede bool in the if condition pushes them towards
     // submitting in a currently open round.
