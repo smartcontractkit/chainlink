@@ -2,7 +2,6 @@ package eth
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -88,6 +87,7 @@ func NewClientWith(rpcClient RPCClient, gethClient GethClient) *client {
 }
 
 func (client *client) Dial(ctx context.Context) error {
+	logger.Debugw("eth.Client#Dial(...)")
 	if client.mocked {
 		return nil
 	} else if client.RPCClient != nil || client.GethClient != nil {
@@ -113,6 +113,10 @@ type CallArgs struct {
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
 func (client *client) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
+	logger.Debugw("eth.Client#GetERC20Balance(...)",
+		"address", address,
+		"contractAddress", contractAddress,
+	)
 	result := ""
 	numLinkBigInt := new(big.Int)
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
@@ -121,7 +125,7 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 		To:   contractAddress,
 		Data: data,
 	}
-	err := client.logCall(&result, "eth_call", args, "latest")
+	err := client.RPCClient.Call(&result, "eth_call", args, "latest")
 	if err != nil {
 		return numLinkBigInt, err
 	}
@@ -131,14 +135,20 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 
 // SendRawTx sends a signed transaction to the transaction pool.
 func (client *client) SendRawTx(bytes []byte) (common.Hash, error) {
+	logger.Debugw("eth.Client#SendRawTx(...)",
+		"bytes", bytes,
+	)
 	result := common.Hash{}
-	err := client.logCall(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
+	err := client.RPCClient.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
 	return result, err
 }
 
 // We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
 // when we're talking to a Parity node that has no receipt yet.
 func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	logger.Debugw("eth.Client#TransactionReceipt(...)",
+		"txHash", txHash,
+	)
 	receipt, err := client.GethClient.TransactionReceipt(ctx, txHash)
 	if err != nil && strings.Contains(err.Error(), "missing required field 'transactionHash'") {
 		return nil, ethereum.NotFound
@@ -146,11 +156,81 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 	return receipt, err
 }
 
-// logCall logs an RPC call's method and arguments, and then calls the method
-func (client *client) logCall(result interface{}, method string, args ...interface{}) error {
-	logger.Debugw(
-		fmt.Sprintf(`Calling eth client RPC method "%s"`, method),
+func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
+	logger.Debugw("eth.Client#ChainID(...)")
+	return client.GethClient.ChainID(ctx)
+}
+
+func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	logger.Debugw("eth.Client#SendTransaction(...)",
+		"tx", tx,
+	)
+	return client.GethClient.SendTransaction(ctx, tx)
+}
+
+func (client *client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	logger.Debugw("eth.Client#PendingNonceAt(...)",
+		"account", account,
+	)
+	return client.GethClient.PendingNonceAt(ctx, account)
+}
+
+func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	logger.Debugw("eth.Client#BlockByNumber(...)",
+		"number", number,
+	)
+	return client.GethClient.BlockByNumber(ctx, number)
+}
+
+func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	logger.Debugw("eth.Client#HeaderByNumber(...)",
+		"number", number,
+	)
+	return client.GethClient.HeaderByNumber(ctx, number)
+}
+
+func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	logger.Debugw("eth.Client#BalanceAt(...)",
+		"account", account,
+		"blockNumber", blockNumber,
+	)
+	return client.GethClient.BalanceAt(ctx, account, blockNumber)
+}
+
+func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	logger.Debugw("eth.Client#FilterLogs(...)",
+		"q", q,
+	)
+	return client.GethClient.FilterLogs(ctx, q)
+}
+
+func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
+		"q", q,
+		"ch", ch,
+	)
+	return client.GethClient.SubscribeFilterLogs(ctx, q, ch)
+}
+
+func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+	logger.Debugw("eth.Client#SubscribeNewHead(...)",
+		"ch", ch,
+	)
+	return client.GethClient.SubscribeNewHead(ctx, ch)
+}
+
+func (client *client) Call(result interface{}, method string, args ...interface{}) error {
+	logger.Debugw("eth.Client#Call(...)",
+		"method", method,
 		"args", args,
 	)
 	return client.RPCClient.Call(result, method, args...)
+}
+
+func (client *client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	logger.Debugw("eth.Client#Call(...)",
+		"method", method,
+		"args", args,
+	)
+	return client.RPCClient.CallContext(ctx, result, method, args...)
 }
