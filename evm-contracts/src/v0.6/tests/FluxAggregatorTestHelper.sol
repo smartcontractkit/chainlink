@@ -22,6 +22,13 @@ contract FluxAggregatorTestHelper {
     emit Here();
   }
 
+  function readLatestAnswer(address _aggregator)
+    external
+  {
+    FluxAggregator(_aggregator).latestAnswer();
+    emit Here();
+  }
+
   function readOracleRoundState(address _aggregator, address _oracle)
     external
   {

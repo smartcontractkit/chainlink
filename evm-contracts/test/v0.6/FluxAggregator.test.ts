@@ -212,6 +212,7 @@ describe('FluxAggregator', () => {
       'getAdmin',
       'getOracles',
       'getRoundData',
+      'latestAnswer',
       'latestRoundData',
       'linkToken',
       'maxSubmissionCount',
@@ -3010,7 +3011,7 @@ describe('FluxAggregator', () => {
         await advanceRound(aggregator, oracles, answer)
       })
 
-      it('reverts if there is no latest round', async () => {
+      it('returns the relevant round info without reverting', async () => {
         const round = await aggregator.latestRoundData()
 
         matchers.bigNum(latestRound, round.roundId)
@@ -3024,6 +3025,28 @@ describe('FluxAggregator', () => {
 
     it('reverts if a round is not present', async () => {
       await matchers.evmRevert(aggregator.latestRoundData(), 'No data present')
+    })
+  })
+
+  describe('#latestAnswer', () => {
+    beforeEach(async () => {
+      oracles = [personas.Nelly]
+      const minMax = oracles.length
+      await addOracles(aggregator, oracles, minMax, minMax, rrDelay)
+    })
+
+    describe('when an answer has already been received', () => {
+      beforeEach(async () => {
+        await advanceRound(aggregator, oracles, answer)
+      })
+
+      it('returns the latest answer without reverting', async () => {
+        matchers.bigNum(answer, await aggregator.latestAnswer())
+      })
+    })
+
+    it('returns zero', async () => {
+      matchers.bigNum(0, await aggregator.latestAnswer())
     })
   })
 
