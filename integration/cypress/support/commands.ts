@@ -63,7 +63,7 @@ Cypress.Commands.add(
   (email = 'notreal@fakeemail.ch', password = 'twochains') => {
     const url = Cypress.env('CHAINLINK_URL') || 'http://localhost:6688'
     cy.visit(url)
-    cy.contains('Chainlink').should('exist')
+    cy.contains('Operator').should('exist')
     cy.get('form input[id=email]').type(email)
     cy.get('form input[id=password]').type(password)
     cy.get('form button').click()
