@@ -159,10 +159,15 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
+	err := app.Store.EthClient.Dial(context.TODO())
+	if err != nil {
+		return err
+	}
+
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
+		err,
 		app.Store.Start(),
-		app.Store.EthClient.Dial(context.TODO()),
 		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
