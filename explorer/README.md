@@ -88,6 +88,13 @@ ngrok http 3001
 EXPLORER_CLIENT_ORIGIN=http://1b623c12.ngrok.io yarn dev:server
 ```
 
+
+### Configuring Google Analytics
+
+```
+GA_ID="UA-128878871-10"
+```
+
 ### Configuring the client
 
 ```sh
@@ -106,13 +113,6 @@ Another way of testing a separate domain is to not use ngrok to forward the clie
 You should now be able to visit the client via browser by using the forwarded ngrok url, or localhost.
 Observe network requests using the api having a different origin than the client, and successfully returning data.
 
-### Configuring the client environment variables
-
-Set Google Analytics tracking ID:
-
-```
-export REACT_APP_EXPLORER_GA_ID="UA-128878871-10"
-```
 
 ## Typescript
 

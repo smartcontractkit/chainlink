@@ -120,6 +120,11 @@ describe('config', () => {
     expect(Config.etherscanHost()).toEqual('ropsten.etherscan.io')
   })
 
+  it('returns default google analytics id key from the process env', () => {
+    process.env.GA_ID = 'GA-111'
+    expect(Config.gaId()).toEqual('GA-111')
+  })
+
   it('sets the process env', () => {
     Config.setEnv('KEY', 'value')
     expect(process.env.KEY).toEqual('value')

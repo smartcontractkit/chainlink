@@ -20,9 +20,13 @@ const muiTheme = createMuiTheme(theme)
 const store = createStore()
 
 async function setGa(): Promise<void> {
-  const { gaId } = await api.v1.config.getConfig()
-  ReactGA.initialize(gaId)
-  ReactGA.pageview(window.location.pathname + window.location.search)
+  try {
+    const { ga } = await api.v1.config.getConfig()
+    ReactGA.initialize(ga)
+    ReactGA.pageview(window.location.pathname + window.location.search)
+  } catch {
+    console.error('Could not set GA')
+  }
 }
 
 setGa()
