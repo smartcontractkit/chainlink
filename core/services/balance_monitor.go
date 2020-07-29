@@ -77,7 +77,7 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 				headNum = nil
 				bal, err = bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
 			} else {
-				headNum = big.NewInt(hm.withLag(head.Number))
+				headNum = big.NewInt(bm.withLag(head.Number))
 				bal, err = bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), headNum)
 			}
 			if err != nil {
