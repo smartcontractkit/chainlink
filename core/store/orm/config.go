@@ -244,6 +244,14 @@ func (c Config) MinimumServiceDuration() models.Duration {
 	return c.getDuration("MinimumServiceDuration")
 }
 
+// EthBalanceMonitorBlockDelay is the number of blocks that the balance monitor
+// trails behind head. This is required e.g. for Infura because they will often
+// announce a new head, then route a request to a different node which does not
+// have this head yet.
+func (c Config) EthBalanceMonitorBlockDelay() uint16 {
+	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
+}
+
 // EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
 func (c Config) EthGasBumpThreshold() uint64 {
 	return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))

@@ -81,7 +81,7 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 					headNum = nil
 					bal, err = c.BalanceAt(ctx, k.Address.Address(), nil)
 				} else {
-					headNum = big.NewInt(head.Number)
+					headNum = big.NewInt(bm.withLag(head.Number))
 					bal, err = c.BalanceAt(ctx, k.Address.Address(), headNum)
 				}
 				if err != nil {
@@ -105,6 +105,14 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 	}
 
 	wg.Wait()
+}
+
+func (bm *balanceMonitor) withLag(headNum int64) int64 {
+	lagged := headNum - int64(bm.store.Config.EthBalanceMonitorBlockDelay())
+	if lagged < 0 {
+		return 0
+	}
+	return lagged
 }
 
 func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address, headNum *big.Int) {
