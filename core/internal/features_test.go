@@ -6,21 +6,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -29,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -990,112 +984,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
 
 	eth.EventuallyAllCalled(t)
-}
-
-func TestIntegration_RandomnessRequest(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	defer cleanup()
-	eth := app.MockCallerSubscriberClient()
-	logs := make(chan models.Log, 1)
-	txHash := cltest.NewHash()
-	blockNum := 10
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("logs", logs)
-		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
-		eth.Register("eth_sendRawTransaction", txHash)
-		eth.Register("eth_getTransactionReceipt", models.TxReceipt{
-			Hash:        cltest.NewHash(),
-			BlockNumber: cltest.Int(blockNum),
-		})
-	})
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
-	eth.Register("eth_chainId", config.ChainID())
-	app.Start()
-
-	j := cltest.FixtureCreateJobViaWeb(t, app, "testdata/randomness_job.json")
-	rawKey := j.Tasks[0].Params.Get("publicKey").String()
-	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
-	require.NoError(t, err)
-	var sk int64 = 1
-	coordinatorAddress := j.Initiators[0].Address
-
-	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
-	require.Equal(t, provingKey.PublicKey, pk,
-		"public key in fixture %s does not match secret key in test %d (which has "+
-			"public key %s)", pk, sk, provingKey.PublicKey.String())
-	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
-	rawID := []byte(j.ID.String()) // CL requires ASCII hex encoding of jobID
-	seed := big.NewInt(2)
-	r := models.RandomnessRequestLog{
-		KeyHash: provingKey.PublicKey.MustHash(),
-		Seed:    seed,
-		JobID:   common.BytesToHash(rawID),
-		Sender:  cltest.NewAddress(),
-		Fee:     assets.NewLink(100),
-	}
-	requestlog := cltest.NewRandomnessRequestLog(t, r, coordinatorAddress, 1)
-
-	logs <- requestlog
-	cltest.WaitForRuns(t, j, app.Store, 1)
-	runs, err := app.Store.JobRunsFor(j.ID)
-	assert.NoError(t, err)
-	require.Len(t, runs, 1)
-	jr := runs[0]
-	require.Len(t, jr.TaskRuns, 2)
-	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
-	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
-	require.True(t, eth.AllCalled(), eth.Remaining())
-	require.Len(t, attempts, 1)
-
-	rawTx := attempts[0].SignedRawTx
-	var tx *types.Transaction
-	require.NoError(t, rlp.DecodeBytes(rawTx, &tx))
-	fixtureToAddress := j.Tasks[1].Params.Get("address").String()
-	require.Equal(t, *tx.To(), common.HexToAddress(fixtureToAddress))
-	payload := tx.Data()
-	require.Equal(t, hexutil.Encode(payload[:4]), models.VRFFulfillSelector())
-	proofContainer := make(map[string]interface{})
-	err = models.VRFFulfillMethod().Inputs.UnpackIntoMap(proofContainer, payload[4:])
-	require.NoError(t, err)
-	proof, ok := proofContainer["_proof"].([]byte)
-	require.True(t, ok)
-	require.Len(t, proof, vrf.OnChainResponseLength)
-	publicPoint, err := provingKey.PublicKey.Point()
-	require.NoError(t, err)
-	require.Equal(t, proof[:64], secp256k1.LongMarshal(publicPoint))
-	mProof := vrf.MarshaledOnChainResponse{}
-	require.Equal(t, copy(mProof[:], proof), vrf.OnChainResponseLength)
-	goProof, err := vrf.UnmarshalProofResponse(mProof)
-	require.NoError(t, err, "problem parsing solidity proof")
-	preSeed, err := vrf.BigToSeed(seed)
-	require.NoError(t, err, "seed %x out of range", seed)
-	_, err = goProof.CryptoProof(vrf.PreSeedData{
-		PreSeed:   preSeed,
-		BlockHash: requestlog.BlockHash,
-		BlockNum:  uint64(blockNum),
-	})
-	require.NoError(t, err, "problem verifying solidity proof")
-
-	// Check that a log from a different address is rejected. (The node will only
-	// ever see this situation if the ethereum.FilterQuery for this job breaks,
-	// but it's hard to test that without a full integration test.)
-	badAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
-	badRequestlog := cltest.NewRandomnessRequestLog(t, r, badAddress, 1)
-	logs <- badRequestlog
-	expectedLogTemplate := `log received from address %s, but expect logs from %s`
-	expectedLog := fmt.Sprintf(expectedLogTemplate, badAddress.String(),
-		coordinatorAddress.String())
-	millisecondsWaited := 0
-	expectedLogDeadline := 200
-	for !strings.Contains(cltest.MemoryLogTestingOnly().String(), expectedLog) &&
-		millisecondsWaited < expectedLogDeadline {
-		time.Sleep(time.Millisecond)
-		millisecondsWaited += 1
-		if millisecondsWaited >= expectedLogDeadline {
-			assert.Fail(t, "message about log with bad source address not found")
-		}
-	}
 }
 
 // TestIntegration_EthTX_Reconnect tests that JobRuns that are interrupted due to
