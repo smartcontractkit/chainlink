@@ -44,7 +44,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override (AggregatorInterface, AggregatorV3Interface)
     returns (int256 answer)
   {
-    ( , answer, , , ) = tryLatestRoundData();
+    return currentPhase.aggregator.latestAnswer();
   }
 
   /**
