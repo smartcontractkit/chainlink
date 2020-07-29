@@ -79,7 +79,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 		resp := cltest.ParseJSON(t, bytes.NewReader(data))
 		require.Equal(t, "eth_getTransactionCount", resp.Get("method").String())
 		require.True(t, resp.Get("params").IsArray())
-		require.Equal(t, address.Hex(), resp.Get("params").Get("0").String())
+		require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(resp.Get("params").Get("0").String()))
 		require.Equal(t, "pending", resp.Get("params").Get("1").String())
 	})
 	defer cleanup()
@@ -147,7 +147,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 				resp := cltest.ParseJSON(t, bytes.NewReader(data))
 				require.Equal(t, "eth_getBalance", resp.Get("method").String())
 				require.True(t, resp.Get("params").IsArray())
-				require.Equal(t, address.Hex(), resp.Get("params").Get("0").String())
+				require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(resp.Get("params").Get("0").String()))
 			})
 			defer cleanup()
 
@@ -218,6 +218,10 @@ func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
 
 	input := `{
         "transactionHash": "0x444172bef57ad978655171a8af2cfd89baa02a97fcb773067aef7794d6913374",
+        "gasUsed": "0x1",
+        "cumulativeGasUsed": "0x1",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
         "blockNumber": "0x8bf99b",
         "blockHash": null
     }`

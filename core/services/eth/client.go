@@ -150,7 +150,7 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 		"txHash", txHash,
 	)
 	receipt, err := client.GethClient.TransactionReceipt(ctx, txHash)
-	if err != nil && strings.Contains(err.Error(), "missing required field 'transactionHash'") {
+	if err != nil && strings.Contains(err.Error(), "missing required field") {
 		return nil, ethereum.NotFound
 	}
 	return receipt, err
