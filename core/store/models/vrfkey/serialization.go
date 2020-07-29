@@ -13,19 +13,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// EncryptedSecretKey contains encrypted private key to be serialized to DB
+// EncryptedVRFKey contains encrypted private key to be serialized to DB
 //
 // We could re-use geth's key handling, here, but this makes it much harder to
 // misuse VRF proving keys as ethereum keys or vice versa.
-type EncryptedSecretKey struct {
-	PublicKey PublicKey     `gorm:"primary_key;type:varchar(68)"`
-	VRFKey    gethKeyStruct `json:"vrf_key" gorm:"type:text"`
+type EncryptedVRFKey struct {
+	PublicKey PublicKey     `gorm:"primary_key"`
+	VRFKey    gethKeyStruct `json:"vrf_key"`
 	CreatedAt time.Time     `json:"-"`
 	UpdatedAt time.Time     `json:"-"`
 }
 
 // passwordPrefix is added to the beginning of the passwords for
-// EncryptedSecretKey's, so that VRF keys can't casually be used as ethereum
+// EncryptedVRFKey's, so that VRF keys can't casually be used as ethereum
 // keys, and vice-versa. If you want to do that, DON'T.
 var passwordPrefix = "don't mix VRF and Ethereum keys!"
 
@@ -45,7 +45,7 @@ var FastScryptParams = ScryptParams{N: 2, P: 1}
 
 // Encrypt returns the key encrypted with passphrase auth
 func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
-) (*EncryptedSecretKey, error) {
+) (*EncryptedVRFKey, error) {
 	var scryptParams ScryptParams
 	switch len(p) {
 	case 0:
@@ -60,7 +60,7 @@ func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not encrypt vrf key")
 	}
-	rv := EncryptedSecretKey{}
+	rv := EncryptedVRFKey{}
 	if e := json.Unmarshal(keyJSON, &rv.VRFKey); e != nil {
 		return nil, errors.Wrapf(e, "geth returned unexpected key material")
 	}
@@ -76,7 +76,7 @@ func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
 }
 
 // JSON returns the JSON representation of e, or errors
-func (e *EncryptedSecretKey) JSON() ([]byte, error) {
+func (e *EncryptedVRFKey) JSON() ([]byte, error) {
 	keyJSON, err := json.Marshal(e)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not marshal encrypted key to JSON")
@@ -85,7 +85,7 @@ func (e *EncryptedSecretKey) JSON() ([]byte, error) {
 }
 
 // Decrypt returns the PrivateKey in e, decrypted via auth, or an error
-func (e *EncryptedSecretKey) Decrypt(auth string) (*PrivateKey, error) {
+func (e *EncryptedVRFKey) Decrypt(auth string) (*PrivateKey, error) {
 	keyJSON, err := json.Marshal(e.VRFKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while marshaling key for decryption")
@@ -100,7 +100,7 @@ func (e *EncryptedSecretKey) Decrypt(auth string) (*PrivateKey, error) {
 
 // WriteToDisk writes the JSON representation of e to given file path, and
 // ensures the file has appropriate access permissions
-func (e *EncryptedSecretKey) WriteToDisk(path string) error {
+func (e *EncryptedVRFKey) WriteToDisk(path string) error {
 	keyJSON, err := e.JSON()
 	if err != nil {
 		return errors.Wrapf(err, "while marshaling key to save to %s", path)
