@@ -637,10 +637,14 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     updateTimedOutRoundInfo(_roundId.sub(1));
 
     reportingRoundId = _roundId;
-    details[_roundId].maxSubmissions = maxSubmissionCount;
-    details[_roundId].minSubmissions = minSubmissionCount;
-    details[_roundId].paymentAmount = paymentAmount;
-    details[_roundId].timeout = timeout;
+    RoundDetails memory nextDetails = RoundDetails(
+      new int256[](0),
+      maxSubmissionCount,
+      minSubmissionCount,
+      timeout,
+      paymentAmount
+    );
+    details[_roundId] = nextDetails;
     rounds[_roundId].startedAt = uint64(block.timestamp);
 
     emit NewRound(_roundId, msg.sender, rounds[_roundId].startedAt);
