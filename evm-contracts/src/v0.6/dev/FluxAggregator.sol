@@ -29,7 +29,6 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     uint64 startedAt;
     uint64 updatedAt;
     uint32 answeredInRound;
-    RoundDetails details;
   }
 
   struct RoundDetails {
@@ -99,6 +98,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   uint32 internal latestRoundId;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
+  mapping(uint32 => RoundDetails) internal details;
   mapping(address => Requester) internal requesters;
   address[] private oracleAddresses;
   Funds private recordedFunds;
@@ -593,15 +593,16 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
     if (_queriedRoundId > 0) {
       Round storage round = rounds[_queriedRoundId];
+      RoundDetails storage details = details[_queriedRoundId];
       return (
         eligibleForSpecificRound(_oracle, _queriedRoundId),
         _queriedRoundId,
         oracles[_oracle].latestSubmission,
         round.startedAt,
-        round.details.timeout,
+        details.timeout,
         recordedFunds.available,
         oracleCount(),
-        (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount)
+        (round.startedAt > 0 ? details.paymentAmount : paymentAmount)
       );
     } else {
       return oracleRoundStateSuggestRound(_oracle);
@@ -636,10 +637,10 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     updateTimedOutRoundInfo(_roundId.sub(1));
 
     reportingRoundId = _roundId;
-    rounds[_roundId].details.maxSubmissions = maxSubmissionCount;
-    rounds[_roundId].details.minSubmissions = minSubmissionCount;
-    rounds[_roundId].details.paymentAmount = paymentAmount;
-    rounds[_roundId].details.timeout = timeout;
+    details[_roundId].maxSubmissions = maxSubmissionCount;
+    details[_roundId].minSubmissions = minSubmissionCount;
+    details[_roundId].paymentAmount = paymentAmount;
+    details[_roundId].timeout = timeout;
     rounds[_roundId].startedAt = uint64(block.timestamp);
 
     emit NewRound(_roundId, msg.sender, rounds[_roundId].startedAt);
@@ -679,7 +680,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     rounds[_roundId].answeredInRound = rounds[prevId].answeredInRound;
     rounds[_roundId].updatedAt = uint64(block.timestamp);
 
-    delete rounds[_roundId].details;
+    delete details[_roundId];
   }
 
   function eligibleForSpecificRound(address _oracle, uint32 _queriedRoundId)
@@ -725,7 +726,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
       _roundId = reportingRoundId;
       round = rounds[_roundId];
 
-      _paymentAmount = round.details.paymentAmount;
+      _paymentAmount = details[_roundId].paymentAmount;
       _eligibleToSubmit = acceptingSubmissions(_roundId);
     }
 
@@ -738,7 +739,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
       _roundId,
       oracle.latestSubmission,
       round.startedAt,
-      round.details.timeout,
+      details[_roundId].timeout,
       recordedFunds.available,
       oracleCount(),
       _paymentAmount
@@ -749,11 +750,11 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     internal
     returns (bool, int256)
   {
-    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.minSubmissions) {
+    if (details[_roundId].submissions.length < details[_roundId].minSubmissions) {
       return (false, 0);
     }
 
-    int256 newAnswer = Median.calculateInplace(rounds[_roundId].details.submissions);
+    int256 newAnswer = Median.calculateInplace(details[_roundId].submissions);
     rounds[_roundId].answer = newAnswer;
     rounds[_roundId].updatedAt = uint64(block.timestamp);
     rounds[_roundId].answeredInRound = _roundId;
@@ -789,7 +790,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   function payOracle(uint32 _roundId)
     private
   {
-    uint128 payment = rounds[_roundId].details.paymentAmount;
+    uint128 payment = details[_roundId].paymentAmount;
     Funds memory funds = recordedFunds;
     funds.available = funds.available.sub(payment);
     funds.allocated = funds.allocated.add(payment);
@@ -804,7 +805,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   {
     require(acceptingSubmissions(_roundId), "round not accepting submissions");
 
-    rounds[_roundId].details.submissions.push(_submission);
+    details[_roundId].submissions.push(_submission);
     oracles[msg.sender].lastReportedRound = _roundId;
     oracles[msg.sender].latestSubmission = _submission;
 
@@ -814,9 +815,9 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   function deleteRoundDetails(uint32 _roundId)
     private
   {
-    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.maxSubmissions) return;
+    if (details[_roundId].submissions.length < details[_roundId].maxSubmissions) return;
 
-    delete rounds[_roundId].details;
+    delete details[_roundId];
   }
 
   function timedOut(uint32 _roundId)
@@ -825,7 +826,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     returns (bool)
   {
     uint64 startedAt = rounds[_roundId].startedAt;
-    uint32 roundTimeout = rounds[_roundId].details.timeout;
+    uint32 roundTimeout = details[_roundId].timeout;
     return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
   }
 
@@ -934,7 +935,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     view
     returns (bool)
   {
-    return rounds[_roundId].details.maxSubmissions != 0;
+    return details[_roundId].maxSubmissions != 0;
   }
 
   function delayed(address _oracle, uint32 _roundId)
