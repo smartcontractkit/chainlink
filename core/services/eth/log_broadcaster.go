@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"math/big"
 	"reflect"
 	"time"
@@ -243,6 +244,9 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort 
 		latestBlock, err := b.ethClient.HeaderByNumber(ctx, nil)
 		if err != nil {
 			return err
+		} else if latestBlock == nil {
+			logger.Warn("got nil block header")
+			return errors.New("got nil block header")
 		}
 		currentHeight := uint64(latestBlock.Number.Int64())
 
