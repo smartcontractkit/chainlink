@@ -243,7 +243,11 @@ func (ht *HeadTracker) receiveHeaders() error {
 			if !open {
 				return errors.New("HeadTracker headers prematurely closed")
 			}
-			if err := ht.handleNewHead(blockHeader); err != nil {
+			if blockHeader == nil {
+				logger.Warn("got nil block header")
+				continue
+			}
+			if err := ht.handleNewHead(*blockHeader); err != nil {
 				return err
 			}
 		case err, open := <-ht.headSubscription.Err():
@@ -254,11 +258,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 	}
 }
 
-func (ht *HeadTracker) handleNewHead(bh *gethTypes.Header) error {
-	if bh == nil {
-		return nil
-	}
-
+func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
 	defer func(start time.Time, number int64) {
 		elapsed := time.Since(start)
 		ms := float64(elapsed.Milliseconds())
@@ -270,7 +270,7 @@ func (ht *HeadTracker) handleNewHead(bh *gethTypes.Header) error {
 			logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		}
 	}(time.Now(), bh.Number.Int64())
-	head := models.NewHeadFromBlockHeader(*bh)
+	head := models.NewHeadFromBlockHeader(bh)
 	prevHead := ht.HighestSeenHead()
 
 	logger.Debugw(
@@ -407,6 +407,9 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.He
 	gethHeader, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
 	if err != nil {
 		return models.Head{}, err
+	} else if gethHeader == nil {
+		logger.Warn("got nil block header")
+		return models.Head{}, errors.New("got nil block header")
 	}
 	head := models.NewHead(gethHeader.Number, gethHeader.Hash(), gethHeader.ParentHash, gethHeader.Time)
 	if err := ht.store.IdempotentInsertHead(head); err != nil {
