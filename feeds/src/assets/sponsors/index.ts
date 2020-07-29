@@ -24,6 +24,7 @@ import bamboorelay from './bamboorelay.png'
 import bancor from './bancor.png'
 import bullionix from './bullionix.png'
 import gelato from './gelato.png'
+import wom from './wom.png'
 
 // Listing Thumbnails
 
@@ -51,6 +52,7 @@ import bamboorelayTn from './bamboorelay_tn.png'
 import bancorTn from './bancor_tn.png'
 import bullionixTn from './bullionix_tn.png'
 import gelatoTn from './gelato_tn.png'
+import womTn from './wom_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -203,5 +205,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://gelato.network',
     imageLg: gelato,
     imageTn: gelatoTn,
+  },
+  {
+    name: 'WOM Protocol',
+    url: 'https://womprotocol.io',
+    imageLg: wom,
+    imageTn: womTn,
   },
 ]
