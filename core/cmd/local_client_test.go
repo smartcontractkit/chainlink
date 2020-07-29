@@ -532,3 +532,33 @@ func TestClient_SetNextNonce(t *testing.T) {
 	require.NotNil(t, key.NextNonce)
 	require.Equal(t, int64(42), *key.NextNonce)
 }
+
+func TestClient_P2P_CreateKey(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+
+	auth := cltest.CallbackAuthenticator{}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("password", "../internal/fixtures/correct_password.txt", "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.CreateP2PKey(c))
+
+	keys, err := app.GetStore().FindEncryptedP2PKeys()
+	require.NoError(t, err)
+
+	require.Len(t, keys, 1)
+}

@@ -82,19 +82,6 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
 	return key.WriteToDisk(c.String("file"))
 }
 
-// getPassword retrieves the password from the file specified on the CL, or errors
-func getPassword(c *clipkg.Context) ([]byte, error) {
-	if !c.IsSet("password") {
-		return nil, fmt.Errorf("must specify password file")
-	}
-	rawPassword, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not read password from file %s",
-			c.String("password"))
-	}
-	return []byte(rawPassword), nil
-}
-
 // getPasswordAndKeyFile retrieves the password and key json from the files
 // specified on the CL, or errors
 func getPasswordAndKeyFile(c *clipkg.Context) (password []byte, keyjson []byte, err error) {
@@ -113,7 +100,7 @@ func getPasswordAndKeyFile(c *clipkg.Context) (password []byte, keyjson []byte, 
 	return password, keyjson, nil
 }
 
-// ImportVRFKey reads a file into an EncryptedSecretKey in the db
+// ImportVRFKey reads a file into an EncryptedVRFKey in the db
 func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 	password, keyjson, err := getPasswordAndKeyFile(c)
 	if err != nil {
@@ -170,7 +157,7 @@ func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
 }
 
 // getKeys retrieves the keys for an ExportVRFKey request
-func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedSecretKey, error) {
+func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedVRFKey, error) {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return nil, err
