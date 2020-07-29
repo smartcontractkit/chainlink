@@ -271,11 +271,13 @@ describe('EACAggregatorProxy', () => {
     })
   })
 
-  describe('#latestAnswer', () => {
-    it('adds a small gas overhead on top of reading directly from the aggregator', async () => {
+  describe('gas usage', () => {
+    let aggregator2: contract.Instance<AccessControlledAggregatorFactory>
+
+    beforeEach(async () => {
       testHelper = await testHelperFactory.connect(personas.Default).deploy()
       const link = await linkTokenFactory.connect(personas.Default).deploy()
-      const aggregator = await (acAggregatorFactory as any)
+      aggregator2 = await (acAggregatorFactory as any)
         .connect(personas.Default)
         .deploy(
           link.address,
@@ -288,10 +290,10 @@ describe('EACAggregatorProxy', () => {
           h.toBytes32String('TEST/LINK'),
           { gasLimit: 8_000_000 },
         )
-      await proxy.proposeAggregator(aggregator.address)
-      await proxy.confirmAggregator(aggregator.address)
+      await proxy.proposeAggregator(aggregator2.address)
+      await proxy.confirmAggregator(aggregator2.address)
 
-      await aggregator.changeOracles(
+      await aggregator2.changeOracles(
         [],
         [personas.Neil.address],
         [personas.Neil.address],
@@ -299,15 +301,26 @@ describe('EACAggregatorProxy', () => {
         1,
         0,
       )
-      await aggregator.connect(personas.Neil).submit(1, 100)
+      await aggregator2.connect(personas.Neil).submit(1, 100)
 
       await proxy.connect(personas.Default).setController(emptyAddress)
-      await aggregator.disableAccessCheck()
-      await aggregator.addAccess(proxy.address)
+      await aggregator2.disableAccessCheck()
+      await aggregator2.addAccess(proxy.address)
+    })
 
-      const tx1 = await testHelper.readLatestAnswer(aggregator.address)
+    it('adds a small gas overhead on top of reading directly from the aggregator', async () => {
+      const tx1 = await testHelper.readLatestAnswer(aggregator2.address)
       const receipt1 = await tx1.wait()
       const tx2 = await testHelper.readLatestAnswer(proxy.address)
+      const receipt2 = await tx2.wait()
+      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+      assert.isAbove(3000, diff?.toNumber() || 3001)
+    })
+
+    it('adds a small gas overhead on top of reading directly from the aggregator', async () => {
+      const tx1 = await testHelper.readLatestRoundData(aggregator2.address)
+      const receipt1 = await tx1.wait()
+      const tx2 = await testHelper.readLatestRoundData(proxy.address)
       const receipt2 = await tx2.wait()
       const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
       assert.isAbove(3000, diff?.toNumber() || 3001)
