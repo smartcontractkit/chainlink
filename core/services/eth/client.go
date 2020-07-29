@@ -207,15 +207,12 @@ func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
 	logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
 		"q", q,
-		"ch", ch,
 	)
 	return client.GethClient.SubscribeFilterLogs(ctx, q, ch)
 }
 
 func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
-	logger.Debugw("eth.Client#SubscribeNewHead(...)",
-		"ch", ch,
-	)
+	logger.Debugw("eth.Client#SubscribeNewHead(...)")
 	return client.GethClient.SubscribeNewHead(ctx, ch)
 }
 
