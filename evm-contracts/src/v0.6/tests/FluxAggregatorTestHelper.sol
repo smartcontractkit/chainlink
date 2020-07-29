@@ -6,41 +6,51 @@ contract FluxAggregatorTestHelper {
 
   uint80 public requestedRoundId;
 
-  event Here();
-
   function readLatestRoundData(address _aggregator)
     external
+    returns (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 answeredInRound
+    )
   {
-    FluxAggregator(_aggregator).latestRoundData();
-    emit Here();
+    return FluxAggregator(_aggregator).latestRoundData();
   }
 
   function readGetRoundData(address _aggregator, uint80 _roundID)
     external
+    returns (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 answeredInRound
+    )
   {
-    FluxAggregator(_aggregator).getRoundData(_roundID);
-    emit Here();
+    return FluxAggregator(_aggregator).getRoundData(_roundID);
   }
 
   function readLatestAnswer(address _aggregator)
     external
+    returns(
+      int256 answer
+    )
   {
-    FluxAggregator(_aggregator).latestAnswer();
-    emit Here();
+    return FluxAggregator(_aggregator).latestAnswer();
   }
 
   function readOracleRoundState(address _aggregator, address _oracle)
     external
   {
     FluxAggregator(_aggregator).oracleRoundState(_oracle, 0);
-    emit Here();
   }
 
   function requestNewRound(address _aggregator)
     external
   {
     requestedRoundId = FluxAggregator(_aggregator).requestNewRound();
-    emit Here();
   }
 
 }
