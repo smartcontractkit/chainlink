@@ -3,7 +3,6 @@ package p2pkey
 import (
 	"crypto/rand"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -62,16 +61,8 @@ func adulteratedPassword(auth string) string {
 	return s
 }
 
-func (k Key) Encrypt(auth string, p ...ScryptParams) (s EncryptedP2PKey, err error) {
-	var scryptParams ScryptParams
-	switch len(p) {
-	case 0:
-		scryptParams = defaultScryptParams
-	case 1:
-		scryptParams = p[0]
-	default:
-		return s, fmt.Errorf("can take at most one set of ScryptParams")
-	}
+func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
+	scryptParams := defaultScryptParams
 	var marshalledPrivK []byte
 	marshalledPrivK, err = cryptop2p.MarshalPrivateKey(k)
 	if err != nil {

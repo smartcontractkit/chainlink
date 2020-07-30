@@ -16,6 +16,15 @@ func (cli *Client) CreateP2PKey(c *clipkg.Context) error {
 	return cli.errorOut(cli.createP2PKey(c))
 }
 
+const createKeyMsg = `Created P2P keypair.
+Key ID
+  %v
+Public key:
+  0x%x
+Peer ID:
+  %s
+`
+
 func (cli *Client) createP2PKey(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
@@ -28,7 +37,7 @@ func (cli *Client) createP2PKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while generating new p2p key")
 	}
-	enc, err := k.Encrypt(string(password))
+	enc, err := k.ToEncryptedP2PKey(string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while encrypting p2p key")
 	}
@@ -40,13 +49,6 @@ func (cli *Client) createP2PKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while getting peer ID")
 	}
-	fmt.Printf(`Created P2P keypair.
-Key ID
-  %v
-Public key:
-  0x%x
-Peer ID:
-  %s
-`, enc.ID, enc.PubKey, peerID.Pretty())
+	fmt.Printf(createKeyMsg, enc.ID, enc.PubKey, peerID.Pretty())
 	return nil
 }
