@@ -14,9 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -112,14 +112,6 @@ func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
 }
 
-// GetEthBalance returns the balance of the given addresses in Ether.
-func (c *SimulatedBackendClient) GetEthBalance(address common.Address,
-) (balance *assets.Eth, err error) {
-	b, err := c.b.BalanceAt(context.Background(), address, c.currentBlockNumber())
-	ab := assets.Eth(*b)
-	return &ab, err
-}
-
 var balanceOfABIString string = `[
   {
     "constant": true,
@@ -154,8 +146,7 @@ func init() {
 
 // GetERC20Balance returns the balance of the given address for the token
 // contract address.
-func (c *SimulatedBackendClient) GetERC20Balance(address common.Address,
-	contractAddress common.Address) (balance *big.Int, err error) {
+func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
 	callData, err := balanceOfABI.Pack("balanceOf", address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while seeking the ERC20 balance of %s on %s",
@@ -173,8 +164,7 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address,
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (c *SimulatedBackendClient) SendRawTx(
-	txBytes []byte) (txHash common.Hash, err error) {
+func (c *SimulatedBackendClient) SendRawTx(txBytes []byte) (txHash common.Hash, err error) {
 	tx, err := utils.DecodeEthereumTx(hexutil.Encode(txBytes))
 	if err != nil {
 		logger.Errorf("could not deserialize transaction: %x", txBytes)
@@ -222,6 +212,19 @@ func (c *SimulatedBackendClient) blockNumber(
 
 func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
 	return c.b.HeaderByNumber(ctx, n)
+}
+
+func (c *SimulatedBackendClient) BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]eth.MaybeHeader, error) {
+	maybeHeaders := make([]eth.MaybeHeader, len(numbers))
+	for i, num := range numbers {
+		maybeHeaders[i].Number = num.Int64()
+		maybeHeaders[i].Header = &types.Header{Number: num}
+	}
+	return maybeHeaders, nil
+}
+
+func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, elems []rpc.BatchElem) error {
+	panic("unimplemented")
 }
 
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
