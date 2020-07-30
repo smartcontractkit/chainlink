@@ -30,7 +30,7 @@ contract AggregatorFacade is AggregatorV2V3Interface {
 
   /**
    * @notice get the latest completed round where the answer was updated
-   * @dev unsafe. Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated]. Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -48,7 +48,7 @@ contract AggregatorFacade is AggregatorV2V3Interface {
   /**
    * @notice Reads the current answer from aggregator delegated to.
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -66,7 +66,7 @@ contract AggregatorFacade is AggregatorV2V3Interface {
   /**
    * @notice Reads the last updated height from aggregator delegated to.
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -115,7 +115,7 @@ contract AggregatorFacade is AggregatorV2V3Interface {
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
    *
-   * @dev #[unsafe] Use getRoundData instead. This does not error if no
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
@@ -134,7 +134,7 @@ contract AggregatorFacade is AggregatorV2V3Interface {
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
    *
-   * @dev #[unsafe] Use getRoundData instead. This does not error if no
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
