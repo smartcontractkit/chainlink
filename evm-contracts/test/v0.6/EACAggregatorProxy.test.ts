@@ -7,7 +7,6 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
-import { AccessControlledAggregatorFactory } from '../../ethers/v0.6/AccessControlledAggregatorFactory'
 import { SimpleReadAccessControllerFactory } from '../../ethers/v0.6/SimpleReadAccessControllerFactory'
 import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
@@ -19,7 +18,6 @@ const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const accessControlFactory = new SimpleReadAccessControllerFactory()
 const aggregatorFactory = new MockV3AggregatorFactory()
-const acAggregatorFactory = new AccessControlledAggregatorFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const proxyFactory = new EACAggregatorProxyFactory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
@@ -268,62 +266,6 @@ describe('EACAggregatorProxy', () => {
 
         await testHelper.readLatestRoundData(proxy.address)
       })
-    })
-  })
-
-  describe('gas usage', () => {
-    let aggregator2: contract.Instance<AccessControlledAggregatorFactory>
-
-    beforeEach(async () => {
-      testHelper = await testHelperFactory.connect(personas.Default).deploy()
-      const link = await linkTokenFactory.connect(personas.Default).deploy()
-      aggregator2 = await (acAggregatorFactory as any)
-        .connect(personas.Default)
-        .deploy(
-          link.address,
-          0,
-          0,
-          emptyAddress,
-          0,
-          h.bigNum(2).pow(254),
-          decimals,
-          h.toBytes32String('TEST/LINK'),
-          { gasLimit: 8_000_000 },
-        )
-      await proxy.proposeAggregator(aggregator2.address)
-      await proxy.confirmAggregator(aggregator2.address)
-
-      await aggregator2.changeOracles(
-        [],
-        [personas.Neil.address],
-        [personas.Neil.address],
-        1,
-        1,
-        0,
-      )
-      await aggregator2.connect(personas.Neil).submit(1, 100)
-
-      await proxy.connect(personas.Default).setController(emptyAddress)
-      await aggregator2.disableAccessCheck()
-      await aggregator2.addAccess(proxy.address)
-    })
-
-    it('adds a small gas overhead on top of reading directly from the aggregator', async () => {
-      const tx1 = await testHelper.readLatestAnswer(aggregator2.address)
-      const receipt1 = await tx1.wait()
-      const tx2 = await testHelper.readLatestAnswer(proxy.address)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(3000, diff?.toNumber() || 3001)
-    })
-
-    it('adds a small gas overhead on top of reading directly from the aggregator', async () => {
-      const tx1 = await testHelper.readLatestRoundData(aggregator2.address)
-      const receipt1 = await tx1.wait()
-      const tx2 = await testHelper.readLatestRoundData(proxy.address)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(3000, diff?.toNumber() || 3001)
     })
   })
 })
