@@ -135,4 +135,69 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
     return super.latestAnswer();
   }
 
+  /**
+   * @notice get the most recently reported round ID
+   * @dev overridden funcion to add the checkAccess() modifier
+   * @dev deprecated. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
+   */
+  function latestRound()
+    public
+    view
+    override
+    checkAccess()
+    returns (uint256)
+  {
+    return super.latestRound();
+  }
+
+  /**
+   * @notice get the most recent updated at timestamp
+   * @dev overridden funcion to add the checkAccess() modifier
+   * @dev deprecated. Use latestRoundData instead.
+   */
+  function latestTimestamp()
+    public
+    view
+    override
+    checkAccess()
+    returns (uint256)
+  {
+    return super.latestTimestamp();
+  }
+
+  /**
+   * @notice get past rounds answers
+   * @dev overridden funcion to add the checkAccess() modifier
+   * @param _roundId the round number to retrieve the answer for
+   * @dev deprecated. Use getRoundData instead.
+   */
+  function getAnswer(uint256 _roundId)
+    public
+    view
+    override
+    checkAccess()
+    returns (int256)
+  {
+    return super.getAnswer(_roundId);
+  }
+
+  /**
+   * @notice get timestamp when an answer was last updated
+   * @dev overridden funcion to add the checkAccess() modifier
+   * @param _roundId the round number to retrieve the updated timestamp for
+   * @dev deprecated. Use getRoundData instead.
+   */
+  function getTimestamp(uint256 _roundId)
+    public
+    view
+    override
+    checkAccess()
+    returns (uint256)
+  {
+    return super.getTimestamp(_roundId);
+  }
+
 }
