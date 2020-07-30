@@ -920,8 +920,7 @@ describe('FluxAggregator', () => {
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
 
       for (const answer of answers) {
-        await aggregator.connect(personas.Neil).submit(nextRound, answer)
-        nextRound++
+        await aggregator.connect(personas.Neil).submit(nextRound++, answer)
       }
     })
 
@@ -938,8 +937,7 @@ describe('FluxAggregator', () => {
       await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay)
 
       for (let i = 0; i < 10; i++) {
-        await aggregator.connect(personas.Neil).submit(nextRound, i + 1)
-        nextRound++
+        await aggregator.connect(personas.Neil).submit(nextRound++, i + 1)
       }
     })
 
