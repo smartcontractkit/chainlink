@@ -28,7 +28,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   /**
    * @notice Reads the current answer from aggregator delegated to.
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -46,7 +46,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   /**
    * @notice Reads the last updated height from aggregator delegated to.
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -65,7 +65,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
    *
-   * @dev #[unsafe] Use getRoundData instead. This does not error if no
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
@@ -86,7 +86,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
    *
-   * @dev #[unsafe] Use getRoundData instead. This does not error if no
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
@@ -108,7 +108,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
    * ID includes the proxy's phase, to make sure round IDs increase even when
    * switching to a newly deployed aggregator.
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.

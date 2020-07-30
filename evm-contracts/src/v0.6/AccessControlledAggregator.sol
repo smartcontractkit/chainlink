@@ -84,7 +84,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values. Consumers are encouraged to
-   * use this more fully featured method over the "legacy" * latestAnswer
+   * use this more fully featured method over the "legacy" latestAnswer
    * functions. Consumers are encouraged to check that they're receiving fresh
    * data by inspecting the updatedAt and answeredInRound return values.
    * @return roundId is the round ID for which data was retrieved
@@ -121,7 +121,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @notice get the most recently reported answer
    * @dev overridden funcion to add the checkAccess() modifier
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -140,7 +140,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @notice get the most recently reported round ID
    * @dev overridden funcion to add the checkAccess() modifier
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -159,7 +159,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @notice get the most recent updated at timestamp
    * @dev overridden funcion to add the checkAccess() modifier
    *
-   * @dev #[unsafe] Use latestRoundData instead. This does not error if no
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -179,7 +179,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @dev overridden funcion to add the checkAccess() modifier
    * @param _roundId the round number to retrieve the answer for
    *
-   * @dev #[unsafe] Use getRoundData instead. This does not error if no
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
@@ -199,7 +199,7 @@ contract AccessControlledAggregator is FluxAggregator, SimpleReadAccessControlle
    * @dev overridden funcion to add the checkAccess() modifier
    * @param _roundId the round number to retrieve the updated timestamp for
    *
-   * @dev #[unsafe] Use getRoundData instead. This does not error if no
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
