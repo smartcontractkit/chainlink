@@ -79,6 +79,9 @@ RUN useradd --home-dir=/home/chainlink --create-home --shell=/bin/bash --uid=100
 COPY --from=1 /go/bin/chainlink /usr/local/bin/
 RUN chmod +x /usr/local/bin/chainlink
 
+# Required to mount tls certificates and env files in the docs.
+RUN mkdir /chainlink && chown chainlink:chainlink -R /chainlink
+
 USER chainlink
 WORKDIR /home/chainlink
 
