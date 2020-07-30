@@ -41,10 +41,10 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     public
     view
     virtual
-    override (AggregatorInterface, AggregatorV3Interface)
+    override
     returns (int256 answer)
   {
-    return currentPhase.aggregator.latestAnswer();
+    return AggregatorInterface(address(currentPhase.aggregator)).latestAnswer();
   }
 
   /**
