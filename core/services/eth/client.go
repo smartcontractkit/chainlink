@@ -3,6 +3,7 @@ package eth
 import (
 	"context"
 	"math/big"
+	"net/url"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 )
 
 //go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
@@ -30,6 +32,7 @@ type Client interface {
 	Dial(ctx context.Context) error
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(bytes []byte) (common.Hash, error)
+	BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]MaybeHeader, error)
 }
 
 // GethClient is an interface that represents go-ethereum's own ethclient
@@ -47,11 +50,12 @@ type GethClient interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 }
 
-// RPCClient is an interface that represents go-ethereum's own rpc.Client
+// RPCClient is an interface that represents go-ethereum's own rpc.Client.
 // https://github.com/ethereum/go-ethereum/blob/master/rpc/client.go
 type RPCClient interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	Close()
 }
 
@@ -73,8 +77,15 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func NewClient(url string) *client {
-	return &client{url: url}
+func NewClient(rpcUrl string) (*client, error) {
+	parsed, err := url.ParseRequestURI(rpcUrl)
+	if err != nil {
+		return nil, err
+	}
+	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
+		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
+	}
+	return &client{url: rpcUrl}, nil
 }
 
 // This alternate constructor exists for testing purposes.
@@ -187,6 +198,55 @@ func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (*typ
 		"number", number,
 	)
 	return client.GethClient.HeaderByNumber(ctx, number)
+}
+
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	return hexutil.EncodeBig(number)
+}
+
+type MaybeHeader struct {
+	Header *types.Header
+	Number int64
+	Error  error
+}
+
+func (client *client) BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]MaybeHeader, error) {
+	logger.Debugw("eth.Client#BatchHeaderByNumber(...)",
+		"numbers", numbers,
+	)
+	batchElems := make([]rpc.BatchElem, len(numbers))
+	for i, num := range numbers {
+		batchElems[i] = rpc.BatchElem{
+			Method: "eth_getBlockByNumber",
+			Args:   []interface{}{toBlockNumArg(num), false},
+			Result: &types.Header{},
+		}
+	}
+	err := client.RPCClient.BatchCallContext(ctx, batchElems)
+	if err != nil {
+		return nil, err
+	}
+	maybeHeaders := make([]MaybeHeader, len(batchElems))
+	for i, batchElem := range batchElems {
+		maybeHeaders[i].Number = numbers[i].Int64()
+		if batchElem.Error != nil {
+			maybeHeaders[i].Error = batchElem.Error
+		} else {
+			var ok bool
+			maybeHeaders[i].Header, ok = batchElem.Result.(*types.Header)
+			if !ok {
+				maybeHeaders[i].Error = errors.Errorf("BatchHeaderByNumber: expected *types.Header, received %T", batchElem.Result)
+			}
+			// Because .Result is pre-initialized to an empty *types.Receipt, we have to detect a nil return another way
+			if maybeHeaders[i].Header != nil && maybeHeaders[i].Header.Number == nil {
+				maybeHeaders[i].Header = nil
+			}
+		}
+	}
+	return maybeHeaders, nil
 }
 
 func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {

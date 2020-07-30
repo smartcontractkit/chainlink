@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/onsi/gomega"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
@@ -71,7 +72,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flagsAndDependencies ...interf
 			mock.RegisterOptional("eth_getBlockByNumber", MockResultFunc(func(args ...interface{}) interface{} {
 				n, err := hexutil.DecodeBig(args[0].(string))
 				require.NoError(t, err)
-				return NewEthHeader(n.Int64())
+				return *NewEthHeader(n.Int64())
 			}))
 		} else {
 			switch dep := flag.(type) {
@@ -260,6 +261,16 @@ func (mock *EthMock) CallContext(_ context.Context, result interface{}, method s
 		mock.t.Errorf("%s\n%s", err, debug.Stack())
 	}
 	return err
+}
+
+func (mock *EthMock) BatchCallContext(ctx context.Context, elems []rpc.BatchElem) error {
+	for _, elem := range elems {
+		err := mock.CallContext(ctx, elem.Result, elem.Method, elem.Args...)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type MockResultFunc func(args ...interface{}) interface{}
