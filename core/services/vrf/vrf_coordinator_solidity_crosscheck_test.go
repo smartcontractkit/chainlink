@@ -28,9 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_request_id"
 )
 
-// coordinator represents the universe in which a randomness request occurs and
+// coordinatorUniverse represents the universe in which a randomness request occurs and
 // is fulfilled.
-type coordinator struct {
+type coordinatorUniverse struct {
 	// Golang wrappers ofr solidity contracts
 	rootContract            *solidity_vrf_coordinator_interface.VRFCoordinator
 	linkContract            *link_token_interface.LinkToken
@@ -60,7 +60,7 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 
 // deployCoordinator sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
-func deployCoordinator(t *testing.T) coordinator {
+func deployCoordinator(t *testing.T) coordinatorUniverse {
 	var (
 		sergey = newIdentity(t)
 		neil   = newIdentity(t)
@@ -97,7 +97,7 @@ func deployCoordinator(t *testing.T) coordinator {
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
-	return coordinator{
+	return coordinatorUniverse{
 		rootContract:            coordinatorContract,
 		rootContractAddress:     coordinatorAddress,
 		linkContract:            linkContract,
@@ -133,7 +133,7 @@ var (
 
 // registerProvingKey registers keyHash to neil in the VRFCoordinator universe
 // represented by coordinator, with the given jobID and fee.
-func registerProvingKey(t *testing.T, coordinator coordinator) (
+func registerProvingKey(t *testing.T, coordinator coordinatorUniverse) (
 	keyHash [32]byte, jobID [32]byte, fee *big.Int) {
 	copy(jobID[:], []byte("exactly 32 characters in length."))
 	_, err := coordinator.rootContract.RegisterProvingKey(
@@ -170,7 +170,7 @@ func TestRegisterProvingKey(t *testing.T) {
 // in the VRFCoordinator universe represented by coordinator, specifying the
 // given keyHash and seed, and paying the given fee. It returns the log emitted
 // from the VRFCoordinator in response to the request
-func requestRandomness(t *testing.T, coordinator coordinator,
+func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 	keyHash common.Hash, fee, seed *big.Int) *models.RandomnessRequestLog {
 	_, err := coordinator.consumerContract.RequestRandomness(coordinator.carol,
 		keyHash, fee, seed)
@@ -215,7 +215,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 }
 
 // fulfillRandomnessRequest is neil fulfilling randomness requested by log.
-func fulfillRandomnessRequest(t *testing.T, coordinator coordinator,
+func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 	log models.RandomnessRequestLog) vrf.Proof {
 	preSeed, err := vrf.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)

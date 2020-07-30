@@ -23,7 +23,7 @@ import (
 
 func registerExistingProvingKey(
 	t *testing.T,
-	coordinator coordinator,
+	coordinator coordinatorUniverse,
 	provingKey *vrfkey.PrivateKey,
 	jobID *models.ID,
 	vrfFee *big.Int,
