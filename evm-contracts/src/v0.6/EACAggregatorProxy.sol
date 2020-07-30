@@ -40,7 +40,10 @@ contract EACAggregatorProxy is AggregatorProxy {
   /**
    * @notice Reads the current answer from aggregator delegated to.
    * @dev overridden function to add the checkAccess() modifier
-   * @dev deprecated. Use latestRoundData instead.
+   * @dev unsafe. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestAnswer()
     public
@@ -56,7 +59,10 @@ contract EACAggregatorProxy is AggregatorProxy {
    * @notice get the latest completed round where the answer was updated. This
    * ID includes the proxy's phase, to make sure round IDs increase even when
    * switching to a newly deployed aggregator.
-   * @dev deprecated. Use latestRoundData instead.
+   * @dev unsafe. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestTimestamp()
     public
@@ -72,7 +78,10 @@ contract EACAggregatorProxy is AggregatorProxy {
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
    * @dev overridden function to add the checkAccess() modifier
-   * @dev deprecated. Use getRoundData instead.
+   * @dev unsafe. Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getAnswer(uint256 _roundId)
     public
@@ -88,7 +97,10 @@ contract EACAggregatorProxy is AggregatorProxy {
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
    * @dev overridden function to add the checkAccess() modifier
-   * @dev deprecated. Use getRoundData instead.
+   * @dev unsafe. Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getTimestamp(uint256 _roundId)
     public
@@ -103,7 +115,10 @@ contract EACAggregatorProxy is AggregatorProxy {
   /**
    * @notice get the latest completed round where the answer was updated
    * @dev overridden function to add the checkAccess() modifier
-   * @dev deprecated. Use latestRoundData instead.
+   * @dev unsafe. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestRound()
     public
