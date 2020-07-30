@@ -20,10 +20,6 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   mapping(uint16 => AggregatorV2V3Interface) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
-  // This is an error that the Flux Aggregator throws when you try to read
-  // data for a round that does not exist.
-  string constant private V3_NO_DATA_ERROR = "No data present";
-  bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes(V3_NO_DATA_ERROR));
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -60,7 +56,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = tryLatestRoundData();
+    return currentPhase.aggregator.latestTimestamp();
   }
 
   /**
@@ -78,7 +74,9 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = tryGetRoundData(_roundId);
+    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
+    AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    return aggregator.getAnswer(aggregatorRoundId);
   }
 
   /**
@@ -96,7 +94,9 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = tryGetRoundData(_roundId);
+    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
+    AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    return aggregator.getTimestamp(aggregatorRoundId);
   }
 
   /**
@@ -115,7 +115,8 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     override
     returns (uint256 roundId)
   {
-    ( roundId, , , , ) = tryLatestRoundData();
+    Phase memory phase = currentPhase; // cache storage reads
+    return addPhase(phase.id, uint64(phase.aggregator.latestRound()));
   }
 
   /**
@@ -393,61 +394,6 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     uint64 aggregatorRoundId = uint64(_roundId);
 
     return (phaseId, aggregatorRoundId);
-  }
-
-  function tryLatestRoundData()
-    internal
-    view
-    returns (uint80, int256, uint256, uint256, uint80)
-  {
-    Phase memory current = currentPhase; // cache storage reads
-
-    try current.aggregator.latestRoundData() returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
-    ) {
-      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, current.id);
-    } catch Error(string memory reason) {
-      return handleExpectedV3Error(reason);
-    }
-  }
-
-  function tryGetRoundData(
-    uint256 _roundId
-  )
-    internal
-    view
-    returns (uint80, int256, uint256, uint256, uint80)
-  {
-    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
-    AggregatorV3Interface aggregator = phaseAggregators[phaseId];
-
-    try aggregator.getRoundData(uint80(aggregatorRoundId)) returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
-    ) {
-      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, phaseId);
-    } catch Error(string memory reason) {
-      return handleExpectedV3Error(reason);
-    }
-  }
-
-  function handleExpectedV3Error(
-    string memory reason
-  )
-    internal
-    view
-    returns (uint80, int256, uint256, uint256, uint80)
-  {
-    require(keccak256(bytes(reason)) == EXPECTED_V3_ERROR, reason);
-
-    return (0, 0, 0, 0, 0);
   }
 
   function addPhaseIds(

@@ -43,6 +43,12 @@ contract FluxAggregatorTestHelper {
     FluxAggregator(_aggregator).latestTimestamp();
   }
 
+  function readLatestRound(address _aggregator)
+    external
+  {
+    FluxAggregator(_aggregator).latestRound();
+  }
+
   function requestNewRound(address _aggregator)
     external
   {
