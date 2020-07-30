@@ -6,14 +6,12 @@ import {
 } from '@chainlink/test-helpers'
 import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
 import { AccessControlledAggregatorFactory } from '../../ethers/v0.6/AccessControlledAggregatorFactory'
-import { SimpleReadAccessControllerFactory } from '../../ethers/v0.6/SimpleReadAccessControllerFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
 
 let personas: setup.Personas
 
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
-const accessControlFactory = new SimpleReadAccessControllerFactory()
 const aggregatorFactory = new AccessControlledAggregatorFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const proxyFactory = new EACAggregatorProxyFactory()
@@ -28,7 +26,6 @@ beforeAll(async () => {
 })
 
 describe('gas usage', () => {
-  let controller: contract.Instance<SimpleReadAccessControllerFactory>
   let aggregator: contract.Instance<AccessControlledAggregatorFactory>
   let proxy: contract.Instance<EACAggregatorProxyFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
@@ -36,9 +33,6 @@ describe('gas usage', () => {
   describe('EACAggreagtorProxy => AccessControlledAggreagtor', () => {
     beforeEach(async () => {
       await setup.snapshot(provider, async () => {
-        controller = await accessControlFactory
-          .connect(personas.Default)
-          .deploy()
         testHelper = await testHelperFactory.connect(personas.Default).deploy()
         const link = await linkTokenFactory.connect(personas.Default).deploy()
         aggregator = await (aggregatorFactory as any)
@@ -56,7 +50,7 @@ describe('gas usage', () => {
           )
         proxy = await proxyFactory
           .connect(personas.Default)
-          .deploy(aggregator.address, controller.address)
+          .deploy(aggregator.address, emptyAddress)
 
         await aggregator.changeOracles(
           [],
@@ -67,8 +61,6 @@ describe('gas usage', () => {
           0,
         )
         await aggregator.connect(personas.Neil).submit(1, 100)
-
-        await proxy.connect(personas.Default).setController(emptyAddress)
         await aggregator.disableAccessCheck()
         await aggregator.addAccess(proxy.address)
       })()
