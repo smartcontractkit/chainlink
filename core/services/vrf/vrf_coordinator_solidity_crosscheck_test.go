@@ -38,6 +38,7 @@ type coordinatorUniverse struct {
 	requestIDBase           *solidity_vrf_request_id.VRFRequestIDBaseTestHelper
 	rootContractAddress     common.Address
 	consumerContractAddress common.Address
+	linkContractAddress     common.Address
 	// Abstraction representation of the ethereum blockchain
 	backend        *backends.SimulatedBackend
 	coordinatorABI *abi.ABI
@@ -49,6 +50,7 @@ type coordinatorUniverse struct {
 }
 
 var seed = big.NewInt(1)
+var oneEth = big.NewInt(1000000000000000000) // 1e18 wei
 
 // newIdentity returns a go-ethereum abstraction of an ethereum account for
 // interacting with contract golang wrappers
@@ -66,7 +68,6 @@ func deployCoordinator(t *testing.T) coordinatorUniverse {
 		neil   = newIdentity(t)
 		carol  = newIdentity(t)
 	)
-	oneEth := big.NewInt(1000000000000000000)
 	genesisData := core.GenesisAlloc{
 		sergey.From: {Balance: oneEth},
 		neil.From:   {Balance: oneEth},
@@ -101,6 +102,7 @@ func deployCoordinator(t *testing.T) coordinatorUniverse {
 		rootContract:            coordinatorContract,
 		rootContractAddress:     coordinatorAddress,
 		linkContract:            linkContract,
+		linkContractAddress:     linkAddress,
 		consumerContract:        consumerContract,
 		requestIDBase:           requestIDBase,
 		consumerContractAddress: consumerContractAddress,
