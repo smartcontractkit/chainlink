@@ -561,4 +561,8 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, keys, 1)
+
+	e := keys[0]
+	_, err = e.Decrypt(cltest.Password)
+	require.NoError(t, err)
 }
