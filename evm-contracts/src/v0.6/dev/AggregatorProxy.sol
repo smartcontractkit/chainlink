@@ -1,8 +1,7 @@
 pragma solidity 0.6.6;
 
 import "../Owned.sol";
-import "../interfaces/AggregatorInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/AggregatorV2V3Interface.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -10,15 +9,15 @@ import "../interfaces/AggregatorV3Interface.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
+contract AggregatorProxy is AggregatorV2V3Interface, Owned {
 
   struct Phase {
     uint16 id;
-    AggregatorV3Interface aggregator;
+    AggregatorV2V3Interface aggregator;
   }
   Phase private currentPhase;
-  AggregatorV3Interface public proposedAggregator;
-  mapping(uint16 => AggregatorV3Interface) public phaseAggregators;
+  AggregatorV2V3Interface public proposedAggregator;
+  mapping(uint16 => AggregatorV2V3Interface) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
   // This is an error that the Flux Aggregator throws when you try to read
@@ -44,7 +43,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    return AggregatorInterface(address(currentPhase.aggregator)).latestAnswer();
+    return currentPhase.aggregator.latestAnswer();
   }
 
   /**
@@ -340,7 +339,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     external
     onlyOwner()
   {
-    proposedAggregator = AggregatorV3Interface(_aggregator);
+    proposedAggregator = AggregatorV2V3Interface(_aggregator);
   }
 
   /**
@@ -368,8 +367,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     internal
   {
     uint16 id = currentPhase.id + 1;
-    currentPhase = Phase(id, AggregatorV3Interface(_aggregator));
-    phaseAggregators[id] = AggregatorV3Interface(_aggregator);
+    currentPhase = Phase(id, AggregatorV2V3Interface(_aggregator));
+    phaseAggregators[id] = AggregatorV2V3Interface(_aggregator);
   }
 
   function addPhase(
