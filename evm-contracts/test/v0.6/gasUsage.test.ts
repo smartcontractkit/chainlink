@@ -1,5 +1,9 @@
-import { contract, helpers as h, setup } from '@chainlink/test-helpers'
-import { assert } from 'chai'
+import {
+  contract,
+  matchers,
+  helpers as h,
+  setup,
+} from '@chainlink/test-helpers'
 import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
 import { AccessControlledAggregatorFactory } from '../../ethers/v0.6/AccessControlledAggregatorFactory'
 import { SimpleReadAccessControllerFactory } from '../../ethers/v0.6/SimpleReadAccessControllerFactory'
@@ -22,13 +26,6 @@ beforeAll(async () => {
 
   personas = users.personas
 })
-
-function gasDiffLessThan(max: number, receipt1: any, receipt2: any) {
-  assert(receipt1, 'receipt1 is not present for gas comparison')
-  assert(receipt2, 'receipt2 is not present for gas comparison')
-  const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-  assert.isAbove(max, diff?.toNumber() || Infinity)
-}
 
 describe('gas usage', () => {
   let controller: contract.Instance<SimpleReadAccessControllerFactory>
@@ -81,21 +78,21 @@ describe('gas usage', () => {
       const tx1 = await testHelper.readLatestAnswer(aggregator.address)
       const tx2 = await testHelper.readLatestAnswer(proxy.address)
 
-      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
+      matchers.gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
 
     it('#latestRound', async () => {
       const tx1 = await testHelper.readLatestRound(aggregator.address)
       const tx2 = await testHelper.readLatestRound(proxy.address)
 
-      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
+      matchers.gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
 
     it('#latestTimestamp', async () => {
       const tx1 = await testHelper.readLatestTimestamp(aggregator.address)
       const tx2 = await testHelper.readLatestTimestamp(proxy.address)
 
-      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
+      matchers.gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
 
     it('#getAnswer', async () => {
@@ -104,7 +101,7 @@ describe('gas usage', () => {
       const tx1 = await testHelper.readGetAnswer(aggregator.address, aggId)
       const tx2 = await testHelper.readGetAnswer(proxy.address, proxyId)
 
-      gasDiffLessThan(4000, await tx1.wait(), await tx2.wait())
+      matchers.gasDiffLessThan(4000, await tx1.wait(), await tx2.wait())
     })
 
     it('#getTimestamp', async () => {
@@ -113,14 +110,14 @@ describe('gas usage', () => {
       const tx1 = await testHelper.readGetTimestamp(aggregator.address, aggId)
       const tx2 = await testHelper.readGetTimestamp(proxy.address, proxyId)
 
-      gasDiffLessThan(4000, await tx1.wait(), await tx2.wait())
+      matchers.gasDiffLessThan(4000, await tx1.wait(), await tx2.wait())
     })
 
     it('#latestRoundData', async () => {
       const tx1 = await testHelper.readLatestRoundData(aggregator.address)
       const tx2 = await testHelper.readLatestRoundData(proxy.address)
 
-      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
+      matchers.gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
   })
 })
