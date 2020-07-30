@@ -23,6 +23,13 @@ beforeAll(async () => {
   personas = users.personas
 })
 
+function gasDiffLessThan(max: number, receipt1: any, receipt2: any) {
+  assert(receipt1, 'receipt1 is not present for gas comparison')
+  assert(receipt2, 'receipt2 is not present for gas comparison')
+  const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+  assert.isAbove(max, diff?.toNumber() || Infinity)
+}
+
 describe('gas usage', () => {
   let controller: contract.Instance<SimpleReadAccessControllerFactory>
   let aggregator: contract.Instance<AccessControlledAggregatorFactory>
@@ -72,60 +79,48 @@ describe('gas usage', () => {
 
     it('#latestAnswer', async () => {
       const tx1 = await testHelper.readLatestAnswer(aggregator.address)
-      const receipt1 = await tx1.wait()
       const tx2 = await testHelper.readLatestAnswer(proxy.address)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(3000, diff?.toNumber() || 3001)
+
+      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
 
     it('#latestRound', async () => {
       const tx1 = await testHelper.readLatestRound(aggregator.address)
-      const receipt1 = await tx1.wait()
       const tx2 = await testHelper.readLatestRound(proxy.address)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(3000, diff?.toNumber() || 3001)
+
+      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
 
     it('#latestTimestamp', async () => {
       const tx1 = await testHelper.readLatestTimestamp(aggregator.address)
-      const receipt1 = await tx1.wait()
       const tx2 = await testHelper.readLatestTimestamp(proxy.address)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(3000, diff?.toNumber() || 3001)
+
+      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
 
     it('#getAnswer', async () => {
       const aggId = 1
       const proxyId = phaseBase.add(aggId)
       const tx1 = await testHelper.readGetAnswer(aggregator.address, aggId)
-      const receipt1 = await tx1.wait()
       const tx2 = await testHelper.readGetAnswer(proxy.address, proxyId)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(4000, diff?.toNumber() || 3001)
+
+      gasDiffLessThan(4000, await tx1.wait(), await tx2.wait())
     })
 
     it('#getTimestamp', async () => {
       const aggId = 1
       const proxyId = phaseBase.add(aggId)
       const tx1 = await testHelper.readGetTimestamp(aggregator.address, aggId)
-      const receipt1 = await tx1.wait()
       const tx2 = await testHelper.readGetTimestamp(proxy.address, proxyId)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(4000, diff?.toNumber() || 3001)
+
+      gasDiffLessThan(4000, await tx1.wait(), await tx2.wait())
     })
 
     it('#latestRoundData', async () => {
       const tx1 = await testHelper.readLatestRoundData(aggregator.address)
-      const receipt1 = await tx1.wait()
       const tx2 = await testHelper.readLatestRoundData(proxy.address)
-      const receipt2 = await tx2.wait()
-      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
-      assert.isAbove(3000, diff?.toNumber() || 3001)
+
+      gasDiffLessThan(3000, await tx1.wait(), await tx2.wait())
     })
   })
 })
