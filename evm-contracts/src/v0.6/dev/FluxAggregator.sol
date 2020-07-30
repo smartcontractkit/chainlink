@@ -334,7 +334,7 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
 
   /**
    * @notice get the most recently reported answer
-   * @dev deprecated. Use latestRoundData instead. This does not error if no
+   * @dev unsafe. Use latestRoundData instead. This does not error if no
    * answer has been reached, it will simply return 0. Either wait to point to
    * an already answered Aggregator or use the recommended latestRoundData
    * instead which includes better verification information.
@@ -351,7 +351,10 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
 
   /**
    * @notice get the most recent updated at timestamp
-   * @dev deprecated. Use latestRoundData instead.
+   * @dev unsafe. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestTimestamp()
     public
@@ -365,7 +368,10 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
 
   /**
    * @notice get the ID of the last updated round
-   * @dev deprecated. Use latestRoundData instead.
+   * @dev unsafe. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestRound()
     public
@@ -380,7 +386,10 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   /**
    * @notice get past rounds answers
    * @param _roundId the round number to retrieve the answer for
-   * @dev deprecated. Use getRoundData instead.
+   * @dev unsafe. Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getAnswer(uint256 _roundId)
     public
@@ -395,7 +404,10 @@ contract FluxAggregator is AggregatorInterface, AggregatorV3Interface, Owned {
   /**
    * @notice get timestamp when an answer was last updated
    * @param _roundId the round number to retrieve the updated timestamp for
-   * @dev deprecated. Use getRoundData instead.
+   * @dev unsafe. Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getTimestamp(uint256 _roundId)
     public
