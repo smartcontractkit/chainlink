@@ -162,8 +162,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		k0Addr := k0.Address.Address()
 
 		gethClient := new(mocks.GethClient)
-		g := cltest.NewSimpleGethWrapper(gethClient)
-		bm := services.NewBalanceMonitor(store, g)
+		store.EthClient = eth.NewClientWith(nil, gethClient)
+		bm := services.NewBalanceMonitor(store)
 
 		// If lagged head would be negative, just uses 0
 		k0bal := big.NewInt(42)

@@ -5,3 +5,4 @@ solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.jso
 solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json 7c556094f6a3539b1680c67724bd66c197005c911ce9cb176d75c7fce56acd7a
 solidity_vrf_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
 solidity_vrf_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json 7f91b75e89d021f038cc44ffc531ef60436c7b9e23f632ec57238ec61a2df517
+vrf_testnet_d20: ../../../evm-contracts/abi/v0.6/VRFTestnetD20.json 58a30c1eecea91b37a0f2b522a02d2b4e54de121b48a28e09fde5c377eaf6914

@@ -35,8 +35,9 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient := eth.NewClient(wsUrl)
-		err := ethClient.Dial(context.Background())
+		ethClient, err := eth.NewClient(wsUrl)
+		require.NoError(t, err)
+		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
 
 		hash := common.HexToHash(txHash)
@@ -56,8 +57,9 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient := eth.NewClient(wsUrl)
-		err := ethClient.Dial(context.Background())
+		ethClient, err := eth.NewClient(wsUrl)
+		require.NoError(t, err)
+		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
 
 		hash := common.HexToHash(txHash)
@@ -84,8 +86,9 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient := eth.NewClient(url)
-	err := ethClient.Dial(context.Background())
+	ethClient, err := eth.NewClient(url)
+	require.NoError(t, err)
+	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
 
 	result, err := ethClient.PendingNonceAt(context.Background(), address)
@@ -113,8 +116,9 @@ func TestEthClient_SendRawTx(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient := eth.NewClient(url)
-	err := ethClient.Dial(context.Background())
+	ethClient, err := eth.NewClient(url)
+	require.NoError(t, err)
+	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
 
 	result, err := ethClient.SendRawTx(hexutil.MustDecode(txData))
@@ -151,8 +155,9 @@ func TestEthClient_BalanceAt(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient := eth.NewClient(url)
-			err := ethClient.Dial(context.Background())
+			ethClient, err := eth.NewClient(url)
+			require.NoError(t, err)
+			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
 
 			result, err := ethClient.BalanceAt(context.Background(), address, nil)
@@ -201,8 +206,9 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient := eth.NewClient(url)
-			err := ethClient.Dial(context.Background())
+			ethClient, err := eth.NewClient(url)
+			require.NoError(t, err)
+			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
 
 			result, err := ethClient.GetERC20Balance(userAddress, contractAddress)

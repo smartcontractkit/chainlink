@@ -8,9 +8,13 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+
 	ethereum "github.com/ethereum/go-ethereum"
 
 	mock "github.com/stretchr/testify/mock"
+
+	rpc "github.com/ethereum/go-ethereum/rpc"
 
 	types "github.com/ethereum/go-ethereum/core/types"
 )
@@ -36,6 +40,43 @@ func (_m *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
 		r1 = rf(ctx, account, blockNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// BatchCallContext provides a mock function with given fields: ctx, b
+func (_m *Client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	ret := _m.Called(ctx, b)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []rpc.BatchElem) error); ok {
+		r0 = rf(ctx, b)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// BatchHeaderByNumber provides a mock function with given fields: ctx, numbers
+func (_m *Client) BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]eth.MaybeHeader, error) {
+	ret := _m.Called(ctx, numbers)
+
+	var r0 []eth.MaybeHeader
+	if rf, ok := ret.Get(0).(func(context.Context, []*big.Int) []eth.MaybeHeader); ok {
+		r0 = rf(ctx, numbers)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]eth.MaybeHeader)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, []*big.Int) error); ok {
+		r1 = rf(ctx, numbers)
 	} else {
 		r1 = ret.Error(1)
 	}

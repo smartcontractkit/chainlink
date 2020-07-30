@@ -73,13 +73,12 @@ func newStoreWithKeyStore(
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
-	ethClient := eth.NewClient(config.EthereumURL())
+	ethClient, err := eth.NewClient(config.EthereumURL())
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
+	}
 	keyStore := keyStoreGenerator()
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
-
-	if err != nil {
-		logger.Fatalf("Unable to dial ETH client: %+v", err)
-	}
 
 	store := &Store{
 		Clock:     utils.Clock{},
