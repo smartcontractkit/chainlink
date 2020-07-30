@@ -15,6 +15,7 @@ const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const proxyFactory = new EACAggregatorProxyFactory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 const decimals = 18
+const phaseBase = h.bigNum(2).pow(64)
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -76,6 +77,46 @@ describe('gas usage', () => {
       const receipt2 = await tx2.wait()
       const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
       assert.isAbove(3000, diff?.toNumber() || 3001)
+    })
+
+    it('#latestRound', async () => {
+      const tx1 = await testHelper.readLatestRound(aggregator.address)
+      const receipt1 = await tx1.wait()
+      const tx2 = await testHelper.readLatestRound(proxy.address)
+      const receipt2 = await tx2.wait()
+      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+      assert.isAbove(3000, diff?.toNumber() || 3001)
+    })
+
+    it('#latestTimestamp', async () => {
+      const tx1 = await testHelper.readLatestTimestamp(aggregator.address)
+      const receipt1 = await tx1.wait()
+      const tx2 = await testHelper.readLatestTimestamp(proxy.address)
+      const receipt2 = await tx2.wait()
+      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+      assert.isAbove(3000, diff?.toNumber() || 3001)
+    })
+
+    it('#getAnswer', async () => {
+      const aggId = 1
+      const proxyId = phaseBase.add(aggId)
+      const tx1 = await testHelper.readGetAnswer(aggregator.address, aggId)
+      const receipt1 = await tx1.wait()
+      const tx2 = await testHelper.readGetAnswer(proxy.address, proxyId)
+      const receipt2 = await tx2.wait()
+      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+      assert.isAbove(4000, diff?.toNumber() || 3001)
+    })
+
+    it('#getTimestamp', async () => {
+      const aggId = 1
+      const proxyId = phaseBase.add(aggId)
+      const tx1 = await testHelper.readGetTimestamp(aggregator.address, aggId)
+      const receipt1 = await tx1.wait()
+      const tx2 = await testHelper.readGetTimestamp(proxy.address, proxyId)
+      const receipt2 = await tx2.wait()
+      const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+      assert.isAbove(4000, diff?.toNumber() || 3001)
     })
 
     it('#latestRoundData', async () => {
