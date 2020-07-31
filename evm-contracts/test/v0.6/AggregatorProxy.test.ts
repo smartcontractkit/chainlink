@@ -105,18 +105,6 @@ describe('AggregatorProxy', () => {
     it('pulls the rate from the aggregator', async () => {
       matchers.bigNum(phaseBase.add(1), await proxy.latestRound())
     })
-
-    describe('when the relevant info is not available', () => {
-      beforeEach(async () => {
-        await proxy.proposeAggregator(flux.address)
-        await proxy.confirmAggregator(flux.address)
-      })
-
-      it('does not revert', async () => {
-        const actual = await proxy.latestRound()
-        matchers.bigNum(0, actual)
-      })
-    })
   })
 
   describe('#latestAnswer', () => {
@@ -277,18 +265,6 @@ describe('AggregatorProxy', () => {
           await aggregator2.latestTimestamp(),
           await proxy.getTimestamp(latestRound),
         )
-      })
-    })
-
-    describe('when the relevant info is not available', () => {
-      beforeEach(async () => {
-        await proxy.proposeAggregator(flux.address)
-        await proxy.confirmAggregator(flux.address)
-      })
-
-      it('does not revert', async () => {
-        const actual = await proxy.latestTimestamp()
-        matchers.bigNum(0, actual)
       })
     })
   })
