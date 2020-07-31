@@ -1,4 +1,4 @@
-FROM ethereum/client-go:stable
+FROM ethereum/client-go:v1.9.16
 
 WORKDIR /gethnet
 COPY datadir datadir/
