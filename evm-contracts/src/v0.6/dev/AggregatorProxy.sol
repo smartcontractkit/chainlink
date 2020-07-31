@@ -79,6 +79,8 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   {
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
     AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    if (address(aggregator) == address(0)) return 0;
+
     return aggregator.getAnswer(aggregatorRoundId);
   }
 
@@ -100,6 +102,8 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   {
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
     AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    if (address(aggregator) == address(0)) return 0;
+
     return aggregator.getTimestamp(aggregatorRoundId);
   }
 

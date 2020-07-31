@@ -199,6 +199,13 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(preUpdateAnswer, actualAnswer)
       })
     })
+
+    describe('when the relevant info is not available', () => {
+      it('does not revert', async () => {
+        const actual = await proxy.getAnswer(phaseBase.mul(777))
+        matchers.bigNum(0, actual)
+      })
+    })
   })
 
   describe('#getTimestamp', () => {
@@ -211,6 +218,13 @@ describe('AggregatorProxy', () => {
       it('does not revert when called with a non existent ID', async () => {
         const proxyId = phaseBase.mul(await proxy.phaseId()).add(1)
         const actual = await proxy.getTimestamp(proxyId)
+        matchers.bigNum(0, actual)
+      })
+    })
+
+    describe('when the relevant info is not available', () => {
+      it('does not revert', async () => {
+        const actual = await proxy.getTimestamp(phaseBase.mul(777))
         matchers.bigNum(0, actual)
       })
     })
