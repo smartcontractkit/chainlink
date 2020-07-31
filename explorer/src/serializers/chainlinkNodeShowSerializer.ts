@@ -9,6 +9,8 @@ export const ATTRIBUTES: Array<string> = [
   'name',
   'url',
   'createdAt',
+  'coreVersion',
+  'coreSHA',
   'jobCounts',
   'uptime',
 ]
@@ -18,6 +20,8 @@ interface ChainlinkNodeShowData {
   name: string
   url?: string
   createdAt: Date
+  coreVersion?: string
+  coreSHA?: string
   jobCounts: JobCountReport
   uptime: number
 }
