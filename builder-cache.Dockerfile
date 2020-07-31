@@ -6,7 +6,7 @@ COPY tools/bin/ldflags tools/bin/ldflags
 COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .git .git
 COPY VERSION VERSION
-COPY .yarn .yarn 
+COPY .yarn .yarn
 COPY patches patches
 COPY solc_bin solc_bin
 COPY belt/package.json belt/package.json
