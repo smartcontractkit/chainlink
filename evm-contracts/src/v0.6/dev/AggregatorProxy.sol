@@ -1,8 +1,7 @@
 pragma solidity 0.6.6;
 
 import "../Owned.sol";
-import "../interfaces/AggregatorInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/AggregatorV2V3Interface.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -10,21 +9,17 @@ import "../interfaces/AggregatorV3Interface.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
+contract AggregatorProxy is AggregatorV2V3Interface, Owned {
 
   struct Phase {
     uint16 id;
-    AggregatorV3Interface aggregator;
+    AggregatorV2V3Interface aggregator;
   }
   Phase private currentPhase;
-  AggregatorV3Interface public proposedAggregator;
-  mapping(uint16 => AggregatorV3Interface) public phaseAggregators;
+  AggregatorV2V3Interface public proposedAggregator;
+  mapping(uint16 => AggregatorV2V3Interface) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
-  // This is an error that the Flux Aggregator throws when you try to read
-  // data for a round that does not exist.
-  string constant private V3_NO_DATA_ERROR = "No data present";
-  bytes32 constant private EXPECTED_V3_ERROR = keccak256(bytes(V3_NO_DATA_ERROR));
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -32,7 +27,11 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
-   * @dev deprecated. Use latestRoundData instead.
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestAnswer()
     public
@@ -41,12 +40,16 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = tryLatestRoundData();
+    return currentPhase.aggregator.latestAnswer();
   }
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
-   * @dev deprecated. Use latestRoundData instead.
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestTimestamp()
     public
@@ -55,13 +58,17 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = tryLatestRoundData();
+    return currentPhase.aggregator.latestTimestamp();
   }
 
   /**
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
-   * @dev deprecated. Use getRoundData instead.
+   *
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getAnswer(uint256 _roundId)
     public
@@ -70,13 +77,19 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (int256 answer)
   {
-    ( , answer, , , ) = tryGetRoundData(_roundId);
+    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
+    AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    return aggregator.getAnswer(aggregatorRoundId);
   }
 
   /**
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
-   * @dev deprecated. Use getRoundData instead.
+   *
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getTimestamp(uint256 _roundId)
     public
@@ -85,14 +98,20 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
-    ( , , , updatedAt, ) = tryGetRoundData(_roundId);
+    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
+    AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    return aggregator.getTimestamp(aggregatorRoundId);
   }
 
   /**
    * @notice get the latest completed round where the answer was updated. This
    * ID includes the proxy's phase, to make sure round IDs increase even when
    * switching to a newly deployed aggregator.
-   * @dev deprecated. Use latestRoundData instead.
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestRound()
     public
@@ -101,7 +120,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     override
     returns (uint256 roundId)
   {
-    ( roundId, , , , ) = tryLatestRoundData();
+    Phase memory phase = currentPhase; // cache storage reads
+    return addPhase(phase.id, uint64(phase.aggregator.latestRound()));
   }
 
   /**
@@ -325,7 +345,7 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     external
     onlyOwner()
   {
-    proposedAggregator = AggregatorV3Interface(_aggregator);
+    proposedAggregator = AggregatorV2V3Interface(_aggregator);
   }
 
   /**
@@ -353,8 +373,8 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     internal
   {
     uint16 id = currentPhase.id + 1;
-    currentPhase = Phase(id, AggregatorV3Interface(_aggregator));
-    phaseAggregators[id] = AggregatorV3Interface(_aggregator);
+    currentPhase = Phase(id, AggregatorV2V3Interface(_aggregator));
+    phaseAggregators[id] = AggregatorV2V3Interface(_aggregator);
   }
 
   function addPhase(
@@ -379,61 +399,6 @@ contract AggregatorProxy is AggregatorInterface, AggregatorV3Interface, Owned {
     uint64 aggregatorRoundId = uint64(_roundId);
 
     return (phaseId, aggregatorRoundId);
-  }
-
-  function tryLatestRoundData()
-    internal
-    view
-    returns (uint80, int256, uint256, uint256, uint80)
-  {
-    Phase memory current = currentPhase; // cache storage reads
-
-    try current.aggregator.latestRoundData() returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
-    ) {
-      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, current.id);
-    } catch Error(string memory reason) {
-      return handleExpectedV3Error(reason);
-    }
-  }
-
-  function tryGetRoundData(
-    uint256 _roundId
-  )
-    internal
-    view
-    returns (uint80, int256, uint256, uint256, uint80)
-  {
-    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
-    AggregatorV3Interface aggregator = phaseAggregators[phaseId];
-
-    try aggregator.getRoundData(uint80(aggregatorRoundId)) returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
-    ) {
-      return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, phaseId);
-    } catch Error(string memory reason) {
-      return handleExpectedV3Error(reason);
-    }
-  }
-
-  function handleExpectedV3Error(
-    string memory reason
-  )
-    internal
-    view
-    returns (uint80, int256, uint256, uint256, uint80)
-  {
-    require(keccak256(bytes(reason)) == EXPECTED_V3_ERROR, reason);
-
-    return (0, 0, 0, 0, 0);
   }
 
   function addPhaseIds(

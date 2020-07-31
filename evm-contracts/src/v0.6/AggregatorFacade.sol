@@ -1,13 +1,12 @@
 pragma solidity 0.6.6;
 
-import "./interfaces/AggregatorInterface.sol";
-import "./interfaces/AggregatorV3Interface.sol";
+import "./interfaces/AggregatorV2V3Interface.sol";
 
 /**
  * @title A facade forAggregator versions to conform to the new v0.6
  * Aggregator V3 interface.
  */
-contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
+contract AggregatorFacade is AggregatorV2V3Interface {
 
   AggregatorInterface public aggregator;
   uint8 public override decimals;
@@ -31,6 +30,10 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
 
   /**
    * @notice get the latest completed round where the answer was updated
+   * @dev #[deprecated]. Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestRound()
     external
@@ -44,6 +47,11 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
 
   /**
    * @notice Reads the current answer from aggregator delegated to.
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestAnswer()
     external
@@ -57,6 +65,11 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
 
   /**
    * @notice Reads the last updated height from aggregator delegated to.
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
    */
   function latestTimestamp()
     external
@@ -101,6 +114,11 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
   /**
    * @notice get past rounds answers
    * @param _roundId the answer number to retrieve the answer for
+   *
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getAnswer(uint256 _roundId)
     external
@@ -115,6 +133,11 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
   /**
    * @notice get block timestamp when an answer was last updated
    * @param _roundId the answer number to retrieve the updated timestamp for
+   *
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
    */
   function getTimestamp(uint256 _roundId)
     external
@@ -156,6 +179,7 @@ contract AggregatorFacade is AggregatorInterface, AggregatorV3Interface {
   {
     return _getRoundData(_roundId);
   }
+
 
   /*
    * Internal
