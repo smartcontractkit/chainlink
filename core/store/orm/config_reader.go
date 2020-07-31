@@ -31,7 +31,6 @@ type ConfigReader interface {
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
 	EnableBulletproofTxManager() bool
-	EthBalanceMonitorBlockDelay() uint16
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int

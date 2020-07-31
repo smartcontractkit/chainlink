@@ -95,7 +95,6 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		store.Config.Set("ETH_BALANCE_MONITOR_BLOCK_DELAY", 0)
 		k0 := cltest.MustDefaultKey(t, store)
 		k0Addr := k0.Address.Address()
 		k1 := cltest.MustInsertRandomKey(t, store)
@@ -133,46 +132,6 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 		assert.Equal(t, k0bal2, bm.GetEthBalance(k0Addr).ToInt())
 		assert.Equal(t, k1bal2, bm.GetEthBalance(k1Addr).ToInt())
-
-		gethClient.AssertExpectations(t)
-	})
-
-	t.Run("lags behind by ETH_BALANCE_MONITOR_BLOCK_DELAY blocks", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
-		store.Config.Set("ETH_BALANCE_MONITOR_BLOCK_DELAY", 2)
-		k0 := cltest.MustDefaultKey(t, store)
-		k0Addr := k0.Address.Address()
-
-		gethClient := new(mocks.GethClient)
-		g := cltest.NewSimpleGethWrapper(gethClient)
-		bm := services.NewBalanceMonitor(store, g)
-
-		// If lagged head would be negative, just uses 0
-		k0bal := big.NewInt(42)
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(0)).Once().Return(k0bal, nil)
-		head := cltest.Head(0)
-		bm.OnNewLongestChain(*head)
-
-		assert.Equal(t, k0bal, bm.GetEthBalance(k0Addr).ToInt())
-
-		// If lagged head would be negative, just uses 0
-		k0bal = big.NewInt(43)
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(0)).Once().Return(k0bal, nil)
-		head = cltest.Head(1)
-		bm.OnNewLongestChain(*head)
-
-		// If lagged head is exactly 0, uses 0
-		k0bal = big.NewInt(44)
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(0)).Once().Return(k0bal, nil)
-		head = cltest.Head(2)
-		bm.OnNewLongestChain(*head)
-
-		// If lagged head is positive, uses it
-		k0bal = big.NewInt(44)
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(1)).Once().Return(k0bal, nil)
-		head = cltest.Head(3)
-		bm.OnNewLongestChain(*head)
 
 		gethClient.AssertExpectations(t)
 	})
