@@ -59,7 +59,11 @@ $ yarn run dev # in another terminal
 
 Please see [TypeORM's migration guide](https://typeorm.io/#/migrations).
 
-## Running on separate origins locally
+##### Local admin
+
+Run `yarn seed:admin <username> <password>` to set up local admin credentials during development.
+
+## Running on seperate origins locally
 
 The client is able to run on a different origin than the server. The steps below outline a
 quick way of testing this locally via [ngrok.](https://ngrok.com/)

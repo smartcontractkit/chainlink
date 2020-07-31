@@ -4,7 +4,14 @@ import {
 } from 'jsonapi-serializer'
 import { ChainlinkNode } from '../entity/ChainlinkNode'
 
-export const BASE_ATTRIBUTES: Array<string> = ['id', 'name', 'url', 'createdAt']
+export const BASE_ATTRIBUTES: Array<string> = [
+  'id',
+  'name',
+  'url',
+  'createdAt',
+  'coreVersion',
+  'coreSHA',
+]
 
 const chainlinkNodeSerializer = (chainlinkNode: ChainlinkNode) => {
   const opts = {

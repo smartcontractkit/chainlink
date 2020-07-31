@@ -1,14 +1,23 @@
 import http from 'http'
-import { logger } from '../logging'
 import WebSocket from 'ws'
-import { authenticate } from '../sessions'
 import { closeSession, Session } from '../entity/Session'
-import { handleMessage } from './handleMessage'
+import { logger } from '../logging'
+import { authenticate } from '../sessions'
 import {
   ACCESS_KEY_HEADER,
+  CORE_SHA_HEADER,
+  CORE_VERSION_HEADER,
   NORMAL_CLOSE,
   SECRET_HEADER,
 } from '../utils/constants'
+import { handleMessage } from './handleMessage'
+
+export type AuthInfo = {
+  accessKey?: string
+  secret?: string
+  coreVersion?: string
+  coreSHA?: string
+}
 
 export const bootstrapRealtime = async (server: http.Server) => {
   let clnodeCount = 0
@@ -32,8 +41,8 @@ export const bootstrapRealtime = async (server: http.Server) => {
       const remote = remoteDetails(info.req)
       logger.debug({ msg: 'websocket connection attempt', remote })
 
-      const accessKey = info.req.headers[ACCESS_KEY_HEADER]
-      const secret = info.req.headers[SECRET_HEADER]
+      const authInfo = extractAuthInfo(info.req.headers)
+      const { accessKey, secret } = authInfo
 
       if (typeof accessKey !== 'string' || typeof secret !== 'string') {
         logger.warn({
@@ -44,7 +53,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
         return
       }
 
-      authenticate(accessKey, secret).then((session: Session | null) => {
+      authenticate(authInfo).then((session: Session | null) => {
         if (session === null) {
           logger.warn({
             msg: 'client rejected, failed authentication',
@@ -62,6 +71,7 @@ export const bootstrapRealtime = async (server: http.Server) => {
           origin: info.origin,
           ...remote,
         })
+
         sessions.set(accessKey, session)
         const existingConnection = connections.get(accessKey)
         if (existingConnection) {
@@ -134,4 +144,19 @@ function remoteDetails(
     remotePort: req.socket.remotePort,
     remoteAddress: req.socket.remoteAddress,
   }
+}
+
+function extractAuthInfo(headers: http.IncomingHttpHeaders): AuthInfo {
+  return {
+    accessKey: stringOrUndefined(headers[ACCESS_KEY_HEADER]),
+    secret: stringOrUndefined(headers[SECRET_HEADER]),
+    coreVersion: stringOrUndefined(headers[CORE_VERSION_HEADER]),
+    coreSHA: stringOrUndefined(headers[CORE_SHA_HEADER]),
+  }
+}
+
+function stringOrUndefined(
+  key: string | string[] | undefined,
+): string | undefined {
+  return typeof key === 'string' ? key : undefined
 }

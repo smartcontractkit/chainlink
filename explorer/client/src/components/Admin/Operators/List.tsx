@@ -6,7 +6,13 @@ import Table, { Props as TableProps } from '../../Table'
 import { LinkColumn, TextColumn, TimeAgoColumn } from '../../Table/TableCell'
 import { ChainlinkNode } from 'explorer/models'
 
-const HEADERS = ['Name', 'URL', 'Created At'] as const
+const HEADERS = [
+  'Name',
+  'URL',
+  'Created At',
+  'Core Version',
+  'Core SHA',
+] as const
 const LOADING_MSG = 'Loading operators...'
 const EMPTY_MSG = 'There are no operators added to the Explorer yet.'
 const ERROR_MSG = 'Error loading operators.'
@@ -79,11 +85,31 @@ function buildCreatedAtCol(operator: ChainlinkNode): TimeAgoColumn {
   }
 }
 
+function buildVersionCol(operator: ChainlinkNode): TextColumn {
+  return {
+    type: 'text',
+    text: operator.coreVersion || 'N/A',
+  }
+}
+
+function buildSHACol(operator: ChainlinkNode): TextColumn {
+  return {
+    type: 'text',
+    text: operator.coreSha || 'N/A',
+  }
+}
+
 function rows(
   operators?: ChainlinkNode[],
-): [UrlColumn, UrlColumn, TimeAgoColumn][] | undefined {
+): [UrlColumn, UrlColumn, TimeAgoColumn, TextColumn, TextColumn][] | undefined {
   return operators?.map(o => {
-    return [buildNameCol(o), buildUrlCol(o), buildCreatedAtCol(o)]
+    return [
+      buildNameCol(o),
+      buildUrlCol(o),
+      buildCreatedAtCol(o),
+      buildVersionCol(o),
+      buildSHACol(o),
+    ]
   })
 }
 
