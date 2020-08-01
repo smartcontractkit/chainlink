@@ -11662,12 +11662,12 @@ expect@^25.1.0:
     jest-message-util "^25.1.0"
     jest-regex-util "^25.1.0"
 
-express-pino-logger@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.npmjs.org/express-pino-logger/-/express-pino-logger-4.0.0.tgz#775cf253a4e0e7ee2c24804f8a32900d6d0168ca"
-  integrity sha512-BTJwjQXMSR6tFiyvTOOr6aosJkJOuJpW0mXE+icv3ae/0WXBGnLaumINGHJvWMuDO1RSLHBLfRrJaghMjMhVrg==
+express-pino-logger@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.npmjs.org/express-pino-logger/-/express-pino-logger-5.0.0.tgz#ef4350017ae7cec650b56a66a54ff4334f27c762"
+  integrity sha512-pwbZ2E712evTuJfU/+svG/xdXMiS5Awjbnbg382ikQfgb/5bLwF1Auzv8QXVv/x+GixUlzfPbYTgVLhacvocKw==
   dependencies:
-    pino-http "^4.0.0"
+    pino-http "^5.1.0"
 
 express@^4.14.0, express@^4.15.2, express@^4.16.4, express@^4.17.0, express@^4.17.1:
   version "4.17.1"
@@ -18879,13 +18879,13 @@ pinkie@^2.0.0:
   resolved "https://registry.npmjs.org/pinkie/-/pinkie-2.0.4.tgz#72556b80cfa0d48a974e80e77248e80ed4f7f870"
   integrity sha1-clVrgM+g1IqXToDnckjoDtT3+HA=
 
-pino-http@^4.0.0:
-  version "4.4.0"
-  resolved "https://registry.npmjs.org/pino-http/-/pino-http-4.4.0.tgz#9bb26db026aa6a7b73492c76c58157d3ffd31f12"
-  integrity sha512-uPGPNGT9WV5GrRydEPR8A1bCXUutmI4M7VIQ6InoJTC1ddjgScQPZt/uxDOQkdTTjP2RJ1dJH5ML+V1f5Q/JKg==
+pino-http@^5.1.0:
+  version "5.2.0"
+  resolved "https://registry.npmjs.org/pino-http/-/pino-http-5.2.0.tgz#d51da7981ab6ea7ca9f17c4db24a427e4ba9c546"
+  integrity sha512-uGmC6UbzLaCWu+sG9l2wTp2EoXMQ53GRSY9P1sgqNsq3JSh6HdoleMijyuGj2d02OOr1z3/JHcRUy6hYDYWe9Q==
   dependencies:
     fast-url-parser "^1.1.3"
-    pino "^5.0.0"
+    pino "^6.0.0"
     pino-std-serializers "^2.4.0"
 
 pino-pretty@^3.6.1:
@@ -18910,17 +18910,17 @@ pino-std-serializers@^2.4.0, pino-std-serializers@^2.4.2:
   resolved "https://registry.npmjs.org/pino-std-serializers/-/pino-std-serializers-2.4.2.tgz#cb5e3e58c358b26f88969d7e619ae54bdfcc1ae1"
   integrity sha512-WaL504dO8eGs+vrK+j4BuQQq6GLKeCCcHaMB2ItygzVURcL1CycwNEUHTD/lHFHs/NL5qAz2UKrjYWXKSf4aMQ==
 
-pino@^5.0.0:
-  version "5.17.0"
-  resolved "https://registry.npmjs.org/pino/-/pino-5.17.0.tgz#b9def314e82402154f89a25d76a31f20ca84b4c8"
-  integrity sha512-LqrqmRcJz8etUjyV0ddqB6OTUutCgQULPFg2b4dtijRHUsucaAdBgSUW58vY6RFSX+NT8963F+q0tM6lNwGShA==
+pino@^6.0.0:
+  version "6.4.1"
+  resolved "https://registry.npmjs.org/pino/-/pino-6.4.1.tgz#6173dcdc1e647ae17ddbc4a412d1f12d3d2ab9b5"
+  integrity sha512-1zDSQworQZw14tvqjuW5aj5GV5oUQpV5Bz5wnpVVltVPBzaOoV1Dv+oKn1xNCz2CCkOyZd+kkdlel9lCLBYl+Q==
   dependencies:
     fast-redact "^2.0.0"
     fast-safe-stringify "^2.0.7"
     flatstr "^1.0.12"
     pino-std-serializers "^2.4.2"
-    quick-format-unescaped "^3.0.3"
-    sonic-boom "^0.7.5"
+    quick-format-unescaped "^4.0.1"
+    sonic-boom "^1.0.0"
 
 pino@^6.2.1:
   version "6.2.1"
@@ -20186,11 +20186,6 @@ querystringify@^2.1.1:
   version "2.1.1"
   resolved "https://registry.npmjs.org/querystringify/-/querystringify-2.1.1.tgz#60e5a5fd64a7f8bfa4d2ab2ed6fdf4c85bad154e"
   integrity sha512-w7fLxIRCRT7U8Qu53jQnJyPkYZIaR4n5151KMfcJlO/A9397Wxb1amJvROTK6TOnp7PfoAmg/qXiNHI+08jRfA==
-
-quick-format-unescaped@^3.0.3:
-  version "3.0.3"
-  resolved "https://registry.npmjs.org/quick-format-unescaped/-/quick-format-unescaped-3.0.3.tgz#fb3e468ac64c01d22305806c39f121ddac0d1fb9"
-  integrity sha512-dy1yjycmn9blucmJLXOfZDx1ikZJUi6E8bBZLnhPG5gBrVhHXx2xVyqqgKBubVNEXmx51dBACMHpoMQK/N/AXQ==
 
 quick-format-unescaped@^4.0.1:
   version "4.0.1"
@@ -22924,13 +22919,6 @@ solidity-parser-antlr@^0.4.2:
   version "0.4.11"
   resolved "https://registry.npmjs.org/solidity-parser-antlr/-/solidity-parser-antlr-0.4.11.tgz#af43e1f13b3b88309a875455f5d6e565b05ee5f1"
   integrity sha512-4jtxasNGmyC0midtjH/lTFPZYvTTUMy6agYcF+HoMnzW8+cqo3piFrINb4ZCzpPW+7tTVFCGa5ubP34zOzeuMg==
-
-sonic-boom@^0.7.5:
-  version "0.7.6"
-  resolved "https://registry.npmjs.org/sonic-boom/-/sonic-boom-0.7.6.tgz#c42df6df884a6a3d54fa7a45b11e4e2196818d45"
-  integrity sha512-k9E2QQ4zxuVRLDW+ZW6ISzJs3wlEorVdmM7ApDgor7wsGKSDG5YGHsGmgLY4XYh4DMlr/2ap2BWAE7yTFJtWnQ==
-  dependencies:
-    flatstr "^1.0.12"
 
 sonic-boom@^1.0.0:
   version "1.0.1"
