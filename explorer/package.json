@@ -64,7 +64,7 @@
     "@types/express": "^4.16.1",
     "@types/express-pino-logger": "^4.0.2",
     "@types/helmet": "0.0.47",
-    "@types/jest": "^24.0.25",
+    "@types/jest": "^26.0.8",
     "@types/jsonapi-serializer": "^3.6.1",
     "@types/material-ui": "^0.21.6",
     "@types/mime-types": "^2.1.0",
