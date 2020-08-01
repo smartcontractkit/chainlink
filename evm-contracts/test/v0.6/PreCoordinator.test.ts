@@ -8,9 +8,9 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.5/BasicConsumerFactory'
-import { OracleFactory } from '../../ethers/v0.5/OracleFactory'
-import { PreCoordinatorFactory } from '../../ethers/v0.5/PreCoordinatorFactory'
+import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
+import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
+import { PreCoordinatorFactory } from '../../ethers/v0.6/PreCoordinatorFactory'
 
 const provider = setup.provider()
 const oracleFactory = new OracleFactory()
@@ -181,63 +181,6 @@ describe('PreCoordinator', () => {
             'Invalid min responses',
           ))
       })
-    })
-  })
-
-  describe('#deleteServiceAgreement', () => {
-    let saId: string
-
-    beforeEach(async () => {
-      const tx = await pc
-        .connect(roles.defaultAccount)
-        .createServiceAgreement(
-          3,
-          [oc1.address, oc2.address, oc3.address, oc4.address],
-          [job1, job2, job3, job4],
-          [payment, payment, payment, payment],
-        )
-      const receipt = await tx.wait()
-
-      saId = h.eventArgs(
-        h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
-      ).saId
-    })
-
-    describe('when called by a stranger', () => {
-      it('reverts', () =>
-        matchers.evmRevert(
-          pc.connect(roles.stranger).deleteServiceAgreement(saId),
-        ))
-    })
-
-    describe('when called by the owner', () => {
-      it('deletes the service agreement', async () => {
-        await pc.connect(roles.defaultAccount).deleteServiceAgreement(saId)
-        const sa = await pc.getServiceAgreement(saId)
-        assert.equal(sa.totalPayment.toNumber(), 0)
-        assert.equal(sa.minResponses.toNumber(), 0)
-        assert.deepEqual(sa.oracles, [])
-        assert.deepEqual(sa.jobIds, [])
-        assert.deepEqual(sa.payments, [])
-      })
-    })
-
-    describe('when the service agreement is still active', () => {
-      beforeEach(async () => {
-        rc = await requesterConsumerFactory
-          .connect(roles.consumer)
-          .deploy(link.address, pc.address, saId)
-        await link.transfer(rc.address, totalPayment)
-        await rc
-          .connect(roles.consumer)
-          .requestEthereumPrice(currency, totalPayment)
-      })
-
-      it('reverts', () =>
-        matchers.evmRevert(
-          pc.connect(roles.defaultAccount).deleteServiceAgreement(saId),
-          'Cannot delete while active',
-        ))
     })
   })
 

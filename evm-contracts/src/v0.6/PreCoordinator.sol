@@ -1,4 +1,4 @@
-pragma solidity 0.5.0;
+pragma solidity 0.6.6;
 
 import "./ChainlinkClient.sol";
 import "./LinkTokenReceiver.sol";
@@ -128,27 +128,11 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   }
 
   /**
-   * @notice Deletes a service agreement from storage
-   * @dev Use this with caution since there may be responses waiting to come
-   * back for a service agreement. This can be monitored off-chain by looking
-   * for the ServiceAgreementRequested event.
-   * @param _saId The service agreement ID
-   */
-  function deleteServiceAgreement(bytes32 _saId)
-    external
-    onlyOwner
-    whenNotActive(_saId)
-  {
-    delete serviceAgreements[_saId];
-    emit ServiceAgreementDeleted(_saId);
-  }
-
-  /**
    * @notice Returns the address of the LINK token
    * @dev This is the public implementation for chainlinkTokenAddress, which is
    * an internal method of the ChainlinkClient contract
    */
-  function getChainlinkToken() public view returns (address) {
+  function getChainlinkToken() public view override returns (address) {
     return chainlinkTokenAddress();
   }
 
@@ -176,6 +160,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   )
     external
     onlyLINK
+    override
     checkCallbackAddress(_callbackAddress)
   {
     uint256 totalPayment = serviceAgreements[_saId].totalPayment;
@@ -235,7 +220,8 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     delete requests[_requestId];
     delete serviceAgreementRequests[_requestId];
     emit ServiceAgreementResponseReceived(saId, cbRequestId, msg.sender, _data);
-    if (requesters[cbRequestId].responses.push(_data) == minResponses) {
+    requesters[cbRequestId].responses.push(_data);
+    if (requesters[cbRequestId].responses.length == minResponses) {
       serviceAgreements[saId].activeRequests = serviceAgreements[saId].activeRequests.sub(1);
       Requester memory req = requesters[cbRequestId];
       delete requesters[cbRequestId];
@@ -273,6 +259,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     uint256 _expiration
   )
     external
+    override
   {
     bytes32 cbRequestId = requests[_requestId];
     delete requests[_requestId];
