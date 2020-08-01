@@ -78,109 +78,94 @@ describe('PreCoordinator', () => {
   beforeEach(deployment)
 
   describe('#createServiceAgreement', () => {
-    describe('when called by the owner', () => {
-      it('emits the NewServiceAgreement log', async () => {
-        const tx = await pc
+    it('emits the NewServiceAgreement log', async () => {
+      const tx = await pc
+        .connect(roles.defaultAccount)
+        .createServiceAgreement(
+          3,
+          [oc1.address, oc2.address, oc3.address, oc4.address],
+          [job1, job2, job3, job4],
+          [payment, payment, payment, payment],
+        )
+      const receipt = await tx.wait()
+
+      expect(
+        h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+      ).toBeDefined()
+    })
+
+    it('creates a service agreement', async () => {
+      const tx = await pc
+        .connect(roles.defaultAccount)
+        .createServiceAgreement(
+          3,
+          [oc1.address, oc2.address, oc3.address, oc4.address],
+          [job1, job2, job3, job4],
+          [payment, payment, payment, payment],
+        )
+      const receipt = await tx.wait()
+      const { saId } = h.eventArgs(
+        h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+      )
+
+      const sa = await pc.getServiceAgreement(saId)
+      assert.isTrue(sa.totalPayment.eq(totalPayment))
+      assert.equal(sa.minResponses.toNumber(), 3)
+      assert.deepEqual(sa.oracles, [
+        oc1.address,
+        oc2.address,
+        oc3.address,
+        oc4.address,
+      ])
+      assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
+      assert.deepEqual(
+        sa.payments.map(p => p.toHexString()),
+        [payment, payment, payment, payment].map(p => p.toHexString()),
+      )
+    })
+
+    it('does not allow service agreements with 0 minResponses', () =>
+      matchers.evmRevert(
+        pc
           .connect(roles.defaultAccount)
           .createServiceAgreement(
-            3,
+            0,
             [oc1.address, oc2.address, oc3.address, oc4.address],
             [job1, job2, job3, job4],
             [payment, payment, payment, payment],
-          )
-        const receipt = await tx.wait()
+          ),
+        'Min responses must be > 0',
+      )
+    )
 
-        expect(
-          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
-        ).toBeDefined()
-      })
-
-      it('creates a service agreement', async () => {
-        const tx = await pc
-          .connect(roles.defaultAccount)
-          .createServiceAgreement(
-            3,
-            [oc1.address, oc2.address, oc3.address, oc4.address],
-            [job1, job2, job3, job4],
-            [payment, payment, payment, payment],
-          )
-        const receipt = await tx.wait()
-        const { saId } = h.eventArgs(
-          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
-        )
-
-        const sa = await pc.getServiceAgreement(saId)
-        assert.isTrue(sa.totalPayment.eq(totalPayment))
-        assert.equal(sa.minResponses.toNumber(), 3)
-        assert.deepEqual(sa.oracles, [
-          oc1.address,
-          oc2.address,
-          oc3.address,
-          oc4.address,
-        ])
-        assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
-        assert.deepEqual(
-          sa.payments.map(p => p.toHexString()),
-          [payment, payment, payment, payment].map(p => p.toHexString()),
-        )
-      })
-
-      it('does not allow service agreements with 0 minResponses', () =>
+    describe('when the array lengths are not equal', () => {
+      it('reverts', () =>
         matchers.evmRevert(
           pc
             .connect(roles.defaultAccount)
             .createServiceAgreement(
-              0,
+              3,
+              [oc1.address, oc2.address, oc3.address, oc4.address],
+              [job1, job2, job3],
+              [payment, payment, payment, payment],
+            ),
+          'Unmet length',
+        ))
+    })
+
+    describe('when the min responses is greater than the oracles', () => {
+      it('reverts', () =>
+        matchers.evmRevert(
+          pc
+            .connect(roles.defaultAccount)
+            .createServiceAgreement(
+              5,
               [oc1.address, oc2.address, oc3.address, oc4.address],
               [job1, job2, job3, job4],
               [payment, payment, payment, payment],
             ),
-          'Min responses must be > 0',
+          'Invalid min responses',
         ))
-
-      describe('when called by a stranger', () => {
-        it('reverts', () =>
-          matchers.evmRevert(
-            pc
-              .connect(roles.stranger)
-              .createServiceAgreement(
-                3,
-                [oc1.address, oc2.address, oc3.address, oc4.address],
-                [job1, job2, job3, job4],
-                [payment, payment, payment, payment],
-              ),
-          ))
-      })
-
-      describe('when the array lengths are not equal', () => {
-        it('reverts', () =>
-          matchers.evmRevert(
-            pc
-              .connect(roles.defaultAccount)
-              .createServiceAgreement(
-                3,
-                [oc1.address, oc2.address, oc3.address, oc4.address],
-                [job1, job2, job3],
-                [payment, payment, payment, payment],
-              ),
-            'Unmet length',
-          ))
-      })
-
-      describe('when the min responses is greater than the oracles', () => {
-        it('reverts', () =>
-          matchers.evmRevert(
-            pc
-              .connect(roles.defaultAccount)
-              .createServiceAgreement(
-                5,
-                [oc1.address, oc2.address, oc3.address, oc4.address],
-                [job1, job2, job3, job4],
-                [payment, payment, payment, payment],
-              ),
-            'Invalid min responses',
-          ))
-      })
     })
   })
 

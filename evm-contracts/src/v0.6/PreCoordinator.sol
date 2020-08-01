@@ -82,7 +82,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     bytes32[] calldata _jobIds,
     uint256[] calldata _payments
   )
-    external onlyOwner returns (bytes32 saId)
+    external returns (bytes32 saId)
   {
     require(_minResponses > 0, "Min responses must be > 0");
     require(_oracles.length == _jobIds.length && _oracles.length == _payments.length, "Unmet length");
