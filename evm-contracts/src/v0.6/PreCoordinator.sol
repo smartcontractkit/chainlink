@@ -22,7 +22,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   struct ServiceAgreement {
     uint256 totalPayment;
     uint256 minResponses;
-    uint256 activeRequests;
     address[] oracles;
     bytes32[] jobIds;
     uint256[] payments;
@@ -94,7 +93,7 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     }
     saId = keccak256(abi.encodePacked(globalNonce, now));
     globalNonce++; // yes, let it overflow
-    serviceAgreements[saId] = ServiceAgreement(totalPayment, _minResponses, 0, _oracles, _jobIds, _payments);
+    serviceAgreements[saId] = ServiceAgreement(totalPayment, _minResponses, _oracles, _jobIds, _payments);
 
     emit NewServiceAgreement(saId, totalPayment, _minResponses);
   }
@@ -110,7 +109,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
   (
     uint256 totalPayment,
     uint256 minResponses,
-    uint256 activeRequests,
     address[] memory oracles,
     bytes32[] memory jobIds,
     uint256[] memory payments
@@ -120,7 +118,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     (
       serviceAgreements[_saId].totalPayment,
       serviceAgreements[_saId].minResponses,
-      serviceAgreements[_saId].activeRequests,
       serviceAgreements[_saId].oracles,
       serviceAgreements[_saId].jobIds,
       serviceAgreements[_saId].payments
@@ -191,7 +188,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     require(sa.minResponses > 0, "Invalid service agreement");
     Chainlink.Request memory request;
     bytes32 outgoingRequestId;
-    serviceAgreements[_saId].activeRequests = serviceAgreements[_saId].activeRequests.add(1);
     emit ServiceAgreementRequested(_saId, _incomingRequestId, sa.totalPayment);
     for (uint i = 0; i < sa.oracles.length; i++) {
       request = buildChainlinkRequest(sa.jobIds[i], address(this), this.chainlinkCallback.selector);
@@ -214,23 +210,23 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     recordChainlinkFulfillment(_requestId)
     returns (bool)
   {
-    uint256 minResponses = serviceAgreements[serviceAgreementRequests[_requestId]].minResponses;
+    ServiceAgreement memory sa = serviceAgreements[serviceAgreementRequests[_requestId]];
     bytes32 cbRequestId = requests[_requestId];
     bytes32 saId = serviceAgreementRequests[_requestId];
     delete requests[_requestId];
     delete serviceAgreementRequests[_requestId];
     emit ServiceAgreementResponseReceived(saId, cbRequestId, msg.sender, _data);
     requesters[cbRequestId].responses.push(_data);
-    if (requesters[cbRequestId].responses.length == minResponses) {
-      serviceAgreements[saId].activeRequests = serviceAgreements[saId].activeRequests.sub(1);
-      Requester memory req = requesters[cbRequestId];
-      delete requesters[cbRequestId];
+    Requester memory req = requesters[cbRequestId];
+    if (req.responses.length == sa.minResponses) {
       int256 result = Median.calculate(req.responses);
       emit ServiceAgreementAnswerUpdated(saId, cbRequestId, result);
       // solhint-disable-next-line avoid-low-level-calls
       (bool success, ) = req.callbackAddress.call(abi.encodeWithSelector(req.callbackFunctionId, cbRequestId, result));
       return success;
     }
+
+    if (req.responses.length == sa.oracles.length) delete requesters[cbRequestId];
     return true;
   }
 
@@ -270,15 +266,6 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
     LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
     require(_link.transfer(req.sender, _payment), "Unable to transfer");
-  }
-
-  /**
-   * @dev Reverts if the Service Agreement has active callbacks
-   * @param _saId The service agreement ID
-   */
-  modifier whenNotActive(bytes32 _saId) {
-    require(serviceAgreements[_saId].activeRequests == 0, "Cannot delete while active");
-    _;
   }
 
   /**

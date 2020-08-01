@@ -135,8 +135,7 @@ describe('PreCoordinator', () => {
             [payment, payment, payment, payment],
           ),
         'Min responses must be > 0',
-      )
-    )
+      ))
 
     describe('when the array lengths are not equal', () => {
       it('reverts', () =>
@@ -258,8 +257,6 @@ describe('PreCoordinator', () => {
         assert.deepEqual(expected, await cbor.decodeFirst(request2.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request3.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request4.data))
-        const serviceAgreement = await pc.getServiceAgreement(saId)
-        assert.isTrue(ethers.constants.One.eq(serviceAgreement.activeRequests))
       })
 
       describe('when insufficient payment is supplied', () => {
@@ -322,7 +319,7 @@ describe('PreCoordinator', () => {
       const tx = await pc
         .connect(roles.defaultAccount)
         .createServiceAgreement(
-          3,
+          2,
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
           [payment, payment, payment, payment],
@@ -421,7 +418,7 @@ describe('PreCoordinator', () => {
 
         it('returns the median to the requesting contract', async () => {
           const currentPrice = await rc.currentPrice()
-          assert.equal(currentPrice, response2)
+          assert.equal(currentPrice, response1)
         })
 
         describe('when an oracle responds after aggregation', () => {
@@ -437,7 +434,7 @@ describe('PreCoordinator', () => {
                 response4,
               )
             const currentPrice = await rc.currentPrice()
-            assert.equal(currentPrice, response2)
+            assert.equal(currentPrice, response1)
           })
         })
       })
@@ -521,7 +518,7 @@ describe('PreCoordinator', () => {
 
         it('sends the answer to the consumer', async () => {
           const currentPrice = await cc.currentPrice()
-          assert.equal(currentPrice, response2)
+          assert.equal(currentPrice, response1)
         })
       })
     })
