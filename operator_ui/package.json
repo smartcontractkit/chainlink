@@ -71,7 +71,7 @@
     "@types/cookie": "^0.3.3",
     "@types/enzyme": "^3.10.5",
     "@types/fetch-mock": "^7.3.2",
-    "@types/jest": "^24.0.25",
+    "@types/jest": "^26.0.8",
     "@types/lodash": "^4.14.138",
     "@types/node": "^13.9.1",
     "@types/numeral": "^0.0.27",
