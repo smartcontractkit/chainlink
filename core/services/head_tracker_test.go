@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -536,7 +537,7 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		store.EthClient = ethClient
 
 		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10)}).
-			Return([]eth.MaybeHeader{{Header: gethHead10, Number: big.NewInt(10)}}, nil)
+			Return([]eth.MaybeHeader{{Header: gethHead10, Number: 10}}, nil)
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
@@ -571,8 +572,8 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10), big.NewInt(8)}).
 			Return([]eth.MaybeHeader{
-				{Header: gethHead10, Number: big.NewInt(10)},
-				{Header: gethHead8, Number: big.NewInt(8)},
+				{Header: gethHead10, Number: 10},
+				{Header: gethHead8, Number: 8},
 			}, nil)
 
 		// Needs to be 8 because there are 8 heads in chain (15,14,13,12,11,10,9,8)
@@ -637,7 +638,7 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(0)}).
-			Return([]eth.MaybeHeader{{Header: gethHead0, Number: big.NewInt(0)}}, nil)
+			Return([]eth.MaybeHeader{{Header: gethHead0, Number: 0}}, nil)
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
@@ -662,8 +663,8 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		store.EthClient = ethClient
 		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10), big.NewInt(8)}).
 			Return([]eth.MaybeHeader{
-				{Header: gethHead10, Number: big.NewInt(10)},
-				{Error: ethereum.NotFound, Number: big.NewInt(8)},
+				{Header: gethHead10, Number: 10},
+				{Error: ethereum.NotFound, Number: 8},
 			}, nil).
 			Once()
 
@@ -690,8 +691,8 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		store.EthClient = ethClient
 		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10), big.NewInt(8)}).
 			Return([]eth.MaybeHeader{
-				{Header: gethHead10, Number: big.NewInt(10)},
-				{Error: context.DeadlineExceeded, Number: big.NewInt(8)},
+				{Header: gethHead10, Number: 10},
+				{Error: context.DeadlineExceeded, Number: 8},
 			}, nil)
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})

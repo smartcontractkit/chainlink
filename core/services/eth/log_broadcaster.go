@@ -2,7 +2,6 @@ package eth
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"math/big"
 	"reflect"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/tevino/abool"
 )
 

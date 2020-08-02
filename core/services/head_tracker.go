@@ -434,22 +434,6 @@ func (ht *HeadTracker) handleBackfillError(err error, i int64) {
 	}
 }
 
-func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
-	logger.Debugw("HeadTracker: fetching head", "blockHeight", n)
-	gethHeader, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
-	if err != nil {
-		return models.Head{}, err
-	} else if gethHeader == nil {
-		logger.Warn("got nil block header")
-		return models.Head{}, errors.New("got nil block header")
-	}
-	head := models.NewHead(gethHeader.Number, gethHeader.Hash(), gethHeader.ParentHash, gethHeader.Time)
-	if err := ht.store.IdempotentInsertHead(head); err != nil {
-		return head, err
-	}
-	return head, nil
-}
-
 func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
