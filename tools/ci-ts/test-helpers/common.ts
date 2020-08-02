@@ -137,17 +137,15 @@ export async function assertAsync(
   errorMessage: string,
   timeout = DEFAULT_TIMEOUT_MS,
 ) {
-  let start = new Date().getTime()
-  while (true) {
+  const start = new Date().getTime()
+  while (new Date().getTime() < start + timeout) {
     const result = await f()
     if (result === true) {
       return
     }
-    if (new Date().getTime() >= start + timeout) {
-      throw new Error(errorMessage)
-    }
     await sleep(1000)
   }
+  throw new Error(errorMessage)
 }
 
 /**
@@ -156,7 +154,7 @@ export async function assertAsync(
  * @param ms the number of milliseconds to sleep
  */
 export function sleep(ms: number) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     setTimeout(resolve, ms)
   })
 }
@@ -191,10 +189,12 @@ export async function assertJobRun(
  */
 export function setRecurringTx(wallet: ethers.Wallet, interval = 2000): number {
   return (setInterval(async () => {
-    await (await wallet.sendTransaction({
+    await (
+      await wallet.sendTransaction({
         to: ethers.constants.AddressZero,
         value: 0,
-    })).wait()
+      })
+    ).wait()
   }, interval) as unknown) as number
 }
 
