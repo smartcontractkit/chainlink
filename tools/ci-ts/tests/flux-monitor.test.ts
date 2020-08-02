@@ -242,20 +242,20 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     clClient2.createJob(JSON.stringify(fluxMonitorJob))
 
     // initial job run
-    await t.assertJobRun(clClient1, node1InitialRunCount + 1, 'initial update, node 1')
-    await t.assertJobRun(clClient2, node2InitialRunCount + 1, 'initial update, node 2')
+    await t.assertJobRun(clClient1, node1InitialRunCount + 1, 'update 1 node 1')
+    await t.assertJobRun(clClient2, node2InitialRunCount + 1, 'update 1 node 2')
     await assertAggregatorValues(10000, 1, 2, 2, 2, 'initial round')
 
     // node 1 should still begin round even with unresponsive node 2
     await clClient2.pause()
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 110)
     await t.changePriceFeed(EXTERNAL_ADAPTER_2_URL, 120)
-    await t.assertJobRun(clClient1, node1InitialRunCount + 2, 'second update, node 1')
+    await t.assertJobRun(clClient1, node1InitialRunCount + 2, 'update 2 node 1')
     await assertAggregatorValues(10000, 1, 2, 2, 2, 'node 1 only')
 
     // node 2 should finish round
     await clClient2.unpause()
-    await t.assertJobRun(clClient2, node2InitialRunCount + 2, 'second update, node 2')
+    await t.assertJobRun(clClient2, node2InitialRunCount + 2, 'update 2 node 2')
     await assertAggregatorValues(11500, 2, 3, 3, 3, 'second round')
     await clClient2.pause()
 
@@ -270,12 +270,12 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
       )
     ).wait()
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 130)
-    await t.assertJobRun(clClient1, node1InitialRunCount + 3, 'third update')
+    await t.assertJobRun(clClient1, node1InitialRunCount + 3, 'update 3')
     await assertAggregatorValues(13000, 3, 3, 4, 3, 'third round')
 
     // node should continue to start new rounds alone
     await t.changePriceFeed(EXTERNAL_ADAPTER_URL, 140)
-    await t.assertJobRun(clClient1, node1InitialRunCount + 4, 'fourth update')
+    await t.assertJobRun(clClient1, node1InitialRunCount + 4, 'update 4')
     await assertAggregatorValues(14000, 4, 4, 5, 4, 'fourth round')
     await clClient2.unpause()
   })
