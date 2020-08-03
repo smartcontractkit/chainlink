@@ -968,14 +968,12 @@ func (p *PollingDeviationChecker) createJobRun(
 	runRequest := models.NewRunRequest(runData)
 	runRequest.Payment = paymentAmount
 
-	// TODO - RYAN - save job run as var
-	_, err = p.runManager.Create(p.initr.JobSpecID, &p.initr, nil, runRequest)
+	jobRun, err := p.runManager.Create(p.initr.JobSpecID, &p.initr, nil, runRequest)
 	if err != nil {
 		return err
 	}
 
-	// TODO - RYAN - pass in jobrun ID
-	err = p.store.IncrFluxMonitorRoundSubmissions(p.initr.Address, roundID)
+	err = p.store.UpdateFluxMonitorRoundStats(p.initr.Address, roundID, jobRun.ID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error updating FM round submission count: %v", err),
 			"address", p.initr.Address.Hex(),
