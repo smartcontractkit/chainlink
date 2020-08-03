@@ -8,7 +8,6 @@ declare global {
     export interface ProcessEnv {
       NODE_ENV: 'development' | 'production' | 'test'
       REACT_APP_EXPLORER_BASEURL?: string
-      REACT_APP_EXPLORER_GA_ID?: string
     }
   }
 }

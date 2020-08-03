@@ -110,14 +110,6 @@ Another way of testing a separate domain is to not use ngrok to forward the clie
 You should now be able to visit the client via browser by using the forwarded ngrok url, or localhost.
 Observe network requests using the api having a different origin than the client, and successfully returning data.
 
-### Configuring the client environment variables
-
-Set Google Analytics tracking ID:
-
-```
-export REACT_APP_EXPLORER_GA_ID="UA-128878871-10"
-```
-
 ## Typescript
 
 If you would like to add an npm package that doesn't have Typescript support you will need
