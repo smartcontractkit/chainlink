@@ -1407,21 +1407,20 @@ func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32,
 	return stats.RoundID, nil
 }
 
-// IncrFluxMonitorRoundSubmissions trys to create a RoundStats record for the given oracle
+// UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-// TODO - RYAN - maybe rename function?
-// TODO - RYAN - allow function to accept JobRunID
-func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
+func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, jobRunID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Exec(`
         INSERT INTO flux_monitor_round_stats (
-            aggregator, round_id, num_new_round_logs, num_submissions
+            aggregator, round_id, job_run_id, num_new_round_logs, num_submissions
         ) VALUES (
-            ?, ?, 0, 1
+            ?, ?, ?, 0, 1
         ) ON CONFLICT (aggregator, round_id)
-        DO UPDATE
-        SET num_submissions = flux_monitor_round_stats.num_submissions + 1
-    `, aggregator, roundID).Error
+        DO UPDATE SET
+					num_submissions = flux_monitor_round_stats.num_submissions + 1,
+					job_run_id = EXCLUDED.job_run_id
+    `, aggregator, roundID, jobRunID).Error
 }
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to
