@@ -4,8 +4,9 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-// Migrate adds last_used to keys
+// Migrate adds a job_run_id column to flux_monitor_round_stats
 func Migrate(tx *gorm.DB) error {
-	// TODO - RYAN
-	return tx.Exec(``).Error
+	return tx.Exec(`
+		ALTER TABLE flux_monitor_round_stats ADD COLUMN "job_run_id" uuid;
+	`).Error
 }
