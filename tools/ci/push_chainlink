@@ -31,6 +31,7 @@ tag_and_push() {
   # ie: docker tag and push smartcontract/chainlink:0.9.1, since DOCKER_TAG=0.9.1
   export DOCKER_TAG=$1
   (set -x; docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG})
+  (set -x; docker tag smartcontract/chainlink:circleci "${AWS_ECR_ACCOUNT_URL}:${DOCKER_TAG}")
   make dockerpush
 }
 
