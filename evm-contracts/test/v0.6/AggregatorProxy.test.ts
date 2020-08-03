@@ -206,6 +206,18 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(0, actual)
       })
     })
+
+    describe('when the round ID is too large', () => {
+      const overflowRoundId = h
+        .bigNum(2)
+        .pow(255)
+        .add(phaseBase) // get the original phase
+        .add(1) // get the original round
+      it('returns 0', async () => {
+        const actual = await proxy.getTimestamp(overflowRoundId)
+        matchers.bigNum(0, actual)
+      })
+    })
   })
 
   describe('#getTimestamp', () => {
@@ -225,6 +237,19 @@ describe('AggregatorProxy', () => {
     describe('when the relevant info is not available', () => {
       it('returns 0', async () => {
         const actual = await proxy.getTimestamp(phaseBase.mul(777))
+        matchers.bigNum(0, actual)
+      })
+    })
+
+    describe('when the round ID is too large', () => {
+      const overflowRoundId = h
+        .bigNum(2)
+        .pow(255)
+        .add(phaseBase) // get the original phase
+        .add(1) // get the original round
+
+      it('returns 0', async () => {
+        const actual = await proxy.getTimestamp(overflowRoundId)
         matchers.bigNum(0, actual)
       })
     })
