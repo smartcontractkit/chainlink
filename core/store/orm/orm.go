@@ -1409,6 +1409,8 @@ func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32,
 
 // IncrFluxMonitorRoundSubmissions trys to create a RoundStats record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
+// TODO - RYAN - maybe rename function?
+// TODO - RYAN - allow function to accept JobRunID
 func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Exec(`
