@@ -333,13 +333,14 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Docker login
+          name: Docker Hub login
           command: |
             echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
       - run:
           name: Docker build
           command: |
             DOCKER_TAG=circleci make docker
+      - setup-aws-ecr
       - run:
           name: Docker push, if applicable
           command: |
@@ -540,3 +541,50 @@ workflows:
                 - /^release\/.*/
                 - master
                 - /^hotfix\/.*/
+commands:
+  setup-aws-ecr:
+    description: "Install aws cli and log docker in ECR"
+    steps:
+      - run:
+          name: Install AWS CLI
+          command: |
+            curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+            rm awscliv2.zip
+            aws --version
+      - run:
+          name: Assume role for deploying to ECR
+          command: |
+            # Get temporary credentials to access resoures available to specific role
+            temporaryCredentials=$(
+              aws sts assume-role \
+                --role-arn "${AWS_ROLE_TO_ASSUME}" \
+                --role-session-name "cirlceci-${CIRCLE_PROJECT_REPONAME}-${CIRCLE_TAG}"
+            )
+            # Deconstruct json response, extracting aws credentials
+            accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
+            secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
+            sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
+            # Store aws creds in .aws folder
+            aws configure set aws_access_key_id ${accessKeyID}
+            aws configure set aws_secret_access_key ${secretAccessKey}
+            aws configure set aws_session_token ${sessionToken}
+            # Override old keys with the temporary ones.
+            export AWS_ACCESS_KEY_ID=${accessKeyID}
+            export AWS_SECRET_ACCESS_KEY=${secretAccessKey}
+            export AWS_SESSION_TOKEN=${sessionToken}
+            # Use temporary keys to get account ID
+            accountID=$(aws sts get-caller-identity --output text --query 'Account')
+            # Store credentials in BASH_ENV, allows subsequent steps to use correct credentials
+            {
+              echo "export AWS_ACCESS_KEY_ID=${accessKeyID}";
+              echo "export AWS_SECRET_ACCESS_KEY=${secretAccessKey}";
+              echo "export AWS_SESSION_TOKEN=${sessionToken}";
+              echo "export AWS_ACCOUNT_ID=${accountID}";
+              echo "export AWS_ECR_ACCOUNT_URL=${accountID}.dkr.ecr.us-west-2.amazonaws.com/chainlink"
+            } >> "${BASH_ENV}"
+      - run:
+          name: Docker login to ECR
+          command: |
+            aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
