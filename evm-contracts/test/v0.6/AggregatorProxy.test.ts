@@ -201,7 +201,7 @@ describe('AggregatorProxy', () => {
     })
 
     describe('when the relevant info is not available', () => {
-      it('does not revert', async () => {
+      it('returns 0', async () => {
         const actual = await proxy.getAnswer(phaseBase.mul(777))
         matchers.bigNum(0, actual)
       })
@@ -223,7 +223,7 @@ describe('AggregatorProxy', () => {
     })
 
     describe('when the relevant info is not available', () => {
-      it('does not revert', async () => {
+      it('returns 0', async () => {
         const actual = await proxy.getTimestamp(phaseBase.mul(777))
         matchers.bigNum(0, actual)
       })
