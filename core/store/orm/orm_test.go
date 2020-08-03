@@ -1934,15 +1934,18 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
-		jobRunID := models.NewID()
-		err := store.UpdateFluxMonitorRoundStats(address, roundID, jobRunID)
+		jobRun := cltest.NewJobRun(job)
+		require.NoError(t, store.CreateJobRun(&jobRun))
+		err := store.UpdateFluxMonitorRoundStats(address, roundID, jobRun.ID)
 		require.NoError(t, err)
 		fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, fmrs.NumSubmissions)
-		require.Equal(t, jobRunID, fmrs.JobRunID)
+		require.Equal(t, jobRun.ID, fmrs.JobRunID)
 	}
 }
 
