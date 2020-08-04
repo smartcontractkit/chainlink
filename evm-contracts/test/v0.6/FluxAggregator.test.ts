@@ -3033,7 +3033,7 @@ describe('FluxAggregator', () => {
 
       await matchers.evmRevert(
         aggregator.getRoundData(overflowedId),
-        'round ID must be less than 2^32',
+        'No data present',
       )
     })
   })
