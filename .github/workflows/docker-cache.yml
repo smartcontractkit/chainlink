@@ -45,53 +45,30 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: install aws cli
-        run: |
-          curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
-          rm awscliv2.zip
-
-      - name: configure aws cli
+      - name: Fetch AWS temporary credentials
+        id: temp-creds
+        uses: docker://mowat27/sts-assume-role-action
         env:
-          AWS_ROLE_TO_ASSUME: '${{ secrets.AWS_ROLE_TO_ASSUME }}'
           AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
           AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
           AWS_DEFAULT_REGION: '${{ secrets.AWS_DEFAULT_REGION }}'
-          AWS_ECR_ACCOUNT_URL: '${{ secrets.AWS_ECR_ACCOUNT_URL }}'
-        run: |
-          # Get temporary credentials to access resoures available to specific role
-          temporaryCredentials=$(
-            aws sts assume-role \
-              --role-arn "${AWS_ROLE_TO_ASSUME}" \
-              --role-session-name "gha-builder-cache-image"
-          )
-          # Deconstruct json response, extracting aws credentials
-          accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
-          secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
-          sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
-          # Store aws creds in .aws folder
-          aws configure set aws_access_key_id ${accessKeyID}
-          aws configure set aws_secret_access_key ${secretAccessKey}
-          aws configure set aws_session_token ${sessionToken}
-          # Use temporary keys to get account ID
-          accountID=$(aws sts get-caller-identity --output text --query 'Account')
-          # Store credentials in env vars, allowing subsequent steps to use correct credentials
-          echo "::set-env name=AWS_ACCESS_KEY_ID::${accessKeyID}";
-          echo "::set-env name=AWS_SECRET_ACCESS_KEY::${secretAccessKey}";
-          echo "::set-env name=AWS_SESSION_TOKEN::${sessionToken}";
-          echo "::set-env name=AWS_ACCOUNT_ID::${accountID}";
-          echo "::set-env name=AWS_ECR_ACCOUNT_URL::${accountID}.dkr.ecr.us-west-2.amazonaws.com/builder-cache"
+          AWS_ASSUME_ROLE_ARN: '${{ secrets.AWS_ROLE_TO_ASSUME }}'
 
-      - name: docker login to ECR
-        run: |
-          aws ecr get-login-password --region "${{ secrets.AWS_DEFAULT_REGION }}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
-
-      - name: Build and push docker image
+      - name: Push docker image to ECR
         env:
           TAG: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
+          AWS_ACCESS_KEY_ID: ${{ steps.temp-creds.outputs.AccessKeyID }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.temp-creds.outputs.SecretAccessKey }}
+          AWS_SESSION_TOKEN: ${{ steps.temp-creds.outputs.SessionToken }}
+          AWS_DEFAULT_REGION: '${{ secrets.AWS_DEFAULT_REGION }}'
+          AWS_ECR_ACCOUNT_URL: "${{ secrets.AWS_ECR_ACCOUNT_URL }}/builder-cache"
         run: |
           docker tag "smartcontract/builder-cache:${TAG}" "${AWS_ECR_ACCOUNT_URL}:${TAG}"
+
+          aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
+          aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+          aws configure set aws_session_token "${AWS_SESSION_TOKEN}"
+          aws ecr get-login-password --region "${AWS_DEFAULT_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
           docker push "${AWS_ECR_ACCOUNT_URL}:${TAG}"
 
       - name: Update docker files
