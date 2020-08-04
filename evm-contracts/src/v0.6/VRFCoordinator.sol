@@ -144,7 +144,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     // Cryptographically guaranteed by seed including an increasing nonce
     assert(callbacks[requestId].callbackContract == address(0));
     callbacks[requestId].callbackContract = _sender;
-    assert(_feePaid < 1e9); // Total LINK fits in uint96
+    assert(_feePaid < 1e27); // Total LINK fits in uint96
     callbacks[requestId].randomnessFee = uint96(_feePaid);
     callbacks[requestId].seedAndBlockNum = keccak256(abi.encodePacked(
       preSeed, block.number));

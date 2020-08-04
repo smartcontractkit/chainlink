@@ -1,7 +1,8 @@
-GETH_VERSION: 1.9.15
+GETH_VERSION: 1.9.18
 flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json bfb8df926ad88053cebc5448ce507e6457faba76a42fbd74d7192468c4be0a9b
 solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
 solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json f7be69c114dea6ccbc42f81c457c509a4c48af792eeeaddffbd06f473b7bfa8c
-solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json 7c556094f6a3539b1680c67724bd66c197005c911ce9cb176d75c7fce56acd7a
+solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json 65932173f1534152835585daddaecc405d8600df439c255596547706f1f0c5c9
 solidity_vrf_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
 solidity_vrf_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json 7f91b75e89d021f038cc44ffc531ef60436c7b9e23f632ec57238ec61a2df517
+vrf_testnet_d20: ../../../evm-contracts/abi/v0.6/VRFTestnetD20.json 58a30c1eecea91b37a0f2b522a02d2b4e54de121b48a28e09fde5c377eaf6914
