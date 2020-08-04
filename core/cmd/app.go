@@ -260,6 +260,20 @@ func NewApp(client *Client) *cli.App {
 					Action: client.RunNode,
 				},
 				cli.Command{
+					Name:   "p2p",
+					Usage:  "Local commands for administering the node's p2p layer",
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create a p2p key, encrypted with password from the
+               password file, and store it in the database.`),
+							Flags:  flags("password, p"),
+							Action: client.CreateP2PKey,
+						},
+					},
+				},
+				cli.Command{
 					Name: "vrf",
 					Usage: format(`Local commands for administering the database of VRF proof
            keys. These commands will not affect the extant in-memory keys of

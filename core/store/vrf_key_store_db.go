@@ -27,7 +27,7 @@ func (ks *VRFKeyStore) CreateKey(phrase string, p ...vrfkey.ScryptParams,
 // force. It is not persisted to the DB, because no one should be keeping such
 // keys lying around.
 func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
-	phrase string) (*vrfkey.EncryptedSecretKey, error) {
+	phrase string) (*vrfkey.EncryptedVRFKey, error) {
 	key := vrfkey.CreateKey()
 	encrypted, err := key.Encrypt(phrase, vrfkey.FastScryptParams)
 	if err != nil {
@@ -81,7 +81,7 @@ func (ks *VRFKeyStore) Delete(key vrfkey.PublicKey) (err error) {
 		return AttemptToDeleteNonExistentKeyFromDB
 	}
 	return multierr.Append(err, ks.store.ORM.DeleteEncryptedSecretVRFKey(
-		&vrfkey.EncryptedSecretKey{PublicKey: key}))
+		&vrfkey.EncryptedVRFKey{PublicKey: key}))
 }
 
 // Import adds this encrypted key to the DB and unlocks it in in-memory store
@@ -89,9 +89,9 @@ func (ks *VRFKeyStore) Delete(key vrfkey.PublicKey) (err error) {
 func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	enckey := &vrfkey.EncryptedSecretKey{}
+	enckey := &vrfkey.EncryptedVRFKey{}
 	if err := json.Unmarshal(keyjson, enckey); err != nil {
-		return fmt.Errorf("could not parse %s as EncryptedSecretKey json", keyjson)
+		return fmt.Errorf("could not parse %s as EncryptedVRFKey json", keyjson)
 	}
 	extantMatchingKeys, err := ks.get(enckey.PublicKey)
 	if err != nil {
@@ -113,16 +113,16 @@ func (ks *VRFKeyStore) Import(keyjson []byte, auth string) error {
 	return nil
 }
 
-// get retrieves all EncryptedSecretKey's associated with k, or all encrypted
+// get retrieves all EncryptedVRFKey's associated with k, or all encrypted
 // keys if k is nil, or errors. Caller is responsible for locking the store
-func (ks *VRFKeyStore) get(k ...vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey,
+func (ks *VRFKeyStore) get(k ...vrfkey.PublicKey) ([]*vrfkey.EncryptedVRFKey,
 	error) {
 	if len(k) > 1 {
 		return nil, errors.Errorf("can get at most one secret key at a time")
 	}
-	var where []vrfkey.EncryptedSecretKey
+	var where []vrfkey.EncryptedVRFKey
 	if len(k) == 1 { // Search for this specific public key
-		where = append(where, vrfkey.EncryptedSecretKey{PublicKey: k[0]})
+		where = append(where, vrfkey.EncryptedVRFKey{PublicKey: k[0]})
 	}
 	keys, err := ks.store.FindEncryptedSecretVRFKeys(where...)
 	if err != nil {
@@ -131,16 +131,16 @@ func (ks *VRFKeyStore) get(k ...vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey,
 	return keys, nil
 }
 
-// Get retrieves all EncryptedSecretKey's associated with k, or all encrypted
+// Get retrieves all EncryptedVRFKey's associated with k, or all encrypted
 // keys if k is nil, or errors
-func (ks *VRFKeyStore) Get(k ...vrfkey.PublicKey) ([]*vrfkey.EncryptedSecretKey, error) {
+func (ks *VRFKeyStore) Get(k ...vrfkey.PublicKey) ([]*vrfkey.EncryptedVRFKey, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	return ks.get(k...)
 }
 
 func (ks *VRFKeyStore) GetSpecificKey(
-	k vrfkey.PublicKey) (*vrfkey.EncryptedSecretKey, error) {
+	k vrfkey.PublicKey) (*vrfkey.EncryptedVRFKey, error) {
 	if k == (vrfkey.PublicKey{}) {
 		return nil, fmt.Errorf("can't retrieve zero key")
 	}
@@ -154,7 +154,7 @@ func (ks *VRFKeyStore) GetSpecificKey(
 	}
 	if len(encryptedKey) > 1 {
 		// This is impossible, as long as the public key is the primary key on the
-		// EncryptedSecretKey table.
+		// EncryptedVRFKey table.
 		panic(fmt.Errorf("found more than one key with public key %s", k.String()))
 	}
 	return encryptedKey[0], nil

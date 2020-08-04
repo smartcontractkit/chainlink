@@ -10,7 +10,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boj/redistore v0.0.0-20160128113310-fc113767cd6b // indirect
-	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d
+	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -35,6 +35,7 @@ require (
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/lib/pq v1.8.0
+	github.com/libp2p/go-libp2p-core v0.6.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.4
