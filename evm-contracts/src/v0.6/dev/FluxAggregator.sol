@@ -401,6 +401,8 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     override
     returns (int256)
   {
+    if (_roundId > ROUND_MAX) return 0;
+
     return rounds[uint32(_roundId)].answer;
   }
 
@@ -420,6 +422,8 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     override
     returns (uint256)
   {
+    if (_roundId > ROUND_MAX) return 0;
+
     return rounds[uint32(_roundId)].updatedAt;
   }
 
