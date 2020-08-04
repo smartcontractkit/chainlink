@@ -33,8 +33,20 @@ jobs:
             - '/go/pkg/mod'
       - run: yarn setup:contracts
       - run: go run ./core local db preparetest
-      - run: set -o pipefail
-      - run: go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep "\-\-\- FAIL" || echo "All passed!" # only show failures
+      - run: |
+          set -o pipefail
+          set +e
+          go test -v -p 4 -parallel 4 ./... > ./output.txt
+          EXITCODE=$?
+          cat ./output.txt | grep "\-\-\- FAIL"
+          echo "Exit code: $EXITCODE"
+          if [[ $EXITCODE == 1 ]]; then
+              echo "Encountered test failures."
+              exit 1
+          else
+              echo "All tests passed!"
+              exit 0
+          fi
       - store_artifacts:
           path: ./output.txt
 
