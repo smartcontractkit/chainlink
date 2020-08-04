@@ -672,15 +672,25 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		return
 	}
 
-	// TODO - RYAN - if ... && JobRun.status != ("completed" || "errored")
 	if roundStats.NumSubmissions > 0 {
 		// This indicates either that:
 		//     - We tried to start a round at the same time as another node, and their transaction was mined first, or
 		//     - The chain experienced a shallow reorg that unstarted the current round.
-		//
-		// In either case, we should not resubmit.
+
 		logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
 		return
+
+		// jobRun, err := p.store.FindJobRun(roundStats.JobRunID)
+		// if err != nil {
+		// 	logger.Errorw(fmt.Sprintf("error finding JobRun associated with FMRoundStat: %v", err), p.loggerFieldsForNewRound(log)...)
+		// 	return
+		// }
+		// if jobRun.Status != models.RunStatusCompleted && jobRun.Status != models.RunStatusErrored {
+		// 	// If our previous attempt is still pending, don't re-submit
+		// 	// If our previous attempt is already over (completed or errored), we should retry
+		// 	logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
+		// 	return
+		// }
 	}
 
 	// Ignore rounds we started
