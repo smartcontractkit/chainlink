@@ -1,5 +1,5 @@
 GETH_VERSION: 1.9.18
-flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json bfb8df926ad88053cebc5448ce507e6457faba76a42fbd74d7192468c4be0a9b
+flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json 518a47085bbbe1ed966a44597f5a0e90c210db1091207d2535302b94f58ea187
 solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
 solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json f7be69c114dea6ccbc42f81c457c509a4c48af792eeeaddffbd06f473b7bfa8c
 solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json 65932173f1534152835585daddaecc405d8600df439c255596547706f1f0c5c9
