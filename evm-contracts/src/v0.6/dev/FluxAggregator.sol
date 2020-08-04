@@ -401,9 +401,9 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     override
     returns (int256)
   {
-    if (_roundId > ROUND_MAX) return 0;
-
-    return rounds[uint32(_roundId)].answer;
+    if (validRoundId(_roundId)) {
+      return rounds[uint32(_roundId)].answer;
+    }
   }
 
   /**
@@ -422,9 +422,9 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     override
     returns (uint256)
   {
-    if (_roundId > ROUND_MAX) return 0;
-
-    return rounds[uint32(_roundId)].updatedAt;
+    if (validRoundId(_roundId)) {
+      return rounds[uint32(_roundId)].updatedAt;
+    }
   }
 
   /**
@@ -460,7 +460,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
   {
     Round memory r = rounds[uint32(_roundId)];
 
-    require(r.answeredInRound > 0, V3_NO_DATA_ERROR);
+    require(r.answeredInRound > 0 && validRoundId(_roundId), V3_NO_DATA_ERROR);
 
     return (
       _roundId,
@@ -1036,6 +1036,14 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     returns (bool)
   {
     return _roundId == reportingRoundId.add(1);
+  }
+
+  function validRoundId(uint256 _roundId)
+    private
+    view
+    returns (bool)
+  {
+    return _roundId <= ROUND_MAX;
   }
 
 }

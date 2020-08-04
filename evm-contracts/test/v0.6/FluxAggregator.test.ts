@@ -3024,6 +3024,18 @@ describe('FluxAggregator', () => {
         'No data present',
       )
     })
+
+    it('reverts if a round ID is too big', async () => {
+      const overflowedId = h
+        .bigNum(2)
+        .pow(32)
+        .add(1)
+
+      await matchers.evmRevert(
+        aggregator.getRoundData(overflowedId),
+        'round ID must be less than 2^32',
+      )
+    })
   })
 
   describe('#latestRoundData', () => {
