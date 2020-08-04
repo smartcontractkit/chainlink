@@ -69,17 +69,27 @@ import "./VRFRequestIDBase.sol";
  * @dev hard for anyone to influence or predict. Any party who can influence
  * @dev them could in principle collude with the oracle (who can instantly
  * @dev compute the VRF output for any given seed) to bias the outcomes from
- * @dev your contract in their favor. For instance, the block hash is a natural
- * @dev choice of seed for many applications, but miners in control of a
- * @dev substantial fraction of hashing power and with access to VRF outputs
- * @dev could check the result of prospective block hashes as they are mined,
- * @dev and decide not to publish a block if they don't like the outcome it will
- * @dev lead to.
+ * @dev your contract in their favor.
  *
- * @dev On the other hand, using block hashes as the seed makes it particularly
- * @dev easy to estimate the economic cost to a miner for this kind of cheating
- * @dev (namely, the block reward and transaction fees they forgo by refraining
- * @dev from publishing a block.)
+ * @dev For instance, the VRF machinery will automatically mix the seed you
+ * @dev provide with the blockhash, which is a natural choice of seed for many
+ * @dev applications, but unless the seed you provide is unpredictable, miners
+ * @dev in control of a substantial fraction of hashing power and with access to
+ * @dev VRF outputs could check the result of prospective block hashes as they
+ * @dev are mined, and decide not to publish a block if they don't like the
+ * @dev outcome it will lead to.
+ *
+ * @dev Even with inclusion of the most recent blockhash in the formula for the
+ * @dev final seed, a sufficiently powerful miner could, in principle, fork the
+ * @dev blockchain to evict the block containing the request, forcing the
+ * @dev request to be included in a later block with a different hash, and
+ * @dev therefore a different seed.
+ *
+ * @dev On the other hand, including block hashes in the seed makes it
+ * @dev particularly easy to estimate the economic cost to a miner for this kind
+ * @dev of cheating (namely, the block reward and transaction fees they forgo by
+ * @dev refraining from publishing a block, or how much hashing power would be
+ * @dev necessary to fork away a request.)
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
 
@@ -117,7 +127,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @param _fee The amount of LINK to send with the request
    * @param _seed Random seed from which output randomness is determined
    *
-   * @return requestId which will be returned with the response to this request
+   * @return requestId unique ID for this request
    *
    * @dev The returned requestId can be used to distinguish responses to *
    * @dev concurrent requests. It is passed as the first argument to
@@ -127,11 +137,17 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     public returns (bytes32 requestId)
   {
     LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, _seed));
-    // This is the seed actually passed to the VRF in VRFCoordinator
+    // This is the seed passed to VRFCoordinator. The oracle will mix this with
+    // the hash of the block containing this request to obtain the seed which is
+    // finally passed to the VRF cryptographic machinery.
     uint256 vRFSeed  = makeVRFInputSeed(_keyHash, _seed, address(this), nonces[_keyHash]);
     // nonces[_keyHash] must stay in sync with
     // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
-    // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest)
+    // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest).
+    // This is perhaps no longer so important, now that the blockhash is
+    // automatically mixed with the seed, but provides extra protection against
+    // the user accidentally repeating their input seed, which would result in a
+    // predictable output.
     nonces[_keyHash] = nonces[_keyHash].add(1); 
     return makeRequestId(_keyHash, vRFSeed);
   }
