@@ -4,7 +4,7 @@
 // ethereum keys.
 //
 // The three types, PrivateKey (private_key.go), PublicKey (public_key.go) and
-// EncryptedSecretKey (serialzation.go) are all aspects of the one keypair.
+// EncryptedVRFKey (serialzation.go) are all aspects of the one keypair.
 //
 // The details of the secret key in a keypair should remain private to this
 // package. If you need to access the secret key, you should add a method to
@@ -15,7 +15,7 @@
 // context of a VRF, represents a public commitment to a particular "verifiable
 // random function."
 //
-// EncryptedSecretKey is used to store a public/private keypair in a database,
+// EncryptedVRFKey is used to store a public/private keypair in a database,
 // in encrypted form.
 //
 // Usage
