@@ -22,6 +22,7 @@ func leanStore() *store.Store {
 }
 
 func TestHttpAdapters_NotAUrlError(t *testing.T) {
+	require.Equal(t, true, false)
 	t.Parallel()
 
 	store := leanStore()
