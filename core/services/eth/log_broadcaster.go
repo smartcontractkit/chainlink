@@ -86,9 +86,9 @@ type LogBroadcast interface {
 }
 
 type logBroadcast struct {
-	orm        orm
-	log        models.RawLog
-	consumerID *models.ID
+	orm   orm
+	log   models.RawLog
+	jobID *models.ID
 }
 
 func (lb *logBroadcast) Log() interface{} {
@@ -100,11 +100,11 @@ func (lb *logBroadcast) UpdateLog(newLog models.RawLog) {
 }
 
 func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
-	return lb.orm.HasConsumedLog(lb.log, lb.consumerID)
+	return lb.orm.HasConsumedLog(lb.log, lb.jobID)
 }
 
 func (lb *logBroadcast) MarkConsumed() error {
-	lc := models.NewLogConsumption(lb.log, lb.consumerID)
+	lc := models.NewLogConsumption(lb.log, lb.jobID)
 	return lb.orm.CreateLogConsumption(&lc)
 }
 
