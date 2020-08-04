@@ -726,61 +726,43 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		deviationThresholdNotExceeded = answerCase{"no deviation", 10, 10}
 	)
 
-	tests := []struct {
+	type testCase struct {
 		funded        bool
 		eligible      bool
 		startedBySelf bool
+		duplicateLog  bool
+		runStatus     models.RunStatus
 		roundIDCase
 		answerCase
-	}{
-		{true, true, true, fetched_lt_log, deviationThresholdExceeded},
-		{true, true, true, fetched_gt_log, deviationThresholdExceeded},
-		{true, true, true, fetched_eq_log, deviationThresholdExceeded},
-		{true, true, true, fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, true, fetched_gt_log, deviationThresholdNotExceeded},
-		{true, true, true, fetched_eq_log, deviationThresholdNotExceeded},
-		{true, true, false, fetched_lt_log, deviationThresholdExceeded},
-		{true, true, false, fetched_gt_log, deviationThresholdExceeded},
-		{true, true, false, fetched_eq_log, deviationThresholdExceeded},
-		{true, true, false, fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, false, fetched_gt_log, deviationThresholdNotExceeded},
-		{true, true, false, fetched_eq_log, deviationThresholdNotExceeded},
-		{true, false, true, fetched_lt_log, deviationThresholdExceeded},
-		{true, false, true, fetched_gt_log, deviationThresholdExceeded},
-		{true, false, true, fetched_eq_log, deviationThresholdExceeded},
-		{true, false, true, fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, true, fetched_gt_log, deviationThresholdNotExceeded},
-		{true, false, true, fetched_eq_log, deviationThresholdNotExceeded},
-		{true, false, false, fetched_lt_log, deviationThresholdExceeded},
-		{true, false, false, fetched_gt_log, deviationThresholdExceeded},
-		{true, false, false, fetched_eq_log, deviationThresholdExceeded},
-		{true, false, false, fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, false, fetched_gt_log, deviationThresholdNotExceeded},
-		{true, false, false, fetched_eq_log, deviationThresholdNotExceeded},
-		{false, true, true, fetched_lt_log, deviationThresholdExceeded},
-		{false, true, true, fetched_gt_log, deviationThresholdExceeded},
-		{false, true, true, fetched_eq_log, deviationThresholdExceeded},
-		{false, true, true, fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, true, fetched_gt_log, deviationThresholdNotExceeded},
-		{false, true, true, fetched_eq_log, deviationThresholdNotExceeded},
-		{false, true, false, fetched_lt_log, deviationThresholdExceeded},
-		{false, true, false, fetched_gt_log, deviationThresholdExceeded},
-		{false, true, false, fetched_eq_log, deviationThresholdExceeded},
-		{false, true, false, fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, false, fetched_gt_log, deviationThresholdNotExceeded},
-		{false, true, false, fetched_eq_log, deviationThresholdNotExceeded},
-		{false, false, true, fetched_lt_log, deviationThresholdExceeded},
-		{false, false, true, fetched_gt_log, deviationThresholdExceeded},
-		{false, false, true, fetched_eq_log, deviationThresholdExceeded},
-		{false, false, true, fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, true, fetched_gt_log, deviationThresholdNotExceeded},
-		{false, false, true, fetched_eq_log, deviationThresholdNotExceeded},
-		{false, false, false, fetched_lt_log, deviationThresholdExceeded},
-		{false, false, false, fetched_gt_log, deviationThresholdExceeded},
-		{false, false, false, fetched_eq_log, deviationThresholdExceeded},
-		{false, false, false, fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, false, fetched_gt_log, deviationThresholdNotExceeded},
-		{false, false, false, fetched_eq_log, deviationThresholdNotExceeded},
+	}
+
+	// generate all permutations of test cases
+	tests := []testCase{}
+	duplicateLogOptions := []bool{true, false}
+	runStatusOptions := []models.RunStatus{
+		models.RunStatusCompleted, models.RunStatusCancelled, models.RunStatusErrored,
+		models.RunStatusInProgress, models.RunStatusUnstarted, models.RunStatusPendingOutgoingConfirmations,
+	}
+	fundedOptions := []bool{true, false}
+	eligibleOptions := []bool{true, false}
+	startedBySelfOptions := []bool{true, false}
+	roundIDCaseOptions := []roundIDCase{fetched_lt_log, fetched_gt_log, fetched_eq_log}
+	answerCaseOptions := []answerCase{deviationThresholdExceeded, deviationThresholdNotExceeded}
+	for _, funded := range fundedOptions {
+		for _, eligible := range eligibleOptions {
+			for _, startedBySelf := range startedBySelfOptions {
+				for _, duplicateLog := range duplicateLogOptions {
+					for _, runStatus := range runStatusOptions {
+						for _, roundIDCase := range roundIDCaseOptions {
+							for _, answerCase := range answerCaseOptions {
+								newTestCase := testCase{funded, eligible, startedBySelf, duplicateLog, runStatus, roundIDCase, answerCase}
+								tests = append(tests, newTestCase)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	for _, test := range tests {
@@ -809,7 +791,9 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 
 			nodeAddr := ensureAccount(t, store)
 
-			expectedToFetchRoundState := !test.startedBySelf
+			previousSubmissionReorged := test.duplicateLog &&
+				(test.runStatus == models.RunStatusCompleted || test.runStatus == models.RunStatusErrored)
+			expectedToFetchRoundState := previousSubmissionReorged || !test.startedBySelf
 			expectedToPoll := expectedToFetchRoundState && test.eligible && test.funded && test.logRoundID >= int64(test.fetchedReportableRoundID)
 			expectedToSubmit := expectedToPoll
 
@@ -818,6 +802,15 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			initr.ID = 1
 			initr.PollTimer.Disabled = true
 			initr.IdleTimer.Disabled = true
+			require.NoError(t, store.CreateJob(&job))
+
+			if test.duplicateLog {
+				jobRun := cltest.NewJobRun(job)
+				jobRun.Status = test.runStatus
+				require.NoError(t, store.CreateJobRun(&jobRun))
+				err := store.UpdateFluxMonitorRoundStats(initr.Address, uint32(test.logRoundID), jobRun.ID)
+				require.NoError(t, err)
+			}
 
 			rm := new(mocks.RunManager)
 			fetcher := new(mocks.Fetcher)
