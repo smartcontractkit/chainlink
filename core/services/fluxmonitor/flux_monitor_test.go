@@ -254,6 +254,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				job := cltest.NewJobWithFluxMonitorInitiator()
 				initr := job.Initiators[0]
 				initr.ID = 1
+				require.NoError(t, store.CreateJob(&job))
 
 				const reportableRoundID = 2
 				latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
@@ -285,6 +286,8 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 
 				if test.expectedToSubmit {
 					run := cltest.NewJobRun(job)
+					require.NoError(t, store.CreateJobRun(&run))
+
 					data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
 					"result": "%d",
 					"address": "%s",
@@ -382,6 +385,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	initr.ID = 1
 	initr.PollTimer.Disabled = true
 	initr.IdleTimer.Disabled = true
+	require.NoError(t, store.CreateJob(&job))
 
 	// Test helpers
 	var (
@@ -432,6 +436,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
+	require.NoError(t, store.CreateJobRun(&run))
 
 	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(1)).Return(&run, nil).Once()
 	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(3)).Return(&run, nil).Once()
