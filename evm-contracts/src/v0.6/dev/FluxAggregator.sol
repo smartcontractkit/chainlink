@@ -404,6 +404,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     if (validRoundId(_roundId)) {
       return rounds[uint32(_roundId)].answer;
     }
+    return 0;
   }
 
   /**
@@ -425,6 +426,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     if (validRoundId(_roundId)) {
       return rounds[uint32(_roundId)].updatedAt;
     }
+    return 0;
   }
 
   /**
