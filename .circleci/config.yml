@@ -513,7 +513,6 @@ workflows:
       - build-publish-chainlink:
           requires:
             - core-go-test
-            - core-go-test-race
             - geth-postgres
             - parity-postgres
             - styleguide
