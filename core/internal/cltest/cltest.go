@@ -296,7 +296,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
 
-	for _, flag := range flags {
+	for _, flag := range flagsAndDeps {
 		if flag == AllowUnstarted {
 			ta.allowUnstarted = true
 		}

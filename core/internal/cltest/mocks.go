@@ -74,12 +74,14 @@ func MockEthOnStore(t testing.TB, s *store.Store, flagsAndDependencies ...interf
 				require.NoError(t, err)
 				return Head(n.Int64())
 			}))
+		} else if flag == AllowUnstarted {
+			// no-op, handled in cltest.NewApplication
 		} else {
 			switch dep := flag.(type) {
 			case eth.Client:
 				ethClient = dep
 			default:
-				t.Fatalf("unknown dependency type: %T", flag)
+				t.Fatalf("unknown dependency: (%T) %+v", flag, flag)
 			}
 		}
 	}
