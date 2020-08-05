@@ -493,6 +493,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsR
 	defer cleanup()
 
 	store := app.Store
+	store.Config.Set("ETH_MAX_GAS_PRICE_WEI", 500000000000)
 	config := store.Config
 
 	txm := store.TxManager
