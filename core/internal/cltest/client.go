@@ -14,11 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -181,8 +181,7 @@ func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt
 	return c.b.TransactionReceipt(ctx, receipt)
 }
 
-func (c *SimulatedBackendClient) blockNumber(
-	number interface{}) (blockNumber *big.Int, err error) {
+func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *big.Int, err error) {
 	switch n := number.(type) {
 	case string:
 		switch n {
@@ -210,21 +209,31 @@ func (c *SimulatedBackendClient) blockNumber(
 	panic("can never reach here")
 }
 
-func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	return c.b.HeaderByNumber(ctx, n)
+func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+	header, err := c.b.HeaderByNumber(ctx, n)
+	if err != nil {
+		return nil, err
+	} else if header == nil {
+		return nil, ethereum.NotFound
+	}
+	if n == nil {
+		n = c.currentBlockNumber()
+	}
+	return &models.Head{
+		Hash:   NewHash(),
+		Number: n.Int64(),
+	}, nil
 }
 
 func (c *SimulatedBackendClient) BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]eth.MaybeHeader, error) {
 	maybeHeaders := make([]eth.MaybeHeader, len(numbers))
 	for i, num := range numbers {
-		maybeHeaders[i].Number = num.Int64()
-		maybeHeaders[i].Header = &types.Header{Number: num}
+		maybeHeaders[i].Header = models.Head{
+			Hash:   NewHash(),
+			Number: num.Int64(),
+		}
 	}
 	return maybeHeaders, nil
-}
-
-func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, elems []rpc.BatchElem) error {
-	panic("unimplemented")
 }
 
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
@@ -248,11 +257,15 @@ func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.A
 
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
-func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel chan<- *types.Header) (ethereum.Subscription, error) {
+func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel chan<- *models.Head) (ethereum.Subscription, error) {
 	ch := make(chan *types.Header)
 	go func() {
 		for h := range ch {
-			channel <- h
+			if h == nil {
+				channel <- nil
+			} else {
+				channel <- &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
+			}
 		}
 		close(channel)
 	}()
@@ -264,5 +277,5 @@ func (c *SimulatedBackendClient) SendTransaction(context.Context, *types.Transac
 }
 
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	panic("unimplemented")
+	return c.Call(result, method, args)
 }

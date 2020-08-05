@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"net/url"
 	"strings"
@@ -27,27 +28,34 @@ import (
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
 	GethClient
-	RPCClient
 
 	Dial(ctx context.Context) error
+	Close()
+
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(bytes []byte) (common.Hash, error)
+	Call(result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+
+	// These methods are reimplemented due to a difference in how block header hashes are
+	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
+	// type to capture the correct hash from the RPC response.
+	HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
 	BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]MaybeHeader, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
 }
 
 // GethClient is an interface that represents go-ethereum's own ethclient
 // https://github.com/ethereum/go-ethereum/blob/master/ethclient/ethclient.go
 type GethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
-	SendTransaction(context.Context, *types.Transaction) error
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
-	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 }
 
 // RPCClient is an interface that represents go-ethereum's own rpc.Client.
@@ -56,6 +64,7 @@ type RPCClient interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error)
 	Close()
 }
 
@@ -109,7 +118,7 @@ func (client *client) Dial(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	client.RPCClient = rpcClient
+	client.RPCClient = &rpcClientWrapper{rpcClient}
 	client.GethClient = ethclient.NewClient(rpcClient)
 	return nil
 }
@@ -193,11 +202,16 @@ func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*type
 	return client.GethClient.BlockByNumber(ctx, number)
 }
 
-func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (*models.Head, error) {
 	logger.Debugw("eth.Client#HeaderByNumber(...)",
 		"number", number,
 	)
-	return client.GethClient.HeaderByNumber(ctx, number)
+	var head *models.Head
+	err := client.RPCClient.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
+	if err == nil && head == nil {
+		err = ethereum.NotFound
+	}
+	return head, err
 }
 
 func toBlockNumArg(number *big.Int) string {
@@ -208,8 +222,7 @@ func toBlockNumArg(number *big.Int) string {
 }
 
 type MaybeHeader struct {
-	Header *types.Header
-	Number int64
+	Header models.Head
 	Error  error
 }
 
@@ -222,7 +235,7 @@ func (client *client) BatchHeaderByNumber(ctx context.Context, numbers []*big.In
 		batchElems[i] = rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
 			Args:   []interface{}{toBlockNumArg(num), false},
-			Result: &types.Header{},
+			Result: &models.Head{},
 		}
 	}
 	err := client.RPCClient.BatchCallContext(ctx, batchElems)
@@ -231,18 +244,16 @@ func (client *client) BatchHeaderByNumber(ctx context.Context, numbers []*big.In
 	}
 	maybeHeaders := make([]MaybeHeader, len(batchElems))
 	for i, batchElem := range batchElems {
-		maybeHeaders[i].Number = numbers[i].Int64()
 		if batchElem.Error != nil {
-			maybeHeaders[i].Error = batchElem.Error
+			maybeHeaders[i].Error = errors.Wrap(ethereum.NotFound, batchElem.Error.Error())
 		} else {
-			var ok bool
-			maybeHeaders[i].Header, ok = batchElem.Result.(*types.Header)
+			head, ok := batchElem.Result.(*models.Head)
 			if !ok {
-				maybeHeaders[i].Error = errors.Errorf("BatchHeaderByNumber: expected *types.Header, received %T", batchElem.Result)
-			}
-			// Because .Result is pre-initialized to an empty *types.Receipt, we have to detect a nil return another way
-			if maybeHeaders[i].Header != nil && maybeHeaders[i].Header.Number == nil {
-				maybeHeaders[i].Header = nil
+				panic(fmt.Sprintf("BatchHeaderByNumber: expected *models.Head, received %T", batchElem.Result))
+			} else if head == nil || (head.Hash == common.Hash{}) {
+				maybeHeaders[i].Error = ethereum.NotFound
+			} else {
+				maybeHeaders[i].Header = *head
 			}
 		}
 	}
@@ -271,9 +282,18 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return client.GethClient.SubscribeFilterLogs(ctx, q, ch)
 }
 
-func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
 	logger.Debugw("eth.Client#SubscribeNewHead(...)")
-	return client.GethClient.SubscribeNewHead(ctx, ch)
+	return client.RPCClient.EthSubscribe(ctx, ch, "newHeads")
+}
+
+// TODO: remove this wrapper type once cltest.EthMock is no longer in use.
+type rpcClientWrapper struct {
+	*rpc.Client
+}
+
+func (w *rpcClientWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+	return w.Client.EthSubscribe(ctx, channel, args...)
 }
 
 func (client *client) Call(result interface{}, method string, args ...interface{}) error {

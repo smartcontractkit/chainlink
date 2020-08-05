@@ -72,7 +72,7 @@ func MockEthOnStore(t testing.TB, s *store.Store, flagsAndDependencies ...interf
 			mock.RegisterOptional("eth_getBlockByNumber", MockResultFunc(func(args ...interface{}) interface{} {
 				n, err := hexutil.DecodeBig(args[0].(string))
 				require.NoError(t, err)
-				return *NewEthHeader(n.Int64())
+				return Head(n.Int64())
 			}))
 		} else {
 			switch dep := flag.(type) {
@@ -334,7 +334,7 @@ func channelFromSubscriptionName(name string) interface{} {
 	case "logs":
 		return make(chan gethTypes.Log)
 	case "newHeads":
-		return make(chan *gethTypes.Header)
+		return make(chan *models.Head)
 	default:
 		return make(chan struct{})
 	}
@@ -368,7 +368,7 @@ func (mock *EthMock) SubscribeFilterLogs(
 // SubscribeNewHead registers a block head subscription to the channel
 func (mock *EthMock) SubscribeNewHead(
 	ctx context.Context,
-	channel chan<- *gethTypes.Header,
+	channel chan<- *models.Head,
 ) (ethereum.Subscription, error) {
 	mock.mutex.Lock()
 	defer mock.mutex.Unlock()
@@ -386,17 +386,31 @@ func (mock *EthMock) SubscribeNewHead(
 	return nil, errors.New("newHeads subscription only expected once, please register another mock subscription if more are needed")
 }
 
+func (mock *EthMock) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+	ch, ok := channel.(chan<- *models.Head)
+	if !ok {
+		panic("channel should be chan<- *models.Head")
+	}
+	if len(args) == 0 {
+		panic("args should contain 'newHeads'")
+	}
+	return mock.SubscribeNewHead(ctx, ch)
+}
+
 // RegisterNewHeads registers a newheads subscription
-func (mock *EthMock) RegisterNewHeads() chan *gethTypes.Header {
-	newHeads := make(chan *gethTypes.Header, 10)
+func (mock *EthMock) RegisterNewHeads() chan *models.Head {
+	newHeads := make(chan *models.Head, 10)
 	mock.RegisterSubscription("newHeads", newHeads)
 	return newHeads
 }
 
 // RegisterNewHead register new head at given blocknumber
-func (mock *EthMock) RegisterNewHead(blockNumber int64) chan *gethTypes.Header {
+func (mock *EthMock) RegisterNewHead(blockNumber int64) chan *models.Head {
 	newHeads := mock.RegisterNewHeads()
-	newHeads <- &gethTypes.Header{Number: big.NewInt(blockNumber)}
+	newHeads <- &models.Head{
+		Hash:   NewHash(),
+		Number: blockNumber,
+	}
 	return newHeads
 }
 
@@ -509,8 +523,8 @@ func fwdLogs(actual, mock interface{}) {
 }
 
 func fwdHeaders(actual, mock interface{}) {
-	logChan := actual.(chan<- *gethTypes.Header)
-	mockChan := mock.(chan *gethTypes.Header)
+	logChan := actual.(chan<- *models.Head)
+	mockChan := mock.(chan *models.Head)
 	go func() {
 		for e := range mockChan {
 			logChan <- e
@@ -549,8 +563,8 @@ func (mes *MockSubscription) Unsubscribe() {
 		close(mes.channel.(chan struct{}))
 	case chan gethTypes.Log:
 		close(mes.channel.(chan gethTypes.Log))
-	case chan *gethTypes.Header:
-		close(mes.channel.(chan *gethTypes.Header))
+	case chan *models.Head:
+		close(mes.channel.(chan *models.Head))
 	default:
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}

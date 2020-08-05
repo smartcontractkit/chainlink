@@ -75,7 +75,7 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(mock.Arguments) { chSubscribe <- struct{}{} })
-	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&types.Header{Number: big.NewInt(blockHeight)}, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&models.Head{Number: blockHeight}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
@@ -122,7 +122,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 			atomic.AddInt32(&subscribeCalls, 1)
 		})
 	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).
-		Return(&types.Header{Number: big.NewInt(blockHeight)}, nil)
+		Return(&models.Head{Number: blockHeight}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Return(nil, nil)
 	sub.On("Unsubscribe").
@@ -197,7 +197,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		Return(sub, nil).
 		Once()
 	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).
-		Return(&types.Header{Number: big.NewInt(blockHeight)}, nil)
+		Return(&models.Head{Number: blockHeight}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Return(nil, nil)
 	sub.On("Err").Return(nil)
@@ -325,7 +325,7 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 		Times(2)
 
 	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).
-		Return(&types.Header{Number: big.NewInt(blockHeight)}, nil)
+		Return(&models.Head{Number: blockHeight}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			query := args.Get(1).(ethereum.FilterQuery)
@@ -540,7 +540,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				Twice()
 
 			ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).
-				Return(&types.Header{Number: big.NewInt(test.blockHeight1)}, nil).Once()
+				Return(&models.Head{Number: test.blockHeight1}, nil).Once()
 			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Once()
 
 			sub.On("Err").Return(nil)
@@ -594,7 +594,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				backfillableLogs = append(backfillableLogs, logs[logNum])
 			}
 			ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).
-				Return(&types.Header{Number: big.NewInt(test.blockHeight2)}, nil).Once()
+				Return(&models.Head{Number: test.blockHeight2}, nil).Once()
 			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Run(checkFromBlock).Return(backfillableLogs, nil).Once()
 			// Trigger resubscription
 			lb.Register(common.Address{1}, &simpleLogListener{})
@@ -705,7 +705,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 		Return(sub, nil).
 		Once()
 
-	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&types.Header{Number: big.NewInt(blockHeight)}, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&models.Head{Number: blockHeight}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil).Once()
 
 	sub.On("Err").Return(nil)
@@ -760,7 +760,7 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(2).(chan<- types.Log) }).
 		Return(sub, nil).
 		Once()
-	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&types.Header{Number: big.NewInt(blockHeight)}, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&models.Head{Number: blockHeight}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil).Once()
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)

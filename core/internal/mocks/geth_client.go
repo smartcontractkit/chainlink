@@ -112,29 +112,6 @@ func (_m *GethClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 	return r0, r1
 }
 
-// HeaderByNumber provides a mock function with given fields: ctx, n
-func (_m *GethClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	ret := _m.Called(ctx, n)
-
-	var r0 *types.Header
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *types.Header); ok {
-		r0 = rf(ctx, n)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Header)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
-		r1 = rf(ctx, n)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // PendingNonceAt provides a mock function with given fields: ctx, account
 func (_m *GethClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	ret := _m.Called(ctx, account)
@@ -156,13 +133,13 @@ func (_m *GethClient) PendingNonceAt(ctx context.Context, account common.Address
 	return r0, r1
 }
 
-// SendTransaction provides a mock function with given fields: _a0, _a1
-func (_m *GethClient) SendTransaction(_a0 context.Context, _a1 *types.Transaction) error {
-	ret := _m.Called(_a0, _a1)
+// SendTransaction provides a mock function with given fields: ctx, tx
+func (_m *GethClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	ret := _m.Called(ctx, tx)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction) error); ok {
-		r0 = rf(_a0, _a1)
+		r0 = rf(ctx, tx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -186,29 +163,6 @@ func (_m *GethClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, ethereum.FilterQuery, chan<- types.Log) error); ok {
 		r1 = rf(ctx, q, ch)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// SubscribeNewHead provides a mock function with given fields: ctx, ch
-func (_m *GethClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
-	ret := _m.Called(ctx, ch)
-
-	var r0 ethereum.Subscription
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *types.Header) ethereum.Subscription); ok {
-		r0 = rf(ctx, ch)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ethereum.Subscription)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- *types.Header) error); ok {
-		r1 = rf(ctx, ch)
 	} else {
 		r1 = ret.Error(1)
 	}

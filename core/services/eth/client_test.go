@@ -18,8 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestEthClient_TransactionReceipt(t *testing.T) {
@@ -64,7 +66,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 
 		hash := common.HexToHash(txHash)
 		_, err = ethClient.TransactionReceipt(context.Background(), hash)
-		require.Equal(t, ethereum.NotFound, err)
+		require.Equal(t, ethereum.NotFound, errors.Cause(err))
 	})
 }
 
@@ -213,7 +215,6 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 
 			result, err := ethClient.GetERC20Balance(userAddress, contractAddress)
 			assert.NoError(t, err)
-			assert.NoError(t, err)
 			assert.Equal(t, test.balance, result)
 		})
 	}
@@ -235,4 +236,121 @@ func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
 	var receipt types.Receipt
 	err := json.Unmarshal([]byte(input), &receipt)
 	require.NoError(t, err)
+}
+
+func TestEthClient_HeaderByNumber(t *testing.T) {
+	expectedBlockNum := big.NewInt(1)
+	expectedBlockHash := "0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"
+
+	tests := []struct {
+		name                  string
+		expectedRequestBlock  *big.Int
+		expectedResponseBlock int64
+		error                 error
+		rpcResp               string
+	}{
+		{"happy geth", expectedBlockNum, expectedBlockNum.Int64(), nil, `{"jsonrpc":"2.0","id":1,"result":{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}}`},
+		{"happy parity", expectedBlockNum, expectedBlockNum.Int64(), nil, `{"jsonrpc":"2.0","result":{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]},"id":1}`},
+		{"missing header", expectedBlockNum, 0, ethereum.NotFound, `{"jsonrpc":"2.0","id":1,"result":null}`},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			_, url, cleanup := cltest.NewWSServer(test.rpcResp, func(data []byte) {
+				req := cltest.ParseJSON(t, bytes.NewReader(data))
+
+				require.True(t, req.IsObject())
+
+				require.Equal(t, "eth_getBlockByNumber", req.Get("method").String())
+				require.True(t, req.Get("params").IsArray())
+
+				blockNumStr := req.Get("params").Get("0").String()
+				var blockNum hexutil.Big
+				err := blockNum.UnmarshalText([]byte(blockNumStr))
+				require.NoError(t, err)
+				require.Equal(t, test.expectedRequestBlock, blockNum.ToInt())
+
+				require.Equal(t, false, req.Get("params").Get("1").Bool())
+			})
+			defer cleanup()
+
+			ethClient, err := eth.NewClient(url)
+			require.NoError(t, err)
+			err = ethClient.Dial(context.Background())
+			require.NoError(t, err)
+			defer ethClient.Close()
+
+			result, err := ethClient.HeaderByNumber(context.Background(), expectedBlockNum)
+			if test.error != nil {
+				require.Equal(t, test.error, errors.Cause(err))
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, expectedBlockHash, result.Hash.Hex())
+				require.Equal(t, test.expectedResponseBlock, result.Number)
+			}
+		})
+	}
+}
+
+func TestEthClient_BatchHeaderByNumber(t *testing.T) {
+	expectedBlockNum := big.NewInt(1)
+	expectedBlockHash := "0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"
+
+	tests := []struct {
+		name                  string
+		expectedRequestBlock  *big.Int
+		expectedResponseBlock int64
+		error                 error
+		rpcResp               string
+	}{
+		{"happy geth", expectedBlockNum, expectedBlockNum.Int64(), nil, `[{"jsonrpc":"2.0","id":1,"result":{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}}]`},
+		{"happy parity", expectedBlockNum, expectedBlockNum.Int64(), nil, `[{"jsonrpc":"2.0","result":{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]},"id":1}]`},
+		{"missing header", expectedBlockNum, 0, ethereum.NotFound, `[{"jsonrpc":"2.0","id":1,"result":null}]`},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			_, url, cleanup := cltest.NewWSServer(test.rpcResp, func(data []byte) {
+				req := cltest.ParseJSON(t, bytes.NewReader(data))
+
+				require.True(t, req.IsArray())
+				req.ForEach(func(key, subRequest gjson.Result) bool {
+					require.True(t, subRequest.IsObject())
+
+					require.Equal(t, "eth_getBlockByNumber", subRequest.Get("method").String())
+					require.True(t, subRequest.Get("params").IsArray())
+
+					blockNumStr := subRequest.Get("params").Get("0").String()
+					var blockNum hexutil.Big
+					err := blockNum.UnmarshalText([]byte(blockNumStr))
+					require.NoError(t, err)
+					require.Equal(t, test.expectedRequestBlock, blockNum.ToInt())
+
+					require.Equal(t, false, subRequest.Get("params").Get("1").Bool())
+					return true
+				})
+			})
+			defer cleanup()
+
+			ethClient, err := eth.NewClient(url)
+			require.NoError(t, err)
+			err = ethClient.Dial(context.Background())
+			require.NoError(t, err)
+			defer ethClient.Close()
+
+			result, err := ethClient.BatchHeaderByNumber(context.Background(), []*big.Int{expectedBlockNum})
+			require.NoError(t, err)
+			require.Len(t, result, 1)
+
+			if test.error != nil {
+				require.Equal(t, test.error, errors.Cause(result[0].Error))
+			} else {
+				require.NotNil(t, result[0].Header)
+				require.Equal(t, expectedBlockHash, result[0].Header.Hash.Hex())
+				require.Equal(t, test.expectedResponseBlock, result[0].Header.Number)
+			}
+		})
+	}
 }
