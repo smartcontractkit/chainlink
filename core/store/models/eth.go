@@ -304,10 +304,10 @@ func (h *Head) NextInt() *big.Int {
 
 func (h *Head) UnmarshalJSON(bs []byte) error {
 	type head struct {
-		Hash       common.Hash  `json:"hash"`
-		Number     *hexutil.Big `json:"number"`
-		ParentHash common.Hash  `json:"parentHash"`
-		Timestamp  uint64       `json:"time"`
+		Hash       common.Hash    `json:"hash"`
+		Number     *hexutil.Big   `json:"number"`
+		ParentHash common.Hash    `json:"parentHash"`
+		Timestamp  hexutil.Uint64 `json:"timestamp"`
 	}
 
 	var jsonHead head
@@ -324,24 +324,30 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Hash = jsonHead.Hash
 	h.Number = (*big.Int)(jsonHead.Number).Int64()
 	h.ParentHash = jsonHead.ParentHash
-	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0)
+	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
 	return nil
 }
 
 func (h *Head) MarshalJSON() ([]byte, error) {
 	type head struct {
-		Hash       common.Hash  `json:"hash"`
-		Number     *hexutil.Big `json:"number"`
-		ParentHash common.Hash  `json:"parentHash"`
-		Timestamp  uint64       `json:"time"`
+		Hash       *common.Hash    `json:"hash,omitempty"`
+		Number     *hexutil.Big    `json:"number,omitempty"`
+		ParentHash *common.Hash    `json:"parentHash,omitempty"`
+		Timestamp  *hexutil.Uint64 `json:"timestamp,omitempty"`
 	}
 
 	var jsonHead head
-	jsonHead.Hash = h.Hash
+	if h.Hash != (common.Hash{}) {
+		jsonHead.Hash = &h.Hash
+	}
 	jsonHead.Number = (*hexutil.Big)(big.NewInt(int64(h.Number)))
-	jsonHead.ParentHash = h.ParentHash
-	jsonHead.Timestamp = uint64(h.Timestamp.UTC().Unix())
-
+	if h.ParentHash != (common.Hash{}) {
+		jsonHead.ParentHash = &h.ParentHash
+	}
+	if h.Timestamp != (time.Time{}) {
+		t := hexutil.Uint64(h.Timestamp.UTC().Unix())
+		jsonHead.Timestamp = &t
+	}
 	return json.Marshal(jsonHead)
 }
 
