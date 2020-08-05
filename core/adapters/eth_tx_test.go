@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"syscall"
 	"testing"
@@ -216,7 +215,6 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T
 	assert.Equal(t, receiptHash.String(), output.Result().String())
 
 	receiptsJSON := output.Get("ethereumReceipts").String()
-	fmt.Println("JSON ~>", receiptsJSON)
 	var receipts []types.Receipt
 	require.NoError(t, json.Unmarshal([]byte(receiptsJSON), &receipts))
 	require.Len(t, receipts, 1)

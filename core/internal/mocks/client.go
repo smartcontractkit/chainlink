@@ -14,7 +14,7 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	rpc "github.com/ethereum/go-ethereum/rpc"
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	types "github.com/ethereum/go-ethereum/core/types"
 )
@@ -45,20 +45,6 @@ func (_m *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 	}
 
 	return r0, r1
-}
-
-// BatchCallContext provides a mock function with given fields: ctx, b
-func (_m *Client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	ret := _m.Called(ctx, b)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []rpc.BatchElem) error); ok {
-		r0 = rf(ctx, b)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // BatchHeaderByNumber provides a mock function with given fields: ctx, numbers
@@ -230,15 +216,15 @@ func (_m *Client) GetERC20Balance(address common.Address, contractAddress common
 }
 
 // HeaderByNumber provides a mock function with given fields: ctx, n
-func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+func (_m *Client) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
 	ret := _m.Called(ctx, n)
 
-	var r0 *types.Header
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *types.Header); ok {
+	var r0 *models.Head
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *models.Head); ok {
 		r0 = rf(ctx, n)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Header)
+			r0 = ret.Get(0).(*models.Head)
 		}
 	}
 
@@ -296,13 +282,13 @@ func (_m *Client) SendRawTx(bytes []byte) (common.Hash, error) {
 	return r0, r1
 }
 
-// SendTransaction provides a mock function with given fields: _a0, _a1
-func (_m *Client) SendTransaction(_a0 context.Context, _a1 *types.Transaction) error {
-	ret := _m.Called(_a0, _a1)
+// SendTransaction provides a mock function with given fields: ctx, tx
+func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	ret := _m.Called(ctx, tx)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction) error); ok {
-		r0 = rf(_a0, _a1)
+		r0 = rf(ctx, tx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -334,11 +320,11 @@ func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuer
 }
 
 // SubscribeNewHead provides a mock function with given fields: ctx, ch
-func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
 	ret := _m.Called(ctx, ch)
 
 	var r0 ethereum.Subscription
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *types.Header) ethereum.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- *models.Head) ethereum.Subscription); ok {
 		r0 = rf(ctx, ch)
 	} else {
 		if ret.Get(0) != nil {
@@ -347,7 +333,7 @@ func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- *types.Header) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- *models.Head) error); ok {
 		r1 = rf(ctx, ch)
 	} else {
 		r1 = ret.Error(1)

@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -121,7 +120,7 @@ func TestHeadTracker_Get(t *testing.T) {
 			fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
 			fnCall.RunFn = func(args mock.Arguments) {
 				num := args.Get(1).(*big.Int)
-				fnCall.ReturnArguments = mock.Arguments{&gethTypes.Header{Number: num}, nil}
+				fnCall.ReturnArguments = mock.Arguments{cltest.Head(num.Int64()), nil}
 			}
 
 			if test.initial != nil {
@@ -180,14 +179,14 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	chchHeaders := make(chan chan<- *gethTypes.Header, 1)
+	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *gethTypes.Header)
+			chchHeaders <- args.Get(1).(chan<- *models.Head)
 		}).
 		Return(sub, nil)
-	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&gethTypes.Header{Number: big.NewInt(1)}, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -201,7 +200,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
-	headers <- &gethTypes.Header{Number: big.NewInt(1)}
+	headers <- &models.Head{Number: 1}
 	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
@@ -261,18 +260,22 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	chchHeaders := make(chan chan<- *gethTypes.Header, 1)
+	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *gethTypes.Header)
-		}).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
+	latestHeadByNumber := make(map[int64]*models.Head)
 	fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
 	fnCall.RunFn = func(args mock.Arguments) {
 		num := args.Get(1).(*big.Int)
-		fnCall.ReturnArguments = mock.Arguments{&gethTypes.Header{Number: num}, nil}
+		head, exists := latestHeadByNumber[num.Int64()]
+		if !exists {
+			head = cltest.Head(num.Int64())
+			latestHeadByNumber[num.Int64()] = head
+		}
+		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 
 	sub.On("Unsubscribe").Return()
@@ -291,7 +294,7 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	assert.Nil(t, ht.Start())
 	headers := <-chchHeaders
-	headers <- &gethTypes.Header{Number: currentBN}
+	headers <- &models.Head{Number: currentBN.Int64()}
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 
 	connectedBN := connectedValue.Load().(*big.Int)
@@ -318,12 +321,10 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	checker := new(mocks.HeadTrackable)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	chchHeaders := make(chan chan<- *gethTypes.Header, 1)
+	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *gethTypes.Header)
-		}).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
 	sub.On("Unsubscribe").Return()
@@ -337,56 +338,56 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	assert.Nil(t, ht.Start())
 
 	lastHead := make(chan struct{})
-	blockHeaders := []*gethTypes.Header{}
+	blockHeaders := []*models.Head{}
 
 	// First block comes in
-	blockHeaders = append(blockHeaders, &gethTypes.Header{Number: big.NewInt(1), ParentHash: cltest.NewHash(), Time: 1})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 1, Hash: cltest.NewHash(), ParentHash: cltest.NewHash(), Timestamp: time.Unix(1, 0)})
 	// Blocks 2 and 3 are out of order
-	head2 := &gethTypes.Header{Number: big.NewInt(2), ParentHash: blockHeaders[0].Hash(), Time: 2}
-	head3 := &gethTypes.Header{Number: big.NewInt(3), ParentHash: head2.Hash(), Time: 3}
+	head2 := &models.Head{Number: 2, Hash: cltest.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(2, 0)}
+	head3 := &models.Head{Number: 3, Hash: cltest.NewHash(), ParentHash: head2.Hash, Timestamp: time.Unix(3, 0)}
 	blockHeaders = append(blockHeaders, head3)
 	blockHeaders = append(blockHeaders, head2)
 	// Block 4 comes in
-	blockHeaders = append(blockHeaders, &gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[1].Hash(), Time: 4})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(4, 0)})
 	// Another block at level 4 comes in, that will be uncled
-	blockHeaders = append(blockHeaders, &gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[1].Hash(), Time: 5})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(5, 0)})
 	// Reorg happened forking from block 2
-	blockHeaders = append(blockHeaders, &gethTypes.Header{Number: big.NewInt(2), ParentHash: blockHeaders[0].Hash(), Time: 6})
-	blockHeaders = append(blockHeaders, &gethTypes.Header{Number: big.NewInt(3), ParentHash: blockHeaders[5].Hash(), Time: 7})
-	blockHeaders = append(blockHeaders, &gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[6].Hash(), Time: 8})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 2, Hash: cltest.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(6, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 3, Hash: cltest.NewHash(), ParentHash: blockHeaders[5].Hash, Timestamp: time.Unix(7, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[6].Hash, Timestamp: time.Unix(8, 0)})
 	// Now the new chain is longer
-	blockHeaders = append(blockHeaders, &gethTypes.Header{Number: big.NewInt(5), ParentHash: blockHeaders[7].Hash(), Time: 9})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 5, Hash: cltest.NewHash(), ParentHash: blockHeaders[7].Hash, Timestamp: time.Unix(9, 0)})
 
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		return h.Number == 1 && h.Hash == blockHeaders[0].Hash()
+		return h.Number == 1 && h.Hash == blockHeaders[0].Hash
 	})).Return().Once()
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		return h.Number == 3 && h.Hash == blockHeaders[1].Hash()
+		return h.Number == 3 && h.Hash == blockHeaders[1].Hash
 	})).Return().Once()
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		if h.Number == 4 && h.Hash == blockHeaders[3].Hash() {
+		if h.Number == 4 && h.Hash == blockHeaders[3].Hash {
 			// Check that the block came with its parents
 			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blockHeaders[1].Hash())
+			require.Equal(t, h.Parent.Hash, blockHeaders[1].Hash)
 			require.NotNil(t, h.Parent.Parent.Hash)
-			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[2].Hash())
+			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[2].Hash)
 			require.NotNil(t, h.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[0].Hash())
+			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[0].Hash)
 			return true
 		}
 		return false
 	})).Return().Once()
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		if h.Number == 5 && h.Hash == blockHeaders[8].Hash() {
+		if h.Number == 5 && h.Hash == blockHeaders[8].Hash {
 			// This is the new longest chain, check that it came with its parents
 			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blockHeaders[7].Hash())
+			require.Equal(t, h.Parent.Hash, blockHeaders[7].Hash)
 			require.NotNil(t, h.Parent.Parent.Hash)
-			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[6].Hash())
+			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[6].Hash)
 			require.NotNil(t, h.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[5].Hash())
+			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[5].Hash)
 			require.NotNil(t, h.Parent.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Parent.Hash, blockHeaders[0].Hash())
+			require.NotNil(t, h.Parent.Parent.Parent.Parent.Hash, blockHeaders[0].Hash)
 
 			return true
 		}
@@ -399,18 +400,19 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 
 	// This grotesque construction is the only way to do dynamic return values using
 	// the mock package.  We need dynamic returns because we're simulating reorgs.
-	latestHeadByNumber := make(map[int64]*gethTypes.Header)
+	latestHeadByNumber := make(map[int64]*models.Head)
 	fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
 	fnCall.RunFn = func(args mock.Arguments) {
 		num := args.Get(1).(*big.Int)
-		if head, exists := latestHeadByNumber[num.Int64()]; exists {
-			fnCall.ReturnArguments = mock.Arguments{head, nil}
-		} else {
-			fnCall.ReturnArguments = mock.Arguments{nil, ethereum.NotFound}
+		head, exists := latestHeadByNumber[num.Int64()]
+		if !exists {
+			head = cltest.Head(num.Int64())
+			latestHeadByNumber[num.Int64()] = head
 		}
+		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 	for _, h := range blockHeaders {
-		latestHeadByNumber[h.Number.Int64()] = h
+		latestHeadByNumber[h.Number] = h
 		headers <- h
 	}
 
@@ -419,12 +421,12 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	assert.Equal(t, int64(5), ht.HighestSeenHead().Number)
 
 	for _, h := range blockHeaders {
-		c, err := store.Chain(h.Hash(), 1)
+		c, err := store.Chain(h.Hash, 1)
 		require.NoError(t, err)
 		require.NotNil(t, c)
 		assert.Equal(t, c.ParentHash, h.ParentHash)
-		assert.Equal(t, c.Timestamp.Unix(), int64(h.Time))
-		assert.Equal(t, c.Number, h.Number.Int64())
+		assert.Equal(t, c.Timestamp.Unix(), h.Timestamp.UTC().Unix())
+		assert.Equal(t, c.Number, h.Number)
 	}
 
 	checker.AssertExpectations(t)
@@ -450,7 +452,7 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ParentHash: gethCommon.BigToHash(big.NewInt(0)),
 		Time:       now,
 	}
-	head0 := models.NewHeadFromBlockHeader(*gethHead0)
+	head0 := models.NewHead(gethHead0.Number, cltest.NewHash(), gethHead0.ParentHash, gethHead0.Time)
 
 	h1 := *cltest.Head(1)
 	h1.ParentHash = head0.Hash
@@ -460,19 +462,20 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ParentHash: cltest.NewHash(),
 		Time:       now,
 	}
-	head8 := models.NewHeadFromBlockHeader(*gethHead8)
+	head8 := models.NewHead(gethHead8.Number, cltest.NewHash(), gethHead8.ParentHash, gethHead8.Time)
 
 	h9 := *cltest.Head(9)
-	h9.ParentHash = gethHead8.Hash()
+	h9.ParentHash = head8.Hash
 
 	gethHead10 := &gethTypes.Header{
 		Number:     big.NewInt(10),
 		ParentHash: h9.Hash,
 		Time:       now,
 	}
+	head10 := models.NewHead(gethHead10.Number, cltest.NewHash(), gethHead10.ParentHash, gethHead10.Time)
 
 	h11 := *cltest.Head(11)
-	h11.ParentHash = gethHead10.Hash()
+	h11.ParentHash = head10.Hash
 
 	h12 := *cltest.Head(12)
 	h12.ParentHash = h11.Hash
@@ -536,8 +539,8 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10)}).
-			Return([]eth.MaybeHeader{{Header: gethHead10, Number: 10}}, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil)
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
@@ -551,7 +554,7 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		assert.Equal(t, int64(10), h.Parent.Parent.Number)
 		require.Nil(t, h.Parent.Parent.Parent)
 
-		writtenHead, err := store.HeadByHash(gethHead10.Hash())
+		writtenHead, err := store.HeadByHash(head10.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, int64(10), writtenHead.Number)
 
@@ -570,11 +573,10 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10), big.NewInt(8)}).
-			Return([]eth.MaybeHeader{
-				{Header: gethHead10, Number: 10},
-				{Header: gethHead8, Number: 8},
-			}, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+			Return(&head8, nil)
 
 		// Needs to be 8 because there are 8 heads in chain (15,14,13,12,11,10,9,8)
 		h, err := ht.GetChainWithBackfill(ctx, h15, 8)
@@ -637,8 +639,8 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
-		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(0)}).
-			Return([]eth.MaybeHeader{{Header: gethHead0, Number: 0}}, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(0)).
+			Return(&head0, nil)
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
@@ -661,11 +663,11 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
-		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10), big.NewInt(8)}).
-			Return([]eth.MaybeHeader{
-				{Header: gethHead10, Number: 10},
-				{Error: ethereum.NotFound, Number: 8},
-			}, nil).
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil).
+			Once()
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+			Return(nil, ethereum.NotFound).
 			Once()
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
@@ -689,11 +691,10 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
-		ethClient.On("BatchHeaderByNumber", mock.Anything, []*big.Int{big.NewInt(10), big.NewInt(8)}).
-			Return([]eth.MaybeHeader{
-				{Header: gethHead10, Number: 10},
-				{Error: context.DeadlineExceeded, Number: 8},
-			}, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+			Return(nil, context.DeadlineExceeded)
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 

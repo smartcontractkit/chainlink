@@ -527,7 +527,7 @@ func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (asset
 // minimum number of confirmations
 func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*types.Receipt, AttemptState, error) {
 	receipt, err := txm.TransactionReceipt(context.TODO(), txAttempt.Hash)
-	if err == ethereum.NotFound {
+	if errors.Cause(err) == ethereum.NotFound {
 		return nil, Unconfirmed, nil
 	} else if err != nil {
 		return nil, Unknown, errors.Wrap(err, "CheckAttempt TransactionReceipt failed")

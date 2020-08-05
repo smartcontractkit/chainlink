@@ -349,14 +349,15 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			config.Set("MIN_INCOMING_CONFIRMATIONS", minimumConfirmations)
 
 			gethClient := new(mocks.GethClient)
+			rpcClient := new(mocks.RPCClient)
 			sub := new(mocks.Subscription)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config,
-				eth.NewClientWith(nil, gethClient),
+				eth.NewClientWith(rpcClient, gethClient),
 			)
 			gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
 			gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil)
-			gethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 			gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Return(sub, nil)
+			rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 

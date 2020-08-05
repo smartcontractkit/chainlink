@@ -232,6 +232,16 @@ type Head struct {
 	CreatedAt  time.Time
 }
 
+// NewHead returns a Head instance.
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64) Head {
+	return Head{
+		Number:     number.Int64(),
+		Hash:       blockHash,
+		ParentHash: parentHash,
+		Timestamp:  time.Unix(int64(timestamp), 0),
+	}
+}
+
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h Head) EarliestInChain() Head {
 	for {
@@ -257,21 +267,6 @@ func (h Head) ChainLength() uint32 {
 		}
 	}
 	return l
-}
-
-// NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64) Head {
-	return Head{
-		Number:     number.Int64(),
-		Hash:       blockHash,
-		ParentHash: parentHash,
-		Timestamp:  time.Unix(int64(timestamp), 0),
-	}
-}
-
-// NewHeadFromBlockHeader returns a new Head from geth's types.Header
-func NewHeadFromBlockHeader(h types.Header) Head {
-	return NewHead(h.Number, h.Hash(), h.ParentHash, h.Time)
 }
 
 // String returns a string representation of this number.
@@ -307,12 +302,51 @@ func (h *Head) NextInt() *big.Int {
 	return new(big.Int).Add(h.ToInt(), big.NewInt(1))
 }
 
+func (h *Head) UnmarshalJSON(bs []byte) error {
+	type head struct {
+		Hash       common.Hash  `json:"hash"`
+		Number     *hexutil.Big `json:"number"`
+		ParentHash common.Hash  `json:"parentHash"`
+		Timestamp  uint64       `json:"time"`
+	}
+
+	var jsonHead head
+	err := json.Unmarshal(bs, &jsonHead)
+	if err != nil {
+		return err
+	}
+
+	if jsonHead.Number == nil {
+		*h = Head{}
+		return nil
+	}
+
+	h.Hash = jsonHead.Hash
+	h.Number = (*big.Int)(jsonHead.Number).Int64()
+	h.ParentHash = jsonHead.ParentHash
+	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0)
+	return nil
+}
+
+func (h *Head) MarshalJSON() ([]byte, error) {
+	type head struct {
+		Hash       common.Hash  `json:"hash"`
+		Number     *hexutil.Big `json:"number"`
+		ParentHash common.Hash  `json:"parentHash"`
+		Timestamp  uint64       `json:"time"`
+	}
+
+	var jsonHead head
+	jsonHead.Hash = h.Hash
+	jsonHead.Number = (*hexutil.Big)(big.NewInt(int64(h.Number)))
+	jsonHead.ParentHash = h.ParentHash
+	jsonHead.Timestamp = uint64(h.Timestamp.UTC().Unix())
+
+	return json.Marshal(jsonHead)
+}
+
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-
-// This data can contain anything and is submitted by user on-chain, so we must
-// be extra careful how we interact with it
-type UntrustedBytes []byte
 
 type Log = types.Log
 
@@ -426,6 +460,10 @@ func (f FunctionSelector) Scan(value interface{}) error {
 	copy(f[:], temp)
 	return nil
 }
+
+// This data can contain anything and is submitted by user on-chain, so we must
+// be extra careful how we interact with it
+type UntrustedBytes []byte
 
 // SafeByteSlice returns an error on out of bounds access to a byte array, where a
 // normal slice would panic instead

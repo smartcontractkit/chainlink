@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -59,7 +58,7 @@ const (
 // store on reboot.
 type HeadTracker struct {
 	callbacks             []strpkg.HeadTrackable
-	headers               chan *gethTypes.Header
+	headers               chan *models.Head
 	headSubscription      ethereum.Subscription
 	highestSeenHead       *models.Head
 	store                 *strpkg.Store
@@ -258,7 +257,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 	}
 }
 
-func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
+func (ht *HeadTracker) handleNewHead(head models.Head) error {
 	defer func(start time.Time, number int64) {
 		elapsed := time.Since(start)
 		ms := float64(elapsed.Milliseconds())
@@ -269,14 +268,13 @@ func (ht *HeadTracker) handleNewHead(bh gethTypes.Header) error {
 		} else {
 			logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		}
-	}(time.Now(), bh.Number.Int64())
-	head := models.NewHeadFromBlockHeader(bh)
+	}(time.Now(), int64(head.Number))
 	prevHead := ht.HighestSeenHead()
 
-	logger.Debugw(
-		fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
+	logger.Debugw(fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
-		"blockHash", bh.Hash())
+		"blockHash", head.Hash,
+	)
 
 	if err := ht.Save(head); err != nil {
 		return err
@@ -376,7 +374,6 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 			"toBlockHeight", head.Number-1)
 	}()
 
-	var headNumbers []*big.Int
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		existingHead, err := ht.store.HeadByHash(head.ParentHash)
@@ -387,51 +384,34 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 			head = *existingHead
 			continue
 		}
-		headNumbers = append(headNumbers, big.NewInt(i))
-	}
-
-	maybeHeads, err := ht.store.EthClient.BatchHeaderByNumber(ctx, headNumbers)
-	if err != nil {
-		ht.handleBackfillError(err, -1)
-		return err
-	}
-
-	for _, maybeHead := range maybeHeads {
-		if maybeHead.Error != nil {
-			ht.handleBackfillError(maybeHead.Error, maybeHead.Number)
-			break
-		} else if maybeHead.Header == nil {
-			logger.Warn("got nil block header")
-			break
-		}
-		gethHeader := maybeHead.Header
-		head := models.NewHead(gethHeader.Number, gethHeader.Hash(), gethHeader.ParentHash, gethHeader.Time)
-		err := ht.store.IdempotentInsertHead(head)
-		if err != nil {
-			ht.handleBackfillError(err, -1)
-			break
-		}
+		head, err = ht.fetchAndSaveHead(ctx, i)
 		fetched++
+		if err != nil {
+			if errors.Cause(err) == ethereum.NotFound {
+				logger.Errorw("HeadTracker: backfill failed to fetch head (not found), chain will be truncated for this head", "headNum", i)
+			} else if errors.Cause(err) == context.DeadlineExceeded {
+				logger.Warnw("HeadTracker: backfill deadline exceeded, chain will be truncated for this head", "headNum", i)
+			} else {
+				logger.Errorw("HeadTracker: backfill encountered unknown error, chain will be truncated for this head", "headNum", i, "err", err)
+			}
+			break
+		}
 	}
 	return nil
 }
 
-func (ht *HeadTracker) handleBackfillError(err error, i int64) {
-	if err == nil {
-		return
+func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
+	logger.Debugw("HeadTracker: fetching head", "blockHeight", n)
+	head, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
+	if err != nil {
+		return models.Head{}, err
+	} else if head == nil {
+		return models.Head{}, errors.New("got nil head")
 	}
-	var loggerArgs []interface{}
-	if i >= 0 {
-		loggerArgs = append(loggerArgs, "headNum", i)
+	if err := ht.store.IdempotentInsertHead(*head); err != nil {
+		return models.Head{}, err
 	}
-	if errors.Cause(err) == ethereum.NotFound {
-		logger.Errorw("HeadTracker: backfill failed to fetch head (not found), chain will be truncated for this head", loggerArgs...)
-	} else if errors.Cause(err) == context.DeadlineExceeded {
-		logger.Warnw("HeadTracker: backfill deadline exceeded, chain will be truncated for this head", loggerArgs...)
-	} else {
-		loggerArgs = append(loggerArgs, "err", err)
-		logger.Errorw("HeadTracker: backfill encountered unknown error, chain will be truncated for this head", loggerArgs...)
-	}
+	return *head, nil
 }
 
 func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
@@ -454,7 +434,7 @@ func (ht *HeadTracker) subscribeToHead() error {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
-	ht.headers = make(chan *gethTypes.Header, headsBufferSize)
+	ht.headers = make(chan *models.Head, headsBufferSize)
 	sub, err := ht.store.EthClient.SubscribeNewHead(context.Background(), ht.headers)
 	if err != nil {
 		return errors.Wrap(err, "EthClient#SubscribeNewHead")

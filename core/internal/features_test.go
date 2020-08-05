@@ -27,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -77,7 +76,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	config := app.Config
 	eth := app.EthMock
 
-	newHeads := make(chan *types.Header)
+	newHeads := make(chan *models.Head)
 	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
 	sentAt := int64(23456)
 	confirmed := sentAt + int64(config.EthGasBumpThreshold()) + 1
@@ -109,7 +108,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 	})
-	newHeads <- cltest.NewEthHeader(safe) // 23465
+	newHeads <- cltest.Head(safe) // 23465
 
 	cltest.WaitForTxAttemptCount(t, app.Store, 1)
 
@@ -160,7 +159,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	}
 	thirdTxSafeAt := thirdTxSentAt + int64(config.MinRequiredOutgoingConfirmations())
 
-	newHeads := make(chan *types.Header)
+	newHeads := make(chan *models.Head)
 	eth := app.EthMock
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
@@ -187,7 +186,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- cltest.NewEthHeader(firstTxRemainsUnconfirmedAt)
+	newHeads <- cltest.Head(firstTxRemainsUnconfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
@@ -198,7 +197,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt2Hash)
 	})
-	newHeads <- cltest.NewEthHeader(firstTxGasBumpAt)
+	newHeads <- cltest.Head(firstTxGasBumpAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 2)
@@ -209,7 +208,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
-	newHeads <- cltest.NewEthHeader(secondTxRemainsUnconfirmedAt)
+	newHeads <- cltest.Head(secondTxRemainsUnconfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
@@ -220,7 +219,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt3Hash)
 	})
-	newHeads <- cltest.NewEthHeader(secondTxGasBumpAt)
+	newHeads <- cltest.Head(secondTxGasBumpAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForTxAttemptCount(t, app.Store, 3)
@@ -230,7 +229,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
 	})
-	newHeads <- cltest.NewEthHeader(thirdTxConfirmedAt)
+	newHeads <- cltest.Head(thirdTxConfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
@@ -238,7 +237,7 @@ func TestIntegration_FeeBump(t *testing.T) {
 	eth.Context("ethTx.Perform()#7", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
 	})
-	newHeads <- cltest.NewEthHeader(thirdTxSafeAt)
+	newHeads <- cltest.Head(thirdTxSafeAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
@@ -368,13 +367,13 @@ func TestIntegration_RunLog(t *testing.T) {
 
 			blockIncrease := int64(app.Store.Config.MinIncomingConfirmations())
 			minGlobalHeight := creationHeight + blockIncrease
-			newHeads <- cltest.NewEthHeader(uint64(minGlobalHeight))
+			newHeads <- cltest.Head(minGlobalHeight)
 			<-time.After(time.Second)
 			jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
 			assert.Equal(t, int64(creationHeight+blockIncrease), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
 
 			safeNumber := creationHeight + requiredConfs
-			newHeads <- cltest.NewEthHeader(uint64(safeNumber))
+			newHeads <- cltest.Head(safeNumber)
 			confirmedReceipt := &types.Receipt{
 				TxHash:      runlog.TxHash,
 				BlockHash:   test.receiptBlockHash,
@@ -425,7 +424,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	eth := app.EthMock
 	eth.Register("eth_chainId", app.Store.Config.ChainID())
 	logs := make(chan models.Log, 1)
-	newHeads := make(chan *types.Header, 10)
+	newHeads := make(chan *models.Head, 10)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
 		eth.RegisterSubscription("newHeads", newHeads)
@@ -448,7 +447,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
-	newHeads <- cltest.NewEthHeader(logBlockNumber + 8)
+	newHeads <- cltest.Head(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
 	confirmedReceipt := &types.Receipt{
@@ -460,7 +459,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 	})
 
-	newHeads <- cltest.NewEthHeader(logBlockNumber + 9)
+	newHeads <- cltest.Head(logBlockNumber + 9)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
 	tr := jr.TaskRuns[0]
@@ -667,7 +666,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	defer cleanup()
 
 	eth := app.EthMock
-	newHeads := make(chan *types.Header)
+	newHeads := make(chan *models.Head)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
@@ -700,7 +699,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	createCompletedJobRun(100, uint64(0x100))
 
-	newHeads <- cltest.NewEthHeader(200)
+	newHeads <- cltest.Head(200)
 	createCompletedJobRun(200, uint64(0x101))
 }
 
@@ -914,9 +913,9 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(256), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(oneETH.ToInt(), nil)
-	chchNewHeads := make(chan chan<- *types.Header, 1)
-	gethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *types.Header) }).
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
 	app.GetStore().Config.Set(orm.EnvVarName("MinRequiredOutgoingConfirmations"), 1)
@@ -935,7 +934,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			*args.Get(0).(*hexutil.Bytes) = cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		}).
-		Return(nil)
+		Return(nil).
+		Once()
 
 	// Have server respond with 102 for price when FM checks external price
 	// adapter for deviation. 102 is enough deviation to trigger a job run.
@@ -967,12 +967,9 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 
 	// Send a head w block number 10, high enough to mark ethtx as safe.
-	header := cltest.NewEthHeader(1)
-	rpcClient.On("BatchCallContext", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			*elems[0].Result.(*types.Header) = types.Header{Number: big.NewInt(10)}
-		}).
+	header := cltest.Head(1)
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(10) }).
 		Return(nil)
 	newHeads := <-chchNewHeads
 	newHeads <- header
@@ -1023,9 +1020,9 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(256), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(oneETH.ToInt(), nil)
-	chchNewHeads := make(chan chan<- *types.Header, 1)
-	gethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *types.Header) }).
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
 	err = app.StartAndConnect()
@@ -1055,14 +1052,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Return(sub, nil)
 
 	// Log Broadcaster backfills logs
-	header := cltest.NewEthHeader(1)
-	gethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(header, nil)
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(1) }).
+		Return(nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
-	rpcClient.On("BatchCallContext", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			*elems[0].Result.(*types.Header) = types.Header{Number: big.NewInt(1)}
-		}).
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(1) }).
 		Return(nil).
 		Maybe()
 
@@ -1113,7 +1108,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
 
 	newHeads := <-chchNewHeads
-	newHeads <- cltest.NewEthHeader(1)
+	newHeads <- cltest.Head(1)
 	_ = cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
@@ -1140,7 +1135,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 	defer cleanup()
 
 	eth := app.EthMock
-	newHeads := make(chan *types.Header)
+	newHeads := make(chan *models.Head)
 	const startHeight = 100
 	eth.RegisterSubscription("newHeads", newHeads)
 	eth.Register("eth_getTransactionCount", `0x100`)

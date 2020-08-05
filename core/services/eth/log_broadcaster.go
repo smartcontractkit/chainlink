@@ -251,7 +251,7 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort 
 			logger.Warn("got nil block header")
 			return errors.New("got nil block header")
 		}
-		currentHeight := uint64(latestBlock.Number.Int64())
+		currentHeight := uint64(latestBlock.Number)
 
 		// Backfill from `backfillDepth` blocks ago.  It's up to the subscribers to
 		// filter out logs they've already dealt with.
