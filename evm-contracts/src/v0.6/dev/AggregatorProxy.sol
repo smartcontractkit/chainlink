@@ -20,6 +20,8 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   mapping(uint16 => AggregatorV2V3Interface) public phaseAggregators;
 
   uint256 constant private PHASE_OFFSET = 64;
+  uint256 constant private PHASE_SIZE = 16;
+  uint256 constant private MAX_ID = 2**(PHASE_OFFSET+PHASE_SIZE) - 1;
 
   constructor(address _aggregator) public Owned() {
     setAggregator(_aggregator);
@@ -77,8 +79,12 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     override
     returns (int256 answer)
   {
+    if (_roundId > MAX_ID) return 0;
+
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
     AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    if (address(aggregator) == address(0)) return 0;
+
     return aggregator.getAnswer(aggregatorRoundId);
   }
 
@@ -98,8 +104,12 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     override
     returns (uint256 updatedAt)
   {
+    if (_roundId > MAX_ID) return 0;
+
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
     AggregatorV2V3Interface aggregator = phaseAggregators[phaseId];
+    if (address(aggregator) == address(0)) return 0;
+
     return aggregator.getTimestamp(aggregatorRoundId);
   }
 

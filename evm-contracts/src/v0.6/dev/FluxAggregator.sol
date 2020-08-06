@@ -401,7 +401,10 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     override
     returns (int256)
   {
-    return rounds[uint32(_roundId)].answer;
+    if (validRoundId(_roundId)) {
+      return rounds[uint32(_roundId)].answer;
+    }
+    return 0;
   }
 
   /**
@@ -420,7 +423,10 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     override
     returns (uint256)
   {
-    return rounds[uint32(_roundId)].updatedAt;
+    if (validRoundId(_roundId)) {
+      return rounds[uint32(_roundId)].updatedAt;
+    }
+    return 0;
   }
 
   /**
@@ -456,7 +462,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
   {
     Round memory r = rounds[uint32(_roundId)];
 
-    require(r.answeredInRound > 0, V3_NO_DATA_ERROR);
+    require(r.answeredInRound > 0 && validRoundId(_roundId), V3_NO_DATA_ERROR);
 
     return (
       _roundId,
@@ -471,9 +477,10 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values. Consumers are encouraged to
-   * use this more fully featured method over the "legacy" latestAnswer
-   * functions. Consumers are encouraged to check that they're receiving fresh
-   * data by inspecting the updatedAt and answeredInRound return values.
+   * use this more fully featured method over the "legacy" latestRound/
+   * latestAnswer/latestTimestamp functions. Consumers are encouraged to check
+   * that they're receiving fresh data by inspecting the updatedAt and
+   * answeredInRound return values.
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started. This is 0
@@ -482,8 +489,8 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed. answeredInRound may be smaller than roundId when the round
-   * timed out. answerInRound is equal to roundId when the round didn't time out
-   * and was completed regularly.
+   * timed out. answeredInRound is equal to roundId when the round didn't time
+   * out and was completed regularly.
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet
    * received maxSubmissions) answer and updatedAt may change between queries.
    */
@@ -1032,6 +1039,14 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     returns (bool)
   {
     return _roundId == reportingRoundId.add(1);
+  }
+
+  function validRoundId(uint256 _roundId)
+    private
+    view
+    returns (bool)
+  {
+    return _roundId <= ROUND_MAX;
   }
 
 }
