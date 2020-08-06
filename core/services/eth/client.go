@@ -2,7 +2,6 @@ package eth
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"net/url"
 	"strings"
@@ -41,7 +40,6 @@ type Client interface {
 	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
 	// type to capture the correct hash from the RPC response.
 	HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
-	BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]MaybeHeader, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
 }
 
@@ -224,40 +222,6 @@ func toBlockNumArg(number *big.Int) string {
 type MaybeHeader struct {
 	Header models.Head
 	Error  error
-}
-
-func (client *client) BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]MaybeHeader, error) {
-	logger.Debugw("eth.Client#BatchHeaderByNumber(...)",
-		"numbers", numbers,
-	)
-	batchElems := make([]rpc.BatchElem, len(numbers))
-	for i, num := range numbers {
-		batchElems[i] = rpc.BatchElem{
-			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{toBlockNumArg(num), false},
-			Result: &models.Head{},
-		}
-	}
-	err := client.RPCClient.BatchCallContext(ctx, batchElems)
-	if err != nil {
-		return nil, err
-	}
-	maybeHeaders := make([]MaybeHeader, len(batchElems))
-	for i, batchElem := range batchElems {
-		if batchElem.Error != nil {
-			maybeHeaders[i].Error = errors.Wrap(ethereum.NotFound, batchElem.Error.Error())
-		} else {
-			head, ok := batchElem.Result.(*models.Head)
-			if !ok {
-				panic(fmt.Sprintf("BatchHeaderByNumber: expected *models.Head, received %T", batchElem.Result))
-			} else if head == nil || (head.Hash == common.Hash{}) {
-				maybeHeaders[i].Error = ethereum.NotFound
-			} else {
-				maybeHeaders[i].Header = *head
-			}
-		}
-	}
-	return maybeHeaders, nil
 }
 
 func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
