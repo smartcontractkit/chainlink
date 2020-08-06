@@ -54,7 +54,7 @@ jobs:
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
-        run: go test -v -p 6 -parallel 4 ./...
+        run: go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep "\-\-\- FAIL" || echo "All passed!" # only show failures
 
   rust:
     name: Rust
