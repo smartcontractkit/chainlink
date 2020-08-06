@@ -225,17 +225,6 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 	}, nil
 }
 
-func (c *SimulatedBackendClient) BatchHeaderByNumber(ctx context.Context, numbers []*big.Int) ([]eth.MaybeHeader, error) {
-	maybeHeaders := make([]eth.MaybeHeader, len(numbers))
-	for i, num := range numbers {
-		maybeHeaders[i].Header = models.Head{
-			Hash:   NewHash(),
-			Number: num.Int64(),
-		}
-	}
-	return maybeHeaders, nil
-}
-
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
 	return c.b.BlockByNumber(ctx, n)
 }
