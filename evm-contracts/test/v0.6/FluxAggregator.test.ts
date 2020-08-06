@@ -930,6 +930,15 @@ describe('FluxAggregator', () => {
         matchers.bigNum(ethers.utils.bigNumberify(answers[i - 1]), answer)
       }
     })
+
+    it("returns 0 for answers greater than uint32's max", async () => {
+      const overflowedId = h
+        .bigNum(2)
+        .pow(32)
+        .add(1)
+      const answer = await aggregator.getAnswer(overflowedId)
+      matchers.bigNum(0, answer)
+    })
   })
 
   describe('#getTimestamp', () => {
@@ -949,6 +958,15 @@ describe('FluxAggregator', () => {
         assert.isAtLeast(currentTimestamp.toNumber(), lastTimestamp.toNumber())
         lastTimestamp = currentTimestamp
       }
+    })
+
+    it("returns 0 for answers greater than uint32's max", async () => {
+      const overflowedId = h
+        .bigNum(2)
+        .pow(32)
+        .add(1)
+      const answer = await aggregator.getTimestamp(overflowedId)
+      matchers.bigNum(0, answer)
     })
   })
 
@@ -3003,6 +3021,18 @@ describe('FluxAggregator', () => {
     it('reverts if a round is not present', async () => {
       await matchers.evmRevert(
         aggregator.getRoundData(latestRoundId.add(1)),
+        'No data present',
+      )
+    })
+
+    it('reverts if a round ID is too big', async () => {
+      const overflowedId = h
+        .bigNum(2)
+        .pow(32)
+        .add(1)
+
+      await matchers.evmRevert(
+        aggregator.getRoundData(overflowedId),
         'No data present',
       )
     })
