@@ -53,10 +53,21 @@ jobs:
         run: yarn setup:contracts
       - name: Setup DB
         run: go run ./core local db preparetest
-      - name: Set pipefail
-        run: set -o pipefail
       - name: Run tests
-        run: go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep "\-\-\- FAIL" || echo "All passed!" # only show failures
+        run: |
+        set -o pipefail
+        set +e
+        go test -v -p 4 -parallel 4 ./... > ./output.txt
+        EXITCODE=$?
+        cat ./output.txt | grep "\-\-\- FAIL"
+        echo "Exit code: $EXITCODE"
+        if [[ $EXITCODE == 1 ]]; then
+            echo "Encountered test failures."
+            exit 1
+        else
+            echo "All tests passed!"
+            exit 0
+        fi
 
   rust:
     name: Rust
