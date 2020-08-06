@@ -58,11 +58,12 @@ function parseConfig(config: Record<string, string>): FeedConfig {
   return {
     ...((config as unknown) as FeedConfig),
     networkId: uIntFrom(config.networkId ?? 0),
-    contractVersion: 2,
-    decimalPlaces: uIntFrom(config.decimalPlaces ?? 0),
+    contractVersion: uIntFrom(config.contractVersion ?? 2),
+    decimalPlaces: uIntFrom(config.decimalPlaces ?? 4),
     heartbeat: uIntFrom(config.heartbeat ?? 0) ?? false,
     historyDays: uIntFrom(config.historyDays ?? 1),
     formatDecimalPlaces: uIntFrom(config.formatDecimalPlaces ?? 0),
+    threshold: uIntFrom(config.threshold ?? 0) ?? null,
   }
 }
 
