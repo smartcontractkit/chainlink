@@ -53,6 +53,8 @@ jobs:
         run: yarn setup:contracts
       - name: Setup DB
         run: go run ./core local db preparetest
+      - name: Set pipefail
+        run: set -o pipefail
       - name: Run tests
         run: go test -v -p 4 -parallel 4 ./... | tee ./output.txt | grep "\-\-\- FAIL" || echo "All passed!" # only show failures
 
