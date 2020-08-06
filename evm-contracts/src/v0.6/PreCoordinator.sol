@@ -218,16 +218,15 @@ contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, 
     emit ServiceAgreementResponseReceived(saId, cbRequestId, msg.sender, _data);
     requesters[cbRequestId].responses.push(_data);
     Requester memory req = requesters[cbRequestId];
+    if (req.responses.length == sa.oracles.length) delete requesters[cbRequestId];
+    bool success = true;
     if (req.responses.length == sa.minResponses) {
       int256 result = Median.calculate(req.responses);
       emit ServiceAgreementAnswerUpdated(saId, cbRequestId, result);
       // solhint-disable-next-line avoid-low-level-calls
-      (bool success, ) = req.callbackAddress.call(abi.encodeWithSelector(req.callbackFunctionId, cbRequestId, result));
-      return success;
+      (success, ) = req.callbackAddress.call(abi.encodeWithSelector(req.callbackFunctionId, cbRequestId, result));
     }
-
-    if (req.responses.length == sa.oracles.length) delete requesters[cbRequestId];
-    return true;
+    return success;
   }
 
   /**
