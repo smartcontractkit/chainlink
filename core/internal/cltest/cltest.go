@@ -39,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
@@ -132,8 +131,8 @@ type TestConfig struct {
 func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
-	wsserver, cleanup := newWSServer()
-	return NewConfigWithWSServer(t, wsserver), cleanup
+	wsserver, url, cleanup := newWSServer()
+	return NewConfigWithWSServer(t, url, wsserver), cleanup
 }
 
 func NewRandomInt64() int64 {
@@ -178,21 +177,13 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 }
 
 // NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) *TestConfig {
 	t.Helper()
 
 	config := NewTestConfig(t)
-	config.SetEthereumServer(wsserver)
+	config.Set("ETH_URL", url)
+	config.wsServer = wsserver
 	return config
-}
-
-// SetEthereumServer sets the ethereum server for testconfig with given wsserver
-func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
-	u, err := url.Parse(wss.URL)
-	require.NoError(tc.t, err)
-	u.Scheme = "ws"
-	tc.Set("ETH_URL", u.String())
-	tc.wsServer = wss
 }
 
 // TestApplication holds the test application and test servers
@@ -209,25 +200,29 @@ type TestApplication struct {
 	allowUnstarted   bool
 }
 
-func newWSServer() (*httptest.Server, func()) {
-	return NewWSServer("")
+func newWSServer() (*httptest.Server, string, func()) {
+	return NewWSServer("", nil)
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string) (*httptest.Server, func()) {
+func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
 		conn, err := upgrader.Upgrade(w, r, nil)
 		logger.PanicIf(err)
 		for {
-			_, _, err = conn.ReadMessage()
+			_, data, err := conn.ReadMessage()
 			if err != nil {
 				break
 			}
+
+			if callback != nil {
+				callback(data)
+			}
+
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 			if err != nil {
 				break
@@ -235,19 +230,24 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 		}
 	})
 	server := httptest.NewServer(handler)
-	return server, func() {
+
+	u, err := url.Parse(server.URL)
+	logger.PanicIf(err)
+	u.Scheme = "ws"
+
+	return server, u.String(), func() {
 		server.Close()
 	}
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
+func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	c, cfgCleanup := NewConfig(t)
 
-	app, cleanup := NewApplicationWithConfig(t, c, flags...)
+	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("Accounts").Return([]accounts.Account{})
 	app.Store.KeyStore = kst
@@ -260,11 +260,11 @@ func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	config, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfigAndKey(t, config, flags...)
+	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -273,17 +273,17 @@ func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, fun
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, tc, flags...)
+	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
 	app.Store.KeyStore.Unlock(Password)
 
 	return app, cleanup
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
@@ -291,12 +291,12 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
-	ta.EthMock = MockEthOnStore(t, app.Store, flags...)
+	ta.EthMock = MockEthOnStore(t, app.Store, flagsAndDeps...)
 	server := newServer(ta)
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
 
-	for _, flag := range flags {
+	for _, flag := range flagsAndDeps {
 		if flag == AllowUnstarted {
 			ta.allowUnstarted = true
 		}
@@ -312,11 +312,16 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*T
 }
 
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
-	t testing.TB, tc *TestConfig, backend *backends.SimulatedBackend,
-	flags ...string) (app *TestApplication, cleanup func()) {
+	t testing.TB,
+	tc *TestConfig,
+	backend *backends.SimulatedBackend,
+	flagsAndDeps ...interface{},
+) (app *TestApplication, cleanup func()) {
 	chainId := int(backend.Blockchain().Config().ChainID.Int64())
 	tc.Config.Set("ETH_CHAIN_ID", chainId)
-	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flags...)
+
+	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+
 	var client SimulatedBackendClient
 	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
 		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
@@ -324,6 +329,8 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	} else {
 		log.Panic("SimulatedBackend only works on EthTxManager")
 	}
+	app.Store.EthClient = &client
+
 	// Clean out the mock registrations, since we don't need those...
 	app.EthMock.Responses = app.EthMock.Responses[:0]
 	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
@@ -345,7 +352,8 @@ func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
 
-	return ta.ChainlinkApplication.Start()
+	err := ta.ChainlinkApplication.Start()
+	return err
 }
 
 func (ta *TestApplication) StartAndConnect() error {
@@ -864,7 +872,8 @@ func WaitForJobRunStatus(
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
-		return jr.GetStatus()
+		st := jr.GetStatus()
+		return st
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
 	return jr
 }
@@ -1036,21 +1045,14 @@ func Head(val interface{}) *models.Head {
 	return &h
 }
 
-// EmptyBlock returns a new empty ethereum block
-func EmptyBlock() models.Block {
-	return models.Block{}
-}
-
 // BlockWithTransactions returns a new ethereum block with transactions
 // matching the given gas prices
-func BlockWithTransactions(gasPrices ...uint64) models.Block {
-	txs := make([]models.Transaction, len(gasPrices))
+func BlockWithTransactions(gasPrices ...int64) *types.Block {
+	txs := make([]*types.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i].GasPrice = hexutil.Uint64(gasPrice)
+		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
-	return models.Block{
-		Transactions: txs,
-	}
+	return types.NewBlock(&types.Header{}, txs, nil, nil)
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
@@ -1293,7 +1295,7 @@ func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,
 	answer, startAt, timeout, availableFunds, paymentAmount, oracleCount uint64,
-) string {
+) []byte {
 	var data []byte
 	if eligible {
 		data = append(data, utils.EVMWordUint64(1)...)
@@ -1307,7 +1309,7 @@ func MakeRoundStateReturnData(
 	data = append(data, utils.EVMWordUint64(availableFunds)...)
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
-	return hexutil.Encode(data)
+	return data
 }
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
@@ -1337,22 +1339,6 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 		irv = append(irv, log.Interface())
 	}
 	return irv
-}
-
-// ChainlinkEthLogFromGethLog returns a copy of l as an models.Log. (They have
-// identical fields, but the field tags differ, and the types differ slightly.)
-func ChainlinkEthLogFromGethLog(l types.Log) models.Log {
-	return models.Log{
-		Address:     l.Address,
-		Topics:      l.Topics,
-		Data:        models.UntrustedBytes(l.Data),
-		BlockNumber: l.BlockNumber,
-		TxHash:      l.TxHash,
-		TxIndex:     l.TxIndex,
-		BlockHash:   l.BlockHash,
-		Index:       l.Index,
-		Removed:     l.Removed,
-	}
 }
 
 func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun {

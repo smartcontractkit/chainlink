@@ -6,14 +6,15 @@ import (
 	"math/big"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
@@ -35,7 +36,13 @@ func TestHeadTracker_New(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+
+	sub := new(mocks.Subscription)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	sub.On("Err").Return(nil)
 
 	assert.Nil(t, store.IdempotentInsertHead(*cltest.Head(1)))
 	last := cltest.Head(16)
@@ -54,7 +61,9 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	store.Config.Set("ETH_HEAD_TRACKER_HISTORY_DEPTH", 100)
 	defer cleanup()
 
-	cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
 
 	for idx := 0; idx < 200; idx++ {
 		assert.Nil(t, store.IdempotentInsertHead(*cltest.Head(idx)))
@@ -97,7 +106,23 @@ func TestHeadTracker_Get(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+			ethClient := new(mocks.Client)
+			sub := new(mocks.Subscription)
+			store.EthClient = ethClient
+			ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+			sub.On("Err").Return(nil)
+			sub.On("Unsubscribe").Return(nil)
+			chStarted := make(chan struct{})
+			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+				Run(func(mock.Arguments) { close(chStarted) }).
+				Return(sub, nil)
+
+			fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
+			fnCall.RunFn = func(args mock.Arguments) {
+				num := args.Get(1).(*big.Int)
+				fnCall.ReturnArguments = mock.Arguments{cltest.Head(num.Int64()), nil}
+			}
+
 			if test.initial != nil {
 				assert.Nil(t, store.IdempotentInsertHead(*test.initial))
 			}
@@ -121,14 +146,26 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eth := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+	sub := new(mocks.Subscription)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil)
+	chStarted := make(chan struct{})
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(mock.Arguments) { close(chStarted) }).
+		Return(sub, nil)
+
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{})
-	defer ht.Stop()
 
-	eth.RegisterSubscription("newHeads")
+	assert.NoError(t, ht.Start())
+	<-chStarted
 
-	assert.Nil(t, ht.Start())
-	eth.EventuallyAllCalled(t)
+	ht.Stop()
+	<-ht.ExportedDone()
+	ethClient.AssertExpectations(t)
 }
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
@@ -137,21 +174,33 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+
+	sub := new(mocks.Subscription)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	chchHeaders := make(chan chan<- *models.Head, 1)
+	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			chchHeaders <- args.Get(1).(chan<- *models.Head)
+		}).
+		Return(sub, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
+
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
-
-	headers := make(chan gethTypes.Header)
-	mocketh.RegisterSubscription("newHeads", headers)
-	mocketh.Register("eth_chainId", store.Config.ChainID())
 
 	assert.Nil(t, ht.Start())
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
-	headers <- gethTypes.Header{Number: big.NewInt(1)}
+	headers := <-chchHeaders
+	headers <- &models.Head{Number: 1}
 	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 	assert.Equal(t, int32(1), checker.ConnectedCount())
 	assert.Equal(t, int32(0), checker.DisconnectedCount())
@@ -169,13 +218,16 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	txManager := new(mocks.TxManager)
-	subscription := cltest.EmptyMockSubscription()
-	txManager.On("GetChainID").Maybe().Return(store.Config.ChainID(), nil)
-	txManager.On("SubscribeToNewHeads", mock.Anything, mock.Anything, mock.Anything).Return(subscription, nil)
-	txManager.On("SubscribeToNewHeads", mock.Anything, mock.Anything).Return(nil, errors.New("cannot reconnect"))
-	txManager.On("SubscribeToNewHeads", mock.Anything, mock.Anything).Return(subscription, nil)
-	store.TxManager = txManager
+	ethClient := new(mocks.Client)
+	sub := new(mocks.Subscription)
+	ethClient.On("ChainID", mock.Anything).Maybe().Return(store.Config.ChainID(), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("cannot reconnect"))
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	chErr := make(chan error)
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return((<-chan error)(chErr))
+	store.EthClient = ethClient
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
@@ -187,7 +239,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	// trigger reconnect loop
-	subscription.Errors <- errors.New("Test error to force reconnect")
+	chErr <- errors.New("Test error to force reconnect")
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
 	g.Consistently(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(2)))
 	assert.Equal(t, int32(1), checker.DisconnectedCount())
@@ -203,9 +255,31 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
-	headers := make(chan gethTypes.Header)
-	mocketh.RegisterSubscription("newHeads", headers)
+
+	sub := new(mocks.Subscription)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	chchHeaders := make(chan chan<- *models.Head, 1)
+	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+
+	latestHeadByNumber := make(map[int64]*models.Head)
+	fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
+	fnCall.RunFn = func(args mock.Arguments) {
+		num := args.Get(1).(*big.Int)
+		head, exists := latestHeadByNumber[num.Int64()]
+		if !exists {
+			head = cltest.Head(num.Int64())
+			latestHeadByNumber[num.Int64()] = head
+		}
+		fnCall.ReturnArguments = mock.Arguments{head, nil}
+	}
+
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
 
 	lastSavedBN := big.NewInt(1)
 	currentBN := big.NewInt(2)
@@ -219,7 +293,8 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	require.NoError(t, ht.Save(models.NewHead(lastSavedBN, cltest.NewHash(), cltest.NewHash(), 0)))
 
 	assert.Nil(t, ht.Start())
-	headers <- gethTypes.Header{Number: currentBN}
+	headers := <-chchHeaders
+	headers <- &models.Head{Number: currentBN.Int64()}
 	g.Eventually(func() int32 { return checker.ConnectedCount() }).Should(gomega.Equal(int32(1)))
 
 	connectedBN := connectedValue.Load().(*big.Int)
@@ -238,14 +313,22 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+
+	sub := new(mocks.Subscription)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
 
 	checker := new(mocks.HeadTrackable)
 	ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{checker}, cltest.NeverSleeper{})
 
-	headers := make(chan gethTypes.Header)
-	mocketh.RegisterSubscription("newHeads", headers)
-	mocketh.Register("eth_chainId", store.Config.ChainID())
+	chchHeaders := make(chan chan<- *models.Head, 1)
+	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
 
 	checker.On("Connect", mock.MatchedBy(func(h *models.Head) bool {
 		return h == nil
@@ -255,56 +338,56 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	assert.Nil(t, ht.Start())
 
 	lastHead := make(chan struct{})
-	blockHeaders := []gethTypes.Header{}
+	blockHeaders := []*models.Head{}
 
 	// First block comes in
-	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(1), ParentHash: cltest.NewHash(), Time: 1})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 1, Hash: cltest.NewHash(), ParentHash: cltest.NewHash(), Timestamp: time.Unix(1, 0)})
 	// Blocks 2 and 3 are out of order
-	head2 := gethTypes.Header{Number: big.NewInt(2), ParentHash: blockHeaders[0].Hash(), Time: 2}
-	head3 := gethTypes.Header{Number: big.NewInt(3), ParentHash: head2.Hash(), Time: 3}
+	head2 := &models.Head{Number: 2, Hash: cltest.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(2, 0)}
+	head3 := &models.Head{Number: 3, Hash: cltest.NewHash(), ParentHash: head2.Hash, Timestamp: time.Unix(3, 0)}
 	blockHeaders = append(blockHeaders, head3)
 	blockHeaders = append(blockHeaders, head2)
 	// Block 4 comes in
-	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[1].Hash(), Time: 4})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(4, 0)})
 	// Another block at level 4 comes in, that will be uncled
-	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[1].Hash(), Time: 5})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(5, 0)})
 	// Reorg happened forking from block 2
-	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(2), ParentHash: blockHeaders[0].Hash(), Time: 6})
-	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(3), ParentHash: blockHeaders[5].Hash(), Time: 7})
-	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(4), ParentHash: blockHeaders[6].Hash(), Time: 8})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 2, Hash: cltest.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(6, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 3, Hash: cltest.NewHash(), ParentHash: blockHeaders[5].Hash, Timestamp: time.Unix(7, 0)})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: cltest.NewHash(), ParentHash: blockHeaders[6].Hash, Timestamp: time.Unix(8, 0)})
 	// Now the new chain is longer
-	blockHeaders = append(blockHeaders, gethTypes.Header{Number: big.NewInt(5), ParentHash: blockHeaders[7].Hash(), Time: 9})
+	blockHeaders = append(blockHeaders, &models.Head{Number: 5, Hash: cltest.NewHash(), ParentHash: blockHeaders[7].Hash, Timestamp: time.Unix(9, 0)})
 
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		return h.Number == 1 && h.Hash == blockHeaders[0].Hash()
+		return h.Number == 1 && h.Hash == blockHeaders[0].Hash
 	})).Return().Once()
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		return h.Number == 3 && h.Hash == blockHeaders[1].Hash()
+		return h.Number == 3 && h.Hash == blockHeaders[1].Hash
 	})).Return().Once()
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		if h.Number == 4 && h.Hash == blockHeaders[3].Hash() {
+		if h.Number == 4 && h.Hash == blockHeaders[3].Hash {
 			// Check that the block came with its parents
 			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blockHeaders[1].Hash())
+			require.Equal(t, h.Parent.Hash, blockHeaders[1].Hash)
 			require.NotNil(t, h.Parent.Parent.Hash)
-			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[2].Hash())
+			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[2].Hash)
 			require.NotNil(t, h.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[0].Hash())
+			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[0].Hash)
 			return true
 		}
 		return false
 	})).Return().Once()
 	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
-		if h.Number == 5 && h.Hash == blockHeaders[8].Hash() {
+		if h.Number == 5 && h.Hash == blockHeaders[8].Hash {
 			// This is the new longest chain, check that it came with its parents
 			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blockHeaders[7].Hash())
+			require.Equal(t, h.Parent.Hash, blockHeaders[7].Hash)
 			require.NotNil(t, h.Parent.Parent.Hash)
-			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[6].Hash())
+			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[6].Hash)
 			require.NotNil(t, h.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[5].Hash())
+			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[5].Hash)
 			require.NotNil(t, h.Parent.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Parent.Hash, blockHeaders[0].Hash())
+			require.NotNil(t, h.Parent.Parent.Parent.Parent.Hash, blockHeaders[0].Hash)
 
 			return true
 		}
@@ -313,7 +396,23 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 		close(lastHead)
 	})
 
+	headers := <-chchHeaders
+
+	// This grotesque construction is the only way to do dynamic return values using
+	// the mock package.  We need dynamic returns because we're simulating reorgs.
+	latestHeadByNumber := make(map[int64]*models.Head)
+	fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
+	fnCall.RunFn = func(args mock.Arguments) {
+		num := args.Get(1).(*big.Int)
+		head, exists := latestHeadByNumber[num.Int64()]
+		if !exists {
+			head = cltest.Head(num.Int64())
+			latestHeadByNumber[num.Int64()] = head
+		}
+		fnCall.ReturnArguments = mock.Arguments{head, nil}
+	}
 	for _, h := range blockHeaders {
+		latestHeadByNumber[h.Number] = h
 		headers <- h
 	}
 
@@ -322,12 +421,12 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	assert.Equal(t, int64(5), ht.HighestSeenHead().Number)
 
 	for _, h := range blockHeaders {
-		c, err := store.Chain(h.Hash(), 1)
+		c, err := store.Chain(h.Hash, 1)
 		require.NoError(t, err)
 		require.NotNil(t, c)
 		assert.Equal(t, c.ParentHash, h.ParentHash)
-		assert.Equal(t, c.Timestamp.Unix(), int64(h.Time))
-		assert.Equal(t, c.Number, h.Number.Int64())
+		assert.Equal(t, c.Timestamp.Unix(), h.Timestamp.UTC().Unix())
+		assert.Equal(t, c.Number, h.Number)
 	}
 
 	checker.AssertExpectations(t)
@@ -346,35 +445,37 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 	//                    +->(13)->(12)->(11)->(H10)->(9)->(H8)
 	// (15)->(14)---------+
 
-	head0 := services.RawHead{
-		Number:     utils.Uint64ToHex(uint64(0)),
-		ParentHash: gethCommon.BigToHash(big.NewInt(0)).Hex(),
-		Hash:       cltest.NewHash().Hex(),
-		Timestamp:  utils.Uint64ToHex(uint64(42)),
+	now := uint64(time.Now().UTC().Unix())
+
+	gethHead0 := &gethTypes.Header{
+		Number:     big.NewInt(0),
+		ParentHash: gethCommon.BigToHash(big.NewInt(0)),
+		Time:       now,
 	}
+	head0 := models.NewHead(gethHead0.Number, cltest.NewHash(), gethHead0.ParentHash, gethHead0.Time)
 
 	h1 := *cltest.Head(1)
-	h1.ParentHash = gethCommon.HexToHash(head0.Hash)
+	h1.ParentHash = head0.Hash
 
-	head8 := services.RawHead{
-		Number:     utils.Uint64ToHex(uint64(8)),
-		ParentHash: cltest.NewHash().Hex(),
-		Hash:       cltest.NewHash().Hex(),
-		Timestamp:  utils.Uint64ToHex(uint64(42)),
+	gethHead8 := &gethTypes.Header{
+		Number:     big.NewInt(8),
+		ParentHash: cltest.NewHash(),
+		Time:       now,
 	}
+	head8 := models.NewHead(gethHead8.Number, cltest.NewHash(), gethHead8.ParentHash, gethHead8.Time)
 
 	h9 := *cltest.Head(9)
-	h9.ParentHash = gethCommon.HexToHash(head8.Hash)
+	h9.ParentHash = head8.Hash
 
-	head10 := services.RawHead{
-		Number:     utils.Uint64ToHex(uint64(10)),
-		ParentHash: h9.Hash.Hex(),
-		Hash:       cltest.NewHash().Hex(),
-		Timestamp:  utils.Uint64ToHex(uint64(42)),
+	gethHead10 := &gethTypes.Header{
+		Number:     big.NewInt(10),
+		ParentHash: h9.Hash,
+		Time:       now,
 	}
+	head10 := models.NewHead(gethHead10.Number, cltest.NewHash(), gethHead10.ParentHash, gethHead10.Time)
 
 	h11 := *cltest.Head(11)
-	h11.ParentHash = gethCommon.HexToHash(head10.Hash)
+	h11.ParentHash = head10.Hash
 
 	h12 := *cltest.Head(12)
 	h12.ParentHash = h11.Hash
@@ -410,11 +511,14 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			require.NoError(t, store.IdempotentInsertHead(h))
 		}
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		sub := new(mocks.Subscription)
+		ethClient := new(mocks.Client)
+		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+		sub.On("Err").Return(nil)
+		store.EthClient = ethClient
 
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
+		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
 		h, err := ht.GetChainWithBackfill(ctx, h12, 2)
 		require.NoError(t, err)
@@ -432,23 +536,13 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			require.NoError(t, store.IdempotentInsertHead(h))
 		}
 
-		rpcClient := new(mocks.RPCClient)
-		store.GethClientWrapper = cltest.NewSimpleGethWrapper(rpcClient)
+		ethClient := new(mocks.Client)
+		store.EthClient = ethClient
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil)
+
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
-
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
-
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0xa" // 10
-		}), mock.AnythingOfType("bool")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = head10
-		}).Once()
 
 		h, err := ht.GetChainWithBackfill(ctx, h12, 3)
 		require.NoError(t, err)
@@ -460,11 +554,11 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		assert.Equal(t, int64(10), h.Parent.Parent.Number)
 		require.Nil(t, h.Parent.Parent.Parent)
 
-		writtenHead, err := store.HeadByHash(gethCommon.HexToHash(head10.Hash))
+		writtenHead, err := store.HeadByHash(head10.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, int64(10), writtenHead.Number)
 
-		rpcClient.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("fetches only heads that are missing", func(t *testing.T) {
@@ -474,31 +568,15 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			require.NoError(t, store.IdempotentInsertHead(h))
 		}
 
-		rpcClient := new(mocks.RPCClient)
-		store.GethClientWrapper = cltest.NewSimpleGethWrapper(rpcClient)
+		ethClient := new(mocks.Client)
+		store.EthClient = ethClient
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
-
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0xa" // 10
-		}), mock.AnythingOfType("bool")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = head10
-		}).Once()
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0x8" // 8
-		}), mock.AnythingOfType("bool")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = head8
-		}).Once()
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+			Return(&head8, nil)
 
 		// Needs to be 8 because there are 8 heads in chain (15,14,13,12,11,10,9,8)
 		h, err := ht.GetChainWithBackfill(ctx, h15, 8)
@@ -506,21 +584,23 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		require.Equal(t, uint32(8), h.ChainLength())
 		earliestInChain := h.EarliestInChain()
-		assert.Equal(t, cltest.MustHexToUint64(t, head8.Number), uint64(earliestInChain.Number))
-		assert.Equal(t, head8.Hash, earliestInChain.Hash.Hex())
+		assert.Equal(t, head8.Number, earliestInChain.Number)
+		assert.Equal(t, head8.Hash, earliestInChain.Hash)
 
-		rpcClient.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("returns error if first head is not in database", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ethClient := new(mocks.Client)
+		sub := new(mocks.Subscription)
+		store.EthClient = ethClient
+		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID())
+		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
+		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
 		h16 := *cltest.Head(16)
 		h16.ParentHash = h15.Hash
@@ -536,11 +616,13 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			require.NoError(t, store.IdempotentInsertHead(h))
 		}
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
+		ethClient := new(mocks.Client)
+		sub := new(mocks.Subscription)
+		store.EthClient = ethClient
+		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID())
+		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
+		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
 		h, err := ht.GetChainWithBackfill(ctx, h15, 3)
 		require.NoError(t, err)
@@ -555,32 +637,21 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		rpcClient := new(mocks.RPCClient)
-		store.GethClientWrapper = cltest.NewSimpleGethWrapper(rpcClient)
+		ethClient := new(mocks.Client)
+		store.EthClient = ethClient
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(0)).
+			Return(&head0, nil)
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
-
 		require.NoError(t, store.IdempotentInsertHead(h1))
-
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0x0" // 0
-		}), mock.AnythingOfType("bool")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = head0
-		}).Once()
 
 		h, err := ht.GetChainWithBackfill(ctx, h1, 400)
 		require.NoError(t, err)
 		require.Equal(t, uint32(2), h.ChainLength())
 		require.Equal(t, int64(0), h.EarliestInChain().Number)
 
-		rpcClient.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("abandons backfill and returns whatever we have if the eth node returns not found", func(t *testing.T) {
@@ -590,31 +661,16 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			require.NoError(t, store.IdempotentInsertHead(h))
 		}
 
-		rpcClient := new(mocks.RPCClient)
-		store.GethClientWrapper = cltest.NewSimpleGethWrapper(rpcClient)
+		ethClient := new(mocks.Client)
+		store.EthClient = ethClient
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil).
+			Once()
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+			Return(nil, ethereum.NotFound).
+			Once()
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
-
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
-
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0xa" // 10
-		}), mock.AnythingOfType("bool")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = head10
-		}).Once()
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0x8" // 8
-		}), mock.AnythingOfType("bool")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = services.RawHead{}
-		}).Once()
 
 		h, err := ht.GetChainWithBackfill(ctx, h12, 400)
 		require.NoError(t, err)
@@ -623,7 +679,7 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		assert.Equal(t, 4, int(h.ChainLength()))
 		assert.Equal(t, int64(9), h.EarliestInChain().Number)
 
-		rpcClient.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("abandons backfill and returns whatever we have if the context time budget is exceeded", func(t *testing.T) {
@@ -633,31 +689,14 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			require.NoError(t, store.IdempotentInsertHead(h))
 		}
 
-		rpcClient := new(mocks.RPCClient)
-		store.GethClientWrapper = cltest.NewSimpleGethWrapper(rpcClient)
+		ethClient := new(mocks.Client)
+		store.EthClient = ethClient
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(10)).
+			Return(&head10, nil)
+		ethClient.On("HeaderByNumber", mock.Anything, big.NewInt(8)).
+			Return(nil, context.DeadlineExceeded)
 
-		mocketh := cltest.MockEthOnStore(t, store, cltest.EthMockRegisterChainID)
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
-
-		mocketh.RegisterSubscription("newHeads")
-		mocketh.Register("eth_chainId", store.Config.ChainID())
-
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0xa" // 10
-		}), mock.AnythingOfType("bool")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = head10
-		}).Once()
-		rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("*services.RawHead"), mock.MatchedBy(func(s string) bool {
-			return s == "eth_getBlockByNumber"
-		}), mock.MatchedBy(func(b string) bool {
-			return b == "0x8" // 8
-		}), mock.AnythingOfType("bool")).Return(context.DeadlineExceeded).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*services.RawHead)
-			*arg = services.RawHead{}
-		}).Once()
 
 		h, err := ht.GetChainWithBackfill(ctx, h12, 400)
 		require.NoError(t, err)
@@ -666,6 +705,6 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		assert.Equal(t, 4, int(h.ChainLength()))
 		assert.Equal(t, int64(9), h.EarliestInChain().Number)
 
-		rpcClient.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
 	})
 }

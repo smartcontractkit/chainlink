@@ -2,10 +2,10 @@ package eth
 
 import (
 	"context"
-	"fmt"
 	"math/big"
+	"net/url"
+	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -13,107 +13,116 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 )
 
-// GethClient is an interface that represents go-ethereum's own ethclient
-// https://github.com/ethereum/go-ethereum/blob/master/ethclient/ethclient.go
-//go:generate mockery --name GethClient --output ../../internal/mocks/ --case=underscore
-type GethClient interface {
-	SendTransaction(context.Context, *gethTypes.Transaction) error
-	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*gethTypes.Receipt, error)
-	HeaderByNumber(ctx context.Context, n *big.Int) (*gethTypes.Header, error)
-	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
-}
-
-// RPCClient is an interface that represents go-ethereum's raw rpcclient
-// https://github.com/ethereum/go-ethereum/blob/master/rpc/client.go
-//go:generate mockery --name RPCClient --output ../../internal/mocks/ --case=underscore
-type RPCClient interface {
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-}
-
 //go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name GethClient --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name RPCClient --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Subscription --output ../../internal/mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	CallerSubscriber
-	LogSubscriber
-	GetNonce(address common.Address) (uint64, error)
-	GetEthBalance(address common.Address) (*assets.Eth, error)
+	GethClient
+
+	Dial(ctx context.Context) error
+	Close()
+
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	SendRawTx(bytes []byte) (common.Hash, error)
-	GetTxReceipt(hash common.Hash) (*models.TxReceipt, error)
-	GetBlockHeight() (uint64, error)
-	GetLatestBlock() (models.Block, error)
-	GetBlockByNumber(hex string) (models.Block, error)
-	GetChainID() (*big.Int, error)
-	SubscribeToNewHeads(ctx context.Context, channel chan<- gethTypes.Header) (Subscription, error)
+	Call(result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+
+	// These methods are reimplemented due to a difference in how block header hashes are
+	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
+	// type to capture the correct hash from the RPC response.
+	HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
 }
 
-// LogSubscriber encapsulates only the methods needed for subscribing to ethereum log events.
-type LogSubscriber interface {
-	GetLogs(q ethereum.FilterQuery) ([]models.Log, error)
-	SubscribeToLogs(ctx context.Context, channel chan<- models.Log, q ethereum.FilterQuery) (Subscription, error)
+// GethClient is an interface that represents go-ethereum's own ethclient
+// https://github.com/ethereum/go-ethereum/blob/master/ethclient/ethclient.go
+type GethClient interface {
+	ChainID(ctx context.Context) (*big.Int, error)
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
 }
 
-//go:generate mockery --name Subscription --output ../../internal/mocks/ --case=underscore
+// RPCClient is an interface that represents go-ethereum's own rpc.Client.
+// https://github.com/ethereum/go-ethereum/blob/master/rpc/client.go
+type RPCClient interface {
+	Call(result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error)
+	Close()
+}
 
-// Subscription holds the methods for an ethereum log subscription.
-//
-// The Unsubscribe method cancels the sending of events. You must call Unsubscribe in all
-// cases to ensure that resources related to the subscription are released. It can be
-// called any number of times.
+// This interface only exists so that we can generate a mock for it.  It is
+// identical to `ethereum.Subscription`.
 type Subscription interface {
 	Err() <-chan error
 	Unsubscribe()
 }
 
-// CallerSubscriberClient implements the ethereum Client interface using a
+// client implements the ethereum Client interface using a
 // CallerSubscriber instance.
-type CallerSubscriberClient struct {
-	CallerSubscriber
+type client struct {
+	GethClient
+	RPCClient
+	url    string // For reestablishing the connection after a disconnect
+	mocked bool
 }
 
-var _ Client = (*CallerSubscriberClient)(nil)
+var _ Client = (*client)(nil)
 
-//go:generate mockery --name CallerSubscriber --output ../../internal/mocks/ --case=underscore
-
-// CallerSubscriber implements the Call and Subscribe functions. Call performs
-// a JSON-RPC call with the given arguments and Subscribe registers a subscription,
-// using an open stream to receive updates from ethereum node.
-type CallerSubscriber interface {
-	Call(result interface{}, method string, args ...interface{}) error
-	Subscribe(context.Context, interface{}, ...interface{}) (Subscription, error)
-	GethClient(func(gethClient GethClient) error) error
-	RPCClient(func(rpcClient RPCClient) error) error
-}
-
-// GetNonce returns the nonce (transaction count) for a given address.
-func (client *CallerSubscriberClient) GetNonce(address common.Address) (uint64, error) {
-	result := ""
-	err := client.logCall(&result, "eth_getTransactionCount", address.Hex(), "pending")
+func NewClient(rpcUrl string) (*client, error) {
+	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return utils.HexToUint64(result)
+	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
+		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
+	}
+	return &client{url: rpcUrl}, nil
 }
 
-// GetEthBalance returns the balance of the given addresses in Ether.
-func (client *CallerSubscriberClient) GetEthBalance(address common.Address) (*assets.Eth, error) {
-	result := ""
-	amount := new(assets.Eth)
-	err := client.logCall(&result, "eth_getBalance", address.Hex(), "latest")
+// This alternate constructor exists for testing purposes.
+func NewClientWith(rpcClient RPCClient, gethClient GethClient) *client {
+	return &client{
+		GethClient: gethClient,
+		RPCClient:  rpcClient,
+		mocked:     true,
+	}
+}
+
+func (client *client) Dial(ctx context.Context) error {
+	logger.Debugw("eth.Client#Dial(...)")
+	if client.mocked {
+		return nil
+	} else if client.RPCClient != nil || client.GethClient != nil {
+		panic("eth.Client.Dial(...) should only be called once during the application's lifetime.")
+	}
+
+	rpcClient, err := rpc.DialContext(ctx, client.url)
 	if err != nil {
-		return amount, err
+		return err
 	}
-	amount.SetString(result, 0)
-	return amount, nil
+	client.RPCClient = &rpcClientWrapper{rpcClient}
+	client.GethClient = ethclient.NewClient(rpcClient)
+	return nil
 }
 
-// CallArgs represents the data used to call the balance method of an ERC
-// contract. "To" is the address of the ERC contract. "Data" is the message sent
+// CallArgs represents the data used to call the balance method of a contract.
+// "To" is the address of the ERC contract. "Data" is the message sent
 // to the contract.
 type CallArgs struct {
 	To   common.Address `json:"to"`
@@ -121,7 +130,11 @@ type CallArgs struct {
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
-func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
+func (client *client) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
+	logger.Debugw("eth.Client#GetERC20Balance(...)",
+		"address", address,
+		"contractAddress", contractAddress,
+	)
 	result := ""
 	numLinkBigInt := new(big.Int)
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
@@ -130,7 +143,7 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 		To:   contractAddress,
 		Data: data,
 	}
-	err := client.logCall(&result, "eth_call", args, "latest")
+	err := client.RPCClient.Call(&result, "eth_call", args, "latest")
 	if err != nil {
 		return numLinkBigInt, err
 	}
@@ -139,83 +152,126 @@ func (client *CallerSubscriberClient) GetERC20Balance(address common.Address, co
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
-func (client *CallerSubscriberClient) SendRawTx(bytes []byte) (common.Hash, error) {
+func (client *client) SendRawTx(bytes []byte) (common.Hash, error) {
+	logger.Debugw("eth.Client#SendRawTx(...)",
+		"bytes", bytes,
+	)
 	result := common.Hash{}
-	err := client.logCall(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
+	err := client.RPCClient.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
 	return result, err
 }
 
-// GetTxReceipt returns the transaction receipt for the given transaction hash.
-func (client *CallerSubscriberClient) GetTxReceipt(hash common.Hash) (*models.TxReceipt, error) {
-	receipt := models.TxReceipt{}
-	err := client.logCall(&receipt, "eth_getTransactionReceipt", hash.String())
-	return &receipt, err
+// We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
+// when we're talking to a Parity node that has no receipt yet.
+func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	logger.Debugw("eth.Client#TransactionReceipt(...)",
+		"txHash", txHash,
+	)
+	receipt, err := client.GethClient.TransactionReceipt(ctx, txHash)
+	if err != nil && strings.Contains(err.Error(), "missing required field") {
+		return nil, ethereum.NotFound
+	}
+	return receipt, err
 }
 
-func (client *CallerSubscriberClient) GetBlockHeight() (uint64, error) {
-	var height hexutil.Uint64
-	err := client.logCall(&height, "eth_blockNumber")
-	return uint64(height), err
+func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
+	logger.Debugw("eth.Client#ChainID(...)")
+	return client.GethClient.ChainID(ctx)
 }
 
-// GetLatestBlock returns the last committed block of the best blockchain the
-// blockchain node is aware of.
-func (client *CallerSubscriberClient) GetLatestBlock() (models.Block, error) {
-	var block models.Block
-	err := client.logCall(&block, "eth_getBlockByNumber", "latest", true)
-	return block, err
+func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	logger.Debugw("eth.Client#SendTransaction(...)",
+		"tx", tx,
+	)
+	return client.GethClient.SendTransaction(ctx, tx)
 }
 
-// GetBlockByNumber returns the block for the passed hex, or "latest", "earliest", "pending".
-// Includes all transactions
-func (client *CallerSubscriberClient) GetBlockByNumber(hex string) (models.Block, error) {
-	var block models.Block
-	err := client.logCall(&block, "eth_getBlockByNumber", hex, true)
-	return block, err
+func (client *client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	logger.Debugw("eth.Client#PendingNonceAt(...)",
+		"account", account,
+	)
+	return client.GethClient.PendingNonceAt(ctx, account)
 }
 
-// GetLogs returns all logs that respect the passed filter query.
-func (client *CallerSubscriberClient) GetLogs(q ethereum.FilterQuery) ([]models.Log, error) {
-	var results []models.Log
-	err := client.logCall(&results, "eth_getLogs", utils.ToFilterArg(q))
-	return results, err
+func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	logger.Debugw("eth.Client#BlockByNumber(...)",
+		"number", number,
+	)
+	return client.GethClient.BlockByNumber(ctx, number)
 }
 
-// GetChainID returns the ethereum ChainID.
-func (client *CallerSubscriberClient) GetChainID() (*big.Int, error) {
-	value := new(utils.Big)
-	err := client.logCall(value, "eth_chainId")
-	return value.ToInt(), err
+func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (*models.Head, error) {
+	logger.Debugw("eth.Client#HeaderByNumber(...)",
+		"number", number,
+	)
+	var head *models.Head
+	err := client.RPCClient.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
+	if err == nil && head == nil {
+		err = ethereum.NotFound
+	}
+	return head, err
 }
 
-// SubscribeToLogs registers a subscription for push notifications of logs
-// from a given address.
-//
-// Inspired by the eth client's SubscribeToLogs:
-// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L359
-func (client *CallerSubscriberClient) SubscribeToLogs(
-	ctx context.Context,
-	channel chan<- models.Log,
-	q ethereum.FilterQuery,
-) (Subscription, error) {
-	sub, err := client.Subscribe(ctx, channel, "logs", utils.ToFilterArg(q))
-	return sub, err
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	return hexutil.EncodeBig(number)
 }
 
-// SubscribeToNewHeads registers a subscription for push notifications of new blocks.
-func (client *CallerSubscriberClient) SubscribeToNewHeads(
-	ctx context.Context,
-	channel chan<- gethTypes.Header,
-) (Subscription, error) {
-	sub, err := client.Subscribe(ctx, channel, "newHeads")
-	return sub, err
+type MaybeHeader struct {
+	Header models.Head
+	Error  error
 }
 
-// logCall logs an RPC call's method and arguments, and then calls the method
-func (client *CallerSubscriberClient) logCall(result interface{}, method string, args ...interface{}) error {
-	logger.Debugw(
-		fmt.Sprintf(`Calling eth client RPC method "%s"`, method),
+func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	logger.Debugw("eth.Client#BalanceAt(...)",
+		"account", account,
+		"blockNumber", blockNumber,
+	)
+	return client.GethClient.BalanceAt(ctx, account, blockNumber)
+}
+
+func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	logger.Debugw("eth.Client#FilterLogs(...)",
+		"q", q,
+	)
+	return client.GethClient.FilterLogs(ctx, q)
+}
+
+func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
+		"q", q,
+	)
+	return client.GethClient.SubscribeFilterLogs(ctx, q, ch)
+}
+
+func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
+	logger.Debugw("eth.Client#SubscribeNewHead(...)")
+	return client.RPCClient.EthSubscribe(ctx, ch, "newHeads")
+}
+
+// TODO: remove this wrapper type once cltest.EthMock is no longer in use.
+type rpcClientWrapper struct {
+	*rpc.Client
+}
+
+func (w *rpcClientWrapper) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+	return w.Client.EthSubscribe(ctx, channel, args...)
+}
+
+func (client *client) Call(result interface{}, method string, args ...interface{}) error {
+	logger.Debugw("eth.Client#Call(...)",
+		"method", method,
 		"args", args,
 	)
-	return client.Call(result, method, args...)
+	return client.RPCClient.Call(result, method, args...)
+}
+
+func (client *client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	logger.Debugw("eth.Client#Call(...)",
+		"method", method,
+		"args", args,
+	)
+	return client.RPCClient.CallContext(ctx, result, method, args...)
 }

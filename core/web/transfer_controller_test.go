@@ -19,14 +19,16 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 
 	client := app.NewHTTPClient()
@@ -56,13 +58,15 @@ func TestTransfersController_TransferError(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_chainId", config.ChainID())
 		ethMock.RegisterError("eth_sendRawTransaction", "No dice")
 	})
 
@@ -91,13 +95,15 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 
 	client := app.NewHTTPClient()
