@@ -8,9 +8,9 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.5/BasicConsumerFactory'
-import { OracleFactory } from '../../ethers/v0.5/OracleFactory'
-import { PreCoordinatorFactory } from '../../ethers/v0.5/PreCoordinatorFactory'
+import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
+import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
+import { PreCoordinatorFactory } from '../../ethers/v0.6/PreCoordinatorFactory'
 
 const provider = setup.provider()
 const oracleFactory = new OracleFactory()
@@ -78,116 +78,7 @@ describe('PreCoordinator', () => {
   beforeEach(deployment)
 
   describe('#createServiceAgreement', () => {
-    describe('when called by the owner', () => {
-      it('emits the NewServiceAgreement log', async () => {
-        const tx = await pc
-          .connect(roles.defaultAccount)
-          .createServiceAgreement(
-            3,
-            [oc1.address, oc2.address, oc3.address, oc4.address],
-            [job1, job2, job3, job4],
-            [payment, payment, payment, payment],
-          )
-        const receipt = await tx.wait()
-
-        expect(
-          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
-        ).toBeDefined()
-      })
-
-      it('creates a service agreement', async () => {
-        const tx = await pc
-          .connect(roles.defaultAccount)
-          .createServiceAgreement(
-            3,
-            [oc1.address, oc2.address, oc3.address, oc4.address],
-            [job1, job2, job3, job4],
-            [payment, payment, payment, payment],
-          )
-        const receipt = await tx.wait()
-        const { saId } = h.eventArgs(
-          h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
-        )
-
-        const sa = await pc.getServiceAgreement(saId)
-        assert.isTrue(sa.totalPayment.eq(totalPayment))
-        assert.equal(sa.minResponses.toNumber(), 3)
-        assert.deepEqual(sa.oracles, [
-          oc1.address,
-          oc2.address,
-          oc3.address,
-          oc4.address,
-        ])
-        assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
-        assert.deepEqual(
-          sa.payments.map(p => p.toHexString()),
-          [payment, payment, payment, payment].map(p => p.toHexString()),
-        )
-      })
-
-      it('does not allow service agreements with 0 minResponses', () =>
-        matchers.evmRevert(
-          pc
-            .connect(roles.defaultAccount)
-            .createServiceAgreement(
-              0,
-              [oc1.address, oc2.address, oc3.address, oc4.address],
-              [job1, job2, job3, job4],
-              [payment, payment, payment, payment],
-            ),
-          'Min responses must be > 0',
-        ))
-
-      describe('when called by a stranger', () => {
-        it('reverts', () =>
-          matchers.evmRevert(
-            pc
-              .connect(roles.stranger)
-              .createServiceAgreement(
-                3,
-                [oc1.address, oc2.address, oc3.address, oc4.address],
-                [job1, job2, job3, job4],
-                [payment, payment, payment, payment],
-              ),
-          ))
-      })
-
-      describe('when the array lengths are not equal', () => {
-        it('reverts', () =>
-          matchers.evmRevert(
-            pc
-              .connect(roles.defaultAccount)
-              .createServiceAgreement(
-                3,
-                [oc1.address, oc2.address, oc3.address, oc4.address],
-                [job1, job2, job3],
-                [payment, payment, payment, payment],
-              ),
-            'Unmet length',
-          ))
-      })
-
-      describe('when the min responses is greater than the oracles', () => {
-        it('reverts', () =>
-          matchers.evmRevert(
-            pc
-              .connect(roles.defaultAccount)
-              .createServiceAgreement(
-                5,
-                [oc1.address, oc2.address, oc3.address, oc4.address],
-                [job1, job2, job3, job4],
-                [payment, payment, payment, payment],
-              ),
-            'Invalid min responses',
-          ))
-      })
-    })
-  })
-
-  describe('#deleteServiceAgreement', () => {
-    let saId: string
-
-    beforeEach(async () => {
+    it('emits the NewServiceAgreement log', async () => {
       const tx = await pc
         .connect(roles.defaultAccount)
         .createServiceAgreement(
@@ -198,45 +89,81 @@ describe('PreCoordinator', () => {
         )
       const receipt = await tx.wait()
 
-      saId = h.eventArgs(
+      expect(
         h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
-      ).saId
+      ).toBeDefined()
     })
 
-    describe('when called by a stranger', () => {
+    it('creates a service agreement', async () => {
+      const tx = await pc
+        .connect(roles.defaultAccount)
+        .createServiceAgreement(
+          3,
+          [oc1.address, oc2.address, oc3.address, oc4.address],
+          [job1, job2, job3, job4],
+          [payment, payment, payment, payment],
+        )
+      const receipt = await tx.wait()
+      const { saId } = h.eventArgs(
+        h.findEventIn(receipt, pc.interface.events.NewServiceAgreement),
+      )
+
+      const sa = await pc.getServiceAgreement(saId)
+      assert.isTrue(sa.totalPayment.eq(totalPayment))
+      assert.equal(sa.minResponses.toNumber(), 3)
+      assert.deepEqual(sa.oracles, [
+        oc1.address,
+        oc2.address,
+        oc3.address,
+        oc4.address,
+      ])
+      assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
+      assert.deepEqual(
+        sa.payments.map(p => p.toHexString()),
+        [payment, payment, payment, payment].map(p => p.toHexString()),
+      )
+    })
+
+    it('does not allow service agreements with 0 minResponses', () =>
+      matchers.evmRevert(
+        pc
+          .connect(roles.defaultAccount)
+          .createServiceAgreement(
+            0,
+            [oc1.address, oc2.address, oc3.address, oc4.address],
+            [job1, job2, job3, job4],
+            [payment, payment, payment, payment],
+          ),
+        'Min responses must be > 0',
+      ))
+
+    describe('when the array lengths are not equal', () => {
       it('reverts', () =>
         matchers.evmRevert(
-          pc.connect(roles.stranger).deleteServiceAgreement(saId),
+          pc
+            .connect(roles.defaultAccount)
+            .createServiceAgreement(
+              3,
+              [oc1.address, oc2.address, oc3.address, oc4.address],
+              [job1, job2, job3],
+              [payment, payment, payment, payment],
+            ),
+          'Unmet length',
         ))
     })
 
-    describe('when called by the owner', () => {
-      it('deletes the service agreement', async () => {
-        await pc.connect(roles.defaultAccount).deleteServiceAgreement(saId)
-        const sa = await pc.getServiceAgreement(saId)
-        assert.equal(sa.totalPayment.toNumber(), 0)
-        assert.equal(sa.minResponses.toNumber(), 0)
-        assert.deepEqual(sa.oracles, [])
-        assert.deepEqual(sa.jobIds, [])
-        assert.deepEqual(sa.payments, [])
-      })
-    })
-
-    describe('when the service agreement is still active', () => {
-      beforeEach(async () => {
-        rc = await requesterConsumerFactory
-          .connect(roles.consumer)
-          .deploy(link.address, pc.address, saId)
-        await link.transfer(rc.address, totalPayment)
-        await rc
-          .connect(roles.consumer)
-          .requestEthereumPrice(currency, totalPayment)
-      })
-
+    describe('when the min responses is greater than the oracles', () => {
       it('reverts', () =>
         matchers.evmRevert(
-          pc.connect(roles.defaultAccount).deleteServiceAgreement(saId),
-          'Cannot delete while active',
+          pc
+            .connect(roles.defaultAccount)
+            .createServiceAgreement(
+              5,
+              [oc1.address, oc2.address, oc3.address, oc4.address],
+              [job1, job2, job3, job4],
+              [payment, payment, payment, payment],
+            ),
+          'Invalid min responses',
         ))
     })
   })
@@ -330,8 +257,6 @@ describe('PreCoordinator', () => {
         assert.deepEqual(expected, await cbor.decodeFirst(request2.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request3.data))
         assert.deepEqual(expected, await cbor.decodeFirst(request4.data))
-        const serviceAgreement = await pc.getServiceAgreement(saId)
-        assert.isTrue(ethers.constants.One.eq(serviceAgreement.activeRequests))
       })
 
       describe('when insufficient payment is supplied', () => {
@@ -394,7 +319,7 @@ describe('PreCoordinator', () => {
       const tx = await pc
         .connect(roles.defaultAccount)
         .createServiceAgreement(
-          3,
+          2,
           [oc1.address, oc2.address, oc3.address, oc4.address],
           [job1, job2, job3, job4],
           [payment, payment, payment, payment],
@@ -493,7 +418,7 @@ describe('PreCoordinator', () => {
 
         it('returns the median to the requesting contract', async () => {
           const currentPrice = await rc.currentPrice()
-          assert.equal(currentPrice, response2)
+          assert.equal(currentPrice, response1)
         })
 
         describe('when an oracle responds after aggregation', () => {
@@ -509,7 +434,7 @@ describe('PreCoordinator', () => {
                 response4,
               )
             const currentPrice = await rc.currentPrice()
-            assert.equal(currentPrice, response2)
+            assert.equal(currentPrice, response1)
           })
         })
       })
@@ -593,7 +518,7 @@ describe('PreCoordinator', () => {
 
         it('sends the answer to the consumer', async () => {
           const currentPrice = await cc.currentPrice()
-          assert.equal(currentPrice, response2)
+          assert.equal(currentPrice, response1)
         })
       })
     })
