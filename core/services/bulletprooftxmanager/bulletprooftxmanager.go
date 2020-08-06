@@ -82,16 +82,16 @@ func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx 
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(gethClientWrapper strpkg.GethClientWrapper, a models.EthTxAttempt) *sendError {
+func sendTransaction(ethClient eth.Client, a models.EthTxAttempt) *sendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return FatalSendError(err)
 	}
-	err = gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
-		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
-		defer cancel()
-		return errors.WithStack(gethClient.SendTransaction(ctx, signedTx))
-	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	err = ethClient.SendTransaction(ctx, signedTx)
+	err = errors.WithStack(err)
 
 	logger.Debugw("BulletproofTxManager: Broadcasting transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64())
 	sendErr := SendError(err)
@@ -104,20 +104,28 @@ func sendTransaction(gethClientWrapper strpkg.GethClientWrapper, a models.EthTxA
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
-func sendEmptyTransaction(gethClientWrapper strpkg.GethClientWrapper, keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+func sendEmptyTransaction(
+	ethClient eth.Client,
+	keyStore strpkg.KeyStoreInterface,
+	nonce uint64,
+	gasLimit uint64,
+	gasPriceWei *big.Int,
+	account gethAccounts.Account,
+	chainID *big.Int,
+) (_ *gethTypes.Transaction, err error) {
+	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
+
 	to := utils.ZeroAddress
 	value := big.NewInt(0)
 	payload := []byte{}
 	tx := gethTypes.NewTransaction(nonce, to, value, gasLimit, gasPriceWei, payload)
 	signedTx, err := keyStore.SignTx(account, tx, chainID)
 	if err != nil {
-		return signedTx, errors.Wrap(err, "sendEmptyTransaction failed")
+		return signedTx, err
 	}
-	err = gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
-		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
-		defer cancel()
-		return errors.Wrap(gethClient.SendTransaction(ctx, signedTx), "sendEmptyTransaction failed")
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
 }
 
@@ -145,11 +153,13 @@ func withAdvisoryLock(s *strpkg.Store, classID int32, objectID int32, f func() e
 	return f()
 }
 
-func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectID int32) error {
+func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectID int32) (err error) {
+	defer utils.WrapIfError(&err, "tryAdvisoryLock failed")
+
 	gotLock := false
 	rows, err := conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1, $2)", classID, objectID)
 	if err != nil {
-		return errors.Wrap(err, "tryAdvisoryLock failed")
+		return err
 	}
 	defer logger.ErrorIfCalling(rows.Close)
 	gotRow := rows.Next()
@@ -157,7 +167,7 @@ func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectI
 		return errors.New("query unexpectedly returned 0 rows")
 	}
 	if err := rows.Scan(&gotLock); err != nil {
-		return errors.Wrap(err, "tryAdvisoryLock failed")
+		return err
 	}
 	if gotLock {
 		return nil

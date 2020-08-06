@@ -39,9 +39,12 @@ func registerExistingProvingKey(
 // TODO - this tests's eth client can be entirely replaced with the simulated backend once
 // the GethClient and RPCClient definitions are finished
 func TestIntegration_RandomnessRequest(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
-	eth := app.MockCallerSubscriberClient()
+	eth := app.EthMock
 	logs := make(chan models.Log, 1)
 	txHash := cltest.NewHash()
 	blockNum := 10
@@ -49,9 +52,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
 		eth.Register("eth_sendRawTransaction", txHash)
-		eth.Register("eth_getTransactionReceipt", models.TxReceipt{
-			Hash:        cltest.NewHash(),
-			BlockNumber: cltest.Int(blockNum),
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{
+			TxHash:      cltest.NewHash(),
+			BlockNumber: big.NewInt(int64(blockNum)),
 		})
 	})
 	config, cfgCleanup := cltest.NewConfig(t)

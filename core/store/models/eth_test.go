@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -175,40 +176,6 @@ func TestHead_ChainLength(t *testing.T) {
 	assert.Equal(t, uint32(3), head.ChainLength())
 }
 
-func TestLog_UnmarshalEmptyTxHash(t *testing.T) {
-	t.Parallel()
-
-	input := `{
-        "transactionHash": null,
-        "transactionIndex": "0x3",
-        "address": "0x1aee7c03606fca5035d204c3818d0660bb230e44",
-        "blockNumber": "0x8bf99b",
-        "topics": ["0xdeadbeefdeadbeedeadbeedeadbeefffdeadbeefdeadbeedeadbeedeadbeefff"],
-        "blockHash": "0xdb777676330c067e3c3a6dbfc2d51282cac5bcc1b7a884dd8d85ba72ca1f147e",
-        "data": "0xdeadbeef",
-        "logIndex": "0x5",
-        "transactionLogIndex": "0x3"
-    }`
-
-	var log models.Log
-	err := json.Unmarshal([]byte(input), &log)
-	assert.NoError(t, err)
-}
-
-func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
-	t.Parallel()
-
-	input := `{
-        "transactionHash": "0x444172bef57ad978655171a8af2cfd89baa02a97fcb773067aef7794d6913374",
-        "blockNumber": "0x8bf99b",
-        "blockHash": null
-    }`
-
-	var receipt models.TxReceipt
-	err := json.Unmarshal([]byte(input), &receipt)
-	require.NoError(t, err)
-}
-
 func TestModels_HexToFunctionSelector(t *testing.T) {
 	t.Parallel()
 	fid := models.HexToFunctionSelector("0xb3f98adc")
@@ -291,70 +258,6 @@ func TestSafeByteSlice_Error(t *testing.T) {
 	}
 }
 
-func TestBlock_Unmarshal(t *testing.T) {
-	t.Parallel()
-
-	input := `{
-        "number": "0x1b4",
-        "hash": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
-        "parentHash": "0x9646252be9520f6e71339a8df9c55e4d7619deeb018d2a3f2d21fc165dde5eb5",
-        "nonce": "0xe04d296d2460cfb8472af2c5fd05b5a214109c25688d3704aed5484f9a7792f2",
-        "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-        "logsBloom": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
-        "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        "stateRoot": "0xd5855eb08b3387c0af375e9cdb6acfc05eb8f519e419b874b6ff2ffda7ed1dff",
-        "miner": "0x4e65fda2159562a496f9f3522f89122a3088497a",
-        "difficulty": "0xFFFFFFFFFFFF9DDB99A168BD2A000001",
-        "totalDifficulty":  "0x027f07",
-        "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "size":  "0x027f07",
-        "gasLimit": "0x9f759",
-        "gasUsed": "0x9f759",
-        "timestamp": "0x54e34e8e",
-        "transactions": [
-            {
-            "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
-            "blockNumber":"0x5daf3b",
-            "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
-            "gas":"0xc350",
-            "gasPrice":"0x4a817c800",
-            "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
-            "input":"0x68656c6c6f21",
-            "nonce":"0x15",
-            "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
-            "transactionIndex":"0x41",
-            "value":"0xf3dbb76162000",
-            "v":"0x25",
-            "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
-            "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
-          },
-          {
-            "blockHash":"0x1d59ff54b1eb26b013ce3cb5fc9dab3705b415a67127a003c3e61eb445bb8df2",
-            "blockNumber":"0x5daf3b",
-            "from":"0xa7d9ddbe1f17865597fbd27ec712455208b6b76d",
-            "gas":"0xc350",
-            "gasPrice":"0x4a817c801",
-            "hash":"0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b",
-            "input":"0x68656c6c6f21",
-            "nonce":"0x15",
-            "to":"0xf02c1c8e6114b1dbe8937a39260b5b0a374432bb",
-            "transactionIndex":"0x41",
-            "value":"0xf3dbb76162000",
-            "v":"0x25",
-            "r":"0x1b5e176d927f8e9ab405058b2d2457392da3e20f328b16ddabcebc33eaac5fea",
-            "s":"0x4ba69724e8f69de52f0125ad8b3c5c2cef33019bac3249e2c0a2192766d1721c"
-          }
-        ],
-        "uncles": ["0x1606e5", "0xd5145a9"]
-    }`
-
-	var block models.Block
-	err := json.Unmarshal([]byte(input), &block)
-	require.NoError(t, err)
-
-	assert.Len(t, block.Transactions, 2)
-}
-
 func TestHead_EarliestInChain(t *testing.T) {
 	head := models.Head{
 		Number: 3,
@@ -367,4 +270,99 @@ func TestHead_EarliestInChain(t *testing.T) {
 	}
 
 	assert.Equal(t, int64(1), head.EarliestInChain().Number)
+}
+
+func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"basic", "../../services/eth/testdata/getTransactionReceipt.json", false},
+		{"runlog request", "../../services/eth/testdata/runlogReceipt.json", false},
+		{"runlog response", "../../services/eth/testdata/responseReceipt.json", true},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			receipt := cltest.TxReceiptFromFixture(t, test.path)
+			require.Equal(t, test.want, models.ReceiptIndicatesRunLogFulfillment(*receipt))
+		})
+	}
+}
+
+func TestHead_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected models.Head
+	}{
+		{"geth",
+			`{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`,
+			models.Head{
+				Hash:       common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
+				Number:     0x100,
+				ParentHash: common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
+				Timestamp:  time.Unix(0x58318da2, 0).UTC(),
+			},
+		},
+		{"parity",
+			`{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`,
+			models.Head{
+				Hash:       common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
+				Number:     0x100,
+				ParentHash: common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
+				Timestamp:  time.Unix(0x58318da2, 0).UTC(),
+			},
+		},
+		{"not found",
+			`null`,
+			models.Head{},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			var head models.Head
+			err := head.UnmarshalJSON([]byte(test.json))
+			require.NoError(t, err)
+			require.Equal(t, test.expected.Hash, head.Hash)
+			require.Equal(t, test.expected.Number, head.Number)
+			require.Equal(t, test.expected.ParentHash, head.ParentHash)
+			require.Equal(t, test.expected.Timestamp.UTC().Unix(), head.Timestamp.UTC().Unix())
+		})
+	}
+}
+
+func TestHead_MarshalJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		head     models.Head
+		expected string
+	}{
+		{"happy",
+			models.Head{
+				Hash:       common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
+				Number:     0x100,
+				ParentHash: common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
+				Timestamp:  time.Unix(0x58318da2, 0).UTC(),
+			},
+			`{"hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","timestamp":"0x58318da2"}`,
+		},
+		{"empty",
+			models.Head{},
+			`{"number":"0x0"}`,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			bs, err := test.head.MarshalJSON()
+			require.NoError(t, err)
+			require.Equal(t, test.expected, string(bs))
+		})
+	}
 }

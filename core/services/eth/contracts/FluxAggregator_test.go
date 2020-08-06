@@ -1,7 +1,7 @@
 package contracts_test
 
 import (
-	"encoding"
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -31,11 +32,12 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		Data: data,
 	}
 
-	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`
+	rawReturnData, err := hex.DecodeString(`00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name                   string
-		response               string
+		response               []byte
 		expectedRoundID        uint32
 		expectedEligible       bool
 		expectedAnswer         *big.Int
@@ -55,11 +57,7 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			ethClient := new(mocks.Client)
 
 			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
-				Run(func(args mock.Arguments) {
-					res := args.Get(0)
-					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
-					require.NoError(t, err)
-				})
+				Run(func(args mock.Arguments) { *args.Get(0).(*hexutil.Bytes) = hexutil.Bytes(test.response) })
 
 			fa, err := contracts.NewFluxAggregator(aggregatorAddress, ethClient, nil)
 			require.NoError(t, err)

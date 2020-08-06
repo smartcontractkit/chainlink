@@ -35,7 +35,6 @@ describe('ChainlinkClient', () => {
     it('calls the correct docker functions', async () => {
       mock.setContainerState({ Paused: false })
       await clClient.pause()
-      expect(mock.container.inspect).toHaveBeenCalledTimes(1)
       expect(mock.container.pause).toHaveBeenCalledTimes(1)
     })
   })
@@ -44,7 +43,6 @@ describe('ChainlinkClient', () => {
     it('calls the correct docker functions', async () => {
       mock.setContainerState({ Paused: true })
       await clClient.unpause()
-      expect(mock.container.inspect).toHaveBeenCalledTimes(1)
       expect(mock.container.unpause).toHaveBeenCalledTimes(1)
     })
   })

@@ -7,16 +7,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // The code in this file is taken from the go-ethereum codebase.
 
 // UnpackLog is taken from the go-ethereum codebase:
 // https://github.com/ethereum/go-ethereum/blob/v1.9.11/accounts/abi/bind/base.go#L328
-func gethUnpackLog(codec *contractCodec, out interface{}, event string, log models.Log) error {
+func gethUnpackLog(codec *contractCodec, out interface{}, event string, log types.Log) error {
 	if len(log.Data) > 0 {
 		if err := codec.abi.Unpack(out, event, log.Data); err != nil {
 			return err

@@ -18,7 +18,7 @@ export default {
           disabled: true,
         },
         pollTimer: {
-          period: '5s',
+          period: '10s',
         },
       },
     },

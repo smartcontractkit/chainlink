@@ -1,202 +1,293 @@
 package eth_test
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCallerSubscriberClient_GetTxReceipt(t *testing.T) {
-	response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
-	mockServer, wsCleanup := cltest.NewWSServer(string(response))
-	defer wsCleanup()
-	config := cltest.NewConfigWithWSServer(t, mockServer)
-	store, cleanup := cltest.NewStoreWithConfig(config)
-	defer cleanup()
+func TestEthClient_TransactionReceipt(t *testing.T) {
+	txHash := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
 
-	ec := store.TxManager.(*strpkg.EthTxManager).Client
-
-	hash := common.HexToHash("0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238")
-	receipt, err := ec.GetTxReceipt(hash)
-	assert.NoError(t, err)
-	assert.Equal(t, hash, receipt.Hash)
-	assert.Equal(t, cltest.Int(uint64(11)), receipt.BlockNumber)
-}
-
-func TestTxReceipt_UnmarshalJSON(t *testing.T) {
-	tests := []struct {
-		name       string
-		path       string
-		wantLogLen int
-	}{
-		{"basic", "testdata/getTransactionReceipt.json", 0},
-		{"runlog request", "testdata/runlogReceipt.json", 4},
-		{"runlog response", "testdata/responseReceipt.json", 2},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			jsonStr := cltest.JSONFromFixture(t, test.path).Get("result").String()
-			var receipt models.TxReceipt
-			err := json.Unmarshal([]byte(jsonStr), &receipt)
-			require.NoError(t, err)
-
-			assert.Equal(t, test.wantLogLen, len(receipt.Logs))
+	t.Run("happy path", func(t *testing.T) {
+		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
+		_, wsUrl, wsCleanup := cltest.NewWSServer(string(response), func(data []byte) {
+			resp := cltest.ParseJSON(t, bytes.NewReader(data))
+			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
+			require.True(t, resp.Get("params").IsArray())
+			require.Equal(t, txHash, resp.Get("params").Get("0").String())
 		})
-	}
-}
+		defer wsCleanup()
 
-func TestTxReceipt_FulfilledRunlog(t *testing.T) {
-	tests := []struct {
-		name string
-		path string
-		want bool
-	}{
-		{"basic", "testdata/getTransactionReceipt.json", false},
-		{"runlog request", "testdata/runlogReceipt.json", false},
-		{"runlog response", "testdata/responseReceipt.json", true},
-	}
+		ethClient, err := eth.NewClient(wsUrl)
+		require.NoError(t, err)
+		err = ethClient.Dial(context.Background())
+		require.NoError(t, err)
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			receipt := cltest.TxReceiptFromFixture(t, test.path)
-			assert.Equal(t, test.want, receipt.FulfilledRunLog())
+		hash := common.HexToHash(txHash)
+		receipt, err := ethClient.TransactionReceipt(context.Background(), hash)
+		assert.NoError(t, err)
+		assert.Equal(t, hash, receipt.TxHash)
+		assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
+	})
+
+	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
+		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt_notFound.json")
+		_, wsUrl, wsCleanup := cltest.NewWSServer(string(response), func(data []byte) {
+			resp := cltest.ParseJSON(t, bytes.NewReader(data))
+			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
+			require.True(t, resp.Get("params").IsArray())
+			require.Equal(t, txHash, resp.Get("params").Get("0").String())
 		})
-	}
+		defer wsCleanup()
+
+		ethClient, err := eth.NewClient(wsUrl)
+		require.NoError(t, err)
+		err = ethClient.Dial(context.Background())
+		require.NoError(t, err)
+
+		hash := common.HexToHash(txHash)
+		_, err = ethClient.TransactionReceipt(context.Background(), hash)
+		require.Equal(t, ethereum.NotFound, errors.Cause(err))
+	})
 }
 
-func TestCallerSubscriberClient_GetNonce(t *testing.T) {
+func TestEthClient_PendingNonceAt(t *testing.T) {
 	t.Parallel()
 
-	ethClientMock := new(mocks.CallerSubscriber)
-	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
 	address := cltest.NewAddress()
-	response := "0x0100"
 
-	ethClientMock.On("Call", mock.Anything, "eth_getTransactionCount", address.String(), "pending").
-		Return(nil).
-		Run(func(args mock.Arguments) {
-			res := args.Get(0).(*string)
-			*res = response
-		})
+	_, url, cleanup := cltest.NewWSServer(`{
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": "0x100"
+    }`, func(data []byte) {
+		resp := cltest.ParseJSON(t, bytes.NewReader(data))
+		require.Equal(t, "eth_getTransactionCount", resp.Get("method").String())
+		require.True(t, resp.Get("params").IsArray())
+		require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(resp.Get("params").Get("0").String()))
+		require.Equal(t, "pending", resp.Get("params").Get("1").String())
+	})
+	defer cleanup()
 
-	result, err := ethClient.GetNonce(address)
+	ethClient, err := eth.NewClient(url)
+	require.NoError(t, err)
+	err = ethClient.Dial(context.Background())
+	require.NoError(t, err)
+
+	result, err := ethClient.PendingNonceAt(context.Background(), address)
 	require.NoError(t, err)
 
 	var expected uint64 = 256
 	require.Equal(t, result, expected)
 }
 
-func TestCallerSubscriberClient_SendRawTx(t *testing.T) {
+func TestEthClient_SendRawTx(t *testing.T) {
 	t.Parallel()
 
-	ethClientMock := new(mocks.CallerSubscriber)
-	ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
-	txData := hexutil.MustDecode("0xdeadbeef")
+	txData := "0xdeadbeef"
+
 	returnedHash := cltest.NewHash()
+	_, url, cleanup := cltest.NewWSServer(`{
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": "`+returnedHash.Hex()+`"
+    }`, func(data []byte) {
+		resp := cltest.ParseJSON(t, bytes.NewReader(data))
+		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
+		require.True(t, resp.Get("params").IsArray())
+		require.Equal(t, txData, resp.Get("params").Get("0").String())
+	})
+	defer cleanup()
 
-	ethClientMock.On("Call", mock.Anything, "eth_sendRawTransaction", "0xdeadbeef").
-		Return(nil).
-		Run(func(args mock.Arguments) {
-			res := args.Get(0).(*common.Hash)
-			*res = returnedHash
-		})
+	ethClient, err := eth.NewClient(url)
+	require.NoError(t, err)
+	err = ethClient.Dial(context.Background())
+	require.NoError(t, err)
 
-	result, err := ethClient.SendRawTx(txData)
+	result, err := ethClient.SendRawTx(hexutil.MustDecode(txData))
 	assert.NoError(t, err)
 	assert.Equal(t, result, returnedHash)
 }
 
-func TestCallerSubscriberClient_GetEthBalance(t *testing.T) {
+func TestEthClient_BalanceAt(t *testing.T) {
 	t.Parallel()
 
+	largeBalance, _ := big.NewInt(0).SetString("100000000000000000000", 10)
+	address := cltest.NewAddress()
+
 	tests := []struct {
-		name     string
-		input    string
-		expected string
+		name    string
+		balance *big.Int
 	}{
-		{"basic", "0x0100", "0.000000000000000256"},
-		{"larger than signed 64 bit integer", "0x4b3b4ca85a86c47a098a224000000000", "100000000000000000000.000000000000000000"},
+		{"basic", big.NewInt(256)},
+		{"larger than signed 64 bit integer", largeBalance},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ethClientMock := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
+			_, url, cleanup := cltest.NewWSServer(`{
+              "id": 1,
+              "jsonrpc": "2.0",
+              "result": "`+hexutil.EncodeBig(test.balance)+`"
+            }`, func(data []byte) {
+				resp := cltest.ParseJSON(t, bytes.NewReader(data))
+				require.Equal(t, "eth_getBalance", resp.Get("method").String())
+				require.True(t, resp.Get("params").IsArray())
+				require.Equal(t, strings.ToLower(address.Hex()), strings.ToLower(resp.Get("params").Get("0").String()))
+			})
+			defer cleanup()
 
-			ethClientMock.On("Call", mock.Anything, "eth_getBalance", mock.Anything, "latest").
-				Return(nil).
-				Run(func(args mock.Arguments) {
-					res := args.Get(0).(*string)
-					*res = test.input
-				})
+			ethClient, err := eth.NewClient(url)
+			require.NoError(t, err)
+			err = ethClient.Dial(context.Background())
+			require.NoError(t, err)
 
-			result, err := ethClient.GetEthBalance(cltest.NewAddress())
+			result, err := ethClient.BalanceAt(context.Background(), address, nil)
 			assert.NoError(t, err)
-			assert.Equal(t, test.expected, result.String())
+			assert.Equal(t, test.balance, result)
 		})
 	}
 }
 
-func TestCallerSubscriberClient_GetERC20Balance(t *testing.T) {
+func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
 
 	expectedBig, _ := big.NewInt(0).SetString("100000000000000000000000000000000000000", 10)
 
 	tests := []struct {
-		name     string
-		input    string
-		expected *big.Int
+		name    string
+		balance *big.Int
 	}{
-		{"small", "0x0100", big.NewInt(256)},
-		{"big", "0x4b3b4ca85a86c47a098a224000000000", expectedBig},
+		{"small", big.NewInt(256)},
+		{"big", expectedBig},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-
-			ethClientMock := new(mocks.CallerSubscriber)
-			ethClient := &eth.CallerSubscriberClient{CallerSubscriber: ethClientMock}
-
 			contractAddress := cltest.NewAddress()
 			userAddress := cltest.NewAddress()
-
 			functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
-			data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
-			callArgs := eth.CallArgs{
-				To:   contractAddress,
-				Data: data,
-			}
+			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
-			ethClientMock.On("Call", mock.Anything, "eth_call", callArgs, "latest").
-				Return(nil).
-				Run(func(args mock.Arguments) {
-					res := args.Get(0).(*string)
-					*res = test.input
-				})
+			_, url, cleanup := cltest.NewWSServer(`{
+              "id": 1,
+              "jsonrpc": "2.0",
+              "result": "`+hexutil.EncodeBig(test.balance)+`"
+            }`, func(data []byte) {
+				resp := cltest.ParseJSON(t, bytes.NewReader(data))
+				require.Equal(t, "eth_call", resp.Get("method").String())
+				require.True(t, resp.Get("params").IsArray())
+
+				callArgs := resp.Get("params").Get("0")
+				require.True(t, callArgs.IsObject())
+				require.Equal(t, strings.ToLower(contractAddress.Hex()), callArgs.Get("to").String())
+				require.Equal(t, hexutil.Encode(txData), callArgs.Get("data").String())
+
+				require.Equal(t, "latest", resp.Get("params").Get("1").String())
+			})
+			defer cleanup()
+
+			ethClient, err := eth.NewClient(url)
+			require.NoError(t, err)
+			err = ethClient.Dial(context.Background())
+			require.NoError(t, err)
 
 			result, err := ethClient.GetERC20Balance(userAddress, contractAddress)
 			assert.NoError(t, err)
-			assert.NoError(t, err)
-			assert.Equal(t, test.expected, result)
+			assert.Equal(t, test.balance, result)
+		})
+	}
+}
+
+func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
+	t.Parallel()
+
+	input := `{
+        "transactionHash": "0x444172bef57ad978655171a8af2cfd89baa02a97fcb773067aef7794d6913374",
+        "gasUsed": "0x1",
+        "cumulativeGasUsed": "0x1",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "blockNumber": "0x8bf99b",
+        "blockHash": null
+    }`
+
+	var receipt types.Receipt
+	err := json.Unmarshal([]byte(input), &receipt)
+	require.NoError(t, err)
+}
+
+func TestEthClient_HeaderByNumber(t *testing.T) {
+	expectedBlockNum := big.NewInt(1)
+	expectedBlockHash := "0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"
+
+	tests := []struct {
+		name                  string
+		expectedRequestBlock  *big.Int
+		expectedResponseBlock int64
+		error                 error
+		rpcResp               string
+	}{
+		{"happy geth", expectedBlockNum, expectedBlockNum.Int64(), nil, `{"jsonrpc":"2.0","id":1,"result":{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}}`},
+		{"happy parity", expectedBlockNum, expectedBlockNum.Int64(), nil, `{"jsonrpc":"2.0","result":{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]},"id":1}`},
+		{"missing header", expectedBlockNum, 0, ethereum.NotFound, `{"jsonrpc":"2.0","id":1,"result":null}`},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			_, url, cleanup := cltest.NewWSServer(test.rpcResp, func(data []byte) {
+				req := cltest.ParseJSON(t, bytes.NewReader(data))
+
+				require.True(t, req.IsObject())
+
+				require.Equal(t, "eth_getBlockByNumber", req.Get("method").String())
+				require.True(t, req.Get("params").IsArray())
+
+				blockNumStr := req.Get("params").Get("0").String()
+				var blockNum hexutil.Big
+				err := blockNum.UnmarshalText([]byte(blockNumStr))
+				require.NoError(t, err)
+				require.Equal(t, test.expectedRequestBlock, blockNum.ToInt())
+
+				require.Equal(t, false, req.Get("params").Get("1").Bool())
+			})
+			defer cleanup()
+
+			ethClient, err := eth.NewClient(url)
+			require.NoError(t, err)
+			err = ethClient.Dial(context.Background())
+			require.NoError(t, err)
+			defer ethClient.Close()
+
+			result, err := ethClient.HeaderByNumber(context.Background(), expectedBlockNum)
+			if test.error != nil {
+				require.Equal(t, test.error, errors.Cause(err))
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, expectedBlockHash, result.Hash.Hex())
+				require.Equal(t, test.expectedResponseBlock, result.Number)
+			}
 		})
 	}
 }
