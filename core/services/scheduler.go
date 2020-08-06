@@ -193,7 +193,7 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 			return
 		}
 
-		if err := ot.Store.MarkRan(&initiator, true); err != nil {
+		if err := ot.Store.MarkRan(initiator, true); err != nil {
 			logger.Error(err.Error())
 		}
 	}
