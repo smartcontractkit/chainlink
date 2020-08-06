@@ -65,31 +65,18 @@ import "./VRFRequestIDBase.sol";
  * *****************************************************************************
  * @dev SECURITY CONSIDERATIONS
  *
- * @dev To increase trust in your contract, the source of your seeds should be
- * @dev hard for anyone to influence or predict. Any party who can influence
- * @dev them could in principle collude with the oracle (who can instantly
- * @dev compute the VRF output for any given seed) to bias the outcomes from
- * @dev your contract in their favor.
+ * @dev Since the ultimate input to the VRF is mixed with the block hash of the
+ * @dev block in which the request is made, user-provided seeds have no impact
+ * @dev on its economic security properties. They are only included for API
+ * @dev compatability with previous versions of this contract.
  *
- * @dev For instance, the VRF machinery will automatically mix the seed you
- * @dev provide with the blockhash, which is a natural choice of seed for many
- * @dev applications, but unless the seed you provide is unpredictable, miners
- * @dev in control of a substantial fraction of hashing power and with access to
- * @dev VRF outputs could check the result of prospective block hashes as they
- * @dev are mined, and decide not to publish a block if they don't like the
- * @dev outcome it will lead to.
- *
- * @dev Even with inclusion of the most recent blockhash in the formula for the
- * @dev final seed, a sufficiently powerful miner could, in principle, fork the
- * @dev blockchain to evict the block containing the request, forcing the
- * @dev request to be included in a later block with a different hash, and
- * @dev therefore a different seed.
- *
- * @dev On the other hand, including block hashes in the seed makes it
- * @dev particularly easy to estimate the economic cost to a miner for this kind
- * @dev of cheating (namely, the block reward and transaction fees they forgo by
- * @dev refraining from publishing a block, or how much hashing power would be
- * @dev necessary to fork away a request.)
+ * @dev Since the block hash of the block which contains the requestRandomness()
+ * @dev call is mixed into the input to the VRF *last*, a sufficiently powerful miner
+ * @dev could, in principle, fork the blockchain to evict the block containing
+ * @dev the request, forcing the request to be included in a different block with a
+ * @dev different hash, and therefore a different input to the VRF. However, such an
+ * @dev attack would incur a substantial economic cost. This cost scales with the
+ * @dev number of blocks the VRF oracle waits until it calls fulfillRandomness().
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
 
@@ -113,8 +100,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   /**
    * @notice requestRandomness initiates a request for VRF output given _seed
    *
-   * @dev The source of the seed data must be something which the oracle
-   * @dev cannot anticipate. See "SECURITY CONSIDERATIONS" above.
+   * @dev See "SECURITY CONSIDERATIONS" above for more information on _seed.
    *
    * @dev The fulfillRandomness method receives the output, once it's provided
    * @dev by the Oracle, and verified by the vrfCoordinator.
@@ -125,7 +111,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    *
    * @param _keyHash ID of public key against which randomness is generated
    * @param _fee The amount of LINK to send with the request
-   * @param _seed Random seed from which output randomness is determined
+   * @param _seed seed mixed into the input of the VRF
    *
    * @return requestId unique ID for this request
    *
@@ -138,17 +124,15 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   {
     LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, _seed));
     // This is the seed passed to VRFCoordinator. The oracle will mix this with
-    // the hash of the block containing this request to obtain the seed which is
-    // finally passed to the VRF cryptographic machinery.
+    // the hash of the block containing this request to obtain the seed/input
+    // which is finally passed to the VRF cryptographic machinery.
     uint256 vRFSeed  = makeVRFInputSeed(_keyHash, _seed, address(this), nonces[_keyHash]);
     // nonces[_keyHash] must stay in sync with
     // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
     // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest).
-    // This is perhaps no longer so important, now that the blockhash is
-    // automatically mixed with the seed, but provides extra protection against
-    // the user accidentally repeating their input seed, which would result in a
-    // predictable output.
-    nonces[_keyHash] = nonces[_keyHash].add(1); 
+    // This provides protection against the user repeating their input
+    // seed, which would result in a predictable/duplicate output.
+    nonces[_keyHash] = nonces[_keyHash].add(1);
     return makeRequestId(_keyHash, vRFSeed);
   }
 
