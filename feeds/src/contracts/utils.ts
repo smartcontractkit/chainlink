@@ -49,14 +49,18 @@ export function formatAnswer(
   decimalPlaces: number,
   formatDecimalPlaces: number,
 ): string {
-  const decimals = 10 ** decimalPlaces
-  const divided = value.mul(decimals).div(multiply)
-  const formatted = ethers.utils.formatUnits(
-    divided,
-    decimalPlaces + formatDecimalPlaces,
-  )
+  try {
+    const decimals = 10 ** decimalPlaces
+    const divided = value.mul(decimals).div(multiply)
+    const formatted = ethers.utils.formatUnits(
+      divided,
+      decimalPlaces + formatDecimalPlaces,
+    )
 
-  return formatted.toString()
+    return formatted.toString()
+  } catch {
+    return value
+  }
 }
 
 interface ChainlinkEvent {

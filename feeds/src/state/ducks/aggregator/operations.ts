@@ -17,6 +17,7 @@ import AggregatorContractV2 from '../../../contracts/AggregatorContractV2'
 const NETWORK_PATHS: Record<string, Networks> = {
   ropsten: Networks.ROPSTEN,
   mainnet: Networks.MAINNET,
+  kovan: Networks.KOVAN,
 }
 
 export function fetchFeedByPair(pairPath: string, networkPath = 'mainnet') {

@@ -17,7 +17,7 @@ export interface FeedConfig {
   sponsored: string[]
   decimalPlaces: number
   formatDecimalPlaces: number
-  contractVersion: 1 | 2 | 3
+  contractVersion: number
 
   // extra config for custom contracts
   historyDays?: number

@@ -1,5 +1,4 @@
 import * as d3 from 'd3'
-import { ethers } from 'ethers'
 import { formatAnswer } from 'contracts/utils'
 import { humanizeUnixTimestamp } from 'utils'
 
@@ -224,7 +223,7 @@ export default class HistoryGraph {
       .ticks(4)
       .tickFormat(f =>
         formatAnswer(
-          ethers.utils.bigNumberify(f),
+          f,
           this.config.multiply,
           this.config.decimalPlaces,
           this.config.formatDecimalPlaces,
