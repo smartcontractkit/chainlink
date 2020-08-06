@@ -764,6 +764,6 @@ func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
 
 func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 	k := models.Key{Address: models.EIP55Address(NewAddress().Hex()), JSON: JSONFromString(t, `{"key": "factory"}`)}
-	require.NoError(t, store.UpsertKey(k))
+	require.NoError(t, store.CreateKeyIfNotExists(k))
 	return k
 }

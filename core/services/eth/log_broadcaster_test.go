@@ -3,6 +3,8 @@ package eth_test
 import (
 	"errors"
 	"math/big"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -112,12 +114,12 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	sub := new(mocks.Subscription)
 	store.TxManager = txManager
 
-	var subscribeCalls int
-	var unsubscribeCalls int
+	var subscribeCalls int32
+	var unsubscribeCalls int32
 	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(args mock.Arguments) {
-			subscribeCalls++
+			atomic.AddInt32(&subscribeCalls, 1)
 		})
 	txManager.On("GetLatestBlock").
 		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
@@ -125,7 +127,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		Return(nil, nil)
 	sub.On("Unsubscribe").
 		Return().
-		Run(func(mock.Arguments) { unsubscribeCalls++ })
+		Run(func(mock.Arguments) { atomic.AddInt32(&unsubscribeCalls, 1) })
 	sub.On("Err").Return(nil)
 
 	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
@@ -144,18 +146,18 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		lb.Register(registrations[i].Address, registrations[i].LogListener)
 	}
 
-	require.Eventually(t, func() bool { return subscribeCalls == 1 }, 5*time.Second, 10*time.Millisecond)
-	gomega.NewGomegaWithT(t).Consistently(subscribeCalls).Should(gomega.Equal(1))
-	gomega.NewGomegaWithT(t).Consistently(unsubscribeCalls).Should(gomega.Equal(0))
+	require.Eventually(t, func() bool { return atomic.LoadInt32(&subscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
+	gomega.NewGomegaWithT(t).Consistently(atomic.LoadInt32(&subscribeCalls)).Should(gomega.Equal(int32(1)))
+	gomega.NewGomegaWithT(t).Consistently(atomic.LoadInt32(&unsubscribeCalls)).Should(gomega.Equal(int32(0)))
 
 	for _, r := range registrations {
 		lb.Unregister(r.Address, r.LogListener)
 	}
-	require.Eventually(t, func() bool { return unsubscribeCalls == 1 }, 5*time.Second, 10*time.Millisecond)
-	gomega.NewGomegaWithT(t).Consistently(subscribeCalls).Should(gomega.Equal(1))
+	require.Eventually(t, func() bool { return atomic.LoadInt32(&unsubscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
+	gomega.NewGomegaWithT(t).Consistently(atomic.LoadInt32(&subscribeCalls)).Should(gomega.Equal(int32(1)))
 
 	lb.Stop()
-	gomega.NewGomegaWithT(t).Consistently(unsubscribeCalls).Should(gomega.Equal(1))
+	gomega.NewGomegaWithT(t).Consistently(atomic.LoadInt32(&unsubscribeCalls)).Should(gomega.Equal(int32(1)))
 
 	txManager.AssertExpectations(t)
 	sub.AssertExpectations(t)
@@ -519,13 +521,16 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			lb.Start()
 
 			var recvd []*models.Log
+			recvdMutex := new(sync.RWMutex)
 
 			handleLog := func(lb eth.LogBroadcast, err error) {
 				require.NoError(t, err)
 				consumed, err := lb.WasAlreadyConsumed()
 				require.NoError(t, err)
 				if !consumed {
+					recvdMutex.Lock()
 					recvd = append(recvd, lb.Log().(*models.Log))
+					recvdMutex.Unlock()
 					err = lb.MarkConsumed()
 					require.NoError(t, err)
 				}
@@ -542,11 +547,18 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			for _, logNum := range test.batch1 {
 				chRawLogs1 <- logs[logNum]
 			}
-			require.Eventually(t, func() bool { return len(recvd) == len(test.batch1) }, 5*time.Second, 10*time.Millisecond)
+			require.Eventually(t, func() bool {
+				recvdMutex.Lock()
+				defer recvdMutex.Unlock()
+				return len(recvd) == len(test.batch1)
+			}, 5*time.Second, 10*time.Millisecond)
 			requireLogConsumptionCount(t, store, len(test.batch1))
+
+			recvdMutex.Lock()
 			for i, logNum := range test.batch1 {
 				require.Equal(t, *recvd[i], logs[logNum])
 			}
+			recvdMutex.Unlock()
 
 			var backfillableLogs []models.Log
 			for _, logNum := range test.backfillableLogs {
@@ -561,11 +573,18 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				chRawLogs2 <- logs[logNum]
 			}
 
-			require.Eventually(t, func() bool { return len(recvd) == len(test.expectedFinal) }, 5*time.Second, 10*time.Millisecond)
+			require.Eventually(t, func() bool {
+				recvdMutex.Lock()
+				defer recvdMutex.Unlock()
+				return len(recvd) == len(test.expectedFinal)
+			}, 5*time.Second, 10*time.Millisecond)
 			requireLogConsumptionCount(t, store, len(test.expectedFinal))
+
+			recvdMutex.Lock()
 			for i, logNum := range test.expectedFinal {
 				require.Equal(t, *recvd[i], logs[logNum])
 			}
+			recvdMutex.Unlock()
 
 			lb.Stop()
 			txManager.AssertExpectations(t)
@@ -666,7 +685,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 
 	lb.Start()
 
-	listenerCount := 0
+	var listenerCount int32 = 0
 
 	job := createJob(t, store)
 	logListener := simpleLogListener{
@@ -680,7 +699,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 			consumed, err = lb.WasAlreadyConsumed()
 			require.NoError(t, err)
 			require.True(t, consumed)
-			listenerCount++
+			atomic.AddInt32(&listenerCount, 1)
 		},
 		job.ID,
 	}
@@ -692,7 +711,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	chRawLogs <- models.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
 	chRawLogs <- models.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
 
-	require.Eventually(t, func() bool { return listenerCount == 2 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return atomic.LoadInt32(&listenerCount) == 2 }, 5*time.Second, 10*time.Millisecond)
 	requireLogConsumptionCount(t, store, 2)
 }
 
@@ -736,13 +755,16 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	}
 
 	var recvd []*models.Log
+	recvdMutex := new(sync.RWMutex)
 
 	job := createJob(t, store)
 	listener := simpleLogListener{
 		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
 			ethLog := lb.Log().(*models.Log)
+			recvdMutex.Lock()
 			recvd = append(recvd, ethLog)
+			recvdMutex.Unlock()
 			handleLogBroadcast(t, lb)
 		},
 		job.ID,
@@ -756,9 +778,15 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		chRawLogs <- logs[i]
 	}
 
-	require.Eventually(t, func() bool { return len(recvd) == 5 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		recvdMutex.Lock()
+		defer recvdMutex.Unlock()
+		return len(recvd) == 5
+	}, 5*time.Second, 10*time.Millisecond)
 	requireLogConsumptionCount(t, store, 5)
 
+	recvdMutex.Lock()
+	defer recvdMutex.Unlock()
 	for idx, receivedLog := range recvd {
 		require.Equal(t, receivedLog, &logs[idx])
 	}
