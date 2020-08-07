@@ -1,6 +1,6 @@
 pragma solidity 0.6.6;
 
-import "./dev/AggregatorProxy.sol";
+import "./AggregatorProxy.sol";
 import "./interfaces/AccessControllerInterface.sol";
 
 /**
