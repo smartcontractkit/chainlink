@@ -25,12 +25,10 @@ import bancor from './bancor.png'
 import bullionix from './bullionix.png'
 import gelato from './gelato.png'
 import wom from './wom.png'
-
 import consensuscell from './consensuscell.png'
 import digitix from './digitix.png'
 import ens from './ens.png'
 import gamerhash from './gamerhash.png'
-import lien from './lien.png'
 import sandbank from './sandbank.png'
 
 // Listing Thumbnails
@@ -60,12 +58,10 @@ import bancorTn from './bancor_tn.png'
 import bullionixTn from './bullionix_tn.png'
 import gelatoTn from './gelato_tn.png'
 import womTn from './wom_tn.png'
-
 import consensuscellTn from './consensuscell_tn.png'
 import digitixTn from './digitix_tn.png'
 import ensTn from './ens_tn.png'
 import gamerhashTn from './gamerhash_tn.png'
-import lienTn from './lien_tn.png'
 import sandbankTn from './sandbank_tn.png'
 
 export interface SponsorListItem {
@@ -249,12 +245,6 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://gamerhash.com',
     imageLg: gamerhash,
     imageTn: gamerhashTn,
-  },
-  {
-    name: 'Lien',
-    url: 'https://lien.finance',
-    imageLg: lien,
-    imageTn: lienTn,
   },
   {
     name: 'Sandbank',
