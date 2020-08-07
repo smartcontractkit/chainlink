@@ -5,9 +5,12 @@ contract VRFRequestIDBase {
   /**
    * @notice returns the seed which is actually input to the VRF coordinator
    *
-   * @dev To prevent repetition of VRF output due to repetition against the
-   * @dev user-supplied seed, that seed is combined in a hash with the a
-   * @dev user-specific nonce, and the address of the consuming contract.
+   * @dev To prevent repetition of VRF output due to repetition of the
+   * @dev user-supplied seed, that seed is combined in a hash with the
+   * @dev user-specific nonce, and the address of the consuming contract. The
+   * @dev risk of repetition is mostly mitigated by inclusion of a blockhash in
+   * @dev the final seed, but the nonce does protect against repetition in
+   * @dev requests which are included in a single block.
    *
    * @param _userSeed VRF seed input provided by user
    * @param _requester Address of the requesting contract

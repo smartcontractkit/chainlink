@@ -71,12 +71,13 @@ import "./VRFRequestIDBase.sol";
  * @dev compatability with previous versions of this contract.
  *
  * @dev Since the block hash of the block which contains the requestRandomness()
- * @dev call is mixed into the input to the VRF *last*, a sufficiently powerful miner
- * @dev could, in principle, fork the blockchain to evict the block containing
- * @dev the request, forcing the request to be included in a different block with a
- * @dev different hash, and therefore a different input to the VRF. However, such an
- * @dev attack would incur a substantial economic cost. This cost scales with the
- * @dev number of blocks the VRF oracle waits until it calls fulfillRandomness().
+ * @dev call is mixed into the input to the VRF *last*, a sufficiently powerful
+ * @dev miner could, in principle, fork the blockchain to evict the block
+ * @dev containing the request, forcing the request to be included in a
+ * @dev different block with a different hash, and therefore a different input
+ * @dev to the VRF. However, such an attack would incur a substantial economic
+ * @dev cost. This cost scales with the number of blocks the VRF oracle waits
+ * @dev until it calls fulfillRandomness().
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
 
