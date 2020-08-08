@@ -50,12 +50,13 @@
     "wsrun": "^5.2.0"
   },
   "resolutions": {
-    "**/sha3": "^2.0.7",
-    "**/keccak": "^3.0.0",
-    "**/source-map-support": "0.5.16",
-    "**/solc": "^0.6.4",
+    "**/dot-prop": "^5.1.1",
     "**/elliptic": "^6.5.3",
-    "**/dot-prop": "^5.1.1"
+    "**/keccak": "^3.0.0",
+    "**/prismjs": "^1.21.0",
+    "**/sha3": "^2.0.7",
+    "**/solc": "^0.6.4",
+    "**/source-map-support": "0.5.16"
   },
   "dependencies": {
     "tslib": "^1.11.1"
