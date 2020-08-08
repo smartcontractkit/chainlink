@@ -57,7 +57,8 @@
     "**/prismjs": "^1.21.0",
     "**/sha3": "^2.0.7",
     "**/solc": "^0.6.4",
-    "**/source-map-support": "0.5.16"
+    "**/source-map-support": "0.5.16",
+    "**/yargs-parser": "^15.0.1"
   },
   "dependencies": {
     "tslib": "^1.11.1"
