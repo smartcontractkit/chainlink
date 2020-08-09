@@ -1,4 +1,4 @@
-pragma solidity 0.6.6;
+pragma solidity 0.7.0;
 
 import "./LinkTokenReceiver.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
@@ -48,7 +48,6 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * @param link The address of the LINK token
    */
   constructor(address link)
-    public
     Ownable()
   {
     s_LinkToken = LinkTokenInterface(link); // external but already deployed and unalterable
@@ -85,7 +84,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     bytes32 requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId] == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
-    uint256 expiration = now.add(EXPIRY_TIME);
+    uint256 expiration = block.timestamp.add(EXPIRY_TIME);
 
     s_commitments[requestId] = keccak256(
       abi.encodePacked(
@@ -240,7 +239,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     );
     require(paramsHash == s_commitments[requestId], "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
-    require(expiration <= now, "Request is not expired");
+    require(expiration <= block.timestamp, "Request is not expired");
 
     delete s_commitments[requestId];
     emit CancelOracleRequest(requestId);
