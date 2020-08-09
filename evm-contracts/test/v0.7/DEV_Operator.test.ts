@@ -11,7 +11,7 @@ import { BasicConsumerFactory } from '../../ethers/v0.4/BasicConsumerFactory'
 import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
 import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
-import { DEV_OperatorFactory } from '../../ethers/v0.6/DEV_OperatorFactory'
+import { DEV_OperatorFactory } from '../../ethers/v0.7/DEV_OperatorFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const getterSetterFactory = new GetterSetterFactory()
