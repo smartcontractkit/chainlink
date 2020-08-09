@@ -1,18 +1,24 @@
 pragma solidity 0.7.0;
 
 import "./LinkTokenReceiver.sol";
+import "./Owned.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/OracleInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/WithdrawalInterface.sol";
-import "./vendor/Ownable.sol";
 import "./vendor/SafeMath.sol";
 
 /**
  * @title The Chainlink Oracle contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
-contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, LinkTokenReceiver, WithdrawalInterface {
+contract DEV_Operator is
+  LinkTokenReceiver,
+  Owned,
+  ChainlinkRequestInterface,
+  OracleInterface,
+  WithdrawalInterface
+{
   using SafeMath for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
@@ -48,7 +54,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * @param link The address of the LINK token
    */
   constructor(address link)
-    Ownable()
+    Owned()
   {
     s_LinkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
@@ -285,7 +291,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
   modifier onlyAuthorizedNode() {
-    require(s_authorizedNodes[msg.sender] || msg.sender == owner(), "Not an authorized node to fulfill requests");
+    require(s_authorizedNodes[msg.sender] || msg.sender == owner, "Not an authorized node to fulfill requests");
     _;
   }
 
