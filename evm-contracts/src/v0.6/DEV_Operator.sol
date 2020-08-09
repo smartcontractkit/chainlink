@@ -45,67 +45,67 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
-   * @param _link The address of the LINK token
+   * @param link The address of the LINK token
    */
-  constructor(address _link)
+  constructor(address link)
     public
     Ownable()
   {
-    s_LinkToken = LinkTokenInterface(_link); // external but already deployed and unalterable
+    s_LinkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
   /**
    * @notice Creates the Chainlink request
    * @dev Stores the hash of the params as the on-chain commitment for the request.
    * Emits OracleRequest event for the Chainlink node to detect.
-   * @param _sender The sender of the request
-   * @param _payment The amount of payment given (specified in wei)
-   * @param _specId The Job Specification ID
-   * @param _callbackAddress The callback address for the response
-   * @param _callbackFunctionId The callback function ID for the response
-   * @param _nonce The nonce sent by the requester
-   * @param _dataVersion The specified data version
-   * @param _data The CBOR payload of the request
+   * @param sender The sender of the request
+   * @param payment The amount of payment given (specified in wei)
+   * @param specId The Job Specification ID
+   * @param callbackAddress The callback address for the response
+   * @param callbackFunctionId The callback function ID for the response
+   * @param nonce The nonce sent by the requester
+   * @param dataVersion The specified data version
+   * @param data The CBOR payload of the request
    */
   function oracleRequest(
-    address _sender,
-    uint256 _payment,
-    bytes32 _specId,
-    address _callbackAddress,
-    bytes4 _callbackFunctionId,
-    uint256 _nonce,
-    uint256 _dataVersion,
-    bytes calldata _data
+    address sender,
+    uint256 payment,
+    bytes32 specId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce,
+    uint256 dataVersion,
+    bytes calldata data
   )
     external
     override
     onlyLINK()
-    checkCallbackAddress(_callbackAddress)
+    checkCallbackAddress(callbackAddress)
   {
-    bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
+    bytes32 requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId] == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     uint256 expiration = now.add(EXPIRY_TIME);
 
     s_commitments[requestId] = keccak256(
       abi.encodePacked(
-        _payment,
-        _callbackAddress,
-        _callbackFunctionId,
+        payment,
+        callbackAddress,
+        callbackFunctionId,
         expiration
       )
     );
 
     emit OracleRequest(
-      _specId,
-      _sender,
+      specId,
+      sender,
       requestId,
-      _payment,
-      _callbackAddress,
-      _callbackFunctionId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
       expiration,
-      _dataVersion,
-      _data);
+      dataVersion,
+      data);
   }
 
   /**
@@ -113,88 +113,88 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * @dev Given params must hash back to the commitment stored from `oracleRequest`.
    * Will call the callback address' callback function without bubbling up error
    * checking in a `require` so that the node can get paid.
-   * @param _requestId The fulfillment request ID that must match the requester's
-   * @param _payment The payment amount that will be released for the oracle (specified in wei)
-   * @param _callbackAddress The callback address to call for fulfillment
-   * @param _callbackFunctionId The callback function ID to use for fulfillment
-   * @param _expiration The expiration that the node should respond by before the requester can cancel
-   * @param _data The data to return to the consuming contract
+   * @param requestId The fulfillment request ID that must match the requester's
+   * @param payment The payment amount that will be released for the oracle (specified in wei)
+   * @param callbackAddress The callback address to call for fulfillment
+   * @param callbackFunctionId The callback function ID to use for fulfillment
+   * @param expiration The expiration that the node should respond by before the requester can cancel
+   * @param data The data to return to the consuming contract
    * @return Status if the external call was successful
    */
   function fulfillOracleRequest(
-    bytes32 _requestId,
-    uint256 _payment,
-    address _callbackAddress,
-    bytes4 _callbackFunctionId,
-    uint256 _expiration,
-    bytes32 _data
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    bytes32 data
   )
     external
     onlyAuthorizedNode
     override
-    isValidRequest(_requestId)
+    isValidRequest(requestId)
     returns (bool)
   {
     bytes32 paramsHash = keccak256(
       abi.encodePacked(
-        _payment,
-        _callbackAddress,
-        _callbackFunctionId,
-        _expiration
+        payment,
+        callbackAddress,
+        callbackFunctionId,
+        expiration
       )
     );
-    require(s_commitments[_requestId] == paramsHash, "Params do not match request ID");
-    s_withdrawableTokens = s_withdrawableTokens.add(_payment);
-    delete s_commitments[_requestId];
+    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
+    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    delete s_commitments[requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    (bool success, ) = _callbackAddress.call(abi.encodeWithSelector(_callbackFunctionId, _requestId, _data)); // solhint-disable-line avoid-low-level-calls
+    (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
 
   /**
    * @notice Use this to check if a node is authorized for fulfilling requests
-   * @param _node The address of the Chainlink node
+   * @param node The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function getAuthorizationStatus(address _node)
+  function getAuthorizationStatus(address node)
     external
     view
     override
     returns (bool)
   {
-    return s_authorizedNodes[_node];
+    return s_authorizedNodes[node];
   }
 
   /**
    * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
-   * @param _node The address of the Chainlink node
-   * @param _allowed Bool value to determine if the node can fulfill requests
+   * @param node The address of the Chainlink node
+   * @param allowed Bool value to determine if the node can fulfill requests
    */
-  function setFulfillmentPermission(address _node, bool _allowed)
+  function setFulfillmentPermission(address node, bool allowed)
     external
     override
     onlyOwner()
   {
-    s_authorizedNodes[_node] = _allowed;
+    s_authorizedNodes[node] = allowed;
   }
 
   /**
    * @notice Allows the node operator to withdraw earned LINK to a given address
    * @dev The owner of the contract can be another wallet and does not have to be a Chainlink node
-   * @param _recipient The address to send the LINK token to
-   * @param _amount The amount to send (specified in wei)
+   * @param recipient The address to send the LINK token to
+   * @param amount The amount to send (specified in wei)
    */
-  function withdraw(address _recipient, uint256 _amount)
+  function withdraw(address recipient, uint256 amount)
     external
     override(OracleInterface, WithdrawalInterface)
     onlyOwner
-    hasAvailableFunds(_amount)
+    hasAvailableFunds(amount)
   {
-    s_withdrawableTokens = s_withdrawableTokens.sub(_amount);
-    assert(s_LinkToken.transfer(_recipient, _amount));
+    s_withdrawableTokens = s_withdrawableTokens.sub(amount);
+    assert(s_LinkToken.transfer(recipient, amount));
   }
 
   /**
@@ -217,35 +217,35 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * sent for the request back to the requester's address.
    * @dev Given params must hash to a commitment stored on the contract in order for the request to be valid
    * Emits CancelOracleRequest event.
-   * @param _requestId The request ID
-   * @param _payment The amount of payment given (specified in wei)
-   * @param _callbackFunc The requester's specified callback address
-   * @param _expiration The time of the expiration for the request
+   * @param requestId The request ID
+   * @param payment The amount of payment given (specified in wei)
+   * @param callbackFunc The requester's specified callback address
+   * @param expiration The time of the expiration for the request
    */
   function cancelOracleRequest(
-    bytes32 _requestId,
-    uint256 _payment,
-    bytes4 _callbackFunc,
-    uint256 _expiration
+    bytes32 requestId,
+    uint256 payment,
+    bytes4 callbackFunc,
+    uint256 expiration
   )
     external
     override
   {
     bytes32 paramsHash = keccak256(
       abi.encodePacked(
-        _payment,
+        payment,
         msg.sender,
-        _callbackFunc,
-        _expiration)
+        callbackFunc,
+        expiration)
     );
-    require(paramsHash == s_commitments[_requestId], "Params do not match request ID");
+    require(paramsHash == s_commitments[requestId], "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
-    require(_expiration <= now, "Request is not expired");
+    require(expiration <= now, "Request is not expired");
 
-    delete s_commitments[_requestId];
-    emit CancelOracleRequest(_requestId);
+    delete s_commitments[requestId];
+    emit CancelOracleRequest(requestId);
 
-    assert(s_LinkToken.transfer(msg.sender, _payment));
+    assert(s_LinkToken.transfer(msg.sender, payment));
   }
 
   /**
@@ -266,19 +266,19 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
 
   /**
    * @dev Reverts if amount requested is greater than withdrawable balance
-   * @param _amount The given amount to compare to `s_withdrawableTokens`
+   * @param amount The given amount to compare to `s_withdrawableTokens`
    */
-  modifier hasAvailableFunds(uint256 _amount) {
-    require(s_withdrawableTokens >= _amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
+  modifier hasAvailableFunds(uint256 amount) {
+    require(s_withdrawableTokens >= amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
     _;
   }
 
   /**
    * @dev Reverts if request ID does not exist
-   * @param _requestId The given request ID to check in stored `commitments`
+   * @param requestId The given request ID to check in stored `commitments`
    */
-  modifier isValidRequest(bytes32 _requestId) {
-    require(s_commitments[_requestId] != 0, "Must have a valid requestId");
+  modifier isValidRequest(bytes32 requestId) {
+    require(s_commitments[requestId] != 0, "Must have a valid requestId");
     _;
   }
 
@@ -292,10 +292,10 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
 
   /**
    * @dev Reverts if the callback address is the LINK token
-   * @param _to The callback address
+   * @param to The callback address
    */
-  modifier checkCallbackAddress(address _to) {
-    require(_to != address(s_LinkToken), "Cannot callback to LINK");
+  modifier checkCallbackAddress(address to) {
+    require(to != address(s_LinkToken), "Cannot callback to LINK");
     _;
   }
 
