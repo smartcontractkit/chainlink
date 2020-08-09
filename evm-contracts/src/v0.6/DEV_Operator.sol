@@ -21,10 +21,10 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
 
-  LinkTokenInterface internal LinkToken;
-  mapping(bytes32 => bytes32) private commitments;
-  mapping(address => bool) private authorizedNodes;
-  uint256 private withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
+  LinkTokenInterface internal s_LinkToken;
+  mapping(bytes32 => bytes32) private s_commitments;
+  mapping(address => bool) private s_authorizedNodes;
+  uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
     bytes32 indexed specId,
@@ -51,7 +51,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     public
     Ownable()
   {
-    LinkToken = LinkTokenInterface(_link); // external but already deployed and unalterable
+    s_LinkToken = LinkTokenInterface(_link); // external but already deployed and unalterable
   }
 
   /**
@@ -83,11 +83,11 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     checkCallbackAddress(_callbackAddress)
   {
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
-    require(commitments[requestId] == 0, "Must use a unique ID");
+    require(s_commitments[requestId] == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     uint256 expiration = now.add(EXPIRY_TIME);
 
-    commitments[requestId] = keccak256(
+    s_commitments[requestId] = keccak256(
       abi.encodePacked(
         _payment,
         _callbackAddress,
@@ -143,9 +143,9 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
         _expiration
       )
     );
-    require(commitments[_requestId] == paramsHash, "Params do not match request ID");
-    withdrawableTokens = withdrawableTokens.add(_payment);
-    delete commitments[_requestId];
+    require(s_commitments[_requestId] == paramsHash, "Params do not match request ID");
+    s_withdrawableTokens = s_withdrawableTokens.add(_payment);
+    delete s_commitments[_requestId];
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
@@ -165,7 +165,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     override
     returns (bool)
   {
-    return authorizedNodes[_node];
+    return s_authorizedNodes[_node];
   }
 
   /**
@@ -178,7 +178,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     override
     onlyOwner()
   {
-    authorizedNodes[_node] = _allowed;
+    s_authorizedNodes[_node] = _allowed;
   }
 
   /**
@@ -193,8 +193,8 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     onlyOwner
     hasAvailableFunds(_amount)
   {
-    withdrawableTokens = withdrawableTokens.sub(_amount);
-    assert(LinkToken.transfer(_recipient, _amount));
+    s_withdrawableTokens = s_withdrawableTokens.sub(_amount);
+    assert(s_LinkToken.transfer(_recipient, _amount));
   }
 
   /**
@@ -209,7 +209,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     onlyOwner()
     returns (uint256)
   {
-    return withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    return s_withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
   }
 
   /**
@@ -238,14 +238,14 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
         _callbackFunc,
         _expiration)
     );
-    require(paramsHash == commitments[_requestId], "Params do not match request ID");
+    require(paramsHash == s_commitments[_requestId], "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(_expiration <= now, "Request is not expired");
 
-    delete commitments[_requestId];
+    delete s_commitments[_requestId];
     emit CancelOracleRequest(_requestId);
 
-    assert(LinkToken.transfer(msg.sender, _payment));
+    assert(s_LinkToken.transfer(msg.sender, _payment));
   }
 
   /**
@@ -259,17 +259,17 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
     override
     returns (address)
   {
-    return address(LinkToken);
+    return address(s_LinkToken);
   }
 
   // MODIFIERS
 
   /**
    * @dev Reverts if amount requested is greater than withdrawable balance
-   * @param _amount The given amount to compare to `withdrawableTokens`
+   * @param _amount The given amount to compare to `s_withdrawableTokens`
    */
   modifier hasAvailableFunds(uint256 _amount) {
-    require(withdrawableTokens >= _amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
+    require(s_withdrawableTokens >= _amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
     _;
   }
 
@@ -278,7 +278,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * @param _requestId The given request ID to check in stored `commitments`
    */
   modifier isValidRequest(bytes32 _requestId) {
-    require(commitments[_requestId] != 0, "Must have a valid requestId");
+    require(s_commitments[_requestId] != 0, "Must have a valid requestId");
     _;
   }
 
@@ -286,7 +286,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
   modifier onlyAuthorizedNode() {
-    require(authorizedNodes[msg.sender] || msg.sender == owner(), "Not an authorized node to fulfill requests");
+    require(s_authorizedNodes[msg.sender] || msg.sender == owner(), "Not an authorized node to fulfill requests");
     _;
   }
 
@@ -295,7 +295,7 @@ contract DEV_Operator is ChainlinkRequestInterface, OracleInterface, Ownable, Li
    * @param _to The callback address
    */
   modifier checkCallbackAddress(address _to) {
-    require(_to != address(LinkToken), "Cannot callback to LINK");
+    require(_to != address(s_LinkToken), "Cannot callback to LINK");
     _;
   }
 
