@@ -12,7 +12,7 @@ import "./vendor/SafeMath.sol";
  * @title The Chainlink Oracle contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
-contract DEV_Operator is
+contract Operator is
   LinkTokenReceiver,
   Owned,
   ChainlinkRequestInterface,
