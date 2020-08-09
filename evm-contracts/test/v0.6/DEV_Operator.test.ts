@@ -35,11 +35,13 @@ describe('DEV_Operator', () => {
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link: contract.Instance<contract.LinkTokenFactory>
-  let oc: contract.Instance<DEV_OperatorFactory>
+  let operator: contract.Instance<DEV_OperatorFactory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
-    oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
-    await oc.setFulfillmentPermission(roles.oracleNode.address, true)
+    operator = await oracleFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address)
+    await operator.setFulfillmentPermission(roles.oracleNode.address, true)
   })
 
   beforeEach(async () => {
@@ -68,23 +70,23 @@ describe('DEV_Operator', () => {
   describe('#setFulfillmentPermission', () => {
     describe('when called by the owner', () => {
       beforeEach(async () => {
-        await oc
+        await operator
           .connect(roles.defaultAccount)
           .setFulfillmentPermission(roles.stranger.address, true)
       })
 
       it('adds an authorized node', async () => {
-        const authorized = await oc.getAuthorizationStatus(
+        const authorized = await operator.getAuthorizationStatus(
           roles.stranger.address,
         )
         assert.equal(true, authorized)
       })
 
       it('removes an authorized node', async () => {
-        await oc
+        await operator
           .connect(roles.defaultAccount)
           .setFulfillmentPermission(roles.stranger.address, false)
-        const authorized = await oc.getAuthorizationStatus(
+        const authorized = await operator.getAuthorizationStatus(
           roles.stranger.address,
         )
         assert.equal(false, authorized)
@@ -94,7 +96,7 @@ describe('DEV_Operator', () => {
     describe('when called by a non-owner', () => {
       it('cannot add an authorized node', async () => {
         await matchers.evmRevert(async () => {
-          await oc
+          await operator
             .connect(roles.stranger)
             .setFulfillmentPermission(roles.stranger.address, true)
         })
@@ -108,7 +110,11 @@ describe('DEV_Operator', () => {
         const callData = oracle.encodeOracleRequest(specId, to, fHash, 0, '0x0')
 
         await matchers.evmRevert(async () => {
-          await oc.onTokenTransfer(roles.defaultAccount.address, 0, callData)
+          await operator.onTokenTransfer(
+            roles.defaultAccount.address,
+            0,
+            callData,
+          )
         })
       })
     })
@@ -117,7 +123,7 @@ describe('DEV_Operator', () => {
       it('triggers the intended method', async () => {
         const callData = oracle.encodeOracleRequest(specId, to, fHash, 0, '0x0')
 
-        const tx = await link.transferAndCall(oc.address, 0, callData, {
+        const tx = await link.transferAndCall(operator.address, 0, callData, {
           value: 0,
         })
         const receipt = await tx.wait()
@@ -128,7 +134,7 @@ describe('DEV_Operator', () => {
       describe('with no data', () => {
         it('reverts', async () => {
           await matchers.evmRevert(async () => {
-            await link.transferAndCall(oc.address, 0, '0x', {
+            await link.transferAndCall(operator.address, 0, '0x', {
               value: 0,
             })
           })
@@ -144,22 +150,22 @@ describe('DEV_Operator', () => {
       beforeEach(async () => {
         mock = await maliciousRequesterFactory
           .connect(roles.defaultAccount)
-          .deploy(link.address, oc.address)
+          .deploy(link.address, operator.address)
         await link.transfer(mock.address, paymentAmount)
       })
 
       it('cannot withdraw from oracle', async () => {
-        const ocOriginalBalance = await link.balanceOf(oc.address)
+        const operatorOriginalBalance = await link.balanceOf(operator.address)
         const mockOriginalBalance = await link.balanceOf(mock.address)
 
         await matchers.evmRevert(async () => {
           await mock.maliciousWithdraw()
         })
 
-        const ocNewBalance = await link.balanceOf(oc.address)
+        const operatorNewBalance = await link.balanceOf(operator.address)
         const mockNewBalance = await link.balanceOf(mock.address)
 
-        matchers.bigNum(ocOriginalBalance, ocNewBalance)
+        matchers.bigNum(operatorOriginalBalance, operatorNewBalance)
         matchers.bigNum(mockNewBalance, mockOriginalBalance)
       })
 
@@ -176,7 +182,7 @@ describe('DEV_Operator', () => {
         it('the target requester can still create valid requests', async () => {
           requester = await basicConsumerFactory
             .connect(roles.defaultAccount)
-            .deploy(link.address, oc.address, specId)
+            .deploy(link.address, operator.address, specId)
           await link.transfer(requester.address, paymentAmount)
           await mock.maliciousTargetConsumer(requester.address)
           await requester.requestEthereumPrice('USD')
@@ -204,7 +210,7 @@ describe('DEV_Operator', () => {
       const maliciousPayload = ottSelector + header + requestPayload.slice(2)
 
       await matchers.evmRevert(async () => {
-        await link.transferAndCall(oc.address, 0, maliciousPayload, {
+        await link.transferAndCall(operator.address, 0, maliciousPayload, {
           value: 0,
         })
       })
@@ -219,7 +225,7 @@ describe('DEV_Operator', () => {
 
       beforeEach(async () => {
         const args = oracle.encodeOracleRequest(specId, to, fHash, 1, '0x0')
-        const tx = await link.transferAndCall(oc.address, paid, args)
+        const tx = await link.transferAndCall(operator.address, paid, args)
         receipt = await tx.wait()
         assert.equal(3, receipt?.logs?.length)
 
@@ -227,7 +233,7 @@ describe('DEV_Operator', () => {
       })
 
       it('logs an event', async () => {
-        assert.equal(oc.address, log?.address)
+        assert.equal(operator.address, log?.address)
 
         assert.equal(log?.topics?.[1], specId)
 
@@ -246,7 +252,7 @@ describe('DEV_Operator', () => {
       it('does not allow the same requestId to be used twice', async () => {
         const args2 = oracle.encodeOracleRequest(specId, to, fHash, 1, '0x0')
         await matchers.evmRevert(async () => {
-          await link.transferAndCall(oc.address, paid, args2)
+          await link.transferAndCall(operator.address, paid, args2)
         })
       })
 
@@ -259,7 +265,7 @@ describe('DEV_Operator', () => {
 
         it('throws an error', async () => {
           await matchers.evmRevert(async () => {
-            await link.transferAndCall(oc.address, paid, maliciousData)
+            await link.transferAndCall(operator.address, paid, maliciousData)
           })
         })
       })
@@ -273,7 +279,7 @@ describe('DEV_Operator', () => {
 
         it('throws an error', async () => {
           await matchers.evmRevert(async () => {
-            await link.transferAndCall(oc.address, paid, maliciousData)
+            await link.transferAndCall(operator.address, paid, maliciousData)
           })
         })
       })
@@ -282,7 +288,7 @@ describe('DEV_Operator', () => {
     describe('when not called through the LINK token', () => {
       it('reverts', async () => {
         await matchers.evmRevert(async () => {
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .oracleRequest(
               '0x0000000000000000000000000000000000000000',
@@ -310,7 +316,7 @@ describe('DEV_Operator', () => {
       beforeEach(async () => {
         basicConsumer = await basicConsumerFactory
           .connect(roles.defaultAccount)
-          .deploy(link.address, oc.address, specId)
+          .deploy(link.address, operator.address, specId)
         const paymentAmount = h.toWei('1')
         await link.transfer(basicConsumer.address, paymentAmount)
         const currency = 'USD'
@@ -323,13 +329,13 @@ describe('DEV_Operator', () => {
         beforeEach(async () => {
           assert.equal(
             false,
-            await oc.getAuthorizationStatus(roles.stranger.address),
+            await operator.getAuthorizationStatus(roles.stranger.address),
           )
         })
 
         it('raises an error', async () => {
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.stranger)
               .fulfillOracleRequest(
                 ...oracle.convertFufillParams(request, response),
@@ -342,7 +348,7 @@ describe('DEV_Operator', () => {
         it('raises an error if the request ID does not exist', async () => {
           request.requestId = ethers.utils.formatBytes32String('DOESNOTEXIST')
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.oracleNode)
               .fulfillOracleRequest(
                 ...oracle.convertFufillParams(request, response),
@@ -351,7 +357,7 @@ describe('DEV_Operator', () => {
         })
 
         it('sets the value on the requested contract', async () => {
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
@@ -364,14 +370,14 @@ describe('DEV_Operator', () => {
         it('does not allow a request to be fulfilled twice', async () => {
           const response2 = response + ' && Hello World!!'
 
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
             )
 
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.oracleNode)
               .fulfillOracleRequest(
                 ...oracle.convertFufillParams(request, response2),
@@ -389,29 +395,29 @@ describe('DEV_Operator', () => {
         const defaultGasLimit = 500000
 
         beforeEach(async () => {
-          matchers.bigNum(0, await oc.withdrawable())
+          matchers.bigNum(0, await operator.withdrawable())
         })
 
         it('does not allow the oracle to withdraw the payment', async () => {
           await matchers.evmRevert(async () => {
-            await oc.connect(roles.oracleNode).fulfillOracleRequest(
+            await operator.connect(roles.oracleNode).fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response, {
                 gasLimit: 70000,
               }),
             )
           })
 
-          matchers.bigNum(0, await oc.withdrawable())
+          matchers.bigNum(0, await operator.withdrawable())
         })
 
         it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
-          await oc.connect(roles.oracleNode).fulfillOracleRequest(
+          await operator.connect(roles.oracleNode).fulfillOracleRequest(
             ...oracle.convertFufillParams(request, response, {
               gasLimit: defaultGasLimit,
             }),
           )
 
-          matchers.bigNum(request.payment, await oc.withdrawable())
+          matchers.bigNum(request.payment, await operator.withdrawable())
         })
       })
     })
@@ -421,7 +427,7 @@ describe('DEV_Operator', () => {
         const paymentAmount = h.toWei('1')
         maliciousRequester = await maliciousRequesterFactory
           .connect(roles.defaultAccount)
-          .deploy(link.address, oc.address)
+          .deploy(link.address, operator.address)
         await link.transfer(maliciousRequester.address, paymentAmount)
       })
 
@@ -461,7 +467,7 @@ describe('DEV_Operator', () => {
       beforeEach(async () => {
         maliciousConsumer = await maliciousConsumerFactory
           .connect(roles.defaultAccount)
-          .deploy(link.address, oc.address)
+          .deploy(link.address, operator.address)
         await link.transfer(maliciousConsumer.address, paymentAmount)
       })
 
@@ -476,7 +482,7 @@ describe('DEV_Operator', () => {
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
@@ -485,7 +491,7 @@ describe('DEV_Operator', () => {
           const balance = await link.balanceOf(roles.oracleNode.address)
           matchers.bigNum(balance, 0)
 
-          await oc
+          await operator
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
 
@@ -496,14 +502,14 @@ describe('DEV_Operator', () => {
         it("can't fulfill the data again", async () => {
           const response2 = 'hack the planet 102'
 
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
             )
 
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.oracleNode)
               .fulfillOracleRequest(
                 ...oracle.convertFufillParams(request, response2),
@@ -524,7 +530,7 @@ describe('DEV_Operator', () => {
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
@@ -533,7 +539,7 @@ describe('DEV_Operator', () => {
           const balance = await link.balanceOf(roles.oracleNode.address)
           matchers.bigNum(balance, 0)
 
-          await oc
+          await operator
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
           const newBalance = await link.balanceOf(roles.oracleNode.address)
@@ -554,7 +560,7 @@ describe('DEV_Operator', () => {
         })
 
         it('allows the oracle node to receive their payment', async () => {
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
@@ -566,7 +572,7 @@ describe('DEV_Operator', () => {
           const balance = await link.balanceOf(roles.oracleNode.address)
           matchers.bigNum(balance, 0)
 
-          await oc
+          await operator
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, paymentAmount)
           const newBalance = await link.balanceOf(roles.oracleNode.address)
@@ -576,14 +582,14 @@ describe('DEV_Operator', () => {
         it("can't fulfill the data again", async () => {
           const response2 = 'hack the planet 102'
 
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
             )
 
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.oracleNode)
               .fulfillOracleRequest(
                 ...oracle.convertFufillParams(request, response2),
@@ -601,7 +607,7 @@ describe('DEV_Operator', () => {
           const receipt = await tx.wait()
           request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
@@ -621,7 +627,7 @@ describe('DEV_Operator', () => {
           const receipt = await tx.wait()
           request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
@@ -640,7 +646,7 @@ describe('DEV_Operator', () => {
           const receipt = await tx.wait()
           request = oracle.decodeRunRequest(receipt.logs?.[3])
 
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
@@ -660,7 +666,7 @@ describe('DEV_Operator', () => {
         let balance = await link.balanceOf(roles.oracleNode.address)
         assert.equal(0, balance.toNumber())
         await matchers.evmRevert(async () => {
-          await oc
+          await operator
             .connect(roles.defaultAccount)
             .withdraw(roles.oracleNode.address, h.toWei('1'))
         })
@@ -684,7 +690,7 @@ describe('DEV_Operator', () => {
           0,
           '0x0',
         )
-        const tx = await link.transferAndCall(oc.address, payment, args)
+        const tx = await link.transferAndCall(operator.address, payment, args)
         const receipt = await tx.wait()
         assert.equal(3, receipt.logs?.length)
         request = oracle.decodeRunRequest(receipt.logs?.[2])
@@ -693,7 +699,7 @@ describe('DEV_Operator', () => {
       describe('but not freeing funds w fulfillOracleRequest', () => {
         it('does not transfer funds', async () => {
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.defaultAccount)
               .withdraw(roles.oracleNode.address, payment)
           })
@@ -704,7 +710,7 @@ describe('DEV_Operator', () => {
 
       describe('and freeing funds', () => {
         beforeEach(async () => {
-          await oc
+          await operator
             .connect(roles.oracleNode)
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, 'Hello World!'),
@@ -712,7 +718,7 @@ describe('DEV_Operator', () => {
         })
 
         it('does not allow input greater than the balance', async () => {
-          const originalOracleBalance = await link.balanceOf(oc.address)
+          const originalOracleBalance = await link.balanceOf(operator.address)
           const originalStrangerBalance = await link.balanceOf(
             roles.stranger.address,
           )
@@ -720,12 +726,12 @@ describe('DEV_Operator', () => {
 
           assert.isAbove(withdrawalAmount, originalOracleBalance.toNumber())
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.defaultAccount)
               .withdraw(roles.stranger.address, withdrawalAmount)
           })
 
-          const newOracleBalance = await link.balanceOf(oc.address)
+          const newOracleBalance = await link.balanceOf(operator.address)
           const newStrangerBalance = await link.balanceOf(
             roles.stranger.address,
           )
@@ -743,17 +749,17 @@ describe('DEV_Operator', () => {
         it('allows transfer of partial balance by owner to specified address', async () => {
           const partialAmount = 6
           const difference = payment - partialAmount
-          await oc
+          await operator
             .connect(roles.defaultAccount)
             .withdraw(roles.stranger.address, partialAmount)
           const strangerBalance = await link.balanceOf(roles.stranger.address)
-          const oracleBalance = await link.balanceOf(oc.address)
+          const oracleBalance = await link.balanceOf(operator.address)
           assert.equal(partialAmount, strangerBalance.toNumber())
           assert.equal(difference, oracleBalance.toNumber())
         })
 
         it('allows transfer of entire balance by owner to specified address', async () => {
-          await oc
+          await operator
             .connect(roles.defaultAccount)
             .withdraw(roles.stranger.address, payment)
           const balance = await link.balanceOf(roles.stranger.address)
@@ -762,7 +768,7 @@ describe('DEV_Operator', () => {
 
         it('does not allow a transfer of funds by non-owner', async () => {
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.stranger)
               .withdraw(roles.stranger.address, payment)
           })
@@ -788,11 +794,11 @@ describe('DEV_Operator', () => {
         0,
         '0x0',
       )
-      const tx = await link.transferAndCall(oc.address, amount, args)
+      const tx = await link.transferAndCall(operator.address, amount, args)
       const receipt = await tx.wait()
       assert.equal(3, receipt.logs?.length)
       request = oracle.decodeRunRequest(receipt.logs?.[2])
-      await oc
+      await operator
         .connect(roles.oracleNode)
         .fulfillOracleRequest(
           ...oracle.convertFufillParams(request, 'Hello World!'),
@@ -800,7 +806,7 @@ describe('DEV_Operator', () => {
     })
 
     it('returns the correct value', async () => {
-      const withdrawAmount = await oc.withdrawable()
+      const withdrawAmount = await operator.withdrawable()
       matchers.bigNum(withdrawAmount, request.payment)
     })
   })
@@ -825,7 +831,7 @@ describe('DEV_Operator', () => {
         await h.increaseTime5Minutes(provider)
 
         await matchers.evmRevert(async () => {
-          await oc
+          await operator
             .connect(roles.stranger)
             .cancelOracleRequest(...oracle.convertCancelParams(fakeRequest))
         })
@@ -851,7 +857,7 @@ describe('DEV_Operator', () => {
         )
         const tx = await link
           .connect(roles.consumer)
-          .transferAndCall(oc.address, requestAmount, args)
+          .transferAndCall(operator.address, requestAmount, args)
         receipt = await tx.wait()
 
         assert.equal(3, receipt.logs?.length)
@@ -859,7 +865,7 @@ describe('DEV_Operator', () => {
       })
 
       it('has correct initial balances', async () => {
-        const oracleBalance = await link.balanceOf(oc.address)
+        const oracleBalance = await link.balanceOf(operator.address)
         matchers.bigNum(request.payment, oracleBalance)
 
         const consumerAmount = await link.balanceOf(roles.consumer.address)
@@ -872,7 +878,7 @@ describe('DEV_Operator', () => {
       describe('from a stranger', () => {
         it('fails', async () => {
           await matchers.evmRevert(async () => {
-            await oc
+            await operator
               .connect(roles.consumer)
               .cancelOracleRequest(...oracle.convertCancelParams(request))
           })
@@ -882,7 +888,7 @@ describe('DEV_Operator', () => {
       describe('from the requester', () => {
         it('refunds the correct amount', async () => {
           await h.increaseTime5Minutes(provider)
-          await oc
+          await operator
             .connect(roles.consumer)
             .cancelOracleRequest(...oracle.convertCancelParams(request))
           const balance = await link.balanceOf(roles.consumer.address)
@@ -892,7 +898,7 @@ describe('DEV_Operator', () => {
 
         it('triggers a cancellation event', async () => {
           await h.increaseTime5Minutes(provider)
-          const tx = await oc
+          const tx = await operator
             .connect(roles.consumer)
             .cancelOracleRequest(...oracle.convertCancelParams(request))
           const receipt = await tx.wait()
@@ -903,12 +909,12 @@ describe('DEV_Operator', () => {
 
         it('fails when called twice', async () => {
           await h.increaseTime5Minutes(provider)
-          await oc
+          await operator
             .connect(roles.consumer)
             .cancelOracleRequest(...oracle.convertCancelParams(request))
 
           await matchers.evmRevert(
-            oc
+            operator
               .connect(roles.consumer)
               .cancelOracleRequest(...oracle.convertCancelParams(request)),
           )
