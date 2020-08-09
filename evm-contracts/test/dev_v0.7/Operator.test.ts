@@ -11,13 +11,13 @@ import { BasicConsumerFactory } from '../../ethers/v0.4/BasicConsumerFactory'
 import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
 import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
-import { DEV_OperatorFactory } from '../../ethers/v0.7/DEV_OperatorFactory'
+import { OperatorFactory } from '../../ethers/dev_v0.7/OperatorFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const getterSetterFactory = new GetterSetterFactory()
 const maliciousRequesterFactory = new MaliciousRequesterFactory()
 const maliciousConsumerFactory = new MaliciousConsumerFactory()
-const oracleFactory = new DEV_OperatorFactory()
+const operatorFactory = new OperatorFactory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
 let roles: setup.Roles
@@ -29,16 +29,16 @@ beforeAll(async () => {
   roles = users.roles
 })
 
-describe('DEV_Operator', () => {
+describe('Operator', () => {
   const fHash = getterSetterFactory.interface.functions.requestedBytes32.sighash
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
   let link: contract.Instance<contract.LinkTokenFactory>
-  let operator: contract.Instance<DEV_OperatorFactory>
+  let operator: contract.Instance<OperatorFactory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
-    operator = await oracleFactory
+    operator = await operatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address)
     await operator.setFulfillmentPermission(roles.oracleNode.address, true)
@@ -49,7 +49,7 @@ describe('DEV_Operator', () => {
   })
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(oracleFactory, [
+    matchers.publicAbi(operatorFactory, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
       'fulfillOracleRequest',
@@ -200,7 +200,7 @@ describe('DEV_Operator', () => {
       )
 
       const ottSelector =
-        oracleFactory.interface.functions.onTokenTransfer.sighash
+        operatorFactory.interface.functions.onTokenTransfer.sighash
       const header =
         '000000000000000000000000c5fdf4076b8f3a5357c5e395ab970b5b54098fef' + // to
         '0000000000000000000000000000000000000000000000000000000000000539' + // amount
@@ -258,7 +258,7 @@ describe('DEV_Operator', () => {
 
       describe('when called with a payload less than 2 EVM words + function selector', () => {
         const funcSelector =
-          oracleFactory.interface.functions.oracleRequest.sighash
+          operatorFactory.interface.functions.oracleRequest.sighash
         const maliciousData =
           funcSelector +
           '0000000000000000000000000000000000000000000000000000000000000000000'
@@ -272,7 +272,7 @@ describe('DEV_Operator', () => {
 
       describe('when called with a payload between 3 and 9 EVM words', () => {
         const funcSelector =
-          oracleFactory.interface.functions.oracleRequest.sighash
+          operatorFactory.interface.functions.oracleRequest.sighash
         const maliciousData =
           funcSelector +
           '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
