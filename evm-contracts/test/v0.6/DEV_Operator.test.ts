@@ -52,6 +52,7 @@ describe('DEV_Operator', () => {
       'cancelOracleRequest',
       'fulfillOracleRequest',
       'getAuthorizationStatus',
+      'getChainlinkToken',
       'onTokenTransfer',
       'oracleRequest',
       'setFulfillmentPermission',
@@ -59,7 +60,7 @@ describe('DEV_Operator', () => {
       'withdrawable',
       // Ownable methods:
       'owner',
-      'renounceOwnership',
+      'isOwner',
       'transferOwnership',
     ])
   })
