@@ -9,7 +9,10 @@ describe('sessions', () => {
       const [chainlinkNode, secret] = await createChainlinkNode(
         'valid-chainlink-node',
       )
-      const session = await authenticate(chainlinkNode.accessKey, secret)
+      const session = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret,
+      })
       expect(session).toBeDefined()
       expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
 
@@ -17,7 +20,7 @@ describe('sessions', () => {
       expect(foundSession.chainlinkNodeId).toEqual(chainlinkNode.id)
       expect(foundSession.finishedAt).toBeNull()
 
-      await authenticate(chainlinkNode.accessKey, secret)
+      await authenticate({ accessKey: chainlinkNode.accessKey, secret })
       foundSession = await getRepository(Session).findOne(foundSession.id)
       expect(foundSession.finishedAt).toEqual(expect.any(Date))
     })
@@ -26,7 +29,10 @@ describe('sessions', () => {
       const [chainlinkNode, secret] = await createChainlinkNode(
         'valid-chainlink-node',
       )
-      const session = await authenticate(chainlinkNode.accessKey, secret)
+      const session = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret,
+      })
       expect(session).toBeDefined()
       expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
 
@@ -34,7 +40,7 @@ describe('sessions', () => {
     })
 
     it('returns null if no chainlink node exists', async () => {
-      const result = await authenticate('', '')
+      const result = await authenticate({ accessKey: '', secret: '' })
       expect(result).toBeNull()
     })
 
@@ -42,7 +48,10 @@ describe('sessions', () => {
       const [chainlinkNode] = await createChainlinkNode(
         'invalid-chainlink-node',
       )
-      const result = await authenticate(chainlinkNode.accessKey, 'wrong-secret')
+      const result = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret: 'wrong-secret',
+      })
       expect(result).toBeNull()
     })
   })
@@ -52,7 +61,10 @@ describe('sessions', () => {
       const [chainlinkNode, secret] = await createChainlinkNode(
         'valid-chainlink-node',
       )
-      const session = await authenticate(chainlinkNode.accessKey, secret)
+      const session = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret,
+      })
       expect(session).toBeDefined()
       expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
       expect(session.finishedAt).toBeNull()

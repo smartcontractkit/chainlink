@@ -52,6 +52,10 @@ func (p *PollingDeviationChecker) ExportedFluxAggregator() contracts.FluxAggrega
 	return p.fluxAggregator
 }
 
+func (p *PollingDeviationChecker) ExportedRoundState() {
+	p.roundState(0)
+}
+
 func mustReadFile(t testing.TB, file string) string {
 	t.Helper()
 

@@ -61,7 +61,11 @@ func main() {
 	if filepath.Base(cwd) != "gethwrappers" {
 		gethwrappers.Exit("must be run from gethwrappers directory", nil)
 	}
-	outPath := filepath.Join(cwd, "generated", pkgName, pkgName+".go")
+	outDir := filepath.Join(cwd, "generated", pkgName)
+	if mkdErr := os.MkdirAll(outDir, 0700); err != nil {
+		gethwrappers.Exit("failed to create wrapper dir", mkdErr)
+	}
+	outPath := filepath.Join(outDir, pkgName+".go")
 
 	gethwrappers.Abigen(gethwrappers.AbigenArgs{
 		Bin: binPath, ABI: abiPath, Out: outPath, Type: className, Pkg: pkgName,

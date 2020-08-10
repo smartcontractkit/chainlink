@@ -30,15 +30,4 @@ interface AggregatorV3Interface {
       uint80 answeredInRound
     );
 
-  event NewRound(
-    uint256 indexed roundId,
-    address indexed startedBy,
-    uint256 startedAt
-  );
-  event AnswerUpdated(
-    int256 indexed current,
-    uint256 indexed roundId,
-    uint256 updatedAt
-  );
-
 }

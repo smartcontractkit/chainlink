@@ -21,7 +21,7 @@ const styles = theme => ({
 })
 
 const renderLatestRuns = (props, state, handleChangePage) => {
-  const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
+  const { jobSpecId, latestJobRuns, jobRunsCount = 0, pageSize } = props
   const pagePath = props.pagePath.replace(':jobSpecId', jobSpecId)
 
   const TableButtonsWithProps = () => (

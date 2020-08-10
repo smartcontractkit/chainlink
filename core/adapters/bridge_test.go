@@ -47,11 +47,11 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 
 func setupJobRunAndStore(t *testing.T, txHash []byte, blockHash []byte) (*store.Store, *models.ID, func()) {
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	app.Store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 	require.NoError(t, app.Start())
-	store := app.Store
 	jr := app.MustCreateJobRun(txHash, blockHash)
 
-	return store, jr.ID, cleanup
+	return app.Store, jr.ID, cleanup
 }
 
 func TestBridge_IncludesMetaIfJobRunIsInDB(t *testing.T) {
@@ -61,7 +61,6 @@ func TestBridge_IncludesMetaIfJobRunIsInDB(t *testing.T) {
 	blockHash, _ := hex.DecodeString(blockHashHex)
 	store, jobRunID, cleanup := setupJobRunAndStore(t, txHash, blockHash)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	data := ""
 	meta := ""

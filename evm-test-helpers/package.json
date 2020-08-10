@@ -25,11 +25,11 @@
     "ethers": "^4.0.45"
   },
   "devDependencies": {
-    "@types/cbor": "^5.0.0",
+    "@types/cbor": "^5.0.1",
     "@types/chai": "^4.2.11",
     "@types/debug": "^4.1.5",
     "@types/ganache-core": "^2.7.0",
-    "@types/jest": "^24.0.25",
+    "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
     "jest": "^24.9.0",
     "jest-circus": "^25.1.0",

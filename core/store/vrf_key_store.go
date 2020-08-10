@@ -2,7 +2,6 @@ package store
 
 import (
 	"fmt"
-	"math/big"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -35,20 +34,21 @@ func NewVRFKeyStore(store *Store) *VRFKeyStore {
 	}
 }
 
-// GenerateProof(k, seed) is marshaled randomness proof given public key k and
-// VRF input seed.
+// GenerateProof is marshaled randomness proof given k and VRF input seed
+// computed from the SeedData
 //
-// k must have already been unlocked in ks, as constructing the VRF proof
+// Key must have already been unlocked in ks, as constructing the VRF proof
 // requires the secret key.
-func (ks *VRFKeyStore) GenerateProof(k *vrfkey.PublicKey, seed *big.Int) (
-	vrf.MarshaledProof, error) {
+func (ks *VRFKeyStore) GenerateProof(k vrfkey.PublicKey, i vrf.PreSeedData) (
+	vrf.MarshaledOnChainResponse, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
-	privateKey, found := ks.keys[*k]
+	privateKey, found := ks.keys[k]
 	if !found {
-		return vrf.MarshaledProof{}, fmt.Errorf("key %s has not been unlocked", k)
+		return vrf.MarshaledOnChainResponse{}, fmt.Errorf(
+			"key %s has not been unlocked", k)
 	}
-	return privateKey.MarshaledProof(seed)
+	return privateKey.MarshaledProof(i)
 }
 
 // Unlock tries to unlock each vrf key in the db, using the given pass phrase,
@@ -57,7 +57,7 @@ func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrfkey.PublicKey,
 	merr error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	keys, err := ks.get(nil)
+	keys, err := ks.get()
 	if err != nil {
 		return nil, errors.Wrap(err, "while retrieving vrf keys from db")
 	}
@@ -75,16 +75,16 @@ func (ks *VRFKeyStore) Unlock(phrase string) (keysUnlocked []vrfkey.PublicKey,
 
 // Forget removes the in-memory copy of the secret key of k, or errors if not
 // present. Caller is responsible for taking ks.lock.
-func (ks *VRFKeyStore) forget(k *vrfkey.PublicKey) error {
-	if _, found := ks.keys[*k]; !found {
+func (ks *VRFKeyStore) forget(k vrfkey.PublicKey) error {
+	if _, found := ks.keys[k]; !found {
 		return fmt.Errorf("public key %s is not unlocked; can't forget it", k)
 	}
 
-	delete(ks.keys, *k)
+	delete(ks.keys, k)
 	return nil
 }
 
-func (ks *VRFKeyStore) Forget(k *vrfkey.PublicKey) error {
+func (ks *VRFKeyStore) Forget(k vrfkey.PublicKey) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	return ks.forget(k)

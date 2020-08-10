@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.12] - 2020-08-10
+
+### Fixed
+
+Added a workaround for Infura users who are seeing "error getting balance: header not found".
+
+This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
+
 ## [0.8.11] - 2020-07-27
 
 ### Added
@@ -76,6 +84,7 @@ This release contains a number of features aimed at improving the node's reliabi
 - New prometheus metrics for the head tracker:
   - `head_tracker_heads_in_queue` - The number of heads currently waiting to be executed. You can think of this as the 'load' on the head tracker. Should rarely or never be more than 0.
   - `head_tracker_callback_execution_duration` - How long it took to execute all callbacks. If the average of this exceeds the time between blocks, your node could lag behind and delay transactions.
+- Nodes transmit their build info to Explorer for better debugging/tracking.
 
 ### Env var changes
 

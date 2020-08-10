@@ -97,18 +97,20 @@ type EthTxManager struct {
 	accountsMutex       *sync.Mutex
 	connected           *abool.AtomicBool
 	currentHead         models.Head
+	currentHeadMtx      *sync.RWMutex
 }
 
 // NewEthTxManager constructs an EthTxManager using the passed variables and
 // initializing internal variables.
 func NewEthTxManager(client eth.Client, config orm.ConfigReader, keyStore KeyStoreInterface, orm *orm.ORM) *EthTxManager {
 	return &EthTxManager{
-		Client:        client,
-		config:        config,
-		keyStore:      keyStore,
-		orm:           orm,
-		accountsMutex: &sync.Mutex{},
-		connected:     abool.New(),
+		Client:         client,
+		config:         config,
+		keyStore:       keyStore,
+		orm:            orm,
+		accountsMutex:  &sync.Mutex{},
+		connected:      abool.New(),
+		currentHeadMtx: new(sync.RWMutex),
 	}
 }
 
@@ -149,7 +151,7 @@ func (txm *EthTxManager) Connect(bn *models.Head) error {
 		}
 
 		if bn != nil {
-			txm.currentHead = *bn
+			txm.setCurrentHead(*bn)
 		}
 		txm.connected.Set()
 	}()
@@ -197,7 +199,19 @@ func (txm *EthTxManager) OnNewLongestChain(head models.Head) {
 	if txm.config.EnableBulletproofTxManager() {
 		return
 	}
+	txm.setCurrentHead(head)
+}
+
+func (txm *EthTxManager) setCurrentHead(head models.Head) {
+	txm.currentHeadMtx.Lock()
+	defer txm.currentHeadMtx.Unlock()
 	txm.currentHead = head
+}
+
+func (txm *EthTxManager) getCurrentHead() models.Head {
+	txm.currentHeadMtx.RLock()
+	defer txm.currentHeadMtx.RUnlock()
+	return txm.currentHead
 }
 
 // CreateTx signs and sends a transaction to the Ethereum blockchain.
@@ -240,19 +254,7 @@ func (txm *EthTxManager) nextAccount() (*ManagedAccount, error) {
 }
 
 func normalizeGasParams(gasPriceWei *big.Int, gasLimit uint64, config orm.ConfigReader) (*big.Int, uint64) {
-	if !config.Dev() {
-		return config.EthGasPriceDefault(), config.EthGasLimitDefault()
-	}
-
-	if gasPriceWei == nil {
-		gasPriceWei = config.EthGasPriceDefault()
-	}
-
-	if gasLimit == 0 {
-		gasLimit = config.EthGasLimitDefault()
-	}
-
-	return gasPriceWei, gasLimit
+	return config.EthGasPriceDefault(), config.EthGasLimitDefault()
 }
 
 // createTx creates an ethereum transaction, and retries to submit the
@@ -316,7 +318,7 @@ func (txm *EthTxManager) sendInitialTx(
 	var tx *models.Tx
 
 	err = ma.GetAndIncrementNonce(func(nonce uint64) error {
-		blockHeight := uint64(txm.currentHead.Number)
+		blockHeight := uint64(txm.getCurrentHead().Number)
 		tx, err = txm.newTx(
 			ma.Account,
 			nonce,
@@ -456,7 +458,7 @@ func (txm *EthTxManager) BumpGasUntilSafe(hash common.Hash) (*models.TxReceipt, 
 }
 
 func (txm *EthTxManager) checkChainForConfirmation(tx *models.Tx) (*models.TxReceipt, AttemptState, error) {
-	blockHeight := uint64(txm.currentHead.Number)
+	blockHeight := uint64(txm.getCurrentHead().Number)
 
 	var merr error
 	// Process attempts in reverse, since the attempt with the highest gas is
