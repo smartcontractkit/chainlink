@@ -211,7 +211,6 @@ contract Operator is
     external
     view
     override(OracleInterface, WithdrawalInterface)
-    onlyOwner()
     returns (uint256)
   {
     return s_withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
