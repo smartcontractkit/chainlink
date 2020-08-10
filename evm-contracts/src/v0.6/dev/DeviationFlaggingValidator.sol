@@ -1,10 +1,9 @@
-pragma solidity ^0.6.0;
+pragma solidity 0.6.6;
 
 import './AggregatorValidatorInterface.sol';
 import '../interfaces/FlagsInterface.sol';
 import '../Owned.sol';
-import '../vendor/SafeMath.sol';
-import '../SignedSafeMath.sol';
+import './CheckedMath.sol';
 
 /**
  * @title The Deviation Flagging Validator contract
@@ -14,8 +13,7 @@ import '../SignedSafeMath.sol';
  * flag contract.
  */
 contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
-  using SafeMath for uint256;
-  using SignedSafeMath for int256;
+  using CheckedMath for int256;
 
   uint32 constant public THRESHOLD_MULTIPLIER = 100000;
 
@@ -30,6 +28,8 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     address indexed previous,
     address indexed current
   );
+
+  int256 constant private INT256_MIN = -2**255;
 
   /**
    * @notice sets up the validator with its threshold and flag address.
@@ -69,7 +69,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
     returns (bool)
   {
     if (!isValid(_previousRoundId, _previousAnswer, _roundId, _answer)) {
-      flags.raiseFlags(arrayifyMsgSender());
+      flags.raiseFlag(msg.sender);
       return false;
     }
 
@@ -79,8 +79,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   /**
    * @notice checks whether the parameters count as valid by comparing the
    * difference change to the flagging threshold and raises a flag on the
-   * flagging contract if so. This method conforms to the
-   * AggregatorValidatorInterface.
+   * flagging contract if so.
    * @param _previousAnswer is used as the median of the difference with the
    * current answer to determine if the deviation threshold has been exceeded.
    * @param _answer is the current answer which is compared for a ratio of
@@ -98,10 +97,12 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
   {
     if (_previousAnswer == 0) return true;
 
-    int256 change = _previousAnswer.sub(_answer);
-    uint256 changeRatio = abs(change.mul(THRESHOLD_MULTIPLIER).div(_previousAnswer));
+    (int256 change, bool changeOk) = _previousAnswer.sub(_answer);
+    (int256 ratioNumerator, bool numOk) = change.mul(THRESHOLD_MULTIPLIER);
+    (int256 ratio, bool ratioOk) = ratioNumerator.div(_previousAnswer);
+    (uint256 absRatio, bool absOk) = abs(ratio);
 
-    return changeRatio <= flaggingThreshold;
+    return changeOk && numOk && ratioOk && absOk && absRatio <= flaggingThreshold;
   }
 
   /**
@@ -143,24 +144,16 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
 
   // PRIVATE
 
-  function arrayifyMsgSender()
-    private
-    returns (address[] memory)
-  {
-      address[] memory addresses = new address[](1);
-      addresses[0] = msg.sender;
-      return addresses;
-  }
-
   function abs(
     int256 value
   )
     private
     pure
-    returns (uint256)
+    returns (uint256, bool)
   {
-    return uint256(value < 0 ? value.mul(-1): value);
+    if (value >= 0) return (uint256(value), true);
+    if (value == CheckedMath.INT256_MIN) return (0, false);
+    return (uint256(value * -1), true);
   }
 
 }
-

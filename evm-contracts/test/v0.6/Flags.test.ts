@@ -5,7 +5,6 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-//import { ethers } from 'ethers'
 import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
 import { FlagsTestHelperFactory } from '../../ethers/v0.6/FlagsTestHelperFactory'
 import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
@@ -45,6 +44,7 @@ describe('Flags', () => {
       'getFlag',
       'getFlags',
       'lowerFlags',
+      'raiseFlag',
       'raiseFlags',
       'raisingAccessController',
       'setRaisingAccessController',
@@ -60,6 +60,101 @@ describe('Flags', () => {
       'checkEnabled',
       'hasAccess',
     ])
+  })
+
+  describe('#raiseFlag', () => {
+    describe('when called by the owner', () => {
+      it('updates the warning flag', async () => {
+        assert.equal(false, await flags.getFlag(consumer.address))
+
+        await flags.connect(personas.Nelly).raiseFlag(consumer.address)
+
+        assert.equal(true, await flags.getFlag(consumer.address))
+      })
+
+      it('emits an event log', async () => {
+        const tx = await flags
+          .connect(personas.Nelly)
+          .raiseFlag(consumer.address)
+        const receipt = await tx.wait()
+
+        const event = matchers.eventExists(
+          receipt,
+          flags.interface.events.FlagRaised,
+        )
+        assert.equal(consumer.address, h.eventArgs(event).subject)
+      })
+
+      describe('if a flag has already been raised', () => {
+        beforeEach(async () => {
+          await flags.connect(personas.Nelly).raiseFlag(consumer.address)
+        })
+
+        it('emits an event log', async () => {
+          const tx = await flags
+            .connect(personas.Nelly)
+            .raiseFlag(consumer.address)
+          const receipt = await tx.wait()
+          assert.equal(0, receipt.events?.length)
+        })
+      })
+    })
+
+    describe('when called by an enabled setter', () => {
+      beforeEach(async () => {
+        await controller
+          .connect(personas.Nelly)
+          .addAccess(personas.Neil.address)
+      })
+
+      it('sets the flags', async () => {
+        await flags.connect(personas.Neil).raiseFlag(consumer.address),
+          assert.equal(true, await flags.getFlag(consumer.address))
+      })
+    })
+
+    describe('when called by a non-enabled setter', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          flags.connect(personas.Neil).raiseFlag(consumer.address),
+          'Not allowed to raise flags',
+        )
+      })
+    })
+
+    describe('when called when there is no raisingAccessController', () => {
+      beforeEach(async () => {
+        const tx = await flags
+          .connect(personas.Nelly)
+          .setRaisingAccessController(
+            '0x0000000000000000000000000000000000000000',
+          )
+        const receipt = await tx.wait()
+        const event = matchers.eventExists(
+          receipt,
+          flags.interface.events.RaisingAccessControllerUpdated,
+        )
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          h.eventArgs(event).current,
+        )
+        assert.equal(
+          '0x0000000000000000000000000000000000000000',
+          await flags.raisingAccessController(),
+        )
+      })
+
+      it('succeeds for the owner', async () => {
+        await flags.connect(personas.Nelly).raiseFlag(consumer.address)
+        assert.equal(true, await flags.getFlag(consumer.address))
+      })
+
+      it('reverts for non-owner', async () => {
+        await matchers.evmRevert(
+          flags.connect(personas.Neil).raiseFlag(consumer.address),
+        )
+      })
+    })
   })
 
   describe('#raiseFlags', () => {
@@ -80,7 +175,7 @@ describe('Flags', () => {
 
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.FlagOn,
+          flags.interface.events.FlagRaised,
         )
         assert.equal(consumer.address, h.eventArgs(event).subject)
       })
@@ -132,7 +227,7 @@ describe('Flags', () => {
         const receipt = await tx.wait()
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.RaisingAccessControllerChanged,
+          flags.interface.events.RaisingAccessControllerUpdated,
         )
         assert.equal(
           '0x0000000000000000000000000000000000000000',
@@ -144,12 +239,12 @@ describe('Flags', () => {
         )
       })
 
-      it('owner succeeds', async () => {
+      it('succeeds for the owner', async () => {
         await flags.connect(personas.Nelly).raiseFlags([consumer.address])
         assert.equal(true, await flags.getFlag(consumer.address))
       })
 
-      it('non-owner reverts', async () => {
+      it('reverts for non-owners', async () => {
         await matchers.evmRevert(
           flags.connect(personas.Neil).raiseFlags([consumer.address]),
         )
@@ -179,7 +274,7 @@ describe('Flags', () => {
 
         const event = matchers.eventExists(
           receipt,
-          flags.interface.events.FlagOff,
+          flags.interface.events.FlagLowered,
         )
         assert.equal(consumer.address, h.eventArgs(event).subject)
       })
@@ -314,10 +409,26 @@ describe('Flags', () => {
 
       const event = matchers.eventExists(
         receipt,
-        flags.interface.events.RaisingAccessControllerChanged,
+        flags.interface.events.RaisingAccessControllerUpdated,
       )
       assert.equal(controller.address, h.eventArgs(event).previous)
       assert.equal(controller2.address, h.eventArgs(event).current)
+    })
+
+    it('does not emit a log when there is no change', async () => {
+      await flags
+        .connect(personas.Nelly)
+        .setRaisingAccessController(controller2.address)
+
+      const tx = await flags
+        .connect(personas.Nelly)
+        .setRaisingAccessController(controller2.address)
+      const receipt = await tx.wait()
+
+      matchers.eventDoesNotExist(
+        receipt,
+        flags.interface.events.RaisingAccessControllerUpdated,
+      )
     })
 
     describe('when called by a non-owner', () => {

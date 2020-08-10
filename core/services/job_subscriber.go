@@ -46,10 +46,24 @@ type jobSubscriber struct {
 type nextBlockWorker struct {
 	runManager RunManager
 	head       big.Int
+	headMtx    sync.RWMutex
+}
+
+func (b *nextBlockWorker) getHead() big.Int {
+	b.headMtx.RLock()
+	defer b.headMtx.RUnlock()
+	return b.head
+}
+
+func (b *nextBlockWorker) setHead(h big.Int) {
+	b.headMtx.Lock()
+	b.head = h
+	b.headMtx.Unlock()
 }
 
 func (b *nextBlockWorker) Work() {
-	err := b.runManager.ResumeAllPendingNextBlock(&b.head)
+	head := b.getHead()
+	err := b.runManager.ResumeAllPendingNextBlock(&head)
 	if err != nil {
 		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
 	}
@@ -153,6 +167,6 @@ func (js *jobSubscriber) Disconnect() {
 
 // OnNewLongestChain resumes all pending job runs based on the new head activity.
 func (js *jobSubscriber) OnNewLongestChain(head models.Head) {
-	js.nextBlockWorker.head = *head.ToInt()
+	js.nextBlockWorker.setHead(*head.ToInt())
 	js.jobResumer.WakeUp()
 }

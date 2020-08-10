@@ -1,7 +1,11 @@
 import React from 'react'
-import { Root, Routes } from 'react-static'
 import universal from 'react-universal-component'
-import { Route, Switch, Redirect } from 'react-router-dom'
+import {
+  Route,
+  Switch,
+  Redirect,
+  BrowserRouter as Router,
+} from 'react-router-dom'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import PrivateRoute from './PrivateRoute'
 import Private from './Private'
@@ -28,7 +32,7 @@ class Layout extends React.Component {
     const { redirectTo } = this.props
 
     return (
-      <Root>
+      <Router>
         <CssBaseline />
 
         <Switch>
@@ -36,9 +40,8 @@ class Layout extends React.Component {
           <PrivateRoute exact path="/signout" component={SignOut} />
           {redirectTo && <Redirect to={redirectTo} />}
           <Route component={Private} />
-          <Route render={() => <Routes />} />
         </Switch>
-      </Root>
+      </Router>
     )
   }
 }

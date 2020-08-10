@@ -61,6 +61,12 @@ export class ChainlinkNode {
   @Column()
   createdAt: Date
 
+  @Column({ nullable: true })
+  coreVersion: string
+
+  @Column({ nullable: true })
+  coreSHA: string
+
   @OneToMany(
     () => JobRun,
     jobRun => jobRun.chainlinkNode,

@@ -11,7 +11,7 @@ import (
 // Run with `go test -bench BenchmarkProofValidation`
 func BenchmarkProofValidation(b *testing.B) {
 	key := common.BigToHash(big.NewInt(int64(1)))
-	var proofs []*Proof
+	var proofs []Proof
 	for i := 0; i < b.N; i++ {
 		p, err := GenerateProof(key, common.BigToHash(big.NewInt(int64(i))))
 		require.NoError(b, err, "failed to generate proof number %d", i)

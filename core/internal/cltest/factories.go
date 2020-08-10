@@ -171,6 +171,19 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 	return j
 }
 
+// NewJobWithRandomnessLog create new Job with VRF initiator
+func NewJobWithRandomnessLog() models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorRandomnessLog,
+		InitiatorParams: models.InitiatorParams{
+			Address: NewAddress(),
+		},
+	}}
+	return j
+}
+
 // NewTx returns a Tx using a specified from address and sentAt
 func NewTx(from common.Address, sentAt uint64) *models.Tx {
 	tx := &models.Tx{
@@ -751,6 +764,6 @@ func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
 
 func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 	k := models.Key{Address: models.EIP55Address(NewAddress().Hex()), JSON: JSONFromString(t, `{"key": "factory"}`)}
-	require.NoError(t, store.UpsertKey(k))
+	require.NoError(t, store.CreateKeyIfNotExists(k))
 	return k
 }

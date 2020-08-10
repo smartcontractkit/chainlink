@@ -6,5 +6,5 @@ interface AggregatorValidatorInterface {
     int256 previousAnswer,
     uint256 currentRoundId,
     int256 currentAnswer
-  ) external virtual returns (bool);
+  ) external returns (bool);
 }

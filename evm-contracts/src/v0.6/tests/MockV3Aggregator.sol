@@ -1,7 +1,6 @@
 pragma solidity ^0.6.0;
 
-import "../interfaces/AggregatorInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/AggregatorV2V3Interface.sol";
 
 /**
  * @title MockV3Aggregator
@@ -11,7 +10,7 @@ import "../interfaces/AggregatorV3Interface.sol";
  * aggregator contract, but how the aggregator got
  * its answer is unimportant
  */
-contract MockV3Aggregator is AggregatorInterface, AggregatorV3Interface {
+contract MockV3Aggregator is AggregatorV2V3Interface {
   uint256 constant public override version = 0;
 
   uint8 public override decimals;

@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,6 +85,8 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 		headers := <-headerChannel
 		assert.Equal(t, []string{"accessKey"}, headers["X-Explore-Chainlink-Accesskey"])
 		assert.Equal(t, []string{"secret"}, headers["X-Explore-Chainlink-Secret"])
+		assert.Equal(t, []string{store.Version}, headers["X-Explore-Chainlink-Core-Version"])
+		assert.Equal(t, []string{store.Sha}, headers["X-Explore-Chainlink-Core-Sha"])
 	})
 }
 
@@ -147,7 +150,9 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 
 	wsserver.WriteCloseMessage()
 	wsserver.Close()
-	time.Sleep(100 * time.Millisecond)
+
+	time.Sleep(synchronization.CloseTimeout + (100 * time.Millisecond))
+
 	assert.Equal(t, synchronization.ConnectionStatusError, wsclient.Status())
 
 }

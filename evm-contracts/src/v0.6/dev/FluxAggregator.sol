@@ -1,12 +1,12 @@
-pragma solidity ^0.6.0;
+pragma solidity 0.6.6;
 
 import "../Median.sol";
 import "../Owned.sol";
 import "../SafeMath128.sol";
 import "../SafeMath32.sol";
 import "../SafeMath64.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import './AggregatorValidatorInterface.sol';
+import "../interfaces/AggregatorV2V3Interface.sol";
+import "./AggregatorValidatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../vendor/SafeMath.sol";
 
@@ -18,7 +18,7 @@ import "../vendor/SafeMath.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract FluxAggregator is AggregatorV3Interface, Owned {
+contract FluxAggregator is AggregatorV2V3Interface, Owned {
   using SafeMath for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
@@ -29,7 +29,6 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     uint64 startedAt;
     uint64 updatedAt;
     uint32 answeredInRound;
-    RoundDetails details;
   }
 
   struct RoundDetails {
@@ -99,6 +98,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   uint32 internal latestRoundId;
   mapping(address => OracleStatus) private oracles;
   mapping(uint32 => Round) internal rounds;
+  mapping(uint32 => RoundDetails) internal details;
   mapping(address => Requester) internal requesters;
   address[] private oracleAddresses;
   Funds private recordedFunds;
@@ -332,6 +332,98 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   }
 
   /**
+   * @notice get the most recently reported answer
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
+   */
+  function latestAnswer()
+    public
+    view
+    virtual
+    override
+    returns (int256)
+  {
+    return rounds[latestRoundId].answer;
+  }
+
+  /**
+   * @notice get the most recent updated at timestamp
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
+   */
+  function latestTimestamp()
+    public
+    view
+    virtual
+    override
+    returns (uint256)
+  {
+    return rounds[latestRoundId].updatedAt;
+  }
+
+  /**
+   * @notice get the ID of the last updated round
+   *
+   * @dev #[deprecated] Use latestRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended latestRoundData
+   * instead which includes better verification information.
+   */
+  function latestRound()
+    public
+    view
+    virtual
+    override
+    returns (uint256)
+  {
+    return latestRoundId;
+  }
+
+  /**
+   * @notice get past rounds answers
+   * @param _roundId the round number to retrieve the answer for
+   *
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
+   */
+  function getAnswer(uint256 _roundId)
+    public
+    view
+    virtual
+    override
+    returns (int256)
+  {
+    return rounds[uint32(_roundId)].answer;
+  }
+
+  /**
+   * @notice get timestamp when an answer was last updated
+   * @param _roundId the round number to retrieve the updated timestamp for
+   *
+   * @dev #[deprecated] Use getRoundData instead. This does not error if no
+   * answer has been reached, it will simply return 0. Either wait to point to
+   * an already answered Aggregator or use the recommended getRoundData
+   * instead which includes better verification information.
+   */
+  function getTimestamp(uint256 _roundId)
+    public
+    view
+    virtual
+    override
+    returns (uint256)
+  {
+    return rounds[uint32(_roundId)].updatedAt;
+  }
+
+  /**
    * @notice get data about a round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values.
@@ -344,7 +436,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
    * answer was last computed)
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed. answeredInRound may be smaller than roundId when the round
-   * timed out. answerInRound is equal to roundId when the round didn't time out
+   * timed out. answeredInRound is equal to roundId when the round didn't time out
    * and was completed regularly.
    * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
    * maxSubmissions) answer and updatedAt may change between queries.
@@ -379,8 +471,9 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
    * @notice get data about the latest round. Consumers are encouraged to check
    * that they're receiving fresh data by inspecting the updatedAt and
    * answeredInRound return values. Consumers are encouraged to
-   * use this more fully featured method over the "legacy" getAnswer/
-   * latestAnswer/getTimestamp/latestTimestamp functions.
+   * use this more fully featured method over the "legacy" latestAnswer
+   * functions. Consumers are encouraged to check that they're receiving fresh
+   * data by inspecting the updatedAt and answeredInRound return values.
    * @return roundId is the round ID for which data was retrieved
    * @return answer is the answer for the given round
    * @return startedAt is the timestamp when the round was started. This is 0
@@ -391,8 +484,8 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
    * was computed. answeredInRound may be smaller than roundId when the round
    * timed out. answerInRound is equal to roundId when the round didn't time out
    * and was completed regularly.
-   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet received
-   * maxSubmissions) answer and updatedAt may change between queries.
+   * @dev Note that for in-progress rounds (i.e. rounds that haven't yet
+   * received maxSubmissions) answer and updatedAt may change between queries.
    */
    function latestRoundData()
     public
@@ -575,15 +668,16 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
 
     if (_queriedRoundId > 0) {
       Round storage round = rounds[_queriedRoundId];
+      RoundDetails storage details = details[_queriedRoundId];
       return (
         eligibleForSpecificRound(_oracle, _queriedRoundId),
         _queriedRoundId,
         oracles[_oracle].latestSubmission,
         round.startedAt,
-        round.details.timeout,
+        details.timeout,
         recordedFunds.available,
         oracleCount(),
-        (round.startedAt > 0 ? round.details.paymentAmount : paymentAmount)
+        (round.startedAt > 0 ? details.paymentAmount : paymentAmount)
       );
     } else {
       return oracleRoundStateSuggestRound(_oracle);
@@ -618,10 +712,14 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     updateTimedOutRoundInfo(_roundId.sub(1));
 
     reportingRoundId = _roundId;
-    rounds[_roundId].details.maxSubmissions = maxSubmissionCount;
-    rounds[_roundId].details.minSubmissions = minSubmissionCount;
-    rounds[_roundId].details.paymentAmount = paymentAmount;
-    rounds[_roundId].details.timeout = timeout;
+    RoundDetails memory nextDetails = RoundDetails(
+      new int256[](0),
+      maxSubmissionCount,
+      minSubmissionCount,
+      timeout,
+      paymentAmount
+    );
+    details[_roundId] = nextDetails;
     rounds[_roundId].startedAt = uint64(block.timestamp);
 
     emit NewRound(_roundId, msg.sender, rounds[_roundId].startedAt);
@@ -661,7 +759,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     rounds[_roundId].answeredInRound = rounds[prevId].answeredInRound;
     rounds[_roundId].updatedAt = uint64(block.timestamp);
 
-    delete rounds[_roundId].details;
+    delete details[_roundId];
   }
 
   function eligibleForSpecificRound(address _oracle, uint32 _queriedRoundId)
@@ -707,7 +805,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
       _roundId = reportingRoundId;
       round = rounds[_roundId];
 
-      _paymentAmount = round.details.paymentAmount;
+      _paymentAmount = details[_roundId].paymentAmount;
       _eligibleToSubmit = acceptingSubmissions(_roundId);
     }
 
@@ -720,7 +818,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
       _roundId,
       oracle.latestSubmission,
       round.startedAt,
-      round.details.timeout,
+      details[_roundId].timeout,
       recordedFunds.available,
       oracleCount(),
       _paymentAmount
@@ -731,11 +829,11 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     internal
     returns (bool, int256)
   {
-    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.minSubmissions) {
+    if (details[_roundId].submissions.length < details[_roundId].minSubmissions) {
       return (false, 0);
     }
 
-    int256 newAnswer = Median.calculateInplace(rounds[_roundId].details.submissions);
+    int256 newAnswer = Median.calculateInplace(details[_roundId].submissions);
     rounds[_roundId].answer = newAnswer;
     rounds[_roundId].updatedAt = uint64(block.timestamp);
     rounds[_roundId].answeredInRound = _roundId;
@@ -760,18 +858,18 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     int256 prevRoundAnswer = rounds[prevRound].answer;
     // We do not want the validator to ever prevent reporting, so we limit its
     // gas usage and catch any errors that may arise.
-    try av.validate.gas(VALIDATOR_GAS_LIMIT)(
+    try av.validate{gas: VALIDATOR_GAS_LIMIT}(
       prevAnswerRoundId,
       prevRoundAnswer,
       _roundId,
       _newAnswer
-    ) returns (bool _) { } catch { }
+    ) {} catch {}
   }
 
   function payOracle(uint32 _roundId)
     private
   {
-    uint128 payment = rounds[_roundId].details.paymentAmount;
+    uint128 payment = details[_roundId].paymentAmount;
     Funds memory funds = recordedFunds;
     funds.available = funds.available.sub(payment);
     funds.allocated = funds.allocated.add(payment);
@@ -786,7 +884,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   {
     require(acceptingSubmissions(_roundId), "round not accepting submissions");
 
-    rounds[_roundId].details.submissions.push(_submission);
+    details[_roundId].submissions.push(_submission);
     oracles[msg.sender].lastReportedRound = _roundId;
     oracles[msg.sender].latestSubmission = _submission;
 
@@ -796,9 +894,9 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
   function deleteRoundDetails(uint32 _roundId)
     private
   {
-    if (rounds[_roundId].details.submissions.length < rounds[_roundId].details.maxSubmissions) return;
+    if (details[_roundId].submissions.length < details[_roundId].maxSubmissions) return;
 
-    delete rounds[_roundId].details;
+    delete details[_roundId];
   }
 
   function timedOut(uint32 _roundId)
@@ -807,7 +905,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     returns (bool)
   {
     uint64 startedAt = rounds[_roundId].startedAt;
-    uint32 roundTimeout = rounds[_roundId].details.timeout;
+    uint32 roundTimeout = details[_roundId].timeout;
     return startedAt > 0 && roundTimeout > 0 && startedAt.add(roundTimeout) < block.timestamp;
   }
 
@@ -916,7 +1014,7 @@ contract FluxAggregator is AggregatorV3Interface, Owned {
     view
     returns (bool)
   {
-    return rounds[_roundId].details.maxSubmissions != 0;
+    return details[_roundId].maxSubmissions != 0;
   }
 
   function delayed(address _oracle, uint32 _roundId)

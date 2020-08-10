@@ -278,15 +278,15 @@ func (p *Proof) VerifyVRFProof() (bool, error) {
 // As with signatures, using nonces which are in any way predictable to an
 // adversary will leak your secret key! Most people should use GenerateProof
 // instead.
-func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
+func generateProofWithNonce(secretKey, seed, nonce *big.Int) (Proof, error) {
 	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
-		return nil, fmt.Errorf("badly-formatted key or seed")
+		return Proof{}, fmt.Errorf("badly-formatted key or seed")
 	}
 	skAsScalar := secp256k1.IntToScalar(secretKey)
 	publicKey := secp256k1Curve.Point().Mul(skAsScalar, nil)
 	h, err := HashToCurve(publicKey, seed, func(*big.Int) {})
 	if err != nil {
-		return nil, errors.Wrap(err, "vrf.makeProof#HashToCurve")
+		return Proof{}, errors.Wrap(err, "vrf.makeProof#HashToCurve")
 	}
 	gamma := secp256k1Curve.Point().Mul(skAsScalar, h)
 	sm := secp256k1.IntToScalar(nonce)
@@ -297,7 +297,7 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	// (m - c*secretKey) % GroupOrder
 	s := mod(sub(nonce, mul(c, secretKey)), secp256k1.GroupOrder)
 	if e := checkCGammaNotEqualToSHash(c, gamma, s, h); e != nil {
-		return nil, e
+		return Proof{}, e
 	}
 	outputHash := utils.MustHash(string(append(vrfRandomOutputHashPrefix,
 		secp256k1.LongMarshal(gamma)...)))
@@ -313,7 +313,7 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 	if !valid || err != nil {
 		panic("constructed invalid proof")
 	}
-	return &rv, nil
+	return rv, nil
 }
 
 // GenerateProof returns gamma, plus proof that gamma was constructed from seed
@@ -322,11 +322,11 @@ func generateProofWithNonce(secretKey, seed, nonce *big.Int) (*Proof, error) {
 // secretKey and seed must be less than secp256k1 group order. (Without this
 // constraint on the seed, the samples and the possible public keys would
 // deviate very slightly from uniform distribution.)
-func GenerateProof(secretKey, seed common.Hash) (*Proof, error) {
+func GenerateProof(secretKey, seed common.Hash) (Proof, error) {
 	for {
 		nonce, err := rand.Int(rand.Reader, secp256k1.GroupOrder)
 		if err != nil {
-			return nil, err
+			return Proof{}, err
 		}
 		proof, err := generateProofWithNonce(secretKey.Big(), seed.Big(), nonce)
 		switch {
@@ -335,7 +335,7 @@ func GenerateProof(secretKey, seed common.Hash) (*Proof, error) {
 			// should try again with a different nonce.
 			continue
 		case err != nil: // Any other error indicates failure
-			return nil, err
+			return Proof{}, err
 		default:
 			return proof, err // err should be nil
 		}

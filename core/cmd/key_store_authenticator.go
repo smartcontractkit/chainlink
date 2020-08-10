@@ -94,7 +94,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 	if password == "" {
 		return fmt.Errorf("VRF password must be non-trivial")
 	}
-	keys, err := store.VRFKeyStore.Get(nil)
+	keys, err := store.VRFKeyStore.Get()
 	if err != nil {
 		return errors.Wrapf(err, "while checking for extant VRF keys")
 	}

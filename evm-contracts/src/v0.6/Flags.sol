@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity 0.6.6;
 
 
 import "./SimpleReadAccessController.sol";
@@ -20,13 +20,13 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
   mapping(address => bool) private flags;
 
-  event FlagOn(
+  event FlagRaised(
     address indexed subject
   );
-  event FlagOff(
+  event FlagLowered(
     address indexed subject
   );
-  event RaisingAccessControllerChanged(
+  event RaisingAccessControllerUpdated(
     address indexed previous,
     address indexed current
   );
@@ -79,6 +79,21 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   }
 
   /**
+   * @notice enable the warning flag for an address.
+   * Access is controlled by raisingAccessController, except for owner
+   * who always has access.
+   * @param subject The contract address whose flag is being raised
+   */
+  function raiseFlag(address subject)
+    external
+    override
+  {
+    require(allowedToRaiseFlags(), "Not allowed to raise flags");
+
+    tryToRaiseFlag(subject);
+  }
+
+  /**
    * @notice enable the warning flags for multiple addresses.
    * Access is controlled by raisingAccessController, except for owner
    * who always has access.
@@ -91,12 +106,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
     require(allowedToRaiseFlags(), "Not allowed to raise flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {
-      address subject = subjects[i];
-
-      if (!flags[subject]) {
-        flags[subject] = true;
-        emit FlagOn(subject);
-      }
+      tryToRaiseFlag(subjects[i]);
     }
   }
 
@@ -114,7 +124,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
       if (flags[subject]) {
         flags[subject] = false;
-        emit FlagOff(subject);
+        emit FlagLowered(subject);
       }
     }
   }
@@ -132,9 +142,11 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   {
     address previous = address(raisingAccessController);
 
-    raisingAccessController = AccessControllerInterface(racAddress);
+    if (previous != racAddress) {
+      raisingAccessController = AccessControllerInterface(racAddress);
 
-    emit RaisingAccessControllerChanged(previous, racAddress);
+      emit RaisingAccessControllerUpdated(previous, racAddress);
+    }
   }
 
 
@@ -147,6 +159,15 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   {
     return msg.sender == owner ||
       raisingAccessController.hasAccess(msg.sender, msg.data);
+  }
+
+  function tryToRaiseFlag(address subject)
+    private
+  {
+    if (!flags[subject]) {
+      flags[subject] = true;
+      emit FlagRaised(subject);
+    }
   }
 
 }
