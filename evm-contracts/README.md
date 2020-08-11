@@ -6,7 +6,7 @@
 </p>
 <br/>
 
-[![GitHub tag (latest SemVer)](https://img.shields.io/github/tag/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/releases)
+[![npm](https://img.shields.io/npm/v/@chainlink/contracts?style=flat-square)](https://www.npmjs.com/package/@chainlink/contracts)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
 [![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
 [![CircleCI build](https://img.shields.io/circleci/build/github/smartcontractkit/chainlink/master?style=flat-square&label=circleci)](https://circleci.com/gh/smartcontractkit/chainlink/tree/master)
