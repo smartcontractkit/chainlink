@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { connect } from 'react-redux'
 import { AppState } from 'state'
 import { networkGraphOperations } from 'state/ducks/networkGraph'
-import { etherscanAddress, humanizeUnixTimestamp, Networks } from 'utils'
+import { etherscanAddress, humanizeUnixTimestamp } from 'utils'
 
 interface OwnProps {
   config: FeedConfig
@@ -97,33 +97,31 @@ const NodeDetailsContent: React.FC<NodeDetailsContentProps> = ({
 
       <div>
         <h4>Find out more in:</h4>
-        {config.networkId === Networks.MAINNET && (
-          <>
-            <Button
-              style={{ marginRight: 10 }}
-              ghost
-              type="primary"
-              disabled={!jobId}
+        <>
+          <Button
+            style={{ marginRight: 10 }}
+            ghost
+            type="primary"
+            disabled={!jobId}
+          >
+            <a
+              target="_BLANK"
+              rel="noopener noreferrer"
+              href={`https://explorer.chain.link/job-runs?search=${jobId}`}
             >
-              <a
-                target="_BLANK"
-                rel="noopener noreferrer"
-                href={`https://explorer.chain.link/job-runs?search=${jobId}`}
-              >
-                Chainlink Explorer
-              </a>
-            </Button>
-            <Button style={{ marginRight: 10 }} ghost type="primary">
-              <a
-                target="_BLANK"
-                rel="noopener noreferrer"
-                href={`https://market.link/search/nodes?search=${data.address}`}
-              >
-                Market.link
-              </a>
-            </Button>{' '}
-          </>
-        )}
+              Chainlink Explorer
+            </a>
+          </Button>
+          <Button style={{ marginRight: 10 }} ghost type="primary">
+            <a
+              target="_BLANK"
+              rel="noopener noreferrer"
+              href={`https://market.link/search/nodes?search=${data.address}`}
+            >
+              Market.link
+            </a>
+          </Button>{' '}
+        </>
         <Button ghost type="primary">
           <a
             target="_BLANK"
@@ -186,17 +184,15 @@ const ContractDetailsContent: React.FC<ContractDetailsContentProps> = ({
 
       <div>
         <h4>Find out more in:</h4>
-        {config.networkId === Networks.MAINNET && (
-          <Button style={{ marginRight: 10 }} ghost type="primary">
-            <a
-              target="_BLANK"
-              rel="noopener noreferrer"
-              href={`https://explorer.chain.link/job-runs?search=${config.contractAddress}`}
-            >
-              Chainlink Explorer
-            </a>
-          </Button>
-        )}
+        <Button style={{ marginRight: 10 }} ghost type="primary">
+          <a
+            target="_BLANK"
+            rel="noopener noreferrer"
+            href={`https://explorer.chain.link/job-runs?search=${config.contractAddress}`}
+          >
+            Chainlink Explorer
+          </a>
+        </Button>
         <Button ghost type="primary">
           <a
             target="_BLANK"
