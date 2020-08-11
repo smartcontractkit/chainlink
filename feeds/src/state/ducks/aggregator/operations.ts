@@ -4,7 +4,6 @@ import _ from 'lodash'
 import moment from 'moment'
 import { ethers } from 'ethers'
 import { FeedConfig, OracleNode, Config } from '../../../config'
-import { Networks } from '../../../utils'
 import * as actions from './actions'
 import AggregatorAbi from '../../../contracts/AggregatorAbi.json'
 import AggregatorAbiV2 from '../../../contracts/AggregatorAbi.v2.json'
@@ -14,13 +13,8 @@ import AggregatorContractV2 from '../../../contracts/AggregatorContractV2'
 /**
  * feed
  */
-const NETWORK_PATHS: Record<string, Networks> = {
-  ropsten: Networks.ROPSTEN,
-  mainnet: Networks.MAINNET,
-  kovan: Networks.KOVAN,
-}
 
-export function fetchFeedByPair(pairPath: string, networkPath = 'mainnet') {
+export function fetchFeedByPair(pairPath: string) {
   return async (dispatch: Dispatch) => {
     dispatch(actions.fetchFeedByPairBegin())
 
@@ -28,10 +22,7 @@ export function fetchFeedByPair(pairPath: string, networkPath = 'mainnet') {
       .fetchWithTimeout(Config.feedsJson(), {})
       .then((r: Response) => r.json())
       .then((json: FeedConfig[]) => {
-        const networkId = NETWORK_PATHS[networkPath] ?? Networks.MAINNET
-        const feed = json.find(
-          f => f.path === pairPath && f.networkId === networkId,
-        )
+        const feed = json.find(f => f.path === pairPath)
 
         if (feed) {
           dispatch(actions.fetchFeedByPairSuccess(feed))

@@ -1,7 +1,6 @@
-import { Icon } from 'antd'
 import { FeedConfig } from 'config'
 import React from 'react'
-import { humanizeUnixTimestamp, networkName, Networks } from 'utils'
+import { humanizeUnixTimestamp } from 'utils'
 import TooltipQuestion from '../../shared/TooltipQuestion'
 import Heartbeat from './Heartbeat'
 import Legend from './Legend'
@@ -59,12 +58,6 @@ const Info: React.FC<Props> = ({
     <div className="network-graph-info__wrapper">
       <div className="network-graph-info__title">
         <h4 className="network-graph-info__title--address">
-          {config.networkId !== Networks.MAINNET && (
-            <div style={{ color: '#ff6300' }}>
-              <Icon type="warning" />{' '}
-              {networkName(config.networkId).toUpperCase()} NETWORK
-            </div>
-          )}
           {config.contractAddress}{' '}
           <TooltipQuestion title={'Ethereum contract address'} />
         </h4>

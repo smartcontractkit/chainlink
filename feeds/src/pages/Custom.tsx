@@ -57,13 +57,14 @@ const Page: React.FC<Props> = ({ fetchOracleNodes }) => {
 function parseConfig(config: Record<string, string>): FeedConfig {
   return {
     ...((config as unknown) as FeedConfig),
-    networkId: uIntFrom(config.networkId ?? 0),
+    networkId: uIntFrom(config.networkId ?? 1),
     contractVersion: uIntFrom(config.contractVersion ?? 2),
     decimalPlaces: uIntFrom(config.decimalPlaces ?? 4),
-    heartbeat: uIntFrom(config.heartbeat ?? 0) ?? false,
+    heartbeat: uIntFrom(config.heartbeat ?? 0),
     historyDays: uIntFrom(config.historyDays ?? 1),
     formatDecimalPlaces: uIntFrom(config.formatDecimalPlaces ?? 0),
     threshold: uIntFrom(config.threshold ?? 0) ?? null,
+    multiply: config.multiply ?? 100000000,
   }
 }
 
