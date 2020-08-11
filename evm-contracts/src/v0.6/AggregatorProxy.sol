@@ -1,7 +1,7 @@
 pragma solidity 0.6.6;
 
-import "../Owned.sol";
-import "../interfaces/AggregatorV2V3Interface.sol";
+import "./Owned.sol";
+import "./interfaces/AggregatorV2V3Interface.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
