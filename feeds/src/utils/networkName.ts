@@ -9,6 +9,6 @@ export function networkName(networkId: Networks) {
     case Networks.KOVAN:
       return 'kovan'
     default:
-      return 'unknown'
+      return 'mainnet'
   }
 }
