@@ -1,6 +1,7 @@
 package orm_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/big"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -1999,4 +2001,61 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
+}
+
+func TestRemoveOldLogConsumedContext(t *testing.T) {
+	// This test makes sure that RemoveOldLogConsumedContext only removes a `limit`-size
+	// slice records older than `olderThanInterval`.
+	// This test inserts 3 records: `recent` from this week, `older` from last week
+	// and `oldest` from a month ago. Only `oldest` should be removed!
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	job := cltest.NewJob()
+	assert.NoError(t, store.CreateJob(&job))
+
+	recentHash, recentLogIndex, recentJobID := cltest.NewHash(), uint(3), job.ID
+	olderHash, olderLogIndex, olderJobID := cltest.NewHash(), uint(2), job.ID
+	oldestHash, oldestLogIndex, oldestJobID := cltest.NewHash(), uint(1), job.ID
+
+	err := store.ORM.MarkLogConsumed(recentHash, recentLogIndex, recentJobID)
+	require.NoError(t, err)
+	err = store.ORM.MarkLogConsumed(olderHash, olderLogIndex, olderJobID)
+	require.NoError(t, err)
+	require.NoError(t, updateLogConsumedTimestamp(store, olderHash, olderLogIndex, olderJobID, -8 /*days*/))
+	err = store.ORM.MarkLogConsumed(oldestHash, oldestLogIndex, oldestJobID)
+	require.NoError(t, err)
+	require.NoError(t, updateLogConsumedTimestamp(store, oldestHash, oldestLogIndex, oldestJobID, -14 /*days*/))
+
+	count, err := store.ORM.RemoveOldLogConsumedContext(ctx, "7 days", 1)
+	require.NoError(t, err)
+	require.Equal(t, count, int64(1), "should only remove one record")
+
+	recentFound, err := store.ORM.HasConsumedLog(recentHash, recentLogIndex, recentJobID)
+	require.NoError(t, err)
+	require.True(t, recentFound, "most recent record should still be in the DB")
+
+	olderFound, err := store.ORM.HasConsumedLog(olderHash, olderLogIndex, olderJobID)
+	require.NoError(t, err)
+	require.True(t, olderFound, "older record should still be in the DB because limit is 1")
+
+	oldestFound, err := store.ORM.HasConsumedLog(oldestHash, oldestLogIndex, oldestJobID)
+	require.NoError(t, err)
+	require.False(t, oldestFound, "oldest record should have been removed")
+}
+
+// Helpers
+
+func updateLogConsumedTimestamp(store *strpkg.Store, blockHash common.Hash, logIndex uint, jobID *models.ID, days int) error {
+	var lc models.LogConsumption
+	err := store.DB.Where(models.LogConsumption{
+		BlockHash: blockHash,
+		LogIndex:  logIndex,
+		JobID:     jobID,
+	}).First(&lc).Error
+	if err != nil {
+		return err
+	}
+	return store.ORM.DB.Model(&lc).Update("created_at", lc.CreatedAt.AddDate(0, 0, days)).Error
 }

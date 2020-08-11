@@ -2,6 +2,7 @@ package orm
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"database/sql"
 	"encoding"
@@ -1366,6 +1367,25 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 		return false, err
 	}
 	return exists, nil
+}
+
+const removeOldConsumedLogsQuery = `
+DELETE FROM log_consumptions
+WHERE id IN (
+	SELECT id FROM log_consumptions
+	WHERE created_at < NOW() - INTERVAL '%s'
+	ORDER BY created_at ASC
+	LIMIT %d
+)
+`
+
+func (orm *ORM) RemoveOldLogConsumedContext(ctx context.Context, olderThanInterval string, limit uint) (int64, error) {
+	query := fmt.Sprintf(removeOldConsumedLogsQuery, olderThanInterval, limit)
+	res, err := orm.DB.DB().ExecContext(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // MarkLogConsumed creates a new LogConsumption record
