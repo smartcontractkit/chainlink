@@ -65,6 +65,7 @@ type ChainlinkApplication struct {
 	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster           eth.LogBroadcaster
+	logCleaner               eth.LogCleaner
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
@@ -92,6 +93,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
 	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	logCleaner := eth.NewLogCleaner(store.ORM, logger.GetLogger(), eth.DefaultLogCleanerConfig)
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
@@ -106,6 +108,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		GasUpdater:               gasUpdater,
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
+		logCleaner:               logCleaner,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -182,6 +185,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.HeadTracker.Start(),
 
 		app.Scheduler.Start(),
+		func() error { app.logCleaner.Start(); return nil }(),
 	)
 }
 
@@ -210,6 +214,7 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		merr = multierr.Append(merr, app.Store.Close())
+		app.logCleaner.Stop()
 	})
 	return merr
 }
