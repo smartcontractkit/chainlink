@@ -1,10 +1,10 @@
 <br/>
-<div style="background: url(https://assets-global.website-files.com/5e7dd1fb8fba988277039ac9/5ec695f7d0db4bb3598d218a_hero-63603c3d.jpg) border-box center no-repeat; background-size: 100%; width: 100%; height: 200px; display:flex; justify-content: center; align-items: center;" >
-    <a href="https://chain.link/" target="_blank" style="display:flex; justify-content: center; font-size: 1.1rem; line-height: 37px;">
-        <img src="https://assets-global.website-files.com/5e7dd1fb8fba988277039ac9/5e8ee1e83dac598203807d5f_Chainlink%20Logo.svg" width="119" alt="Chainlink logo">
-        <span style="color: white;">/Contracts</span>
-    </a>
-</div>
+<p align="center">
+<a href="https://chain.link/" target="_blank" color="#0d2990">
+  <img src="../styleguide/static/logo-blue-contracts.svg" width="225" alt="Chainlink logo">
+</a>
+</p>
+<br/>
 
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/tag/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/releases)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
@@ -14,9 +14,8 @@
 [![npm downloads](https://img.shields.io/npm/dt/@chainlink/contracts?style=flat-square)](https://npmjs.com/package/@chainlink/contracts)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
 
-# @chainlink/contracts
 
-Chainlink's solidity contracts and contract abstractions
+[Chainlink's](https://chain.link/) solidity contracts and abstractions.
 
 ## ⚠️ Migration Notice
 
