@@ -34,10 +34,10 @@ const Page: React.FC<Props> = ({
   errorFeed,
   config,
 }) => {
-  const { pair, network } = match.params
+  const { pair } = match.params
   useEffect(() => {
-    fetchFeedByPair(pair, network)
-  }, [fetchFeedByPair, pair, network])
+    fetchFeedByPair(pair)
+  }, [fetchFeedByPair, pair])
   useEffect(() => {
     fetchOracleNodes()
   }, [fetchOracleNodes])
