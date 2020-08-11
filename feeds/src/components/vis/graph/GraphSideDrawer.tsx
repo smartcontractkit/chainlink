@@ -97,31 +97,29 @@ const NodeDetailsContent: React.FC<NodeDetailsContentProps> = ({
 
       <div>
         <h4>Find out more in:</h4>
-        <>
-          <Button
-            style={{ marginRight: 10 }}
-            ghost
-            type="primary"
-            disabled={!jobId}
+        <Button
+          style={{ marginRight: 10 }}
+          ghost
+          type="primary"
+          disabled={!jobId}
+        >
+          <a
+            target="_BLANK"
+            rel="noopener noreferrer"
+            href={`https://explorer.chain.link/job-runs?search=${jobId}`}
           >
-            <a
-              target="_BLANK"
-              rel="noopener noreferrer"
-              href={`https://explorer.chain.link/job-runs?search=${jobId}`}
-            >
-              Chainlink Explorer
-            </a>
-          </Button>
-          <Button style={{ marginRight: 10 }} ghost type="primary">
-            <a
-              target="_BLANK"
-              rel="noopener noreferrer"
-              href={`https://market.link/search/nodes?search=${data.address}`}
-            >
-              Market.link
-            </a>
-          </Button>{' '}
-        </>
+            Chainlink Explorer
+          </a>
+        </Button>
+        <Button style={{ marginRight: 10 }} ghost type="primary">
+          <a
+            target="_BLANK"
+            rel="noopener noreferrer"
+            href={`https://market.link/search/nodes?search=${data.address}`}
+          >
+            Market.link
+          </a>
+        </Button>
         <Button ghost type="primary">
           <a
             target="_BLANK"
