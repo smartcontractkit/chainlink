@@ -6,7 +6,9 @@ export function networkName(networkId: Networks) {
       return 'mainnet'
     case Networks.ROPSTEN:
       return 'ropsten'
+    case Networks.KOVAN:
+      return 'kovan'
     default:
-      return 'mainnet'
+      return 'unknown'
   }
 }
