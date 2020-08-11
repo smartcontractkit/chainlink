@@ -1,4 +1,10 @@
-# Chainlink
+<br/>
+<div style="background: url(https://assets-global.website-files.com/5e7dd1fb8fba988277039ac9/5ec695f7d0db4bb3598d218a_hero-63603c3d.jpg) border-box center no-repeat; background-size: 100%; width: 100%; height: 200px; display:flex; justify-content: center; align-items: center;" >
+    <a href="https://chain.link/" target="_blank" style="display:flex; justify-content: center; font-size: 1.1rem; line-height: 37px;">
+        <img src="https://assets-global.website-files.com/5e7dd1fb8fba988277039ac9/5e8ee1e83dac598203807d5f_Chainlink%20Logo.svg" width="119" alt="Chainlink logo">
+    </a>
+</div>
+<br/>
 
 [![Join the chat at https://discordapp.com/invite/aSK4zew](https://img.shields.io/discord/592041321326182401.svg?logoColor=white)](https://discordapp.com/invite/aSK4zew)
 [![CircleCI](https://circleci.com/gh/smartcontractkit/chainlink.svg?style=shield)](https://circleci.com/gh/smartcontractkit/chainlink)
@@ -6,6 +12,8 @@
 [![GoDoc](https://godoc.org/github.com/smartcontractkit/chainlink?status.svg)](https://godoc.org/github.com/smartcontractkit/chainlink)
 [![Maintainability](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/maintainability)](https://codeclimate.com/github/smartcontractkit/chainlink/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/test_coverage)](https://codeclimate.com/github/smartcontractkit/chainlink/test_coverage)
+
+# Chainlink
 
 Chainlink is middleware to simplify communication with blockchains.
 Here you'll find the Chainlink Golang node, currently in alpha.
@@ -184,3 +192,8 @@ Chainlink's source code is [licensed under the MIT License](./LICENSE), and cont
 Please check out our [contributing guidelines](./docs/CONTRIBUTING.md) for more details.
 
 Thank you!
+
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)
+
