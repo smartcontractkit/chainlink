@@ -30,6 +30,7 @@ import digitix from './digitix.png'
 import ens from './ens.png'
 import gamerhash from './gamerhash.png'
 import sandbank from './sandbank.png'
+import plasm from './plasm.png'
 
 // Listing Thumbnails
 
@@ -63,6 +64,7 @@ import digitixTn from './digitix_tn.png'
 import ensTn from './ens_tn.png'
 import gamerhashTn from './gamerhash_tn.png'
 import sandbankTn from './sandbank_tn.png'
+import plasmTn from './plasm_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -251,5 +253,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://sandbank.io',
     imageLg: sandbank,
     imageTn: sandbankTn,
+  },
+  {
+    name: 'Plasm Network',
+    url: 'https://www.plasmnet.io/',
+    imageLg: plasm,
+    imageTn: plasmTn,
   },
 ]
