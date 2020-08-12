@@ -18,14 +18,6 @@
 [![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
 
-[![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/Chainlink?logo=reddit&style=flat-square)](https://www.reddit.com/r/Chainlink/)
-[![Telegram](https://img.shields.io/badge/Telegram-Follow-blue?style=flat-square&logo=telegram)](https://t.me/chainlinkofficial)
-[![Discord](https://img.shields.io/discord/592041321326182401?style=flat-square&logo=discord)](https://discordapp.com/invite/aSK4zew)
-[![Twitter Follow](https://img.shields.io/twitter/follow/chainlink?logo=twitter&style=flat-square)](https://twitter.com/chainlink)
-[![YouTube Channel](https://img.shields.io/badge/YouTube-Subscribe-red?style=flat-square&logo=youtube)](https://www.youtube.com/chainlinkofficial)
-[![WeChat](https://img.shields.io/badge/WeChat-Follow-green?style=flat-square&logo=wechat)](https://blog.chain.link/chainlink-chinese-communities/)
-[![Sina Weibol](https://img.shields.io/badge/Weibo-Follow-red?style=flat-square&logo=sina-weibo)](https://weibo.com/chainlinkofficial)
-
 [Chainlink](https://chain.link/) is middleware to simplify communication with blockchains.
 Here you'll find the Chainlink Golang node, currently in alpha.
 This initial implementation is intended for use and review by developers,
@@ -44,6 +36,22 @@ if you are interested in contributing please see our [contribution guidelines](.
 - easy to install node, which runs natively across operating systems, blazingly fast, and with a low memory footprint
 
 Examples of how to utilize and integrate Chainlinks can be found in the [Chainlink Truffle Box](https://github.com/smartcontractkit/box).
+
+## Community
+
+Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew) 
+is the primary communication channel used for day to day communication, 
+answering development questions, and aggregating Chainlink related content.
+Click the badges below and explore the different communities to find the one
+that best fits you.
+
+[![Discord](https://img.shields.io/discord/592041321326182401?style=flat-square&logo=discord)](https://discordapp.com/invite/aSK4zew)
+[![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/Chainlink?logo=reddit&style=flat-square)](https://www.reddit.com/r/Chainlink/)
+[![Telegram](https://img.shields.io/badge/Telegram-Follow-blue?style=flat-square&logo=telegram)](https://t.me/chainlinkofficial)
+[![Twitter Follow](https://img.shields.io/twitter/follow/chainlink?logo=twitter&style=flat-square)](https://twitter.com/chainlink)
+[![YouTube Channel](https://img.shields.io/badge/YouTube-Subscribe-red?style=flat-square&logo=youtube)](https://www.youtube.com/chainlinkofficial)
+[![WeChat](https://img.shields.io/badge/WeChat-Follow-green?style=flat-square&logo=wechat)](https://blog.chain.link/chainlink-chinese-communities/)
+[![Sina Weibol](https://img.shields.io/badge/Weibo-Follow-red?style=flat-square&logo=sina-weibo)](https://weibo.com/chainlinkofficial)
 
 ## Install
 
