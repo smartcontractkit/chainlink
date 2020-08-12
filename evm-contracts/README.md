@@ -1,18 +1,14 @@
 <br/>
 <p align="center">
 <a href="https://chain.link/" target="_blank" color="#0d2990">
-  <img src="../styleguide/static/logo-blue-contracts.svg" width="225" alt="Chainlink logo">
+  <img src="../styleguide/static/images/logo-contracts-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
 
 [![npm](https://img.shields.io/npm/v/@chainlink/contracts?style=flat-square)](https://www.npmjs.com/package/@chainlink/contracts)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
-[![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
-[![CircleCI build](https://img.shields.io/circleci/build/github/smartcontractkit/chainlink/master?style=flat-square&label=circleci)](https://circleci.com/gh/smartcontractkit/chainlink/tree/master)
-[![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
 [![npm downloads](https://img.shields.io/npm/dt/@chainlink/contracts?style=flat-square)](https://npmjs.com/package/@chainlink/contracts)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
 
 
 [Chainlink's](https://chain.link/) solidity contracts and abstractions.
