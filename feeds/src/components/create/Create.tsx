@@ -70,6 +70,12 @@ const Create: React.FC<CreateProps> = ({ form, history }) => {
           {getFieldDecorator('valuePrefix')(<Input placeholder="$" />)}
         </Form.Item>
 
+        <Form.Item label="Contract Version">
+          {getFieldDecorator('contractVersion')(
+            <InputNumber placeholder="1" style={{ width: '100%' }} />,
+          )}
+        </Form.Item>
+
         <Form.Item label="Heartbeat (seconds)">
           {getFieldDecorator('heartbeat')(
             <InputNumber placeholder="600" style={{ width: '100%' }} />,
@@ -84,6 +90,7 @@ const Create: React.FC<CreateProps> = ({ form, history }) => {
             <Select placeholder="Select a Network">
               <Option value={Networks.MAINNET}>Mainnet</Option>
               <Option value={Networks.ROPSTEN}>Ropsten</Option>
+              <Option value={Networks.KOVAN}>Kovan</Option>
             </Select>,
           )}
         </Form.Item>

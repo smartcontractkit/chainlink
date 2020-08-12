@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.12] - 2020-08-10
+
 ### Fixed
 
 Added a workaround for Infura users who are seeing "error getting balance: header not found".
