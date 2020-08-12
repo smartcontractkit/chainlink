@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -401,8 +402,12 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	// This grotesque construction is the only way to do dynamic return values using
 	// the mock package.  We need dynamic returns because we're simulating reorgs.
 	latestHeadByNumber := make(map[int64]*models.Head)
+	latestHeadByNumberMu := new(sync.Mutex)
+
 	fnCall := ethClient.On("HeaderByNumber", mock.Anything, mock.Anything)
 	fnCall.RunFn = func(args mock.Arguments) {
+		latestHeadByNumberMu.Lock()
+		defer latestHeadByNumberMu.Unlock()
 		num := args.Get(1).(*big.Int)
 		head, exists := latestHeadByNumber[num.Int64()]
 		if !exists {
@@ -412,7 +417,9 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 	for _, h := range blockHeaders {
+		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
+		latestHeadByNumberMu.Unlock()
 		headers <- h
 	}
 

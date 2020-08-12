@@ -141,7 +141,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     uint256 nonce = nonces[_keyHash][_sender];
     uint256 preSeed = makeVRFInputSeed(_keyHash, _consumerSeed, _sender, nonce);
     bytes32 requestId = makeRequestId(_keyHash, preSeed);
-    // Cryptographically guaranteed by seed including an increasing nonce
+    // Cryptographically guaranteed by preSeed including an increasing nonce
     assert(callbacks[requestId].callbackContract == address(0));
     callbacks[requestId].callbackContract = _sender;
     assert(_feePaid < 1e27); // Total LINK fits in uint96
@@ -180,7 +180,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
       callback.randomnessFee);
 
     // Forget request. Must precede callback (prevents reentrancy)
-    delete callbacks[requestId]; 
+    delete callbacks[requestId];
     callBackWithRandomness(requestId, randomness, callback.callbackContract);
 
     emit RandomnessRequestFulfilled(requestId, randomness);
@@ -209,7 +209,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     (bool success,) = consumerContract.call(resp);
     // Avoid unused-local-variable warning. (success is only present to prevent
     // a warning that the return value of consumerContract.call is unused.)
-    (success); 
+    (success);
   }
 
   function getRandomnessFromProof(bytes memory _proof)

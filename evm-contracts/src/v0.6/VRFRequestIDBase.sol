@@ -3,19 +3,14 @@ pragma solidity ^0.6.0;
 contract VRFRequestIDBase {
 
   /**
-   * @notice returns the seed which is actually input to the VRF
+   * @notice returns the seed which is actually input to the VRF coordinator
    *
-   * @dev To prevent repetition of VRF output due to repetition against the
-   * @dev user-supplied seed, that seed is combined in a hash with the a
-   * @dev user-specific nonce, and the address of the consuming contract.
-   *
-   * @dev Of course, crucial security guranatees would be broken by repetition
-   * @dev of the user-supplied seed, as all the other inputs can be anticipated
-   * @dev and the user-specified seed is public once the initial request is
-   * @dev made, so if the oracle has reason to believe that a user-specified seed
-   * @dev will be repeated, it may be able to anticipate its future outputs. So
-   * @dev it may make sense, for certain applications, for the VRF framework to
-   * @dev simply refuse to operate, if given a seed it's seen before.
+   * @dev To prevent repetition of VRF output due to repetition of the
+   * @dev user-supplied seed, that seed is combined in a hash with the
+   * @dev user-specific nonce, and the address of the consuming contract. The
+   * @dev risk of repetition is mostly mitigated by inclusion of a blockhash in
+   * @dev the final seed, but the nonce does protect against repetition in
+   * @dev requests which are included in a single block.
    *
    * @param _userSeed VRF seed input provided by user
    * @param _requester Address of the requesting contract
