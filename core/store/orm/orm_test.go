@@ -2043,6 +2043,12 @@ func TestRemoveOldLogConsumedContext(t *testing.T) {
 	oldestFound, err := store.ORM.HasConsumedLog(oldestHash, oldestLogIndex, oldestJobID)
 	require.NoError(t, err)
 	require.False(t, oldestFound, "oldest record should have been removed")
+
+	var logs []*models.LogConsumption
+	err = store.DB.Find(&logs).Error
+	require.NoError(t, err)
+	require.Len(t, logs, 2, "should only have two confirms left in the database")
+	require.ElementsMatch(t, []uint{logs[0].LogIndex, logs[1].LogIndex}, []uint{2, 3})
 }
 
 // Helpers

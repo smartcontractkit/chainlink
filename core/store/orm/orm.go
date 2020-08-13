@@ -1375,13 +1375,13 @@ WHERE id IN (
 	SELECT id FROM log_consumptions
 	WHERE created_at < NOW() - INTERVAL '%s'
 	ORDER BY created_at ASC
-	LIMIT %d
+	LIMIT $1
 )
 `
 
 func (orm *ORM) RemoveOldLogConsumedContext(ctx context.Context, olderThanInterval string, limit uint) (int64, error) {
-	query := fmt.Sprintf(removeOldConsumedLogsQuery, olderThanInterval, limit)
-	res, err := orm.DB.DB().ExecContext(ctx, query)
+	query := fmt.Sprintf(removeOldConsumedLogsQuery, pq.QuoteIdentifier(olderThanInterval))
+	res, err := orm.DB.DB().ExecContext(ctx, query, limit)
 	if err != nil {
 		return 0, err
 	}
