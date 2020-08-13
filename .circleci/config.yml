@@ -554,7 +554,7 @@ commands:
             rm awscliv2.zip
             aws --version
       - run:
-          name: Assume role for deploying to ECR
+          name: Docker login for ECR using temporary creds
           command: |
             # Get temporary credentials to access resoures available to specific role
             temporaryCredentials=$(
@@ -570,21 +570,7 @@ commands:
             aws configure set aws_access_key_id ${accessKeyID}
             aws configure set aws_secret_access_key ${secretAccessKey}
             aws configure set aws_session_token ${sessionToken}
-            # Override old keys with the temporary ones.
-            export AWS_ACCESS_KEY_ID=${accessKeyID}
-            export AWS_SECRET_ACCESS_KEY=${secretAccessKey}
-            export AWS_SESSION_TOKEN=${sessionToken}
             # Use temporary keys to get account ID
             accountID=$(aws sts get-caller-identity --output text --query 'Account')
-            # Store credentials in BASH_ENV, allows subsequent steps to use correct credentials
-            {
-              echo "export AWS_ACCESS_KEY_ID=${accessKeyID}";
-              echo "export AWS_SECRET_ACCESS_KEY=${secretAccessKey}";
-              echo "export AWS_SESSION_TOKEN=${sessionToken}";
-              echo "export AWS_ACCOUNT_ID=${accountID}";
-              echo "export AWS_ECR_ACCOUNT_URL=${accountID}.dkr.ecr.us-west-2.amazonaws.com/chainlink"
-            } >> "${BASH_ENV}"
-      - run:
-          name: Docker login to ECR
-          command: |
-            aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_ACCOUNT_URL}"
+            # docker cli login to ECR
+            aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${accountID}.dkr.ecr.us-west-2.amazonaws.com/chainlink"
