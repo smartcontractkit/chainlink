@@ -120,7 +120,7 @@ func TestRequestIDMatches(t *testing.T) {
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err, "failed to calculate VRF requestID on simulated ethereum blockchain")
 	goRequestLog := &models.RandomnessRequestLog{KeyHash: keyHash, Seed: seed}
-	assert.Equal(t, common.Hash(solidityRequestID), goRequestLog.RequestID(),
+	assert.Equal(t, common.Hash(solidityRequestID), goRequestLog.ComputedRequestID(),
 		"solidity VRF requestID differs from golang requestID!")
 }
 
@@ -259,7 +259,7 @@ func TestFulfillRandomness(t *testing.T) {
 		"corresponding update to the VRFConsumer", proof.Output, output)
 	requestID, err := coordinator.consumerContract.RequestId(nil)
 	require.NoError(t, err, "failed to get requestId from VRFConsumer")
-	assert.Equal(t, randomnessRequestLog.RequestID(), common.Hash(requestID),
+	assert.Equal(t, randomnessRequestLog.RequestID, common.Hash(requestID),
 		"VRFConsumer has different request ID than logged from randomness request!")
 	neilBalance, err := coordinator.rootContract.WithdrawableTokens(
 		nil, coordinator.neil.From)
