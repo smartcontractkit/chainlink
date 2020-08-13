@@ -360,6 +360,96 @@ jobs:
           name: Docker build
           command: |
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
+  build-publish-integration:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/docker/integration.Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/integration:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" integration
+  build-publish-cypress-job-server:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/cypress-job-server/Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/cypress-job-server:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" cypress-job-server
+  build-publish-echo-server:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/echo-server/Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/echo-server:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" echo-server
+  build-publish-external-adapter:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/external-adapter/Dockerfile -t smartcontract/external-adapter:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" external-adapter
+  build-publish-ingester:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f ingester/ingester.Dockerfile -t smartcontract/ingester:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" ingester
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.33
@@ -523,6 +613,41 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+      - build-publish-integration:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
+      - build-publish-cypress-job-server:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
+      - build-publish-echo-server:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
+      - build-publish-external-adapter:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
+      - build-publish-ingester:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
       - reportcoverage:
           requires:
             - core-go-test
