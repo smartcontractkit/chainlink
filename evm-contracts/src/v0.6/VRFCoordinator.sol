@@ -60,7 +60,8 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     uint256 seed,
     bytes32 indexed jobID,
     address sender,
-    uint256 fee);
+    uint256 fee,
+    bytes32 requestID);
 
   event NewServiceAgreement(bytes32 keyHash, uint256 fee);
 
@@ -149,7 +150,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     callbacks[requestId].seedAndBlockNum = keccak256(abi.encodePacked(
       preSeed, block.number));
     emit RandomnessRequest(_keyHash, preSeed, serviceAgreements[_keyHash].jobID,
-      _sender, _feePaid);
+      _sender, _feePaid, requestId);
     nonces[_keyHash][_sender] = nonces[_keyHash][_sender].add(1);
   }
 
