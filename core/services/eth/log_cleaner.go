@@ -33,6 +33,8 @@ type LogCleanerConfig struct {
 	// NumRecordsToRemove is the max number of records that can be removed by the cleaner in a single execution.
 	// If there are more logs than this setting specifies, they will removed in the next execution.
 	NumRecordsToRemove uint
+	// CleanupTimeout is the interval allowed for one execution of the cleanup query.
+	CleanupTimeout time.Duration
 }
 
 // DefaultLogCleanerConfig wisott
@@ -40,6 +42,7 @@ var DefaultLogCleanerConfig = &LogCleanerConfig{
 	DeleteRecordsOlderThan: "7 days",
 	TimeBetweenExecutions:  time.Hour,
 	NumRecordsToRemove:     1000,
+	CleanupTimeout:         10 * time.Second,
 }
 
 // Interface implementation
@@ -77,8 +80,12 @@ func (lbc *logBroadcasterCleaner) Stop() {
 
 func (lbc *logBroadcasterCleaner) Clean() {
 	lbc.logger.Infow("starting the cleanup for log_consumptions records")
-	numRecords, err := lbc.orm.RemoveOldLogConsumedContext(lbc.stopCtx, lbc.cfg.DeleteRecordsOlderThan, lbc.cfg.NumRecordsToRemove)
-	if err != nil {
+	timeoutCtx, cancel := context.WithTimeout(lbc.stopCtx, lbc.cfg.CleanupTimeout)
+	defer cancel() // we don't actually need to cancel the timeout, but go vet complains about it!
+	numRecords, err := lbc.orm.RemoveOldLogConsumedContext(timeoutCtx, lbc.cfg.DeleteRecordsOlderThan, lbc.cfg.NumRecordsToRemove)
+	if err == context.DeadlineExceeded {
+		lbc.logger.Warnw("cleanup execution timed out", "timout", lbc.cfg.CleanupTimeout)
+	} else if err != nil {
 		lbc.logger.Warnw("failed to remove a slice of old log_consumptions records", "error", err.Error())
 	} else {
 		lbc.logger.Infow("successfully removed old log_consumptions records", "num_records", strconv.FormatInt(numRecords, 10))
