@@ -109,7 +109,7 @@ func (lbc *logBroadcasterCleaner) runner() {
 }
 
 func (lbc *logBroadcasterCleaner) durationUntilNextRun() time.Duration {
-	return time.Hour
+	return lbc.cfg.TimeBetweenExecutions
 }
 
 type ormSubset interface {
