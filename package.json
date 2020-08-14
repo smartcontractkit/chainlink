@@ -57,6 +57,7 @@
     "**/keccak": "^3.0.0",
     "**/lodash": "^4.17.9",
     "**/prismjs": "^1.21.0",
+    "**/serialize-javascript": "^3.1.0",
     "**/sha3": "^2.0.7",
     "**/solc": "^0.6.4",
     "**/source-map-support": "0.5.16",
