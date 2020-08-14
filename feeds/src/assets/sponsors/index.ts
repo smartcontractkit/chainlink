@@ -31,6 +31,7 @@ import ens from './ens.png'
 import gamerhash from './gamerhash.png'
 import sandbank from './sandbank.png'
 import plasm from './plasm.png'
+import swipe from './swipe.png'
 
 // Listing Thumbnails
 
@@ -65,6 +66,7 @@ import ensTn from './ens_tn.png'
 import gamerhashTn from './gamerhash_tn.png'
 import sandbankTn from './sandbank_tn.png'
 import plasmTn from './plasm_tn.png'
+import swipeTn from './swipe_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -259,5 +261,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://www.plasmnet.io/',
     imageLg: plasm,
     imageTn: plasmTn,
+  },
+  {
+    name: 'Swipe',
+    url: 'https://swipe.io',
+    imageLg: swipe,
+    imageTn: swipeTn,
   },
 ]
