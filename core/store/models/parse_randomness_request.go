@@ -48,5 +48,5 @@ func (parseRandomnessRequest) parseRequestID(log Log) (common.Hash, error) {
 	if err != nil {
 		return common.Hash{}, errors.Wrapf(err, "while extracting randomness requestID from %#+v", log)
 	}
-	return parsedLog.RequestID(), nil
+	return parsedLog.RequestID, nil
 }

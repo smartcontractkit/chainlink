@@ -21,14 +21,22 @@ var (
 	seed      = big.NewInt(1)
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
 	fee       = assets.NewLink(100)
-	raw       = models.RawRandomnessRequestLog{keyHash, seed, jobID, sender,
-		(*big.Int)(fee), types.Log{
+	requestID = common.HexToHash("0xcafe")
+	raw       = models.RawRandomnessRequestLog{
+		KeyHash:   keyHash,
+		Seed:      seed,
+		JobID:     jobID,
+		Sender:    sender,
+		Fee:       (*big.Int)(fee),
+		RequestID: requestID,
+		Raw: types.Log{
 			// A raw, on-the-wire RandomnessRequestLog is the concat of fields as uint256's
-			Data: append(append(append(
+			Data: append(append(append(append(
 				keyHash.Bytes(),
 				common.BigToHash(seed).Bytes()...),
 				sender.Hash().Bytes()...),
 				fee.ToHash().Bytes()...),
+				requestID.Bytes()...),
 			Topics: []common.Hash{{}, jobID},
 		},
 	}
