@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -65,6 +67,7 @@ type ChainlinkApplication struct {
 	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster           eth.LogBroadcaster
+	JobSpawner               job.Spawner
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
@@ -98,6 +101,9 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	balanceMonitor := services.NewBalanceMonitor(store)
 
+	jobSpawner := job.NewSpawner(store.ORM)
+	offchainreporting.RegisterJobTypes(jobSpawner)
+
 	store.NotifyNewEthTx = ethBroadcaster
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
@@ -107,6 +113,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		GasUpdater:               gasUpdater,
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
+		JobSpawner:               jobSpawner,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -173,6 +180,7 @@ func (app *ChainlinkApplication) Start() error {
 	return multierr.Combine(
 		app.Store.Start(),
 		app.StatsPusher.Start(),
+		app.JobSpawner.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
 		startIf(ethEnabled, app.LogBroadcaster.Start),
@@ -221,6 +229,7 @@ func (app *ChainlinkApplication) Stop() error {
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
+		app.JobSpawner.Stop()
 		merr = multierr.Append(merr, app.Store.Close())
 	})
 	return merr
@@ -249,8 +258,11 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 		return err
 	}
 
-	app.Scheduler.AddJob(job)
+	// Once Flux Monitor and the "direct request" subsystems have integrated
+	// the JobSpawner, this will be the only call we need to make here.
+	app.JobSpawner.AddJob(job)
 
+	app.Scheduler.AddJob(job)
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
 	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
 	return nil
@@ -258,6 +270,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
+	app.JobSpawner.RemoveJob(ID)
 	_ = app.JobSubscriber.RemoveJob(ID)
 	app.FluxMonitor.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
@@ -270,6 +283,8 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	if err != nil {
 		return err
 	}
+
+	app.JobSpawner.AddJob(job)
 
 	app.Scheduler.AddJob(sa.JobSpec)
 
