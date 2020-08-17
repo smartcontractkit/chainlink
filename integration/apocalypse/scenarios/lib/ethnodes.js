@@ -39,7 +39,10 @@ async function gethDAGGenerationFinished(gethProviders) {
         let block
         while (!block) {
             block = await provider.getBlock(2)
-            await sleep(5000)
+            if (!block) {
+              console.debug("no block found so waiting for 5s")
+              await sleep(5000)
+            }
         }
     }
 }
