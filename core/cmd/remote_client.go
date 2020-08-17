@@ -370,7 +370,7 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 
 // SendEther transfers ETH from the node's account to a specified address.
 func (cli *Client) SendEther(c *clipkg.Context) (err error) {
-	if c.NArg() != 3 {
+	if c.NArg() < 3 {
 		return cli.errorOut(errors.New("sendether expects three arguments: amount, fromAddress and toAddress"))
 	}
 
