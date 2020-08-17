@@ -11,8 +11,6 @@
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
 [![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
 [![CircleCI build](https://img.shields.io/circleci/build/github/smartcontractkit/chainlink/master?style=flat-square&label=circleci&logo=circleci)](https://circleci.com/gh/smartcontractkit/chainlink/tree/master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/smartcontractkit/chainlink)](https://goreportcard.com/report/github.com/smartcontractkit/chainlink)
-[![GoDoc](https://godoc.org/github.com/smartcontractkit/chainlink?status.svg)](https://godoc.org/github.com/smartcontractkit/chainlink)
 [![Maintainability](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/maintainability)](https://codeclimate.com/github/smartcontractkit/chainlink/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/test_coverage)](https://codeclimate.com/github/smartcontractkit/chainlink/test_coverage)
 [![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
@@ -39,19 +37,11 @@ Examples of how to utilize and integrate Chainlinks can be found in the [Chainli
 
 ## Community
 
-Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew) 
-is the primary communication channel used for day to day communication, 
-answering development questions, and aggregating Chainlink related content.
-Click the badges below and explore the different communities to find the one
-that best fits you.
-
-[![Discord](https://img.shields.io/discord/592041321326182401?style=flat-square&logo=discord)](https://discordapp.com/invite/aSK4zew)
-[![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/Chainlink?logo=reddit&style=flat-square)](https://www.reddit.com/r/Chainlink/)
-[![Telegram](https://img.shields.io/badge/Telegram-Follow-blue?style=flat-square&logo=telegram)](https://t.me/chainlinkofficial)
-[![Twitter Follow](https://img.shields.io/twitter/follow/chainlink?logo=twitter&style=flat-square)](https://twitter.com/chainlink)
-[![YouTube Channel](https://img.shields.io/badge/YouTube-Subscribe-red?style=flat-square&logo=youtube)](https://www.youtube.com/chainlinkofficial)
-[![WeChat](https://img.shields.io/badge/WeChat-Follow-green?style=flat-square&logo=wechat)](https://blog.chain.link/chainlink-chinese-communities/)
-[![Sina Weibol](https://img.shields.io/badge/Weibo-Follow-red?style=flat-square&logo=sina-weibo)](https://weibo.com/chainlinkofficial)
+Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew)
+is the primary communication channel used for day to day communication,
+answering development questions, and aggregating Chainlink related content. Take
+a look at the [community docs](../docs/COMMUNITY.md) for more information 
+regarding Chainlink social accounts, news, and networking.
 
 ## Install
 
