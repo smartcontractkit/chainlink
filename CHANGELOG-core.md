@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Chainlink header images to the following `README.md` files: root, core, 
+  evm-contracts, and evm-test-helpers.
+
 ## [0.8.12] - 2020-08-10
 
 ### Fixed
