@@ -2619,17 +2619,17 @@
   dependencies:
     type-detect "4.0.8"
 
-"@storybook/addon-actions@^5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/addon-actions/-/addon-actions-5.3.18.tgz#e3e3b1475cebc9bdd2d563822fba9ac662b2601a"
-  integrity sha512-jdBVCcfyWin274Lkwg5cL+1fJ651NCuIWxuJVsmHQtIl2xTjf2MyoMoKQZNdt4xtE+W9w+rS4bYt04elrizThg==
+"@storybook/addon-actions@^5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/addon-actions/-/addon-actions-5.3.19.tgz#50548fa6e84bc79ad95233ce23ade4878fc7cfac"
+  integrity sha512-gXF29FFUgYlUoFf1DcVCmH1chg2ElaHWMmCi5h7aZe+g6fXBQw0UtEdJnYLMOqZCIiWoZyuf1ETD0RbNHPhRIw==
   dependencies:
-    "@storybook/addons" "5.3.18"
-    "@storybook/api" "5.3.18"
-    "@storybook/client-api" "5.3.18"
-    "@storybook/components" "5.3.18"
-    "@storybook/core-events" "5.3.18"
-    "@storybook/theming" "5.3.18"
+    "@storybook/addons" "5.3.19"
+    "@storybook/api" "5.3.19"
+    "@storybook/client-api" "5.3.19"
+    "@storybook/components" "5.3.19"
+    "@storybook/core-events" "5.3.19"
+    "@storybook/theming" "5.3.19"
     core-js "^3.0.1"
     fast-deep-equal "^2.0.1"
     global "^4.3.2"
@@ -2660,7 +2660,7 @@
     react-lifecycles-compat "^3.0.4"
     util-deprecate "^1.0.2"
 
-"@storybook/addon-links@*", "@storybook/addon-links@^5.2.5":
+"@storybook/addon-links@*":
   version "5.3.9"
   resolved "https://registry.yarnpkg.com/@storybook/addon-links/-/addon-links-5.3.9.tgz#adee13173105cb9f2d6c682bcbc6c8b471a4ee47"
   integrity sha512-QvAvZNIn3EqWc2YF9WS5MGf6MoisfQKLFC09iudSySLBN+L5JHCx5zCzMydPgN8nliE6sJMAr7VrOjCWdQuEJg==
@@ -2676,31 +2676,21 @@
     qs "^6.6.0"
     ts-dedent "^1.1.0"
 
-"@storybook/addons@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/addons/-/addons-5.3.14.tgz#ff96c2c46a617f777c3660395017d2aef5319f19"
-  integrity sha512-zoN1MYlArdThp93i+Ogil/pihyx8n7nkrdSO0j9HUh6jUsGeFFEluPQZdRFte9NIoY6ZWSWwuEMDgrv2Pw9r2Q==
+"@storybook/addon-links@^5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/addon-links/-/addon-links-5.3.19.tgz#3c23e886d44b56978ae254fed3bf8be54c877178"
+  integrity sha512-gn9u8lebREfRsyzxoDPG0O+kOf5aJ0BhzcCJGZZdqha0F6OWHhh8vJYZZvjJ/Qwze+Qt2zjrgWm+Q6+JLD8ugQ==
   dependencies:
-    "@storybook/api" "5.3.14"
-    "@storybook/channels" "5.3.14"
-    "@storybook/client-logger" "5.3.14"
-    "@storybook/core-events" "5.3.14"
+    "@storybook/addons" "5.3.19"
+    "@storybook/client-logger" "5.3.19"
+    "@storybook/core-events" "5.3.19"
+    "@storybook/csf" "0.0.1"
+    "@storybook/router" "5.3.19"
     core-js "^3.0.1"
     global "^4.3.2"
-    util-deprecate "^1.0.2"
-
-"@storybook/addons@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/addons/-/addons-5.3.18.tgz#5cbba6407ef7a802041c5ee831473bc3bed61f64"
-  integrity sha512-ZQjDgTUDFRLvAiBg2d8FgPgghfQ+9uFyXQbtiGlTBLinrPCeQd7J86qiUES0fcGoohCCw0wWKtvB0WF2z1XNDg==
-  dependencies:
-    "@storybook/api" "5.3.18"
-    "@storybook/channels" "5.3.18"
-    "@storybook/client-logger" "5.3.18"
-    "@storybook/core-events" "5.3.18"
-    core-js "^3.0.1"
-    global "^4.3.2"
-    util-deprecate "^1.0.2"
+    prop-types "^15.7.2"
+    qs "^6.6.0"
+    ts-dedent "^1.1.0"
 
 "@storybook/addons@5.3.19", "@storybook/addons@^5.3.19":
   version "5.3.19"
@@ -2726,58 +2716,6 @@
     "@storybook/core-events" "5.3.9"
     core-js "^3.0.1"
     global "^4.3.2"
-    util-deprecate "^1.0.2"
-
-"@storybook/api@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/api/-/api-5.3.14.tgz#8c2bb226a4a5de7974ee2ccce36986b72f462f1b"
-  integrity sha512-ANWRMTLEoAfu0IsXqbxmbTpxS8xTByZgLj20tH96bxgH1rJo9KAZnJ8A9kGYr+zklU8QnYvVIgmV3HESXII9zg==
-  dependencies:
-    "@reach/router" "^1.2.1"
-    "@storybook/channels" "5.3.14"
-    "@storybook/client-logger" "5.3.14"
-    "@storybook/core-events" "5.3.14"
-    "@storybook/csf" "0.0.1"
-    "@storybook/router" "5.3.14"
-    "@storybook/theming" "5.3.14"
-    "@types/reach__router" "^1.2.3"
-    core-js "^3.0.1"
-    fast-deep-equal "^2.0.1"
-    global "^4.3.2"
-    lodash "^4.17.15"
-    memoizerific "^1.11.3"
-    prop-types "^15.6.2"
-    react "^16.8.3"
-    semver "^6.0.0"
-    shallow-equal "^1.1.0"
-    store2 "^2.7.1"
-    telejson "^3.2.0"
-    util-deprecate "^1.0.2"
-
-"@storybook/api@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/api/-/api-5.3.18.tgz#95582ab90d947065e0e34ed603650a3630dcbd16"
-  integrity sha512-QXaccNCARHzPWOuxYndiebGWBZmwiUvRgB9ji0XTJBS3y8K0ZPb5QyuqiKPaEWUj8dBA8rzdDtkW3Yt95Namaw==
-  dependencies:
-    "@reach/router" "^1.2.1"
-    "@storybook/channels" "5.3.18"
-    "@storybook/client-logger" "5.3.18"
-    "@storybook/core-events" "5.3.18"
-    "@storybook/csf" "0.0.1"
-    "@storybook/router" "5.3.18"
-    "@storybook/theming" "5.3.18"
-    "@types/reach__router" "^1.2.3"
-    core-js "^3.0.1"
-    fast-deep-equal "^2.0.1"
-    global "^4.3.2"
-    lodash "^4.17.15"
-    memoizerific "^1.11.3"
-    prop-types "^15.6.2"
-    react "^16.8.3"
-    semver "^6.0.0"
-    shallow-equal "^1.1.0"
-    store2 "^2.7.1"
-    telejson "^3.2.0"
     util-deprecate "^1.0.2"
 
 "@storybook/api@5.3.19":
@@ -2832,41 +2770,16 @@
     telejson "^3.2.0"
     util-deprecate "^1.0.2"
 
-"@storybook/channel-postmessage@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/channel-postmessage/-/channel-postmessage-5.3.14.tgz#768c87411d98caf09fdd92539b9edaaed26d5965"
-  integrity sha512-XKHxMSwW3movfTDOashuYlVCX3Hp7+X+amXc/xhDDzbiYjy3/CVm3LlkkM6v451IVEdK6pue4ewqZQWJAYAAEQ==
+"@storybook/channel-postmessage@5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/channel-postmessage/-/channel-postmessage-5.3.19.tgz#ef9fe974c2a529d89ce342ff7acf5cc22805bae9"
+  integrity sha512-Iq0f4NPHR0UVVFCWt0cI7Myadk4/SATXYJPT6sv95KhnLjKEeYw571WBlThfp8a9FM80887xG+eIRe93c8dleA==
   dependencies:
-    "@storybook/channels" "5.3.14"
-    "@storybook/client-logger" "5.3.14"
+    "@storybook/channels" "5.3.19"
+    "@storybook/client-logger" "5.3.19"
     core-js "^3.0.1"
     global "^4.3.2"
     telejson "^3.2.0"
-
-"@storybook/channel-postmessage@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/channel-postmessage/-/channel-postmessage-5.3.18.tgz#93d46740b5cc9b36ddd073f0715b54c4959953bf"
-  integrity sha512-awxBW/aVfNtY9QvYZgsPaMXgUpC2+W3vEyQcl/w4ce0YVH+7yWx3wt3Ku49lQwxZwDrxP3QoC0U+mkPc9hBJwA==
-  dependencies:
-    "@storybook/channels" "5.3.18"
-    "@storybook/client-logger" "5.3.18"
-    core-js "^3.0.1"
-    global "^4.3.2"
-    telejson "^3.2.0"
-
-"@storybook/channels@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/channels/-/channels-5.3.14.tgz#9969e27761a80afb495bc1475f0173f9b6ef5a76"
-  integrity sha512-k9QBf9Kwe+iGmdEK/kW5xprqem2SPfBVwET6LWvJkWOl9UQ9VoMuCHgV55p0tzjcugaqWWKoF9+FRMWxWRfsQg==
-  dependencies:
-    core-js "^3.0.1"
-
-"@storybook/channels@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/channels/-/channels-5.3.18.tgz#490c9eaa8292b0571c0f665052b12addf7c35f21"
-  integrity sha512-scP/6td/BJSEOgfN+qaYGDf3E793xye7tIw6W+sYqwg+xdMFO39wVXgVZNpQL6sLEwpJZTaPywCjC6p6ksErqQ==
-  dependencies:
-    core-js "^3.0.1"
 
 "@storybook/channels@5.3.19":
   version "5.3.19"
@@ -2882,16 +2795,16 @@
   dependencies:
     core-js "^3.0.1"
 
-"@storybook/client-api@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/client-api/-/client-api-5.3.14.tgz#5f4b199d2f2b193f9f5a856c5eb8be43a9113d12"
-  integrity sha512-1qx1NIwto5F9N24Fb6VzKyDzeaZHtWTZ7afPrg56e1tUu7jbog7rELdRezk8+YAujveyMDJu4MxnOSP01sv7YQ==
+"@storybook/client-api@5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/client-api/-/client-api-5.3.19.tgz#7a5630bb8fffb92742b1773881e9004ee7fdf8e0"
+  integrity sha512-Dh8ZLrLH91j9Fa28Gmp0KFUvvgK348aNMrDNAUdj4m4witz/BWQ2pxz6qq9/xFVErk/GanVC05kazGElqgYCRQ==
   dependencies:
-    "@storybook/addons" "5.3.14"
-    "@storybook/channel-postmessage" "5.3.14"
-    "@storybook/channels" "5.3.14"
-    "@storybook/client-logger" "5.3.14"
-    "@storybook/core-events" "5.3.14"
+    "@storybook/addons" "5.3.19"
+    "@storybook/channel-postmessage" "5.3.19"
+    "@storybook/channels" "5.3.19"
+    "@storybook/client-logger" "5.3.19"
+    "@storybook/core-events" "5.3.19"
     "@storybook/csf" "0.0.1"
     "@types/webpack-env" "^1.15.0"
     core-js "^3.0.1"
@@ -2904,43 +2817,6 @@
     stable "^0.1.8"
     ts-dedent "^1.1.0"
     util-deprecate "^1.0.2"
-
-"@storybook/client-api@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/client-api/-/client-api-5.3.18.tgz#e71041796f95888de0e4524734418e6b120b060a"
-  integrity sha512-QiXTDUpjdyW19BlocLw07DrkOnEzVaWGJcRze2nSs29IKKuq1Ncv2LOAZt6ySSq0PmIKsjBou3bmS1/aXmDMdw==
-  dependencies:
-    "@storybook/addons" "5.3.18"
-    "@storybook/channel-postmessage" "5.3.18"
-    "@storybook/channels" "5.3.18"
-    "@storybook/client-logger" "5.3.18"
-    "@storybook/core-events" "5.3.18"
-    "@storybook/csf" "0.0.1"
-    "@types/webpack-env" "^1.15.0"
-    core-js "^3.0.1"
-    eventemitter3 "^4.0.0"
-    global "^4.3.2"
-    is-plain-object "^3.0.0"
-    lodash "^4.17.15"
-    memoizerific "^1.11.3"
-    qs "^6.6.0"
-    stable "^0.1.8"
-    ts-dedent "^1.1.0"
-    util-deprecate "^1.0.2"
-
-"@storybook/client-logger@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/client-logger/-/client-logger-5.3.14.tgz#85068f1b665a52163191eb5976f1581bce6df0e4"
-  integrity sha512-YCHEsOvo6zPb4udlyAwqr5W0Kv9mAEQmcX73w9IDvAxbjR00T7empW7qmbjvviftKB/5MEgDdiYbj64ccs3aqg==
-  dependencies:
-    core-js "^3.0.1"
-
-"@storybook/client-logger@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/client-logger/-/client-logger-5.3.18.tgz#27c9d09d788965db0164be6e168bc3f03adbf88f"
-  integrity sha512-RZjxw4uqZX3Yk27IirbB/pQG+wRsQSSRlKqYa8KQ5bSanm4IrcV9VA1OQbuySW9njE+CexAnakQJ/fENdmurNg==
-  dependencies:
-    core-js "^3.0.1"
 
 "@storybook/client-logger@5.3.19":
   version "5.3.19"
@@ -2955,60 +2831,6 @@
   integrity sha512-EbA9id/Fk2BZkIWGSICYh+Iu4j7JFRZce4Lp69/MPmHpQk8YKnjL6NdxGsHj/83OFQ9CCbtqNOBzBdtiCy/23w==
   dependencies:
     core-js "^3.0.1"
-
-"@storybook/components@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/components/-/components-5.3.14.tgz#0f2f90113674e14ee74d5d16d6b3b1220cb0fa16"
-  integrity sha512-AsjkIFBrrqcBDLxGdmUHiauZo5gOL65eXx8WA7/yJDF8s45VVZX5Z0buOnjFyEhGVus02gwTov8da2irjL862A==
-  dependencies:
-    "@storybook/client-logger" "5.3.14"
-    "@storybook/theming" "5.3.14"
-    "@types/react-syntax-highlighter" "11.0.2"
-    "@types/react-textarea-autosize" "^4.3.3"
-    core-js "^3.0.1"
-    global "^4.3.2"
-    lodash "^4.17.15"
-    markdown-to-jsx "^6.9.1"
-    memoizerific "^1.11.3"
-    polished "^3.3.1"
-    popper.js "^1.14.7"
-    prop-types "^15.7.2"
-    react "^16.8.3"
-    react-dom "^16.8.3"
-    react-focus-lock "^2.1.0"
-    react-helmet-async "^1.0.2"
-    react-popper-tooltip "^2.8.3"
-    react-syntax-highlighter "^11.0.2"
-    react-textarea-autosize "^7.1.0"
-    simplebar-react "^1.0.0-alpha.6"
-    ts-dedent "^1.1.0"
-
-"@storybook/components@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/components/-/components-5.3.18.tgz#528f6ab1660981e948993a04b407a6fad7751589"
-  integrity sha512-LIN4aVCCDY7klOwtuqQhfYz4tHaMADhXEzZpij+3r8N68Inck6IJ1oo9A9umXQPsTioQi8e6FLobH1im90j/2A==
-  dependencies:
-    "@storybook/client-logger" "5.3.18"
-    "@storybook/theming" "5.3.18"
-    "@types/react-syntax-highlighter" "11.0.4"
-    "@types/react-textarea-autosize" "^4.3.3"
-    core-js "^3.0.1"
-    global "^4.3.2"
-    lodash "^4.17.15"
-    markdown-to-jsx "^6.9.1"
-    memoizerific "^1.11.3"
-    polished "^3.3.1"
-    popper.js "^1.14.7"
-    prop-types "^15.7.2"
-    react "^16.8.3"
-    react-dom "^16.8.3"
-    react-focus-lock "^2.1.0"
-    react-helmet-async "^1.0.2"
-    react-popper-tooltip "^2.8.3"
-    react-syntax-highlighter "^11.0.2"
-    react-textarea-autosize "^7.1.0"
-    simplebar-react "^1.0.0-alpha.6"
-    ts-dedent "^1.1.0"
 
 "@storybook/components@5.3.19":
   version "5.3.19"
@@ -3037,20 +2859,6 @@
     simplebar-react "^1.0.0-alpha.6"
     ts-dedent "^1.1.0"
 
-"@storybook/core-events@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/core-events/-/core-events-5.3.14.tgz#d476eea7032670db1a84bef7e5baadb04c2de529"
-  integrity sha512-VCPLKqRugsOSx/smMJiJOvRgAzTrMpsbRuFw48kBGkQMP9TEV82Qe/341dv+f4GllPyBZyANG0p0m5+w7ZCURQ==
-  dependencies:
-    core-js "^3.0.1"
-
-"@storybook/core-events@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/core-events/-/core-events-5.3.18.tgz#e5d335f8a2c7dd46502b8f505006f1e111b46d49"
-  integrity sha512-uQ6NYJ5WODXK8DJ7m8y3yUAtWB3n+6XtYztjY+tdkCsLYvTYDXNS+epV+f5Hu9+gB+/Dm+b5Su4jDD+LZB2QWA==
-  dependencies:
-    core-js "^3.0.1"
-
 "@storybook/core-events@5.3.19":
   version "5.3.19"
   resolved "https://registry.npmjs.org/@storybook/core-events/-/core-events-5.3.19.tgz#18020cd52e0d8ef0973a8e9622a10d5f99796f79"
@@ -3065,26 +2873,26 @@
   dependencies:
     core-js "^3.0.1"
 
-"@storybook/core@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/core/-/core-5.3.14.tgz#510f204219695045f249733bf94018e52c7b1448"
-  integrity sha512-Y57cchCRw1vvZe8OhMmgAkaHciGLm2eztdfzZMUmeHH8csBt/0RO5gYzOhWDGgdC2D9HSlaysZEDJ6sH3PChlw==
+"@storybook/core@5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/core/-/core-5.3.19.tgz#1e61f35c5148343a0c580f5d5efb77f3b4243a30"
+  integrity sha512-4EYzglqb1iD6x9gxtAYpRGwGP6qJGiU2UW4GiYrErEmeu6y6tkyaqW5AwGlIo9+6jAfwD0HjaK8afvjKTtmmMQ==
   dependencies:
     "@babel/plugin-proposal-class-properties" "^7.7.0"
     "@babel/plugin-proposal-object-rest-spread" "^7.6.2"
     "@babel/plugin-syntax-dynamic-import" "^7.2.0"
     "@babel/plugin-transform-react-constant-elements" "^7.2.0"
     "@babel/preset-env" "^7.4.5"
-    "@storybook/addons" "5.3.14"
-    "@storybook/channel-postmessage" "5.3.14"
-    "@storybook/client-api" "5.3.14"
-    "@storybook/client-logger" "5.3.14"
-    "@storybook/core-events" "5.3.14"
+    "@storybook/addons" "5.3.19"
+    "@storybook/channel-postmessage" "5.3.19"
+    "@storybook/client-api" "5.3.19"
+    "@storybook/client-logger" "5.3.19"
+    "@storybook/core-events" "5.3.19"
     "@storybook/csf" "0.0.1"
-    "@storybook/node-logger" "5.3.14"
-    "@storybook/router" "5.3.14"
-    "@storybook/theming" "5.3.14"
-    "@storybook/ui" "5.3.14"
+    "@storybook/node-logger" "5.3.19"
+    "@storybook/router" "5.3.19"
+    "@storybook/theming" "5.3.19"
+    "@storybook/ui" "5.3.19"
     airbnb-js-shims "^2.2.1"
     ansi-to-html "^0.6.11"
     autoprefixer "^9.7.2"
@@ -3151,10 +2959,10 @@
   dependencies:
     lodash "^4.17.15"
 
-"@storybook/node-logger@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/node-logger/-/node-logger-5.3.14.tgz#5e4e02585b37754bbebb8810ffb17c8ce706a1f8"
-  integrity sha512-/phRS49/hMZ5SU4EKUxX2kFepm9iw1cJBzggOz0GA1Yj4r9g1TA1H+OD7QvZvVTC3AESf/ZUJyaqnXEh/l+hpg==
+"@storybook/node-logger@5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/node-logger/-/node-logger-5.3.19.tgz#c414e4d3781aeb06298715220012f552a36dff29"
+  integrity sha512-hKshig/u5Nj9fWy0OsyU04yqCxr0A9pydOHIassr4fpLAaePIN2YvqCqE2V+TxQHjZUnowSSIhbXrGt0DI5q2A==
   dependencies:
     "@types/npmlog" "^4.1.2"
     chalk "^3.0.0"
@@ -3163,17 +2971,17 @@
     pretty-hrtime "^1.0.3"
     regenerator-runtime "^0.13.3"
 
-"@storybook/react@^5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/react/-/react-5.3.14.tgz#6715d9ee64e1c7b5c1e45cdbbf6df809bad60b8c"
-  integrity sha512-8n0oCkaxFMrimngxnISEQFkHGSF5z65Lh1XPypjIndIJ0b/IVWRJcUEh3M3xOaydFatEG+lfQbF/5OznyYEefA==
+"@storybook/react@^5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/react/-/react-5.3.19.tgz#ad7e7a5538399e2794cdb5a1b844a2b77c10bd09"
+  integrity sha512-OBRUqol3YLQi/qE55x2pWkv4YpaAmmfj6/Km+7agx+og+oNQl0nnlXy7r27X/4j3ERczzURa5pJHtSjwiNaJNw==
   dependencies:
     "@babel/plugin-transform-react-constant-elements" "^7.6.3"
     "@babel/preset-flow" "^7.0.0"
     "@babel/preset-react" "^7.0.0"
-    "@storybook/addons" "5.3.14"
-    "@storybook/core" "5.3.14"
-    "@storybook/node-logger" "5.3.14"
+    "@storybook/addons" "5.3.19"
+    "@storybook/core" "5.3.19"
+    "@storybook/node-logger" "5.3.19"
     "@svgr/webpack" "^4.0.3"
     "@types/webpack-env" "^1.15.0"
     babel-plugin-add-react-displayname "^0.0.5"
@@ -3189,36 +2997,6 @@
     semver "^6.0.0"
     ts-dedent "^1.1.0"
     webpack "^4.33.0"
-
-"@storybook/router@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/router/-/router-5.3.14.tgz#6535267624da5f54971c37e497df1c161f65be8f"
-  integrity sha512-O0KwQFncdBeq+O2Aq8UAFBVWjWmP5rtqoacUOFSGkXgObOnyniEraLiPH7rPtq2dAlSpgYI9+srQAZfo52Hz2A==
-  dependencies:
-    "@reach/router" "^1.2.1"
-    "@storybook/csf" "0.0.1"
-    "@types/reach__router" "^1.2.3"
-    core-js "^3.0.1"
-    global "^4.3.2"
-    lodash "^4.17.15"
-    memoizerific "^1.11.3"
-    qs "^6.6.0"
-    util-deprecate "^1.0.2"
-
-"@storybook/router@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/router/-/router-5.3.18.tgz#8ab22f1f2f7f957e78baf992030707a62289076e"
-  integrity sha512-6B2U2C75KTSVaCuYYgcubeJGcCSnwsXuEf50hEd5mGqWgHZfojCtGvB7Ko4X+0h8rEC+eNA4p7YBOhlUv9WNrQ==
-  dependencies:
-    "@reach/router" "^1.2.1"
-    "@storybook/csf" "0.0.1"
-    "@types/reach__router" "^1.2.3"
-    core-js "^3.0.1"
-    global "^4.3.2"
-    lodash "^4.17.15"
-    memoizerific "^1.11.3"
-    qs "^6.6.0"
-    util-deprecate "^1.0.2"
 
 "@storybook/router@5.3.19":
   version "5.3.19"
@@ -3249,42 +3027,6 @@
     memoizerific "^1.11.3"
     qs "^6.6.0"
     util-deprecate "^1.0.2"
-
-"@storybook/theming@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/theming/-/theming-5.3.14.tgz#4923739ad0d7d673b7844f27da8a3c6cf118790f"
-  integrity sha512-raqXC3yJycEt1CrCAfnBYUA6pyJI80E9M26EeQl3UfytJOL6euprOi+D17QvxqBn7jmmf9ZDw5XRkvJhQ17Y7Q==
-  dependencies:
-    "@emotion/core" "^10.0.20"
-    "@emotion/styled" "^10.0.17"
-    "@storybook/client-logger" "5.3.14"
-    core-js "^3.0.1"
-    deep-object-diff "^1.1.0"
-    emotion-theming "^10.0.19"
-    global "^4.3.2"
-    memoizerific "^1.11.3"
-    polished "^3.3.1"
-    prop-types "^15.7.2"
-    resolve-from "^5.0.0"
-    ts-dedent "^1.1.0"
-
-"@storybook/theming@5.3.18":
-  version "5.3.18"
-  resolved "https://registry.npmjs.org/@storybook/theming/-/theming-5.3.18.tgz#35e78de79d9cf8f1248af0dd1c7fa60555761312"
-  integrity sha512-lfFTeLoYwLMKg96N3gn0umghMdAHgJBGuk2OM8Ll84yWtdl9RGnzfiI1Fl7Cr5k95dCF7drLJlJCao1VxUkFSA==
-  dependencies:
-    "@emotion/core" "^10.0.20"
-    "@emotion/styled" "^10.0.17"
-    "@storybook/client-logger" "5.3.18"
-    core-js "^3.0.1"
-    deep-object-diff "^1.1.0"
-    emotion-theming "^10.0.19"
-    global "^4.3.2"
-    memoizerific "^1.11.3"
-    polished "^3.3.1"
-    prop-types "^15.7.2"
-    resolve-from "^5.0.0"
-    ts-dedent "^1.1.0"
 
 "@storybook/theming@5.3.19":
   version "5.3.19"
@@ -3322,20 +3064,20 @@
     resolve-from "^5.0.0"
     ts-dedent "^1.1.0"
 
-"@storybook/ui@5.3.14":
-  version "5.3.14"
-  resolved "https://registry.yarnpkg.com/@storybook/ui/-/ui-5.3.14.tgz#f3c49241d615bb20cb6facef84b4c432a85d814b"
-  integrity sha512-4zQOxpcvbKqRevmFw3Er6AWr2MeEMQfnuYh4Vm5G5YpiTyM6PU0VTVRzKnkEbNBcgjClD7nwXSbkUJjW6MJ8SA==
+"@storybook/ui@5.3.19":
+  version "5.3.19"
+  resolved "https://registry.npmjs.org/@storybook/ui/-/ui-5.3.19.tgz#ac03b67320044a3892ee784111d4436b61874332"
+  integrity sha512-r0VxdWab49nm5tzwvveVDnsHIZHMR76veYOu/NHKDUZ5hnQl1LMG1YyMCFFa7KiwD/OrZxRWr6/Ma7ep9kR4Gw==
   dependencies:
     "@emotion/core" "^10.0.20"
-    "@storybook/addons" "5.3.14"
-    "@storybook/api" "5.3.14"
-    "@storybook/channels" "5.3.14"
-    "@storybook/client-logger" "5.3.14"
-    "@storybook/components" "5.3.14"
-    "@storybook/core-events" "5.3.14"
-    "@storybook/router" "5.3.14"
-    "@storybook/theming" "5.3.14"
+    "@storybook/addons" "5.3.19"
+    "@storybook/api" "5.3.19"
+    "@storybook/channels" "5.3.19"
+    "@storybook/client-logger" "5.3.19"
+    "@storybook/components" "5.3.19"
+    "@storybook/core-events" "5.3.19"
+    "@storybook/router" "5.3.19"
+    "@storybook/theming" "5.3.19"
     copy-to-clipboard "^3.0.8"
     core-js "^3.0.1"
     core-js-pure "^3.0.1"
@@ -3344,7 +3086,7 @@
     fuse.js "^3.4.6"
     global "^4.3.2"
     lodash "^4.17.15"
-    markdown-to-jsx "^6.9.3"
+    markdown-to-jsx "^6.11.4"
     memoizerific "^1.11.3"
     polished "^3.3.1"
     prop-types "^15.7.2"
@@ -3514,13 +3256,21 @@
   dependencies:
     source-map-support "^0.5.19"
 
-"@truffle/codec@^0.5.4":
-  version "0.5.4"
-  resolved "https://registry.npmjs.org/@truffle/codec/-/codec-0.5.4.tgz#df748bd4abd38fb25952d4c561a0fb37b6598c43"
-  integrity sha512-G438MHpODGORbqdf5qufLXFc+8tfNpET2QMdOwu0ahwEfbR2J3KGhoOHdua+NZRVO4uNP1x2XK6inuqIwFNI1A==
+"@truffle/blockchain-utils@^0.0.22":
+  version "0.0.22"
+  resolved "https://registry.npmjs.org/@truffle/blockchain-utils/-/blockchain-utils-0.0.22.tgz#c66a906cb60dbf72eaf85b0ad088ba9f45eff793"
+  integrity sha512-YyIQPMjFn/Ch8gARX+m8NJAlQecPkFRjHv0oHpZi1LlNGZ52vEt21z0ZelAu5ti6nQJ2Us6mE4BNyywfrqgiAA==
+  dependencies:
+    source-map-support "^0.5.19"
+
+"@truffle/codec@^0.5.10":
+  version "0.5.10"
+  resolved "https://registry.npmjs.org/@truffle/codec/-/codec-0.5.10.tgz#ee97afe87e126a8601fc4cfb800e38f2ca9b3aae"
+  integrity sha512-htN6ae8Z7ueOdDL1ppICJ2cv5hhDuA7+xLwvONb/61HdB7oviOCxfvA9E1vVslrquWmDlPDM6v4mPr2u4M3xpg==
   dependencies:
     big.js "^5.2.2"
     bn.js "^4.11.8"
+    borc "^2.1.2"
     debug "^4.1.0"
     lodash.clonedeep "^4.5.0"
     lodash.escaperegexp "^4.1.2"
@@ -3557,6 +3307,15 @@
     crypto-js "^3.1.9-1"
     debug "^4.1.0"
 
+"@truffle/contract-schema@^3.2.3":
+  version "3.2.3"
+  resolved "https://registry.npmjs.org/@truffle/contract-schema/-/contract-schema-3.2.3.tgz#f7d940c0187918083fe5a605ee81ac17efe287a8"
+  integrity sha512-dnR5wtqCBKVfJDX5g+sCUiDF1WDucpxoWsr6ZOwq9JqgyS4Gz7iJi1wMegMmcDctOykoKjsju6iAOi+HObrkfg==
+  dependencies:
+    ajv "^6.10.0"
+    crypto-js "^3.1.9-1"
+    debug "^4.1.0"
+
 "@truffle/contract@^4.1.8":
   version "4.2.9"
   resolved "https://registry.npmjs.org/@truffle/contract/-/contract-4.2.9.tgz#22073aead1532ae92d160d5efe32e150a9203eee"
@@ -3578,15 +3337,15 @@
     web3-utils "1.2.1"
 
 "@truffle/contract@^4.2.6":
-  version "4.2.6"
-  resolved "https://registry.npmjs.org/@truffle/contract/-/contract-4.2.6.tgz#548fb67340dfc686e14d7dc94f0750dc18f93454"
-  integrity sha512-x+XV7/JBAFiLCdw7YR90qRTu5Y9AprPQES9hNwr2n9RO/o7on+ZUeD4CG3BsKDchO2aRnUfkc4R5byJiJ/sXBw==
+  version "4.2.15"
+  resolved "https://registry.npmjs.org/@truffle/contract/-/contract-4.2.15.tgz#09338d5b30bff1f8fb72e8c8cdac3281378c70f9"
+  integrity sha512-/08WO0Gfpr3sYAtOj1HX9hTfcUvjsEt9ofBZHBSlAiX3u3K6zntaCWCKf3QQXpaxshy9mdVmx30OlyVIFNdUOA==
   dependencies:
-    "@truffle/blockchain-utils" "^0.0.20"
-    "@truffle/contract-schema" "^3.2.0"
-    "@truffle/debug-utils" "^4.1.4"
+    "@truffle/blockchain-utils" "^0.0.22"
+    "@truffle/contract-schema" "^3.2.3"
+    "@truffle/debug-utils" "^4.2.2"
     "@truffle/error" "^0.0.8"
-    "@truffle/interface-adapter" "^0.4.8"
+    "@truffle/interface-adapter" "^0.4.13"
     bignumber.js "^7.2.1"
     ethereum-ens "^0.8.0"
     ethers "^4.0.0-beta.1"
@@ -3596,19 +3355,6 @@
     web3-core-promievent "1.2.1"
     web3-eth-abi "1.2.1"
     web3-utils "1.2.1"
-
-"@truffle/debug-utils@^4.1.4":
-  version "4.1.4"
-  resolved "https://registry.npmjs.org/@truffle/debug-utils/-/debug-utils-4.1.4.tgz#c89fa30ac554bc04a8d6aa22064a05d72b2b2fe2"
-  integrity sha512-IU9tjr1rem2AwogDPPnH3wACMs3wjVyimqmPzSKX6zCe/XFAh4nUu/qwaigZjr8fP6bNzlwaH9CMLWMWljB7WA==
-  dependencies:
-    "@truffle/codec" "^0.5.4"
-    "@trufflesuite/chromafi" "^2.1.2"
-    chalk "^2.4.2"
-    debug "^4.1.0"
-    highlight.js "^9.15.8"
-    highlightjs-solidity "^1.0.15"
-    node-dir "0.1.17"
 
 "@truffle/debug-utils@^4.1.6":
   version "4.1.6"
@@ -3623,15 +3369,28 @@
     highlightjs-solidity "^1.0.16"
     node-dir "0.1.17"
 
+"@truffle/debug-utils@^4.2.2":
+  version "4.2.2"
+  resolved "https://registry.npmjs.org/@truffle/debug-utils/-/debug-utils-4.2.2.tgz#9b72a4fbeaf6b63b10eea489bf08126da953ed5b"
+  integrity sha512-AOGOGrlV5kYz0woqK3Ei9jfbHoXvlS03ZTyuKJqUPYEaayjdI3ewPZC4oEQl+kxw9C0JMpjp5RtZAgZTnbDuiw==
+  dependencies:
+    "@truffle/codec" "^0.5.10"
+    "@trufflesuite/chromafi" "^2.1.2"
+    chalk "^2.4.2"
+    debug "^4.1.0"
+    highlight.js "^9.15.8"
+    highlightjs-solidity "^1.0.18"
+    node-dir "0.1.17"
+
 "@truffle/error@^0.0.8":
   version "0.0.8"
   resolved "https://registry.npmjs.org/@truffle/error/-/error-0.0.8.tgz#dc94ca36393403449d4b7461bf9452c241e53ec1"
   integrity sha512-x55rtRuNfRO1azmZ30iR0pf0OJ6flQqbax1hJz+Avk1K5fdmOv5cr22s9qFnwTWnS6Bw0jvJEoR0ITsM7cPKtQ==
 
-"@truffle/interface-adapter@^0.4.8":
-  version "0.4.8"
-  resolved "https://registry.npmjs.org/@truffle/interface-adapter/-/interface-adapter-0.4.8.tgz#fa7cb1d35f45093f996b692529d4d78ab5a12b05"
-  integrity sha512-pTD4Vr5vfYcMTCUPefznA2mM060vKScn24o1QhfUYyBbas/fc0dDstrnCv886l0dhqnV/q2ebSzaxVWUyPSfgg==
+"@truffle/interface-adapter@^0.4.13":
+  version "0.4.13"
+  resolved "https://registry.npmjs.org/@truffle/interface-adapter/-/interface-adapter-0.4.13.tgz#19623f222d472ed5906a1c0c58cdf5b5a9d4bee8"
+  integrity sha512-N4TDtTvDan8Zo1csU2Otk2t0O7nOi7UP4dCfpDB5WVnD/7B07iT2getU3iRmLm4ZgwUY8VxHgDptdP55ACWCRg==
   dependencies:
     bn.js "^4.11.8"
     ethers "^4.0.32"
@@ -4202,13 +3961,6 @@
   version "0.23.4"
   resolved "https://registry.npmjs.org/@types/react-slick/-/react-slick-0.23.4.tgz#c97e2a9e7e3d1933c68593b8e82752fab1e8ce53"
   integrity sha512-vXoIy4GUfB7/YgqubR4H7RALo+pRdMYCeLgWwV3MPwl5pggTlEkFBTF19R7u+LJc85uMqC7RfsbkqPLMQ4ab+A==
-  dependencies:
-    "@types/react" "*"
-
-"@types/react-syntax-highlighter@11.0.2":
-  version "11.0.2"
-  resolved "https://registry.yarnpkg.com/@types/react-syntax-highlighter/-/react-syntax-highlighter-11.0.2.tgz#a2e3ff657d7c47813f80ca930f3d959c31ec51e3"
-  integrity sha512-iMNcixH8330f2dq0RY+VOXCP8JFehgmOhLOtnO85Ty+qu0fHXJNEqWx5VuFv8v0aEq0U/N9d/k1yvA+c6PEmPw==
   dependencies:
     "@types/react" "*"
 
@@ -4998,24 +4750,19 @@ acorn@^4.0.4:
   integrity sha1-EFSVrlNh1pe9GVyCUZLhrX8lN4c=
 
 acorn@^5.5.3:
-  version "5.7.3"
-  resolved "https://registry.npmjs.org/acorn/-/acorn-5.7.3.tgz#67aa231bf8812974b85235a96771eb6bd07ea279"
-  integrity sha512-T/zvzYRfbVojPWahDsE5evJdHb3oJoQfFbsrKM7w5Zcs++Tr257tia3BmMP8XYVjp1S9RZXQMh7gao96BlqZOw==
+  version "5.7.4"
+  resolved "https://registry.npmjs.org/acorn/-/acorn-5.7.4.tgz#3e8d8a9947d0599a1796d10225d7432f4a4acf5e"
+  integrity sha512-1D++VG7BhrtvQpNbBzovKNc1FLGGEE/oGe7b9xJm/RFHMBeUaUGpluV9RLjZa47YFdPcDAenEYuq9pQPcMdLJg==
 
-acorn@^6.0.1, acorn@^6.0.4, acorn@^6.2.1:
-  version "6.4.0"
-  resolved "https://registry.npmjs.org/acorn/-/acorn-6.4.0.tgz#b659d2ffbafa24baf5db1cdbb2c94a983ecd2784"
-  integrity sha512-gac8OEcQ2Li1dxIEWGZzsp2BitJxwkwcOm0zHAJLcPJaVvm58FRnk6RkuLRpU1EujipU2ZFODv2P9DLMfnV8mw==
-
-acorn@^6.4.1:
+acorn@^6.0.1, acorn@^6.0.4, acorn@^6.2.1, acorn@^6.4.1:
   version "6.4.1"
   resolved "https://registry.npmjs.org/acorn/-/acorn-6.4.1.tgz#531e58ba3f51b9dacb9a6646ca4debf5b14ca474"
   integrity sha512-ZVA9k326Nwrj3Cj9jlh3wGFutC2ZornPNARZwsNYqQYgN0EsV2d53w5RN/co65Ohn4sUAUtb1rSUAOD6XN9idA==
 
 acorn@^7.1.0:
-  version "7.1.1"
-  resolved "https://registry.npmjs.org/acorn/-/acorn-7.1.1.tgz#e35668de0b402f359de515c5482a1ab9f89a69bf"
-  integrity sha512-add7dgA5ppRPxCFJoAGfMDi7PIBXq1RtGo7BhbLaxwrXPOmw8gq48Y9ozT01hUKy9byMjlR20EJhu5zlkErEkg==
+  version "7.4.0"
+  resolved "https://registry.npmjs.org/acorn/-/acorn-7.4.0.tgz#e1ad486e6c54501634c6c397c5c121daa383607c"
+  integrity sha512-+G7P8jJmCHr+S+cLfQxygbWhXy+8YTVGzAkpEbcLo2mLoL7tij/VG41QSHACSf5QgYRhMZYHuNc6drJaO0Da+w==
 
 add-dom-event-listener@^1.1.0:
   version "1.1.0"
@@ -7030,6 +6777,19 @@ boolbase@^1.0.0, boolbase@~1.0.0:
   resolved "https://registry.npmjs.org/boolbase/-/boolbase-1.0.0.tgz#68dff5fbe60c51eb37725ea9e3ed310dcc1e776e"
   integrity sha1-aN/1++YMUes3cl6p4+0xDcwed24=
 
+borc@^2.1.2:
+  version "2.1.2"
+  resolved "https://registry.npmjs.org/borc/-/borc-2.1.2.tgz#6ce75e7da5ce711b963755117dd1b187f6f8cf19"
+  integrity sha512-Sy9eoUi4OiKzq7VovMn246iTo17kzuyHJKomCfpWMlI6RpfN1gk95w7d7gH264nApVLg0HZfcpz62/g4VH1Y4w==
+  dependencies:
+    bignumber.js "^9.0.0"
+    buffer "^5.5.0"
+    commander "^2.15.0"
+    ieee754 "^1.1.13"
+    iso-url "~0.4.7"
+    json-text-sequence "~0.1.0"
+    readable-stream "^3.6.0"
+
 bowser@2.9.0:
   version "2.9.0"
   resolved "https://registry.npmjs.org/bowser/-/bowser-2.9.0.tgz#3bed854233b419b9a7422d9ee3e85504373821c9"
@@ -7332,7 +7092,7 @@ buffer-xor@^1.0.3:
   resolved "https://registry.npmjs.org/buffer-xor/-/buffer-xor-1.0.3.tgz#26e61ed1422fb70dd42e6e36729ed51d855fe8d9"
   integrity sha1-JuYe0UIvtw3ULm42cp7VHYVf6Nk=
 
-buffer@5.6.0:
+buffer@5.6.0, buffer@^5.5.0:
   version "5.6.0"
   resolved "https://registry.npmjs.org/buffer/-/buffer-5.6.0.tgz#a31749dc7d81d84db08abf937b6b8c4033f62786"
   integrity sha512-/gDYp/UtU0eA1ys8bOs9J6a+E/KWIY+DZ+Q2WESNUA0jFRsJOc0SNUO6xJ5SGA1xueg3NL65W6s+NY5l9cunuw==
@@ -8276,7 +8036,7 @@ command-line-args@^4.0.7:
     find-replace "^1.0.3"
     typical "^2.6.1"
 
-commander@2, commander@^2.11.0, commander@^2.12.2, commander@^2.19.0, commander@^2.20.0, commander@~2.20.3:
+commander@2, commander@^2.11.0, commander@^2.12.2, commander@^2.15.0, commander@^2.19.0, commander@^2.20.0, commander@~2.20.3:
   version "2.20.3"
   resolved "https://registry.npmjs.org/commander/-/commander-2.20.3.tgz#fd485e84c03eb4881c20722ba48035e8531aeb33"
   integrity sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==
@@ -9545,10 +9305,10 @@ decompress-unzip@^4.0.1:
     pify "^2.3.0"
     yauzl "^2.4.2"
 
-decompress@^4.0.0:
-  version "4.2.0"
-  resolved "https://registry.npmjs.org/decompress/-/decompress-4.2.0.tgz#7aedd85427e5a92dacfe55674a7c505e96d01f9d"
-  integrity sha1-eu3YVCflqS2s/lVnSnxQXpbQH50=
+decompress@^4.0.0, "decompress@^4.2.1 ":
+  version "4.2.1"
+  resolved "https://registry.npmjs.org/decompress/-/decompress-4.2.1.tgz#007f55cc6a62c055afa37c07eb6a4ee1b773f118"
+  integrity sha512-e48kc2IjU+2Zw8cTb6VZcJQ3lgVbS4uuB1TfCHbiZIP/haNXm+SVyhu+87jts5/3ROpd82GSVCoNs/z8l4ZOaQ==
   dependencies:
     decompress-tar "^4.0.0"
     decompress-tarbz2 "^4.0.0"
@@ -9709,6 +9469,11 @@ delegates@^1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/delegates/-/delegates-1.0.0.tgz#84c6e159b81904fdca59a0ef44cd870d31250f9a"
   integrity sha1-hMbhWbgZBP3KWaDvRM2HDTElD5o=
+
+delimit-stream@0.1.0:
+  version "0.1.0"
+  resolved "https://registry.npmjs.org/delimit-stream/-/delimit-stream-0.1.0.tgz#9b8319477c0e5f8aeb3ce357ae305fc25ea1cd2b"
+  integrity sha1-m4MZR3wOX4rrPONXrjBfwl6hzSs=
 
 depcheck@^0.9.2:
   version "0.9.2"
@@ -13382,15 +13147,15 @@ highlight.js@~9.13.0:
   resolved "https://registry.yarnpkg.com/highlight.js/-/highlight.js-9.13.1.tgz#054586d53a6863311168488a0f58d6c505ce641e"
   integrity sha512-Sc28JNQNDzaH6PORtRLMvif9RSn1mYuOoX3omVjnb0+HbpPygU2ALBI0R/wsiqCb4/fcp07Gdo8g+fhtFrQl6A==
 
-highlightjs-solidity@^1.0.15:
-  version "1.0.15"
-  resolved "https://registry.npmjs.org/highlightjs-solidity/-/highlightjs-solidity-1.0.15.tgz#a5977220bef8d22dd49b3a5f4f05168300a85355"
-  integrity sha512-ZC9mcL7vLOD8aqy3+EVaX9FgQceSVYFMzrmjsMI0l1f9yCEcbcFqEf+G+DtmLcathOmMnNP5l+UdnrZ4zJJ8rQ==
-
 highlightjs-solidity@^1.0.16:
   version "1.0.16"
   resolved "https://registry.npmjs.org/highlightjs-solidity/-/highlightjs-solidity-1.0.16.tgz#89a52f30a56543550f728b00533fb158420a18ed"
   integrity sha512-uxdj3Qn4cBoY1zNIe8BSiwvw14G9Nq99HWEqPqFSu/rBCFaz84C+N/FChpPcUjd6q+cVsXOdyafCIAx5LHhBEQ==
+
+highlightjs-solidity@^1.0.18:
+  version "1.0.18"
+  resolved "https://registry.npmjs.org/highlightjs-solidity/-/highlightjs-solidity-1.0.18.tgz#3deb0593689a26fbadf98e631bf2cd305a6417c9"
+  integrity sha512-k15h0br4oCRT0F0jTRuZbimerVt5V4n0k25h7oWi0kVqlBNeXPbSr5ddw02/2ukJmYfB8jauFDmxSauJjwM7Eg==
 
 history@^4.9.0:
   version "4.10.1"
@@ -13666,10 +13431,10 @@ http-proxy-middleware@^0.17.4:
     lodash "^4.17.2"
     micromatch "^2.3.11"
 
-http-proxy@^1.16.2, http-proxy@^1.17.0:
-  version "1.18.0"
-  resolved "https://registry.npmjs.org/http-proxy/-/http-proxy-1.18.0.tgz#dbe55f63e75a347db7f3d99974f2692a314a6a3a"
-  integrity sha512-84I2iJM/n1d4Hdgc6y2+qY5mDaz2PUVjlg9znE9byl+q0uC3DeByqBGReQu5tpLK0TAqTIXScRUV+dg7+bUPpQ==
+http-proxy@^1.16.2, http-proxy@^1.17.0, http-proxy@^1.18.1:
+  version "1.18.1"
+  resolved "https://registry.npmjs.org/http-proxy/-/http-proxy-1.18.1.tgz#401541f0534884bbf95260334e72f88ee3976549"
+  integrity sha512-7mz/721AbnJwIVbnaSv1Cz3Am0ZLT/UBwkC92VlxhXv/k/BBQfM2fXElQNC27BVGr0uwUpplYPQM9LnaBMR5NQ==
   dependencies:
     eventemitter3 "^4.0.0"
     follow-redirects "^1.0.0"
@@ -13751,7 +13516,7 @@ idna-uts46-hx@^2.3.1:
   dependencies:
     punycode "2.1.0"
 
-ieee754@^1.1.4:
+ieee754@^1.1.13, ieee754@^1.1.4:
   version "1.1.13"
   resolved "https://registry.npmjs.org/ieee754/-/ieee754-1.1.13.tgz#ec168558e95aa181fd87d37f55c32bbcb6708b84"
   integrity sha512-4vf7I2LYV/HaWerSo3XmlMkp5eZ83i+/CDluXi/IGTs/O1sejBNhTtnxzmRZfvOUqj7lZjqHkeTvpgSFDlWZTg==
@@ -14597,6 +14362,11 @@ isexe@^2.0.0:
   version "2.0.0"
   resolved "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz#e8fbf374dc556ff8947a10dcb0572d633f2cfa10"
   integrity sha1-6PvzdNxVb/iUehDcsFctYz8s+hA=
+
+iso-url@~0.4.7:
+  version "0.4.7"
+  resolved "https://registry.npmjs.org/iso-url/-/iso-url-0.4.7.tgz#de7e48120dae46921079fe78f325ac9e9217a385"
+  integrity sha512-27fFRDnPAMnHGLq36bWTpKET+eiXct3ENlCcdcMdk+mjXrb2kw3mhBUg1B7ewAC0kVzlOPhADzQgz1SE6Tglog==
 
 isobject@^2.0.0:
   version "2.1.0"
@@ -15836,6 +15606,13 @@ json-stringify-safe@^5.0.1, json-stringify-safe@~5.0.1:
   resolved "https://registry.npmjs.org/json-stringify-safe/-/json-stringify-safe-5.0.1.tgz#1296a2d58fd45f19a0f6ce01d65701e2c735b6eb"
   integrity sha1-Epai1Y/UXxmg9s4B1lcB4sc1tus=
 
+json-text-sequence@~0.1.0:
+  version "0.1.1"
+  resolved "https://registry.npmjs.org/json-text-sequence/-/json-text-sequence-0.1.1.tgz#a72f217dc4afc4629fff5feb304dc1bd51a2f3d2"
+  integrity sha1-py8hfcSvxGKf/1/rME3BvVGi89I=
+  dependencies:
+    delimit-stream "0.1.0"
+
 json2mq@^0.2.0:
   version "0.2.0"
   resolved "https://registry.npmjs.org/json2mq/-/json2mq-0.2.0.tgz#b637bd3ba9eabe122c83e9720483aeb10d2c904a"
@@ -16681,17 +16458,7 @@ lodash.values@^4.3.0:
   resolved "https://registry.npmjs.org/lodash.values/-/lodash.values-4.3.0.tgz#a3a6c2b0ebecc5c2cba1c17e6e620fe81b53d347"
   integrity sha1-o6bCsOvsxcLLocF+bmIP6BtT00c=
 
-lodash@4.17.14:
-  version "4.17.14"
-  resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.14.tgz#9ce487ae66c96254fe20b599f21b6816028078ba"
-  integrity sha512-mmKYbW3GLuJeX+iGP+Y7Gp1AiGHGbXHCOh/jZmrawMmsE7MS4znI3RL2FsjbqOyMayHInjOeykW7PEajUk1/xw==
-
-lodash@4.17.15:
-  version "4.17.15"
-  resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.15.tgz#b447f6670a0455bbfeedd11392eff330ea097548"
-  integrity sha512-8xOcRHvCjnocdS5cpwXQXVzmmh5e5+saE2QGoeQmbKmRS6J3VQppPOIt0MnmE+4xlZoumy0GPG0D0MVIQbNA1A==
-
-"lodash@>=3.5 <5", lodash@^4.15.0, lodash@^4.16.3, lodash@^4.16.5, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.19, lodash@^4.17.2, lodash@^4.17.4, lodash@^4.17.5:
+lodash@4.17.14, lodash@4.17.15, "lodash@>=3.5 <5", lodash@^4.15.0, lodash@^4.16.3, lodash@^4.16.5, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.19, lodash@^4.17.2, lodash@^4.17.4, lodash@^4.17.5, lodash@^4.17.9:
   version "4.17.19"
   resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.19.tgz#e48ddedbe30b3321783c5b4301fbd353bc1e4a4b"
   integrity sha512-JNvd8XER9GQX0v2qJgsaN/mzFCNA5BRe/j8JN9d+tWyGLSodKQHKFicdwNYzWwI3wjRnaKPsGj1XkBjx/F96DQ==
@@ -16909,14 +16676,6 @@ markdown-to-jsx@^6.11.4:
   version "6.11.4"
   resolved "https://registry.npmjs.org/markdown-to-jsx/-/markdown-to-jsx-6.11.4.tgz#b4528b1ab668aef7fe61c1535c27e837819392c5"
   integrity sha512-3lRCD5Sh+tfA52iGgfs/XZiw33f7fFX9Bn55aNnVNUd2GzLDkOWyKYYD8Yju2B1Vn+feiEdgJs8T6Tg0xNokPw==
-  dependencies:
-    prop-types "^15.6.2"
-    unquote "^1.1.0"
-
-markdown-to-jsx@^6.9.1, markdown-to-jsx@^6.9.3:
-  version "6.10.3"
-  resolved "https://registry.npmjs.org/markdown-to-jsx/-/markdown-to-jsx-6.10.3.tgz#7f0946684acd321125ff2de7fd258a9b9c7c40b7"
-  integrity sha512-PSoUyLnW/xoW6RsxZrquSSz5eGEOTwa15H5eqp3enmrp8esmgDJmhzd6zmQ9tgAA9TxJzx1Hmf3incYU/IamoQ==
   dependencies:
     prop-types "^15.6.2"
     unquote "^1.1.0"
@@ -19838,10 +19597,10 @@ pretty-hrtime@^1.0.0, pretty-hrtime@^1.0.3:
   resolved "https://registry.npmjs.org/pretty-hrtime/-/pretty-hrtime-1.0.3.tgz#b7e3ea42435a4c9b2759d99e0f201eb195802ee1"
   integrity sha1-t+PqQkNaTJsnWdmeDyAesZWALuE=
 
-prismjs@^1.8.4, prismjs@~1.17.0:
-  version "1.17.1"
-  resolved "https://registry.npmjs.org/prismjs/-/prismjs-1.17.1.tgz#e669fcbd4cdd873c35102881c33b14d0d68519be"
-  integrity sha512-PrEDJAFdUGbOP6xK/UsfkC5ghJsPJviKgnQOoxaDbBjwc8op68Quupwt1DeAFoG8GImPhiKXAvvsH7wDSLsu1Q==
+prismjs@^1.21.0, prismjs@^1.8.4, prismjs@~1.17.0:
+  version "1.21.0"
+  resolved "https://registry.npmjs.org/prismjs/-/prismjs-1.21.0.tgz#36c086ec36b45319ec4218ee164c110f9fc015a3"
+  integrity sha512-uGdSIu1nk3kej2iZsLyDoJ7e9bnPzIgY0naW/HdknGj61zScaprVEVGHrPoXqI+M9sP0NDnTK2jpkvmldpuqDw==
   optionalDependencies:
     clipboard "^2.0.0"
 
@@ -21343,7 +21102,7 @@ readable-stream@^2.2.2:
     string_decoder "~1.1.1"
     util-deprecate "~1.0.1"
 
-readable-stream@^3.0.0, readable-stream@^3.0.2, readable-stream@^3.4.0, readable-stream@^3.5.0:
+readable-stream@^3.0.0, readable-stream@^3.0.2, readable-stream@^3.4.0, readable-stream@^3.5.0, readable-stream@^3.6.0:
   version "3.6.0"
   resolved "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.0.tgz#337bbda3adc0706bd3e024426a286d4b4b2c9198"
   integrity sha512-BViHy7LKeTz4oNnkcLJ+lVSL6vpiFeX6/d3oSH8zCW7UxP2onchk+vTGB143xuFjHS3deTgkKoXXymXqymiIdA==
@@ -22493,10 +22252,12 @@ sentence-case@^3.0.3:
     tslib "^1.10.0"
     upper-case-first "^2.0.1"
 
-serialize-javascript@^2.1.0, serialize-javascript@^2.1.2:
-  version "2.1.2"
-  resolved "https://registry.npmjs.org/serialize-javascript/-/serialize-javascript-2.1.2.tgz#ecec53b0e0317bdc95ef76ab7074b7384785fa61"
-  integrity sha512-rs9OggEUF0V4jUSecXazOYsLfu7OGK2qIn3c7IPBiffz32XniEp/TX9Xmc9LQfK2nQ2QKHvZ2oygKUGU0lG4jQ==
+serialize-javascript@^2.1.0, serialize-javascript@^2.1.2, serialize-javascript@^3.1.0:
+  version "3.1.0"
+  resolved "https://registry.npmjs.org/serialize-javascript/-/serialize-javascript-3.1.0.tgz#8bf3a9170712664ef2561b44b691eafe399214ea"
+  integrity sha512-JIJT1DGiWmIKhzRsG91aS6Ze4sFUrYbltlkg2onR5OrnNM02Kl/hnY/T4FN2omvyeBbQmMJv+K4cPOpGzOTFBg==
+  dependencies:
+    randombytes "^2.1.0"
 
 serve-favicon@^2.5.0:
   version "2.5.0"
@@ -26647,73 +26408,13 @@ yargonaut@^1.1.2:
     figlet "^1.1.1"
     parent-require "^1.0.0"
 
-yargs-parser@10.x:
-  version "10.1.0"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-10.1.0.tgz#7202265b89f7e9e9f2e5765e0fe735a905edbaa8"
-  integrity sha512-VCIyR1wJoEBZUqk5PA+oOBF6ypbwh5aNB3I50guxAL/quggdfs4TtNHQrSazFA3fYZ+tEqfs0zIGlv0c/rgjbQ==
-  dependencies:
-    camelcase "^4.1.0"
-
-yargs-parser@^11.1.1:
-  version "11.1.1"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-11.1.1.tgz#879a0865973bca9f6bab5cbdf3b1c67ec7d3bcf4"
-  integrity sha512-C6kB/WJDiaxONLJQnF8ccx9SEeoTTLek8RVbaOIsrAUS8VrBEXfmeSnCZxygc+XC2sNMBIwOOnfcxiynjHsVSQ==
+yargs-parser@10.x, yargs-parser@^11.1.1, yargs-parser@^13.1.1, yargs-parser@^13.1.2, yargs-parser@^15.0.1, yargs-parser@^16.1.0, yargs-parser@^18.1.1, yargs-parser@^5.0.0, yargs-parser@^8.1.0, yargs-parser@^9.0.2:
+  version "15.0.1"
+  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-15.0.1.tgz#54786af40b820dcb2fb8025b11b4d659d76323b3"
+  integrity sha512-0OAMV2mAZQrs3FkNpDQcBk1x5HXb8X4twADss4S0Iuk+2dGnLOE/fRHrsYm542GduMveyA77OF4wrNJuanRCWw==
   dependencies:
     camelcase "^5.0.0"
     decamelize "^1.2.0"
-
-yargs-parser@^13.1.1:
-  version "13.1.1"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-13.1.1.tgz#d26058532aa06d365fe091f6a1fc06b2f7e5eca0"
-  integrity sha512-oVAVsHz6uFrg3XQheFII8ESO2ssAf9luWuAd6Wexsu4F3OtIW0o8IribPXYrD4WC24LWtPrJlGy87y5udK+dxQ==
-  dependencies:
-    camelcase "^5.0.0"
-    decamelize "^1.2.0"
-
-yargs-parser@^13.1.2:
-  version "13.1.2"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-13.1.2.tgz#130f09702ebaeef2650d54ce6e3e5706f7a4fb38"
-  integrity sha512-3lbsNRf/j+A4QuSZfDRA7HRSfWrzO0YjqTJd5kjAq37Zep1CEgaYmrH9Q3GwPiB9cHyd1Y1UwggGhJGoxipbzg==
-  dependencies:
-    camelcase "^5.0.0"
-    decamelize "^1.2.0"
-
-yargs-parser@^16.1.0:
-  version "16.1.0"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-16.1.0.tgz#73747d53ae187e7b8dbe333f95714c76ea00ecf1"
-  integrity sha512-H/V41UNZQPkUMIT5h5hiwg4QKIY1RPvoBV4XcjUbRM8Bk2oKqqyZ0DIEbTFZB0XjbtSPG8SAa/0DxCQmiRgzKg==
-  dependencies:
-    camelcase "^5.0.0"
-    decamelize "^1.2.0"
-
-yargs-parser@^18.1.1:
-  version "18.1.2"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-18.1.2.tgz#2f482bea2136dbde0861683abea7756d30b504f1"
-  integrity sha512-hlIPNR3IzC1YuL1c2UwwDKpXlNFBqD1Fswwh1khz5+d8Cq/8yc/Mn0i+rQXduu8hcrFKvO7Eryk+09NecTQAAQ==
-  dependencies:
-    camelcase "^5.0.0"
-    decamelize "^1.2.0"
-
-yargs-parser@^5.0.0:
-  version "5.0.0"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-5.0.0.tgz#275ecf0d7ffe05c77e64e7c86e4cd94bf0e1228a"
-  integrity sha1-J17PDX/+Bcd+ZOfIbkzZS/DhIoo=
-  dependencies:
-    camelcase "^3.0.0"
-
-yargs-parser@^8.1.0:
-  version "8.1.0"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-8.1.0.tgz#f1376a33b6629a5d063782944da732631e966950"
-  integrity sha512-yP+6QqN8BmrgW2ggLtTbdrOyBNSI7zBa4IykmiV5R1wl1JWNxQvWhMfMdmzIYtKU7oP3OOInY/tl2ov3BDjnJQ==
-  dependencies:
-    camelcase "^4.1.0"
-
-yargs-parser@^9.0.2:
-  version "9.0.2"
-  resolved "https://registry.npmjs.org/yargs-parser/-/yargs-parser-9.0.2.tgz#9ccf6a43460fe4ed40a9bb68f48d43b8a68cc077"
-  integrity sha1-nM9qQ0YP5O1Aqbto9I1DuKaMwHc=
-  dependencies:
-    camelcase "^4.1.0"
 
 yargs@12.0.5:
   version "12.0.5"
