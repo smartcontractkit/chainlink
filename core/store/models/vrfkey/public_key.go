@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.dedis.ch/kyber/v3"
 
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // PublicKey is a secp256k1 point in compressed format
@@ -44,15 +44,16 @@ func NewPublicKey(rawKey [CompressedPublicKeyLength]byte) *PublicKey {
 }
 
 // NewPublicKeyFromHex returns the PublicKey encoded by 0x-hex string hex, or errors
-func NewPublicKeyFromHex(hex string) (*PublicKey, error) {
+func NewPublicKeyFromHex(hex string) (PublicKey, error) {
 	rawKey, err := hexutil.Decode(hex)
 	if err != nil {
-		return nil, err
+		return PublicKey{}, err
 	}
 	if l := len(rawKey); l != CompressedPublicKeyLength {
-		return nil, fmt.Errorf("wrong length for public key: %s of length %d", rawKey, l)
+		return PublicKey{}, fmt.Errorf(
+			"wrong length for public key: %s of length %d", rawKey, l)
 	}
-	k := &PublicKey{}
+	var k PublicKey
 	if c := copy(k[:], rawKey[:]); c != CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy entire key to return value"))
 	}
@@ -66,16 +67,16 @@ func (k *PublicKey) SetFromHex(hex string) error {
 	if err != nil {
 		return err
 	}
-	k.Set(*nk)
+	k.Set(nk)
 	return nil
 }
 
 // String returns k's binary compressed representation, as 0x-hex
-func (k *PublicKey) String() string {
+func (k PublicKey) String() string {
 	return hexutil.Encode(k[:])
 }
 
-// String returns k's binary uncompressed representation, as 0x-hex
+// StringUncompressed returns k's binary uncompressed representation, as 0x-hex
 func (k *PublicKey) StringUncompressed() (string, error) {
 	p, err := k.Point()
 	if err != nil {
@@ -94,7 +95,7 @@ func (k *PublicKey) Hash() (common.Hash, error) {
 	return utils.MustHash(string(secp256k1.LongMarshal(p))), nil
 }
 
-// MusthHash is like Hash, but panics on error. Useful for testing.
+// MustHash is like Hash, but panics on error. Useful for testing.
 func (k *PublicKey) MustHash() common.Hash {
 	hash, err := k.Hash()
 	if err != nil {
@@ -110,4 +111,9 @@ func (k *PublicKey) Address() common.Address {
 		return common.Address{}
 	}
 	return common.BytesToAddress(hash.Bytes()[12:])
+}
+
+// IsZero returns true iff k is the zero value for PublicKey
+func (k *PublicKey) IsZero() bool {
+	return *k == PublicKey{}
 }

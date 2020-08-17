@@ -2,16 +2,11 @@ package main
 
 import (
 	"os"
-	"time"
 
-	"chainlink/core/cmd"
-	"chainlink/core/logger"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
-
-func init() {
-	time.LoadLocation("UTC")
-}
 
 func main() {
 	Run(NewProductionClient(), os.Args...)

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
-	clnull "chainlink/core/null"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ import (
 
 func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
 	task0RunID := models.NewID()
@@ -36,15 +36,17 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	run := models.MakeJobRun(&job, time.Now(), &models.Initiator{Type: models.InitiatorRunLog}, big.NewInt(0), &runRequest)
 	run.TaskRuns = []models.TaskRun{
 		models.TaskRun{
-			ID:                   task0RunID,
-			Status:               models.RunStatusPendingConfirmations,
-			Confirmations:        clnull.Uint32From(1),
-			MinimumConfirmations: clnull.Uint32From(3),
+			ID:                               task0RunID,
+			Status:                           models.RunStatusPendingIncomingConfirmations,
+			ObservedIncomingConfirmations:    clnull.Uint32From(1),
+			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
 		},
 		models.TaskRun{
-			ID:     task1RunID,
-			Status: models.RunStatusErrored,
-			Result: models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
+			ID:                               task1RunID,
+			Status:                           models.RunStatusErrored,
+			Result:                           models.RunResult{ErrorMessage: null.StringFrom("yikes fam")},
+			ObservedIncomingConfirmations:    clnull.Uint32From(1),
+			MinRequiredIncomingConfirmations: clnull.Uint32From(3),
 		},
 	}
 	p := SyncJobRunPresenter{JobRun: &run}
@@ -68,7 +70,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	initiator, ok := data["initiator"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, initiator["type"], "runlog")
-	assert.Equal(t, initiator["requestId"], "RequestID")
+	assert.Equal(t, initiator["requestId"], "0x000000000000000000000000000000000000000000000000000000000000cafe")
 	assert.Equal(t, initiator["txHash"], "0x00000000000000000000000000000000000000000000000000000000deadbeef")
 	assert.Equal(t, initiator["requester"], newAddress.Hex())
 
@@ -79,7 +81,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, task0["index"], float64(0))
 	assert.Contains(t, task0, "type")
-	assert.Equal(t, task0["status"], "pending_confirmations")
+	assert.Equal(t, "pending_incoming_confirmations", task0["status"])
 	assert.Equal(t, task0["error"], nil)
 	assert.Equal(t, float64(1), task0["confirmations"])
 	assert.Equal(t, float64(3), task0["minimumConfirmations"])
@@ -93,7 +95,7 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 
 func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-	requestID := "RequestID"
+	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
 	tests := []struct {
@@ -163,7 +165,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			newAddress := common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40")
-			requestID := "RequestID"
+			requestID := common.HexToHash("0xcafe")
 			requestTxHash := common.HexToHash("0xdeadbeef")
 			dataJSON := jsonFromFixture(t, test.path)
 			outgoingTxHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
@@ -183,7 +185,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 				models.TaskRun{
 					ID:       models.NewID(),
 					TaskSpec: taskSpec,
-					Status:   models.RunStatusPendingConfirmations,
+					Status:   models.RunStatusPendingIncomingConfirmations,
 					Result:   models.RunResult{Data: dataJSON},
 				},
 			}
@@ -200,7 +202,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			task0 := tasks[0].Map()
 			assert.Equal(t, task0["index"].Float(), float64(0))
 			assert.Contains(t, task0["type"].String(), "ethtx")
-			assert.Equal(t, task0["status"].String(), "pending_confirmations")
+			assert.Equal(t, "pending_incoming_confirmations", task0["status"].String())
 			assert.Equal(t, task0["error"].Type, gjson.Null)
 
 			txresult := task0["result"].Map()

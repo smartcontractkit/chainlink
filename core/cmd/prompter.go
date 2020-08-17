@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -79,7 +79,8 @@ func withTerminalResetter(f func()) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		terminal.Restore(osSafeStdin, initialTermState)
+		err := terminal.Restore(osSafeStdin, initialTermState)
+		logger.ErrorIf(err, "failed when restore terminal")
 		os.Exit(1)
 	}()
 

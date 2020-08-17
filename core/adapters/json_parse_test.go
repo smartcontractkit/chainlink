@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"chainlink/core/adapters"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -108,6 +108,29 @@ func TestJsonParse_Perform(t *testing.T) {
 			`{"data": true}`,
 			[]string{"data"},
 			`{"result":true}`,
+			models.RunStatusCompleted,
+			false,
+		},
+		{
+			"regression test: keys in the path have dots",
+			`{
+				"Realtime Currency Exchange Rate": {
+					"1. From_Currency Code": "LEND",
+					"2. From_Currency Name": "EthLend",
+					"3. To_Currency Code": "ETH",
+					"4. To_Currency Name": "Ethereum",
+					"5. Exchange Rate": "0.00058217",
+					"6. Last Refreshed": "2020-06-22 19:14:04",
+					"7. Time Zone": "UTC",
+					"8. Bid Price": "0.00058217",
+					"9. Ask Price": "0.00058217"
+				}
+			}`,
+			[]string{
+				"Realtime Currency Exchange Rate",
+				"5. Exchange Rate",
+			},
+			`{"result":"0.00058217"}`,
 			models.RunStatusCompleted,
 			false,
 		},

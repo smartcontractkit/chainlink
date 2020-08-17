@@ -1,60 +1,69 @@
 {
-    "private": true,
-    "license": "MIT",
-    "workspaces": [
-        "evm-test-helpers",
-        "evm-contracts",
-        "feeds",
-        "explorer",
-        "explorer/client",
-        "integration",
-        "integration-scripts",
-        "operator_ui",
-        "styleguide",
-        "tools",
-        "tools/ci-ts",
-        "tools/cypress-job-server",
-        "tools/echo-server",
-        "tools/external-adapter",
-        "tools/json-api-client",
-        "tools/local-storage",
-        "tools/redux",
-        "tools/ts-helpers",
-        "belt"
-    ],
-    "engines": {
-        "node": "~12"
-    },
-    "scripts": {
-        "lint": "eslint --ext js,jsx,ts,tsx .",
-        "setup": "wsrun -me -t setup",
-        "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
-        "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
-        "setup:integration": "yarn wsrun -mre -p @chainlink/integration* -t setup",
-        "setup:explorer": "yarn wsrun -mre -p '@chainlink/explorer*' -t setup",
-        "clean": "wsrun -me clean",
-        "postinstall": "patch-package"
-    },
-    "devDependencies": {
-        "@typescript-eslint/eslint-plugin": "^2.15.0",
-        "@typescript-eslint/parser": "^2.12.0",
-        "eslint": "^6.8.0",
-        "eslint-config-prettier": "^6.10.1",
-        "eslint-plugin-prettier": "^3.1.2",
-        "eslint-plugin-react": "^7.17.0",
-        "eslint-plugin-react-hooks": "^3.0.0",
-        "patch-package": "^6.2.1",
-        "postinstall-postinstall": "^2.0.0",
-        "prettier": "^1.19.1",
-        "typescript": "^3.7.4",
-        "wsrun": "^5.2.0"
-    },
-    "resolutions": {
-        "**/sha3": "^2.0.7",
-        "**/keccak": "^3.0.0",
-        "**/source-map-support": "0.5.16"
-    },
-    "dependencies": {
-        "tslib": "^1.11.1"
-    }
+  "private": true,
+  "license": "MIT",
+  "workspaces": [
+    "evm-test-helpers",
+    "evm-contracts",
+    "feeds",
+    "explorer",
+    "explorer/client",
+    "integration",
+    "integration-scripts",
+    "operator_ui",
+    "styleguide",
+    "tools",
+    "tools/ci-ts",
+    "tools/cypress-job-server",
+    "tools/echo-server",
+    "tools/external-adapter",
+    "tools/json-api-client",
+    "tools/local-storage",
+    "tools/redux",
+    "tools/ts-helpers",
+    "belt"
+  ],
+  "engines": {
+    "node": "~10.16"
+  },
+  "scripts": {
+    "lint": "eslint --ext js,jsx,ts,tsx .",
+    "setup": "wsrun -me -t setup",
+    "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
+    "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
+    "setup:integration": "yarn wsrun -mre -p @chainlink/integration* -t setup",
+    "setup:explorer": "yarn wsrun -mre -p '@chainlink/explorer*' -t setup",
+    "clean": "wsrun -me clean",
+    "postinstall": "patch-package"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.15.0",
+    "@typescript-eslint/parser": "^2.34.0",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.10.1",
+    "eslint-plugin-prettier": "^3.1.3",
+    "eslint-plugin-react": "^7.19.0",
+    "eslint-plugin-react-hooks": "^4.0.0",
+    "patch-package": "^6.2.1",
+    "postinstall-postinstall": "^2.0.0",
+    "prettier": "^1.19.1",
+    "typescript": "^3.7.4",
+    "wsrun": "^5.2.0"
+  },
+  "resolutions": {
+    "**/decompress": "^4.2.1 ",
+    "**/dot-prop": "^5.1.1",
+    "**/elliptic": "^6.5.3",
+    "**/http-proxy": "^1.18.1",
+    "**/keccak": "^3.0.0",
+    "**/lodash": "^4.17.9",
+    "**/prismjs": "^1.21.0",
+    "**/serialize-javascript": "^3.1.0",
+    "**/sha3": "^2.0.7",
+    "**/solc": "^0.6.4",
+    "**/source-map-support": "0.5.16",
+    "**/yargs-parser": "^15.0.1"
+  },
+  "dependencies": {
+    "tslib": "^1.11.1"
+  }
 }

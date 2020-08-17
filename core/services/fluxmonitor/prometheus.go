@@ -72,6 +72,10 @@ func promSetBigInt(gauge prometheus.Gauge, arg *big.Int) {
 	gauge.Set(float64(arg.Int64()))
 }
 
+func promSetUint32(gauge prometheus.Gauge, arg uint32) {
+	gauge.Set(float64(arg))
+}
+
 func instrumentRoundTripperReponseSize(
 	obs prometheus.Observer,
 	next http.RoundTripper,

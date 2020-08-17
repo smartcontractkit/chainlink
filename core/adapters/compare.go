@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strconv"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // Compare adapter type takes an Operator and a Value field to
@@ -16,10 +16,10 @@ type Compare struct {
 }
 
 var (
-	ErrResultNotNumber      = errors.New("The result was not a number")
-	ErrValueNotNumber       = errors.New("The value was not a number")
-	ErrOperatorNotSpecified = errors.New("Operator not specified")
-	ErrValueNotSpecified    = errors.New("Value not specified")
+	ErrResultNotNumber      = errors.New("the result was not a number")
+	ErrValueNotNumber       = errors.New("the value was not a number")
+	ErrOperatorNotSpecified = errors.New("operator not specified")
+	ErrValueNotSpecified    = errors.New("value not specified")
 )
 
 // TaskType returns the type of Adapter.

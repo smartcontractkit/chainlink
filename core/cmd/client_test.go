@@ -3,10 +3,10 @@ package cmd_test
 import (
 	"testing"
 
-	"chainlink/core/cmd"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,10 +44,14 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBlockByNumber,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	app.MustSeedUserSession()
 
 	tests := []struct {
 		name, email, pwd string
@@ -137,6 +141,10 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
 
+			// Remove fixture user
+			_, err := store.DeleteUser()
+			require.NoError(t, err)
+
 			user, err := tai.Initialize(store)
 			if test.isError {
 				assert.Error(t, err)
@@ -160,7 +168,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
+	initialUser := cltest.MustRandomUser()
 	require.NoError(t, store.SaveUser(&initialUser))
 
 	mock := &cltest.MockCountingPrompter{}
@@ -187,6 +195,8 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
+			// Clear out fixture user
+			store.DeleteUser()
 			defer cleanup()
 
 			tfi := cmd.NewFileAPIInitializer(test.file)
@@ -210,9 +220,6 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	initialUser := cltest.MustUser(cltest.APIEmail, cltest.Password)
-	require.NoError(t, store.SaveUser(&initialUser))
-
 	tests := []struct {
 		name      string
 		file      string
@@ -227,7 +234,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 			tfi := cmd.NewFileAPIInitializer(test.file)
 			user, err := tfi.Initialize(store)
 			assert.NoError(t, err)
-			assert.Equal(t, initialUser.Email, user.Email)
+			assert.Equal(t, cltest.APIEmail, user.Email)
 		})
 	}
 }
@@ -264,7 +271,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 		wantError             bool
 	}{
 		{"empty", "", "", true},
-		{"correct file", "../internal/fixtures/apicredentials", "email@test.net", false},
+		{"correct file", "../internal/fixtures/apicredentials", cltest.APIEmail, false},
 		{"incorrect file", "/tmp/dontexist", "", true},
 	}
 

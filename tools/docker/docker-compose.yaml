@@ -25,12 +25,12 @@ services:
       - EXPLORER_SECRET
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
+      - ENABLE_EXPERIMENTAL_ADAPTERS
+      - ENABLE_BULLETPROOF_TX_MANAGER
     env_file:
       - chainlink-variables.env
     ports:
       - 6688:6688
-    depends_on:
-      - explorer
     secrets:
       - node_password
       - apicredentials
@@ -57,6 +57,8 @@ services:
       - CHAINLINK_DEV
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
+      - ENABLE_EXPERIMENTAL_ADAPTERS
+      - ENABLE_BULLETPROOF_TX_MANAGER
     env_file:
       - chainlink-variables.env
     ports:
@@ -81,9 +83,6 @@ services:
     environment:
       - EXPLORER_COOKIE_SECRET
       - EXPLORER_SERVER_PORT
-      - TYPEORM_DATABASE
-      - TYPEORM_USERNAME
-      - TYPEORM_HOST
       - PGPASSWORD=$EXPLORER_PGPASSWORD
 
   explorer-db:
@@ -112,7 +111,7 @@ services:
       - DB_HOST=$INGESTER_DB_HOST
       - DB_NAME=$EXPLORER_DB_NAME
       - DB_PORT=$EXPLORER_DB_PORT
-      - DB_USERNAME=$TYPEORM_USERNAME
+      - DB_USERNAME=$INGESTER_DB_USERNAME
       - DB_PASSWORD=$EXPLORER_PGPASSWORD
 # TODO
 # - replace clroot with secrets
@@ -124,7 +123,7 @@ secrets:
   apicredentials:
     file: ../clroot/apicredentials
   keystore:
-    file: ../secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
+    file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
 
 volumes:
   explorer-db-data:

@@ -3,13 +3,13 @@ package synchronization
 import (
 	"encoding/json"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	clnull "chainlink/core/null"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -72,13 +72,13 @@ func (p SyncJobRunPresenter) tasks() ([]syncTaskRunPresenter, error) {
 			return []syncTaskRunPresenter{}, err
 		}
 		tasks = append(tasks, syncTaskRunPresenter{
-			Index:                index,
-			Type:                 string(tr.TaskSpec.Type),
-			Status:               string(tr.Status),
-			Error:                tr.Result.ErrorMessage,
-			Result:               erp,
-			Confirmations:        tr.Confirmations,
-			MinimumConfirmations: tr.MinimumConfirmations,
+			Index:                            index,
+			Type:                             string(tr.TaskSpec.Type),
+			Status:                           string(tr.Status),
+			Error:                            tr.Result.ErrorMessage,
+			Result:                           erp,
+			ObservedIncomingConfirmations:    tr.ObservedIncomingConfirmations,
+			MinRequiredIncomingConfirmations: tr.MinRequiredIncomingConfirmations,
 		})
 	}
 	return tasks, nil
@@ -98,13 +98,13 @@ func fetchLatestOutgoingTxHash(tr models.TaskRun) (*syncReceiptPresenter, error)
 }
 
 func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
-	var receipt eth.TxReceipt
+	var receipt types.Receipt
 	err := json.Unmarshal([]byte(str), &receipt)
 	if err != nil {
 		return nil, err
 	}
 	return &syncReceiptPresenter{
-		Hash:   receipt.Hash,
+		Hash:   receipt.TxHash,
 		Status: runLogStatusPresenter(receipt),
 	}, nil
 }
@@ -126,8 +126,8 @@ const (
 	StatusNoFulfilledRunLog = "noFulfilledRunLog"
 )
 
-func runLogStatusPresenter(receipt eth.TxReceipt) TxStatus {
-	if receipt.FulfilledRunLog() {
+func runLogStatusPresenter(receipt types.Receipt) TxStatus {
+	if models.ReceiptIndicatesRunLogFulfillment(receipt) {
 		return StatusFulfilledRunLog
 	}
 	return StatusNoFulfilledRunLog
@@ -135,17 +135,17 @@ func runLogStatusPresenter(receipt eth.TxReceipt) TxStatus {
 
 type syncInitiatorPresenter struct {
 	Type      string               `json:"type"`
-	RequestID *string              `json:"requestId,omitempty"`
+	RequestID *common.Hash         `json:"requestId,omitempty"`
 	TxHash    *common.Hash         `json:"txHash,omitempty"`
 	Requester *models.EIP55Address `json:"requester,omitempty"`
 }
 
 type syncTaskRunPresenter struct {
-	Index                int           `json:"index"`
-	Type                 string        `json:"type"`
-	Status               string        `json:"status"`
-	Error                null.String   `json:"error"`
-	Result               interface{}   `json:"result,omitempty"`
-	Confirmations        clnull.Uint32 `json:"confirmations"`
-	MinimumConfirmations clnull.Uint32 `json:"minimumConfirmations"`
+	Index                            int           `json:"index"`
+	Type                             string        `json:"type"`
+	Status                           string        `json:"status"`
+	Error                            null.String   `json:"error"`
+	Result                           interface{}   `json:"result,omitempty"`
+	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations"`
 }

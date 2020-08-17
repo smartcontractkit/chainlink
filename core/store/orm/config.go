@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/logger"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethCore "github.com/ethereum/go-ethereum/core"
@@ -41,6 +41,8 @@ type Config struct {
 	viper           *viper.Viper
 	SecretGenerator SecretGenerator
 	runtimeStore    *ORM
+	Dialect         DialectName
+	AdvisoryLockID  int64
 }
 
 var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
@@ -58,7 +60,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		item := schemaT.FieldByIndex([]int{index})
 		name := item.Tag.Get("env")
 		v.SetDefault(name, item.Tag.Get("default"))
-		v.BindEnv(name, name)
+		_ = v.BindEnv(name, name)
 	}
 
 	config := &Config{
@@ -66,7 +68,7 @@ func newConfigWithViper(v *viper.Viper) *Config {
 		SecretGenerator: filePersistedSecretGenerator{},
 	}
 
-	if err := os.MkdirAll(config.RootDir(), os.FileMode(0700)); err != nil {
+	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		logger.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
 	}
 
@@ -91,6 +93,9 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
+	if c.EthHeadTrackerHistoryDepth() < c.EthFinalityDepth() {
+		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
+	}
 	return nil
 }
 
@@ -114,9 +119,31 @@ func (c Config) Set(name string, value interface{}) {
 	logger.Panicf("No configuration parameter for %s", name)
 }
 
+const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
+
+func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
+	if c.AdvisoryLockID == 0 {
+		return defaultPostgresAdvisoryLockID
+	}
+	return c.AdvisoryLockID
+}
+
+func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
+	if c.Dialect == "" {
+		return DialectPostgres
+	}
+	return c.Dialect
+}
+
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
+}
+
+// BlockBackfillDepth specifies the number of blocks before the current HEAD that the
+// log broadcaster will try to re-consume logs from
+func (c Config) BlockBackfillDepth() uint64 {
+	return c.viper.GetUint64(EnvVarName("BlockBackfillDepth"))
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
@@ -134,9 +161,17 @@ func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
 }
 
+func (c Config) getDuration(s string) models.Duration {
+	rv, err := models.MakeDuration(c.viper.GetDuration(EnvVarName(s)))
+	if err != nil {
+		panic(errors.Wrapf(err, "bad duration for config value %s: %s", s, rv))
+	}
+	return rv
+}
+
 // DatabaseTimeout represents how long to tolerate non response from the DB.
-func (c Config) DatabaseTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DatabaseTimeout"))
+func (c Config) DatabaseTimeout() models.Duration {
+	return c.getDuration("DatabaseTimeout")
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
@@ -145,19 +180,25 @@ func (c Config) DatabaseURL() string {
 	return c.viper.GetString(EnvVarName("DatabaseURL"))
 }
 
+// MigrateDatabase determines whether the database will be automatically
+// migrated on application startup if set to true
+func (c Config) MigrateDatabase() bool {
+	return c.viper.GetBool(EnvVarName("MigrateDatabase"))
+}
+
 // DefaultMaxHTTPAttempts defines the limit for HTTP requests.
 func (c Config) DefaultMaxHTTPAttempts() uint {
 	return c.viper.GetUint(EnvVarName("DefaultMaxHTTPAttempts"))
 }
 
-// DefaultHTTPLimit defines the limit for HTTP requests.
+// DefaultHTTPLimit defines the size limit for HTTP requests and responses
 func (c Config) DefaultHTTPLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("DefaultHTTPLimit"))
 }
 
 // DefaultHTTPTimeout defines the default timeout for http requests
-func (c Config) DefaultHTTPTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DefaultHTTPTimeout"))
+func (c Config) DefaultHTTPTimeout() models.Duration {
+	return c.getDuration("DefaultHTTPTimeout")
 }
 
 // Dev configures "development" mode for chainlink.
@@ -168,6 +209,12 @@ func (c Config) Dev() bool {
 // EnableExperimentalAdapters enables support for experimental adapters
 func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
+}
+
+// EnableBulletproofTxManager uses the new tx manager for ethtx tasks. Careful,
+// toggling this on and off could cause transactions to become lost
+func (c Config) EnableBulletproofTxManager() bool {
+	return c.viper.GetBool(EnvVarName("EnableBulletproofTxManager"))
 }
 
 // FeatureExternalInitiators enables the External Initiator feature.
@@ -187,14 +234,22 @@ func (c Config) MaxRPCCallsPerSecond() uint64 {
 
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
-func (c Config) MaximumServiceDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("MaximumServiceDuration"))
+func (c Config) MaximumServiceDuration() models.Duration {
+	return c.getDuration("MaximumServiceDuration")
 }
 
 // MinimumServiceDuration is the shortest duration from now that a service is
 // allowed to run.
-func (c Config) MinimumServiceDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("MinimumServiceDuration"))
+func (c Config) MinimumServiceDuration() models.Duration {
+	return c.getDuration("MinimumServiceDuration")
+}
+
+// EthBalanceMonitorBlockDelay is the number of blocks that the balance monitor
+// trails behind head. This is required e.g. for Infura because they will often
+// announce a new head, then route a request to a different node which does not
+// have this head yet.
+func (c Config) EthBalanceMonitorBlockDelay() uint16 {
+	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
 // EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
@@ -245,9 +300,31 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 	return c.runtimeStore.SetConfigValue("EthGasPriceDefault", value)
 }
 
+// EthFinalityDepth is the number of blocks after which an ethereum transaction is considered "final"
+// BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
+// There is not a large performance penalty to setting this relatively high (on the order of hundreds)
+// It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
+// If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
+// Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
+func (c Config) EthFinalityDepth() uint {
+	return c.viper.GetUint(EnvVarName("EthFinalityDepth"))
+}
+
+// EthHeadTrackerBlocksToKeep is the number of heads to keep in the `heads` database table.
+// This number should be at least as large as `EthFinalityDepth`.
+// There may be a small performance penalty to setting this to something very large (10,000+)
+func (c Config) EthHeadTrackerHistoryDepth() uint {
+	return c.viper.GetUint(EnvVarName("EthHeadTrackerHistoryDepth"))
+}
+
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
+}
+
+// EthereumDisabled shows whether Ethereum interactions are supported.
+func (c Config) EthereumDisabled() bool {
+	return c.viper.GetBool(EnvVarName("EthereumDisabled"))
 }
 
 // GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.
@@ -349,11 +426,11 @@ func (c Config) MinIncomingConfirmations() uint32 {
 	return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
 }
 
-// MinOutgoingConfirmations represents the minimum number of block
-// confirmations that need to be recorded on an outgoing transaction before a
-// task is completed.
-func (c Config) MinOutgoingConfirmations() uint64 {
-	return c.viper.GetUint64(EnvVarName("MinOutgoingConfirmations"))
+// MinRequiredOutgoingConfirmations represents the default minimum number of block
+// confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
+// This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
+func (c Config) MinRequiredOutgoingConfirmations() uint64 {
+	return c.viper.GetUint64(EnvVarName("MinRequiredOutgoingConfirmations"))
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be
@@ -373,8 +450,8 @@ func (c Config) Port() uint16 {
 }
 
 // ReaperExpiration represents
-func (c Config) ReaperExpiration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("ReaperExpiration"))
+func (c Config) ReaperExpiration() models.Duration {
+	return c.getDuration("ReaperExpiration")
 }
 
 func (c Config) ReplayFromBlock() int64 {
@@ -393,8 +470,8 @@ func (c Config) SecureCookies() bool {
 }
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
-func (c Config) SessionTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("SessionTimeout"))
+func (c Config) SessionTimeout() models.Duration {
+	return c.getDuration("SessionTimeout")
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
@@ -526,7 +603,8 @@ func (f filePersistedSecretGenerator) Generate(c Config) ([]byte, error) {
 	}
 	key := securecookie.GenerateRandomKey(32)
 	str := base64.StdEncoding.EncodeToString(key)
-	return key, ioutil.WriteFile(sessionPath, []byte(str), readWritePerms)
+	err := utils.WriteFileWithMaxPerms(sessionPath, []byte(str), readWritePerms)
+	return key, err
 }
 
 func parseAddress(str string) (interface{}, error) {
@@ -539,13 +617,13 @@ func parseAddress(str string) (interface{}, error) {
 		val := common.BigToAddress(i)
 		return &val, nil
 	}
-	return nil, fmt.Errorf("Unable to parse '%s' into EIP55-compliant address", str)
+	return nil, fmt.Errorf("unable to parse '%s' into EIP55-compliant address", str)
 }
 
 func parseLink(str string) (interface{}, error) {
 	i, ok := new(assets.Link).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse '%v' into *assets.Link(base 10)", str)
+		return i, fmt.Errorf("unable to parse '%v' into *assets.Link(base 10)", str)
 	}
 	return i, nil
 }
@@ -568,7 +646,7 @@ func parseURL(s string) (interface{}, error) {
 func parseBigInt(str string) (interface{}, error) {
 	i, ok := new(big.Int).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("Unable to parse %v into *big.Int(base 10)", str)
+		return i, fmt.Errorf("unable to parse %v into *big.Int(base 10)", str)
 	}
 	return i, nil
 }

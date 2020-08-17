@@ -1,8 +1,8 @@
 package migration1581240419
 
 import (
-	"chainlink/core/store/dbutil"
 	"github.com/jinzhu/gorm"
+	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 )
 
 // Migrate moves job_runs.overrides to run_requests.request_params

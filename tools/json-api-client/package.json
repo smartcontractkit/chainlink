@@ -1,32 +1,32 @@
 {
-    "name": "@chainlink/json-api-client",
-    "private": true,
-    "version": "0.0.1",
-    "main": "./dist/src",
-    "types": "./dist/src",
-    "engines": {
-        "node": "~12"
-    },
-    "scripts": {
-        "setup": "tsc -b",
-        "clean": "tsc -b --clean",
-        "test": "jest",
-        "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
-    },
-    "peerDependencies": {},
-    "dependencies": {
-        "isomorphic-unfetch": "^3.0.0",
-        "json-api-normalizer": "^0.4.13",
-        "path-to-regexp": "^3.0.0",
-        "typescript": "^3.7.4",
-        "url": "^0.11.0"
-    },
-    "devDependencies": {
-        "@types/fetch-mock": "^7.3.2",
-        "@types/jest": "^24.0.25",
-        "@types/path-to-regexp": "^1.7.0",
-        "fetch-mock": "^9.0.0",
-        "jest": "^24.9.0",
-        "ts-jest": "^24.0.0"
-    }
+  "name": "@chainlink/json-api-client",
+  "private": true,
+  "version": "0.0.1",
+  "main": "./dist/src",
+  "types": "./dist/src",
+  "engines": {
+    "node": "~10.16"
+  },
+  "scripts": {
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean",
+    "test": "jest",
+    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
+  },
+  "peerDependencies": {},
+  "dependencies": {
+    "isomorphic-unfetch": "^3.0.0",
+    "json-api-normalizer": "^0.4.13",
+    "path-to-regexp": "^3.0.0",
+    "typescript": "^3.7.4",
+    "url": "^0.11.0"
+  },
+  "devDependencies": {
+    "@types/fetch-mock": "^7.3.2",
+    "@types/jest": "^26.0.8",
+    "@types/path-to-regexp": "^1.7.0",
+    "fetch-mock": "^9.0.0",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.0.0"
+  }
 }

@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	models "chainlink/core/store/models"
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -46,8 +46,8 @@ func (_m *FluxMonitor) Disconnect() {
 	_m.Called()
 }
 
-// OnNewHead provides a mock function with given fields: _a0
-func (_m *FluxMonitor) OnNewHead(_a0 *models.Head) {
+// OnNewLongestChain provides a mock function with given fields: _a0
+func (_m *FluxMonitor) OnNewLongestChain(_a0 *models.Head) {
 	_m.Called(_a0)
 }
 

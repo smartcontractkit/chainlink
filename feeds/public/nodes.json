@@ -1,0 +1,344 @@
+[
+  {
+    "address": "0x049bd8c3adc3fe7d3fc2a44541d955a537c2a484",
+    "oracleAddress": "0x049bd8c3adc3fe7d3fc2a44541d955a537c2a484",
+    "name": "Fiews",
+    "networkId": 1
+  },
+  {
+    "address": "0x240bae5a27233fd3ac5440b5a598467725f7d1cd",
+    "oracleAddress": "0x240bae5a27233fd3ac5440b5a598467725f7d1cd",
+    "name": "LinkPool",
+    "networkId": 1
+  },
+  {
+    "address": "0x4565300c576431e5228e8aa32642d5739cf9247d",
+    "oracleAddress": "0x4565300c576431e5228e8aa32642d5739cf9247d",
+    "name": "Certus One",
+    "networkId": 1
+  },
+  {
+    "address": "0x58c69aff4df980357034ea98aad35bbf78cbd849",
+    "oracleAddress": "0x58c69aff4df980357034ea98aad35bbf78cbd849",
+    "name": "Wetez",
+    "networkId": 1
+  },
+  {
+    "address": "0x79c6e11be1c1ed4d91fbe05d458195a2677f14a5",
+    "oracleAddress": "0x79c6e11be1c1ed4d91fbe05d458195a2677f14a5",
+    "name": "Validation Capital",
+    "networkId": 1
+  },
+  {
+    "address": "0x7a9d706b2a3b54f7cf3b5f2fcf94c5e2b3d7b24b",
+    "oracleAddress": "0x7a9d706b2a3b54f7cf3b5f2fcf94c5e2b3d7b24b",
+    "name": "LinkForest",
+    "networkId": 1
+  },
+  {
+    "address": "0x7e94a8a23687d8c7058ba5625db2ce358bcbd244",
+    "oracleAddress": "0x7e94a8a23687d8c7058ba5625db2ce358bcbd244",
+    "name": "SNZPool",
+    "networkId": 1
+  },
+  {
+    "address": "0x89f70fa9f439dbd0a1bc22a09befc56ada04d9b4",
+    "oracleAddress": "0x89f70fa9f439dbd0a1bc22a09befc56ada04d9b4",
+    "name": "Chainlink",
+    "networkId": 1
+  },
+  {
+    "address": "0x8c85a06eb3854df0d502b2b00169dbfb8b603bf3",
+    "oracleAddress": "0x8c85a06eb3854df0d502b2b00169dbfb8b603bf3",
+    "name": "Kaiko",
+    "networkId": 1
+  },
+  {
+    "address": "0x8cfb1d4269f0daa003cdea567ac8f76c0647764a",
+    "oracleAddress": "0x8cfb1d4269f0daa003cdea567ac8f76c0647764a",
+    "name": "Simply VC",
+    "networkId": 1
+  },
+  {
+    "address": "0xb92ec7d213a28e21b426d79ede3c9bbcf6917c09",
+    "oracleAddress": "0xb92ec7d213a28e21b426d79ede3c9bbcf6917c09",
+    "name": "stake.fish",
+    "networkId": 1
+  },
+  {
+    "address": "0xf3b450002c7bc300ea03c9463d8e8ba7f821b7c6",
+    "oracleAddress": "0xf3b450002c7bc300ea03c9463d8e8ba7f821b7c6",
+    "name": "Newroad",
+    "networkId": 1
+  },
+  {
+    "address": "0xf5a3d443fccd7ee567000e43b23b0e98d96445ce",
+    "oracleAddress": "0xf5a3d443fccd7ee567000e43b23b0e98d96445ce",
+    "name": "Chainlayer",
+    "networkId": 1
+  },
+  {
+    "address": "0x992Ef8145ab8B3DbFC75523281DaD6A0981891bb",
+    "oracleAddress": "0x992Ef8145ab8B3DbFC75523281DaD6A0981891bb",
+    "name": "Figment Networks",
+    "networkId": 1
+  },
+  {
+    "address": "0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1",
+    "oracleAddress": "0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1",
+    "name": "Omniscience",
+    "networkId": 1
+  },
+  {
+    "address": "0x0Ce0224ba488ffC0F46bE32b333a874Eb775c613",
+    "oracleAddress": "0x0Ce0224ba488ffC0F46bE32b333a874Eb775c613",
+    "name": "Cosmostation",
+    "networkId": 1
+  },
+  {
+    "address": "0x64FE692be4b42F4Ac9d4617aB824E088350C11C2",
+    "oracleAddress": "0x64FE692be4b42F4Ac9d4617aB824E088350C11C2",
+    "name": "Ztake.org",
+    "networkId": 1
+  },
+  {
+    "address": "0x260A96cEC05328f678754D1ACF143C8ac1DF079A",
+    "oracleAddress": "0x260A96cEC05328f678754D1ACF143C8ac1DF079A",
+    "name": "HashQuark",
+    "networkId": 1
+  },
+  {
+    "address": "0x38b6ab6B9294CCe1Ccb59c3e7D390690B4c18B1A",
+    "oracleAddress": "0x38b6ab6B9294CCe1Ccb59c3e7D390690B4c18B1A",
+    "name": "Prophet",
+    "networkId": 1
+  },
+  {
+    "address": "0x2Ed7E9fCd3c0568dC6167F0b8aEe06A02CD9ebd8",
+    "oracleAddress": "0x2Ed7E9fCd3c0568dC6167F0b8aEe06A02CD9ebd8",
+    "name": "Secure Data Links",
+    "networkId": 1
+  },
+  {
+    "address": "0x78E76126719715Eddf107cD70f3A31dddF31f85A",
+    "oracleAddress": "0x78E76126719715Eddf107cD70f3A31dddF31f85A",
+    "name": "Honeycomb.market",
+    "networkId": 1
+  },
+  {
+    "address": "0x24A718307Ce9B2420962fd5043fb876e17430934",
+    "oracleAddress": "0x24A718307Ce9B2420962fd5043fb876e17430934",
+    "name": "Infinity Stones",
+    "networkId": 1
+  },
+  {
+    "address": "0x72f3dFf4CD17816604dd2df6C2741e739484CA62",
+    "oracleAddress": "0x72f3dFf4CD17816604dd2df6C2741e739484CA62",
+    "name": "Alpha Vantage",
+    "networkId": 1
+  },
+  {
+    "address": "0x29e3b3c76e7ae0d681bf1a6BceE1c0E7d17DBAA9",
+    "oracleAddress": "0x29e3b3c76e7ae0d681bf1a6BceE1c0E7d17DBAA9",
+    "name": "P2P.org",
+    "networkId": 1
+  },
+  {
+    "address": "0x9308B0Bd23794063423f484Cd21c59eD38898108",
+    "oracleAddress": "0x9308B0Bd23794063423f484Cd21c59eD38898108",
+    "name": "Anyblock",
+    "networkId": 1
+  },
+  {
+    "address": "0x85aEace84a130bC1AcCcE2a9F4F933F6765b0B9B",
+    "oracleAddress": "0x85aEace84a130bC1AcCcE2a9F4F933F6765b0B9B",
+    "name": "Everstake",
+    "networkId": 1
+  },
+  {
+    "address": "0x45408418eA69238376fCDa67245d12751Eff5Deb",
+    "oracleAddress": "0x45408418eA69238376fCDa67245d12751Eff5Deb",
+    "name": "Easy 2 stake",
+    "networkId": 1
+  },
+  {
+    "address": "0xa8049b0f1c409a58d378e0e41469e824b1bb6e73",
+    "oracleAddress": "0xa8049b0f1c409a58d378e0e41469e824b1bb6e73",
+    "name": "Paradigm Citadel",
+    "networkId": 1
+  },
+  {
+    "address": "0x737424bfef17e9883b57ee17de230523e871c5f5",
+    "oracleAddress": "0x737424bfef17e9883b57ee17de230523e871c5f5",
+    "name": "B Harvest",
+    "networkId": 1
+  },
+  {
+    "address": "0xe4129ceec7e622287810815d16939303089ddff3",
+    "oracleAddress": "0xe4129ceec7e622287810815d16939303089ddff3",
+    "name": "Chorus One",
+    "networkId": 1
+  },
+  {
+    "address": "0x95b00984a9c38417cDBa9653CE4F4A0A3e54451c",
+    "oracleAddress": "0x95b00984a9c38417cDBa9653CE4F4A0A3e54451c",
+    "name": "DexTrac",
+    "networkId": 1
+  },
+  {
+    "address": "0x7872eb21639Ae8193f1AAF495B967202713C8Fe5",
+    "oracleAddress": "0x7872eb21639Ae8193f1AAF495B967202713C8Fe5",
+    "name": "dMakers",
+    "networkId": 1
+  },
+  {
+    "address": "0x58EB922F60Ae3D7A8b9F6cCbe7ae4F05431f998c",
+    "oracleAddress": "0x58EB922F60Ae3D7A8b9F6cCbe7ae4F05431f998c",
+    "name": "Vulcan Link",
+    "networkId": 1
+  },
+  {
+    "address": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
+    "oracleAddress": "0x83F00b902cbf06E316C95F51cbEeD9D2572a349a",
+    "name": "LinkPool",
+    "networkId": 3
+  },
+  {
+    "address": "0xc2e33121d00064841e844EB068221803e140f496",
+    "oracleAddress": "0xc2e33121d00064841e844EB068221803e140f496",
+    "name": "stake.fish",
+    "networkId": 3
+  },
+  {
+    "address": "0x6E6F16B7C0A00A2aC1136b3aE3E4641f1FAF8D7f",
+    "oracleAddress": "0x6E6F16B7C0A00A2aC1136b3aE3E4641f1FAF8D7f",
+    "name": "Chainlayer",
+    "networkId": 3
+  },
+  {
+    "address": "0x90eeb07A0DdB176D4c60deC3a146e2289DCB2674",
+    "oracleAddress": "0x90eeb07A0DdB176D4c60deC3a146e2289DCB2674",
+    "name": "Cosmostation",
+    "networkId": 3
+  },
+  {
+    "address": "0x1041F70920ec1d0A10C53a3cA1235d5971d0a0ED",
+    "oracleAddress": "0x1041F70920ec1d0A10C53a3cA1235d5971d0a0ED",
+    "name": "Prophet",
+    "networkId": 3
+  },
+  {
+    "address": "0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1",
+    "oracleAddress": "0x0D31C381c84d94292C07ec03D6FeE0c1bD6e15c1",
+    "name": "Simply VC",
+    "networkId": 3
+  },
+  {
+    "address": "0x4a3FBbB385b5eFEB4BC84a25AaADcD644Bd09721",
+    "oracleAddress": "0x4a3FBbB385b5eFEB4BC84a25AaADcD644Bd09721",
+    "name": "Honeycomb.market",
+    "networkId": 3
+  },
+  {
+    "address": "0x3a44681bdEDa78F2C901161d9ADCcFd23b6DaA36",
+    "oracleAddress": "0x3a44681bdEDa78F2C901161d9ADCcFd23b6DaA36",
+    "name": "Newroad",
+    "networkId": 3
+  },
+  {
+    "address": "0x1948C20CC492539968BB9b041F96D6556B4b7001",
+    "oracleAddress": "0x1948C20CC492539968BB9b041F96D6556B4b7001",
+    "name": "Fiews",
+    "networkId": 3
+  },
+  {
+    "address": "0x4105d850E9Aea215f9350C9E46Bb73FC0448C20a",
+    "oracleAddress": "0x4105d850E9Aea215f9350C9E46Bb73FC0448C20a",
+    "name": "LinkForest",
+    "networkId": 3
+  },
+  {
+    "address": "0xfe08369B2021c194C86cb05aF0D15f837561E09b",
+    "oracleAddress": "0xfe08369B2021c194C86cb05aF0D15f837561E09b",
+    "name": "Figment Networks",
+    "networkId": 3
+  },
+  {
+    "address": "0xfc1dA11c2477a6c398E9e595ACE8a09064636e9D",
+    "oracleAddress": "0xfc1dA11c2477a6c398E9e595ACE8a09064636e9D",
+    "name": "Validation Capital",
+    "networkId": 3
+  },
+  {
+    "address": "0x80DAD789487f9EF2d139C8AFD18a6Ac5f5530e28",
+    "oracleAddress": "0x80DAD789487f9EF2d139C8AFD18a6Ac5f5530e28",
+    "name": "Wetez",
+    "networkId": 3
+  },
+  {
+    "address": "0xA3Ce768F041d136E8d57fD24372E5fB510b797ec",
+    "oracleAddress": "0xA3Ce768F041d136E8d57fD24372E5fB510b797ec",
+    "name": "Certus One",
+    "networkId": 3
+  },
+  {
+    "address": "0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1",
+    "oracleAddress": "0x83dA1beEb89Ffaf56d0B7C50aFB0A66Fb4DF8cB1",
+    "name": "Omniscience",
+    "networkId": 3
+  },
+  {
+    "address": "0xAB59b29D018a522da92761af759BEa2c272C0c41",
+    "oracleAddress": "0xAB59b29D018a522da92761af759BEa2c272C0c41",
+    "name": "Ztake.org",
+    "networkId": 3
+  },
+  {
+    "address": "0xa0BfFBdf2c440D6c76af13c30d9B320F9d2DeA6A",
+    "oracleAddress": "0xa0BfFBdf2c440D6c76af13c30d9B320F9d2DeA6A",
+    "name": "Secure Data Links",
+    "networkId": 3
+  },
+  {
+    "address": "0xc99B3D447826532722E41bc36e644ba3479E4365",
+    "oracleAddress": "0xc99B3D447826532722E41bc36e644ba3479E4365",
+    "name": "Chainlink",
+    "networkId": 3
+  },
+  {
+    "address": "0x948374A346fDf2F73545864fAb6e3488Ed125961",
+    "oracleAddress": "0x948374A346fDf2F73545864fAb6e3488Ed125961",
+    "name": "Infinity Stones",
+    "networkId": 3
+  },
+  {
+    "address": "0x2c3E0524d8B9601916A29A114a150610EB1653ce",
+    "oracleAddress": "0x2c3E0524d8B9601916A29A114a150610EB1653ce",
+    "name": "SNZPool",
+    "networkId": 3
+  },
+  {
+    "address": "0xb36d3709e22f7c708348e225b20b13ea546e6d9c",
+    "oracleAddress": "0xb36d3709e22f7c708348e225b20b13ea546e6d9c",
+    "name": "Alpha Vantage",
+    "networkId": 3
+  },
+  {
+    "address": "0xa8EE2a4a0F010E66A0f1C4321865D3dbeE3070Cb",
+    "oracleAddress": "0xa8EE2a4a0F010E66A0f1C4321865D3dbeE3070Cb",
+    "name": "Kaiko",
+    "networkId": 3
+  },
+  {
+    "address": "0x16d19adaF73CE34a346E0bF91108cfb26133a7bd",
+    "oracleAddress": "0x16d19adaF73CE34a346E0bF91108cfb26133a7bd",
+    "name": "Chorus One",
+    "networkId": 3
+  },
+  {
+    "address": "0x20a859058d4ae68301003b981d5d675795c64a70",
+    "oracleAddress": "0x20a859058d4ae68301003b981d5d675795c64a70",
+    "name": "Staking Facilities",
+    "networkId": 3
+  }
+]

@@ -154,6 +154,7 @@ func TestNewJSONAPIResponse(t *testing.T) {
 
 	buffer, err := NewJSONAPIResponse(12981)
 	assert.Error(t, err)
+	assert.Len(t, buffer, 0)
 
 	r := DummyResource{ID: "782"}
 	buffer, err = NewJSONAPIResponse(&r)

@@ -312,16 +312,16 @@ func Coordinates(p kyber.Point) (*big.Int, *big.Int) {
 	return p.(*secp256k1Point).X.int(), p.(*secp256k1Point).Y.int()
 }
 
-var halfQ = big.NewInt(0).Add(big.NewInt(0).Rsh(GroupOrder, 1),
-	big.NewInt(1)) // Half secp256k1 group order + 1
-
 // ValidPublicKey returns true iff p can be used in the optimized on-chain
 // Schnorr-signature verification. See SchnorrSECP256K1.sol for details.
 func ValidPublicKey(p kyber.Point) bool {
 	if p == (*secp256k1Point)(nil) || p == nil {
 		return false
 	}
-	P := p.(*secp256k1Point)
+	P, ok := p.(*secp256k1Point)
+	if !ok {
+		return false
+	}
 	maybeY := maybeSqrtInField(rightHandSide(P.X))
 	return maybeY != nil && (P.Y.Equal(maybeY) || P.Y.Equal(maybeY.Neg(maybeY)))
 }

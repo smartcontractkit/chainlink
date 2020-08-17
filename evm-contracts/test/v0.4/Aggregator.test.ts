@@ -198,7 +198,6 @@ describe('Aggregator', () => {
           oracles.map(o => o.address),
           [jobId1, jobId2, jobId3],
         )
-
         await link.transfer(rate.address, deposit)
 
         const current = await rate.latestAnswer()
@@ -687,7 +686,7 @@ describe('Aggregator', () => {
 
     describe('when a later answer has not been provided', () => {
       it('does not allow the request to be cancelled', async () => {
-        matchers.evmRevert(async () => {
+        await matchers.evmRevert(async () => {
           await rate.cancelRequest(
             request.requestId,
             request.payment,

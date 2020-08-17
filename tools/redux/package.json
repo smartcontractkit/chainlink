@@ -1,23 +1,23 @@
 {
-    "name": "@chainlink/redux",
-    "private": true,
-    "version": "0.0.1",
-    "main": "./dist/src",
-    "types": "./dist/src",
-    "engines": {
-        "node": "~12"
-    },
-    "scripts": {
-        "setup": "tsc -b",
-        "clean": "tsc -b --clean"
-    },
-    "peerDependencies": {},
-    "dependencies": {
-        "redux": "^4.0.5"
-    },
-    "devDependencies": {
-        "@types/redux-logger": "^3.0.7",
-        "redux-devtools-extension": "^2.13.8",
-        "redux-logger": "^3.0.6"
-    }
+  "name": "@chainlink/redux",
+  "private": true,
+  "version": "0.0.1",
+  "main": "./dist/src",
+  "types": "./dist/src",
+  "engines": {
+    "node": "~10.16"
+  },
+  "scripts": {
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean"
+  },
+  "peerDependencies": {},
+  "dependencies": {
+    "redux": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/redux-logger": "^3.0.8",
+    "redux-devtools-extension": "^2.13.8",
+    "redux-logger": "^3.0.6"
+  }
 }

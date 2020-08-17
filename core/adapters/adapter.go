@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"chainlink/core/assets"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 var (
@@ -39,8 +39,8 @@ var (
 	TaskTypeMultiply = models.MustNewTaskType("multiply")
 	// TaskTypeNoOp is the identifier for the NoOp adapter.
 	TaskTypeNoOp = models.MustNewTaskType("noop")
-	// TaskTypeNoOpPend is the identifier for the NoOpPend adapter.
-	TaskTypeNoOpPend = models.MustNewTaskType("nooppend")
+	// TaskTypeNoOpPendOutgoing is the identifier for the NoOpPendOutgoing adapter.
+	TaskTypeNoOpPendOutgoing = models.MustNewTaskType("nooppendoutgoing")
 	// TaskTypeSleep is the identifier for the Sleep adapter.
 	TaskTypeSleep = models.MustNewTaskType("sleep")
 	// TaskTypeWasm is the wasm interpereter adapter
@@ -79,81 +79,26 @@ func (p PipelineAdapter) MinPayment() *assets.Link {
 
 // For determines the adapter type to use for a given task.
 func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*PipelineAdapter, error) {
-	var ba BaseAdapter
 	var err error
 	mic := config.MinIncomingConfirmations()
 	var mp *assets.Link
 
-	switch task.Type {
-	case TaskTypeCopy:
-		ba = &Copy{}
+	ba := FindNativeAdapterFor(task)
+	if ba != nil { // task is for native adapter
 		err = unmarshalParams(task.Params, ba)
-	case TaskTypeEthBool:
-		ba = &EthBool{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeEthBytes32:
-		ba = &EthBytes32{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeEthInt256:
-		ba = &EthInt256{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeEthUint256:
-		ba = &EthUint256{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeEthTx:
-		ba = &EthTx{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeEthTxABIEncode:
-		ba = &EthTxABIEncode{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeHTTPGetWithUnrestrictedNetworkAccess:
-		ba = &HTTPGet{AllowUnrestrictedNetworkAccess: true}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeHTTPPostWithUnrestrictedNetworkAccess:
-		ba = &HTTPPost{AllowUnrestrictedNetworkAccess: true}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeHTTPGet:
-		ba = &HTTPGet{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeHTTPPost:
-		ba = &HTTPPost{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeJSONParse:
-		ba = &JSONParse{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeMultiply:
-		ba = &Multiply{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeNoOp:
-		ba = &NoOp{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeNoOpPend:
-		ba = &NoOpPend{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeSleep:
-		ba = &Sleep{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeWasm:
-		ba = &Wasm{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeRandom:
-		ba = &Random{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeCompare:
-		ba = &Compare{}
-		err = unmarshalParams(task.Params, ba)
-	case TaskTypeQuotient:
-		ba = &Quotient{}
-		err = unmarshalParams(task.Params, ba)
-	default:
-		bt, err := orm.FindBridge(task.Type)
-		if err != nil {
+	} else { // task is for external adapter
+		bt, bErr := orm.FindBridge(task.Type)
+		if bErr != nil {
 			return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 		}
 		b := Bridge{BridgeType: bt, Params: task.Params}
 		ba = &b
 		mp = bt.MinimumContractPayment
 		mic = b.Confirmations
+	}
+
+	if ba == nil {
+		return nil, fmt.Errorf("%s is not a supported adapter type", task.Type)
 	}
 
 	pa := &PipelineAdapter{
@@ -163,6 +108,54 @@ func For(task models.TaskSpec, config orm.ConfigReader, orm *orm.ORM) (*Pipeline
 	}
 
 	return pa, err
+}
+
+// FindNativeAdapterFor find the native adapter for a given task
+func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
+	switch task.Type {
+	case TaskTypeCopy:
+		return &Copy{}
+	case TaskTypeEthBool:
+		return &EthBool{}
+	case TaskTypeEthBytes32:
+		return &EthBytes32{}
+	case TaskTypeEthInt256:
+		return &EthInt256{}
+	case TaskTypeEthUint256:
+		return &EthUint256{}
+	case TaskTypeEthTx:
+		return &EthTx{}
+	case TaskTypeEthTxABIEncode:
+		return &EthTxABIEncode{}
+	case TaskTypeHTTPGetWithUnrestrictedNetworkAccess:
+		return &HTTPGet{AllowUnrestrictedNetworkAccess: true}
+	case TaskTypeHTTPPostWithUnrestrictedNetworkAccess:
+		return &HTTPPost{AllowUnrestrictedNetworkAccess: true}
+	case TaskTypeHTTPGet:
+		return &HTTPGet{}
+	case TaskTypeHTTPPost:
+		return &HTTPPost{}
+	case TaskTypeJSONParse:
+		return &JSONParse{}
+	case TaskTypeMultiply:
+		return &Multiply{}
+	case TaskTypeNoOp:
+		return &NoOp{}
+	case TaskTypeNoOpPendOutgoing:
+		return &NoOpPendOutgoing{}
+	case TaskTypeSleep:
+		return &Sleep{}
+	case TaskTypeWasm:
+		return &Wasm{}
+	case TaskTypeRandom:
+		return &Random{}
+	case TaskTypeCompare:
+		return &Compare{}
+	case TaskTypeQuotient:
+		return &Quotient{}
+	default:
+		return nil
+	}
 }
 
 func unmarshalParams(params models.JSON, dst interface{}) error {

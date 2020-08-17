@@ -1,16 +1,17 @@
 package services
 
 import (
+	"context"
 	"sync"
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/mrwonko/cron"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 )
 
 // Scheduler contains fields for Recurring and OneTime for occurrences,
@@ -111,21 +112,23 @@ func NewRecurring(runManager RunManager) *Recurring {
 // Start for Recurring types executes tasks with a "cron" initiator
 // based on the configured schedule for the run.
 func (r *Recurring) Start() error {
-	r.Cron = newChainlinkCron()
+	r.Cron = cron.New(cron.WithParser(models.CronParser))
 	r.Cron.Start()
 	return nil
 }
 
 // Stop stops the cron scheduler and waits for running jobs to finish.
 func (r *Recurring) Stop() {
-	r.Cron.Stop()
+	ctx := r.Cron.Stop()
+	// Wait for all jobs to finish
+	<-ctx.Done()
 }
 
 // AddJob looks for "cron" initiators, adds them to cron's schedule
 // for execution when specified.
 func (r *Recurring) AddJob(job models.JobSpec) {
 	for _, initr := range job.InitiatorsFor(models.InitiatorCron) {
-		r.Cron.AddFunc(string(initr.Schedule), func() {
+		_, err := r.Cron.AddFunc(string(initr.Schedule), func() {
 			now := time.Now()
 			if !job.Started(now) || job.Ended(now) {
 				return
@@ -136,6 +139,9 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 				logger.Errorw(err.Error())
 			}
 		})
+		if err != nil {
+			logger.Error(err)
+		}
 	}
 }
 
@@ -187,7 +193,7 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 			return
 		}
 
-		if err := ot.Store.MarkRan(&initiator, true); err != nil {
+		if err := ot.Store.MarkRan(initiator, true); err != nil {
 			logger.Error(err.Error())
 		}
 	}
@@ -202,24 +208,8 @@ func ExpectedRecurringScheduleJobError(err error) bool {
 	}
 }
 
-// Cron is an interface for scheduling recurring functions to run.
-// Cron's schedule format is similar to the standard cron format
-// but with an extra field at the beginning for seconds.
 type Cron interface {
 	Start()
-	Stop()
-	AddFunc(string, func()) error
-}
-
-type chainlinkCron struct {
-	*cron.Cron
-}
-
-func newChainlinkCron() *chainlinkCron {
-	return &chainlinkCron{cron.New()}
-}
-
-func (cc *chainlinkCron) Stop() {
-	cc.Cron.Stop()
-	cc.Cron.Wait()
+	Stop() context.Context
+	AddFunc(string, func()) (cron.EntryID, error)
 }

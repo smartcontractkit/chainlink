@@ -1,163 +1,134 @@
-import React, { useState } from 'react'
+import { DispatchBinding } from '@chainlink/ts-helpers'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { connect, MapStateToProps } from 'react-redux'
-import { Col, Popover, Tooltip } from 'antd'
+import { Col } from 'antd'
 import classNames from 'classnames'
+import { FeedConfig } from 'config'
 import { AppState } from 'state'
-import { FeedConfig } from 'feeds'
-import { listingSelectors } from '../../state/ducks/listing'
-import { ListingAnswer } from 'state/ducks/listing/operations'
+import { listingSelectors, listingOperations } from '../../state/ducks/listing'
 import { HealthCheck } from 'state/ducks/listing/reducers'
+import Sponsors from './Sponsors'
+import { Details } from './Details'
+import { humanizeUnixTimestamp } from '../../utils'
 
 interface StateProps {
   healthCheck?: HealthCheck
-  listingAnswer?: ListingAnswer
+  answer?: string
+  answerTimestamp?: number
 }
 
 interface OwnProps {
   feed: FeedConfig
-  compareOffchain: boolean
-  enableHealth: boolean
+  enableDetails: boolean
 }
 
-interface Props extends StateProps, OwnProps {}
+interface DispatchProps {
+  fetchLatestData: DispatchBinding<typeof listingOperations.fetchLatestData>
+  fetchHealthStatus: DispatchBinding<typeof listingOperations.fetchHealthStatus>
+}
+
+interface Props extends OwnProps, StateProps, DispatchProps {}
 
 const GRID = { xs: 24, sm: 12, md: 8 }
 
 export const GridItem: React.FC<Props> = ({
   feed,
-  listingAnswer,
-  compareOffchain,
-  enableHealth,
+  answer,
+  answerTimestamp,
   healthCheck,
+  enableDetails,
+  fetchLatestData,
+  fetchHealthStatus,
 }) => {
-  const status = normalizeStatus(feed, listingAnswer, healthCheck)
-  const tooltipErrors = status.errors.join(', ')
-  const title = `${status.result}${tooltipErrors}`
-  const classes = classNames(
-    'listing-grid__item',
-    healthClasses(status, enableHealth),
-  )
+  useEffect(() => {
+    fetchLatestData(feed)
+  }, [fetchLatestData, feed])
+
+  useEffect(() => {
+    if (enableDetails) {
+      fetchHealthStatus(feed)
+    }
+  }, [enableDetails, fetchHealthStatus, feed])
+
+  const healthCheckStatus = normalizeStatus(feed, answer, healthCheck)
+
+  const classes = classNames('listing-grid__item', {
+    [`listing-grid__item--health listing-grid__item--health-${healthClasses(
+      healthCheckStatus,
+    )}`]: enableDetails,
+  })
+
   const gridItem = (
     <div className={classes}>
-      {compareOffchain && <CompareOffchain feed={feed} />}
       <Link
         to={feed.path}
         onClick={scrollToTop}
         className="listing-grid__item--link"
       >
-        <div className="listing-grid__item--name">{feed.name}</div>
-        <div className="listing-grid__item--answer">
-          {listingAnswer && (
-            <>
-              {feed.valuePrefix} {listingAnswer.answer}
-            </>
+        <div className="listing-grid__item--details-icon">
+          {enableDetails && (
+            <Details
+              feed={feed}
+              healthCheckPrice={healthCheck?.currentPrice}
+              healthCheckStatus={healthCheckStatus}
+              answer={answer}
+              answerTimestamp={answerTimestamp}
+              healthClasses={healthClasses(healthCheckStatus)}
+            />
           )}
         </div>
-        {feed.sponsored && feed.sponsored.length > 0 && (
-          <>
-            <div className="listing-grid__item--sponsored-title">
-              Sponsored by
-            </div>
-            <div className="listing-grid__item--sponsored">
-              <Sponsored data={feed.sponsored} />
-            </div>
-          </>
-        )}
+        <div className="listing-grid__item--name">{feed.name}</div>
+        <div className="listing-grid__item--answer">
+          {answer && (
+            <>
+              {feed.valuePrefix} {answer}
+            </>
+          )}
+          {enableDetails && answerTimestamp && (
+            <div> {humanizeUnixTimestamp(answerTimestamp, 'LLL')}</div>
+          )}
+        </div>
+        <Sponsors sponsors={feed.sponsored} />
       </Link>
     </div>
   )
 
-  return (
-    <Col {...GRID}>
-      {enableHealth ? <Tooltip title={title}>{gridItem}</Tooltip> : gridItem}
-    </Col>
-  )
-}
-
-interface CompareOffchainProps {
-  feed: FeedConfig
-}
-
-function CompareOffchain({ feed }: CompareOffchainProps) {
-  let content: any = 'No offchain comparison'
-
-  if (feed.compareOffchain) {
-    content = (
-      <a href={feed.compareOffchain} rel="noopener noreferrer">
-        Compare Offchain
-      </a>
-    )
-  }
-
-  return (
-    <div className="listing-grid__item--offchain-comparison">{content}</div>
-  )
-}
-
-function Sponsored({ data }: any) {
-  const [sliced] = useState(data.slice(0, 2))
-
-  if (data.length <= 2) {
-    return sliced.map((name: any, i: number) => [
-      i > 0 && ', ',
-      <span key={name}>{name}</span>,
-    ])
-  }
-
-  return (
-    <Popover
-      content={data.map((name: any) => (
-        <div className="listing-grid__item--sponsored-popover" key={name}>
-          {name}
-        </div>
-      ))}
-      title="Sponsored by"
-    >
-      {sliced.map((name: any, i: number) => [
-        i > 0 && ', ',
-        <span key={name}>{name}</span>,
-      ])}
-      , (+{data.length - 2})
-    </Popover>
-  )
+  return <Col {...GRID}>{gridItem}</Col>
 }
 
 function scrollToTop() {
   window.scrollTo(0, 0)
 }
 
-interface Status {
+export interface Status {
   result: string
   errors: string[]
 }
 
-function healthClasses(status: Status, enableHeath: boolean) {
-  if (!enableHeath) {
-    return
+function healthClasses(status: Status) {
+  if (status.result === 'Unknown') {
+    return 'unknown'
   }
-  if (status.result === 'unknown') {
-    return 'listing-grid__item--health-unknown'
-  }
-  if (status.result === 'error') {
-    return 'listing-grid__item--health-error'
+  if (status.result === 'Error') {
+    return 'error'
   }
 
-  return 'listing-grid__item--health-ok'
+  return 'ok'
 }
 
 function normalizeStatus(
   feed: FeedConfig,
-  listingAnswer?: ListingAnswer,
+  rawAnswer?: string,
   healthCheck?: HealthCheck,
 ): Status {
   const errors: string[] = []
 
-  if (listingAnswer === undefined || healthCheck === undefined) {
-    return { result: 'unknown', errors }
+  if (rawAnswer === undefined || healthCheck === undefined) {
+    return { result: 'Unknown', errors }
   }
 
-  const answer = parseFloat(listingAnswer.answer)
+  const answer = parseFloat(rawAnswer ?? '0')
   const thresholdDiff = healthCheck.currentPrice * (feed.threshold / 100)
   const thresholdMin = Math.max(healthCheck.currentPrice - thresholdDiff, 0)
   const thresholdMax = healthCheck.currentPrice + thresholdDiff
@@ -168,14 +139,14 @@ function normalizeStatus(
   }
   if (!withinThreshold) {
     errors.push(
-      `reference contract price is not within threshold ${thresholdMin} - ${thresholdMax}`,
+      `Reference contract price is not within threshold ${thresholdMin} - ${thresholdMax}`,
     )
   }
 
   if (errors.length === 0) {
-    return { result: 'ok', errors }
+    return { result: `OK. Within ${feed.threshold}% threshold`, errors }
   } else {
-    return { result: 'error', errors }
+    return { result: 'Error', errors }
   }
 }
 
@@ -184,13 +155,23 @@ const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
   ownProps,
 ) => {
   const contractAddress = ownProps.feed.contractAddress
-  const listingAnswer = listingSelectors.answer(state, contractAddress)
+  const answer = listingSelectors.answer(state, contractAddress)
+  const answerTimestamp = listingSelectors.answerTimestamp(
+    state,
+    contractAddress,
+  )
   const healthCheck = state.listing.healthChecks[contractAddress]
 
   return {
-    listingAnswer,
+    answer,
+    answerTimestamp,
     healthCheck,
   }
 }
 
-export default connect(mapStateToProps)(GridItem)
+const mapDispatchToProps = {
+  fetchLatestData: listingOperations.fetchLatestData,
+  fetchHealthStatus: listingOperations.fetchHealthStatus,
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(GridItem)

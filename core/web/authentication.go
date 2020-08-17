@@ -1,10 +1,11 @@
 package web
 
 import (
-	"chainlink/core/auth"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
 	"net/http"
+
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"

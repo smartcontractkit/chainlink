@@ -2,6 +2,7 @@ package fluxmonitor
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,13 +13,16 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // ethUSDPairing has the ETH/USD parameters needed when POSTing to the price
 // external adapters.
 // https://github.com/smartcontractkit/price-adapters
 const ethUSDPairing = `{"data":{"coin":"ETH","market":"USD"}}`
-const defaultHTTPTimeout = 15 * time.Second
+
+var defaultHTTPTimeout = models.MustMakeDuration(15 * time.Second)
 
 func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 	tests := []struct {
@@ -275,4 +279,27 @@ func TestMedianFetcher_MinorityErrors(t *testing.T) {
 			assert.True(t, decimal.NewFromInt(0).Equal(medianPrice))
 		})
 	}
+}
+
+func TestHTTPFetcher_AddsArbitraryRequestID(t *testing.T) {
+	empty := adapterResponse{}
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req fetcherRequest
+		body, _ := ioutil.ReadAll(r.Body)
+		err := json.Unmarshal(body, &req)
+		require.NoError(t, err)
+		require.NotEmpty(t, req.ID)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(empty))
+	})
+
+	s1 := httptest.NewServer(handler)
+
+	defer s1.Close()
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL)
+	fetcher.Fetch()
 }

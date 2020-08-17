@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react'
 import { Icon } from 'antd'
+import { FeedConfig } from 'config'
+import React, { useEffect, useRef } from 'react'
 import DeviationHistoryD3 from './DeviationGraph.d3'
-import { FeedConfig } from 'feeds'
 
 interface StateProps {
   answerHistory: any
@@ -29,7 +29,10 @@ const DeviationHistory: React.FC<Props> = ({ answerHistory, config }) => {
     <>
       <div className="deviation-history">
         <h2 className="deviation-history-header">
-          24h Volatility {!answerHistory && <Icon type="loading" />}
+          {config.historyDays && config.historyDays > 1
+            ? `Last ${config.historyDays} days volatility chart`
+            : '24h Volatility'}{' '}
+          {!answerHistory && <Icon type="loading" />}
         </h2>
         <div className="deviation-history-graph"></div>
       </div>

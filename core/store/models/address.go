@@ -2,11 +2,14 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -48,9 +51,15 @@ func (a EIP55Address) String() string {
 	return string(a)
 }
 
+// Hex is idential to String but makes the API similar to common.Address
+func (a EIP55Address) Hex() string {
+	return a.String()
+}
+
 // Format implements fmt.Formatter
 func (a EIP55Address) Format(s fmt.State, c rune) {
-	fmt.Fprint(s, a.String())
+	_, err := fmt.Fprint(s, a.String())
+	logger.ErrorIf(err, "failed when format EIP55Address to state")
 }
 
 // UnmarshalText parses a hash from plain text
@@ -68,17 +77,21 @@ func (a *EIP55Address) UnmarshalJSON(input []byte) error {
 
 // Value returns this instance serialized for database storage.
 func (a EIP55Address) Value() (driver.Value, error) {
-	return a.String(), nil
+	return a.Bytes(), nil
+
 }
 
 // Scan reads the database value and returns an instance.
 func (a *EIP55Address) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to EIP55Address", value, value)
+	switch v := value.(type) {
+	case string:
+		*a = EIP55Address(v)
+	case []byte:
+		address := common.HexToAddress("0x" + hex.EncodeToString(v))
+		*a = EIP55Address(address.Hex())
+	default:
+		return fmt.Errorf("unable to convert %v of %T to EIP55Address", value, value)
 	}
-
-	*a = EIP55Address(temp)
 	return nil
 }
 
@@ -100,7 +113,7 @@ func (c EIP55AddressCollection) Value() (driver.Value, error) {
 func (c *EIP55AddressCollection) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to EIP55AddressCollection", value, value)
+		return fmt.Errorf("unable to convert %v of %T to EIP55AddressCollection", value, value)
 	}
 
 	arr := strings.Split(temp, ",")

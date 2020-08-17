@@ -8,16 +8,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
-	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"github.com/tevino/abool"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 	null "gopkg.in/guregu/null.v3"
@@ -85,7 +85,7 @@ func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
-	return logger.ISO8601UTC(t)
+	return t.UTC().Format(time.RFC3339)
 }
 
 // NullISO8601UTC returns formatted time if valid, empty string otherwise.
@@ -99,7 +99,7 @@ func NullISO8601UTC(t null.Time) string {
 // DurationFromNow returns the amount of time since the Time
 // field was last updated.
 func DurationFromNow(t time.Time) time.Duration {
-	return t.Sub(time.Now())
+	return time.Until(t)
 }
 
 // FormatJSON applies indent to format a JSON response.
@@ -173,28 +173,6 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
-// ToFilterArg filters logs with the given FilterQuery
-// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
-func ToFilterArg(q ethereum.FilterQuery) interface{} {
-	arg := map[string]interface{}{
-		"fromBlock": toBlockNumArg(q.FromBlock),
-		"toBlock":   toBlockNumArg(q.ToBlock),
-		"address":   q.Addresses,
-		"topics":    q.Topics,
-	}
-	if q.FromBlock == nil {
-		arg["fromBlock"] = "0x0"
-	}
-	return arg
-}
-
-func toBlockNumArg(number *big.Int) string {
-	if number == nil {
-		return "latest"
-	}
-	return hexutil.EncodeBig(number)
-}
-
 // Sleeper interface is used for tasks that need to be done on some
 // interval, excluding Cron, like reconnecting.
 type Sleeper interface {
@@ -207,24 +185,25 @@ type Sleeper interface {
 // BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
 	backoff.Backoff
-	beenRun bool
+	beenRun *abool.AtomicBool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
 // sleep for 0 seconds initially, then backs off from 1 second minimum
 // to 10 seconds maximum.
 func NewBackoffSleeper() *BackoffSleeper {
-	return &BackoffSleeper{Backoff: backoff.Backoff{
-		Min: 1 * time.Second,
-		Max: 10 * time.Second,
-	}}
+	return &BackoffSleeper{
+		Backoff: backoff.Backoff{
+			Min: 1 * time.Second,
+			Max: 10 * time.Second,
+		},
+		beenRun: abool.New(),
+	}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
 func (bs *BackoffSleeper) Sleep() {
-	if !bs.beenRun {
-		time.Sleep(0)
-		bs.beenRun = true
+	if bs.beenRun.SetToIf(false, true) {
 		return
 	}
 	time.Sleep(bs.Backoff.Duration())
@@ -232,8 +211,7 @@ func (bs *BackoffSleeper) Sleep() {
 
 // After returns the duration for the next stop, and increments the backoff.
 func (bs *BackoffSleeper) After() time.Duration {
-	if !bs.beenRun {
-		bs.beenRun = true
+	if bs.beenRun.SetToIf(false, true) {
 		return 0
 	}
 	return bs.Backoff.Duration()
@@ -241,7 +219,7 @@ func (bs *BackoffSleeper) After() time.Duration {
 
 // Duration returns the current duration value.
 func (bs *BackoffSleeper) Duration() time.Duration {
-	if !bs.beenRun {
+	if !bs.beenRun.IsSet() {
 		return 0
 	}
 	return bs.ForAttempt(bs.Attempt())
@@ -249,8 +227,27 @@ func (bs *BackoffSleeper) Duration() time.Duration {
 
 // Reset resets the backoff intervals.
 func (bs *BackoffSleeper) Reset() {
-	bs.beenRun = false
+	bs.beenRun.UnSet()
 	bs.Backoff.Reset()
+}
+
+func RetryWithBackoff(chCancel <-chan struct{}, errPrefix string, fn func() error) (aborted bool) {
+	sleeper := NewBackoffSleeper()
+	sleeper.Reset()
+	for {
+		err := fn()
+		if err == nil {
+			return false
+		}
+
+		logger.Errorf("%v: %v", errPrefix, err)
+		select {
+		case <-chCancel:
+			return true
+		case <-time.After(sleeper.After()):
+			continue
+		}
+	}
 }
 
 // MinBigs finds the minimum value of a list of big.Ints.
@@ -327,7 +324,7 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 		for k, v := range typed {
 			coercedKey, ok := k.(string)
 			if !ok {
-				return nil, fmt.Errorf("Unable to coerce key %T %v to a string", k, k)
+				return nil, fmt.Errorf("unable to coerce key %T %v to a string", k, k)
 			}
 			coerced, err := CoerceInterfaceMapToStringMap(v)
 			if err != nil {
@@ -361,14 +358,6 @@ func HashPassword(password string) (string, error) {
 func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
-}
-
-// FileExists returns true if a file at the passed string exists.
-func FileExists(name string) bool {
-	if _, err := os.Stat(name); os.IsNotExist(err) {
-		return false
-	}
-	return true
 }
 
 // Keccak256 is a simplified interface for the legacy SHA3 implementation that
@@ -455,31 +444,6 @@ func LogListeningAddress(address common.Address) string {
 	return address.String()
 }
 
-// FilesInDir returns an array of filenames in the directory.
-func FilesInDir(dir string) ([]string, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return []string{}, err
-	}
-	defer f.Close()
-
-	r, err := f.Readdirnames(-1)
-	if err != nil {
-		return []string{}, err
-	}
-
-	return r, nil
-}
-
-// FileContents returns the contents of a file as a string.
-func FileContents(path string) (string, error) {
-	dat, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(dat), nil
-}
-
 // JustError takes a tuple and returns the last entry, the error.
 func JustError(_ interface{}, err error) error {
 	return err
@@ -519,4 +483,168 @@ func Uint256ToHex(n *big.Int) (string, error) {
 
 func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
 	return decimal.NewFromBigInt(i, -precision)
+}
+
+func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
+	chAwait := make(chan struct{})
+	go func() {
+		defer close(chAwait)
+		wg.Wait()
+	}()
+	return chAwait
+}
+
+type DependentAwaiter interface {
+	AwaitDependents() <-chan struct{}
+	AddDependents(n int)
+	DependentReady()
+}
+
+type dependentAwaiter struct {
+	wg *sync.WaitGroup
+	ch <-chan struct{}
+}
+
+func NewDependentAwaiter() DependentAwaiter {
+	return &dependentAwaiter{
+		wg: &sync.WaitGroup{},
+	}
+}
+
+func (da *dependentAwaiter) AwaitDependents() <-chan struct{} {
+	if da.ch == nil {
+		da.ch = WaitGroupChan(da.wg)
+	}
+	return da.ch
+}
+
+func (da *dependentAwaiter) AddDependents(n int) {
+	da.wg.Add(n)
+}
+
+func (da *dependentAwaiter) DependentReady() {
+	da.wg.Done()
+}
+
+// FIFO queue that discards older items when it reaches its capacity.
+type BoundedQueue struct {
+	capacity uint
+	items    []interface{}
+	mu       *sync.RWMutex
+}
+
+func NewBoundedQueue(capacity uint) *BoundedQueue {
+	return &BoundedQueue{
+		capacity: capacity,
+		mu:       &sync.RWMutex{},
+	}
+}
+
+func (q *BoundedQueue) Add(x interface{}) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.items = append(q.items, x)
+	if uint(len(q.items)) > q.capacity {
+		excess := uint(len(q.items)) - q.capacity
+		q.items = q.items[excess:]
+	}
+}
+
+func (q *BoundedQueue) Take() interface{} {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.items) == 0 {
+		return nil
+	}
+	x := q.items[0]
+	q.items = q.items[1:]
+	return x
+}
+
+func (q *BoundedQueue) Empty() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return len(q.items) == 0
+}
+
+func (q *BoundedQueue) Full() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return uint(len(q.items)) >= q.capacity
+}
+
+type BoundedPriorityQueue struct {
+	queues     map[uint]*BoundedQueue
+	priorities []uint
+	capacities map[uint]uint
+	mu         *sync.RWMutex
+}
+
+func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
+	queues := make(map[uint]*BoundedQueue)
+	var priorities []uint
+	for priority, capacity := range capacities {
+		priorities = append(priorities, priority)
+		queues[priority] = NewBoundedQueue(capacity)
+	}
+	sort.Slice(priorities, func(i, j int) bool { return priorities[i] < priorities[j] })
+	return &BoundedPriorityQueue{
+		queues:     queues,
+		priorities: priorities,
+		capacities: capacities,
+		mu:         &sync.RWMutex{},
+	}
+}
+
+func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	subqueue, exists := q.queues[priority]
+	if !exists {
+		panic(fmt.Sprintf("nonexistent priority: %v", priority))
+	}
+
+	subqueue.Add(x)
+}
+
+func (q *BoundedPriorityQueue) Take() interface{} {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	for _, priority := range q.priorities {
+		queue := q.queues[priority]
+		if queue.Empty() {
+			continue
+		}
+		return queue.Take()
+	}
+	return nil
+}
+
+func (q *BoundedPriorityQueue) Empty() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	for _, priority := range q.priorities {
+		queue := q.queues[priority]
+		if !queue.Empty() {
+			return false
+		}
+	}
+	return true
+}
+
+// WrapIfError decorates an error with the given message.  It is intended to
+// be used with `defer` statements, like so:
+//
+// func SomeFunction() (err error) {
+//     defer WrapIfError(&err, "error in SomeFunction:")
+//
+//     ...
+// }
+func WrapIfError(err *error, msg string) {
+	if *err != nil {
+		*err = errors.Wrap(*err, msg)
+	}
 }

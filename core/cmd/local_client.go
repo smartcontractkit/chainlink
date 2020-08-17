@@ -1,24 +1,35 @@
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/big"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
+
+	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/chainlink"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/jinzhu/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 )
@@ -30,7 +41,7 @@ const ownerPermsMask = os.FileMode(0700)
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	err := cli.Config.Validate()
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
@@ -44,12 +55,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
-		logNodeBalance(store)
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
-	if err := checkFilePermissions(cli.Config.RootDir()); err != nil {
-		logger.Warn(err)
+	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
+		logger.Warn(e)
 	}
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
@@ -60,14 +70,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 	if len(c.String("vrfpassword")) != 0 {
-		vrfpwd, err := passwordFromFile(c.String("vrfpassword"))
-		if err != nil {
-			return cli.errorOut(errors.Wrapf(err,
+		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
+		if fileErr != nil {
+			return cli.errorOut(errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
 				c.String("vrfpassword")))
 		}
-		if err := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); err != nil {
-			return cli.errorOut(errors.Wrapf(err, "while authenticating with VRF password"))
+		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); authErr != nil {
+			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
 		}
 	}
 
@@ -82,8 +92,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
 	logger.Info("API exposed for user ", user.Email)
-	if err := app.Start(); err != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", err))
+	if e := app.Start(); e != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
 	defer loggedStop(app)
 	err = logConfigVariables(store)
@@ -99,31 +109,59 @@ func loggedStop(app chainlink.Application) {
 }
 
 func checkFilePermissions(rootDir string) error {
-	errorMsg := "%s has overly permissive file permissions, should be atleast %s"
-	keysDir := filepath.Join(rootDir, "tempkeys")
-	protectedFiles := []string{"secret", "cookie"}
-	err := filepath.Walk(keysDir,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			fileMode := info.Mode().Perm()
-			if fileMode&^ownerPermsMask != 0 {
-				return fmt.Errorf(errorMsg, path, ownerPermsMask)
-			}
-			return nil
-		})
-	if err != nil {
-		return err
-	}
-	for _, fileName := range protectedFiles {
-		fileInfo, err := os.Lstat(filepath.Join(rootDir, fileName))
+	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
+	tlsDir := filepath.Join(rootDir, "tls")
+	_, err := os.Stat(tlsDir)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Errorf("error checking perms of 'tls' directory: %v", err)
+	} else if err == nil {
+		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
 		if err != nil {
 			return err
 		}
-		perm := fileInfo.Mode().Perm()
-		if perm&^ownerPermsMask != 0 {
-			return fmt.Errorf(errorMsg, fileName, ownerPermsMask)
+
+		err = filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				logger.Errorf(`error checking perms of "%v": %v`, path, err)
+				return err
+			}
+			if utils.TooPermissive(info.Mode().Perm(), ownerPermsMask) {
+				newPerms := info.Mode().Perm() & ownerPermsMask
+				logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, info.Mode().Perm(), newPerms)
+				return utils.EnsureFilepathMaxPerms(path, newPerms)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
+	protectedFiles := []string{"secret", "cookie", ".password", ".env", ".api"}
+	for _, fileName := range protectedFiles {
+		path := filepath.Join(rootDir, fileName)
+		fileInfo, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if utils.TooPermissive(fileInfo.Mode().Perm(), ownerPermsMask) {
+			newPerms := fileInfo.Mode().Perm() & ownerPermsMask
+			logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
+			err = utils.EnsureFilepathMaxPerms(path, newPerms)
+			if err != nil {
+				return err
+			}
+		}
+		owned, err := utils.IsFileOwnedByChainlink(fileInfo)
+		if err != nil {
+			logger.Warn(err)
+			continue
+		}
+		if !owned {
+			logger.Warnf("The file %v is not owned by the user running chainlink. This will be made mandatory in the future.", path)
 		}
 	}
 	return nil
@@ -136,7 +174,6 @@ func passwordFromFile(pwdFile string) (string, error) {
 	dat, err := ioutil.ReadFile(pwdFile)
 	return strings.TrimSpace(string(dat)), err
 }
-
 func logIfNonceOutOfSync(store *strpkg.Store) {
 	account := store.TxManager.NextActiveAccount()
 	if account == nil {
@@ -154,11 +191,7 @@ func logIfNonceOutOfSync(store *strpkg.Store) {
 }
 
 func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
-	if lastNonce+1 < nonce {
-		return true
-	}
-
-	return false
+	return lastNonce+1 < nonce
 }
 
 func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
@@ -167,20 +200,6 @@ func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
 	}
 	if replayFromBlock >= 0 {
 		config.Set(orm.EnvVarName("ReplayFromBlock"), replayFromBlock)
-	}
-}
-
-func logNodeBalance(store *strpkg.Store) {
-	accounts, err := presenters.ShowEthBalance(store)
-	logger.WarnIf(err)
-	for _, a := range accounts {
-		logger.Infow(a["message"], "address", a["address"], "ethBalance", a["balance"])
-	}
-
-	accounts, err = presenters.ShowLinkBalance(store)
-	logger.WarnIf(err)
-	for _, a := range accounts {
-		logger.Infow(a["message"], "address", a["address"], "linkBalance", a["balance"])
 	}
 }
 
@@ -198,16 +217,27 @@ func logConfigVariables(store *strpkg.Store) error {
 // transactions in a given nonce range. This MUST NOT be run concurrently with
 // the node. Currently the advisory lock in FindAllTxsInNonceRange prevents
 // this.
-func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
+func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	beginningNonce := c.Uint("beginningNonce")
 	endingNonce := c.Uint("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint64("gasLimit")
+	addressHex := c.String("address")
+
+	addressBytes, err := hexutil.Decode(addressHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode address"))
+	}
+	address := gethCommon.BytesToAddress(addressBytes)
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
+	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
-
+	defer func() {
+		if serr := app.Stop(); serr != nil {
+			err = multierr.Append(err, serr)
+		}
+	}()
 	store := app.GetStore()
 
 	pwd, err := passwordFromFile(c.String("password"))
@@ -221,9 +251,23 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 
 	err = store.Start()
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
+	if store.Config.EnableBulletproofTxManager() {
+		logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+
+		ec := bulletprooftxmanager.NewEthConfirmer(store, cli.Config)
+		err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
+	} else {
+		logger.Infof("Rebroadcasting legacy transactions from %v to %v", beginningNonce, endingNonce)
+
+		err = rebroadcastLegacyTransactions(store, beginningNonce, endingNonce, gasPriceWei, overrideGasLimit)
+	}
+	return cli.errorOut(err)
+}
+
+func rebroadcastLegacyTransactions(store *strpkg.Store, beginningNonce uint, endingNonce uint, gasPriceWei uint64, overrideGasLimit uint64) (err error) {
 	lastHead, err := store.LastHead()
 	if err != nil {
 		return err
@@ -264,7 +308,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 
 		jobRunID, err := models.NewIDFromString(tx.SurrogateID.ValueOrZero())
 		if err != nil {
-			logger.Errorw("could not get UUID from surrogate ID", "SurrogateID", tx.SurrogateID.ValueOrZero())
+			logger.Infow("could not get UUID from surrogate ID", "SurrogateID", tx.SurrogateID.ValueOrZero())
 			continue
 		}
 		jobRun, err := store.FindJobRun(jobRunID)
@@ -274,7 +318,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 		}
 		for taskIndex := range jobRun.TaskRuns {
 			taskRun := &jobRun.TaskRuns[taskIndex]
-			if taskRun.Status == models.RunStatusPendingConfirmations {
+			if taskRun.Status == models.RunStatusPendingOutgoingConfirmations {
 				taskRun.Status = models.RunStatusErrored
 			}
 		}
@@ -289,17 +333,152 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 	return nil
 }
 
+// ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
+// This is useful to setup the database for testing
+func (cli *Client) ResetDatabase(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	config := orm.NewConfig()
+	if config.DatabaseURL() == "" {
+		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+	}
+	parsed, err := url.Parse(config.DatabaseURL())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	dbname := parsed.Path[1:]
+	if !strings.HasSuffix(dbname, "_test") {
+		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss", dbname))
+	}
+	logger.Infof("Resetting database: %#v", config.DatabaseURL())
+	if err := dropAndCreateDB(*parsed); err != nil {
+		return cli.errorOut(err)
+	}
+	if err := migrateTestDB(config); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+// PrepareTestDatabase calls ResetDatabase then loads fixtures required for tests
+func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
+	if err := cli.ResetDatabase(c); err != nil {
+		return cli.errorOut(err)
+	}
+	config := orm.NewConfig()
+	if err := insertFixtures(config); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+func dropAndCreateDB(parsed url.URL) (err error) {
+	// Cannot drop the database if we are connected to it, so we must connect
+	// to a different one. template1 should be present on all postgres installations
+	dbname := parsed.Path[1:]
+	parsed.Path = "/template1"
+	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
+	if err != nil {
+		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
+	}
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
+	if err != nil {
+		return fmt.Errorf("unable to drop postgres database: %v", err)
+	}
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+	if err != nil {
+		return fmt.Errorf("unable to create postgres database: %v", err)
+	}
+	return nil
+}
+
+func migrateTestDB(config *orm.Config) error {
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault())
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+	err = orm.RawDB(func(db *gorm.DB) error {
+		return migrations.GORMMigrate(db)
+	})
+	if err != nil {
+		return fmt.Errorf("migrateTestDB failed: %v", err)
+	}
+	orm.SetLogging(config.LogSQLStatements())
+	return orm.Close()
+}
+
+func insertFixtures(config *orm.Config) (err error) {
+	db, err := sql.Open(string(orm.DialectPostgres), config.DatabaseURL())
+	if err != nil {
+		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
+	}
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		return errors.New("could not get runtime.Caller(1)")
+	}
+	filepath := path.Join(path.Dir(filename), "../store/testdata/fixtures.sql")
+	fixturesSQL, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(string(fixturesSQL))
+	return err
+}
+
 // DeleteUser is run locally to remove the User row from the node's database.
-func (cli *Client) DeleteUser(c *clipkg.Context) error {
+func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
+	defer func() {
+		if serr := app.Stop(); serr != nil {
+			err = multierr.Append(err, serr)
+		}
+	}()
 	store := app.GetStore()
 	user, err := store.DeleteUser()
 	if err == nil {
 		logger.Info("Deleted API user ", user.Email)
 	}
 	return err
+}
+
+// SetNextNonce manually updates the keys.next_nonce field for the given key with the given nonce value
+func (cli *Client) SetNextNonce(c *clipkg.Context) error {
+	addressHex := c.String("address")
+	nextNonce := c.Uint64("nextNonce")
+
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	address, err := hexutil.Decode(addressHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode address"))
+	}
+
+	res := db.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, address)
+	if res.Error != nil {
+		return cli.errorOut(err)
+	}
+	if res.RowsAffected == 0 {
+		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
+	}
+	return nil
 }
 
 // ImportKey imports a key to be used with the chainlink node
@@ -311,43 +490,22 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("Must pass in filepath to key"))
 	}
 
-	src := c.Args().First()
-	kdir := cli.Config.KeysDir()
+	var (
+		srcKeyPath = c.Args().First()                      // ex: ./keys/mykey
+		srcKeyFile = filepath.Base(srcKeyPath)             // ex: mykey
+		dstDirPath = cli.Config.KeysDir()                  // ex: /clroot/keys
+		dstKeyPath = filepath.Join(dstDirPath, srcKeyFile) // ex: /clroot/keys/mykey
+	)
 
-	if !utils.FileExists(kdir) {
-		err := os.MkdirAll(kdir, os.FileMode(0700))
-		if err != nil {
-			return cli.errorOut(err)
-		}
+	err := utils.EnsureDirAndMaxPerms(dstDirPath, 0700|os.ModeDir)
+	if err != nil {
+		return cli.errorOut(err)
 	}
 
-	if i := strings.LastIndex(src, "/"); i < 0 {
-		kdir += "/" + src
-	} else {
-		kdir += src[strings.LastIndex(src, "/"):]
-	}
-
-	if err := copyFile(src, kdir); err != nil {
+	err = utils.CopyFileWithMaxPerms(srcKeyPath, dstKeyPath, 0600)
+	if err != nil {
 		return cli.errorOut(err)
 	}
 
 	return app.GetStore().SyncDiskKeyStoreToDB()
-}
-
-func copyFile(src, dst string) error {
-	from, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-
-	to, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-
-	_, err = io.Copy(to, from)
-
-	return err
 }

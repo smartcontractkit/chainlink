@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const evmWordSize = 32
@@ -70,9 +71,9 @@ func (etx *EthTxABIEncode) UnmarshalJSON(data []byte) error {
 // the blockchain.
 func (etx *EthTxABIEncode) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	if !store.TxManager.Connected() {
-		return pendingConfirmationsOrConnection(input)
+		return pendingOutgoingConfirmationsOrConnection(input)
 	}
-	if !input.Status().PendingConfirmations() {
+	if !input.Status().PendingOutgoingConfirmations() {
 		data, err := etx.abiEncode(&input)
 		if err != nil {
 			err = errors.Wrap(err, "while constructing EthTxABIEncode data")
@@ -143,7 +144,7 @@ func abiEncode(fnABI *abi.Method, args map[string]interface{}) ([]byte, error) {
 		panic("unexpected size of static part")
 	}
 
-	result := fnABI.ID()
+	result := functionSelector(fnABI)
 	result = append(result, encodedStaticPart...)
 	result = append(result, encodedDynamicPart...)
 	return result, nil
@@ -285,9 +286,8 @@ func encStatic(typ *abi.Type, jval interface{}, name string) ([]byte, error) {
 		}
 		if b {
 			return padLeft([]byte{1}, evmWordSize), nil
-		} else {
-			return padLeft([]byte{0}, evmWordSize), nil
 		}
+		return padLeft([]byte{0}, evmWordSize), nil
 	case abi.FixedBytesTy:
 		bytes, err := bytesFromJSON(jval, name)
 		if err != nil {
@@ -374,7 +374,7 @@ var hexDigitsRegexp = regexp.MustCompile("^[0-9a-fA-F]*$")
 func bigIntFromJSON(jval interface{}, name string) (*big.Int, error) {
 	switch val := jval.(type) {
 	case string:
-		n := big.NewInt(0)
+		var n = big.NewInt(0)
 		valid := false
 		if utils.HasHexPrefix(val) {
 			if !hexDigitsRegexp.MatchString(val[2:]) {
@@ -457,4 +457,13 @@ func assertPadded(b []byte) {
 	if len(b)%evmWordSize != 0 {
 		panic("ABI encoded data isn't padded properly")
 	}
+}
+
+func functionSelector(fnABI *abi.Method) []byte {
+	types := []string{}
+	for _, input := range fnABI.Inputs {
+		types = append(types, input.Type.String())
+	}
+	signature := fmt.Sprintf("%v(%v)", fnABI.Name, strings.Join(types, ","))
+	return utils.MustHash(signature).Bytes()[:4]
 }

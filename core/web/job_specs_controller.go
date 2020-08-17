@@ -3,11 +3,11 @@ package web
 import (
 	"net/http"
 
-	"chainlink/core/services"
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -102,7 +102,7 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 		return
 	}
 
-	j, err := jsc.App.GetStore().FindJob(id)
+	j, err := jsc.App.GetStore().FindJobWithErrors(id)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return
@@ -112,7 +112,7 @@ func (jsc *JobSpecsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, jobPresenter(jsc, j), "job")
+	jsonAPIResponse(c, showJobPresenter(jsc, j), "job")
 }
 
 // Destroy soft deletes a job spec.
@@ -138,8 +138,8 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }
 
-func jobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
+func showJobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
 	store := jsc.App.GetStore()
 	jobLinkEarned, _ := store.LinkEarnedFor(&job)
-	return presenters.JobSpec{JobSpec: job, Earnings: jobLinkEarned}
+	return presenters.JobSpec{JobSpec: job, Errors: job.Errors, Earnings: jobLinkEarned}
 }

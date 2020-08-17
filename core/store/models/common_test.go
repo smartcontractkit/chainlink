@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
@@ -344,17 +344,55 @@ func TestDuration_MarshalJSON(t *testing.T) {
 		input models.Duration
 		want  string
 	}{
-		{"zero", models.Duration(0), `"0s"`},
-		{"one second", models.Duration(time.Second), `"1s"`},
-		{"one minute", models.Duration(time.Minute), `"1m0s"`},
-		{"one hour", models.Duration(time.Hour), `"1h0m0s"`},
-		{"one hour thirty minutes", models.Duration(time.Hour + 30*time.Minute), `"1h30m0s"`},
+		{"zero", models.MustMakeDuration(0), `"0s"`},
+		{"one second", models.MustMakeDuration(time.Second), `"1s"`},
+		{"one minute", models.MustMakeDuration(time.Minute), `"1m0s"`},
+		{"one hour", models.MustMakeDuration(time.Hour), `"1h0m0s"`},
+		{"one hour thirty minutes", models.MustMakeDuration(time.Hour + 30*time.Minute), `"1h30m0s"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			b, err := json.Marshal(&test.input)
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, string(b))
+		})
+	}
+}
+
+func TestCron_UnmarshalJSON_Success(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"valid 5-field cron", `"CRON_TZ=UTC 0 0/5 * * *"`},
+		{"valid 6-field cron", `"CRON_TZ=UTC 30 0 0/5 * * *"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual models.Cron
+			err := json.Unmarshal([]byte(test.input), &actual)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     string
+		wantError string
+	}{
+		{"5-field cron without time zone", `"0 0/5 * * *"`, "Cron: specs must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *'"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual models.Cron
+			err := json.Unmarshal([]byte(test.input), &actual)
+			assert.EqualError(t, err, test.wantError)
 		})
 	}
 }

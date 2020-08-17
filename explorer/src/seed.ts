@@ -1,6 +1,6 @@
+import { getRepository } from 'typeorm'
 import { ChainlinkNode } from './entity/ChainlinkNode'
 import { createJobRun } from './factories'
-import { getDb } from './database'
 
 // NOT FOR PRODUCTION USE
 // THE VALUES IN THIS FILE ARE ONLY USED FOR A LOCAL DEVELOPMENT ENVIRONMENT
@@ -13,14 +13,14 @@ const CORE_NODE_SALT = '5dhpzBypVnddiYNRRz0eIO9Y6ZBqqv8D'
 const CORE_NODE_ACCESS_KEY = 'bL1wMDLp4GVJ5p5n'
 
 export default async () => {
-  const db = await getDb()
-  const count = await db.manager.count(ChainlinkNode)
+  const repo = getRepository(ChainlinkNode)
+  const count = await repo.count()
 
   if (count === 0) {
-    const node = await db.manager.save(buildChainlinkNode())
+    const node = await repo.save(buildChainlinkNode())
 
-    await createJobRun(db, node)
-    await createJobRun(db, node)
+    await createJobRun(node)
+    await createJobRun(node)
   }
 }
 

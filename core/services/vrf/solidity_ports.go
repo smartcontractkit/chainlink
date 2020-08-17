@@ -3,7 +3,7 @@ package vrf
 import (
 	"math/big"
 
-	"chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"go.dedis.ch/kyber/v3"
 )
@@ -16,13 +16,13 @@ import (
 type fieldElt = *big.Int
 
 // neg(f) is the negation of f in the base field
-func neg(f fieldElt) fieldElt { return sub(fieldSize, f) }
+func neg(f fieldElt) fieldElt { return sub(FieldSize, f) }
 
 // projectiveSub(x1, z1, x2, z2) is the projective coordinates of x1/z1 - x2/z2
 func projectiveSub(x1, z1, x2, z2 fieldElt) (fieldElt, fieldElt) {
 	num1 := mul(z2, x1)
 	num2 := neg(mul(z1, x2))
-	return mod(add(num1, num2), fieldSize), mod(mul(z1, z2), fieldSize)
+	return mod(add(num1, num2), FieldSize), mod(mul(z1, z2), FieldSize)
 }
 
 // projectiveMul(x1, z1, x2, z2) is projective coordinates of (x1/z1)×(x2/z2)
@@ -56,5 +56,5 @@ func ProjectiveECAdd(p, q kyber.Point) (x, y, z fieldElt) {
 	} else {
 		sz = dx
 	}
-	return mod(sx, fieldSize), mod(sy, fieldSize), mod(sz, fieldSize)
+	return mod(sx, FieldSize), mod(sy, FieldSize), mod(sz, FieldSize)
 }

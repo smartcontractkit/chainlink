@@ -3,10 +3,10 @@ package migration0
 import (
 	"time"
 
-	"chainlink/core/assets"
-	clnull "chainlink/core/null"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
@@ -48,7 +48,7 @@ func Migrate(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&JobRun{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate JobRun")
 	}
-	if err := tx.AutoMigrate(&models.Key{}).Error; err != nil {
+	if err := tx.AutoMigrate(&Key{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Key")
 	}
 	if err := tx.AutoMigrate(&RunRequest{}).Error; err != nil {
@@ -223,4 +223,11 @@ type Encumbrance struct {
 	EndAt time.Time
 	// This is a models.EIP55AddressCollection in models.Encumbrance, but the DB column is text.
 	Oracles string `gorm:"type:text"`
+}
+
+type Key struct {
+	Address   models.EIP55Address `gorm:"primary_key;type:varchar(64)"`
+	JSON      models.JSON         `gorm:"type:text"`
+	CreatedAt time.Time           `json:"-"`
+	UpdatedAt time.Time           `json:"-"`
 }

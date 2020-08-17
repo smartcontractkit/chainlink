@@ -1,0 +1,17 @@
+{
+  "type": "postgres",
+  "host": "chainlink-explorer-db",
+  "username": "postgres",
+  "port": 5432,
+  "database": "explorer_dev",
+  "synchronize": false,
+  "logging": true,
+  "entities": ["src/entity/**/*.ts"],
+  "migrations": ["src/migration/**/*.ts"],
+  "subscribers": ["src/subscriber/**/*.ts"],
+  "cli": {
+    "entitiesDir": "src/entity",
+    "migrationsDir": "src/migration",
+    "subscribersDir": "src/subscriber"
+  }
+}

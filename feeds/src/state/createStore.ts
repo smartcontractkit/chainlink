@@ -1,11 +1,10 @@
-import { Middleware } from 'redux'
-import thunkMiddleware from 'redux-thunk'
-import { persistStore } from 'redux-persist'
 import { createStore } from '@chainlink/redux'
-import aggregatorMiddleware from './middlewares/aggregatorMiddleware'
+import { Middleware } from 'redux'
+import { persistStore } from 'redux-persist'
+import thunkMiddleware from 'redux-thunk'
 import { reducer } from './reducers'
 
-const middleware: Middleware[] = [thunkMiddleware, aggregatorMiddleware]
+const middleware: Middleware[] = [thunkMiddleware]
 
 export default () => {
   const store = createStore(reducer, middleware)

@@ -8,21 +8,19 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	"chainlink/core/services/vrf"
-	"chainlink/core/store"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -118,14 +116,6 @@ func NewJobWithRunLogInitiator() models.JobSpec {
 	return j
 }
 
-// NewJobWithSALogInitiator creates new JobSpec with the ServiceAgreement
-// initiator
-func NewJobWithSALogInitiator() models.JobSpec {
-	j := NewJobWithRunLogInitiator()
-	j.Initiators[0].Type = models.InitiatorServiceAgreementExecutionLog
-	return j
-}
-
 // NewJobWithRunAtInitiator create new Job with RunAt initiator
 func NewJobWithRunAtInitiator(t time.Time) models.JobSpec {
 	j := NewJob()
@@ -146,12 +136,18 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
-			Address:       NewAddress(),
-			RequestData:   models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:         models.JSON{gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
-			IdleThreshold: models.Duration(time.Minute),
-			Threshold:     0.5,
-			Precision:     2,
+			Address:           NewAddress(),
+			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:             models.JSON{Result: gjson.Parse(`["https://lambda.staging.devnet.tools/bnc/call"]`)},
+			Threshold:         0.5,
+			AbsoluteThreshold: 0.01,
+			IdleTimer: models.IdleTimerConfig{
+				Duration: models.MustMakeDuration(time.Minute),
+			},
+			PollTimer: models.PollTimerConfig{
+				Period: models.MustMakeDuration(time.Minute),
+			},
+			Precision: 2,
 		},
 	}}
 	return j
@@ -164,11 +160,25 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		JobSpecID: j.ID,
 		Type:      models.InitiatorFluxMonitor,
 		InitiatorParams: models.InitiatorParams{
-			Address:     NewAddress(),
-			RequestData: models.JSON{gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:       models.JSON{gjson.Parse(`[{"bridge":"testbridge"}]`)},
-			Threshold:   0.5,
-			Precision:   2,
+			Address:           NewAddress(),
+			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
+			Feeds:             models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			Threshold:         0.5,
+			AbsoluteThreshold: 0.01,
+			Precision:         2,
+		},
+	}}
+	return j
+}
+
+// NewJobWithRandomnessLog create new Job with VRF initiator
+func NewJobWithRandomnessLog() models.JobSpec {
+	j := NewJob()
+	j.Initiators = []models.Initiator{{
+		JobSpecID: j.ID,
+		Type:      models.InitiatorRandomnessLog,
+		InitiatorParams: models.InitiatorParams{
+			Address: NewAddress(),
 		},
 	}}
 	return j
@@ -212,7 +222,7 @@ func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw",
+		SignedRawTx: hexutil.MustDecode("0xcafe11"),
 	}
 }
 
@@ -262,7 +272,7 @@ func CreateTxWithNonceGasPriceAndRecipient(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: "signed-raw-attempt 1",
+		SignedRawTx: hexutil.MustDecode("0xcafe22"),
 	}
 
 	tx, err := store.CreateTx(tx)
@@ -291,7 +301,7 @@ func AddTxAttempt(
 		GasLimit:    transaction.Gas(),
 		GasPrice:    utils.NewBig(transaction.GasPrice()),
 		Hash:        transaction.Hash(),
-		SignedRawTx: fmt.Sprintf("signed-raw-attempt %d", len(tx.Attempts)+1),
+		SignedRawTx: []byte{byte(len(tx.Attempts))},
 	}
 
 	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
@@ -370,7 +380,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-// NewRunLog create eth.Log for given jobid, address, block, and json
+// NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
 	jobID *models.ID,
@@ -378,8 +388,8 @@ func NewRunLog(
 	requester common.Address,
 	blk int,
 	json string,
-) eth.Log {
-	return eth.Log{
+) models.Log {
+	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
@@ -394,41 +404,17 @@ func NewRunLog(
 
 // NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
 // the randomness request log represented by r.
-func NewRandomnessRequestLog(t *testing.T, r vrf.RandomnessRequestLog,
-	emitter common.Address, blk int) eth.Log {
+func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
+	emitter common.Address, blk int) models.Log {
 	rawData, err := r.RawData()
 	require.NoError(t, err)
-	return eth.Log{
+	return models.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        rawData,
 		TxHash:      NewHash(),
 		BlockHash:   NewHash(),
 		Topics:      []common.Hash{models.RandomnessRequestLogTopic, r.JobID},
-	}
-}
-
-// NewServiceAgreementExecutionLog creates a log event for the given jobid,
-// address, block, and json, to simulate a request for execution on a service
-// agreement.
-func NewServiceAgreementExecutionLog(
-	t *testing.T,
-	jobID *models.ID,
-	logEmitter common.Address,
-	executionRequester common.Address,
-	blockHeight int,
-	serviceAgreementJSON string,
-) eth.Log {
-	return eth.Log{
-		Address:     logEmitter,
-		BlockNumber: uint64(blockHeight),
-		Data:        StringToVersionedLogData0(t, "internalID", serviceAgreementJSON),
-		Topics: []common.Hash{
-			models.ServiceAgreementExecutionLogTopic,
-			models.IDToTopic(jobID),
-			executionRequester.Hash(),
-			NewLink(t, "1000000000000000000").ToHash(),
-		},
 	}
 }
 
@@ -444,48 +430,6 @@ func NewEth(t *testing.T, amount string) *assets.Eth {
 	eth, ok := eth.SetString(amount, 10)
 	assert.True(t, ok)
 	return eth
-}
-
-func StringToVersionedLogData0(t *testing.T, internalID, str string) []byte {
-	buf := bytes.NewBuffer(hexutil.MustDecode(StringToHash(internalID).Hex()))
-	buf.Write(utils.EVMWordUint64(1))
-	buf.Write(utils.EVMWordUint64(common.HashLength * 3))
-
-	cbor, err := JSONFromString(t, str).CBOR()
-	require.NoError(t, err)
-	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
-	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
-	buf.Write(common.RightPadBytes(cbor, paddedLength))
-
-	return buf.Bytes()
-}
-
-func StringToVersionedLogData20190123withFulfillmentParams(t *testing.T, internalID, str string) []byte {
-	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
-	buf := bytes.NewBuffer(requestID)
-
-	version := utils.EVMWordUint64(1)
-	buf.Write(version)
-
-	dataLocation := utils.EVMWordUint64(common.HashLength * 6)
-	buf.Write(dataLocation)
-
-	callbackAddr := utils.EVMWordUint64(0)
-	buf.Write(callbackAddr)
-
-	callbackFunc := utils.EVMWordUint64(0)
-	buf.Write(callbackFunc)
-
-	expiration := utils.EVMWordUint64(4000000000)
-	buf.Write(expiration)
-
-	cbor, err := JSONFromString(t, str).CBOR()
-	require.NoError(t, err)
-	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
-	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
-	buf.Write(common.RightPadBytes(cbor, paddedLength))
-
-	return buf.Bytes()
 }
 
 func StringToVersionedLogData20190207withoutIndexes(
@@ -608,7 +552,7 @@ func NewJobRunPendingBridge(job models.JobSpec) models.JobRun {
 }
 
 // CreateJobRunWithStatus returns a new job run with the specified status that has been persisted
-func CreateJobRunWithStatus(t testing.TB, store *store.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
+func CreateJobRunWithStatus(t testing.TB, store *strpkg.Store, job models.JobSpec, status models.RunStatus) models.JobRun {
 	run := NewJobRun(job)
 	run.SetStatus(status)
 	require.NoError(t, store.CreateJobRun(&run))
@@ -635,46 +579,200 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 	return dst
 }
 
-// CreateServiceAgreementViaWeb creates a service agreement from a fixture using /v2/service_agreements
-func CreateServiceAgreementViaWeb(
-	t *testing.T,
-	app *TestApplication,
-	path string,
-	endAt time.Time,
-) models.ServiceAgreement {
-	client := app.NewHTTPClient()
-
-	agreementWithoutOracle := MustJSONSet(t, string(MustReadFile(t, path)), "endAt", utils.ISO8601UTC(endAt))
-	from := GetAccountAddress(t, app.ChainlinkApplication.GetStore())
-	agreementWithOracle := MustJSONSet(t, agreementWithoutOracle, "oracles", []string{from.Hex()})
-
-	resp, cleanup := client.Post("/v2/service_agreements", bytes.NewBufferString(agreementWithOracle))
-	defer cleanup()
-
-	AssertServerResponse(t, resp, http.StatusOK)
-	responseSA := models.ServiceAgreement{}
-	err := ParseJSONAPIResponse(t, resp, &responseSA)
-	require.NoError(t, err)
-
-	return FindServiceAgreement(t, app.Store, responseSA.ID)
-}
-
 func NewRunInput(value models.JSON) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInput(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
 	jobRunID := models.NewID()
+	taskRunID := models.NewID()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, data, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, *taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
 	jobRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
-	return *models.NewRunInputWithResult(jobRunID, value, models.RunStatusUnstarted)
+	taskRunID := models.NewID()
+	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+}
+
+func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
+	fluxAggregator := new(mocks.FluxAggregator)
+	runManager := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	initr := models.Initiator{
+		JobSpecID: models.NewID(),
+		InitiatorParams: models.InitiatorParams{
+			PollTimer: models.PollTimerConfig{
+				Period: models.MustMakeDuration(time.Second),
+			},
+		},
+	}
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, nil, runManager, fetcher, func() {})
+	require.NoError(t, err)
+	return checker
+}
+
+func NewGethHeader(height interface{}) *types.Header {
+	var h int64
+	switch v := height.(type) {
+	case int64:
+		h = v
+	case int:
+		h = int64(v)
+	case uint64:
+		h = int64(v)
+	default:
+		panic(fmt.Sprintf("invalid type: %t", height))
+	}
+
+	return &types.Header{
+		Number:     big.NewInt(h),
+		ParentHash: NewHash(),
+		Time:       uint64(time.Now().Unix()),
+	}
+}
+
+func NewHeadFromGethHeader(gethHeader *types.Header) *models.Head {
+	return &models.Head{
+		Hash:       NewHash(),
+		Number:     gethHeader.Number.Int64(),
+		ParentHash: gethHeader.ParentHash,
+		Timestamp:  time.Unix(int64(gethHeader.Time), 0),
+	}
+}
+
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
+	taskRunID := models.NewID()
+
+	job := NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	jobRun := NewJobRun(job)
+	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
+	require.NoError(t, store.CreateJobRun(&jobRun))
+
+	return *taskRunID
+}
+
+func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) models.Key {
+	a, err := models.NewEIP55Address(address.Hex())
+	require.NoError(t, err)
+	key := models.Key{
+		Address: a,
+		JSON:    JSONFromString(t, "{}"),
+	}
+	require.NoError(t, store.DB.Save(&key).Error)
+	return key
+}
+
+func NewEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
+	return models.EthTx{
+		FromAddress:    GetDefaultFromAddress(t, store),
+		ToAddress:      NewAddress(),
+		EncodedPayload: []byte{1, 2, 3},
+		Value:          assets.NewEthValue(142),
+		GasLimit:       uint64(1000000000),
+	}
+}
+
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64) models.EthTx {
+	timeNow := time.Now()
+	etx := NewEthTx(t, store)
+
+	etx.BroadcastAt = &timeNow
+	n := nonce
+	etx.Nonce = &n
+	etx.State = models.EthTxUnconfirmed
+	require.NoError(t, store.DB.Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID)
+
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = models.EthTxAttemptBroadcast
+	require.NoError(t, store.DB.Save(&attempt).Error)
+	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64) models.EthTx {
+	timeNow := time.Now()
+	etx := NewEthTx(t, store)
+
+	etx.BroadcastAt = &timeNow
+	etx.Nonce = &nonce
+	etx.State = models.EthTxConfirmed
+	require.NoError(t, store.DB.Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = models.EthTxAttemptBroadcast
+	require.NoError(t, store.DB.Save(&attempt).Error)
+	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
+	return etx
+}
+
+func GetDefaultFromAddress(t *testing.T, store *strpkg.Store) common.Address {
+	keys, err := store.Keys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	key := keys[0]
+	return key.Address.Address()
+}
+
+func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
+	gasPrice := utils.NewBig(big.NewInt(1))
+	return models.EthTxAttempt{
+		EthTxID:  etxID,
+		GasPrice: *gasPrice,
+		// Just a random signed raw tx that decodes correctly
+		// Ignore all actual values
+		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
+		Hash:        NewHash(),
+	}
+}
+
+func MustInsertBroadcastEthTxAttempt(t *testing.T, etxID int64, store *strpkg.Store, gasPrice int64) models.EthTxAttempt {
+	attempt := NewEthTxAttempt(t, etxID)
+	attempt.State = models.EthTxAttemptBroadcast
+	attempt.GasPrice = *utils.NewBig(big.NewInt(gasPrice))
+	require.NoError(t, store.DB.Create(&attempt).Error)
+	return attempt
+}
+
+func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, blockHash common.Hash, txHash common.Hash) models.EthReceipt {
+	r := models.EthReceipt{
+		BlockNumber:      blockNumber,
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: uint(NewRandomInt64()),
+		Receipt:          []byte(`{"foo":42}`),
+	}
+	require.NoError(t, s.DB.Save(&r).Error)
+	return r
+}
+
+func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
+	etx := NewEthTx(t, store)
+	errStr := "something exploded"
+	etx.Error = &errStr
+	etx.State = models.EthTxFatalError
+
+	require.NoError(t, store.DB.Save(&etx).Error)
+	return etx
+}
+
+func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
+	k := models.Key{Address: models.EIP55Address(NewAddress().Hex()), JSON: JSONFromString(t, `{"key": "factory"}`)}
+	require.NoError(t, store.CreateKeyIfNotExists(k))
+	return k
 }

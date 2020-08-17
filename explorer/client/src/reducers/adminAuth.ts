@@ -1,5 +1,8 @@
 import { Actions } from './actions'
-import * as authenticationStorage from '../utils/clientStorage'
+import {
+  getAdminAllowed,
+  setAdminAllowed,
+} from '../utils/authenticationStorage'
 import { Reducer } from 'redux'
 
 export interface State {
@@ -7,7 +10,7 @@ export interface State {
 }
 
 const INITIAL_STATE: State = {
-  allowed: authenticationStorage.get('adminAllowed') || false,
+  allowed: getAdminAllowed(),
 }
 
 export const adminAuthReducer: Reducer<State, Actions> = (
@@ -16,11 +19,11 @@ export const adminAuthReducer: Reducer<State, Actions> = (
 ) => {
   switch (action.type) {
     case 'FETCH_ADMIN_SIGNIN_SUCCEEDED':
-      authenticationStorage.set('adminAllowed', true)
+      setAdminAllowed(true)
       return { allowed: true }
     case 'FETCH_ADMIN_SIGNIN_ERROR':
     case 'FETCH_ADMIN_SIGNOUT_SUCCEEDED':
-      authenticationStorage.set('adminAllowed', false)
+      setAdminAllowed(false)
       return { allowed: false }
     default:
       return state

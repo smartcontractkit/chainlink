@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"testing"
 
-	"chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
+func TestGuiAssets_DefaultIndexHtml(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
@@ -18,61 +18,51 @@ func TestGuiAssets_WildcardIndexHtml(t *testing.T) {
 
 	client := &http.Client{}
 
+	// Valid app routes should return OK
 	resp, err := client.Get(app.Server.URL + "/")
 	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-	resp, err = client.Get(app.Server.URL + "/not_found")
-	require.NoError(t, err)
-	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 
 	resp, err = client.Get(app.Server.URL + "/job_specs/abc123")
 	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	resp, err = client.Get(app.Server.URL + "/jjob_specs/abc123")
-	require.NoError(t, err)
-	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
-
 	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs")
 	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/rruns")
-	require.NoError(t, err)
-	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
-
-	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs/abc123")
+	// Potentially valid app routes should also return OK
+	resp, err = client.Get(app.Server.URL + "/valid/route")
 	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/rruns/abc123")
-	require.NoError(t, err)
-	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
-}
-
-func TestGuiAssets_WildcardRouteInfo(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client := &http.Client{}
-
-	resp, err := client.Get(app.Server.URL + "/job_specs/abc123/routeInfo.json")
+	resp, err = client.Get(app.Server.URL + "/another/valid/route")
 	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/rrouteInfo.json")
+	// Bad routes that point to files should return 404
+	resp, err = client.Get(app.Server.URL + "/invalidFile.json")
 	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 
-	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs/routeInfo.json")
+	resp, err = client.Get(app.Server.URL + "/another/invalidFile.css")
 	require.NoError(t, err)
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 
-	resp, err = client.Get(app.Server.URL + "/job_specs/abc123/runs/rrouteInfo.json")
+	// Bad API routes should return 404
+	resp, err = client.Get(app.Server.URL + "/v2/bad/route")
+	require.NoError(t, err)
+	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+
+	resp, err = client.Get(app.Server.URL + "/v2/another/bad/route")
+	require.NoError(t, err)
+	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+
+	resp, err = client.Get(app.Server.URL + "/v3/new/api/version")
+	require.NoError(t, err)
+	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+
+	resp, err = client.Get(app.Server.URL + "/v123/newer/api/version")
 	require.NoError(t, err)
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }

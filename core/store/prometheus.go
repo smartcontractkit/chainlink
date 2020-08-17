@@ -1,13 +1,14 @@
 package store
 
 import (
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/logger"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,7 +23,7 @@ var promETHBalance = promauto.NewGaugeVec(
 	[]string{"account"},
 )
 
-func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
+func PromUpdateEthBalance(balance *assets.Eth, from common.Address) {
 	balanceFloat, err := approximateFloat64(balance)
 
 	if err != nil {
@@ -35,7 +36,7 @@ func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
 
 func approximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())
-	weif := new(big.Float).SetInt(eth.WeiPerEth)
+	weif := new(big.Float).SetInt(models.WeiPerEth)
 	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {

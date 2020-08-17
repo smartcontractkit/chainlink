@@ -8,14 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/logger"
-	clnull "chainlink/core/null"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/imdario/mergo"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	null "gopkg.in/guregu/null.v3"
 )
@@ -37,23 +34,25 @@ type InitiatorRequest struct {
 
 // TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
 type TaskSpecRequest struct {
-	Type          TaskType      `json:"type"`
-	Confirmations clnull.Uint32 `json:"confirmations"`
-	Params        JSON          `json:"params"`
+	Type                             TaskType      `json:"type"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations"`
+	Params                           JSON          `json:"params"`
 }
 
 // JobSpec is the definition for all the work to be carried out by the node
 // for a given contract. It contains the Initiators, Tasks (which are the
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
-	ID         *ID          `json:"id,omitempty" gorm:"primary_key;not null"`
-	CreatedAt  time.Time    `json:"createdAt" gorm:"index"`
-	Initiators []Initiator  `json:"initiators"`
-	MinPayment *assets.Link `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
-	Tasks      []TaskSpec   `json:"tasks"`
-	StartAt    null.Time    `json:"startAt" gorm:"index"`
-	EndAt      null.Time    `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time    `json:"-" gorm:"index"`
+	ID         *ID            `json:"id,omitempty" gorm:"primary_key;not null"`
+	CreatedAt  time.Time      `json:"createdAt" gorm:"index"`
+	Initiators []Initiator    `json:"initiators"`
+	MinPayment *assets.Link   `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
+	Tasks      []TaskSpec     `json:"tasks"`
+	StartAt    null.Time      `json:"startAt" gorm:"index"`
+	EndAt      null.Time      `json:"endAt" gorm:"index"`
+	DeletedAt  null.Time      `json:"-" gorm:"index"`
+	UpdatedAt  time.Time      `json:"-"`
+	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;association_autoupdate:false;association_autocreate:false"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -90,10 +89,10 @@ func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	}
 	for _, task := range jsr.Tasks {
 		jobSpec.Tasks = append(jobSpec.Tasks, TaskSpec{
-			JobSpecID:     jobSpec.ID,
-			Type:          task.Type,
-			Confirmations: task.Confirmations,
-			Params:        task.Params,
+			JobSpecID:                        jobSpec.ID,
+			Type:                             task.Type,
+			MinRequiredIncomingConfirmations: task.MinRequiredIncomingConfirmations,
+			Params:                           task.Params,
 		})
 	}
 
@@ -127,14 +126,13 @@ func (j JobSpec) InitiatorsFor(types ...string) []Initiator {
 //
 // Returns nil if not found.
 func (j JobSpec) InitiatorExternal(name string) *Initiator {
-	var found *Initiator
 	for _, i := range j.InitiatorsFor(InitiatorExternal) {
-		if strings.ToLower(i.Name) == strings.ToLower(name) {
-			found = &i
-			break
+		if strings.EqualFold(i.Name, name) {
+			found := i
+			return &found
 		}
 	}
-	return found
+	return nil
 }
 
 // IsLogInitiated Returns true if any of the job's initiators are triggered by event logs.
@@ -193,14 +191,15 @@ const (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID        uint32 `json:"id" gorm:"primary_key;auto_increment"`
-	JobSpecID *ID    `json:"jobSpecId" gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	ID        int64 `json:"id" gorm:"primary_key;auto_increment"`
+	JobSpecID *ID   `json:"jobSpecId"`
 
 	// Type is one of the Initiator* string constants defined just above.
 	Type            string    `json:"type" gorm:"index;not null"`
 	CreatedAt       time.Time `json:"createdAt" gorm:"index"`
 	InitiatorParams `json:"params,omitempty"`
 	DeletedAt       null.Time `json:"-" gorm:"index"`
+	UpdatedAt       time.Time `json:"-"`
 }
 
 // InitiatorParams is a collection of the possible parameters that different
@@ -215,29 +214,80 @@ type InitiatorParams struct {
 	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
-	Topics     Topics            `json:"topics,omitempty" gorm:"type:text"`
+	Topics     Topics            `json:"topics,omitempty"`
 
-	RequestData     JSON     `json:"requestData,omitempty" gorm:"type:text"`
-	IdleThreshold   Duration `json:"idleThreshold,omitempty"`
-	Feeds           Feeds    `json:"feeds,omitempty" gorm:"type:text"`
-	Threshold       float32  `json:"threshold,omitempty" gorm:"type:float"`
-	Precision       int32    `json:"precision,omitempty" gorm:"type:smallint"`
-	PollingInterval Duration `json:"pollingInterval,omitempty"`
+	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
+	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
+	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
+	Threshold   float32 `json:"threshold,omitempty"`
+	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
+	// value before a new round should be kicked off, so that the current value
+	// can be reported on-chain.
+	AbsoluteThreshold float32         `json:"absoluteThreshold" gorm:"type:float;not null"`
+	PollTimer         PollTimerConfig `json:"pollTimer,omitempty" gorm:"type:jsonb"`
+	IdleTimer         IdleTimerConfig `json:"idleTimer,omitempty" gorm:"type:jsonb"`
 }
 
-// FluxMonitorDefaultInitiatorParams are the default parameters for Flux
-// Monitor Job Specs.
-var FluxMonitorDefaultInitiatorParams = InitiatorParams{
-	PollingInterval: Duration(time.Minute),
+type PollTimerConfig struct {
+	Disabled bool     `json:"disabled,omitempty"`
+	Period   Duration `json:"period,omitempty"`
 }
 
-// SetDefaultValues returns a InitiatorParams with empty fields set to their
-// default value.
-func (i *InitiatorParams) SetDefaultValues(typ string) {
-	if typ == InitiatorFluxMonitor {
-		err := mergo.Merge(i, &FluxMonitorDefaultInitiatorParams)
-		logger.PanicIf(errors.Wrap(err, "type level dependent error covered by tests"))
+// Value is defined so that we can store PollTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (ptc PollTimerConfig) Value() (driver.Value, error) {
+	b, err := json.Marshal(ptc)
+	if err != nil {
+		return nil, err
 	}
+	return b, err
+}
+
+// Scan is defined so that we can read PollTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (ptc *PollTimerConfig) Scan(value interface{}) error {
+	if value == nil {
+		*ptc = PollTimerConfig{}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("invalid Scan Source")
+	}
+	return json.Unmarshal(b, ptc)
+}
+
+type IdleTimerConfig struct {
+	Disabled bool     `json:"disabled,omitempty"`
+	Duration Duration `json:"duration,omitempty"`
+}
+
+// Value is defined so that we can store IdleTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (itc IdleTimerConfig) Value() (driver.Value, error) {
+	b, err := json.Marshal(itc)
+	if err != nil {
+		return nil, err
+	}
+	return b, err
+}
+
+// Scan is defined so that we can read IdleTimerConfig as JSONB, because
+// of an error with GORM where it has trouble with nested structs as JSONB.
+// See https://github.com/jinzhu/gorm/issues/2704
+func (itc *IdleTimerConfig) Scan(value interface{}) error {
+	if value == nil {
+		*itc = IdleTimerConfig{}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("invalid Scan Source")
+	}
+	return json.Unmarshal(b, itc)
 }
 
 // Topics handle the serialization of ethereum log topics to and from the data store.
@@ -245,17 +295,17 @@ type Topics [][]common.Hash
 
 // Scan coerces the value returned from the data store to the proper data
 // in this instance.
-func (t Topics) Scan(value interface{}) error {
-	jsonStr, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to Topics", value, value)
+func (t *Topics) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case []byte:
+		err := json.Unmarshal(v, &t)
+		if err != nil {
+			return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unable to convert %v of %T to Topics", value, value)
 	}
-
-	err := json.Unmarshal([]byte(jsonStr), &t)
-	if err != nil {
-		return errors.Wrapf(err, "Unable to convert %v of %T to Topics", value, value)
-	}
-	return nil
 }
 
 // Value returns this instance serialized for database storage.
@@ -282,7 +332,6 @@ func NewInitiatorFromRequest(
 		Type:            strings.ToLower(initr.Type),
 		InitiatorParams: initr.InitiatorParams,
 	}
-	ret.InitiatorParams.SetDefaultValues(ret.Type)
 	return ret
 }
 
@@ -304,11 +353,14 @@ type Feeds = JSON
 // Type will be an adapter, and the Params will contain any
 // additional information that adapter would need to operate.
 type TaskSpec struct {
-	gorm.Model
-	JobSpecID     *ID           `json:"-"`
-	Type          TaskType      `json:"type" gorm:"index;not null"`
-	Confirmations clnull.Uint32 `json:"confirmations"`
-	Params        JSON          `json:"params" gorm:"type:text"`
+	ID                               int64         `gorm:"primary_key"`
+	JobSpecID                        *ID           `json:"-"`
+	Type                             TaskType      `json:"type" gorm:"index;not null"`
+	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
+	Params                           JSON          `json:"params" gorm:"type:text"`
+	CreatedAt                        time.Time
+	UpdatedAt                        time.Time
+	DeletedAt                        *time.Time
 }
 
 // TaskType defines what Adapter a TaskSpec will use.
@@ -318,7 +370,7 @@ type TaskType string
 func NewTaskType(val string) (TaskType, error) {
 	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
 	if !re.MatchString(val) {
-		return TaskType(""), fmt.Errorf("Task Type validation: name %v contains invalid characters", val)
+		return TaskType(""), fmt.Errorf("task type validation: name %v contains invalid characters", val)
 	}
 
 	return TaskType(strings.ToLower(val)), nil
@@ -363,7 +415,7 @@ func (t TaskType) Value() (driver.Value, error) {
 func (t *TaskType) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to TaskType", value, value)
+		return fmt.Errorf("unable to convert %v of %T to TaskType", value, value)
 	}
 
 	*t = TaskType(temp)

@@ -1,16 +1,16 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sort"
 
-	"chainlink/core/eth"
-	"chainlink/core/logger"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -31,18 +31,16 @@ var (
 	)
 )
 
-//go:generate mockery -name GasUpdater  -output ../internal/mocks/ -case=underscore
-
 // GasUpdater listens for new heads and updates the base gas price dynamically
 // based on the configured percentile of gas prices in that block
 type GasUpdater interface {
 	store.HeadTrackable
-	RollingBlockHistory() []eth.Block
+	RollingBlockHistory() []*types.Block
 }
 
 type gasUpdater struct {
 	store                   *store.Store
-	rollingBlockHistory     []eth.Block
+	rollingBlockHistory     []*types.Block
 	rollingBlockHistorySize int
 	// HACK: blockDelay is the number of blocks that the gas updater trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, gas updater will
@@ -58,7 +56,7 @@ type gasUpdater struct {
 func NewGasUpdater(store *store.Store) GasUpdater {
 	gu := &gasUpdater{
 		store:                   store,
-		rollingBlockHistory:     make([]eth.Block, 0),
+		rollingBlockHistory:     make([]*types.Block, 0),
 		rollingBlockHistorySize: int(store.Config.GasUpdaterBlockHistorySize()),
 		blockDelay:              int64(store.Config.GasUpdaterBlockDelay()),
 		percentile:              int(store.Config.GasUpdaterTransactionPercentile()),
@@ -76,11 +74,10 @@ func (gu *gasUpdater) Connect(bn *models.Head) error {
 }
 
 func (gu *gasUpdater) Disconnect() {
-	return
 }
 
-// OnNewHead recalculates and sets global gas price on every head
-func (gu *gasUpdater) OnNewHead(head *models.Head) {
+// OnNewLongestChain recalculates and sets global gas price on every head
+func (gu *gasUpdater) OnNewLongestChain(head models.Head) {
 	// Bail out as early as possible if the gas updater is disabled so we avoid
 	// any potential undesired side effects. Note that in a future iteration
 	// the GasUpdaterEnabled setting could be modifiable at runtime
@@ -92,14 +89,12 @@ func (gu *gasUpdater) OnNewHead(head *models.Head) {
 		logger.Warnf("GasUpdater: skipping gas calculation, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY of %v", head.Number, gu.blockDelay)
 		return
 	}
-	blockNumber := utils.Uint64ToHex(uint64(blockToFetch))
-	block, err := gu.store.TxManager.GetBlockByNumber(blockNumber)
+	block, err := gu.store.EthClient.BlockByNumber(context.TODO(), big.NewInt(blockToFetch))
 	if err != nil {
 		logger.Error(err, fmt.Sprintf("GasUpdater: error retrieving block %v", blockToFetch))
 		return
 	}
-	logger.Debugw("GasUpdater: got block", "blockNumber", blockToFetch)
-	if len(block.Transactions) > 0 {
+	if len(block.Transactions()) > 0 {
 		gu.rollingBlockHistory = append(gu.rollingBlockHistory, block)
 		if len(gu.rollingBlockHistory) > gu.rollingBlockHistorySize {
 			gu.rollingBlockHistory = gu.rollingBlockHistory[1:]
@@ -111,18 +106,18 @@ func (gu *gasUpdater) OnNewHead(head *models.Head) {
 			}
 			promGasUpdaterSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", gu.percentile), string(blockToFetch)).Set(float64(percentileGasPrice))
 		} else {
-			logger.Debugw("GasUpdater: waiting for blocks", "inHistory", len(gu.rollingBlockHistory), "required", gu.rollingBlockHistorySize)
+			logger.Debugw(fmt.Sprintf("GasUpdater: waiting for blocks: %v/%v", len(gu.rollingBlockHistory), gu.rollingBlockHistorySize), "inHistory", len(gu.rollingBlockHistory), "required", gu.rollingBlockHistorySize)
 		}
 	} else {
-		logger.Debugw("GasUpdater: skipping empty block", "blockNumber", blockToFetch)
+		logger.Debugw(fmt.Sprintf("GasUpdater: skipping empty block: %v", blockToFetch), "blockNumber", blockToFetch)
 	}
 }
 
 func (gu *gasUpdater) percentileGasPrice() int64 {
 	gasPrices := make([]int64, 0)
 	for _, block := range gu.rollingBlockHistory {
-		for _, tx := range block.Transactions {
-			gasPrices = append(gasPrices, int64(tx.GasPrice))
+		for _, tx := range block.Transactions() {
+			gasPrices = append(gasPrices, tx.GasPrice().Int64())
 		}
 	}
 	sort.Slice(gasPrices, func(i, j int) bool { return gasPrices[i] < gasPrices[j] })
@@ -140,10 +135,10 @@ func (gu *gasUpdater) setPercentileGasPrice(gasPrice int64) error {
 	if bigGasPrice.Cmp(gu.store.Config.EthMaxGasPriceWei()) > 0 {
 		return fmt.Errorf("cannot set gas price %s because it exceeds EthMaxGasPriceWei %s", bigGasPrice.String(), gu.store.Config.EthMaxGasPriceWei().String())
 	}
-	logger.Debugw("GasUpdater: setting new default gas price", "gasPriceWei", gasPrice, "gasPriceGWei", gasPriceGwei)
+	logger.Debugw(fmt.Sprintf("GasUpdater: setting new default gas price: %v Gwei", gasPriceGwei), "gasPriceWei", gasPrice, "gasPriceGWei", gasPriceGwei)
 	return gu.store.Config.SetEthGasPriceDefault(bigGasPrice)
 }
 
-func (gu *gasUpdater) RollingBlockHistory() []eth.Block {
+func (gu *gasUpdater) RollingBlockHistory() []*types.Block {
 	return gu.rollingBlockHistory
 }

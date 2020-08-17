@@ -5,11 +5,12 @@ import (
 	"math/big"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"chainlink/core/internal/cltest"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -308,4 +309,160 @@ func TestMinUint(t *testing.T) {
 			assert.Equal(t, test.expectation, actual)
 		})
 	}
+}
+
+func TestWaitGroupChan(t *testing.T) {
+	t.Parallel()
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	ch := utils.WaitGroupChan(wg)
+
+	select {
+	case <-ch:
+		t.Fatal("should not fire immediately")
+	default:
+	}
+
+	wg.Done()
+
+	select {
+	case <-ch:
+		t.Fatal("should not fire until finished")
+	default:
+	}
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		wg.Done()
+	}()
+
+	cltest.CallbackOrTimeout(t, "WaitGroupChan fires", func() {
+		<-ch
+	}, 5*time.Second)
+}
+
+func TestDependentAwaiter(t *testing.T) {
+	da := utils.NewDependentAwaiter()
+	da.AddDependents(2)
+
+	select {
+	case <-da.AwaitDependents():
+		t.Fatal("should not fire immediately")
+	default:
+	}
+
+	da.DependentReady()
+
+	select {
+	case <-da.AwaitDependents():
+		t.Fatal("should not fire until finished")
+	default:
+	}
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		da.DependentReady()
+	}()
+
+	cltest.CallbackOrTimeout(t, "dependents are now ready", func() {
+		<-da.AwaitDependents()
+	}, 5*time.Second)
+}
+
+func TestBoundedQueue(t *testing.T) {
+	t.Parallel()
+
+	q := utils.NewBoundedQueue(3)
+	require.True(t, q.Empty())
+	require.False(t, q.Full())
+
+	q.Add(1)
+	require.False(t, q.Empty())
+	require.False(t, q.Full())
+
+	x := q.Take().(int)
+	require.Equal(t, 1, x)
+
+	iface := q.Take()
+	require.Nil(t, iface)
+	require.True(t, q.Empty())
+	require.False(t, q.Full())
+
+	q.Add(1)
+	q.Add(2)
+	q.Add(3)
+	q.Add(4)
+	require.True(t, q.Full())
+
+	x = q.Take().(int)
+	require.Equal(t, 2, x)
+	require.False(t, q.Empty())
+	require.False(t, q.Full())
+
+	x = q.Take().(int)
+	require.Equal(t, 3, x)
+	require.False(t, q.Empty())
+	require.False(t, q.Full())
+
+	x = q.Take().(int)
+	require.Equal(t, 4, x)
+	require.True(t, q.Empty())
+	require.False(t, q.Full())
+}
+
+func TestBoundedPriorityQueue(t *testing.T) {
+	t.Parallel()
+
+	q := utils.NewBoundedPriorityQueue(map[uint]uint{
+		1: 3,
+		2: 1,
+	})
+	require.True(t, q.Empty())
+
+	q.Add(1, 1)
+	require.False(t, q.Empty())
+
+	x := q.Take().(int)
+	require.Equal(t, 1, x)
+	require.True(t, q.Empty())
+
+	iface := q.Take()
+	require.Nil(t, iface)
+	require.True(t, q.Empty())
+
+	q.Add(2, 1)
+	q.Add(1, 2)
+	q.Add(1, 3)
+	q.Add(1, 4)
+
+	x = q.Take().(int)
+	require.Equal(t, 2, x)
+	require.False(t, q.Empty())
+
+	x = q.Take().(int)
+	require.Equal(t, 3, x)
+	require.False(t, q.Empty())
+
+	x = q.Take().(int)
+	require.Equal(t, 4, x)
+	require.False(t, q.Empty())
+
+	x = q.Take().(int)
+	require.Equal(t, 1, x)
+	require.True(t, q.Empty())
+
+	iface = q.Take()
+	require.Nil(t, iface)
+
+	q.Add(2, 1)
+	q.Add(2, 2)
+
+	x = q.Take().(int)
+	require.Equal(t, 2, x)
+	require.True(t, q.Empty())
+
+	iface = q.Take()
+	require.Nil(t, iface)
 }

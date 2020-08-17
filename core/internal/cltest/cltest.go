@@ -7,32 +7,39 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"chainlink/core/assets"
-	"chainlink/core/auth"
-	"chainlink/core/cmd"
-	"chainlink/core/eth"
-	"chainlink/core/gracefulpanic"
-	"chainlink/core/logger"
-	"chainlink/core/services/chainlink"
-	strpkg "chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/DATA-DOG/go-txdb"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
@@ -51,18 +58,20 @@ import (
 const (
 	// RootDir the root directory for cltest
 	RootDir = "/tmp/chainlink_test"
-	// APIEmail of the API user
-	APIEmail = "email@test.net"
-	// APIKey of the API user
+	// APIKey of the fixture API user
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
-	// APISecret of the API user.
+	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
-	// Password the password
+	// APIEmail is the email of the fixture API user
+	APIEmail = "apiuser@chainlink.test"
+	// Password just a password we use everywhere for testing
 	Password = "password"
-	// APISessionID ID for API user
-	APISessionID = "session"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
+	// DefaultKey is the address of the fixture key
+	DefaultKey = "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	// AllowUnstarted enable an application that can be used in tests without being started
+	AllowUnstarted = "allow_unstarted"
 )
 
 var storeCounter uint64
@@ -74,6 +83,33 @@ func init() {
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
 	logger.SetLogger(CreateTestLogger(lvl))
+	// Register txdb as dialect wrapping postgres
+	// See: DialectTransactionWrappedPostgres
+	config := orm.NewConfig()
+
+	parsed, err := url.Parse(config.DatabaseURL())
+	if err != nil || parsed.Path == "" {
+		msg := fmt.Sprintf("invalid DATABASE_URL: `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", config.DatabaseURL())
+		panic(msg)
+	}
+	if !strings.HasSuffix(parsed.Path, "_test") {
+		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:])
+		panic(msg)
+	}
+	// Disable SavePoints because they cause random errors for reasons I cannot fathom
+	// Perhaps txdb's built-in transaction emulation is broken in some subtle way?
+	// NOTE: That this will cause transaction BEGIN/ROLLBACK to effectively be
+	// a no-op, this should have no negative impact on normal test operation.
+	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
+	// store to use the raw DialectPostgres dialect and setup a one-use database.
+	// See BootstrapThrowawayORM() as a convenience function to help you do this.
+	txdb.Register("cloudsqlpostgres", "postgres", config.DatabaseURL(), txdb.SavePointOption(nil))
+
+	// Seed the random number generator, otherwise separate modules will take
+	// the same advisory locks when tested with `go test -p N` for N > 1
+	seed := time.Now().UTC().UnixNano()
+	logger.Debugf("Using seed: %v", seed)
+	rand.Seed(seed)
 }
 
 func logLevelFromEnv() zapcore.Level {
@@ -95,24 +131,40 @@ type TestConfig struct {
 func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
-	wsserver, cleanup := newWSServer()
-	return NewConfigWithWSServer(t, wsserver), cleanup
+	wsserver, url, cleanup := newWSServer()
+	return NewConfigWithWSServer(t, url, wsserver), cleanup
+}
+
+func NewRandomInt64() int64 {
+	id := rand.Int63()
+	return id
 }
 
 // NewTestConfig returns a test configuration
-func NewTestConfig(t testing.TB) *TestConfig {
+func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
 
 	count := atomic.AddUint64(&storeCounter, 1)
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := orm.NewConfig()
+
+	rawConfig.Dialect = orm.DialectTransactionWrappedPostgres
+	for _, opt := range options {
+		switch v := opt.(type) {
+		case orm.DialectName:
+			rawConfig.Dialect = v
+		}
+	}
+
+	uniqueRandomID := NewRandomInt64()
+	// Unique advisory lock is required otherwise all tests will block each other
+	rawConfig.AdvisoryLockID = uniqueRandomID
+
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
 	rawConfig.Set("CHAINLINK_DEV", true)
 	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("LOG_LEVEL", orm.LogLevel{Level: zapcore.DebugLevel})
-	rawConfig.Set("LOG_SQL", false)
-	rawConfig.Set("LOG_SQL_MIGRATIONS", false)
+	rawConfig.Set("MIGRATE_DATABASE", false)
 	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
 	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
 	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
@@ -125,21 +177,13 @@ func NewTestConfig(t testing.TB) *TestConfig {
 }
 
 // NewConfigWithWSServer return new config with specified wsserver
-func NewConfigWithWSServer(t testing.TB, wsserver *httptest.Server) *TestConfig {
+func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) *TestConfig {
 	t.Helper()
 
 	config := NewTestConfig(t)
-	config.SetEthereumServer(wsserver)
+	config.Set("ETH_URL", url)
+	config.wsServer = wsserver
 	return config
-}
-
-// SetEthereumServer sets the ethereum server for testconfig with given wsserver
-func (tc *TestConfig) SetEthereumServer(wss *httptest.Server) {
-	u, err := url.Parse(wss.URL)
-	require.NoError(tc.t, err)
-	u.Scheme = "ws"
-	tc.Set("ETH_URL", u.String())
-	tc.wsServer = wss
 }
 
 // TestApplication holds the test application and test servers
@@ -152,27 +196,33 @@ type TestApplication struct {
 	connectedChannel chan struct{}
 	Started          bool
 	EthMock          *EthMock
+	Backend          *backends.SimulatedBackend
+	allowUnstarted   bool
 }
 
-func newWSServer() (*httptest.Server, func()) {
-	return NewWSServer("")
+func newWSServer() (*httptest.Server, string, func()) {
+	return NewWSServer("", nil)
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string) (*httptest.Server, func()) {
+func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
 		conn, err := upgrader.Upgrade(w, r, nil)
 		logger.PanicIf(err)
 		for {
-			_, _, err = conn.ReadMessage()
+			_, data, err := conn.ReadMessage()
 			if err != nil {
 				break
 			}
+
+			if callback != nil {
+				callback(data)
+			}
+
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 			if err != nil {
 				break
@@ -180,17 +230,28 @@ func NewWSServer(msg string) (*httptest.Server, func()) {
 		}
 	})
 	server := httptest.NewServer(handler)
-	return server, func() {
+
+	u, err := url.Parse(server.URL)
+	logger.PanicIf(err)
+	u.Scheme = "ws"
+
+	return server, u.String(), func() {
 		server.Close()
 	}
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
-func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
+// It mocks the keystore with no keys or accounts by default
+func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	c, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfig(t, c, flags...)
+
+	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("Accounts").Return([]accounts.Account{})
+	app.Store.KeyStore = kst
+
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -198,11 +259,12 @@ func NewApplication(t testing.TB, flags ...string) (*TestApplication, func()) {
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
-func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, func()) {
+// It uses the native keystore and will load any keys that are in the database
+func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
 	config, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfigAndKey(t, config, flags...)
+	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 	return app, func() {
 		cleanup()
 		cfgCleanup()
@@ -211,39 +273,68 @@ func NewApplicationWithKey(t testing.TB, flags ...string) (*TestApplication, fun
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testconfig
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, tc, flags...)
-	app.ImportKey(key3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea)
+	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
+	app.Store.KeyStore.Unlock(Password)
+
 	return app, cleanup
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flags ...string) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
-
-	cleanupDB := PrepareTestDB(tc)
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 	app := chainlink.NewApplication(tc.Config, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
-	ta.EthMock = MockEthOnStore(t, app.Store, flags...)
-
+	ta.EthMock = MockEthOnStore(t, app.Store, flagsAndDeps...)
 	server := newServer(ta)
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
 	app.Store.Config = tc.Config
+
+	for _, flag := range flagsAndDeps {
+		if flag == AllowUnstarted {
+			ta.allowUnstarted = true
+		}
+	}
 
 	ta.Config = tc
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
 		require.NoError(t, ta.Stop())
-		cleanupDB()
 		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
+}
+
+func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
+	t testing.TB,
+	tc *TestConfig,
+	backend *backends.SimulatedBackend,
+	flagsAndDeps ...interface{},
+) (app *TestApplication, cleanup func()) {
+	chainId := int(backend.Blockchain().Config().ChainID.Int64())
+	tc.Config.Set("ETH_CHAIN_ID", chainId)
+
+	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+
+	var client SimulatedBackendClient
+	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
+		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
+		txm.Client = &client
+	} else {
+		log.Panic("SimulatedBackend only works on EthTxManager")
+	}
+	app.Store.EthClient = &client
+
+	// Clean out the mock registrations, since we don't need those...
+	app.EthMock.Responses = app.EthMock.Responses[:0]
+	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
+	return app, func() { appCleanup(); client.Close() }
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -261,7 +352,8 @@ func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
 
-	return ta.ChainlinkApplication.Start()
+	err := ta.ChainlinkApplication.Start()
+	return err
 }
 
 func (ta *TestApplication) StartAndConnect() error {
@@ -290,6 +382,9 @@ func (ta *TestApplication) Stop() error {
 	ta.t.Helper()
 
 	if !ta.Started {
+		if ta.allowUnstarted {
+			return nil
+		}
 		ta.t.Fatal("TestApplication Stop() called on an unstarted application")
 	}
 
@@ -307,22 +402,10 @@ func (ta *TestApplication) Stop() error {
 	return nil
 }
 
-func (ta *TestApplication) MustSeedUserSession() models.User {
-	mockUser := MustUser(APIEmail, Password)
-	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
-	session := NewSession(APISessionID)
+func (ta *TestApplication) MustSeedNewSession() string {
+	session := NewSession()
 	require.NoError(ta.t, ta.Store.SaveSession(&session))
-	return mockUser
-}
-
-// MustSeedUserAPIKey creates and returns a User with their API Token Key and
-// Secret generated.
-func (ta *TestApplication) MustSeedUserAPIKey() models.User {
-	mockUser := MustUser(APIEmail, Password)
-	apiToken := auth.Token{APIKey, APISecret}
-	require.NoError(ta.t, mockUser.SetAuthToken(&apiToken))
-	require.NoError(ta.t, ta.Store.SaveUser(&mockUser))
-	return mockUser
+	return session.ID
 }
 
 // ImportKey adds private key to the application disk keystore, not database.
@@ -341,16 +424,17 @@ func (ta *TestApplication) AddUnlockedKey() {
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 	ta.t.Helper()
 
-	ta.MustSeedUserSession()
+	sessionID := ta.MustSeedNewSession()
+
 	return HTTPClientCleaner{
-		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config),
+		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
 		t:          ta.t,
 	}
 }
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
-	ta.MustSeedUserSession()
+	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
 		Renderer:                       r,
@@ -359,7 +443,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		KeyStoreAuthenticator:          CallbackAuthenticator{func(*strpkg.Store, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config),
+		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
 		CookieAuthenticator:            MockCookieAuthenticator{},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
@@ -369,7 +453,6 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 }
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
-	ta.MustSeedUserSession()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config.Config, &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
@@ -406,11 +489,9 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 
 // NewStoreWithConfig creates a new store with given config
 func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	cleanupDB := PrepareTestDB(config)
 	s := strpkg.NewInsecureStore(config.Config, gracefulpanic.NewSignal())
 	return s, func() {
 		cleanUpStore(config.t, s)
-		cleanupDB()
 	}
 }
 
@@ -730,6 +811,12 @@ func CreateExternalInitiatorViaWeb(
 	return ei
 }
 
+const (
+	DBWaitTimeout = 5 * time.Second
+	// DBPollingInterval can't be too short to avoid DOSing the test database
+	DBPollingInterval = 100 * time.Millisecond
+)
+
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
 func WaitForJobRunToComplete(
 	t testing.TB,
@@ -752,15 +839,24 @@ func WaitForJobRunToPendBridge(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
 }
 
-// WaitForJobRunToPendConfirmations waits for a JobRun to reach PendingConfirmations Status
-func WaitForJobRunToPendConfirmations(
+// WaitForJobRunToPendIncomingConfirmations waits for a JobRun to reach PendingIncomingConfirmations Status
+func WaitForJobRunToPendIncomingConfirmations(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
 	t.Helper()
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingIncomingConfirmations)
+}
 
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingConfirmations)
+// WaitForJobRunToPendOutgoingConfirmations waits for a JobRun to reach PendingOutgoingConfirmations Status
+func WaitForJobRunToPendOutgoingConfirmations(
+	t testing.TB,
+	store *strpkg.Store,
+	jr models.JobRun,
+) models.JobRun {
+	t.Helper()
+	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
 }
 
 // WaitForJobRunStatus waits for a JobRun to reach given status
@@ -776,8 +872,9 @@ func WaitForJobRunStatus(
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
-		return jr.GetStatus()
-	}).Should(gomega.Equal(status))
+		st := jr.GetStatus()
+		return st
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(status))
 	return jr
 }
 
@@ -801,19 +898,19 @@ func JobRunStays(
 		jr, err = store.FindJobRun(jr.ID)
 		assert.NoError(t, err)
 		return jr.GetStatus()
-	}, duration).Should(gomega.Equal(status))
+	}, duration, DBPollingInterval).Should(gomega.Equal(status))
 	return jr
 }
 
-// JobRunStaysPendingConfirmations tests if a JobRun will stay at the PendingConfirmations Status
-func JobRunStaysPendingConfirmations(
+// JobRunStaysPendingIncomingConfirmations tests if a JobRun will stay at the PendingIncomingConfirmations Status
+func JobRunStaysPendingIncomingConfirmations(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 ) models.JobRun {
 	t.Helper()
 
-	return JobRunStays(t, store, jr, models.RunStatusPendingConfirmations)
+	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
 }
 
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
@@ -828,13 +925,13 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 			jrs, err = store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			return jrs
-		}).Should(gomega.HaveLen(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobRun {
 			jrs, err = store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			return jrs
-		}).Should(gomega.HaveLen(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	}
 	return jrs
 }
@@ -851,7 +948,7 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 			jrs, err := store.JobRunsFor(j.ID)
 			require.NoError(t, err)
 			return len(jrs)
-		}).Should(gomega.BeNumerically(">=", want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">=", want))
 	}
 }
 
@@ -867,13 +964,13 @@ func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models
 			tas, count, err = store.TxAttempts(0, 1000)
 			assert.NoError(t, err)
 			return count
-		}).Should(gomega.Equal(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 	} else {
 		g.Eventually(func() int {
 			tas, count, err = store.TxAttempts(0, 1000)
 			assert.NoError(t, err)
 			return count
-		}).Should(gomega.Equal(want))
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 	}
 	return tas
 }
@@ -890,7 +987,7 @@ func WaitForSyncEventCount(
 		count, err := orm.CountOf(&models.SyncEvent{})
 		assert.NoError(t, err)
 		return count
-	}).Should(gomega.Equal(want))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // AssertSyncEventCountStays ensures that the event sync count stays consistent
@@ -905,7 +1002,7 @@ func AssertSyncEventCountStays(
 		count, err := orm.CountOf(&models.SyncEvent{})
 		assert.NoError(t, err)
 		return count
-	}).Should(gomega.Equal(want))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it
@@ -931,36 +1028,31 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 
 // Head given the value convert it into an Head
 func Head(val interface{}) *models.Head {
-	switch val.(type) {
+	var h models.Head
+	time := uint64(0)
+	switch t := val.(type) {
 	case int:
-		return models.NewHead(big.NewInt(int64(val.(int))), NewHash())
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
 	case uint64:
-		return models.NewHead(big.NewInt(int64(val.(uint64))), NewHash())
+		h = models.NewHead(big.NewInt(int64(t)), NewHash(), NewHash(), time)
 	case int64:
-		return models.NewHead(big.NewInt(val.(int64)), NewHash())
+		h = models.NewHead(big.NewInt(t), NewHash(), NewHash(), time)
 	case *big.Int:
-		return models.NewHead(val.(*big.Int), NewHash())
+		h = models.NewHead(t, NewHash(), NewHash(), time)
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
-		return nil
 	}
-}
-
-// EmptyBlock returns a new empty ethereum block
-func EmptyBlock() eth.Block {
-	return eth.Block{}
+	return &h
 }
 
 // BlockWithTransactions returns a new ethereum block with transactions
 // matching the given gas prices
-func BlockWithTransactions(gasPrices ...uint64) eth.Block {
-	txs := make([]eth.Transaction, len(gasPrices))
+func BlockWithTransactions(gasPrices ...int64) *types.Block {
+	txs := make([]*types.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i].GasPrice = hexutil.Uint64(gasPrice)
+		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
-	return eth.Block{
-		Transactions: txs,
-	}
+	return types.NewBlock(&types.Header{}, txs, nil, nil)
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
@@ -1151,6 +1243,19 @@ func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
 	return attempt
 }
 
+func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
+	t.Helper()
+
+	var tx models.Tx
+	var count int
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&tx).Count(&count).Error
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return tx
+}
+
 func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {
 	t.Helper()
 
@@ -1184,4 +1289,74 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	result := input.Data.Get("result")
 	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
 	return result.String()
+}
+
+func MakeRoundStateReturnData(
+	roundID uint64,
+	eligible bool,
+	answer, startAt, timeout, availableFunds, paymentAmount, oracleCount uint64,
+) []byte {
+	var data []byte
+	if eligible {
+		data = append(data, utils.EVMWordUint64(1)...)
+	} else {
+		data = append(data, utils.EVMWordUint64(0)...)
+	}
+	data = append(data, utils.EVMWordUint64(roundID)...)
+	data = append(data, utils.EVMWordUint64(answer)...)
+	data = append(data, utils.EVMWordUint64(startAt)...)
+	data = append(data, utils.EVMWordUint64(timeout)...)
+	data = append(data, utils.EVMWordUint64(availableFunds)...)
+	data = append(data, utils.EVMWordUint64(oracleCount)...)
+	data = append(data, utils.EVMWordUint64(paymentAmount)...)
+	return data
+}
+
+// EthereumLogIterator is the interface provided by gethwrapper representations of EVM
+// logs.
+type EthereumLogIterator interface{ Next() bool }
+
+// GetLogs drains logs of EVM log representations. Since those log
+// representations don't fit into a type hierarchy, this API is a bit awkward.
+// It returns the logs as a slice of blank interface{}s, and if rv is non-nil,
+// it must be a pointer to a slice for elements of the same type as the logs,
+// in which case GetLogs will append the logs to it.
+func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface{} {
+	v := reflect.ValueOf(rv)
+	require.True(t, rv == nil ||
+		v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Slice,
+		"must pass a slice to receive logs")
+	var e reflect.Value
+	if rv != nil {
+		e = v.Elem()
+	}
+	var irv []interface{}
+	for logs.Next() {
+		log := reflect.Indirect(reflect.ValueOf(logs)).FieldByName("Event")
+		if v.Kind() == reflect.Ptr {
+			e.Set(reflect.Append(e, log))
+		}
+		irv = append(irv, log.Interface())
+	}
+	return irv
+}
+
+func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun {
+	jr, err := store.FindJobRun(id)
+	require.NoError(t, err)
+	return jr
+}
+
+func MustHexToUint64(t *testing.T, hex string) uint64 {
+	res, err := utils.HexToUint64(hex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
+	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
+	require.NoError(t, err)
+	return k
 }

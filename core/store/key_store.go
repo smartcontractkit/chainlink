@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/logger"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -20,6 +20,22 @@ import (
 // prevent arbitrary message data to be representable as a valid Ethereum transaction
 // For more information, see: https://github.com/ethereum/go-ethereum/issues/3731
 const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
+
+//go:generate mockery --name KeyStoreInterface --output ../internal/mocks/ --case=underscore
+type KeyStoreInterface interface {
+	Accounts() []accounts.Account
+	Wallets() []accounts.Wallet
+	GetFirstAccount() (accounts.Account, error)
+	HasAccounts() bool
+	Unlock(phrase string) error
+	NewAccount(passphrase string) (accounts.Account, error)
+	SignHash(hash common.Hash) (models.Signature, error)
+	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
+	GetAccounts() []accounts.Account
+	GetAccountByAddress(common.Address) (accounts.Account, error)
+
+	SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+}
 
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
@@ -120,7 +136,7 @@ func (ks *KeyStore) unsafeSignHash(hash common.Hash) (models.Signature, error) {
 // ensures that an account exists during authentication.
 func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
 	if len(ks.Accounts()) == 0 {
-		return accounts.Account{}, errors.New("No Ethereum Accounts configured")
+		return accounts.Account{}, errors.New("no Ethereum Accounts configured")
 	}
 	return ks.Accounts()[0], nil
 }
@@ -128,4 +144,14 @@ func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
 // GetAccounts returns all accounts
 func (ks *KeyStore) GetAccounts() []accounts.Account {
 	return ks.Accounts()
+}
+
+// GetAccountByAddress returns the account matching the address provided, or an error if it is missing
+func (ks *KeyStore) GetAccountByAddress(address common.Address) (accounts.Account, error) {
+	for _, account := range ks.Accounts() {
+		if account.Address == address {
+			return account, nil
+		}
+	}
+	return accounts.Account{}, errors.New("no account found with that address")
 }

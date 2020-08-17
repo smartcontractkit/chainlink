@@ -1,26 +1,26 @@
 {
-    "name": "@chainlink/local-storage",
-    "private": true,
-    "version": "0.0.1",
-    "main": "./dist/src",
-    "types": "./dist/src",
-    "engines": {
-        "node": "~12"
-    },
-    "scripts": {
-        "setup": "tsc -b",
-        "clean": "tsc -b --clean",
-        "test": "jest",
-        "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
-    },
-    "peerDependencies": {},
-    "dependencies": {
-        "local-storage-fallback": "^4.1.1",
-        "typescript": "^3.7.4"
-    },
-    "devDependencies": {
-        "@types/jest": "^24.0.25",
-        "jest": "^24.9.0",
-        "ts-jest": "^24.0.0"
-    }
+  "name": "@chainlink/local-storage",
+  "private": true,
+  "version": "0.0.1",
+  "main": "./dist/src",
+  "types": "./dist/src",
+  "engines": {
+    "node": "~10.16"
+  },
+  "scripts": {
+    "setup": "tsc -b",
+    "clean": "tsc -b --clean",
+    "test": "jest",
+    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%"
+  },
+  "peerDependencies": {},
+  "dependencies": {
+    "local-storage-fallback": "^4.1.1",
+    "typescript": "^3.7.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.8",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.0.0"
+  }
 }

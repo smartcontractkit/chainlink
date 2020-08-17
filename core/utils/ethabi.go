@@ -227,9 +227,9 @@ func EVMWordUint64(val uint64) []byte {
 func EVMWordUint128(val *big.Int) ([]byte, error) {
 	bytes := val.Bytes()
 	if val.BitLen() > 128 {
-		return nil, fmt.Errorf("Overflow saving uint128 to EVM word: %v", val)
+		return nil, fmt.Errorf("overflow saving uint128 to EVM word: %v", val)
 	} else if val.Sign() == -1 {
-		return nil, fmt.Errorf("Invalid attempt to save negative value as uint128 to EVM word: %v", val)
+		return nil, fmt.Errorf("invalid attempt to save negative value as uint128 to EVM word: %v", val)
 	}
 	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
 }
@@ -239,7 +239,7 @@ func EVMWordUint128(val *big.Int) ([]byte, error) {
 func EVMWordSignedBigInt(val *big.Int) ([]byte, error) {
 	bytes := val.Bytes()
 	if val.BitLen() > (8*EVMWordByteLen - 1) {
-		return nil, fmt.Errorf("Overflow saving signed big.Int to EVM word: %v", val)
+		return nil, fmt.Errorf("overflow saving signed big.Int to EVM word: %v", val)
 	}
 	if val.Sign() == -1 {
 		twosComplement := new(big.Int).Add(val, MaxUint256)
@@ -256,7 +256,7 @@ func EVMWordBigInt(val *big.Int) ([]byte, error) {
 	}
 	bytes := val.Bytes()
 	if len(bytes) > EVMWordByteLen {
-		return nil, fmt.Errorf("Overflow saving big.Int to EVM word: %v", val)
+		return nil, fmt.Errorf("overflow saving big.Int to EVM word: %v", val)
 	}
 	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
 }

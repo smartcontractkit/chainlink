@@ -2,6 +2,7 @@ import express from 'express'
 import PinoHttp from 'express-pino-logger'
 import pino from 'pino'
 import { Logger } from 'typeorm'
+import { Config, Environment } from './config'
 
 const options: Parameters<typeof pino>[0] = {
   name: 'Explorer',
@@ -10,11 +11,16 @@ const options: Parameters<typeof pino>[0] = {
     paths: ['req.headers', 'res.headers'],
   },
 }
-if (process.env.EXPLORER_DEV) {
-  options.prettyPrint = { colorize: true }
-  options.level = 'debug'
-} else if (process.env.NODE_ENV === 'test') {
-  options.level = 'silent'
+
+switch (Config.env()) {
+  case Environment.PROD:
+    break
+  case Environment.TEST:
+    options.level = 'silent'
+    break
+  default:
+    options.prettyPrint = { colorize: true }
+    options.level = 'trace'
 }
 export const logger = pino(options)
 

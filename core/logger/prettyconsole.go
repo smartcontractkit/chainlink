@@ -36,7 +36,7 @@ type PrettyConsole struct {
 // for better readability in console.
 func (pc PrettyConsole) Write(b []byte) (int, error) {
 	if !gjson.ValidBytes(b) {
-		return 0, fmt.Errorf("Unable to parse json for pretty console: %s", string(b))
+		return 0, fmt.Errorf("unable to parse json for pretty console: %s", string(b))
 	}
 	js := gjson.ParseBytes(b)
 	headline := generateHeadline(js)
@@ -47,7 +47,7 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 func generateHeadline(js gjson.Result) string {
 	sec, dec := math.Modf(js.Get("ts").Float())
 	headline := []interface{}{
-		ISO8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
+		iso8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
 		" ",
 		coloredLevel(js.Get("level")),
 		fmt.Sprintf("%-50s", js.Get("msg")),
@@ -97,7 +97,7 @@ func coloredLevel(level gjson.Result) string {
 	return color(fmt.Sprintf("%-8s", fmt.Sprint("[", strings.ToUpper(level.String()), "]")))
 }
 
-// ISO8601UTC formats given time to ISO8601.
-func ISO8601UTC(t time.Time) string {
+// iso8601UTC formats given time to ISO8601.
+func iso8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }

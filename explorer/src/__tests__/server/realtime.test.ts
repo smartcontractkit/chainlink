@@ -1,8 +1,6 @@
 import { Server } from 'http'
 import jayson from 'jayson'
-import { Connection } from 'typeorm'
 import WebSocket from 'ws'
-import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import {
   createRPCRequest,
@@ -12,12 +10,12 @@ import {
 import { start, stop } from '../../support/server'
 import { NORMAL_CLOSE } from '../../utils/constants'
 import { clearDb } from '../testdatabase'
+import { getRepository } from 'typeorm'
 
 const { PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND } = jayson.Server.errors
 
 describe('realtime', () => {
   let server: Server
-  let db: Connection
   let chainlinkNode: ChainlinkNode
   let secret: string
 
@@ -26,18 +24,18 @@ describe('realtime', () => {
 
   beforeAll(async () => {
     server = await start()
-    db = await getDb()
   })
 
   beforeEach(async () => {
     await clearDb()
     ;[chainlinkNode, secret] = await createChainlinkNode(
-      db,
       'realtime test chainlinkNode',
     )
   })
 
-  afterAll(done => stop(server, done))
+  afterAll(async done => {
+    stop(server, done)
+  })
 
   describe('when sending messages in JSON-RPC format', () => {
     let ws: WebSocket
@@ -116,5 +114,24 @@ describe('realtime', () => {
     })
 
     ws3 = await newAuthenticatedNode()
+  })
+
+  it('should record core version and SHA info, if provided', async () => {
+    expect.assertions(2)
+
+    const version = '1.0.1-rc666'
+    const sha = 'BADC0FF33'
+    const ws = await newChainlinkNode(
+      chainlinkNode.accessKey,
+      secret,
+      version,
+      sha,
+    )
+    const node = await getRepository(ChainlinkNode).findOne(chainlinkNode.id)
+
+    expect(node.coreVersion).toEqual(version)
+    expect(node.coreSHA).toEqual(sha)
+
+    ws.close()
   })
 })

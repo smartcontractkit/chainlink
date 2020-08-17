@@ -3,8 +3,10 @@ package cmd_test
 import (
 	"testing"
 
-	"chainlink/core/cmd"
-	"chainlink/core/internal/cltest"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,6 +15,11 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("HasAccounts").Return(false)
+	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
+	kst.On("Unlock", cltest.Password).Return(nil)
+	store.KeyStore = kst
 	defer cleanup()
 
 	prompt := &cltest.MockCountingPrompter{
@@ -30,13 +37,20 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 	_, err := auth.Authenticate(store, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 4, prompt.Count)
-	assert.Len(t, store.KeyStore.Accounts(), 1)
+
+	kst.AssertExpectations(t)
 }
 
 func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("HasAccounts").Return(false)
+	kst.On("NewAccount", "somepassword").Return(accounts.Account{}, nil)
+	kst.On("Unlock", "somepassword").Return(nil)
+	kst.On("Accounts").Return([]accounts.Account{})
+	store.KeyStore = kst
 	defer cleanup()
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
@@ -44,8 +58,8 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 	assert.Len(t, store.KeyStore.Accounts(), 0)
 	_, err := auth.Authenticate(store, "somepassword")
 	assert.NoError(t, err)
-	assert.True(t, store.KeyStore.HasAccounts())
-	assert.Len(t, store.KeyStore.Accounts(), 1)
+
+	kst.AssertExpectations(t)
 }
 
 func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing.T) {
@@ -57,13 +71,13 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 	// prompt loop tries all in array
 	prompt := &cltest.MockCountingPrompter{
 		T:              t,
-		EnteredStrings: []string{"wrongpassword", cltest.Password, cltest.Password, cltest.Password},
+		EnteredStrings: []string{"wrongpassword", "wrongagain", cltest.Password},
 	}
 
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: prompt}
 	_, err := auth.Authenticate(store, "")
 	assert.NoError(t, err)
-	assert.Equal(t, 4, prompt.Count)
+	assert.Equal(t, 3, prompt.Count)
 }
 
 func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
@@ -76,7 +90,6 @@ func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 		password  string
 		wantError bool
 	}{
-		{cltest.Password, false},
 		{"wrongpassword", true},
 	}
 

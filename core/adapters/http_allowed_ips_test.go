@@ -1,9 +1,10 @@
 package adapters
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHttpAllowedIPS_isRestrictedIP(t *testing.T) {

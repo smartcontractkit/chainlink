@@ -5,20 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 const base10 = 10
-const precision = 10
 
 // BigFloat accepts both string and float JSON values.
 type BigFloat big.Float
 
 // MarshalJSON implements the json.Marshaler interface.
 func (b BigFloat) MarshalJSON() ([]byte, error) {
-	var j big.Float
-	j = big.Float(b)
+	var j = big.Float(b)
 	return json.Marshal(&j)
 }
 
@@ -54,6 +53,10 @@ func NewBig(i *big.Int) *Big {
 	return nil
 }
 
+func NewBigI(i int64) *Big {
+	return NewBig(big.NewInt(i))
+}
+
 // MarshalText marshals this instance to base 10 number as string.
 func (b *Big) MarshalText() ([]byte, error) {
 	return []byte((*big.Int)(b).Text(base10)), nil
@@ -83,14 +86,9 @@ func (b *Big) UnmarshalText(input []byte) error {
 
 	_, ok := b.setString(str, 10)
 	if !ok {
-		return fmt.Errorf("Unable to convert %s to Big", str)
+		return fmt.Errorf("unable to convert %s to Big", str)
 	}
 	return nil
-}
-
-func (b *Big) setBytes(value []uint8) *Big {
-	w := (*big.Int)(b).SetBytes(value)
-	return (*Big)(w)
 }
 
 func (b *Big) setString(s string, base int) (*Big, bool) {
@@ -114,18 +112,18 @@ func (b *Big) Scan(value interface{}) error {
 	case string:
 		decoded, ok := b.setString(v, 10)
 		if !ok {
-			return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
+			return fmt.Errorf("unable to set string %v of %T to base 10 big.Int for Big", value, value)
 		}
 		*b = *decoded
 	case []uint8:
 		// The SQL library returns numeric() types as []uint8 of the string representation
 		decoded, ok := b.setString(string(v), 10)
 		if !ok {
-			return fmt.Errorf("Unable to set string %v of %T to base 10 big.Int for Big", value, value)
+			return fmt.Errorf("unable to set string %v of %T to base 10 big.Int for Big", value, value)
 		}
 		*b = *decoded
 	default:
-		return fmt.Errorf("Unable to convert %v of %T to Big", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Big", value, value)
 	}
 
 	return nil
@@ -144,4 +142,24 @@ func (b *Big) String() string {
 // Hex returns the hex encoding of b.
 func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
+}
+
+// BigIntSlice attaches the methods of sort.Interface to []*big.Int, sorting in increasing order.
+type BigIntSlice []*big.Int
+
+func (s BigIntSlice) Len() int           { return len(s) }
+func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
+func (s BigIntSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+// Sort destructively sorts the slice
+func (s BigIntSlice) Sort() {
+	sort.Sort(s)
+}
+
+// Max returns the largest element
+func (s BigIntSlice) Max() *big.Int {
+	tmp := make(BigIntSlice, len(s))
+	copy(tmp, s)
+	tmp.Sort()
+	return tmp[len(tmp)-1]
 }

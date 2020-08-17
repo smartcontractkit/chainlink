@@ -1,7 +1,6 @@
 import { Server } from 'http'
-import { Connection, getCustomRepository } from 'typeorm'
+import { getCustomRepository, getRepository } from 'typeorm'
 import WebSocket from 'ws'
-import { getDb } from '../../database'
 import { ChainlinkNode, createChainlinkNode } from '../../entity/ChainlinkNode'
 import { JobRun } from '../../entity/JobRun'
 import { TaskRun } from '../../entity/TaskRun'
@@ -15,27 +14,38 @@ import { clearDb } from '../testdatabase'
 
 describe('realtime', () => {
   let server: Server
-  let db: Connection
   let chainlinkNode: ChainlinkNode
   let secret: string
   let ws: WebSocket
 
+  function closeWebsocket(): Promise<void> {
+    ws?.close()
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject('[closeWebsocket] Timed out waiting.')
+      }, 3000)
+
+      ws?.on('close', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+    })
+  }
+
   beforeAll(async () => {
     server = await start()
-    db = await getDb()
   })
 
   beforeEach(async () => {
     clearDb()
     ;[chainlinkNode, secret] = await createChainlinkNode(
-      db,
       'legacy test chainlinkNode',
     )
     ws = await newChainlinkNode(chainlinkNode.accessKey, secret)
   })
 
   afterEach(async () => {
-    ws.close()
+    await closeWebsocket()
   })
 
   afterAll(done => stop(server, done))
@@ -47,10 +57,10 @@ describe('realtime', () => {
       const response = await sendSingleMessage(ws, createFixture)
       expect(response.status).toEqual(201)
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(1)
     })
 
@@ -72,19 +82,18 @@ describe('realtime', () => {
 
           if (responses === 2) {
             expect(response.status).toEqual(201)
-            ws.close()
             resolve()
           }
         })
       })
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(1)
 
-      const jr = await db.manager.findOne(JobRun)
+      const jr = await getRepository(JobRun).findOne()
       expect(jr.status).toEqual('completed')
 
       const tr = jr.taskRuns[0]
@@ -97,13 +106,13 @@ describe('realtime', () => {
       const response = await sendSingleMessage(ws, ethtxFixture)
       expect(response.status).toEqual(201)
 
-      const jobRunCount = await db.manager.count(JobRun)
+      const jobRunCount = await getRepository(JobRun).count()
       expect(jobRunCount).toEqual(1)
 
-      const taskRunCount = await db.manager.count(TaskRun)
+      const taskRunCount = await getRepository(TaskRun).count()
       expect(taskRunCount).toEqual(4)
 
-      const jobRunRepository = getCustomRepository(JobRunRepository, db.name)
+      const jobRunRepository = getCustomRepository(JobRunRepository)
       const jr = await jobRunRepository.getFirst()
 
       expect(jr.status).toEqual('completed')
@@ -117,7 +126,6 @@ describe('realtime', () => {
       expect(tr.blockHeight).toEqual('3735928559')
       expect(tr.blockHash).toEqual('0xbadc0de5')
       expect(tr.transactionStatus).toEqual('fulfilledRunLog')
-      ws.close()
     })
 
     it('rejects malformed json events with code 422', async () => {
@@ -125,7 +133,7 @@ describe('realtime', () => {
       const request = '{invalid json}'
       const response = await sendSingleMessage(ws, request)
       expect(response.status).toEqual(422)
-      const count = await db.manager.count(JobRun)
+      const count = await getRepository(JobRun).count()
       expect(count).toEqual(0)
     })
   })

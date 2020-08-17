@@ -1,43 +1,39 @@
 {
-    "name": "@chainlink/contracts",
-    "version": "0.0.3",
-    "description": "Smart contracts and their language abstractions for chainlink",
-    "repository": "https://github.com/smartcontractkit/chainlink",
-    "author": "Chainlink devs",
-    "license": "MIT",
-    "private": false,
-    "scripts": {
-        "compile": "belt compile all",
-        "install:local": "install-local",
-        "postinstall": "npm run install:local",
-        "setup": "yarn compile && tsc -b tsconfig.test.json tsconfig.ethers.json",
-        "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
-        "pretest": "tsc -b --clean tsconfig.ethers.json",
-        "test": "jest --testTimeout 80000 --forceExit",
-        "prepublishOnly": "yarn clean && yarn setup && yarn test && yarn setup"
-    },
-    "devDependencies": {
-        "@chainlink/test-helpers": "0.0.2",
-        "@types/jest": "^25.1.1",
-        "@types/node": "^13.9.1",
-        "ethers": "^4.0.45",
-        "jest": "^25.1.0",
-        "ts-jest": "^25.2.0",
-        "typescript": "^3.7.5",
-        "install-local": "^2.0.0"
-    },
-    "files": [
-        "abi/**/*",
-        "ethers/**/*",
-        "src/**/*",
-        "truffle/**/*",
-        "app.config.json"
-    ],
-    "optionalDependencies": {
-        "@truffle/contract": "^4.1.8",
-        "ethers": "^4.0.45"
-    },
-    "localDependencies": {
-        "@chainlink/belt": "../belt"
-    }
+  "name": "@chainlink/contracts",
+  "version": "0.0.9",
+  "description": "Smart contracts and their language abstractions for chainlink",
+  "repository": "https://github.com/smartcontractkit/chainlink",
+  "author": "Chainlink devs",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "compile": "belt compile all",
+    "setup": "yarn compile && tsc -b tsconfig.test.json tsconfig.ethers.json",
+    "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
+    "pretest": "tsc -b --clean tsconfig.ethers.json",
+    "test": "jest --testTimeout 80000 --forceExit",
+    "test:ci": "./scripts/test_ci",
+    "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
+  },
+  "devDependencies": {
+    "@chainlink/belt": "0.0.1",
+    "@chainlink/test-helpers": "0.0.5",
+    "@types/jest": "^26.0.8",
+    "@types/node": "^13.9.1",
+    "ethers": "^4.0.45",
+    "jest": "^25.1.0",
+    "ts-jest": "^25.2.0",
+    "typescript": "^3.7.5"
+  },
+  "files": [
+    "abi/**/*",
+    "ethers/**/*",
+    "src/**/*",
+    "truffle/**/*",
+    "app.config.json"
+  ],
+  "optionalDependencies": {
+    "@truffle/contract": "^4.2.6",
+    "ethers": "^4.0.45"
+  }
 }

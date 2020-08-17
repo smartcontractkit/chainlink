@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"testing"
 
-	"chainlink/core/assets"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/services/synchronization"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -72,8 +72,8 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
-	var events []*models.SyncEvent
-	err = store.AllSyncEvents(func(event *models.SyncEvent) error {
+	var events []models.SyncEvent
+	err = store.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -112,8 +112,8 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	err = store.CreateJobRun(&jr)
 	assert.NoError(t, err)
 
-	var events []*models.SyncEvent
-	err = store.AllSyncEvents(func(event *models.SyncEvent) error {
+	var events []models.SyncEvent
+	err = store.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})

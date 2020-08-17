@@ -3,13 +3,14 @@ package store_test
 import (
 	"math/big"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
 
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -44,7 +45,7 @@ func TestStore_Close(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	store := app.GetStore()
@@ -57,7 +58,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	// assert creation on disk is successful
 	files, err := utils.FilesInDir(app.Config.KeysDir())
 	require.NoError(t, err)
-	require.Len(t, files, 1)
+	require.Len(t, files, 2)
 
 	// sync
 	require.NoError(t, store.SyncDiskKeyStoreToDB())
@@ -65,14 +66,28 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	// assert creation in db is successful
 	keys, err := store.Keys()
 	require.NoError(t, err)
-	require.Len(t, keys, 1)
-	key := keys[0]
+	// New key in addition to fixture key gives 2
+	require.Len(t, keys, 2)
+	// Newer key will always come later
+	key := keys[1]
 	require.Equal(t, acc.Address.Hex(), key.Address.String())
 
 	// assert contents are the same
-	content, err := utils.FileContents(filepath.Join(app.Config.KeysDir(), files[0]))
-	require.NoError(t, err)
-	require.Equal(t, keys[0].JSON.String(), content)
+	require.Equal(t, len(keys), len(files))
+
+	// Files are preceded by timestamp so sorting will put the most recent last (to match keys)
+	sort.Slice(files, func(i, j int) bool {
+		return strings.ToLower(files[i]) < strings.ToLower(files[j])
+	})
+	for _, f := range files {
+		assert.Regexp(t, regexp.MustCompile(`^UTC--\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.\d{9}Z--[0-9a-fA-F]{40}$`), f)
+	}
+
+	for i, key := range keys {
+		content, err := utils.FileContents(filepath.Join(app.Config.KeysDir(), files[i]))
+		require.NoError(t, err)
+		require.JSONEq(t, key.JSON.String(), content)
+	}
 }
 
 func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
@@ -120,14 +135,16 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		payloadAddress := gjson.Parse(content).Get("address").String()
-		require.Equal(t, content, payloads[payloadAddress])
+		require.JSONEq(t, content, payloads[payloadAddress])
 	}
 }
 
 func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
 		meth.Register("eth_getTransactionCount", "0x1")

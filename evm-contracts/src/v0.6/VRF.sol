@@ -1,4 +1,4 @@
-pragma solidity 0.6.2;
+pragma solidity 0.6.6;
 
 /** ****************************************************************************
   * @notice Verification of verifiable-random-function (VRF) proofs, following
@@ -117,7 +117,7 @@ pragma solidity 0.6.2;
   * @dev for a valid x ordinate costs about 15,555 gas, so to find a seed for
   * @dev which hashToCurve would cost more than 2,017,000 gas, one would have to
   * @dev try, in expectation, about 2¹²⁸ seeds, which is infeasible for any
-  * @dev forseeable computational resources. (25,000 + 128 * 15,555 < 2,017,000.)
+  * @dev foreseeable computational resources. (25,000 + 128 * 15,555 < 2,017,000.)
 
   * @dev Since the gas block limit for the Ethereum main net is 10,000,000 gas,
   * @dev this means it is infeasible for an adversary to prevent correct
@@ -249,7 +249,7 @@ contract VRF {
    *
    * @param multiplicand: secp256k1 point
    * @param scalar: non-zero GF(GROUP_ORDER) scalar
-   * @param product: secp256k1 expected to be mulitplier * multiplicand
+   * @param product: secp256k1 expected to be multiplier * multiplicand
    * @return verifies true iff product==scalar*multiplicand, with cryptographically high probability
    */
   function ecmulVerify(uint256[2] memory multiplicand, uint256 scalar,
@@ -480,7 +480,7 @@ contract VRF {
   uint256 constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
 
   // Length of proof marshaled to bytes array. Shows layout of proof
-  uint private constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
+  uint public constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
     64 + // Gamma
     32 + // C
     32 + // S

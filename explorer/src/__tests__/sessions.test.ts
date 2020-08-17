@@ -1,53 +1,79 @@
 import { authenticate } from '../sessions'
-import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../database'
+import { getRepository } from 'typeorm'
 import { createChainlinkNode } from '../entity/ChainlinkNode'
-import { Session } from '../entity/Session'
+import { Session, closeSession } from '../entity/Session'
 
 describe('sessions', () => {
-  let db: Connection
-  beforeAll(async () => {
-    db = await getDb()
-  })
-  afterAll(async () => {
-    await closeDbConnection()
-  })
-
   describe('authenticate', () => {
     it('creates a session record', async () => {
       const [chainlinkNode, secret] = await createChainlinkNode(
-        db,
         'valid-chainlink-node',
       )
-      const session = await authenticate(db, chainlinkNode.accessKey, secret)
+      const session = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret,
+      })
       expect(session).toBeDefined()
       expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
 
-      let foundSession = await db.manager.findOne(Session)
+      let foundSession = await getRepository(Session).findOne()
       expect(foundSession.chainlinkNodeId).toEqual(chainlinkNode.id)
       expect(foundSession.finishedAt).toBeNull()
 
-      await authenticate(db, chainlinkNode.accessKey, secret)
-      foundSession = await db.manager.findOne(Session, foundSession.id)
-      expect(foundSession.finishedAt).toBeDefined()
+      await authenticate({ accessKey: chainlinkNode.accessKey, secret })
+      foundSession = await getRepository(Session).findOne(foundSession.id)
+      expect(foundSession.finishedAt).toEqual(expect.any(Date))
+    })
+
+    it('closes a session', async () => {
+      const [chainlinkNode, secret] = await createChainlinkNode(
+        'valid-chainlink-node',
+      )
+      const session = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret,
+      })
+      expect(session).toBeDefined()
+      expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
+
+      closeSession(session)
     })
 
     it('returns null if no chainlink node exists', async () => {
-      const result = await authenticate(db, '', '')
+      const result = await authenticate({ accessKey: '', secret: '' })
       expect(result).toBeNull()
     })
 
     it('returns null if the secret is incorrect', async () => {
       const [chainlinkNode] = await createChainlinkNode(
-        db,
         'invalid-chainlink-node',
       )
-      const result = await authenticate(
-        db,
-        chainlinkNode.accessKey,
-        'wrong-secret',
-      )
+      const result = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret: 'wrong-secret',
+      })
       expect(result).toBeNull()
+    })
+  })
+
+  describe('closeSession', () => {
+    it('closes an open session', async () => {
+      const [chainlinkNode, secret] = await createChainlinkNode(
+        'valid-chainlink-node',
+      )
+      const session = await authenticate({
+        accessKey: chainlinkNode.accessKey,
+        secret,
+      })
+      expect(session).toBeDefined()
+      expect(session.chainlinkNodeId).toEqual(chainlinkNode.id)
+      expect(session.finishedAt).toBeNull()
+
+      await closeSession(session)
+
+      const foundSession = await getRepository(Session).findOne()
+      expect(foundSession.chainlinkNodeId).toEqual(chainlinkNode.id)
+      expect(foundSession.finishedAt).toEqual(expect.any(Date))
     })
   })
 })

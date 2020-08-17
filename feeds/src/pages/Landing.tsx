@@ -5,16 +5,6 @@ import { Header } from 'components/header'
 import { NodesLogos } from 'components/nodesLogos'
 import { SponsorsLogos } from 'components/sponsorsLogos'
 
-function useOffchainQuery(): boolean {
-  const query = new URLSearchParams(useLocation().search)
-  return query.get('compare-offchain') === 'true'
-}
-
-function useHealthQuery(): boolean {
-  const query = new URLSearchParams(useLocation().search)
-  return query.get('health') === 'true'
-}
-
 const Page = () => {
   return (
     <div className="page-wrapper landing-page">
@@ -50,10 +40,7 @@ const Page = () => {
           </p>
         </section>
         <section>
-          <Listing
-            compareOffchain={useOffchainQuery()}
-            enableHealth={useHealthQuery()}
-          />
+          <Listing enableDetails={useDetails()} />
         </section>
       </div>
 
@@ -61,6 +48,11 @@ const Page = () => {
       <NodesLogos />
     </div>
   )
+}
+
+function useDetails(): boolean {
+  const query = new URLSearchParams(useLocation().search)
+  return query.get('details') === 'true'
 }
 
 export default Page

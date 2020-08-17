@@ -5,7 +5,7 @@ import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import TablePagination from '@material-ui/core/TablePagination'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { fetchJobRuns } from 'actions'
+import { fetchJobRuns } from 'actionCreators'
 import jobRunsSelector from 'selectors/jobRuns'
 import jobRunsCountSelector from 'selectors/jobRunsCount'
 import List from 'components/JobRuns/List'
@@ -21,7 +21,7 @@ const styles = theme => ({
 })
 
 const renderLatestRuns = (props, state, handleChangePage) => {
-  const { jobSpecId, latestJobRuns, jobRunsCount, pageSize } = props
+  const { jobSpecId, latestJobRuns, jobRunsCount = 0, pageSize } = props
   const pagePath = props.pagePath.replace(':jobSpecId', jobSpecId)
 
   const TableButtonsWithProps = () => (

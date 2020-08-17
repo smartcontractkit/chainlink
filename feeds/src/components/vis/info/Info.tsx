@@ -1,11 +1,10 @@
+import { FeedConfig } from 'config'
 import React from 'react'
-import { Icon } from 'antd'
-import Heartbeat from './Heartbeat'
-import Percent from './Percent'
-import Legend from './Legend'
+import { humanizeUnixTimestamp } from 'utils'
 import TooltipQuestion from '../../shared/TooltipQuestion'
-import { humanizeUnixTimestamp, networkName, Networks } from 'utils'
-import { FeedConfig } from 'feeds'
+import Heartbeat from './Heartbeat'
+import Legend from './Legend'
+import Percent from './Percent'
 
 interface OwnProps {
   config: FeedConfig
@@ -59,12 +58,6 @@ const Info: React.FC<Props> = ({
     <div className="network-graph-info__wrapper">
       <div className="network-graph-info__title">
         <h4 className="network-graph-info__title--address">
-          {config.networkId !== Networks.MAINNET && (
-            <div style={{ color: '#ff6300' }}>
-              <Icon type="warning" />{' '}
-              {networkName(config.networkId).toUpperCase()} NETWORK
-            </div>
-          )}
           {config.contractAddress}{' '}
           <TooltipQuestion title={'Ethereum contract address'} />
         </h4>
@@ -72,7 +65,6 @@ const Info: React.FC<Props> = ({
           {config.name} aggregation
         </h1>
       </div>
-
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
           Latest and trusted answer{' '}
@@ -84,20 +76,20 @@ const Info: React.FC<Props> = ({
           {config.valuePrefix || ''} {latestAnswer || '...'}
         </h2>
       </div>
-
-      <div className="network-graph-info__item">
-        <div className="network-graph-info__item--label">
-          Primary Aggregation Parameter{' '}
-          <TooltipQuestion
-            title={`A new trusted answer is written when the off-chain price moves more than the deviation threshold`}
-          />
+      {config.threshold && (
+        <div className="network-graph-info__item">
+          <div className="network-graph-info__item--label">
+            Primary Aggregation Parameter{' '}
+            <TooltipQuestion
+              title={`A new trusted answer is written when the off-chain price moves more than the deviation threshold`}
+            />
+          </div>
+          <h2 className="network-graph-info__item--value">
+            Deviation Threshold: <Percent value={config.threshold} />
+          </h2>
         </div>
-        <h2 className="network-graph-info__item--value">
-          Deviation Threshold: <Percent value={config.threshold} />
-        </h2>
-      </div>
-
-      {config.heartbeat && (
+      )}
+      {config.heartbeat ? (
         <div className="network-graph-info__item">
           <div className="network-graph-info__item--label">
             Secondary Aggregation Parameter{' '}
@@ -113,8 +105,7 @@ const Info: React.FC<Props> = ({
             />
           </h2>
         </div>
-      )}
-
+      ) : null}
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
           Oracle responses (minimum {minimumAnswers || '...'}){' '}
@@ -127,7 +118,6 @@ const Info: React.FC<Props> = ({
           {getCurrentResponses()}
         </h2>
       </div>
-
       <div className="network-graph-info__item">
         <div className="network-graph-info__item--label">
           Update date {updateDate}{' '}

@@ -11,13 +11,12 @@ import (
 	"os"
 	"strconv"
 
-	"chainlink/core/assets"
-	"chainlink/core/store/models"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
@@ -30,23 +29,28 @@ var errUnauthorized = errors.New("401 Unauthorized")
 
 // DisplayAccountBalance renders a table containing the active account address
 // with it's ETH & LINK balance
-func (cli *Client) DisplayAccountBalance(c *clipkg.Context) error {
+func (cli *Client) DisplayAccountBalance(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Get("/v2/user/balances")
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	var links jsonapi.Links
 	balances := []presenters.AccountBalance{}
 	if err = cli.deserializeAPIResponse(resp, &balances, &links); err != nil {
 		return err
 	}
-	return cli.errorOut(cli.Render(&balances))
+	err = cli.errorOut(cli.Render(&balances))
+	return err
 }
 
 // CreateServiceAgreement creates a ServiceAgreement based on JSON input
-func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
+func (cli *Client) CreateServiceAgreement(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
 	}
@@ -60,14 +64,19 @@ func (cli *Client) CreateServiceAgreement(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "from initializing service-agreement-creation request"))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	var sa presenters.ServiceAgreement
-	return cli.renderAPIResponse(resp, &sa)
+	err = cli.renderAPIResponse(resp, &sa)
+	return err
 }
 
 // CreateExternalInitiator adds an external initiator
-func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
+func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 	if c.NArg() != 1 && c.NArg() != 2 {
 		return cli.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
 	}
@@ -77,11 +86,12 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 
 	// process optional URL
 	if c.NArg() == 2 {
-		url, err := url.ParseRequestURI(c.Args().Get(1))
+		var reqUrl *url.URL
+		reqUrl, err = url.ParseRequestURI(c.Args().Get(1))
 		if err != nil {
 			return cli.errorOut(err)
 		}
-		request.URL = (*models.WebURL)(url)
+		request.URL = (*models.WebURL)(reqUrl)
 	}
 
 	requestData, err := json.Marshal(request)
@@ -94,14 +104,19 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	var ei presenters.ExternalInitiatorAuthentication
-	return cli.renderAPIResponse(resp, &ei)
+	err = cli.renderAPIResponse(resp, &ei)
+	return err
 }
 
 // DeleteExternalInitiator removes an external initiator
-func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) error {
+func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the external initiator to delete"))
 	}
@@ -110,13 +125,17 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	_, err = cli.parseResponse(resp)
 	return err
 }
 
 // ShowJobRun returns the status of the given Jobrun.
-func (cli *Client) ShowJobRun(c *clipkg.Context) error {
+func (cli *Client) ShowJobRun(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the RunID to show"))
 	}
@@ -124,9 +143,14 @@ func (cli *Client) ShowJobRun(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	var job presenters.JobRun
-	return cli.renderAPIResponse(resp, &job)
+	err = cli.renderAPIResponse(resp, &job)
+	return err
 }
 
 // IndexJobRuns returns the list of all job runs for a specific job
@@ -140,7 +164,7 @@ func (cli *Client) IndexJobRuns(c *clipkg.Context) error {
 }
 
 // ShowJobSpec returns the status of the given JobID.
-func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
+func (cli *Client) ShowJobSpec(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be shown"))
 	}
@@ -148,9 +172,14 @@ func (cli *Client) ShowJobSpec(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	var job presenters.JobSpec
-	return cli.renderAPIResponse(resp, &job)
+	err = cli.renderAPIResponse(resp, &job)
+	return err
 }
 
 // IndexJobSpecs returns all job specs.
@@ -159,7 +188,7 @@ func (cli *Client) IndexJobSpecs(c *clipkg.Context) error {
 }
 
 // CreateJobSpec creates a JobSpec based on JSON input
-func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
+func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
 	}
@@ -173,10 +202,15 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	var js presenters.JobSpec
-	return cli.renderAPIResponse(resp, &js)
+	err = cli.renderAPIResponse(resp, &js)
+	return err
 }
 
 // ArchiveJobSpec soft deletes a job and its associated runs.
@@ -196,14 +230,15 @@ func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
 }
 
 // CreateJobRun creates job run based on SpecID and optional JSON
-func (cli *Client) CreateJobRun(c *clipkg.Context) error {
+func (cli *Client) CreateJobRun(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in SpecID [JSON blob | JSON filepath]"))
 	}
 
 	buf := bytes.NewBufferString("")
 	if c.NArg() > 1 {
-		jbuf, err := getBufferFromJSON(c.Args().Get(1))
+		var jbuf *bytes.Buffer
+		jbuf, err = getBufferFromJSON(c.Args().Get(1))
 		if err != nil {
 			return cli.errorOut(err)
 		}
@@ -214,13 +249,18 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	var run presenters.JobRun
-	return cli.renderAPIResponse(resp, &run)
+	err = cli.renderAPIResponse(resp, &run)
+	return err
 }
 
 // CreateBridge adds a new bridge to the chainlink node
-func (cli *Client) CreateBridge(c *clipkg.Context) error {
+func (cli *Client) CreateBridge(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in the bridge's parameters [JSON blob | JSON filepath]"))
 	}
@@ -234,18 +274,23 @@ func (cli *Client) CreateBridge(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	var bridge models.BridgeTypeAuthentication
-	return cli.renderAPIResponse(resp, &bridge)
+	err = cli.renderAPIResponse(resp, &bridge)
+	return err
 }
 
 // IndexBridges returns all bridges.
-func (cli *Client) IndexBridges(c *clipkg.Context) error {
+func (cli *Client) IndexBridges(c *clipkg.Context) (err error) {
 	return cli.getPage("/v2/bridge_types", c.Int("page"), &[]models.BridgeType{})
 }
 
-func (cli *Client) getPage(requestURI string, page int, model interface{}) error {
+func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
 	uri, err := url.Parse(requestURI)
 	if err != nil {
 		return err
@@ -260,17 +305,22 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) error
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
 	if err != nil {
 		return err
 	}
-	return cli.errorOut(cli.Render(model))
+	err = cli.errorOut(cli.Render(model))
+	return err
 }
 
 // ShowBridge returns the info for the given Bridge name.
-func (cli *Client) ShowBridge(c *clipkg.Context) error {
+func (cli *Client) ShowBridge(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the bridge to be shown"))
 	}
@@ -279,13 +329,17 @@ func (cli *Client) ShowBridge(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	var bridge models.BridgeType
 	return cli.renderAPIResponse(resp, &bridge)
 }
 
 // RemoveBridge removes a specific Bridge by name.
-func (cli *Client) RemoveBridge(c *clipkg.Context) error {
+func (cli *Client) RemoveBridge(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the name of the bridge to be removed"))
 	}
@@ -294,9 +348,14 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	var bridge models.BridgeType
-	return cli.renderAPIResponse(resp, &bridge)
+	err = cli.renderAPIResponse(resp, &bridge)
+	return err
 }
 
 // RemoteLogin creates a cookie session to run remote commands.
@@ -309,74 +368,27 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	return cli.errorOut(err)
 }
 
-// Withdraw will withdraw LINK to an address authorized by the node
-func (cli *Client) Withdraw(c *clipkg.Context) error {
-	if c.NArg() != 2 {
-		return cli.errorOut(errors.New("withdraw expects two arguments: an address and an amount"))
-	}
-
-	linkAmount, err := strconv.ParseInt(c.Args().Get(1), 10, 64)
-
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			errors.New("while parsing LINK withdrawal amount"), err))
-	}
-
-	contractAddress := common.Address{}
-	unParsedOracleContractAddress := c.String("from-oracle-contract-address")
-	if unParsedOracleContractAddress != "" {
-		contractAddress, err = utils.ParseEthereumAddress(
-			unParsedOracleContractAddress)
-		if err != nil {
-			return cli.errorOut(multierr.Combine(
-				errors.New("while parsing source contract withdrawal address"),
-				err,
-			))
-		}
-	}
-	unparsedDestinationAddress := c.Args().First()
-	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal destination address %v",
-				unparsedDestinationAddress), err))
-	}
-
-	wR := models.WithdrawalRequest{
-		DestinationAddress: destinationAddress,
-		ContractAddress:    contractAddress,
-		Amount:             assets.NewLink(linkAmount),
-	}
-
-	requestData, err := json.Marshal(wR)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	buf := bytes.NewBuffer(requestData)
-
-	resp, err := cli.HTTP.Post("/v2/withdrawals", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer resp.Body.Close()
-
-	return cli.printResponseBody(resp)
-}
-
 // SendEther transfers ETH from the node's account to a specified address.
-func (cli *Client) SendEther(c *clipkg.Context) error {
-	if c.NArg() != 2 {
-		return cli.errorOut(errors.New("sendether expects two arguments: an amount and an address"))
+func (cli *Client) SendEther(c *clipkg.Context) (err error) {
+	if c.NArg() < 3 {
+		return cli.errorOut(errors.New("sendether expects three arguments: amount, fromAddress and toAddress"))
 	}
 
-	amount, err := strconv.ParseInt(c.Args().Get(0), 10, 64)
+	amount, err := assets.NewEthValueS(c.Args().Get(0))
 	if err != nil {
 		return cli.errorOut(multierr.Combine(
 			errors.New("while parsing ETH transfer amount"), err))
 	}
 
-	unparsedDestinationAddress := c.Args().Get(1)
+	unparsedFromAddress := c.Args().Get(1)
+	fromAddress, err := utils.ParseEthereumAddress(unparsedFromAddress)
+	if err != nil {
+		return cli.errorOut(multierr.Combine(
+			fmt.Errorf("while parsing withdrawal source address %v",
+				unparsedFromAddress), err))
+	}
+
+	unparsedDestinationAddress := c.Args().Get(2)
 	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
 	if err != nil {
 		return cli.errorOut(multierr.Combine(
@@ -384,21 +396,10 @@ func (cli *Client) SendEther(c *clipkg.Context) error {
 				unparsedDestinationAddress), err))
 	}
 
-	unparsedFromAddress := c.String("from")
-	fromAddress := common.Address{}
-	if unparsedFromAddress != "" {
-		fromAddress, err = utils.ParseEthereumAddress(unparsedFromAddress)
-		if err != nil {
-			return cli.errorOut(multierr.Combine(
-				fmt.Errorf("while parsing withdrawal from address %v",
-					unparsedFromAddress), err))
-		}
-	}
-
 	request := models.SendEtherRequest{
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
-		Amount:             assets.NewEth(amount),
+		Amount:             amount,
 	}
 
 	requestData, err := json.Marshal(request)
@@ -412,14 +413,19 @@ func (cli *Client) SendEther(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
-	return cli.printResponseBody(resp)
+	err = cli.printResponseBody(resp)
+	return err
 }
 
 // ChangePassword prompts the user for the old password and a new one, then
 // posts it to Chainlink to change the password.
-func (cli *Client) ChangePassword(c *clipkg.Context) error {
+func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	req, err := cli.ChangePasswordPrompter.Prompt()
 	if err != nil {
 		return cli.errorOut(err)
@@ -435,7 +441,11 @@ func (cli *Client) ChangePassword(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		fmt.Println("Password updated.")
@@ -454,7 +464,7 @@ func (cli *Client) IndexTransactions(c *clipkg.Context) error {
 }
 
 // ShowTransaction returns the info for the given transaction hash
-func (cli *Client) ShowTransaction(c *clipkg.Context) error {
+func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the hash of the transaction"))
 	}
@@ -463,9 +473,14 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	var tx presenters.Tx
-	return cli.renderAPIResponse(resp, &tx)
+	err = cli.renderAPIResponse(resp, &tx)
+	return err
 }
 
 // IndexTxAttempts returns the list of transactions in descending order,
@@ -488,9 +503,9 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 
 	buf, err := fromFile(s)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("Invalid JSON or file not found '%s'", s)
+		return nil, fmt.Errorf("invalid JSON or file not found '%s'", s)
 	} else if err != nil {
-		return nil, fmt.Errorf("Error reading from file '%s': %v", s, err)
+		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
 	}
 	return buf, nil
 }
@@ -522,7 +537,7 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("Try logging in")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("try logging in")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}
@@ -565,7 +580,7 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error
 
 // CreateExtraKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
-func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
+func (cli *Client) CreateExtraKey(c *clipkg.Context) (err error) {
 	password := cli.PasswordPrompter.Prompt()
 	request := models.CreateKeyRequest{
 		CurrentPassword: password,
@@ -581,13 +596,18 @@ func (cli *Client) CreateExtraKey(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
-	return cli.printResponseBody(resp)
+	err = cli.printResponseBody(resp)
+	return err
 }
 
 // SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
+func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) (err error) {
 	if c.NArg() != 1 {
 		return cli.errorOut(errors.New("expecting an amount"))
 	}
@@ -616,25 +636,35 @@ func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if cerr := response.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	patchResponse := web.ConfigPatchResponse{}
-	if err := cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
+	if err = cli.deserializeAPIResponse(response, &patchResponse, &jsonapi.Links{}); err != nil {
 		return err
 	}
 
-	return cli.errorOut(cli.Render(&patchResponse))
+	err = cli.errorOut(cli.Render(&patchResponse))
+	return err
 }
 
 // GetConfiguration gets the nodes environment variables
-func (cli *Client) GetConfiguration(c *clipkg.Context) error {
+func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Get("/v2/config")
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	cwl := presenters.ConfigWhitelist{}
-	return cli.renderAPIResponse(resp, &cwl)
+	err = cli.renderAPIResponse(resp, &cwl)
+	return err
 }
 
 // CancelJob cancels a running job

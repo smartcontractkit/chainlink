@@ -12,13 +12,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/Depado/ginprom"
 	helmet "github.com/danielkov/gin-helmet"
@@ -202,6 +203,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	unauthedv2.POST("/service_agreements", sa.Create)
 
 	j := JobSpecsController{app}
+	jsec := JobSpecErrorsController{app}
 
 	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
 	{
@@ -224,6 +226,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/runs/:RunID", jr.Show)
 		authv2.PUT("/runs/:RunID/cancellation", jr.Cancel)
 
+		authv2.DELETE("/job_spec_errors/:jobSpecErrorID", jsec.Destroy)
+
 		authv2.GET("/service_agreements/:SAID", sa.Show)
 
 		bt := BridgeTypesController{app}
@@ -232,9 +236,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/bridge_types/:BridgeName", bt.Show)
 		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
-
-		w := WithdrawalsController{app}
-		authv2.POST("/withdrawals", w.Create)
 
 		ts := TransfersController{app}
 		authv2.POST("/transfers", ts.Create)
@@ -276,26 +277,22 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 		path := c.Request.URL.Path
 		matchedBoxPath := MatchExactBoxPath(boxList, path)
 
+		var is404 bool
 		if matchedBoxPath == "" {
-			if filepath.Ext(path) == "" {
-				matchedBoxPath = MatchWildcardBoxPath(
-					boxList,
-					path,
-					"index.html",
-				)
-			} else if filepath.Ext(path) == ".json" {
-				matchedBoxPath = MatchWildcardBoxPath(
-					boxList,
-					filepath.Dir(path),
-					filepath.Base(path),
-				)
+			isApiRequest, _ := regexp.MatchString(`^/v[0-9]+/.*`, path)
+
+			if filepath.Ext(path) != "" {
+				is404 = true
+			} else if isApiRequest {
+				is404 = true
+			} else {
+				matchedBoxPath = "index.html"
 			}
 		}
 
-		var is404 bool
-		if matchedBoxPath == "" {
-			matchedBoxPath = "404.html"
-			is404 = true
+		if is404 {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
 		}
 
 		file, err := box.Open(matchedBoxPath)
@@ -308,14 +305,9 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 			}
 			return
 		}
-		defer file.Close()
+		defer logger.ErrorIfCalling(file.Close, "failed when close file")
 
-		if is404 {
-			c.Writer.WriteHeader(http.StatusNotFound)
-			io.Copy(c.Writer, file)
-		} else {
-			http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
-		}
+		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})
 }
 

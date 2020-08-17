@@ -1,7 +1,8 @@
 import {
   Column,
-  Connection,
   Entity,
+  EntityManager,
+  getConnection,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -110,8 +111,8 @@ export const fromString = (str: string): JobRun => {
   return fromJSONObject(json)
 }
 
-export const saveJobRunTree = async (db: Connection, jobRun: JobRun) => {
-  await db.manager.transaction(async manager => {
+export const saveJobRunTree = async (jobRun: JobRun) => {
+  await getConnection().transaction(async (manager: EntityManager) => {
     let builder = manager.createQueryBuilder()
 
     await builder

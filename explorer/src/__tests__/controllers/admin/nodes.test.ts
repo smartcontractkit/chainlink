@@ -1,8 +1,5 @@
 import http from 'http'
 import httpStatus from 'http-status-codes'
-import { Connection } from 'typeorm'
-import { getDb } from '../../../database'
-import { clearDb } from '../../testdatabase'
 import { createAdmin } from '../../../support/admin'
 import {
   createChainlinkNode,
@@ -17,18 +14,15 @@ const ADMIN_PATH = '/api/v1/admin'
 const adminNodesPath = `${ADMIN_PATH}/nodes`
 
 let server: http.Server
-let db: Connection
 let rb: RequestBuilder
 
 beforeAll(async () => {
-  db = await getDb()
   server = await start()
   rb = requestBuilder(server)
 })
 afterAll(done => stop(server, done))
 beforeEach(async () => {
-  await clearDb()
-  await createAdmin(db, USERNAME, PASSWORD)
+  await createAdmin(USERNAME, PASSWORD)
 })
 
 describe('POST /api/v1/admin/nodes', () => {
@@ -62,7 +56,7 @@ describe('POST /api/v1/admin/nodes', () => {
   })
 
   it('returns an error when the node already exists', async done => {
-    const [node] = await createChainlinkNode(db, 'nodeA')
+    const [node] = await createChainlinkNode('nodeA')
     const data = { name: node.name }
 
     rb.sendPost(adminNodesPath, USERNAME, PASSWORD, data)
@@ -83,12 +77,12 @@ describe('DELETE /api/v1/admin/nodes/:name', () => {
   }
 
   it('can delete a node', async done => {
-    const [node] = await createChainlinkNode(db, 'nodeA')
+    const [node] = await createChainlinkNode('nodeA')
 
     rb.sendDelete(path(node.name), USERNAME, PASSWORD)
       .expect(httpStatus.OK)
       .expect(async () => {
-        const nodeAfter = await findNode(db, node.id)
+        const nodeAfter = await findNode(node.id)
         expect(nodeAfter).not.toBeDefined()
       })
       .end(done)
@@ -107,7 +101,7 @@ describe('GET /api/v1/admin/nodes/:id', () => {
   }
 
   it('can get a node', async done => {
-    const [node] = await createChainlinkNode(db, 'nodeA')
+    const [node] = await createChainlinkNode('nodeA')
 
     rb.sendGet(path(node.id), USERNAME, PASSWORD)
       .expect(httpStatus.OK)
@@ -118,7 +112,7 @@ describe('GET /api/v1/admin/nodes/:id', () => {
   })
 
   it('returns a 401 unauthorized with invalid admin credentials', async done => {
-    const [node] = await createChainlinkNode(db, 'nodeA')
+    const [node] = await createChainlinkNode('nodeA')
     const _nodePath = path(node.id)
     rb.sendGet(_nodePath, USERNAME, 'invalidpassword')
       .expect(httpStatus.UNAUTHORIZED)

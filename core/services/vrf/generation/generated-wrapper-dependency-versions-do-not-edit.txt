@@ -1,6 +1,0 @@
-GETH_VERSION: 1.9.12
-link_token_interface: ./generation/../../../../evm-test-helpers/src/LinkToken.json a16bfa4690d25769959dd59034f03d101a46ecbf7e774a57ca6874f8352c8568
-solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 37323e90d064503ebfb0a2c9d6c40d4787fac916df659d082c3927f7f3de6b09
-solidity_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json c5f4617b801b7143b12d3062ebeeb5c9c3afc33a4ecdc14233ab6f2c0d95394c
-solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json 5111ba5e42f3ef1512065078fe017ada84f9b3b4c1a2680a85415ebbac08bdb9
-solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json 584b33eb950331a8ff51f56e47deee7937db139cb4113f321eb6ccf7f1b82173

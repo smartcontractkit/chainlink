@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -17,12 +17,14 @@ import (
 func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_chainId", app.Config.ChainID())
 		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
 
@@ -56,11 +58,13 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 func TestTxAttemptsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
 		meth.Register("eth_getTransactionCount", "0x1")
-		meth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 	require.NoError(t, app.Start())
 

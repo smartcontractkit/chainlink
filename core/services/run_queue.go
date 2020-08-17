@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"chainlink/core/logger"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -22,7 +22,7 @@ var (
 	})
 )
 
-//go:generate mockery -name RunQueue -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name RunQueue --output ../internal/mocks/ --case=underscore
 
 // RunQueue safely handles coordinating job runs.
 type RunQueue interface {

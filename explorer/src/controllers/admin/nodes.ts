@@ -1,8 +1,7 @@
 import { validate } from 'class-validator'
 import { Router } from 'express'
 import httpStatus from 'http-status-codes'
-import { Connection, getCustomRepository } from 'typeorm'
-import { getDb } from '../../database'
+import { getCustomRepository, getRepository } from 'typeorm'
 import {
   buildChainlinkNode,
   ChainlinkNode,
@@ -20,11 +19,7 @@ const router = Router()
 
 router.get('/nodes', async (req, res) => {
   const params = parseParams(req.query)
-  const db = await getDb()
-  const chainlinkNodeRepository = getCustomRepository(
-    ChainlinkNodeRepository,
-    db.name,
-  )
+  const chainlinkNodeRepository = getCustomRepository(ChainlinkNodeRepository)
   const chainlinkNodes = await chainlinkNodeRepository.all(params)
   const nodeCount = await chainlinkNodeRepository.count()
   const json = chainlinkNodesSerializer(chainlinkNodes, nodeCount)
@@ -35,13 +30,12 @@ router.get('/nodes', async (req, res) => {
 router.post('/nodes', async (req, res) => {
   const name = req.body.name
   const url = req.body.url
-  const db = await getDb()
   const [node, secret] = buildChainlinkNode(name, url)
   const errors = await validate(node)
 
   if (errors.length === 0) {
     try {
-      const savedNode = await db.manager.save(node)
+      const savedNode = await getRepository(ChainlinkNode).save(node)
 
       return res.status(httpStatus.CREATED).json({
         id: savedNode.id,
@@ -73,16 +67,17 @@ router.post('/nodes', async (req, res) => {
 
 router.get('/nodes/:id', async (req, res) => {
   const { id } = req.params
-  const db = await getDb()
-  const node = await db.getRepository(ChainlinkNode).findOne(id)
-  const uptime = await nodeUptime(db, node)
-  const jobCounts = await jobCountReport(db, node)
+  const node = await getRepository(ChainlinkNode).findOne(id)
+  const uptime = await nodeUptime(node)
+  const jobCounts = await jobCountReport(node)
 
   const data = {
     id: node.id,
     name: node.name,
     url: node.url,
     createdAt: node.createdAt,
+    coreVersion: node.coreVersion,
+    coreSHA: node.coreSHA,
     jobCounts,
     uptime,
   }
@@ -92,10 +87,7 @@ router.get('/nodes/:id', async (req, res) => {
 })
 
 router.delete('/nodes/:name', async (req, res) => {
-  const db: Connection = await getDb()
-
-  await db.getRepository(ChainlinkNode).delete({ name: req.params.name })
-
+  await getRepository(ChainlinkNode).delete({ name: req.params.name })
   return res.sendStatus(httpStatus.OK)
 })
 

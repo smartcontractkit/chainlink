@@ -1,15 +1,17 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/gin-gonic/contrib/sessions"
@@ -35,7 +37,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
-		jsonAPIError(ctx, http.StatusConflict, errors.New("Old password does not match"))
+		jsonAPIError(ctx, http.StatusConflict, errors.New("old password does not match"))
 		return
 	}
 	if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
@@ -158,9 +160,9 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 
 func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
 	txm := store.TxManager
-	ethBalance, err := txm.GetEthBalance(account.Address)
+	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 	if err != nil {
-		err = fmt.Errorf("Error calling getEthBalance on Ethereum node: %v", err)
+		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
 		return presenters.AccountBalance{}
@@ -168,7 +170,7 @@ func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts
 
 	linkBalance, err := txm.GetLINKBalance(account.Address)
 	if err != nil {
-		err = fmt.Errorf("Error calling getLINKBalance on Ethereum node: %v", err)
+		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
 		return presenters.AccountBalance{}
@@ -176,7 +178,7 @@ func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts
 
 	return presenters.AccountBalance{
 		Address:     account.Address.Hex(),
-		EthBalance:  ethBalance,
+		EthBalance:  (*assets.Eth)(ethBalance),
 		LinkBalance: linkBalance,
 	}
 }

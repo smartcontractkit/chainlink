@@ -1,6 +1,6 @@
 import { PaddedCard } from '@chainlink/styleguide'
 import Grid from '@material-ui/core/Grid'
-import { fetchJobRun } from 'actions'
+import { fetchJobRun } from 'actionCreators'
 import Content from 'components/Content'
 import StatusCard from 'components/JobRuns/StatusCard'
 import PrettyJson from 'components/PrettyJson'

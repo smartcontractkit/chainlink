@@ -84,7 +84,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     answers[answerCounter].minimumResponses = minimumResponses;
     answers[answerCounter].maxResponses = uint128(oracles.length);
 
-    emit NewRound(answerCounter, msg.sender);
+    emit NewRound(answerCounter, msg.sender, block.timestamp);
 
     answerCounter = answerCounter.add(1);
   }
@@ -286,7 +286,11 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   /**
    * @notice get the latest completed round where the answer was updated
    */
-  function latestRound() external view returns (uint256) {
+  function latestRound()
+    external
+    view
+    returns (uint256)
+  {
     return latestCompletedAnswer;
   }
 

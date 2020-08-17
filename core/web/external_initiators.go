@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 )
@@ -81,6 +82,7 @@ func NotifyExternalInitiator(
 	if err != nil {
 		return errors.Wrap(err, "could not notify '%s' (%s)")
 	}
+	defer logger.ErrorIfCalling(resp.Body.Close)
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
 	}

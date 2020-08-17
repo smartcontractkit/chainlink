@@ -4,17 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/jinzhu/gorm"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/asaskevich/govalidator"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 )
@@ -45,8 +47,10 @@ func ValidateJob(j models.JobSpec, store *store.Store) error {
 // ValidateBridgeTypeNotExist checks that a bridge has not already been created
 func ValidateBridgeTypeNotExist(bt *models.BridgeTypeRequest, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
-	ts := models.TaskSpec{Type: bt.Name}
-	if a, _ := adapters.For(ts, store.Config, store.ORM); a != nil {
+	bridge, err := store.ORM.FindBridge(bt.Name)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		fe.Add(fmt.Sprintf("Error determining if bridge type %v already exists", bt.Name))
+	} else if (bridge != models.BridgeType{}) {
 		fe.Add(fmt.Sprintf("Bridge Type %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
@@ -70,8 +74,16 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 		bt.MinimumContractPayment.Cmp(assets.NewLink(0)) < 0 {
 		fe.Add("MinimumContractPayment must be positive")
 	}
+	ts := models.TaskSpec{Type: bt.Name}
+	if a := adapters.FindNativeAdapterFor(ts); a != nil {
+		fe.Add(fmt.Sprintf("Bridge Type %v is a native adapter", bt.Name))
+	}
 	return fe.CoerceEmptyToNil()
 }
+
+var (
+	externalInitiatorNameRegexp = regexp.MustCompile("^[a-zA-Z0-9-_]+$")
+)
 
 // ValidateExternalInitiator checks whether External Initiator parameters are
 // safe for processing.
@@ -82,7 +94,7 @@ func ValidateExternalInitiator(
 	fe := models.NewJSONAPIErrors()
 	if len([]rune(exi.Name)) == 0 {
 		fe.Add("No name specified")
-	} else if onlyValidRunes := govalidator.StringMatches(exi.Name, "^[a-zA-Z0-9-_]*$"); !onlyValidRunes {
+	} else if !externalInitiatorNameRegexp.MatchString(exi.Name) {
 		fe.Add("Name must be alphanumeric and may contain '_' or '-'")
 	} else if _, err := store.FindExternalInitiatorByName(exi.Name); err == nil {
 		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
@@ -104,7 +116,7 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 	case models.InitiatorServiceAgreementExecutionLog:
 		return validateServiceAgreementInitiator(i, j)
 	case models.InitiatorRunLog:
-		return validateRunLogInitiator(i, j)
+		return validateRunLogInitiator(i, j, store)
 	case models.InitiatorFluxMonitor:
 		return validateFluxMonitor(i, j, store)
 	case models.InitiatorWeb:
@@ -120,25 +132,63 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
-	minimumPollingInterval := models.Duration(store.Config.DefaultHTTPTimeout())
 
+	if store.Config.EthereumDisabled() {
+		fe.Add("cannot add flux monitor jobs when ethereum is disabled")
+	}
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
-	}
-	if i.IdleThreshold != 0 && i.IdleThreshold < i.PollingInterval {
-		fe.Add("idleThreshold must be equal or greater than the pollingInterval")
-	}
-	if i.Threshold <= 0 {
-		fe.Add("bad threshold")
 	}
 	if i.RequestData.String() == "" {
 		fe.Add("no requestdata")
 	}
-	if i.PollingInterval == 0 {
-		fe.Add("no pollingInterval")
-	} else if i.PollingInterval < minimumPollingInterval {
-		fe.Add("pollingInterval must be equal or greater than " + minimumPollingInterval.String())
+	if i.Threshold <= 0 {
+		fe.Add("bad 'threshold' parameter; this is the maximum relative change " +
+			"allowed in the monitored value, before a new report should be made; " +
+			"it must be positive, and appear in the job initiator parameters; e.g." +
+			`{"initiators": [{"type":"fluxmonitor", "params":{"threshold": 0.5}}]} ` +
+			"means that the value can change by up to half its last-reported value " +
+			"before a new report is made")
 	}
+	if i.AbsoluteThreshold < 0 {
+		fe.Add("bad 'absoluteThreshold' value; this is the maximum absolute " +
+			"change allowed in the monitored value, before a new report should be " +
+			"made; it must be nonnegative and appear in the job initiator parameters; e.g." +
+			`{"initiators":[{"type":"fluxmonitor","params":{"absoluteThreshold":0.01}}]} ` +
+			"means that the value can change by up to 0.01 units " +
+			"before a new report is made")
+	}
+
+	if i.PollTimer.Disabled && i.IdleTimer.Disabled {
+		fe.Add("must enable pollTimer, idleTimer, or both")
+	}
+
+	if i.PollTimer.Disabled {
+		if !i.PollTimer.Period.IsInstant() {
+			fe.Add("pollTimer disabled, period must be 0")
+		}
+	} else {
+		minimumPollPeriod := models.Duration(store.Config.DefaultHTTPTimeout())
+
+		if i.PollTimer.Period.IsInstant() {
+			fe.Add("pollTimer enabled, but no period specified")
+		} else if i.PollTimer.Period.Shorter(minimumPollPeriod) {
+			fe.Add("pollTimer enabled, period must be equal or greater than " + minimumPollPeriod.String())
+		}
+	}
+
+	if i.IdleTimer.Disabled {
+		if !i.IdleTimer.Duration.IsInstant() {
+			fe.Add("idleTimer disabled, duration must be 0")
+		}
+	} else {
+		if i.IdleTimer.Duration.IsInstant() {
+			fe.Add("idleTimer enabled, duration must be > 0")
+		} else if !i.PollTimer.Disabled && i.IdleTimer.Duration.Shorter(i.PollTimer.Period) {
+			fe.Add("idleTimer and pollTimer enabled, idleTimer.duration must be >= than pollTimer.period")
+		}
+	}
+
 	if err := validateFeeds(i.Feeds, store); err != nil {
 		fe.Add(err.Error())
 	}
@@ -164,14 +214,17 @@ func validateFeeds(feeds models.Feeds, store *store.Store) error {
 			}
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
 			bridgeName := feed["bridge"]
+			bridgeNameString, ok := bridgeName.(string)
 			if bridgeName == nil {
 				return errors.New("Feeds object missing bridge key")
 			} else if len(feed) != 1 {
 				return errors.New("Unsupported keys in feed JSON")
+			} else if !ok {
+				return errors.New("Unsupported bridge name type in feed JSON")
 			}
-			bridgeNames = append(bridgeNames, bridgeName.(string))
+			bridgeNames = append(bridgeNames, bridgeNameString)
 		default:
-			return errors.New("unknown feed type")
+			return errors.New("Unknown feed type")
 		}
 	}
 	if _, err := store.ORM.FindBridgesByNames(bridgeNames); err != nil {
@@ -181,19 +234,29 @@ func validateFeeds(feeds models.Feeds, store *store.Store) error {
 	return nil
 }
 
-func validateRunLogInitiator(i models.Initiator, j models.JobSpec) error {
+func validateRunLogInitiator(i models.Initiator, j models.JobSpec, s *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 	ethTxCount := 0
 	for _, task := range j.Tasks {
 		if task.Type == adapters.TaskTypeEthTx {
-			ethTxCount += 1
+			ethTxCount++
 
-			task.Params.ForEach(func(k, _ gjson.Result) bool {
+			task.Params.ForEach(func(k, v gjson.Result) bool {
 				key := strings.ToLower(k.String())
 				if key == "functionselector" {
 					fe.Add("Cannot set EthTx Task's function selector parameter with a RunLog Initiator")
 				} else if key == "address" {
 					fe.Add("Cannot set EthTx Task's address parameter with a RunLog Initiator")
+				} else if key == "fromaddress" {
+					address, err := hexutil.Decode(v.String())
+					if err != nil {
+						fe.Add(fmt.Sprintf("Cannot set EthTx Task's fromAddress parameter: %s", err.Error()))
+					} else {
+						exists, err := s.KeyExists(address)
+						if err != nil || !exists {
+							fe.Add("Cannot set EthTx Task's fromAddress parameter: the node does not have this private key in the database")
+						}
+					}
 				}
 				return true
 			})
@@ -302,16 +365,16 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 
 	untilEndAt := time.Until(sa.Encumbrance.EndAt.Time)
 
-	if untilEndAt > config.MaximumServiceDuration() {
+	if untilEndAt > config.MaximumServiceDuration().Duration() {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %v is too far in the future. Furthest allowed date is %v",
 			sa.Encumbrance.EndAt,
-			time.Now().Add(config.MaximumServiceDuration())))
+			time.Now().Add(config.MaximumServiceDuration().Duration())))
 	}
 
-	if untilEndAt < config.MinimumServiceDuration() {
+	if untilEndAt < config.MinimumServiceDuration().Duration() {
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: endAt value of %v is too soon. Earliest allowed date is %v",
 			sa.Encumbrance.EndAt,
-			time.Now().Add(config.MinimumServiceDuration())))
+			time.Now().Add(config.MinimumServiceDuration().Duration())))
 	}
 
 	return fe.CoerceEmptyToNil()

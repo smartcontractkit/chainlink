@@ -22,8 +22,8 @@ afterEach(() => {
 describe('ChainlinkClient', () => {
   describe('#constructor', () => {
     it('sets the correct properties on the instance', () => {
-      expect(mock.docker.getContainer).toHaveBeenCalledTimes(1)
-      expect(mock.docker.getContainer).toHaveBeenCalledWith(CONTAINER_NAME)
+      expect(mock.getContainer).toHaveBeenCalledTimes(1)
+      expect(mock.getContainer).toHaveBeenCalledWith(CONTAINER_NAME)
       assert.equal(clClient.name, CLIENT_NAME)
       assert.equal(clClient.clientURL, CLIENT_ENDPOINT)
       assert.equal(clClient.clientURL, CLIENT_ENDPOINT)
@@ -35,7 +35,6 @@ describe('ChainlinkClient', () => {
     it('calls the correct docker functions', async () => {
       mock.setContainerState({ Paused: false })
       await clClient.pause()
-      expect(mock.container.inspect).toHaveBeenCalledTimes(1)
       expect(mock.container.pause).toHaveBeenCalledTimes(1)
     })
   })
@@ -44,7 +43,6 @@ describe('ChainlinkClient', () => {
     it('calls the correct docker functions', async () => {
       mock.setContainerState({ Paused: true })
       await clClient.unpause()
-      expect(mock.container.inspect).toHaveBeenCalledTimes(1)
       expect(mock.container.unpause).toHaveBeenCalledTimes(1)
     })
   })

@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/logger"
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
 	clipkg "github.com/urfave/cli"
@@ -254,7 +254,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer logger.ErrorIfCalling(resp.Body.Close)
 
 	_, err = parseResponse(resp)
 	if err != nil {
@@ -263,7 +263,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest models.SessionR
 
 	cookies := resp.Cookies()
 	if len(cookies) == 0 {
-		return nil, errors.New("Did not receive cookie with session id")
+		return nil, errors.New("did not receive cookie with session id")
 	}
 	sc := web.FindSessionCookie(cookies)
 	return sc, t.store.Save(sc)
@@ -305,7 +305,7 @@ func (d DiskCookieStore) Save(cookie *http.Cookie) error {
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 	b, err := ioutil.ReadFile(d.cookiePath())
 	if err != nil {
-		return nil, multierr.Append(errors.New("Unable to retrieve credentials, have you logged in?"), err)
+		return nil, multierr.Append(errors.New("unable to retrieve credentials, have you logged in?"), err)
 	}
 	header := http.Header{}
 	header.Add("Cookie", string(b))
@@ -424,7 +424,7 @@ func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) 
 	return user, store.SaveUser(&user)
 }
 
-var errNoCredentialFile = errors.New("No API user credential file was passed")
+var errNoCredentialFile = errors.New("no API user credential file was passed")
 
 func credentialsFromFile(file string) (models.SessionRequest, error) {
 	if len(file) == 0 {
@@ -438,7 +438,7 @@ func credentialsFromFile(file string) (models.SessionRequest, error) {
 	}
 	lines := strings.Split(string(dat), "\n")
 	if len(lines) < 2 {
-		return models.SessionRequest{}, fmt.Errorf("Malformed API credentials file does not have at least two lines at %s", file)
+		return models.SessionRequest{}, fmt.Errorf("malformed API credentials file does not have at least two lines at %s", file)
 	}
 	credentials := models.SessionRequest{
 		Email:    strings.TrimSpace(lines[0]),
@@ -473,7 +473,7 @@ func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
 	confirmPassword := c.prompter.PasswordPrompt("Confirmation:")
 
 	if newPassword != confirmPassword {
-		return models.ChangePasswordRequest{}, errors.New("New password and confirmation did not match")
+		return models.ChangePasswordRequest{}, errors.New("new password and confirmation did not match")
 	}
 
 	return models.ChangePasswordRequest{

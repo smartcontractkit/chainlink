@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"chainlink/core/store"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // KeyStoreAuthenticator implements the Authenticate method for the store and
@@ -94,7 +94,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 	if password == "" {
 		return fmt.Errorf("VRF password must be non-trivial")
 	}
-	keys, err := store.VRFKeyStore.Get(nil)
+	keys, err := store.VRFKeyStore.Get()
 	if err != nil {
 		return errors.Wrapf(err, "while checking for extant VRF keys")
 	}

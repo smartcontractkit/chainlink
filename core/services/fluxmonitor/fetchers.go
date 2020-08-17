@@ -1,14 +1,15 @@
 package fluxmonitor
 
 import (
-	"chainlink/core/logger"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
-	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/guregu/null"
 	"github.com/pkg/errors"
@@ -17,7 +18,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-//go:generate mockery -name Fetcher -output ../../internal/mocks/ -case=underscore
+//go:generate mockery --name Fetcher --output ../../internal/mocks/ --case=underscore
 
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
@@ -33,11 +34,11 @@ type httpFetcher struct {
 }
 
 func newHTTPFetcher(
-	timeout time.Duration,
+	timeout models.Duration,
 	requestData string,
 	url *url.URL,
 ) Fetcher {
-	client := &http.Client{Timeout: timeout, Transport: http.DefaultTransport}
+	client := &http.Client{Timeout: timeout.Duration(), Transport: http.DefaultTransport}
 	client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
 	client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
 
@@ -49,12 +50,16 @@ func newHTTPFetcher(
 }
 
 func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
-	r, err := p.client.Post(p.url.String(), "application/json", strings.NewReader(p.requestData))
+	request, err := withRandomID(p.requestData)
+	if err != nil {
+		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s, cannot add request ID", p.url.String()))
+	}
+	r, err := p.client.Post(p.url.String(), "application/json", strings.NewReader(request))
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s with payload '%s'", p.url.String(), p.requestData))
 	}
 
-	defer r.Body.Close()
+	defer logger.ErrorIfCalling(r.Body.Close)
 	target := adapterResponse{}
 	if err = json.NewDecoder(r.Body).Decode(&target); err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to decode price from %s", p.url.String()))
@@ -85,6 +90,18 @@ func (p *httpFetcher) String() string {
 	return fmt.Sprintf("http price fetcher: %s", p.url.String())
 }
 
+// withRandomID add an arbitrary "id" field to the request json
+// this is done in order to keep request payloads consistent in format
+// between flux monitor polling requests and http/bridge adapters
+func withRandomID(rawReqData string) (string, error) {
+	rawReqData = strings.TrimSpace(rawReqData)
+	valid := json.Valid([]byte(rawReqData))
+	if !valid {
+		return "", errors.New(fmt.Sprintf("invalid raw request json: %s", rawReqData))
+	}
+	return fmt.Sprintf(`{"id":"%s",%s`, models.NewID(), rawReqData[1:]), nil
+}
+
 type adapterResponseData struct {
 	Result *decimal.Decimal `json:"result"`
 }
@@ -109,7 +126,7 @@ type medianFetcher struct {
 // newMedianFetcherFromURLs creates a median fetcher that retrieves a price
 // from all passed URLs using httpFetcher, and returns the median.
 func newMedianFetcherFromURLs(
-	timeout time.Duration,
+	timeout models.Duration,
 	requestData string,
 	priceURLs []*url.URL,
 ) (Fetcher, error) {
@@ -139,13 +156,32 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
 	prices := []decimal.Decimal{}
 	fetchErrors := []error{}
+
+	type result struct {
+		price decimal.Decimal
+		err   error
+	}
+
+	chResults := make(chan result)
 	for _, fetcher := range m.fetchers {
-		price, err := fetcher.Fetch()
-		if err != nil {
-			logger.Error(err)
-			fetchErrors = append(fetchErrors, err)
+		fetcher := fetcher
+		go func() {
+			price, err := fetcher.Fetch()
+			if err != nil {
+				logger.Error(err)
+				chResults <- result{err: err}
+			} else {
+				chResults <- result{price: price}
+			}
+		}()
+	}
+
+	for i := 0; i < len(m.fetchers); i++ {
+		r := <-chResults
+		if r.err != nil {
+			fetchErrors = append(fetchErrors, r.err)
 		} else {
-			prices = append(prices, price)
+			prices = append(prices, r.price)
 		}
 	}
 

@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/store/presenters"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -38,7 +38,8 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	if id == "" {
 		runs, count, err = store.JobRunsSorted(order, offset, size)
 	} else {
-		runID, err := models.NewIDFromString(id)
+		var runID *models.ID
+		runID, err = models.NewIDFromString(id)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
@@ -107,7 +108,7 @@ func getAuthenticatedInitiator(c *gin.Context, js models.JobSpec) (*models.Initi
 	if ei, ok := authenticatedEI(c); ok {
 		initiator := js.InitiatorExternal(ei.Name)
 		if initiator == nil {
-			return nil, fmt.Errorf("Job not available via External Initiator '%s'", ei.Name)
+			return nil, fmt.Errorf("job not available via External Initiator '%s'", ei.Name)
 		}
 		return initiator, nil
 	}
@@ -174,8 +175,8 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 	}
 
 	var brr models.BridgeRunResult
-	if err := c.ShouldBindJSON(&brr); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if e := c.ShouldBindJSON(&brr); e != nil {
+		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
 
@@ -195,7 +196,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		return
 	}
 
-	if err = jrc.App.ResumePending(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
+	if err = jrc.App.ResumePendingBridge(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 		return
 	}

@@ -2,11 +2,12 @@ package models
 
 import (
 	"crypto/subtle"
+	"fmt"
 	"regexp"
 	"time"
 
-	"chainlink/core/auth"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 )
@@ -19,10 +20,16 @@ type User struct {
 	TokenKey          string    `json:"tokenKey"`
 	TokenSalt         string    `json:"-"`
 	TokenHashedSecret string    `json:"-"`
+	UpdatedAt         time.Time `json:"-"`
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
 var emailRegexp = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
+// https://security.stackexchange.com/questions/39849/does-bcrypt-have-a-maximum-password-length
+const (
+	MaxBcryptPasswordLength = 50
+)
 
 // NewUser creates a new user by hashing the passed plainPwd with bcrypt.
 func NewUser(email, plainPwd string) (User, error) {
@@ -34,8 +41,8 @@ func NewUser(email, plainPwd string) (User, error) {
 		return User{}, errors.New("Invalid email format")
 	}
 
-	if len(plainPwd) < 8 || len(plainPwd) > 1028 {
-		return User{}, errors.New("Must enter a password with 8 - 1028 characters")
+	if len(plainPwd) < 8 || len(plainPwd) > MaxBcryptPasswordLength {
+		return User{}, fmt.Errorf("must enter a password with 8 - %v characters", MaxBcryptPasswordLength)
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)

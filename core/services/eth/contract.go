@@ -1,32 +1,30 @@
 package eth
 
 import (
-	"chainlink/core/eth"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 )
 
 type ConnectedContract interface {
-	eth.ContractCodec
+	ContractCodec
 	Call(result interface{}, methodName string, args ...interface{}) error
 	SubscribeToLogs(listener LogListener) (connected bool, _ UnsubscribeFunc)
 }
 
 type connectedContract struct {
-	eth.ContractCodec
+	ContractCodec
 	address        common.Address
-	ethClient      eth.Client
+	ethClient      Client
 	logBroadcaster LogBroadcaster
 }
 
 type UnsubscribeFunc func()
 
 func NewConnectedContract(
-	codec eth.ContractCodec,
+	codec ContractCodec,
 	address common.Address,
-	ethClient eth.Client,
+	ethClient Client,
 	logBroadcaster LogBroadcaster,
 ) ConnectedContract {
 	return &connectedContract{codec, address, ethClient, logBroadcaster}
@@ -39,7 +37,7 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 	}
 
 	var rawResult hexutil.Bytes
-	callArgs := eth.CallArgs{To: contract.address, Data: data}
+	callArgs := CallArgs{To: contract.address, Data: data}
 	err = contract.ethClient.Call(&rawResult, "eth_call", callArgs, "latest")
 	if err != nil {
 		return errors.Wrap(err, "unable to call client")

@@ -3,9 +3,9 @@ package orm
 import (
 	"math/big"
 	"net/url"
-	"time"
 
-	"chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
@@ -15,26 +15,31 @@ import (
 // ConfigReader represents just the read side of the config
 type ConfigReader interface {
 	AllowOrigins() string
+	BlockBackfillDepth() uint64
 	BridgeResponseURL() *url.URL
 	ChainID() *big.Int
 	ClientNodeURL() string
-	DatabaseTimeout() time.Duration
+	DatabaseTimeout() models.Duration
 	DatabaseURL() string
 	DefaultMaxHTTPAttempts() uint
 	DefaultHTTPLimit() int64
-	DefaultHTTPTimeout() time.Duration
+	DefaultHTTPTimeout() models.Duration
 	Dev() bool
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool
-	MaximumServiceDuration() time.Duration
-	MinimumServiceDuration() time.Duration
+	MaximumServiceDuration() models.Duration
+	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
+	EnableBulletproofTxManager() bool
+	EthBalanceMonitorBlockDelay() uint16
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
 	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
+	EthFinalityDepth() uint
+	EthHeadTrackerHistoryDepth() uint
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
 	GasUpdaterBlockDelay() uint16
@@ -50,14 +55,15 @@ type ConfigReader interface {
 	LogToDisk() bool
 	LogSQLStatements() bool
 	MinIncomingConfirmations() uint32
-	MinOutgoingConfirmations() uint64
+	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
+	MigrateDatabase() bool
 	Port() uint16
-	ReaperExpiration() time.Duration
+	ReaperExpiration() models.Duration
 	RootDir() string
 	SecureCookies() bool
-	SessionTimeout() time.Duration
+	SessionTimeout() models.Duration
 	TLSCertPath() string
 	TLSHost() string
 	TLSKeyPath() string

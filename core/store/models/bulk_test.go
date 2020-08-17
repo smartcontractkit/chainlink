@@ -3,7 +3,7 @@ package models_test
 import (
 	"testing"
 
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 )

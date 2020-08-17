@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"sync"
 
-	"chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/fatih/color"
 	"go.uber.org/zap"
@@ -48,7 +48,7 @@ var createSinkOnce sync.Once
 func registerMemorySink() {
 	testMemoryLog = &MemorySink{m: sync.Mutex{}, b: bytes.Buffer{}}
 	if err := zap.RegisterSink("memory", func(*url.URL) (zap.Sink, error) {
-		return logger.PrettyConsole{testMemoryLog}, nil
+		return logger.PrettyConsole{Sink: testMemoryLog}, nil
 	}); err != nil {
 		panic(err)
 	}
@@ -62,11 +62,26 @@ func MemoryLogTestingOnly() *MemorySink {
 // CreateTestLogger creates a logger that directs output to PrettyConsole
 // configured for test output, and to the buffer testMemoryLog.
 func CreateTestLogger(lvl zapcore.Level) *zap.Logger {
-	var _ *MemorySink = MemoryLogTestingOnly() // Make sure memory log is created
+	_ = MemoryLogTestingOnly() // Make sure memory log is created
 	color.NoColor = false
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(lvl)
 	config.OutputPaths = []string{"pretty://console", "memory://"}
+	zl, err := config.Build(zap.AddCallerSkip(1))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return zl
+}
+
+// CreateMemoryTestLogger creates a logger that only directs output to the
+// buffer testMemoryLog.
+func CreateMemoryTestLogger(lvl zapcore.Level) *zap.Logger {
+	_ = MemoryLogTestingOnly() // Make sure memory log is created
+	color.NoColor = true
+	config := zap.NewProductionConfig()
+	config.Level.SetLevel(lvl)
+	config.OutputPaths = []string{"memory://"}
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)

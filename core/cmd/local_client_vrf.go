@@ -9,10 +9,11 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
-	"chainlink/core/logger"
-	"chainlink/core/store"
-	"chainlink/core/store/models/vrfkey"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func vRFKeyStore(cli *Client) *store.VRFKeyStore {
@@ -22,6 +23,7 @@ func vRFKeyStore(cli *Client) *store.VRFKeyStore {
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the password file
 func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
+	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	password, err := getPassword(c)
 	if err != nil {
 		return err
@@ -34,17 +36,24 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
 	}
+	hash, err := key.Hash()
+	hashStr := hash.Hex()
+	if err != nil {
+		hashStr = "error while computing hash of public key: " + err.Error()
+	}
 	fmt.Printf(`Created keypair.
 
 Compressed public key (use this for interactions with the chainlink node):
   %s
-Uncompressed public key (use this for interactions with the VRFCoordinator):
+Uncompressed public key (use this to register key with the VRFCoordinator):
+  %s
+Hash of public key (use this to request randomness from your consuming contract):
   %s
 
 The following command will export the encrypted secret key from the db to <save_path>:
 
 chainlink local vrf export -f <save_path> -pk %s
-`, key, uncompressedKey, key)
+`, key, uncompressedKey, hashStr, key)
 	return nil
 }
 
@@ -73,19 +82,6 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
 	return key.WriteToDisk(c.String("file"))
 }
 
-// getPassword retrieves the password from the file specified on the CL, or errors
-func getPassword(c *clipkg.Context) ([]byte, error) {
-	if !c.IsSet("password") {
-		return nil, fmt.Errorf("must specify password file")
-	}
-	rawPassword, err := passwordFromFile(c.String("password"))
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not read password from file %s",
-			c.String("password"))
-	}
-	return []byte(rawPassword), nil
-}
-
 // getPasswordAndKeyFile retrieves the password and key json from the files
 // specified on the CL, or errors
 func getPasswordAndKeyFile(c *clipkg.Context) (password []byte, keyjson []byte, err error) {
@@ -104,7 +100,7 @@ func getPasswordAndKeyFile(c *clipkg.Context) (password []byte, keyjson []byte, 
 	return password, keyjson, nil
 }
 
-// ImportVRFKey reads a file into an EncryptedSecretKey in the db
+// ImportVRFKey reads a file into an EncryptedVRFKey in the db
 func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 	password, keyjson, err := getPasswordAndKeyFile(c)
 	if err != nil {
@@ -114,9 +110,9 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 		if err == store.MatchingVRFKeyError {
 			fmt.Println(`The database already has an entry for that public key.`)
 			var key struct{ PublicKey string }
-			if err := json.Unmarshal(keyjson, &key); err != nil {
+			if e := json.Unmarshal(keyjson, &key); e != nil {
 				fmt.Println("could not extract public key from json input")
-				return errors.Wrapf(err, "while extracting public key from %s", keyjson)
+				return errors.Wrapf(e, "while extracting public key from %s", keyjson)
 			}
 			fmt.Printf(`If you want to import the new key anyway, delete the old key with the command
 
@@ -161,7 +157,7 @@ func (cli *Client) ExportVRFKey(c *clipkg.Context) error {
 }
 
 // getKeys retrieves the keys for an ExportVRFKey request
-func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedSecretKey, error) {
+func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedVRFKey, error) {
 	publicKey, err := getPublicKey(c)
 	if err != nil {
 		return nil, err
@@ -192,13 +188,13 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 	return nil
 }
 
-func getPublicKey(c *clipkg.Context) (*vrfkey.PublicKey, error) {
+func getPublicKey(c *clipkg.Context) (vrfkey.PublicKey, error) {
 	if !c.IsSet("publicKey") {
-		return nil, fmt.Errorf("must specify public key")
+		return vrfkey.PublicKey{}, fmt.Errorf("must specify public key")
 	}
 	publicKey, err := vrfkey.NewPublicKeyFromHex(c.String("publicKey"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse public key")
+		return vrfkey.PublicKey{}, errors.Wrap(err, "failed to parse public key")
 	}
 	return publicKey, nil
 }
@@ -212,14 +208,34 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 	// TODO(alx) Figure out how to make a nice box out of this, like the other
 	// commands do.
 	fmt.Println(
-		`********************************************************************
-Public keys of encrypted keys in database
-********************************************************************`)
-	for _, key := range keys {
-		fmt.Println(key)
+		`*********************************************************************************
+Public keys of encrypted keys in database (compressed, uncompressed, hash)
+*********************************************************************************`)
+	for keyidx, key := range keys {
+		fmt.Println("compressed  ", key)
+		uncompressed, err := key.StringUncompressed()
+		if err != nil {
+			logger.Infow("keys",
+				fmt.Sprintf("while computing uncompressed representation of %+v: %s",
+					key, err))
+			uncompressed = "error while computing uncompressed representation: " +
+				err.Error()
+		}
+		fmt.Println("uncompressed", uncompressed)
+		hash, err := key.Hash()
+		if err != nil {
+			logger.Infow("keys", "while computing hash of %+v: %s", key, hash)
+			fmt.Println("hash        ", "error while computing hash of %+v: "+err.Error())
+		} else {
+			fmt.Println("hash        ", hash.Hex())
+		}
+		if keyidx != len(keys)-1 {
+			fmt.Println(
+				"---------------------------------------------------------------------------------")
+		}
 	}
 	fmt.Println(
-		"********************************************************************")
+		"*********************************************************************************")
 	logger.Infow("keys", "keys", keys)
 	return nil
 }

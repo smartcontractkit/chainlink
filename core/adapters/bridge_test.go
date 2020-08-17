@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"testing"
 
-	"chainlink/core/adapters"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,11 +47,11 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 
 func setupJobRunAndStore(t *testing.T, txHash []byte, blockHash []byte) (*store.Store, *models.ID, func()) {
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	app.Store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 	require.NoError(t, app.Start())
-	store := app.Store
 	jr := app.MustCreateJobRun(txHash, blockHash)
 
-	return store, jr.ID, cleanup
+	return app.Store, jr.ID, cleanup
 }
 
 func TestBridge_IncludesMetaIfJobRunIsInDB(t *testing.T) {
@@ -61,7 +61,6 @@ func TestBridge_IncludesMetaIfJobRunIsInDB(t *testing.T) {
 	blockHash, _ := hex.DecodeString(blockHashHex)
 	store, jobRunID, cleanup := setupJobRunAndStore(t, txHash, blockHash)
 	defer cleanup()
-	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 
 	data := ""
 	meta := ""
@@ -93,6 +92,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 	jobRunID := models.NewID()
+	taskRunID := *models.NewID()
 
 	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, jobRunID.String()),
 		func(h http.Header, b string) {},
@@ -103,7 +103,7 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	params := cltest.JSONFromString(t, `{"bodyParam": true}`)
 	ba := &adapters.Bridge{BridgeType: *bt, Params: params}
 
-	input := *models.NewRunInput(jobRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
+	input := *models.NewRunInput(jobRunID, taskRunID, cltest.JSONFromString(t, `{"jobRunID": "jobID", "data": 251990120, "statusCode": 200}`), models.RunStatusUnstarted)
 	result := ba.Perform(input, store)
 	require.NoError(t, result.Error())
 	assert.Equal(t, "251990120", result.Result().String())
@@ -132,7 +132,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: *bt}
 
-			input := *models.NewRunInputWithResult(models.NewID(), "100", test.status)
+			input := *models.NewRunInputWithResult(models.NewID(), *models.NewID(), "100", test.status)
 			result := ba.Perform(input, store)
 
 			assert.Equal(t, test.result, result.Data().String())
@@ -164,6 +164,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
 	runID := models.NewID()
+	taskRunID := *models.NewID()
 	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"result":"lot 49"}}`, runID)
 
 	for _, test := range cases {
@@ -177,7 +178,7 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			eb := &adapters.Bridge{BridgeType: *bt}
 
-			input := *models.NewRunInput(runID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
+			input := *models.NewRunInput(runID, taskRunID, cltest.JSONFromString(t, `{"result": "lot 49"}`), models.RunStatusUnstarted)
 			result := eb.Perform(input, store)
 			val := result.Result()
 			assert.Equal(t, test.want, val.String())
@@ -225,4 +226,29 @@ func TestBridge_Perform_responseURL(t *testing.T) {
 			eb.Perform(input, store)
 		})
 	}
+}
+
+func TestBridgeResponse_TooLarge(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("DEFAULT_HTTP_LIMIT", "1")
+
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	largePayload := `{"pending": true}`
+	mock, serverCleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", largePayload,
+		func(h http.Header, b string) {},
+	)
+	defer serverCleanup()
+
+	_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
+	ba := &adapters.Bridge{BridgeType: *bt}
+
+	input := cltest.NewRunInputWithResult("100")
+	result := ba.Perform(input, store)
+
+	require.Error(t, result.Error())
+	assert.Contains(t, result.Error().Error(), "HTTP response too large")
+	assert.Equal(t, "", result.Result().String())
 }

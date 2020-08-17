@@ -1521,7 +1521,7 @@ impl<'a> Sum<&'a BigDecimal> for BigDecimal {
 
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Aquire the absolute integer as a decimal string
+        // Acquire the absolute integer as a decimal string
         let mut abs_int = self.int_val.abs().to_str_radix(10);
 
         // Split the representation at the decimal point

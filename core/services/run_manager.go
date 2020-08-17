@@ -5,15 +5,15 @@ import (
 	"math/big"
 	"time"
 
-	"chainlink/core/adapters"
-	"chainlink/core/assets"
-	"chainlink/core/logger"
-	clnull "chainlink/core/null"
-	"chainlink/core/services/synchronization"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 )
@@ -28,7 +28,7 @@ func (err RecurringScheduleJobError) Error() string {
 	return err.msg
 }
 
-//go:generate mockery -name RunManager -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name RunManager --output ../internal/mocks/ --case=underscore
 
 // RunManager supplies methods for queueing, resuming and cancelling jobs in
 // the RunQueue
@@ -42,14 +42,14 @@ type RunManager interface {
 		jobSpecID *models.ID,
 		initiator models.Initiator,
 		err error) (*models.JobRun, error)
-	ResumePending(
+	ResumePendingBridge(
 		runID *models.ID,
 		input models.BridgeRunResult) error
 	Cancel(runID *models.ID) (*models.JobRun, error)
 
 	ResumeAllInProgress() error
-	ResumeAllConfirming(currentBlockHeight *big.Int) error
-	ResumeAllConnecting() error
+	ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error
+	ResumeAllPendingConnection() error
 }
 
 // runManager implements RunManager
@@ -107,10 +107,10 @@ func NewRun(
 			continue
 		}
 
-		run.TaskRuns[i].MinimumConfirmations = clnull.Uint32From(
+		run.TaskRuns[i].MinRequiredIncomingConfirmations = clnull.Uint32From(
 			utils.MaxUint32(
 				config.MinIncomingConfirmations(),
-				task.Confirmations.Uint32,
+				task.MinRequiredIncomingConfirmations.Uint32,
 				adapter.MinConfs()),
 		)
 	}
@@ -127,7 +127,7 @@ func ValidateRun(run *models.JobRun, contractCost *assets.Link) {
 			run.ForLogger("required_payment", contractCost.String())...)
 
 		err := fmt.Errorf(
-			"Rejecting job %s with payment %s below minimum threshold (%s)",
+			"rejecting job %s with payment %s below minimum threshold (%s)",
 			run.JobSpecID,
 			run.Payment.Text(10),
 			contractCost.Text(10))
@@ -240,51 +240,60 @@ func (rm *runManager) Create(
 	return run, nil
 }
 
-// ResumeAllConfirming wakes up all jobs that were sleeping because they were
-// waiting for block confirmations.
-func (rm *runManager) ResumeAllConfirming(currentBlockHeight *big.Int) error {
+// ResumeAllPendingNextBlock wakes up all jobs that were sleeping because they
+// were waiting for the next block
+func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
 	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
+			err := rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
+			logger.ErrorIf(err, "failed when run manager updates with error")
 			return
 		}
 
 		run.ObservedHeight = utils.NewBig(currentBlockHeight)
 		logger.Debugw(fmt.Sprintf("New head #%s resuming run", currentBlockHeight), run.ForLogger()...)
 
-		validateMinimumConfirmations(run, currentTaskRun, run.ObservedHeight, rm.txManager)
+		// Set jobRun status in progress if met minimum incoming confirmations
+		// Task run status will be set later in runManager#Execute
+		markInProgressIfSufficientIncomingConfirmations(run, currentTaskRun, run.ObservedHeight, rm.txManager)
 
-		err := rm.updateAndTrigger(run)
+		// Save job run and resume if status was set to InProgress
+		err := rm.saveAndResumeIfInProgress(run)
 		if err != nil {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
-	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
+	},
+		models.RunStatusPendingConnection,
+		models.RunStatusPendingOutgoingConfirmations,
+		models.RunStatusPendingIncomingConfirmations)
 }
 
-// ResumeAllConnecting wakes up all tasks that have gone to sleep because they
+// ResumeAllPendingConnection wakes up all tasks that have gone to sleep because they
 // needed an ethereum client connection.
-func (rm *runManager) ResumeAllConnecting() error {
+func (rm *runManager) ResumeAllPendingConnection() error {
 	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		logger.Debugw("New connection resuming run", run.ForLogger()...)
 
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			rm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
+			err := rm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
+			logger.ErrorIf(err, "failed when run manager updates with error")
 			return
 		}
 
-		currentTaskRun.Status = models.RunStatusInProgress
 		run.SetStatus(models.RunStatusInProgress)
-		err := rm.updateAndTrigger(run)
+
+		err := rm.saveAndResumeIfInProgress(run)
 		if err != nil {
 			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
 		}
-	}, models.RunStatusPendingConnection, models.RunStatusPendingConfirmations)
+	},
+		models.RunStatusPendingConnection, models.RunStatusPendingOutgoingConfirmations)
 }
 
-// ResumePendingTask wakes up a task that required a response from a bridge adapter.
-func (rm *runManager) ResumePending(
+// ResumePendingBridgeTask wakes up a task that required a response from a bridge adapter.
+func (rm *runManager) ResumePendingBridge(
 	runID *models.ID,
 	input models.BridgeRunResult,
 ) error {
@@ -296,7 +305,7 @@ func (rm *runManager) ResumePending(
 	logger.Debugw("External adapter resuming run", run.ForLogger("input_data", input.Data)...)
 
 	if !run.GetStatus().PendingBridge() {
-		return fmt.Errorf("Attempting to resume non pending run %s", run.ID)
+		return fmt.Errorf("attempting to resume non pending run %s", run.ID)
 	}
 
 	currentTaskRun := run.NextTaskRun()
@@ -313,7 +322,7 @@ func (rm *runManager) ResumePending(
 	currentTaskRun.ApplyBridgeRunResult(input)
 	run.ApplyBridgeRunResult(input)
 
-	return rm.updateAndTrigger(&run)
+	return rm.saveAndResumeIfInProgress(&run)
 }
 
 // ResumeAllInProgress queries the db for job runs that should be resumed
@@ -338,7 +347,7 @@ func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
 
 	logger.Debugw("Cancelling run", run.ForLogger()...)
 	if run.GetStatus().Finished() {
-		return nil, fmt.Errorf("Cannot cancel a run that has already finished")
+		return nil, fmt.Errorf("cannot cancel a run that has already finished")
 	}
 
 	run.Cancel()
@@ -358,7 +367,7 @@ func (rm *runManager) updateWithError(run *models.JobRun, msg string, args ...in
 	return nil
 }
 
-func (rm *runManager) updateAndTrigger(run *models.JobRun) error {
+func (rm *runManager) saveAndResumeIfInProgress(run *models.JobRun) error {
 	defer rm.statsPusher.PushNow()
 	if err := rm.orm.SaveJobRun(run); err != nil {
 		return err

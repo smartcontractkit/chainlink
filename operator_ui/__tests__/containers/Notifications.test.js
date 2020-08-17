@@ -1,7 +1,7 @@
 /* eslint-disable react/display-name */
 import React from 'react'
 import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter } from 'react-router-dom'
 import { mount } from 'enzyme'
 import configureStore from 'redux-mock-store'
 import Notifications from 'containers/Notifications'

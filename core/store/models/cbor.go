@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/fxamacker/cbor/v2"
 )

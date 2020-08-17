@@ -1,15 +1,15 @@
 package contracts_test
 
 import (
-	"encoding"
+	"encoding/hex"
 	"math/big"
 	"testing"
 
-	"chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/internal/mocks"
-	"chainlink/core/services/eth/contracts"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -18,46 +18,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func mustEVMBigInt(t *testing.T, val *big.Int) []byte {
-	ret, err := utils.EVMWordBigInt(val)
-	require.NoError(t, err, "evm BigInt serialization")
-	return ret
-}
-
-func makeRoundStateReturnData(roundID uint64, eligible bool, answer, timesOutAt, availableFunds, paymentAmount uint64) string {
-	var data []byte
-	data = append(data, utils.EVMWordUint64(roundID)...)
-	if eligible {
-		data = append(data, utils.EVMWordUint64(1)...)
-	} else {
-		data = append(data, utils.EVMWordUint64(0)...)
-	}
-	data = append(data, utils.EVMWordUint64(answer)...)
-	data = append(data, utils.EVMWordUint64(timesOutAt)...)
-	data = append(data, utils.EVMWordUint64(availableFunds)...)
-	data = append(data, utils.EVMWordUint64(paymentAmount)...)
-	return hexutil.Encode(data)
-}
-
 func TestFluxAggregatorClient_RoundState(t *testing.T) {
 	aggregatorAddress := cltest.NewAddress()
 
-	const aggregatorRoundState = "c410579e"
-	aggregatorRoundStateSelector := eth.HexToFunctionSelector(aggregatorRoundState)
-
-	selector := make([]byte, 16)
-	copy(selector, aggregatorRoundStateSelector.Bytes())
 	nodeAddr := cltest.NewAddress()
+	selector := make([]byte, 16)
+	rsHash := utils.MustHash("oracleRoundState(address,uint32)")
+	copy(selector, rsHash.Bytes()[:4])
+	data := append(selector, nodeAddr[:]...)
+	data = append(data, utils.EVMWordUint64(0)...)
 	expectedCallArgs := eth.CallArgs{
 		To:   aggregatorAddress,
-		Data: append(selector, nodeAddr[:]...),
+		Data: data,
 	}
 
-	rawReturnData := `0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000100`
+	rawReturnData, err := hex.DecodeString(`00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000100`)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name                   string
-		response               string
+		response               []byte
 		expectedRoundID        uint32
 		expectedEligible       bool
 		expectedAnswer         *big.Int
@@ -65,11 +45,11 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 		expectedAvailableFunds uint64
 		expectedPaymentAmount  uint64
 	}{
-		{"zero, false", makeRoundStateReturnData(0, false, 0, 0, 0, 0), 0, false, big.NewInt(0), 0, 0, 0},
-		{"non-zero, false", makeRoundStateReturnData(1, false, 23, 1234, 36, 72), 1, false, big.NewInt(23), 1234, 36, 72},
-		{"zero, true", makeRoundStateReturnData(0, true, 0, 0, 0, 0), 0, true, big.NewInt(0), 0, 0, 0},
-		{"non-zero true", makeRoundStateReturnData(12, true, 91, 9876, 45, 999), 12, true, big.NewInt(91), 9876, 45, 999},
-		{"real call data", rawReturnData, 3, true, big.NewInt(15), 14, 10, 256},
+		{"zero, false", cltest.MakeRoundStateReturnData(0, false, 0, 0, 0, 0, 0, 17), 0, false, big.NewInt(0), 0, 0, 0},
+		{"non-zero, false", cltest.MakeRoundStateReturnData(1, false, 23, 1230, 4, 36, 72, 17), 1, false, big.NewInt(23), 1234, 36, 72},
+		{"zero, true", cltest.MakeRoundStateReturnData(0, true, 0, 0, 0, 0, 0, 17), 0, true, big.NewInt(0), 0, 0, 0},
+		{"non-zero true", cltest.MakeRoundStateReturnData(12, true, 91, 9870, 6, 45, 999, 17), 12, true, big.NewInt(91), 9876, 45, 999},
+		{"real call data", rawReturnData, 3, true, big.NewInt(15), (22 + 15), 10, 256},
 	}
 
 	for _, test := range tests {
@@ -77,21 +57,17 @@ func TestFluxAggregatorClient_RoundState(t *testing.T) {
 			ethClient := new(mocks.Client)
 
 			ethClient.On("Call", mock.Anything, "eth_call", expectedCallArgs, "latest").Return(nil).
-				Run(func(args mock.Arguments) {
-					res := args.Get(0)
-					err := res.(encoding.TextUnmarshaler).UnmarshalText([]byte(test.response))
-					require.NoError(t, err)
-				})
+				Run(func(args mock.Arguments) { *args.Get(0).(*hexutil.Bytes) = hexutil.Bytes(test.response) })
 
 			fa, err := contracts.NewFluxAggregator(aggregatorAddress, ethClient, nil)
 			require.NoError(t, err)
 
-			roundState, err := fa.RoundState(nodeAddr)
+			roundState, err := fa.RoundState(nodeAddr, 0)
 			require.NoError(t, err)
 			assert.Equal(t, test.expectedRoundID, roundState.ReportableRoundID)
 			assert.Equal(t, test.expectedEligible, roundState.EligibleToSubmit)
 			assert.True(t, test.expectedAnswer.Cmp(roundState.LatestAnswer) == 0)
-			assert.Equal(t, test.expectedTimesOutAt, roundState.TimesOutAt)
+			assert.Equal(t, test.expectedTimesOutAt, roundState.TimesOutAt())
 			assert.Equal(t, test.expectedAvailableFunds, roundState.AvailableFunds.Uint64())
 			assert.Equal(t, test.expectedPaymentAmount, roundState.PaymentAmount.Uint64())
 			ethClient.AssertExpectations(t)
@@ -126,7 +102,7 @@ func TestFluxAggregatorClient_DecodesLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), answerUpdatedLog.Current.Int64())
 	require.Equal(t, int64(2), answerUpdatedLog.RoundId.Int64())
-	require.Equal(t, int64(3), answerUpdatedLog.Timestamp.Int64())
+	require.Equal(t, int64(3), answerUpdatedLog.UpdatedAt.Int64())
 
 	type BadLogAnswerUpdated struct {
 		Current   *big.Int

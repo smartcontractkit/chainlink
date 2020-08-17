@@ -5,11 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"chainlink/core/assets"
-	"chainlink/core/eth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,32 +22,10 @@ func TestParseRunLog(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         eth.Log
+		log         models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
-		{
-			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog0original.json"),
-			wantErrored: false,
-			wantData: cltest.JSONFromString(t, `{
-				"url":"https://etherprice.com/api",
-				"path":["recent","usd"],
-				"address":"0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
-				"dataPrefix":"0x0000000000000000000000000000000000000000000000000000000000000017",
-				"functionSelector":"0x76005c26"}`),
-		},
-		{
-			name:        "20190123 fulfillment params",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog20190123withFulfillmentParams.json"),
-			wantErrored: false,
-			wantData: cltest.JSONFromString(t, `{
-				"url":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd,eur,jpy",
-				"path":["usd"],
-				"address":"0xf25186b5081ff5ce73482ad761db0eb0d25abfbf",
-				"dataPrefix":"0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f80000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009fbda871d559710256a2502a2517b794b482db40042f2b6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005c4a7338",
-				"functionSelector":"0xeea57e70"}`),
-		},
 		{
 			name:        "20190207 without indexes",
 			log:         cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
@@ -67,7 +44,7 @@ func TestParseRunLog(t *testing.T) {
 			wantData: cltest.JSONFromString(t, `{
 				"address":"0xfeb35e1f7abe4ef198b7c8df895e19767f3ab8a5",
 				"dataprefix":"0xe947f54ec4d3cab0588684217b029cd9421ea25c59f3309bef6e8fb0d75ff5310000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000650c346f84248abc27e716ea3c6de20f7fbbdb7992cdaaf300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005e1b7f6b",
-				"functionselector":"0x4ab0d190", 
+				"functionselector":"0x4ab0d190",
 				"get":"https://min-api.cryptocompare.com/data/price?fsym=eth&tsyms=usd",
 				"path":"usd",
 				"times":100}`),
@@ -87,16 +64,14 @@ func TestParseRunLog(t *testing.T) {
 func TestEthLogEvent_JSON(t *testing.T) {
 	t.Parallel()
 
-	hwLog := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
 	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          eth.Log
+		el          models.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
 		{"example", exampleLog, false, cltest.JSONResultFromFixture(t, "testdata/subscription_logs.json")},
-		{"hello world", hwLog, false, cltest.JSONResultFromFixture(t, "testdata/requestLog0original.json")},
 	}
 
 	for _, test := range tests {
@@ -110,65 +85,6 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	}
 }
 
-func TestRequestLogEvent_Validate(t *testing.T) {
-	t.Parallel()
-
-	job := cltest.NewJob()
-	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
-	require.NoError(t, err)
-	job.ID = id
-
-	noRequesters := []common.Address{}
-	permittedAddr := cltest.NewAddress()
-	unpermittedAddr := cltest.NewAddress()
-	requesterList := []common.Address{permittedAddr}
-
-	tests := []struct {
-		name                string
-		eventLogTopic       common.Hash
-		jobIDTopic          common.Hash
-		initiatorRequesters []common.Address
-		requesterAddress    common.Address
-		valid               bool
-	}{
-		{"correct requester", models.RunLogTopic0original, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), requesterList, permittedAddr, true},
-		{"proper hex jobid", models.RunLogTopic0original, common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"), noRequesters, unpermittedAddr, true},
-		{"incorrect requester", models.RunLogTopic0original, common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"), requesterList, unpermittedAddr, true},
-		{"incorrect encoded jobid", models.RunLogTopic0original, common.HexToHash("0x000000000000000000000000000000004a1eb0e8df314cb894024a38991cff0f"), noRequesters, unpermittedAddr, false},
-		{"wrong jobid", models.RunLogTopic0original, common.HexToHash("0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff"), noRequesters, unpermittedAddr, false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			// Any log factory works since we overwrite topics.
-			log := cltest.NewRunLog(
-				t,
-				job.ID, cltest.NewAddress(),
-				test.requesterAddress, 1, "{}")
-
-			log.Topics = []common.Hash{
-				test.eventLogTopic,
-				test.jobIDTopic,
-				test.requesterAddress.Hash(),
-				{},
-			}
-
-			logRequest := models.InitiatorLogEvent{
-				Log: log,
-				Initiator: models.Initiator{
-					JobSpecID: job.ID,
-					Type:      models.InitiatorRunLog,
-					InitiatorParams: models.InitiatorParams{
-						Requesters: test.initiatorRequesters,
-					},
-				},
-			}.LogRequest()
-
-			assert.Equal(t, test.valid, logRequest.Validate())
-		})
-	}
-}
-
 func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 	requester := cltest.NewAddress()
 
@@ -176,7 +92,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) eth.Log)
+		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -193,33 +109,22 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			cltest.NewRunLog,
 			models.RunStatusErrored,
 		},
-		{
-			"salog contains valid requester",
-			cltest.NewJobWithSALogInitiator(),
-			requester,
-			cltest.NewServiceAgreementExecutionLog,
-			models.RunStatusCompleted,
-		},
-		{
-			"salog has wrong requester",
-			cltest.NewJobWithSALogInitiator(),
-			cltest.NewAddress(),
-			cltest.NewServiceAgreementExecutionLog,
-			models.RunStatusErrored,
-		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			app, cleanup := cltest.NewApplicationWithKey(t,
+				cltest.LenientEthMock,
+				cltest.EthMockRegisterChainID,
+				cltest.EthMockRegisterGetBalance,
+			)
 			defer cleanup()
 
 			ethMock := app.EthMock
-			logs := make(chan eth.Log, 1)
+			logs := make(chan models.Log, 1)
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_getTransactionCount", "0x1")
 				meth.RegisterSubscription("logs", logs)
-				meth.Register("eth_chainId", app.Store.Config.ChainID())
 			})
 			assert.NoError(t, app.StartAndConnect())
 
@@ -358,8 +263,6 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		Topics: [][]common.Hash{
 			{
 				models.RunLogTopic20190207withoutIndexes,
-				models.RunLogTopic20190123withFullfillmentParams,
-				models.RunLogTopic0original,
 			}, {
 				common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
 				common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
@@ -374,22 +277,10 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         eth.Log
+		log         models.Log
 		wantErrored bool
 		want        *assets.Link
 	}{
-		{
-			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog0original.json"),
-			wantErrored: false,
-			want:        assets.NewLink(1),
-		},
-		{
-			name:        "20190123 with fulfillment params",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog20190123withFulfillmentParams.json"),
-			wantErrored: false,
-			want:        assets.NewLink(1000000000000000000),
-		},
 		{
 			name:        "20190207 without indexes",
 			log:         cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
@@ -415,22 +306,10 @@ func TestRunLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         eth.Log
+		log         models.Log
 		wantErrored bool
 		want        common.Address
 	}{
-		{
-			name:        "old non-commitment",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog0original.json"),
-			wantErrored: false,
-			want:        common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
-		},
-		{
-			name:        "20190123 with fulfillment params",
-			log:         cltest.LogFromFixture(t, "testdata/requestLog20190123withFulfillmentParams.json"),
-			wantErrored: false,
-			want:        common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
-		},
 		{
 			name:        "20190207 without indexes",
 			log:         cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
@@ -456,32 +335,16 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		log           eth.Log
-		wantRequestID string
+		log           models.Log
+		wantRequestID common.Hash
 		wantTxHash    string
 		wantBlockHash string
 		wantRequester common.Address
 	}{
 		{
-			name:          "old non-commitment",
-			log:           cltest.LogFromFixture(t, "testdata/requestLog0original.json"),
-			wantRequestID: "0x0000000000000000000000000000000000000000000000000000000000000017",
-			wantTxHash:    "0xe05b171038320aca6634ce50de669bd0baa337130269c3ce3594ce4d45fc342a",
-			wantBlockHash: "0xde3fb1df888c6c7f77f3a8e9c2582f87e7ad5277d98bd06cfd17cd2d7ea49f42",
-			wantRequester: common.HexToAddress("0xd352677fcded6c358e03c73ea2a8a2832dffc0a4"),
-		},
-		{
-			name:          "20190123 with fulfillment params",
-			log:           cltest.LogFromFixture(t, "testdata/requestLog20190123withFulfillmentParams.json"),
-			wantRequestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
-			wantTxHash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
-			wantBlockHash: "0xfa0c0d01ce8bd7100b73b1609ababc020e7f51dac75186bb799277c6b4b71e1c",
-			wantRequester: common.HexToAddress("0x9fbda871d559710256a2502a2517b794b482db41"),
-		},
-		{
 			name:          "20190207 without indexes",
 			log:           cltest.LogFromFixture(t, "testdata/requestLog20190207withoutIndexes.json"),
-			wantRequestID: "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8",
+			wantRequestID: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
 			wantTxHash:    "0x04250548cd0b5d03b3bf1331aa83f32b35879440db31a6008d151260a5f3cc76",
 			wantBlockHash: "0x000c0d01ce8bd7100b73b1609ababc020e7f51dac75186bb799277c6b4b71e1c",
 			wantRequester: common.HexToAddress("0x9FBDa871d559710256a2502A2517b794B482Db40"),

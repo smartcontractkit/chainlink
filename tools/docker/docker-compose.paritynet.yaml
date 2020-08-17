@@ -9,9 +9,9 @@ services:
       - devnet
   devnet:
     container_name: parity
-    image: smartcontract/devnet@sha256:19d5ae504e012c8dc12278ecb43ddd02b95fba7729af7211adba1bbe333d42f6
+    image: smartcontract/devnet@sha256:9bcf4a476db965af7f6a2152a3f07f8bd0b35e51ec45b122ebc9ce87cd1304a7
     user: root
-    command: --config /devnet/miner.toml --db-path /devnet/database
+    command: --reseal-max-period 4000 --force-sealing --config /devnet/miner.toml --db-path /devnet/database
     ports:
       - 8545:8545
       - 8546:8546

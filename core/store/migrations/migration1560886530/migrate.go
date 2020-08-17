@@ -1,10 +1,10 @@
 package migration1560886530
 
 import (
-	"chainlink/core/store/dbutil"
-	"chainlink/core/store/migrations/migration0"
-	"chainlink/core/store/models"
-	"chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/dbutil"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
@@ -20,7 +20,7 @@ ALTER TABLE heads RENAME TO heads_archive;`).Error; err != nil {
 		return errors.Wrap(err, "failed to drop heads")
 	}
 
-	if err := tx.AutoMigrate(&models.Head{}).Error; err != nil {
+	if err := tx.AutoMigrate(&Head{}).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Head")
 	}
 
@@ -35,14 +35,14 @@ DROP TABLE heads_archive;`).Error
 		// SQLite doesn't support decoding at the SQL level
 		err = orm.Batch(1000, func(offset, limit uint) (uint, error) {
 			var heads []migration0.Head
-			err := tx.
+			txErr := tx.
 				Table("heads_archive").
 				Limit(limit).
 				Offset(offset).
 				Order("number").
 				Find(&heads).Error
-			if err != nil {
-				return 0, err
+			if txErr != nil {
+				return 0, txErr
 			}
 
 			for _, head := range heads {
@@ -60,4 +60,11 @@ DROP TABLE heads_archive;`).Error
 		})
 	}
 	return errors.Wrap(err, "failed to migrate old Heads")
+}
+
+// Head represents a BlockNumber, BlockHash.
+type Head struct {
+	ID     uint64      `gorm:"primary_key;auto_increment"`
+	Hash   common.Hash `gorm:"not null"`
+	Number int64       `gorm:"index;not null"`
 }

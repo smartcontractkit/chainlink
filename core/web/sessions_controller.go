@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"chainlink/core/services/chainlink"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -36,7 +36,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 		return
 	}
 	if err := saveSessionID(session, sid); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, multierr.Append(errors.New("Unable to save session id"), err))
+		jsonAPIError(c, http.StatusInternalServerError, multierr.Append(errors.New("unable to save session id"), err))
 		return
 	}
 

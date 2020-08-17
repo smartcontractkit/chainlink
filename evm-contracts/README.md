@@ -96,6 +96,8 @@ NODE_ENV=true yarn truffle test
 
 ## Development
 
+Contracts in `src/dev_v0.7` are under active development and not yet stable.
+Please use them for testing and development only.
 
 ### Setup
 

@@ -46,7 +46,6 @@ MinimumAcceptedPOW = 2e-01
 RestrictConnectionBetweenLightClients = true
 
 [Node]
-omitempty = ""
 NoUSB = true
 InsecureUnlockAllowed = true
 HTTPHost = "0.0.0.0"

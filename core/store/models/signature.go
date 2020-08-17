@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -50,7 +52,8 @@ func (s Signature) String() string {
 
 // Format implements fmt.Formatter
 func (s Signature) Format(state fmt.State, c rune) {
-	fmt.Fprintf(state, "%"+string(c), s.String())
+	_, err := fmt.Fprintf(state, "%"+string(c), s.String())
+	logger.ErrorIf(err, "failed when format signature to state")
 }
 
 // SetBytes assigns the byte array to the signature
@@ -94,7 +97,7 @@ func (s Signature) Value() (driver.Value, error) {
 func (s *Signature) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("Unable to convert %v of %T to Signature", value, value)
+		return fmt.Errorf("unable to convert %v of %T to Signature", value, value)
 	}
 
 	newSig, err := NewSignature(temp)

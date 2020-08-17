@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"chainlink/core/services/signatures/secp256k1"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -51,7 +51,7 @@ func (p *Proof) SolidityPrecalculations() (*SolidityProof, error) {
 	}
 	rv.SHashWitness = point().Mul(s, hash)
 	_, _, z := ProjectiveECAdd(rv.CGammaWitness, rv.SHashWitness)
-	rv.ZInv = z.ModInverse(z, fieldSize)
+	rv.ZInv = z.ModInverse(z, FieldSize)
 	return &rv, nil
 }
 

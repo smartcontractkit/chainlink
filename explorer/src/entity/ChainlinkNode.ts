@@ -3,8 +3,9 @@ import { randomBytes } from 'crypto'
 import { sha256 } from 'js-sha256'
 import {
   Column,
-  Connection,
+  createQueryBuilder,
   Entity,
+  getRepository,
   OneToMany,
   PrimaryGeneratedColumn,
   Unique,
@@ -60,6 +61,12 @@ export class ChainlinkNode {
   @Column()
   createdAt: Date
 
+  @Column({ nullable: true })
+  coreVersion: string
+
+  @Column({ nullable: true })
+  coreSHA: string
+
   @OneToMany(
     () => JobRun,
     jobRun => jobRun.chainlinkNode,
@@ -95,18 +102,17 @@ export const buildChainlinkNode = (
 }
 
 export const createChainlinkNode = async (
-  db: Connection,
   name: string,
   url?: string,
 ): Promise<[ChainlinkNode, string]> => {
   const secret = generateRandomString(64)
   const chainlinkNode = ChainlinkNode.build({ name, url, secret })
-  return [await db.manager.save(chainlinkNode), secret]
+  const repo = getRepository(ChainlinkNode)
+  return [await repo.save(chainlinkNode), secret]
 }
 
-export const deleteChainlinkNode = async (db: Connection, name: string) => {
-  return db.manager
-    .createQueryBuilder()
+export const deleteChainlinkNode = async (name: string) => {
+  return createQueryBuilder()
     .delete()
     .from(ChainlinkNode)
     .where('name = :name', {
@@ -123,8 +129,8 @@ export function hashCredentials(
   return sha256(`v0-${accessKey}-${secret}-${salt}`)
 }
 
-export async function find(db: Connection, id: number): Promise<ChainlinkNode> {
-  return db.getRepository(ChainlinkNode).findOne({ id })
+export async function find(id: number): Promise<ChainlinkNode> {
+  return getRepository(ChainlinkNode).findOne({ id })
 }
 
 export interface JobCountReport {
@@ -135,7 +141,6 @@ export interface JobCountReport {
 }
 
 export async function jobCountReport(
-  db: Connection,
   node: ChainlinkNode | number,
 ): Promise<JobCountReport> {
   const id = node instanceof ChainlinkNode ? node.id : node
@@ -147,8 +152,7 @@ export async function jobCountReport(
     total: 0,
   }
 
-  const jobCountQueryResult = await db
-    .getRepository(JobRun)
+  const jobCountQueryResult = await getRepository(JobRun)
     .createQueryBuilder()
     .select('COUNT(*), status')
     .where({ chainlinkNodeId: id })
@@ -156,7 +160,7 @@ export async function jobCountReport(
     .getRawMany()
 
   const report = jobCountQueryResult.reduce((result, { count, status }) => {
-    result[status] = parseInt(count)
+    result[status] = parseInt(count, 10)
     result.total = result.total + result[status]
     return result
   }, initialReport)
@@ -168,15 +172,14 @@ export async function jobCountReport(
 // using strategy described here: http://www.sqlines.com/postgresql/how-to/datediff
 // typeORM missing UNION function, so must do in two separate queries or write entire
 // query in raw SQL
-export async function uptime(db: Connection, node: ChainlinkNode | number) {
+export async function uptime(node: ChainlinkNode | number) {
   const id = node instanceof ChainlinkNode ? node.id : node
-  return (await historicUptime(db, id)) + (await currentUptime(db, id))
+  return (await historicUptime(id)) + (await currentUptime(id))
 }
 
 // uptime from completed sessions
-async function historicUptime(db: Connection, id: number): Promise<number> {
-  const queryResult = await db
-    .createQueryBuilder()
+async function historicUptime(id: number): Promise<number> {
+  const queryResult = await createQueryBuilder()
     .select(
       `EXTRACT(EPOCH FROM session."finishedAt" - session."createdAt") as seconds`,
     )
@@ -190,9 +193,8 @@ async function historicUptime(db: Connection, id: number): Promise<number> {
 }
 
 // uptime from current open session
-async function currentUptime(db: Connection, id: number): Promise<number> {
-  const queryResult = await db
-    .createQueryBuilder()
+async function currentUptime(id: number): Promise<number> {
+  const queryResult = await createQueryBuilder()
     .select(
       `FLOOR(EXTRACT(EPOCH FROM (now() - session."createdAt"))) as seconds`,
     )

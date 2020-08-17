@@ -31,6 +31,7 @@ tag_and_push() {
   # ie: docker tag and push smartcontract/chainlink:0.9.1, since DOCKER_TAG=0.9.1
   export DOCKER_TAG=$1
   (set -x; docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG})
+  (set -x; docker tag smartcontract/chainlink:circleci "${AWS_ECR_ACCOUNT_URL}:${DOCKER_TAG}")
   make dockerpush
 }
 
@@ -39,12 +40,22 @@ version_tag=`tools/ci/gittag2dockertag ${circle_tag}` # aka GIT_TAG. v0.9.1 -> 0
 
 # version tag takes precedence.
 if [ -n "${version_tag}" ]; then
-  tag_and_push "$version_tag"
-  # if version tag, also push latest.
-  # ie: after pushing smartcontract/chainlink:0.6.9, also update smartcontract/chainlink:latest
-  tag_and_push latest
+  # Only if we don't have an explorer tag
+  if [[ "${circle_tag}" =~ ^explorer-v([a-zA-Z0-9.]+) ]]; then
+    echo "Skipping publishing for this branch/tag."
+  else
+    tag_and_push "$version_tag"
+    # if version tag, also push latest.
+    # ie: after pushing smartcontract/chainlink:0.6.9, also update smartcontract/chainlink:latest
+    tag_and_push latest
+  fi
 elif [ -n "$branch_tag" ]; then
-  tag_and_push "$branch_tag"
+  # Only if we're not on explorer branch
+  if [[ "${circle_branch}" =~ ^release(s)?\/explorer-(.+)$ ]]; then
+    echo "Skipping publishing for this branch/tag."
+  else
+    tag_and_push "$branch_tag"
+  fi
 else
   echo "Skipping publishing for this branch/tag."
 fi

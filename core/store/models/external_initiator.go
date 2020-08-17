@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"chainlink/core/auth"
-	"chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 )
@@ -19,6 +19,7 @@ type ExternalInitiatorRequest struct {
 
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
+	ID             int64   `gorm:"primary_key"`
 	Name           string  `gorm:"not null;unique"`
 	URL            *WebURL `gorm:"url,omitempty"`
 	AccessKey      string  `gorm:"not null"`

@@ -1,14 +1,15 @@
 package web_test
 
 import (
-	"chainlink/core/auth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store"
-	"chainlink/core/store/models"
-	"chainlink/core/web"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -47,7 +48,7 @@ func (u userFindSuccesser) FindUser() (models.User, error) {
 }
 
 func TestAuthenticateByToken_Success(t *testing.T) {
-	user := cltest.MustUser(cltest.APIEmail, cltest.Password)
+	user := cltest.MustRandomUser()
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)

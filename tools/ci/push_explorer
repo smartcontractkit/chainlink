@@ -1,16 +1,16 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 #
 # Pushes smartcontract/explorer:circleci to relevant location based on passed args:
 # push_explorer <branch> <gittag>
 # ie:
-# push_explorer master 0.6.9
-# push_explorer develop
-# push_explorer release/0.6.9
+# push_explorer '' explorer-v0.6.9          -> 0.6.9 and latest
+# push_explorer release/explorer-0.6.9 ''   -> candidate-0.6.9
 #
 # Ignores anything not matching above.
+#
 # Key assumption: local version of smartcontract/explorer:circleci is the image
 # to work with.
 #
@@ -37,17 +37,26 @@ tag_and_push() {
   popd
 }
 
-branch_tag=`tools/ci/branch2tag ${circle_branch}` # ie: develop, latest, candidate-*, etc.
-version_tag=`tools/ci/gittag2dockertag ${circle_tag}` # aka GIT_TAG. explorer-v0.9.1 -> 0.9.1
+branch=`tools/ci/branch2tag ${circle_branch}`
+version_tag=`tools/ci/gittag2dockertag ${circle_tag}`
 
 # version tag takes precedence.
 if [ -n "${version_tag}" ]; then
-  tag_and_push "$version_tag"
-  # if version tag, also push latest.
-  # ie: after pushing smartcontract/explorer:0.6.9, also update smartcontract/explorer:latest
-  tag_and_push latest
-elif [ -n "$branch_tag" ]; then
-  tag_and_push "$branch_tag"
+  if [[ "${circle_tag}" =~ ^explorer-v([a-zA-Z0-9.]+) ]]; then
+    echo "Publishing full release of Explorer ${version_tag}"
+    tag_and_push "$version_tag"
+    tag_and_push latest
+  else
+    echo "Not publishing for this '${circle_tag}'."
+  fi
+elif [ -n "$branch" ]; then
+  # Only if we're on explorer branch
+  if [[ "${circle_branch}" =~ ^release(s)?\/explorer-(.+)$ ]]; then
+    echo "Publishing candidate release of Explorer ${version_tag}"
+    tag_and_push "$branch"
+  else
+    echo "Not publishing for ${circle_branch}."
+  fi
 else
-  echo "Skipping publishing for this branch/tag."
+  echo "Not publishing for '${circle_tag}/${circle_branch}'."
 fi

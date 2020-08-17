@@ -1,9 +1,10 @@
 package auth
 
 import (
-	"chainlink/core/utils"
 	"encoding/hex"
 	"fmt"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"

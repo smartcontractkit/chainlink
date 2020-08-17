@@ -25,7 +25,7 @@ context('End to end', function() {
     cy.get('form').fill(bridgeProperties)
     cy.clickButton('Create Bridge')
 
-    // Check new bridge created successfuly
+    // Check new bridge created successfully
     cy.contains('p', 'Successfully created bridge')
       .should('exist')
       .children('a')

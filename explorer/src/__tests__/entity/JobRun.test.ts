@@ -1,17 +1,8 @@
-import { Connection } from 'typeorm'
-import { closeDbConnection, getDb } from '../../database'
+import { getRepository } from 'typeorm'
 import { createChainlinkNode } from '../../entity/ChainlinkNode'
 import { fromString, JobRun, saveJobRunTree } from '../../entity/JobRun'
 import ethtxFixture from '../fixtures/JobRun.ethtx.fixture.json'
 import fixture from '../fixtures/JobRun.fixture.json'
-
-let db: Connection
-
-beforeAll(async () => {
-  db = await getDb()
-})
-
-afterAll(async () => closeDbConnection())
 
 describe('entity/jobRun/fromString', () => {
   it('successfully creates a run and tasks from json', async () => {
@@ -40,11 +31,10 @@ describe('entity/jobRun/fromString', () => {
     expect(jr.taskRuns[0].error).toEqual(null)
 
     const [chainlinkNode] = await createChainlinkNode(
-      db,
       'job-run-fromString-chainlink-node',
     )
     jr.chainlinkNodeId = chainlinkNode.id
-    const r = await db.manager.save(jr)
+    const r = await getRepository(JobRun).save(jr)
     expect(r.id).toBeDefined()
     expect(r.type).toEqual('runlog')
     expect(r.taskRuns.length).toEqual(1)
@@ -87,24 +77,23 @@ describe('entity/jobRun/fromString', () => {
 describe('entity/jobRun/saveJobRunTree', () => {
   it('updates jobRun error', async () => {
     const [chainlinkNode] = await createChainlinkNode(
-      db,
       'testOverwriteJobRunsErrorOnConflict',
     )
 
     const jr = fromString(JSON.stringify(fixture))
     jr.chainlinkNodeId = chainlinkNode.id
-    await saveJobRunTree(db, jr)
+    await saveJobRunTree(jr)
 
-    const initial = await db.manager.findOne(JobRun)
+    const initial = await getRepository(JobRun).findOne()
     expect(initial.status).toEqual('in_progress')
     expect(initial.finishedAt).toBeNull()
 
     jr.status = 'errored'
     jr.error = 'something bad happened'
     jr.finishedAt = new Date('2018-04-01T22:07:04Z')
-    await saveJobRunTree(db, jr)
+    await saveJobRunTree(jr)
 
-    const actual = await db.manager.findOne(JobRun)
+    const actual = await getRepository(JobRun).findOne()
     expect(actual.status).toEqual(jr.status)
     expect(actual.finishedAt).toEqual(jr.finishedAt)
     expect(actual.error).toEqual(jr.error)
@@ -112,13 +101,12 @@ describe('entity/jobRun/saveJobRunTree', () => {
 
   it('overwrites taskRun values on conflict', async () => {
     const [chainlinkNode] = await createChainlinkNode(
-      db,
       'testOverwriteTaskRunsOnConflict',
     )
 
     const jr = fromString(JSON.stringify(fixture))
     jr.chainlinkNodeId = chainlinkNode.id
-    await saveJobRunTree(db, jr)
+    await saveJobRunTree(jr)
 
     const modifications = {
       confirmations: '2',
@@ -130,14 +118,14 @@ describe('entity/jobRun/saveJobRunTree', () => {
       transactionStatus: 'fulfilledRunLog',
     }
 
-    const initial = await db.manager.findOne(JobRun)
+    const initial = await getRepository(JobRun).findOne()
     const initialTask = initial.taskRuns[0]
     expect(initialTask).not.toMatchObject(modifications)
 
     Object.assign(jr.taskRuns[0], modifications)
-    await saveJobRunTree(db, jr)
+    await saveJobRunTree(jr)
 
-    const actual = await db.manager.findOne(JobRun)
+    const actual = await getRepository(JobRun).findOne()
     const actualTask = actual.taskRuns[0]
     expect(actualTask).toMatchObject(modifications)
   })

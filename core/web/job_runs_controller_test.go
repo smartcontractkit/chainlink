@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"chainlink/core/auth"
-	"chainlink/core/internal/cltest"
-	"chainlink/core/store/models"
-	"chainlink/core/store/presenters"
-	"chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -469,7 +469,7 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 	defer cleanup()
 	client := app.NewHTTPClient()
 
-	j := cltest.NewJobWithSchedule("9 9 9 9 6")
+	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
 
 	jr := cltest.NewJobRun(j)
@@ -550,8 +550,8 @@ func TestJobRunsController_Cancel(t *testing.T) {
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-		run, err := app.Store.FindJobRun(run.ID)
+		r, err := app.Store.FindJobRun(run.ID)
 		assert.NoError(t, err)
-		assert.Equal(t, models.RunStatusCancelled, run.GetStatus())
+		assert.Equal(t, models.RunStatusCancelled, r.GetStatus())
 	})
 }

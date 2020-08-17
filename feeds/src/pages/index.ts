@@ -1,4 +1,5 @@
 export { default as Create } from './Create'
 export { default as Custom } from './Custom'
-export { default as Aggregator } from './Aggregator'
+export { default as AggregatorByPair } from './AggregatorByPair'
+export { default as AggregatorByAddress } from './AggregatorByAddress'
 export { default as Landing } from './Landing'

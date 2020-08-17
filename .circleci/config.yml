@@ -1,9 +1,43 @@
 version: 2.1
 jobs:
-  go-postgres:
-    resource_class: large
+  core-go-test-race:
+    resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
+      - image: circleci/postgres:12-alpine
+        environment:
+          POSTGRES_USER: circleci_postgres
+          POSTGRES_DB: circleci_test
+    environment:
+      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
+    steps:
+      - checkout
+      - run: echo $CACHE_VERSION > cache.version
+      - restore_cache:
+          name: Restore Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+      - run: make yarndep
+      - save_cache:
+          name: Save Yarn Package Cache
+          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
+          paths:
+            - /usr/local/share/.cache/yarn
+      - restore_cache:
+          name: Restore Go Vendor Cache
+          key: go-mod-{{ checksum "go.sum" }}
+      - run: go mod download
+      - save_cache:
+          name: Save Go Vendor Cache
+          key: go-mod-{{ checksum "go.sum" }}
+          paths:
+            - '/go/pkg/mod'
+      - run: yarn setup:contracts
+      - run: go run ./core local db preparetest
+      - run: go test -race -timeout 1800s -v -p 4 -parallel 4 ./...
+  core-go-test:
+    resource_class: xlarge
+    docker:
+      - image: smartcontract/builder:1.0.33
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -32,10 +66,27 @@ jobs:
           paths:
             - '/go/pkg/mod'
       - run: yarn setup:contracts
-      - run: go test -v -p 3 -parallel 2 ./...
+      - run: go run ./core local db preparetest
+      - run: |
+          set -o pipefail
+          set +e
+          go test -v -p 4 -parallel 4 ./... > ./output.txt
+          EXITCODE=$?
+          cat ./output.txt | grep "\-\-\- FAIL"
+          echo "Exit code: $EXITCODE"
+          if [[ $EXITCODE == 1 ]]; then
+              echo "Encountered test failures."
+              exit 1
+          else
+              echo "All tests passed!"
+              exit 0
+          fi
+      - store_artifacts:
+          path: ./output.txt
+
   rust:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: ./tools/ci/rust_test
@@ -110,7 +161,7 @@ jobs:
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -123,13 +174,12 @@ jobs:
           key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
           paths:
             - /usr/local/share/.cache/yarn
-      - run: pip3 install -r requirements.txt
       - run: ./tools/ci/solidity_test
       - store_artifacts:
           path: ./integration/logs
   styleguide:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -145,7 +195,7 @@ jobs:
       - run: yarn workspace @chainlink/styleguide run test
   json-api-client:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -162,7 +212,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -188,7 +238,8 @@ jobs:
           TYPEORM_NAME: ci
       - image: circleci/postgres:11-alpine
         environment:
-          POSTGRES_USER: root
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: explorer_test
     steps:
       - checkout:
@@ -220,8 +271,9 @@ jobs:
       - store_artifacts:
           path: ./integration/logs
   feeds:
+    resource_class: large
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -281,13 +333,14 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Docker login
+          name: Docker Hub login
           command: |
             echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
       - run:
           name: Docker build
           command: |
             DOCKER_TAG=circleci make docker
+      - setup-aws-ecr
       - run:
           name: Docker push, if applicable
           command: |
@@ -309,7 +362,7 @@ jobs:
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -326,7 +379,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -343,7 +396,9 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.31
+      - image: smartcontract/builder:1.0.33
+    environment:
+      NODE_OPTIONS: --max_old_space_size=512
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -365,14 +420,20 @@ workflows:
       - check_if_rebase_needed:
           filters:
             tags:
-              ignore: /^v.*/
+              ignore:
+                - /^v.*/
+                - /^explorer-v.*/
             branches:
               ignore:
                 - develop
                 - /^release\/.*/
                 - master
                 - /^hotfix\/.*/
-      - go-postgres:
+      - core-go-test-race:
+          filters:
+            tags:
+              only: /^v.*/
+      - core-go-test:
           filters:
             tags:
               only: /^v.*/
@@ -399,11 +460,15 @@ workflows:
       - styleguide:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - json-api-client:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - operator-ui:
           filters:
             tags:
@@ -419,15 +484,21 @@ workflows:
       - feeds:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - lint:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - prepublish_npm:
           filters:
             tags:
-              only: /^v.*/
+              only:
+                - /^v.*/
+                - /^explorer-v.*/
       - build-publish-explorer:
           requires:
             - styleguide
@@ -435,15 +506,14 @@ workflows:
             - explorer
           filters:
             tags:
-              only: /^v.*/
+              only: /^explorer-v.*/
       - build-chainlink-sgx:
           filters:
             tags:
               only: /^v.*/
       - build-publish-chainlink:
           requires:
-            - go-postgres
-            - solidity
+            - core-go-test
             - geth-postgres
             - parity-postgres
             - styleguide
@@ -455,8 +525,52 @@ workflows:
               only: /^v.*/
       - reportcoverage:
           requires:
-            - go-postgres
+            - core-go-test
             - solidity
             - operator-ui
             - rust
             - explorer
+          filters:
+            tags:
+              ignore:
+                - /^v.*/
+                - /^explorer-v.*/
+            branches:
+              ignore:
+                - develop
+                - /^release\/.*/
+                - master
+                - /^hotfix\/.*/
+commands:
+  setup-aws-ecr:
+    description: "Install aws cli and log docker in ECR"
+    steps:
+      - run:
+          name: Install AWS CLI
+          command: |
+            curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+            rm awscliv2.zip
+            aws --version
+      - run:
+          name: Docker login for ECR using temporary creds
+          command: |
+            # Get temporary credentials to access resoures available to specific role
+            temporaryCredentials=$(
+              aws sts assume-role \
+                --role-arn "${AWS_ROLE_TO_ASSUME}" \
+                --role-session-name "cirlceci-${CIRCLE_PROJECT_REPONAME}-${CIRCLE_TAG}"
+            )
+            # Deconstruct json response, extracting aws credentials
+            accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
+            secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
+            sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
+            # Store aws creds in .aws folder
+            aws configure set aws_access_key_id ${accessKeyID}
+            aws configure set aws_secret_access_key ${secretAccessKey}
+            aws configure set aws_session_token ${sessionToken}
+            # Use temporary keys to get account ID
+            accountID=$(aws sts get-caller-identity --output text --query 'Account')
+            # docker cli login to ECR
+            aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${accountID}.dkr.ecr.us-west-2.amazonaws.com/chainlink"

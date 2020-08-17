@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
-	"chainlink/core/store"
-	"chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -41,7 +40,7 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 		return models.NewRunOutputInProgress(input.Data())
 	}
 	meta := getMeta(store, input.JobRunID())
-	return ba.handleNewRun(input, meta, store.Config.BridgeResponseURL())
+	return ba.handleNewRun(input, meta, store)
 }
 
 func getMeta(store *store.Store, jobRunID *models.ID) *models.JSON {
@@ -61,26 +60,28 @@ func getMeta(store *store.Store, jobRunID *models.ID) *models.JSON {
 		jobRun.RunRequest.TxHash.Hex(),
 		jobRun.RunRequest.BlockHash.Hex(),
 	)
-	return &models.JSON{gjson.Parse(meta)}
+	return &models.JSON{Result: gjson.Parse(meta)}
 }
 
-func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, bridgeResponseURL *url.URL) models.RunOutput {
+func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, store *store.Store) models.RunOutput {
 	data, err := models.Merge(input.Data(), ba.Params)
 	if err != nil {
 		return models.NewRunOutputError(baRunResultError("handling data param", err))
 	}
 
-	responseURL := bridgeResponseURL
+	responseURL := store.Config.BridgeResponseURL()
 	if *responseURL != *zeroURL {
 		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.JobRunID().String())
 	}
 
-	body, err := ba.postToExternalAdapter(input, meta, responseURL)
+	httpConfig := defaultHTTPConfig(store)
+
+	body, err := ba.postToExternalAdapter(input, meta, responseURL, httpConfig)
 	if err != nil {
 		return models.NewRunOutputError(baRunResultError("post to external adapter", err))
 	}
 
-	input = *models.NewRunInput(input.JobRunID(), data, input.Status())
+	input = input.CloneWithData(data)
 	return ba.responseToRunResult(body, input)
 }
 
@@ -111,7 +112,12 @@ func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models
 	return models.NewRunOutputCompleteWithResult(brr.Data.String())
 }
 
-func (ba *Bridge) postToExternalAdapter(input models.RunInput, meta *models.JSON, bridgeResponseURL *url.URL) ([]byte, error) {
+func (ba *Bridge) postToExternalAdapter(
+	input models.RunInput,
+	meta *models.JSON,
+	bridgeResponseURL *url.URL,
+	config HTTPRequestConfig,
+) ([]byte, error) {
 	data, err := models.Merge(input.Data(), ba.Params)
 	if err != nil {
 		return nil, errors.Wrap(err, "error merging bridge params with input params")
@@ -134,19 +140,19 @@ func (ba *Bridge) postToExternalAdapter(input models.RunInput, meta *models.JSON
 	request.Header.Set("Content-Type", "application/json")
 
 	client := http.Client{}
-	resp, err := client.Do(request)
+
+	bytes, statusCode, err := withRetry(&client, request, config)
+
 	if err != nil {
+		return nil, err
+	}
+
+	if statusCode >= 400 {
+		err = fmt.Errorf("%v %v", statusCode, string(bytes))
 		return nil, fmt.Errorf("POST request: %v", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode >= 400 {
-		b, _ := ioutil.ReadAll(resp.Body)
-		err = fmt.Errorf("%v %v", resp.StatusCode, string(b))
-		return nil, fmt.Errorf("POST response: %v", err)
-	}
-
-	return ioutil.ReadAll(resp.Body)
+	return bytes, nil
 }
 
 func baRunResultError(str string, err error) error {
