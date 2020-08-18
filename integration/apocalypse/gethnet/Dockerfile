@@ -25,10 +25,10 @@ CMD geth --networkid 1337 \
          --ipcdisable \
          # --dev.period 2 \
          --config /gethnet/config.toml \
-         --rpc \
-         --rpc.addr 0.0.0.0 \
-         --rpc.port 8545 \
-         --rpc.api eth,web3,net,admin,debug,txpool \
+         --http \
+         --http.addr 0.0.0.0 \
+         --http.port 8545 \
+         --http.api eth,web3,net,admin,debug,txpool \
          --ws \
          --ws.addr 0.0.0.0 \
          --ws.port 8546 \

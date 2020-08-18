@@ -5,29 +5,32 @@
 ## Usage
 
 1. Build the Docker images for Chainlink, Geth, and Parity:
-    ```sh
-    $ ./scripts/env-build-images
-    ```
+  ```sh
+  $ ./scripts/env-build-images
+  ```
 2. Install [Blockade](https://github.com/worstcase/blockade)
+  - Blockade only works on python v2.7!
+  - Blockade uses docker to start containerized processes and manages network connections between them using iptables.
 3. Install node modules:
-    ```sh
-    $ npm i
-    ```
+  ```sh
+  $ npm i
+  ```
 4. Spin up the environment:
-    ```sh
-    $ blockade up
-    ```
-    This will start 2 Geth nodes, 1 Parity node (non-mining), 2 Chainlink nodes, and a Blockscout instance for inspecting the chain/network.  The Geth nodes will take a while to generate their mining DAGs, so the scripts in `scenarios` wait until that process is complete before proceeding.
+  ```sh
+  $ blockade --verbose up
+  ```
+  This will start 2 Geth nodes, 1 Parity node (non-mining), 2 Chainlink nodes, and a Blockscout instance for inspecting the chain/network.
+  The Geth nodes will take a while to generate their mining DAGs, so the scripts in `scenarios` wait until that process is complete before proceeding.
 5. Run one of the scenarios:
-    ```sh
-    $ node scenarios/flux-monitor.js
-    ```
+  ```sh
+  $ node scenarios/flux-monitor.js
+  ```
 6. Open Blockscout at http://localhost:4000, sit back, and watch the havoc.
 7. Use Blockade to simulate various adverse network conditions:
-    - `blockade flaky gethnet gethnet2 paritynet`
-    - `blockade slow chainlink_neil`
-    - `blockade duplicate chainlink_nelly`
-    - `blockade partition gethnet,paritynet,chainlink_neil gethnet2,chainlink_nelly`
+  - `blockade flaky gethnet gethnet2 paritynet`
+  - `blockade slow chainlink_neil`
+  - `blockade duplicate chainlink_nelly`
+  - `blockade partition gethnet,paritynet,chainlink_neil gethnet2,chainlink_nelly`
 8. When you're finished with the environment, run `./scripts/env-destroy`.  You might also need to delete the containers, volumes, and the Docker network.
 
 ## Scenarios
@@ -42,8 +45,7 @@ To force a chain reorg:
 - Check Blockscout's "reorgs" view to see if a reorg occurred
 
 **Flux Monitor**
-
-
+- Run `node scenarios/flux-monitor.js`
 
 
 
@@ -74,3 +76,7 @@ Parity:
 - paritynet/miner.toml
 - paritynet/start.sh
 
+## Resources
+
+1. Learn about blockade [here](https://blockade.readthedocs.io/en/latest/)
+2. Learn about ethers, an Ethereum wallet implementation. It's useful in scripting scenarios. [npm](https://www.npmjs.com/package/ethers)

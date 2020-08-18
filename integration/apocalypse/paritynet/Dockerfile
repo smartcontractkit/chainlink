@@ -4,7 +4,6 @@ USER root
 RUN chown -R parity /paritynet
 USER parity
 WORKDIR /paritynet
-#CMD ["--config", "/paritynet/miner.toml"]
 ENTRYPOINT /paritynet/start.sh
 
 EXPOSE 8546
