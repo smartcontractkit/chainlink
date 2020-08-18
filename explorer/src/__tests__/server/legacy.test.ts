@@ -19,13 +19,18 @@ describe('realtime', () => {
   let ws: WebSocket
 
   function closeWebsocket(): Promise<void> {
-    ws?.close()
+    if (!ws) {
+      console.warn('[closeWebsocket] No websocket object found')
+      return Promise.resolve()
+    }
+
+    ws.close()
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         reject('[closeWebsocket] Timed out waiting.')
       }, 3000)
 
-      ws?.on('close', () => {
+      ws.on('close', () => {
         clearTimeout(timer)
         resolve()
       })
