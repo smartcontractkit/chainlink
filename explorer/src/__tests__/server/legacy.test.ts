@@ -42,7 +42,7 @@ describe('realtime', () => {
   })
 
   beforeEach(async () => {
-    clearDb()
+    await clearDb()
     ;[chainlinkNode, secret] = await createChainlinkNode(
       'legacy test chainlinkNode',
     )
