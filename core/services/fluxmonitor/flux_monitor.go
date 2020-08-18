@@ -688,7 +688,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		//     - The chain experienced a shallow reorg that unstarted the current round.
 		// If our previous attempt is still pending, return early and don't re-submit
 		// If our previous attempt is already over (completed or errored), we should retry
-		if jobRun.Status != models.RunStatusCompleted && jobRun.Status != models.RunStatusErrored {
+		if !jobRun.Status.Finished() {
 			logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
 			return
 		}
