@@ -767,7 +767,7 @@ func (p *PollingDeviationChecker) sufficientPayment(payment *big.Int) bool {
 
 // DeviationThresholds carries parameters used by the threshold-trigger logic
 type DeviationThresholds struct {
-	Rel float64 // Relative change required, i.e. |new-old|/|new| >= Rel
+	Rel float64 // Relative change required, i.e. |new-old|/|old| >= Rel
 	Abs float64 // Absolute change required, i.e. |new-old| >= Abs
 }
 
@@ -1051,7 +1051,7 @@ func OutsideDeviation(curAnswer, nextAnswer decimal.Decimal, thresholds Deviatio
 		return true
 	}
 
-	// 100*|new-old|/|new|: Deviation (relative to curAnswer) as a percentage
+	// 100*|new-old|/|old|: Deviation (relative to curAnswer) as a percentage
 	percentage := diff.Div(curAnswer.Abs()).Mul(decimal.NewFromInt(100))
 
 	loggerFields = append(loggerFields, "percentage", percentage)
