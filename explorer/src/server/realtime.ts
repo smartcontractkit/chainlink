@@ -19,7 +19,7 @@ export type AuthInfo = {
   coreSHA?: string
 }
 
-export const bootstrapRealtime = async (server: http.Server) => {
+export const bootstrapRealtime = (server: http.Server) => {
   let clnodeCount = 0
   const sessions = new Map<string, Session>()
   const connections = new Map<string, WebSocket>()
