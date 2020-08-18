@@ -137,8 +137,8 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     return makeRequestId(_keyHash, vRFSeed);
   }
 
-  LinkTokenInterface internal LINK;
-  address internal vrfCoordinator;
+  LinkTokenInterface immutable internal LINK;
+  address immutable private vrfCoordinator;
 
   // Nonces for each VRF key from which randomness has been requested.
   //

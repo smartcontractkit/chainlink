@@ -17,8 +17,6 @@ contract VRFTestnetD20 is VRFConsumerBase {
     constructor(address _vrfCoordinator, address _link, bytes32 _keyHash)
         VRFConsumerBase(_vrfCoordinator, _link) public
     {
-        vrfCoordinator = _vrfCoordinator;
-        LINK = LinkTokenInterface(_link);
         keyHash = _keyHash;
         fee = 10 ** 18;
     }
