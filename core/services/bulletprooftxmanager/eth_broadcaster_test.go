@@ -965,19 +965,19 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, big.NewInt(30000000000).String(), attempt.GasPrice.String())
 	})
 
+	etxUnfinished := models.EthTx{
+		FromAddress:    defaultFromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: encodedPayload,
+		Value:          value,
+		GasLimit:       gasLimit,
+		State:          models.EthTxUnstarted,
+	}
+	require.NoError(t, store.DB.Save(&etxUnfinished).Error)
+
 	t.Run("failed to reach node for some reason", func(t *testing.T) {
 		failedToReachNodeError := context.DeadlineExceeded
 		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
-
-		etx := models.EthTx{
-			FromAddress:    defaultFromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: encodedPayload,
-			Value:          value,
-			GasLimit:       gasLimit,
-			State:          models.EthTxUnstarted,
-		}
-		require.NoError(t, store.DB.Save(&etx).Error)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
@@ -986,10 +986,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		err = eb.ProcessUnstartedEthTxs(key)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: context deadline exceeded", etx.ID))
+		assert.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: context deadline exceeded", etxUnfinished.ID))
 
 		// Check it was left in the unfinished state
-		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		etx, err := store.FindEthTxWithAttempts(etxUnfinished.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -1002,13 +1002,44 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
+	t.Run("eth node returns temporarily underpriced transaction", func(t *testing.T) {
+		// This happens if parity is rejecting transactions that are not priced high enough to even get into the mempool at all
+		// It should pretend it was accepted into the mempool and hand off to ethConfirmer to bump gas as normal
+		temporarilyUnderpricedError := "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
+		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
+
+		// Re-use the previously unfinished transaction, no need to insert new
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(temporarilyUnderpricedError)).Once()
+
+		// Do the thing
+		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+
+		// Check it was saved correctly with its attempt
+		etx, err := store.FindEthTxWithAttempts(etxUnfinished.ID)
+		require.NoError(t, err)
+
+		assert.NotNil(t, etx.BroadcastAt)
+		require.NotNil(t, etx.Nonce)
+		assert.Nil(t, etx.Error)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+		assert.Equal(t, big.NewInt(20000000000).String(), attempt.GasPrice.String())
+
+		ethClient.AssertExpectations(t)
+	})
+
 	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it", func(t *testing.T) {
 		// This happens if a transaction's gas price is below the minimum
 		// configured for the transaction pool.
 		// This is a configuration error by the node operator, since it means they set the base gas level too low.
 		underpricedError := "transaction underpriced"
 		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
-		// In this scenario the node operator REALLY fucked up and set the bump to zero
+		// In this scenario the node operator REALLY fucked up and set the bump
+		// to zero (even though that should not be possible due to config
+		// validation)
 		config.Set("ETH_GAS_BUMP_WEI", "0")
 		config.Set("ETH_GAS_BUMP_PERCENT", "0")
 

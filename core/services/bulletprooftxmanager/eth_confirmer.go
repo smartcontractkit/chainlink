@@ -303,18 +303,17 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 
 	if sendError.IsTerminallyUnderpriced() {
 		// This should really not ever happen in normal operation since we
-		// already bumped the required amount in ethConfirmer.
+		// already bumped above the required minimum in ethBroadcaster.
 		//
-		// It may happen if the eth node changed it's configuration, or it is a
-		// parity node that is rejecting transactions due to mempool pressure
+		// It could concievably happen if the remote eth node changed it's configuration.
 		bumpedGasPrice, err := BumpGas(ec.config, a.GasPrice.ToInt())
 		if err != nil {
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
-		logger.Warnf("gas price %v wei was rejected by the eth node for being too low. "+
+		logger.Errorf("gas price %v wei was rejected by the eth node for being too low. "+
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
-			"You should consider increasing ETH_GAS_PRICE_DEFAULT", a.GasPrice, sendError.Error(), bumpedGasPrice)
+			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", a.GasPrice, sendError.Error(), bumpedGasPrice)
 		replacementAttempt, err := newAttempt(ec.store, etx, bumpedGasPrice)
 		if err != nil {
 			return errors.Wrap(err, "newAttempt failed")
@@ -324,6 +323,16 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(etx, replacementAttempt, blockHeight, isVirginAttempt)
+	}
+
+	if sendError.IsTemporarilyUnderpriced() {
+		// Most likely scenario here is a parity node that is rejecting
+		// low-priced transactions due to mempool pressure
+		//
+		// In that case, the safest thing to do is to pretend the transaction
+		// was accepted and continue the normal gas bumping cycle until we can
+		// get it into the mempool
+		sendError = nil
 	}
 
 	if sendError.Fatal() {
@@ -390,6 +399,8 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 		// If we already sent the attempt, we have to assume the one who was
 		// confirmed was this one, so simply mark it as broadcast and wait for
 		// a receipt.
+		//
+		// Assume success and hand off to the next cycle.
 		sendError = nil
 	}
 
@@ -412,6 +423,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
 			a.GasPrice.ToInt().Int64(), etx.ID, sendError.Error(), ec.store.Config.EthGasBumpPercent())
 
+		// Assume success and hand off to the next cycle.
 		sendError = nil
 	}
 

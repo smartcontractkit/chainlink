@@ -54,7 +54,7 @@ var (
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *sendError) IsReplacementUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()) || s.Error() == parLimitReached)
+	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()))
 }
 
 func (s *sendError) IsNonceTooLowError() bool {
@@ -69,7 +69,11 @@ func (s *sendError) IsTransactionAlreadyInMempool() bool {
 // IsTerminallyUnderpriced indicates that this transaction is so far
 // underpriced the node won't even accept it in the first place
 func (s *sendError) IsTerminallyUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "transaction underpriced" || s.Error() == parLimitReached || parInsufficientGasPrice.MatchString(s.Error()))
+	return s != nil && s.err != nil && (s.Error() == "transaction underpriced" || parInsufficientGasPrice.MatchString(s.Error()))
+}
+
+func (s *sendError) IsTemporarilyUnderpriced() bool {
+	return s != nil && s.err != nil && s.Error() == parLimitReached
 }
 
 func NewFatalSendError(s string) *sendError {

@@ -137,7 +137,10 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, erro
 	// Currently this lives in store because TxManager also needs it.
 	// It can move here permanently once the old TxManager has been deleted.
 	bumpedGasPrice := strpkg.BumpGas(config, originalGasPrice)
-	if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
+	if bumpedGasPrice.Cmp(originalGasPrice) == 0 && bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) != 0 {
+		// NOTE: This really shouldn't happen since we enforce minimums for
+		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
+		// but it's here anyway for a "belts and braces" approach
 		return nil, errors.Errorf("bumped gas price of %s is equal to original gas price of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
 			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())

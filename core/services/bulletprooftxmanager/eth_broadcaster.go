@@ -281,11 +281,21 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		// If it turns out to have been an external wallet, this transaction
 		// will be retried on every new head (and will fail) until we reach out
 		// block depth target and then abandoned.
-		return saveUnconfirmed(eb.store, &etx, attempt)
+		//
+		// Assume success and hand off to the ethConfirmer.
+		sendError = nil
 	}
 
 	if sendError.IsTerminallyUnderpriced() {
 		return eb.tryAgainWithHigherGasPrice(sendError, etx, attempt, isVirginTransaction)
+	}
+
+	if sendError.IsTemporarilyUnderpriced() {
+		// If we can't even get the transaction into the mempool at all, assume
+		// success (even though the transaction will never confirm) and hand
+		// off to the ethConfirmer to bump gas periodically until we _can_ get
+		// it in
+		sendError = nil
 	}
 
 	if sendError != nil {
@@ -398,12 +408,15 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTx
 func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx models.EthTx, attempt models.EthTxAttempt, isVirginTransaction bool) error {
 	bumpedGasPrice, err := BumpGas(eb.config, attempt.GasPrice.ToInt())
 	if err != nil {
-		return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
+		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
 	logger.Errorf("default gas price %v wei was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing ETH_GAS_PRICE_DEFAULT", eb.config.EthGasPriceDefault(), sendError.Error(), bumpedGasPrice)
+	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
+		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
+	}
 	replacementAttempt, err := newAttempt(eb.store, etx, bumpedGasPrice)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
