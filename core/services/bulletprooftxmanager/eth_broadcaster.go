@@ -396,7 +396,10 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTx
 }
 
 func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx models.EthTx, attempt models.EthTxAttempt, isVirginTransaction bool) error {
-	bumpedGasPrice := BumpGas(eb.config, attempt.GasPrice.ToInt())
+	bumpedGasPrice, err := BumpGas(eb.config, attempt.GasPrice.ToInt())
+	if err != nil {
+		return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
+	}
 	logger.Errorf("default gas price %v wei was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
