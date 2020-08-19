@@ -727,6 +727,7 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) *big.Int {
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
+		logger.Warnf("bumped gas price of %s would exceed ETH_MAX_GAS_PRICE_WEI (%s), capping to %s. ACTION REQUIRED: Your gas cap is not high enough, you should consider increasing ETH_MAX_GAS_PRICE_WEI", bumpedGasPrice.String(), config.EthMaxGasPriceWei().String(), config.EthMaxGasPriceWei().String())
 		return config.EthMaxGasPriceWei()
 	}
 	return bumpedGasPrice
