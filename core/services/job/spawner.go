@@ -1,24 +1,27 @@
 package job
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-// The job spawner manages the spinning up and spinning down of the long-running
-// services that perform the work described by job specs.  Each active job spec
-// has 1 or more of these services associated with it.
-//
-// At present, Flux Monitor and Offchain Reporting jobs can only have a single
-// "initiator", meaning that they only require a single service.  But the older
-// "direct request" model allows for multiple initiators, which imply multiple
-// services.
+//go:generate mockery --name Spawner --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name JobSpec --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name JobService --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name JobSpawnerORM --output ../../internal/mocks/ --case=underscore
+
 type (
+	// The job spawner manages the spinning up and spinning down of the long-running
+	// services that perform the work described by job specs.  Each active job spec
+	// has 1 or more of these services associated with it.
+	//
+	// At present, Flux Monitor and Offchain Reporting jobs can only have a single
+	// "initiator", meaning that they only require a single service.  But the older
+	// "direct request" model allows for multiple initiators, which imply multiple
+	// services.
 	Spawner interface {
 		Start() error
 		Stop()
@@ -28,7 +31,7 @@ type (
 	}
 
 	spawner struct {
-		orm                   ormInterface
+		orm                   JobSpawnerORM
 		jobServiceFactories   map[string]JobSpecToJobServiceFunc
 		jobServiceFactoriesMu sync.RWMutex
 		chAdd                 chan addEntry
@@ -37,7 +40,7 @@ type (
 		chDone                chan struct{}
 	}
 
-	JobSpecToJobServiceFunc func(jobSpec JobSpec) (JobService, error)
+	JobSpecToJobServiceFunc func(jobSpec JobSpec) ([]JobService, error)
 
 	addEntry struct {
 		jobSpec  JobSpec
@@ -50,17 +53,17 @@ type (
 	}
 
 	JobService interface {
-		Start()
-		Stop()
+		Start() error
+		Stop() error
 	}
 
-	ormInterface interface {
+	JobSpawnerORM interface {
 		JobsAsInterfaces(fn func(jobSpec JobSpec) bool) error
 		UpsertErrorFor(jobID *models.ID, err string)
 	}
 )
 
-func NewSpawner(orm ormInterface) *spawner {
+func NewSpawner(orm JobSpawnerORM) *spawner {
 	return &spawner{
 		orm:                 orm,
 		jobServiceFactories: make(map[string]JobSpecToJobServiceFunc),
@@ -113,14 +116,18 @@ func (js *spawner) runLoop() {
 	for {
 		select {
 		case entry := <-js.chAdd:
-			if _, ok := jobMap[entry.jobSpec.JobID()]; ok {
-				logger.Errorf("%v job '%s' has already been added", entry.jobSpec.JobType(), entry.jobSpec.JobID().String())
+			jobID := entry.jobSpec.JobID()
+			if jobID == nil {
+				logger.Errorf("%v job spec has nil job ID", entry.jobSpec.JobType())
+				continue
+			} else if _, ok := jobMap[*jobID]; ok {
+				logger.Errorf("%v job '%s' has already been added", entry.jobSpec.JobType(), jobID.String())
 				continue
 			}
 			for _, service := range entry.services {
 				service.Start()
 			}
-			jobMap[entry.jobSpec.JobID()] = entry.services
+			jobMap[*jobID] = entry.services
 
 		case jobID := <-js.chRemove:
 			services, ok := jobMap[jobID]
@@ -160,13 +167,14 @@ func (js *spawner) AddJob(jobSpec JobSpec) error {
 		return errors.Errorf("Job Spawner got unknown job type '%v'", jobSpec.JobType())
 	}
 
-	services := factory(jobSpec)
-
-	if len(services) == 0 {
+	services, err := factory(jobSpec)
+	if err != nil {
+		return err
+	} else if len(services) == 0 {
 		return nil
 	}
 
-	js.chAdd <- addEntry{*jobSpec.ID, services}
+	js.chAdd <- addEntry{jobSpec, services}
 	return nil
 }
 
