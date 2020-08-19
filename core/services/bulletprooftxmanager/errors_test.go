@@ -33,7 +33,7 @@ func TestBulletproofTxManager_Errors(t *testing.T) {
 	assert.True(t, err.IsReplacementUnderpriced())
 	s = "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
 	err = bulletprooftxmanager.NewSendError(s)
-	assert.True(t, err.IsReplacementUnderpriced())
+	assert.False(t, err.IsReplacementUnderpriced())
 
 	// IsTransactionAlreadyInMempool
 	assert.False(t, randomError.IsTransactionAlreadyInMempool())
@@ -61,9 +61,17 @@ func TestBulletproofTxManager_Errors(t *testing.T) {
 	assert.True(t, err.IsTerminallyUnderpriced())
 	// Parity
 	err = bulletprooftxmanager.NewSendError("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
-	assert.True(t, err.IsTerminallyUnderpriced())
+	assert.False(t, err.IsTerminallyUnderpriced())
 	err = bulletprooftxmanager.NewSendError("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
 	assert.True(t, err.IsTerminallyUnderpriced())
+
+	// IsTemporarilyUnderpriced
+	// Parity
+	err = bulletprooftxmanager.NewSendError("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
+	assert.True(t, err.IsTemporarilyUnderpriced())
+	err = bulletprooftxmanager.NewSendError("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
+	assert.False(t, err.IsTemporarilyUnderpriced())
+
 }
 
 func TestBulletproofTxManager_Errors_Fatal(t *testing.T) {
