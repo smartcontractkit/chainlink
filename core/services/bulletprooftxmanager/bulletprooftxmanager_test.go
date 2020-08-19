@@ -5,8 +5,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/require"
 )
@@ -122,4 +125,17 @@ func toBigInt(input string) *big.Int {
 	var i = new(big.Int)
 	i, _ = flt.Int(i)
 	return i
+}
+
+func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := utils.ZeroAddress
+	to := utils.ZeroAddress
+	value := assets.NewEth(1)
+
+	_, err := bulletprooftxmanager.SendEther(store, from, to, *value)
+	require.Error(t, err)
+	require.EqualError(t, err, "cannot send ether to zero address")
 }
