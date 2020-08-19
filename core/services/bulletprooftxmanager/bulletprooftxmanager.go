@@ -32,8 +32,11 @@ const (
 )
 
 // SendEther creates a transaction that transfers the given value of ether
-func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (models.EthTx, error) {
-	ethtx := models.EthTx{
+func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (etx models.EthTx, err error) {
+	if to == utils.ZeroAddress {
+		return etx, errors.New("cannot send ether to zero address")
+	}
+	etx = models.EthTx{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
@@ -41,8 +44,8 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 		GasLimit:       s.Config.EthGasLimitDefault(),
 		State:          models.EthTxUnstarted,
 	}
-	err := s.DB.Create(&ethtx).Error
-	return ethtx, err
+	err = s.DB.Create(&etx).Error
+	return etx, err
 }
 
 func newAttempt(s *strpkg.Store, etx models.EthTx, gasPrice *big.Int) (models.EthTxAttempt, error) {
