@@ -2,7 +2,6 @@ package job
 
 import (
 	"encoding/json"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -25,27 +24,47 @@ func (t Transformers) Run(input interface{}) (interface{}, error) {
 	return input, nil
 }
 
-func (t *Transformers) UnmarshalJSON(bs []byte) error {
+func withStack(err *error) {
+	*err = errors.WithStack(*err)
+}
+
+func (t *Transformers) UnmarshalJSON(bs []byte) (err error) {
+	defer withStack(&err)
+
 	var rawJSON []json.RawMessage
-	err := json.Unmarshal(bs, &rawJSON)
+	err = json.Unmarshal(bs, &rawJSON)
 	if err != nil {
 		return err
 	}
 
-	for _, x := range rawJSON {
-		var y struct {
-			Type string `json:"type"`
+	for _, bs := range rawJSON {
+		var header struct {
+			Type TransformerType `json:"type"`
 		}
-		err := json.Unmarshal(x, &y)
+		err := json.Unmarshal(bs, &header)
 		if err != nil {
 			return err
 		}
 		var transformer Transformer
-		switch y.Type {
+		switch header.Type {
+		case TransformerTypeJSONParse:
+			jsonTransformer := JSONParseTransformer{}
+			err = json.Unmarshal(bs, &jsonTransformer)
+			if err != nil {
+				return err
+			}
+			transformer = jsonTransformer
+
 		case TransformerTypeMultiply:
-			transformer = MultiplyTransformer{}
+			multiplyTransformer := MultiplyTransformer{}
+			err = json.Unmarshal(bs, &multiplyTransformer)
+			if err != nil {
+				return err
+			}
+			transformer = multiplyTransformer
+
 		default:
-			return errors.Errorf("invalid transformer type '%v'", y.Type)
+			return errors.Errorf("invalid transformer type '%v'", header.Type)
 		}
 		*t = append(*t, transformer)
 	}
@@ -64,6 +83,7 @@ var (
 )
 
 type JSONParseTransformer struct {
+	ID   uint64   `json:"-" gorm:"primary_key;auto_increment"`
 	Path []string `json:"path"`
 }
 
@@ -75,7 +95,7 @@ func (t JSONParseTransformer) Transform(input interface{}) (interface{}, error) 
 	case string:
 		bs = []byte(v)
 	default:
-		return errors.Errorf("JSONParseTransformer does not accept inputs of type %T", input)
+		return nil, errors.Errorf("JSONParseTransformer does not accept inputs of type %T", input)
 	}
 
 	var decoded interface{}
@@ -100,7 +120,11 @@ func (t JSONParseTransformer) Transform(input interface{}) (interface{}, error) 
 			if err != nil {
 				return nil, err
 			}
-			exists := index < len(d)
+			if index < 0 {
+				index = len(d) + index
+			}
+
+			exists := index >= 0 && index < len(d)
 			if !exists && i == len(t.Path)-1 {
 				return nil, nil
 			} else if !exists {
@@ -116,7 +140,8 @@ func (t JSONParseTransformer) Transform(input interface{}) (interface{}, error) 
 }
 
 type MultiplyTransformer struct {
-	Multiplier decimal.Decimal `json:"times"`
+	ID    uint64          `json:"-" gorm:"primary_key;auto_increment"`
+	Times decimal.Decimal `json:"times"`
 }
 
 func (t MultiplyTransformer) Transform(input interface{}) (interface{}, error) {
@@ -124,5 +149,5 @@ func (t MultiplyTransformer) Transform(input interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value.Mul(t.Multiplier), nil
+	return value.Mul(t.Times), nil
 }
