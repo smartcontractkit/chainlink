@@ -463,7 +463,7 @@ func (eb *ethBroadcaster) loadAndSaveNonce(address gethCommon.Address) (int64, e
 	if err != nil {
 		return 0, errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
 	}
-	res := eb.store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE next_nonce IS NULL`, nonce)
+	res := eb.store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE next_nonce IS NULL AND address = ?`, nonce, address)
 	if res.Error != nil {
 		return 0, errors.Wrap(err, "GetNextNonce failed to save new nonce loaded from eth client")
 	}

@@ -285,6 +285,9 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	gasLimit := uint64(242)
 
+	// Insert new key to test we only update the intended one
+	dummykey := cltest.MustInsertRandomKey(t, store)
+
 	ethTx := models.EthTx{
 		FromAddress:    defaultFromAddress,
 		ToAddress:      toAddress,
@@ -312,10 +315,10 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 
 		require.Nil(t, ethTx.Nonce)
 
-		// Check key to make sure it still doesn't have a nonce assigned
+		// Check to make sure all keys still don't have a nonce assigned
 		res := store.DB.Exec(`SELECT * FROM keys WHERE next_nonce IS NULL`)
 		require.NoError(t, res.Error)
-		require.Equal(t, int64(1), res.RowsAffected)
+		require.Equal(t, int64(2), res.RowsAffected)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -347,6 +350,11 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 
 		require.NotNil(t, key.NextNonce)
 		require.Equal(t, int64(43), *key.NextNonce)
+
+		// The dummy key did not get updated
+		key2 := keys[1]
+		require.Equal(t, dummykey.Address, key2.Address)
+		require.Nil(t, key2.NextNonce)
 
 		ethClient.AssertExpectations(t)
 	})
