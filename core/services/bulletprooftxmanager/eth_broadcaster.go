@@ -116,7 +116,7 @@ func (eb *ethBroadcaster) Trigger() {
 func (eb *ethBroadcaster) monitorEthTxs() {
 	defer close(eb.chDone)
 	for {
-		pollDatabaseTimer := time.NewTimer(databasePollInterval)
+		t := time.NewTimer(databasePollInterval)
 
 		keys, err := eb.store.Keys()
 
@@ -143,10 +143,16 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 
 		select {
 		case <-eb.chStop:
+			if !t.Stop() {
+				<-t.C
+			}
 			return
 		case <-eb.trigger:
+			if !t.Stop() {
+				<-t.C
+			}
 			continue
-		case <-pollDatabaseTimer.C:
+		case <-t.C:
 			continue
 		}
 	}
