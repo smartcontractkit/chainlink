@@ -97,11 +97,18 @@ func TestBulletproofTxManager_BumpGas_Error(t *testing.T) {
 	config := orm.NewConfig()
 	config.Set("ETH_GAS_BUMP_PERCENT", "0")
 	config.Set("ETH_GAS_BUMP_WEI", "0")
+	config.Set("ETH_MAX_GAS_PRICE_WEI", "40000000000")
 
 	originalGasPrice := toBigInt("3e10") // 30 GWei
 	_, err := bulletprooftxmanager.BumpGas(config, originalGasPrice)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bumped gas price of 30000000000 is equal to original gas price of 30000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
+
+	// But not if it's exactly the maximum
+	originalGasPrice = toBigInt("4e10") // 40 GWei
+	bumpedGasPrice, err := bulletprooftxmanager.BumpGas(config, originalGasPrice)
+	require.NoError(t, err)
+	require.Equal(t, originalGasPrice, bumpedGasPrice)
 }
 
 // Helpers
