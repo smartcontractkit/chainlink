@@ -48,5 +48,5 @@ func NewKeyFromFile(path string) (Key, error) {
 
 // WriteToDisk writes this key to disk at the passed path.
 func (k *Key) WriteToDisk(path string) error {
-	return utils.WriteFileWithMaxPerms(path, []byte(k.JSON.String()), 0700)
+	return utils.WriteFileWithMaxPerms(path, []byte(k.JSON.String()), 0600)
 }
