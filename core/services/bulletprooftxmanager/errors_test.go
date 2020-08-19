@@ -82,7 +82,10 @@ func TestBulletproofTxManager_Errors_Fatal(t *testing.T) {
 		expectFatal bool
 	}{
 		{"some old bollocks", false},
+
 		// Geth
+		{"insufficient funds for transfer", false},
+
 		{"exceeds block gas limit", true},
 		{"invalid sender", true},
 		{"negative value", true},
@@ -90,7 +93,10 @@ func TestBulletproofTxManager_Errors_Fatal(t *testing.T) {
 		{"gas uint64 overflow", true},
 		{"intrinsic gas too low", true},
 		{"nonce too high", true},
+
 		// Parity
+		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", false},
+
 		{"Supplied gas is beyond limit.", true},
 		{"Sender is banned in local queue.", true},
 		{"Recipient is banned in local queue.", true},
@@ -98,7 +104,6 @@ func TestBulletproofTxManager_Errors_Fatal(t *testing.T) {
 		{"Transaction is not permitted.", true},
 		{"Transaction is too big, see chain specification for the limit.", true},
 		{"Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction (minimal: 100 got: 50) Try increasing supplied gas.", true},
-		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", true},
 		{"Transaction cost exceeds current gas limit. Limit: 50, got: 100. Try decreasing supplied gas.", true},
 		{"Invalid signature: some old bollocks", true},
 		{"Invalid RLP data: some old bollocks", true},

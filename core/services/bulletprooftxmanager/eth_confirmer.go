@@ -339,7 +339,10 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 		// WARNING: This should never happen!
 		// Should NEVER be fatal this is an invariant violation. The
 		// EthBroadcaster can never create an EthTxAttempt that will
-		// fatally error or be terminally underpriced.
+		// fatally error.
+		//
+		// The only scenario imaginable where this might take place is if
+		// geth/parity have been updated between broadcasting and confirming steps.
 		logger.Errorf("invariant violation: fatal error while reattempting transaction %v: '%s'. "+
 			"SignedRawTx: %s\n"+
 			"BlockHeight: %v\n"+

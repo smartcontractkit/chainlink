@@ -125,7 +125,6 @@ func isParityFatal(s string) bool {
 		s == parNotAllowed ||
 		s == parTooBig ||
 		(parInsufficientGas.MatchString(s) ||
-			parInsufficientBalance.MatchString(s) ||
 			parGasLimitExceeded.MatchString(s) ||
 			parInvalidSignature.MatchString(s) ||
 			parInvalidRlp.MatchString(s))
