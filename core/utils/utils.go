@@ -504,9 +504,31 @@ func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
 func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	switch v := input.(type) {
 	case string:
-		return decimal.NewFromString(v), nil
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float64, float32:
-		return big.NewInt(int64(v)), nil
+		return decimal.NewFromString(v)
+	case int:
+		return decimal.New(int64(v), 0), nil
+	case int8:
+		return decimal.New(int64(v), 0), nil
+	case int16:
+		return decimal.New(int64(v), 0), nil
+	case int32:
+		return decimal.New(int64(v), 0), nil
+	case int64:
+		return decimal.New(v, 0), nil
+	case uint:
+		return decimal.New(int64(v), 0), nil
+	case uint8:
+		return decimal.New(int64(v), 0), nil
+	case uint16:
+		return decimal.New(int64(v), 0), nil
+	case uint32:
+		return decimal.New(int64(v), 0), nil
+	case uint64:
+		return decimal.New(int64(v), 0), nil
+	case float64:
+		return decimal.New(int64(v), 0), nil
+	case float32:
+		return decimal.New(int64(v), 0), nil
 	case *big.Int:
 		return decimal.NewFromBigInt(v, 0), nil
 	default:
