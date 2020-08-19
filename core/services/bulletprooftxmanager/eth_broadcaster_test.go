@@ -913,6 +913,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// configured for the transaction pool.
 		// This is a configuration error by the node operator, since it means they set the base gas level too low.
 		underpricedError := "transaction underpriced"
+		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
 
 		etx := models.EthTx{
 			FromAddress:    defaultFromAddress,
@@ -926,17 +927,17 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// First was underpriced
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.GasPrice().Cmp(store.Config.EthGasPriceDefault()) == 0
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(store.Config.EthGasPriceDefault()) == 0
 		})).Return(errors.New(underpricedError)).Once()
 
 		// Second with gas bump was still underpriced
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.GasPrice().Cmp(big.NewInt(25000000000)) == 0
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(25000000000)) == 0
 		})).Return(errors.New(underpricedError)).Once()
 
 		// Third succeeded
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.GasPrice().Cmp(big.NewInt(30000000000)) == 0
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(30000000000)) == 0
 		})).Return(nil).Once()
 
 		// Do the thing
@@ -989,6 +990,39 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, models.EthTxInProgress, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		assert.Equal(t, models.EthTxAttemptInProgress, etx.EthTxAttempts[0].State)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it", func(t *testing.T) {
+		// This happens if a transaction's gas price is below the minimum
+		// configured for the transaction pool.
+		// This is a configuration error by the node operator, since it means they set the base gas level too low.
+		underpricedError := "transaction underpriced"
+		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
+		// In this scenario the node operator REALLY fucked up and set the bump to zero
+		config.Set("ETH_GAS_BUMP_WEI", "0")
+		config.Set("ETH_GAS_BUMP_PERCENT", "0")
+
+		etx := models.EthTx{
+			FromAddress:    defaultFromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          models.EthTxUnstarted,
+		}
+		require.NoError(t, store.DB.Save(&etx).Error)
+
+		// First was underpriced
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(store.Config.EthGasPriceDefault()) == 0
+		})).Return(errors.New(underpricedError)).Once()
+
+		// Do the thing
+		err := eb.ProcessUnstartedEthTxs(key)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "bumped gas price of 20000000000 is equal to original gas price of 20000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
 
 		ethClient.AssertExpectations(t)
 	})

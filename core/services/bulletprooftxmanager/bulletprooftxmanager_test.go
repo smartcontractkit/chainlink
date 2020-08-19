@@ -7,6 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBulletproofTxManager_BumpGas(t *testing.T) {
@@ -82,12 +84,24 @@ func TestBulletproofTxManager_BumpGas(t *testing.T) {
 			config.Set("ETH_GAS_BUMP_PERCENT", test.bumpPercent)
 			config.Set("ETH_GAS_BUMP_WEI", test.bumpWei)
 			config.Set("ETH_MAX_GAS_PRICE_WEI", test.maxGasPriceWei)
-			actual := bulletprooftxmanager.BumpGas(config, test.originalGasPrice)
+			actual, err := bulletprooftxmanager.BumpGas(config, test.originalGasPrice)
+			require.NoError(t, err)
 			if actual.Cmp(test.expected) != 0 {
 				t.Fatalf("Expected %s but got %s", test.expected.String(), actual.String())
 			}
 		})
 	}
+}
+
+func TestBulletproofTxManager_BumpGas_Error(t *testing.T) {
+	config := orm.NewConfig()
+	config.Set("ETH_GAS_BUMP_PERCENT", "0")
+	config.Set("ETH_GAS_BUMP_WEI", "0")
+
+	originalGasPrice := toBigInt("3e10") // 30 GWei
+	_, err := bulletprooftxmanager.BumpGas(config, originalGasPrice)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "bumped gas price of 30000000000 is equal to original gas price of 30000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
 }
 
 // Helpers

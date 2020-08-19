@@ -270,11 +270,14 @@ func FindEthTxsRequiringNewAttempt(db *gorm.DB, blockNum int64, gasBumpThreshold
 	return etxs, errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
 }
 
-func (ec *ethConfirmer) newAttemptWithGasBump(etx models.EthTx) (models.EthTxAttempt, error) {
+func (ec *ethConfirmer) newAttemptWithGasBump(etx models.EthTx) (a models.EthTxAttempt, err error) {
 	var bumpedGasPrice *big.Int
 	if len(etx.EthTxAttempts) > 0 {
 		previousGasPrice := etx.EthTxAttempts[0].GasPrice
-		bumpedGasPrice = BumpGas(ec.config, previousGasPrice.ToInt())
+		bumpedGasPrice, err = BumpGas(ec.config, previousGasPrice.ToInt())
+		if err != nil {
+			return a, errors.Wrapf(err, "could not create newAttemptWithGasBump")
+		}
 	} else {
 		logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
 			"Falling back to default gas price instead."+
@@ -304,7 +307,10 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, a models.EthTx
 		//
 		// It may happen if the eth node changed it's configuration, or it is a
 		// parity node that is rejecting transactions due to mempool pressure
-		bumpedGasPrice := BumpGas(ec.config, a.GasPrice.ToInt())
+		bumpedGasPrice, err := BumpGas(ec.config, a.GasPrice.ToInt())
+		if err != nil {
+			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
+		}
 		logger.Warnf("gas price %v wei was rejected by the eth node for being too low. "+
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
