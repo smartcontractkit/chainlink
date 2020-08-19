@@ -2,7 +2,6 @@ package adapters
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -118,6 +117,10 @@ type block struct {
 	num  uint64      // Cardinal number of block
 }
 
+// Javascript numbers, as floats can precisely represent integers up to 2**53-1.
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Number_type
+var maxJavascriptInt = float64((1 << 53) - 1)
+
 // getBlockData parses the block-related data from the JSON input passed to the
 // random adapter
 func getBlockData(input models.RunInput) (block, error) {
@@ -132,9 +135,10 @@ func getBlockData(input models.RunInput) (block, error) {
 		return block{}, errors.Errorf("blockNum field has no number: %+v",
 			rawBlockNum)
 	}
-	if rawBlockNum.Float() >= math.MaxUint64 {
-		return block{}, errors.Errorf("blockNum %f too big for Int64",
-			rawBlockNum.Float())
+	// Block numbers exceeding this bound are not expected on any human time scale
+	if rawBlockNum.Float() >= maxJavascriptInt {
+		return block{}, errors.Errorf("blockNum %f too big for precise "+
+			"representation as a javascript number", rawBlockNum.Float())
 	}
 	directBlockNum := uint64(rawBlockNum.Float())
 	if float64(directBlockNum) != rawBlockNum.Float() {
