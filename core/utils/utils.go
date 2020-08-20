@@ -526,9 +526,9 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	case uint64:
 		return decimal.New(int64(v), 0), nil
 	case float64:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromFloat(v), nil
 	case float32:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromFloat32(v), nil
 	case *big.Int:
 		return decimal.NewFromBigInt(v, 0), nil
 	default:
