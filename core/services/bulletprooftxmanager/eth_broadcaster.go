@@ -1,5 +1,7 @@
 package bulletprooftxmanager
 
+// NOTE: See: https://godoc.org/time#Timer.Stop for an explanation of this pattern
+
 import (
 	"context"
 	"fmt"
@@ -116,7 +118,7 @@ func (eb *ethBroadcaster) Trigger() {
 func (eb *ethBroadcaster) monitorEthTxs() {
 	defer close(eb.chDone)
 	for {
-		t := time.NewTimer(databasePollInterval)
+		pollDBTimer := time.NewTimer(databasePollInterval)
 
 		keys, err := eb.store.Keys()
 
@@ -143,16 +145,17 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 
 		select {
 		case <-eb.chStop:
-			if !t.Stop() {
-				<-t.C
+			// NOTE: See: https://godoc.org/time#Timer.Stop for an explanation of this pattern
+			if !pollDBTimer.Stop() {
+				<-pollDBTimer.C
 			}
 			return
 		case <-eb.trigger:
-			if !t.Stop() {
-				<-t.C
+			if !pollDBTimer.Stop() {
+				<-pollDBTimer.C
 			}
 			continue
-		case <-t.C:
+		case <-pollDBTimer.C:
 			continue
 		}
 	}
@@ -238,7 +241,7 @@ func getInProgressEthTx(store *store.Store, fromAddress gethCommon.Address) (*mo
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, a models.EthTxAttempt, isVirginTransaction bool) error {
+func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models.EthTxAttempt, isVirginTransaction bool) error {
 	if etx.State != models.EthTxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
@@ -252,7 +255,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, a models.EthTx
 		broadcastAt = etx.CreatedAt
 	}
 
-	sendError := sendTransaction(eb.ethClient, a)
+	sendError := sendTransaction(eb.ethClient, attempt)
 
 	if sendError.Fatal() {
 		etx.Error = sendError.StrPtr()
@@ -272,7 +275,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, a models.EthTx
 			// somehow got a network double-send or something, this fails by
 			// sending the transction twice (one will revert) which is a safe
 			// fail case.
-			return eb.handleExternalWalletUsedNonce(&etx, a)
+			return eb.handleExternalWalletUsedNonce(&etx, attempt)
 		}
 		// If this is resuming a previous crashed run, it is likely that our
 		// previous transaction was the one who was confirmed, in which case
@@ -293,7 +296,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, a models.EthTx
 	}
 
 	if sendError.IsTerminallyUnderpriced() {
-		return eb.tryAgainWithHigherGasPrice(sendError, etx, a, isVirginTransaction)
+		return eb.tryAgainWithHigherGasPrice(sendError, etx, attempt, isVirginTransaction)
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -311,7 +314,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, a models.EthTx
 		return errors.Wrapf(sendError, "error while sending transaction %v", etx.ID)
 	}
 
-	return saveUnconfirmed(eb.store, &etx, a)
+	return saveUnconfirmed(eb.store, &etx, attempt)
 }
 
 // If this has been used by another wallet we must nonetheless keep
@@ -319,7 +322,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, a models.EthTx
 // external wallet's transaction is reorged out we can end up with a gap in the
 // nonce sequence.  AT ALL COSTS we must have a locally gapless and monotonically
 // increasing nonce sequence.
-func (eb *ethBroadcaster) handleExternalWalletUsedNonce(etx *models.EthTx, a models.EthTxAttempt) error {
+func (eb *ethBroadcaster) handleExternalWalletUsedNonce(etx *models.EthTx, attempt models.EthTxAttempt) error {
 	logger.Errorf("nonce of %v was too low for eth_tx %v. Address %s has been used by another wallet. "+
 		"This is NOT SUPPORTED by chainlink and can lead to lost or reverted transactions. "+
 		"Will create a duplicate eth_tx and attempt to resend at a higher nonce...",
@@ -327,7 +330,7 @@ func (eb *ethBroadcaster) handleExternalWalletUsedNonce(etx *models.EthTx, a mod
 
 	clonedEtx := cloneForRebroadcast(etx)
 
-	return saveUnconfirmed(eb.store, etx, a, func(tx *gorm.DB) error {
+	return saveUnconfirmed(eb.store, etx, attempt, func(tx *gorm.DB) error {
 		err := tx.Save(&clonedEtx).Error
 		if err != nil {
 			return errors.Wrap(err, "handleExternalWalletUsedNonce failed to save cloned eth_tx")
@@ -357,16 +360,16 @@ func (eb *ethBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 	return etx, nil
 }
 
-func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, a *models.EthTxAttempt) error {
+func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *models.EthTxAttempt) error {
 	if etx.State != models.EthTxUnstarted {
 		return errors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
-	if a.State != models.EthTxAttemptInProgress {
+	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("attempt state must be in_progress")
 	}
 	etx.State = models.EthTxInProgress
 	return eb.store.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(a).Error; err != nil {
+		if err := tx.Create(attempt).Error; err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
 		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")
@@ -382,16 +385,16 @@ func findNextUnstartedTransactionFromAddress(tx *gorm.DB, etx *models.EthTx, fro
 		Error
 }
 
-func saveUnconfirmed(store *store.Store, etx *models.EthTx, a models.EthTxAttempt, callbacks ...func(tx *gorm.DB) error) error {
+func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTxAttempt, callbacks ...func(tx *gorm.DB) error) error {
 	if etx.State != models.EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
-	if a.State != models.EthTxAttemptInProgress {
+	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "txHash", a.Hash.Hex())
+	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "txHash", attempt.Hash.Hex())
 	etx.State = models.EthTxUnconfirmed
-	a.State = models.EthTxAttemptBroadcast
+	attempt.State = models.EthTxAttemptBroadcast
 	return store.Transaction(func(tx *gorm.DB) error {
 		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
@@ -399,7 +402,7 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, a models.EthTxAttemp
 		if err := tx.Save(etx).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx")
 		}
-		if err := tx.Save(&a).Error; err != nil {
+		if err := tx.Save(&attempt).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx_attempt")
 		}
 		for _, f := range callbacks {
@@ -411,8 +414,8 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, a models.EthTxAttemp
 	})
 }
 
-func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx models.EthTx, a models.EthTxAttempt, isVirginTransaction bool) error {
-	bumpedGasPrice, err := BumpGas(eb.config, a.GasPrice.ToInt())
+func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx models.EthTx, attempt models.EthTxAttempt, isVirginTransaction bool) error {
+	bumpedGasPrice, err := BumpGas(eb.config, attempt.GasPrice.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
@@ -420,7 +423,7 @@ func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx m
 		"Eth node returned: '%s'. "+
 		"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing ETH_GAS_PRICE_DEFAULT", eb.config.EthGasPriceDefault(), sendError.Error(), bumpedGasPrice)
-	if bumpedGasPrice.Cmp(a.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
+	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
 		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
 	}
 	replacementAttempt, err := newAttempt(eb.store, etx, bumpedGasPrice)
@@ -428,7 +431,7 @@ func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx m
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
 
-	if err := saveReplacementInProgressAttempt(eb.store, a, &replacementAttempt); err != nil {
+	if err := saveReplacementInProgressAttempt(eb.store, attempt, &replacementAttempt); err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
 	return eb.handleInProgressEthTx(etx, replacementAttempt, isVirginTransaction)
