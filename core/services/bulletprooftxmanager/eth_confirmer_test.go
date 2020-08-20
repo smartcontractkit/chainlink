@@ -885,6 +885,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 
 	attempt3_2.BroadcastBeforeBlockNum = &oldEnough
 	require.NoError(t, store.DB.Save(&attempt3_2).Error)
+	var attempt3_3 models.EthTxAttempt
 
 	t.Run("handles case where transaction is already known somehow", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(50400000000)
@@ -914,9 +915,49 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 		assert.Equal(t, models.EthTxUnconfirmed, etx3.State)
 
 		require.Len(t, etx3.EthTxAttempts, 3)
-		attempt3_3 := etx3.EthTxAttempts[2]
+		attempt3_3 = etx3.EthTxAttempts[2]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt3_3.GasPrice.ToInt().Int64())
 	})
+
+	attempt3_3.BroadcastBeforeBlockNum = &oldEnough
+	require.NoError(t, store.DB.Save(&attempt3_3).Error)
+
+	t.Run("pretends it was accepted and continues the cycle if rejected for being temporarily underpriced", func(t *testing.T) {
+		// This happens if parity is rejecting transactions that are not priced high enough to even get into the mempool at all
+		// It should pretend it was accepted into the mempool and hand off to the next cycle to continue bumping gas as normal
+		temporarilyUnderpricedError := "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
+
+		expectedBumpedGasPrice := big.NewInt(60480000000)
+		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt3_2.GasPrice.ToInt().Int64())
+
+		ethTx := gethTypes.Transaction{}
+		kst.On("SignTx",
+			mock.AnythingOfType("accounts.Account"),
+			mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				if int64(tx.Nonce()) != *etx3.Nonce || expectedBumpedGasPrice.Cmp(tx.GasPrice()) != 0 {
+					return false
+				}
+				ethTx = *tx
+				return true
+			}),
+			mock.Anything).Return(&ethTx, nil).Once()
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return int64(tx.Nonce()) == *etx3.Nonce && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
+		})).Return(errors.New(temporarilyUnderpricedError)).Once()
+
+		// Do the thing
+		require.NoError(t, ec.BumpGasWhereNecessary(currentHead))
+
+		etx3, err = store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, models.EthTxUnconfirmed, etx3.State)
+
+		require.Len(t, etx3.EthTxAttempts, 4)
+		attempt3_4 := etx3.EthTxAttempts[3]
+		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt3_4.GasPrice.ToInt().Int64())
+	})
+
 	kst.AssertExpectations(t)
 	ethClient.AssertExpectations(t)
 }

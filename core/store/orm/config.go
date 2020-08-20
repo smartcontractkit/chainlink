@@ -87,12 +87,16 @@ func newConfigWithViper(v *viper.Viper) *Config {
 func (c *Config) Validate() error {
 	ethGasBumpPercent := c.EthGasBumpPercent()
 	if uint64(ethGasBumpPercent) < ethCore.DefaultTxPoolConfig.PriceBump {
-		logger.Warnf(
-			"ETH_GAS_BUMP_PERCENT of %v is less than Geth's default of %v, transactions may fail with underpriced replacement errors",
+		return errors.Errorf(
+			"ETH_GAS_BUMP_PERCENT of %v may not be less than Geth's default of %v",
 			c.EthGasBumpPercent(),
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
+	if c.EthGasBumpWei().Cmp(big.NewInt(5000000000)) < 0 {
+		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
+	}
+
 	if c.EthHeadTrackerHistoryDepth() < c.EthFinalityDepth() {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
 	}
