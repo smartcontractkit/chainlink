@@ -469,6 +469,7 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
+			store.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
 			account, err := store.KeyStore.NewAccount(cltest.Password)
 			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
