@@ -304,6 +304,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		// success (even though the transaction will never confirm) and hand
 		// off to the ethConfirmer to bump gas periodically until we _can_ get
 		// it in
+		logger.Infow("EthBroadcaster: Transaction temporarily underpriced", "ethTxID", etx.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
 		sendError = nil
 	}
 

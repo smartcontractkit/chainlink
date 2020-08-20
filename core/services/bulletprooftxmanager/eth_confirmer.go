@@ -332,6 +332,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(etx models.EthTx, attempt models
 		// In that case, the safest thing to do is to pretend the transaction
 		// was accepted and continue the normal gas bumping cycle until we can
 		// get it into the mempool
+		logger.Infow("EthConfirmer: Transaction temporarily underpriced", "ethTxID", etx.ID, "attemptID", attempt.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
 		sendError = nil
 	}
 
