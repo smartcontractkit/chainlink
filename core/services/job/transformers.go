@@ -139,6 +139,18 @@ func (t JSONParseTransformer) Transform(input interface{}) (interface{}, error) 
 	return decoded, nil
 }
 
+func (t JSONParseTransformer) MarshalJSON() ([]byte, error) {
+	type preventInfiniteRecursion JSONParseTransformer
+	type transformerWithType struct {
+		Type TransformerType `json:"type"`
+		preventInfiniteRecursion
+	}
+	return json.Marshal(transformerWithType{
+		TransformerTypeJSONParse,
+		preventInfiniteRecursion(t),
+	})
+}
+
 type MultiplyTransformer struct {
 	ID    uint64          `json:"-" gorm:"primary_key;auto_increment"`
 	Times decimal.Decimal `json:"times"`
@@ -150,4 +162,16 @@ func (t MultiplyTransformer) Transform(input interface{}) (interface{}, error) {
 		return nil, err
 	}
 	return value.Mul(t.Times), nil
+}
+
+func (t MultiplyTransformer) MarshalJSON() ([]byte, error) {
+	type preventInfiniteRecursion MultiplyTransformer
+	type transformerWithType struct {
+		Type TransformerType `json:"type"`
+		preventInfiniteRecursion
+	}
+	return json.Marshal(transformerWithType{
+		TransformerTypeMultiply,
+		preventInfiniteRecursion(t),
+	})
 }
