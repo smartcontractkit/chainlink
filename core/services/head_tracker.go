@@ -423,10 +423,35 @@ func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
 		"chainLength", headWithChain.ChainLength(),
 	)
 
-	for i, trackable := range ht.callbacks {
+	if ht.store.Config.EnableBulletproofTxManager() {
+		ht.concurrentlyExecuteCallbacks(headWithChain)
+	} else {
+		// NOTE: Legacy tx manager probably has implicit ordering requirements, so it's not safe to parallelise
+		ht.seriallyExecuteCallbacks(headWithChain)
+	}
+}
+
+func (ht *HeadTracker) concurrentlyExecuteCallbacks(headWithChain models.Head) {
+	wg := sync.WaitGroup{}
+	wg.Add(len(ht.callbacks))
+	for idx, trackable := range ht.callbacks {
+		go func(i int, t strpkg.HeadTrackable) {
+			start := time.Now()
+			t.OnNewLongestChain(headWithChain)
+			elapsed := time.Since(start)
+			logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
+			wg.Done()
+		}(idx, trackable)
+	}
+	wg.Wait()
+}
+
+func (ht *HeadTracker) seriallyExecuteCallbacks(headWithChain models.Head) {
+	for i, t := range ht.callbacks {
 		start := time.Now()
-		trackable.OnNewLongestChain(headWithChain)
-		logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v", i), "callbackType", reflect.TypeOf(trackable), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", time.Since(start), "id", "head_tracker")
+		t.OnNewLongestChain(headWithChain)
+		elapsed := time.Since(start)
+		logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
 	}
 }
 
