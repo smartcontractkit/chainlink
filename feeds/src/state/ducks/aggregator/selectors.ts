@@ -3,16 +3,54 @@ import { createSelector } from 'reselect'
 import { AppState } from 'state'
 import { OracleNode } from '../../../config'
 
-const upcaseOracles = (
-  state: AppState,
-): Record<OracleNode['address'], OracleNode['name']> => {
-  return Object.fromEntries(
-    Object.keys(state.aggregator.oracleNodes).map(k => [
-      k.toUpperCase(),
-      state.aggregator.oracleNodes[k].name,
-    ]),
-  )
+type OracleAddress = string
+type NodeAddress = string
+
+type StateBranch = {
+  aggregator: {
+    oracleNodes: {
+      [address: string]: {
+        name: string
+        nodeAddress: NodeAddress[]
+        oracleAddress: OracleAddress
+        [prop: string]: any
+      }
+    }
+    config: {
+      contractVersion: number
+      [prop: string]: any
+    }
+  }
+  [prop: string]: any
 }
+
+export const upcaseOracles = (
+  state: StateBranch,
+): Record<OracleNode['address'], OracleNode['name']> => {
+  /**
+   * In v2 of the contract, oracles' list has oracle addresses,
+   * but in v3 - node addresses. Therefore, a different list has
+   * to be made for each contract version.
+   */
+  if (state.aggregator.config.contractVersion === 2) {
+    return Object.fromEntries(
+      Object.entries(
+        state.aggregator.oracleNodes,
+      ).map(([oracleAddress, oracleNodeObject]) => [
+        oracleAddress,
+        oracleNodeObject.name,
+      ]),
+    )
+  } else {
+    return Object.fromEntries(
+      Object.values(state.aggregator.oracleNodes).map(oracleNodeObject => [
+        oracleNodeObject.nodeAddress[0],
+        oracleNodeObject.name,
+      ]),
+    )
+  }
+}
+
 const oracleList = (state: AppState) => state.aggregator.oracleList
 const oracleAnswers = (state: AppState) => state.aggregator.oracleAnswers
 const pendingAnswerId = (state: AppState) => state.aggregator.pendingAnswerId
@@ -26,10 +64,10 @@ const oracles = createSelector(
     if (!list) return []
 
     const result = list
-      .map(a => {
+      .map((address: OracleNode['address']) => {
         return {
-          address: a,
-          name: upcaseOracles[a.toUpperCase()] || 'Unknown',
+          address,
+          name: upcaseOracles[address] || 'Unknown',
           type: 'oracle',
         }
       })
