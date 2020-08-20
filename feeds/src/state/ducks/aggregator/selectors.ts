@@ -29,8 +29,8 @@ export const upcaseOracles = (
 ): Record<OracleNode['address'], OracleNode['name']> => {
   /**
    * In v2 of the contract, oracles' list has oracle addresses,
-   * but in v3 - node addresses. Therefore, a different list has
-   * to be made for each contract version.
+   * but in v3 - node addresses. Therefore, a different record of
+   * pairs has to be made for each contract version.
    */
   if (state.aggregator.config.contractVersion === 2) {
     return Object.fromEntries(
