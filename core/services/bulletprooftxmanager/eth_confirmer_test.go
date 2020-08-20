@@ -147,20 +147,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("returns error and does not save anything if TransactionReceipt returns error", func(t *testing.T) {
-		// First transaction confirmed
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(nil, errors.New("something exploded")).Once()
-
-		// Do the thing
-		err := ec.CheckForReceipts()
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "something exploded")
-	})
-
-	t.Run("returns error and saves nothing if returned receipt does not match the attempt", func(t *testing.T) {
+	t.Run("saves nothing if returned receipt does not match the attempt", func(t *testing.T) {
 		gethReceipt := gethTypes.Receipt{
 			TxHash:           cltest.NewHash(),
 			BlockHash:        cltest.NewHash(),
@@ -174,10 +161,14 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(&gethReceipt, nil).Once()
 
 		// Do the thing
-		err := ec.CheckForReceipts()
+		// No error because it is merely logged
+		require.NoError(t, ec.CheckForReceipts())
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invariant violation: expected receipt with hash")
+		etx, err := store.FindEthTxWithAttempts(etx1.ID)
+		require.NoError(t, err)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 0)
+
 	})
 
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce)

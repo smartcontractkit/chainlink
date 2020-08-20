@@ -3,8 +3,8 @@ package bulletprooftxmanager
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -111,6 +111,10 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 	).Error
 }
 
+// receiptFetcherWorkerCount is the max number of concurrently executing
+// workers that will fetch receipts for eth transactions
+const receiptFetcherWorkerCount = 10
+
 func (ec *ethConfirmer) CheckForReceipts() error {
 	unconfirmedEtxs, err := ec.findUnconfirmedEthTxs()
 	if err != nil {
@@ -119,33 +123,55 @@ func (ec *ethConfirmer) CheckForReceipts() error {
 	if len(unconfirmedEtxs) > 0 {
 		logger.Debugf("EthConfirmer: %v unconfirmed transactions", len(unconfirmedEtxs))
 	}
+	wg := sync.WaitGroup{}
+	wg.Add(receiptFetcherWorkerCount)
+	chEthTxes := make(chan models.EthTx)
+	for i := 0; i < receiptFetcherWorkerCount; i++ {
+		go ec.fetchReceipts(chEthTxes, &wg)
+	}
 	for _, etx := range unconfirmedEtxs {
+		chEthTxes <- etx
+	}
+	close(chEthTxes)
+	wg.Wait()
+	return nil
+}
+
+func (ec *ethConfirmer) fetchReceipts(chEthTxes <-chan models.EthTx, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		etx, ok := <-chEthTxes
+		if !ok {
+			return
+		}
 		for _, attempt := range etx.EthTxAttempts {
-			// NOTE: If this becomes a performance bottleneck due to eth node requests,
-			// it may be possible to use goroutines here to speed it up by
-			// issuing `fetchReceipt` requests in parallel
+			// NOTE: This could conceivably be optimised even further at the
+			// expense of slightly higher load for the remote eth node, by
+			// batch requesting all receipts at once
 			receipt, err := ec.fetchReceipt(attempt.Hash)
 			if isParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
-				logger.Debugw("EthConfirmer: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
+				logger.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
 				break
 			} else if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("fetchReceipt failed for transaction %s", attempt.Hash.Hex()))
+				logger.Errorf("EthConfirmer#fetchReceipts: fetchReceipt failed for transaction %s", attempt.Hash.Hex())
+				break
 			}
 			if receipt != nil {
-				logger.Debugw("EthConfirmer: got receipt for transaction", "txHash", attempt.Hash.Hex(), "blockNumber", receipt.BlockNumber)
+				logger.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction", "txHash", attempt.Hash.Hex(), "blockNumber", receipt.BlockNumber)
 				if receipt.TxHash != attempt.Hash {
-					return errors.Errorf("invariant violation: expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
+					logger.Errorf("EthConfirmer#fetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
+					break
 				}
 				if err := ec.saveReceipt(*receipt, etx.ID); err != nil {
-					return errors.Wrap(err, "CheckForReceipts saveReceipt failed")
+					logger.Errorf("EthConfirmer#fetchReceipts: saveReceipt failed")
+					break
 				}
 				break
 			} else {
-				logger.Debugw("EthConfirmer: still waiting for receipt", "txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", etx.ID)
+				logger.Debugw("EthConfirmer#fetchReceipts: still waiting for receipt", "txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", etx.ID)
 			}
 		}
 	}
-	return nil
 }
 
 func (ec *ethConfirmer) findUnconfirmedEthTxs() ([]models.EthTx, error) {
