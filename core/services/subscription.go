@@ -1,275 +1,170 @@
 package services
 
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"time"
+	"reflect"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	ethereum "github.com/ethereum/go-ethereum"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
-// Unsubscriber is the interface for all subscriptions, allowing one to unsubscribe.
-type Unsubscriber interface {
-	Unsubscribe()
-}
-
-// JobSubscription listens to event logs being pushed from the Ethereum Node to a job.
+// JobSubscription is the interface for listening for requests from the Ethereum node for a particular job.
+// The only thing you can do with it is Unsubscribe.
 type JobSubscription struct {
-	Job           models.JobSpec
-	unsubscribers []Unsubscriber
+	// Job needs to be public for callers of StartJobSubscription()
+	Job            models.JobSpec
+	logBroadcaster logBroadcasterRegistration
+	runManager     runManagerCreate
+	listeners      []*listener
+	logger         jsLogger
 }
 
-// StartJobSubscription constructs a JobSubscription which listens for and
-// tracks event logs corresponding to the specified job. Ignores any errors if
-// there is at least one successful subscription to an initiator log.
-func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager) (JobSubscription, error) {
-	var merr error
-	var unsubscribers []Unsubscriber
-
-	initrs := job.InitiatorsFor(models.LogBasedChainlinkJobInitiators...)
-
-	nextHead := head.NextInt() // Exclude current block from subscription
-	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
-		if replayFromBlock >= nextHead.Int64() {
-			logger.Infof("StartJobSubscription: Next head was supposed to be %v but ReplayFromBlock flag manually overrides to %v, will subscribe from blocknum %v", nextHead, replayFromBlock, replayFromBlock)
-			replayFromBlockBN := big.NewInt(replayFromBlock)
-			nextHead = replayFromBlockBN
-		}
-		logger.Warnf("StartJobSubscription: ReplayFromBlock was set to %v which is older than the next head of %v, will subscribe from blocknum %v", replayFromBlock, nextHead, nextHead)
+func StartJobSubscription(job models.JobSpec, logBroadcaster logBroadcasterRegistration, runManager runManagerCreate, logger jsLogger) (JobSubscription, error) {
+	js := JobSubscription{
+		Job:            job,
+		logBroadcaster: logBroadcaster,
+		runManager:     runManager,
+		logger:         logger,
 	}
+	js.listeners = js.makeAndRegisterListeners()
+	if len(js.listeners) == 0 {
+		return js, fmt.Errorf("unable to subscribe to any logs, check earlier errors in this message, and the initiator types, jobID=%s", job.ID)
+	}
+	return js, nil
+}
 
-	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, store.EthClient, runManager, nextHead, ReceiveLogRequest)
-		if err == nil {
-			unsubscribers = append(unsubscribers, unsubscriber)
+func (js JobSubscription) makeAndRegisterListeners() []*listener {
+	initiators := js.Job.InitiatorsFor(models.LogBasedChainlinkJobInitiators...)
+	listeners := []*listener{}
+	for _, initiator := range initiators {
+		l := &listener{
+			jobID:      js.Job.ID,
+			initiator:  &initiator,
+			runManager: js.runManager,
+			logger:     js.logger,
+		}
+		if !js.logBroadcaster.Register(initiator.InitiatorParams.Address, l) {
+			js.logger.Errorw("unable to register handler because log broadcaster has not started", "jobID", js.Job.ID, "initiator", initiator.ID)
 		} else {
-			merr = multierr.Append(merr, err)
+			listeners = append(listeners, l)
+			js.logger.Debugw("handler registered to log broadcaster", "jobID", js.Job.ID, "initiator", initiator.ID)
 		}
 	}
-
-	if len(unsubscribers) == 0 {
-		return JobSubscription{}, multierr.Append(
-			merr, errors.New(
-				"unable to subscribe to any logs, check earlier errors in this message, and the initiator types"))
-	}
-	return JobSubscription{Job: job, unsubscribers: unsubscribers}, merr
+	return listeners
 }
 
-// Unsubscribe stops the subscription and cleans up associated resources.
-func (js JobSubscription) Unsubscribe() {
-	for _, sub := range js.unsubscribers {
-		sub.Unsubscribe()
+// Unsubscribe stops listening for logs for all the initiators of a job.
+func (js *JobSubscription) Unsubscribe() {
+	for _, l := range js.listeners {
+		js.logBroadcaster.Unregister(l.initiator.InitiatorParams.Address, l)
+		js.logger.Debugw("handler unregistered from log broadcaster", "jobID", js.Job.ID, "initiator", l.initiator.ID)
 	}
 }
 
-// InitiatorSubscription encapsulates all functionality needed to wrap an ethereum subscription
-// for use with a Chainlink Initiator. Initiator specific functionality is delegated
-// to the callback.
-type InitiatorSubscription struct {
-	*ManagedSubscription
-	runManager RunManager
-	Initiator  models.Initiator
-	callback   func(RunManager, models.LogRequest)
+// listener subscribes to logs for one initiator in a job. If the log is relevant, it will be forwarde to the RunManager.
+// listener implements eth.LogListener
+type listener struct {
+	jobID      *models.ID
+	initiator  *models.Initiator // We need the whole initator for RunManager
+	runManager runManagerCreate
+	logger     jsLogger
 }
 
-// NewInitiatorSubscription creates a new InitiatorSubscription that feeds received
-// logs to the callback func parameter.
-func NewInitiatorSubscription(
-	initr models.Initiator,
-	client eth.Client,
-	runManager RunManager,
-	nextHead *big.Int,
-	callback func(RunManager, models.LogRequest),
-) (InitiatorSubscription, error) {
+var _ eth.LogListener = &listener{}
 
-	filter, err := models.FilterQueryFactory(initr, nextHead)
+// HandleLog gets called by LogBroadcaster whenever a new log from the Ethereum matches this listener's job address.
+// The log is ignored if it doesn't match this listeners initiator or if it's not valid.
+// Otherwise a JobRun is created for it and passed to the RunManager for execution.
+func (l *listener) HandleLog(lb eth.LogBroadcast, err error) {
 	if err != nil {
-		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
-	}
-
-	sub := InitiatorSubscription{
-		runManager: runManager,
-		Initiator:  initr,
-		callback:   callback,
-	}
-
-	managedSub, err := NewManagedSubscription(client, filter, sub.dispatchLog)
-	if err != nil {
-		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
-	}
-
-	sub.ManagedSubscription = managedSub
-	loggerLogListening(initr, filter.FromBlock)
-	return sub, nil
-}
-
-func (sub InitiatorSubscription) dispatchLog(log models.Log) {
-	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Initiator.JobSpecID.String()),
-		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Initiator.JobSpecID.String())
-
-	base := models.InitiatorLogEvent{
-		Initiator: sub.Initiator,
-		Log:       log,
-	}
-	sub.callback(sub.runManager, base.LogRequest())
-}
-
-func loggerLogListening(initr models.Initiator, blockNumber *big.Int) {
-	msg := fmt.Sprintf("Listening for %v from block %v", initr.Type, presenters.FriendlyBigInt(blockNumber))
-	logger.Infow(msg, "address", utils.LogListeningAddress(initr.Address), "jobID", initr.JobSpecID.String())
-}
-
-// ReceiveLogRequest parses the log and runs the job it indicated by its
-// GetJobSpecID method
-func ReceiveLogRequest(runManager RunManager, le models.LogRequest) {
-	if !le.Validate() {
-		logger.Debugw("discarding INVALID EVENT LOG", "log", le.GetLog())
+		// TODO: why would we receive an error from LogBroadcaseter?
+		l.logger.Errorw("received error from LogBroadcaster", "jobID", l.jobID, "initiator", l.initiator.ID, "error", err)
 		return
 	}
-
-	if le.GetLog().Removed {
-		logger.Debugw("Skipping run for removed log", "log", le.GetLog(), "jobId", le.GetJobSpecID().String())
+	if !l.isMatchingInitiator(lb) {
 		return
 	}
-
-	le.ToDebug()
-
-	runJob(runManager, le)
-
-}
-
-func runJob(runManager RunManager, le models.LogRequest) {
-	jobSpecID := le.GetJobSpecID()
-	initiator := le.GetInitiator()
-
-	if err := le.ValidateRequester(); err != nil {
-		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
+	lr := l.toLogRequest(lb)
+	if !lr.Validate() {
+		l.logger.Infow("log failed validation", lr.ForLogger()...)
+		return
+	}
+	if err := lr.ValidateRequester(); err != nil {
+		l.logger.Errorw("log failed requester validation", append(lr.ForLogger(), "error", err)...)
+		if _, rmErr := l.runManager.CreateErrored(l.jobID, *l.initiator, err); rmErr != nil {
+			l.logger.Errorw("failed to create JobRun in the errored state", append(lr.ForLogger(), "error", rmErr))
 		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
 		return
 	}
-
-	rr, err := le.RunRequest()
+	rr, err := lr.RunRequest()
 	if err != nil {
-		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
+		l.logger.Errorw("failed to unmarshal log into a RunRequest", append(lr.ForLogger(), "error", err)...)
+		if _, rmErr := l.runManager.CreateErrored(l.jobID, *l.initiator, err); rmErr != nil {
+			l.logger.Errorw("failed to create JobRun in the errored state", append(lr.ForLogger(), "error", rmErr))
 		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
 		return
 	}
-
-	_, err = runManager.Create(jobSpecID, &initiator, le.BlockNumber(), &rr)
+	_, err = l.runManager.Create(l.jobID, l.initiator, lr.BlockNumber(), &rr)
 	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		l.logger.Errorw("failed persist JobRun from a RunRequest", append(lr.ForLogger(), "error", err)...)
 	}
+	return
 }
 
-// ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
-// ethereum node subscription.
-type ManagedSubscription struct {
-	logSubscriber   eth.Client
-	logs            chan models.Log
-	ethSubscription ethereum.Subscription
-	callback        func(models.Log)
+func (l *listener) JobID() *models.ID {
+	return l.jobID
 }
 
-// NewManagedSubscription subscribes to the ethereum node with the passed filter
-// and delegates incoming logs to callback.
-func NewManagedSubscription(
-	logSubscriber eth.Client,
-	filter ethereum.FilterQuery,
-	callback func(models.Log),
-) (*ManagedSubscription, error) {
-	ctx := context.Background()
-	logs := make(chan models.Log)
-	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
-	if err != nil {
-		return nil, err
-	}
+// Noops
 
-	sub := &ManagedSubscription{
-		logSubscriber:   logSubscriber,
-		callback:        callback,
-		logs:            logs,
-		ethSubscription: es,
-	}
-	go sub.listenToLogs(filter)
-	return sub, nil
+func (l *listener) OnConnect() {
+	l.logger.Debugw("connected to LogBroadcaster", "jobID", l.jobID, "initiator", l.initiator.ID)
 }
 
-// Unsubscribe closes channels and cleans up resources.
-func (sub ManagedSubscription) Unsubscribe() {
-	if sub.ethSubscription != nil {
-		timedUnsubscribe(sub.ethSubscription)
-	}
-	close(sub.logs)
+func (l *listener) OnDisconnect() {
+	l.logger.Debugw("disconnected from LogBroadcaster", "jobID", l.jobID, "initiator", l.initiator.ID)
 }
 
-// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
-// unblocking the application. This is an effort to mitigate the occasional
-// indefinite block described here from go-ethereum:
-// https://chainlink/pull/600#issuecomment-426320971
-func timedUnsubscribe(unsubscriber Unsubscriber) {
-	unsubscribed := make(chan struct{})
-	go func() {
-		unsubscriber.Unsubscribe()
-		close(unsubscribed)
-	}()
-	select {
-	case <-unsubscribed:
-	case <-time.After(100 * time.Millisecond):
-		logger.Warnf("Subscription %T Unsubscribe timed out.", unsubscriber)
-	}
-}
+// Helpers
 
-func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
-	backfilledSet := sub.backfillLogs(q)
-	for {
-		select {
-		case log, open := <-sub.logs:
-			if !open {
-				return
-			}
-			if _, present := backfilledSet[log.BlockHash.String()]; !present {
-				sub.callback(log)
-			}
-		case err, ok := <-sub.ethSubscription.Err():
-			if ok {
-				logger.Errorw(fmt.Sprintf("Error in log subscription: %s", err.Error()), "err", err)
-			}
+func (l *listener) isMatchingInitiator(lb eth.LogBroadcast) bool {
+	// TODO make this more efficient!
+	logTopics := lb.Log().RawLog().Topics
+	initiatorTopics := l.initiator.InitiatorParams.Topics
+	for _, topics := range initiatorTopics {
+		if reflect.DeepEqual(topics, logTopics) {
+			return true
 		}
 	}
+	return false
 }
 
-// Manually retrieve old logs since SubscribeFilterLogs(ctx, filter, chLogs) only returns newly
-// imported blocks: https://github.com/ethereum/go-ethereum/wiki/RPC-PUB-SUB#logs
-// Therefore TxManager.FilterLogs does a one time retrieval of old logs.
-func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
-	backfilledSet := map[string]bool{}
-	if q.FromBlock == nil {
-		return backfilledSet
+func (l *listener) toLogRequest(lb eth.LogBroadcast) models.LogRequest {
+	ile := models.InitiatorLogEvent{
+		Initiator: *l.initiator,
+		Log:       lb.Log().RawLog(),
 	}
+	return ile.LogRequest()
+}
 
-	logs, err := sub.logSubscriber.FilterLogs(context.TODO(), q)
-	if err != nil {
-		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
-		return backfilledSet
-	}
+// runManagerCreate is a subset of the RunManager interface that is needed in the subscription.
+type runManagerCreate interface {
+	Create(jobSpecID *models.ID, initiator *models.Initiator, creationHeight *big.Int, runRequest *models.RunRequest) (*models.JobRun, error)
+	CreateErrored(jobSpecID *models.ID, initiator models.Initiator, err error) (*models.JobRun, error)
+}
 
-	for _, log := range logs {
-		backfilledSet[log.BlockHash.String()] = true
-		sub.callback(log)
-	}
-	return backfilledSet
+// logBroadcasterRegistration is a subset of eth.LogBroadcaster with only Register and Unregister.
+type logBroadcasterRegistration interface {
+	Register(address common.Address, listener eth.LogListener) (connected bool)
+	Unregister(address common.Address, listener eth.LogListener)
+}
+
+// jsLogger is a subset of the global logger
+type jsLogger interface {
+	Errorw(msg string, keysAndValues ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
 }
