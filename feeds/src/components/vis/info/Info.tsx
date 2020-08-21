@@ -58,7 +58,14 @@ const Info: React.FC<Props> = ({
     <div className="network-graph-info__wrapper">
       <div className="network-graph-info__title">
         <h4 className="network-graph-info__title--address">
-          {config.contractAddress}{' '}
+          {config.proxyAddress && (
+            <>
+              Feed: {config.proxyAddress}{' '}
+              <TooltipQuestion title={'Ethereum contract address'} />
+              <br />
+            </>
+          )}
+          Aggregator: {config.contractAddress}{' '}
           <TooltipQuestion title={'Ethereum contract address'} />
         </h4>
         <h1 className="network-graph-info__title--name">
