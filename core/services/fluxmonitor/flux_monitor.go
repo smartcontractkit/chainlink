@@ -672,14 +672,26 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		return
 	}
 
+	// JobRun will not exist if this is the first time responding to this round
+	var jobRun models.JobRun
+	if roundStats.JobRunID != nil {
+		jobRun, err = p.store.FindJobRun(roundStats.JobRunID)
+		if err != nil {
+			logger.Errorw(fmt.Sprintf("error finding JobRun associated with FMRoundStat: %v", err), p.loggerFieldsForNewRound(log)...)
+			return
+		}
+	}
+
 	if roundStats.NumSubmissions > 0 {
 		// This indicates either that:
 		//     - We tried to start a round at the same time as another node, and their transaction was mined first, or
 		//     - The chain experienced a shallow reorg that unstarted the current round.
-		//
-		// In either case, we should not resubmit.
-		logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
-		return
+		// If our previous attempt is still pending, return early and don't re-submit
+		// If our previous attempt is already over (completed or errored), we should retry
+		if !jobRun.Status.Finished() {
+			logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
+			return
+		}
 	}
 
 	// Ignore rounds we started
@@ -967,12 +979,12 @@ func (p *PollingDeviationChecker) createJobRun(
 	runRequest := models.NewRunRequest(runData)
 	runRequest.Payment = paymentAmount
 
-	_, err = p.runManager.Create(p.initr.JobSpecID, &p.initr, nil, runRequest)
+	jobRun, err := p.runManager.Create(p.initr.JobSpecID, &p.initr, nil, runRequest)
 	if err != nil {
 		return err
 	}
 
-	err = p.store.IncrFluxMonitorRoundSubmissions(p.initr.Address, roundID)
+	err = p.store.UpdateFluxMonitorRoundStats(p.initr.Address, roundID, jobRun.ID)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("error updating FM round submission count: %v", err),
 			"address", p.initr.Address.Hex(),
