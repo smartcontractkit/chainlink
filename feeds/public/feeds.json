@@ -2,6 +2,7 @@
   {
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "contractAddress": "0xF79D6aFBb6dA890132F9D7c355e3015f15F3406F",
+    "proxyAddress": "0x32dbd3214aC75223e27e575C5394430791fake12",
     "contractType": "aggregator",
     "contractVersion": 2,
     "decimalPlaces": 3,
