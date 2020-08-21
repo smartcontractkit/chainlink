@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
@@ -17,13 +18,14 @@ import (
 )
 
 func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
-	t.Parallel()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster.Start()
+	defer logBroadcaster.Stop()
+	jobSubscriber := services.NewJobSubscriber(store, runManager, logBroadcaster)
 	defer jobSubscriber.Stop()
 
 	wg := sync.WaitGroup{}
@@ -77,14 +79,15 @@ func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
 }
 
 func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
-	t.Parallel()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	cltest.MockEthOnStore(t, store, cltest.LenientEthMock)
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster.Start()
+	defer logBroadcaster.Stop()
+	jobSubscriber := services.NewJobSubscriber(store, runManager, logBroadcaster)
 	defer jobSubscriber.Stop()
 
 	jobSpec := cltest.NewJobWithLogInitiator()
@@ -102,13 +105,14 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 }
 
 func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
-	t.Parallel()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster.Start()
+	defer logBroadcaster.Stop()
+	jobSubscriber := services.NewJobSubscriber(store, runManager, logBroadcaster)
 	defer jobSubscriber.Stop()
 
 	job := models.JobSpec{}
@@ -117,38 +121,41 @@ func TestJobSubscriber_AddJob_NotLogInitiatedError(t *testing.T) {
 }
 
 func TestJobSubscriber_RemoveJob_NotFoundError(t *testing.T) {
-	t.Parallel()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster.Start()
+	defer logBroadcaster.Stop()
+	jobSubscriber := services.NewJobSubscriber(store, runManager, logBroadcaster)
 	defer jobSubscriber.Stop()
+
+	eth := cltest.MockEthOnStore(t, store)
+	eth.Register("eth_getBlockByNumber", cltest.Head(1))
 
 	err := jobSubscriber.RemoveJob(models.NewID())
 	require.Error(t, err)
 }
 
 func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
-	t.Parallel()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	runManager := new(mocks.RunManager)
-	jobSubscriber := services.NewJobSubscriber(store, runManager)
+	logBroadcaster := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster.Start()
+	defer logBroadcaster.Stop()
+	jobSubscriber := services.NewJobSubscriber(store, runManager, logBroadcaster)
 
 	eth := cltest.MockEthOnStore(t, store)
 	eth.Register("eth_getLogs", []models.Log{})
-	eth.Register("eth_getLogs", []models.Log{})
+	eth.Register("eth_getBlockByNumber", cltest.Head(491))
 
 	jobSpec1 := cltest.NewJobWithLogInitiator()
 	jobSpec2 := cltest.NewJobWithLogInitiator()
 	require.Nil(t, store.CreateJob(&jobSpec1))
 	require.Nil(t, store.CreateJob(&jobSpec2))
-	eth.RegisterSubscription("logs")
-	eth.RegisterSubscription("logs")
 
 	require.Nil(t, jobSubscriber.Connect(cltest.Head(491)))
 
