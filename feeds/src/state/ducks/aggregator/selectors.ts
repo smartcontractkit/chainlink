@@ -3,16 +3,30 @@ import { createSelector } from 'reselect'
 import { AppState } from 'state'
 import { OracleNode } from '../../../config'
 
-const upcaseOracles = (
+export const upcaseOracles = (
   state: AppState,
 ): Record<OracleNode['address'], OracleNode['name']> => {
-  return Object.fromEntries(
-    Object.keys(state.aggregator.oracleNodes).map(k => [
-      k.toUpperCase(),
-      state.aggregator.oracleNodes[k].name,
-    ]),
-  )
+  /**
+   * In v2 of the contract, oracles' list has oracle addresses,
+   * but in v3 - node addresses. Therefore, a different record of
+   * pairs has to be made for each contract version.
+   */
+  if (state.aggregator.config.contractVersion === 2) {
+    return Object.fromEntries(
+      Object.entries(
+        state.aggregator.oracleNodes,
+      ).map(([oracleAddress, oracleNode]) => [oracleAddress, oracleNode.name]),
+    )
+  } else {
+    return Object.fromEntries(
+      Object.values(state.aggregator.oracleNodes).map(oracleNode => [
+        oracleNode.nodeAddress[0],
+        oracleNode.name,
+      ]),
+    )
+  }
 }
+
 const oracleList = (state: AppState) => state.aggregator.oracleList
 const oracleAnswers = (state: AppState) => state.aggregator.oracleAnswers
 const pendingAnswerId = (state: AppState) => state.aggregator.pendingAnswerId
@@ -21,15 +35,15 @@ const oracles = createSelector(
   [oracleList, upcaseOracles],
   (
     list: Array<OracleNode['address']>,
-    upcaseOracles: Record<OracleNode['address'], OracleNode['name']>,
+    upcasedOracles: Record<OracleNode['address'], OracleNode['name']>,
   ) => {
     if (!list) return []
 
     const result = list
-      .map(a => {
+      .map(address => {
         return {
-          address: a,
-          name: upcaseOracles[a.toUpperCase()] || 'Unknown',
+          address,
+          name: upcasedOracles[address] || 'Unknown',
           type: 'oracle',
         }
       })
