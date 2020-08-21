@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1456,6 +1457,167 @@ func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID u
 					num_submissions = flux_monitor_round_stats.num_submissions + 1,
 					job_run_id = EXCLUDED.job_run_id
     `, aggregator, roundID, jobRunID).Error
+}
+
+func (orm *ORM) CreateOffchainReportingJobSpec(spec offchainreporting.JobSpec) error {
+	orm.MustEnsureAdvisoryLock()
+
+	p2pBootstrapNodesJSON, err := json.Marshal(spec.P2PBootstrapNodes)
+	if err != nil {
+		return err
+	}
+	observationSourceJSON, err := json.Marshal(spec.ObservationSource)
+	if err != nil {
+		return err
+	}
+	id := models.NewID()
+	err = orm.DB.Exec(`
+        INSERT INTO offchain_reporting_job_specs (
+            id, contract_address, p2p_node_id, p2p_bootstrap_nodes, key_bundle,
+            monitoring_endpoint, node_address, observation_timeout, observation_source
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ) RETURNING
+    `, id, spec.ContractAddress, spec.P2PNodeID, p2pBootstrapNodesJSON, spec.KeyBundle,
+		spec.MonitoringEndpoint, spec.NodeAddress, spec.ObservationTimeout, observationSourceJSON).
+		Scan(&id).
+		Error
+	if err != nil {
+		return err
+	}
+	spec.ID = id
+	return nil
+}
+
+func (orm *ORM) FindOffchainReportingJobSpec(id models.ID) (offchainreporting.JobSpec, error) {
+	orm.MustEnsureAdvisoryLock()
+
+	var spec offchainreporting.JobSpec
+	p2pBootstrapNodesJSON := []byte{}
+	observationSourceJSON := []byte{}
+
+	err := orm.DB.Exec(`
+        SELECT contract_address, p2p_node_id, p2p_bootstrap_nodes, key_bundle,
+            monitoring_endpoint, node_address, observation_timeout, observation_source
+        FROM offchain_reporting_job_specs
+        WHERE id = ?
+    `, id).
+		Scan(&spec.ContractAddress, &spec.P2PNodeID, &p2pBootstrapNodesJSON, &spec.KeyBundle,
+			&spec.MonitoringEndpoint, &spec.NodeAddress, &spec.ObservationTimeout, &observationSourceJSON).
+		Error
+	if err != nil {
+		return offchainreporting.JobSpec{}, err
+	}
+	err = json.Unmarshal(p2pBootstrapNodesJSON, &spec.P2PBootstrapNodes)
+	if err != nil {
+		return offchainreporting.JobSpec{}, err
+	}
+	err = json.Unmarshal(observationSourceJSON, &spec.ObservationSource)
+	if err != nil {
+		return offchainreporting.JobSpec{}, err
+	}
+	return spec, nil
+}
+
+func (orm *ORM) DeleteOffchainReportingJobSpec(id models.ID) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.DB.Exec(`
+        DELETE FROM offchain_reporting_job_specs WHERE id = ?
+    `, id).Error
+}
+
+func (orm *ORM) FindOffchainReportingPersistentState(jobID models.ID, groupID ocrtypes.GroupID) (offchainreporting.PersistentState, error) {
+	orm.MustEnsureAdvisoryLock()
+
+	var state offchainreporting.PersistentState
+
+	err := orm.DB.Exec(`
+        SELECT id, config_count, epoch, highest_sent_epoch, highest_received_epoch
+        FROM offchain_reporting_persistent_states
+        WHERE job_spec_id = ? AND group_id = ?
+    `, jobID, groupID).
+		Scan(&state.ID, &state.ConfigCount, &state.Epoch, &state.HighestSentEpoch, &state.HighestReceivedEpoch).Error
+	if err != nil {
+		return offchainreporting.PersistentState{}, err
+	}
+	state.JobSpecID = jobID
+	state.GroupID = groupID
+	return state, nil
+}
+
+func (orm *ORM) UpsertOffchainReportingPersistentState(state offchainreporting.PersistentState) error {
+	orm.MustEnsureAdvisoryLock()
+
+	return orm.DB.Exec(`
+        INSERT INTO offchain_reporting_persistent_states (
+            job_spec_id, group_id, epoch, highest_sent_epoch, highest_received_epoch
+        ) VALUES (
+            ?, ?, ?, ?, ?
+        ) ON CONFLICT (job_spec_id, group_id) DO
+        UPDATE SET epoch = EXCLUDED.epoch, highest_sent_epoch = EXCLUDED.highest_sent_epoch,
+            highest_received_epoch = EXCLUDED.highest_received_epoch
+        WHERE job_spec_id = ? AND group_id = ?
+        RETURNING id
+    `, state.JobSpecID, state.GroupID, state.Epoch, state.HighestSentEpoch, state.HighestReceivedEpoch,
+		state.Epoch, state.HighestSentEpoch, state.HighestReceivedEpoch,
+		state.JobSpecID, state.GroupID,
+	)
+}
+
+func (orm *ORM) FindOffchainReportingConfig(jobID models.ID) (offchainreporting.Configuration, error) {
+	orm.MustEnsureAdvisoryLock()
+
+	var config offchainreporting.Configuration
+	oraclesJSON := []byte{}
+
+	err := orm.DB.Exec(`
+        SELECT job_spec_id, group_id, oracles, secret, f, delta_progress, delta_resend, delta_round,
+            delta_observe, delta_c, alpha, r_max, delta_stage, schedule
+        FROM offchain_reporting_config
+        WHERE job_spec_id = ?
+    `, jobID).
+		Scan(&config.JobSpecID, &config.GroupID, &oraclesJSON, &config.Secret, &config.F, &config.DeltaProgress,
+			&config.DeltaResend, &config.DeltaRound, &config.DeltaObserve, &config.DeltaC, &config.Alpha, &config.RMax,
+			&config.DeltaStage, &config.Schedule)
+	Error
+	if err != nil {
+		return offchainreporting.Configuration{}, err
+	}
+	err = json.Unmarshal(oraclesJSON, &config.Oracles)
+	if err != nil {
+		return offchainreporting.Configuration{}, err
+	}
+	return config, nil
+}
+
+func (orm *ORM) UpsertOffchainReportingConfig(config offchainreporting.Configuration) error {
+	orm.MustEnsureAdvisoryLock()
+
+	var id uint64
+	err := orm.DB.Exec(`
+        INSERT INTO offchain_reporting_configs (
+            job_spec_id, group_id, oracles, secret, f, delta_progress, delta_resend, delta_round,
+            delta_observe, delta_c, alpha, r_max, delta_stage, schedule
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ) RETURNING id
+        ON CONFLICT (job_id, group_id) DO
+        UPDATE offchain_reporting_configs
+        SET oracles = EXCLUDED.oracles, secret = EXCLUDED.secret, f = EXCLUDED.f, delta_progress = EXCLUDED.delta_progress,
+            delta_resend = EXCLUDED.delta_resend, delta_round = EXCLUDED.delta_round, delta_observe = EXCLUDED.delta_observe,
+            delta_c = EXCLUDED.delta_c, alpha = EXCLUDED.alpha, r_max = EXCLUDED.r_max, delta_stage = EXCLUDED.delta_stage,
+            schedule = EXCLUDED.schedule
+        WHERE job_id = ? AND group_id = ?
+        RETURNING id
+    `, config.JobSpecID, config.GroupID, config.Oracles, config.Secret, config.F, config.DeltaProgress,
+		config.DeltaResend, config.DeltaRound, config.DeltaObserve, config.DeltaC, config.Alpha, config.RMax,
+		config.DeltaStage, config.Schedule, config.JobSpecID, config.GroupID,
+	).Scan(&id).Error
+	if err != nil {
+		return err
+	}
+	spec.ID = id
+	return nil
 }
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to

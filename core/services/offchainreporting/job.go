@@ -1,6 +1,8 @@
 package offchainreporting
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -15,23 +17,23 @@ import (
 	"github.com/smartcontractkit/offchain-reporting-design/prototype/gethwrappers/ulairi"
 	ocr "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting"
 	ocrconfig "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/config"
+	ocrimpls "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/to_be_internal/testimplementations"
+	ocrtypes "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 )
 
 const JobType = "offchainreporting"
 
 type JobSpec struct {
-	ID                models.ID      `json:"id"`
-	ContractAddress   common.Address `json:"contractAddress"`
-	P2PNodeID         string         `json:"p2pNodeID"`
-	P2PBootstrapNodes []struct {
-		PeerID    string `json:"peerID"`
-		Multiaddr string `json:"multiAddr"`
-	} `json:"p2pBootstrapNodes"`
-	KeyBundle          string         `json:"keyBundle"`
-	MonitoringEndpoint string         `json:"monitoringEndpoint"`
-	NodeAddress        common.Address `json:"nodeAddress"`
-	ObservationTimeout time.Duration  `json:"observationTimeout"`
-	ObservationSource  job.Fetcher    `json:"observationSource"`
+	ID                 models.ID          `json:"id"`
+	ContractAddress    common.Address     `json:"contractAddress"`
+	P2PNodeID          string             `json:"p2pNodeID"`
+	P2PBootstrapNodes  []P2PBootstrapNode `json:"p2pBootstrapNodes"`
+	KeyBundle          string             `json:"keyBundle"`
+	MonitoringEndpoint string             `json:"monitoringEndpoint"`
+	NodeAddress        common.Address     `json:"nodeAddress"`
+	ObservationTimeout time.Duration      `json:"observationTimeout"`
+	ObservationSource  job.Fetcher        `json:"observationSource"`
+	LogLevel           ocrtypes.LogLevel  `json:"logLevel,omitempty"`
 }
 
 // JobSpec conforms to the job.JobSpec interface
@@ -45,7 +47,37 @@ func (spec JobSpec) JobType() string {
 	return JobType
 }
 
-func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface) {
+func (spec *JobSpec) UnmarshalJSON(bs []byte) error {
+	if spec == nil {
+		*spec = JobSpec{}
+	}
+
+	err := json.Unmarshal(bs, spec)
+	if err != nil {
+		return err
+	}
+
+	var obsSrc struct {
+		ObservationSource json.RawMessage `json:"observationSource"`
+	}
+	err = json.Unmarshal(bs, &obsSrc)
+	if err != nil {
+		return err
+	}
+	fetcher, err := job.UnmarshalFetcherJSON([]byte(obsSrc.ObservationSource))
+	if err != nil {
+		return err
+	}
+	spec.ObservationSource = fetcher
+	return nil
+}
+
+type P2PBootstrapNode struct {
+	PeerID    string `json:"peerID"`
+	Multiaddr string `json:"multiAddr"`
+}
+
+func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
 	jobSpawner.RegisterJobType(
 		JobType,
 		func(jobSpec job.JobSpec) (job.JobService, error) {
@@ -61,14 +93,30 @@ func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface) {
 				return nil, err
 			}
 
-			var backend bind.ContractBackend    // @@TODO
-			var netEndpoint ocr.NetworkEndpoint // @@TODO
-			return ocr.NewOracle(
-				&config,
-				netEndpoint,
-				dataSource(concreteSpec.ObservationSource),
-				ulairi.NewUlairi(concreteSpec.ContractAddress, backend),
-			), nil
+			aggregator := ocrcontracts.NewOffchainReportingAggregator(
+				concreteSpec.ContractAddress,
+				ethClient,
+				logBroadcaster,
+				concreteSpec.ID,
+			)
+
+			privateKeys := ocrimpls.NewPrivateKeys(nil)            // @@TODO
+			netEndpoint := ocrtypes.BinaryNetworkEndpoint(nil)     // @@TODO
+			monitoringEndpoint := ocrtypes.MonitoringEndpoint(nil) // @@TODO
+			localConfig := ocrtypes.LocalConfig{
+				DatasourceTimeout: concreteSpec.ObservationTimeout,
+				LogLevel:          concreteSpec.LogLevel,
+			}
+
+			return ocr.Run(ocr.Params{
+				LocalConfig:           localConfig,
+				PrivateKeys:           privateKeys,
+				NetEndPoint:           netEndpoint,
+				Datasource:            dataSource(concreteSpec.ObservationSource),
+				ContractTransmitter:   aggregator,
+				ContractConfigTracker: aggregator,
+				MonitoringEndpoint:    monitoringEndpoint,
+			}), nil
 		},
 	)
 }
@@ -102,31 +150,32 @@ type database struct {
 var _ ocr.Database = database{}
 
 type ormInterface interface {
-	OffchainReportingPersistentState(jobID models.ID) (PersistentState, error)
+	FindOffchainReportingPersistentState(jobID models.ID, groupID ocrtypes.GroupID) (PersistentState, error)
 	SaveOffchainReportingPersistentState(state PersistentState) error
-	OffchainReportingConfig(jobID models.ID) (Config, error)
+	FindOffchainReportingConfig(jobID models.ID) (Config, error)
 	SaveOffchainReportingConfig(config Config) error
 }
 
 type PersistentState struct {
-	ID models.ID
+	JobSpecID models.ID
+	GroupID   ocrtypes.GroupID
 	ocr.PersistentState
 }
 
 type Config struct {
-	ID models.ID
+	JobSpecID models.ID
 	ocrconfig.Config
 }
 
-func (db database) ReadState() (ocr.PersistentState, error) {
-	state, err := db.orm.OffchainReportingPersistentState(db.JobSpecID)
+func (db database) ReadState(groupID ocrtypes.GroupID) (*ocr.PersistentState, error) {
+	state, err := db.orm.FindOffchainReportingPersistentState(db.JobSpecID, groupID)
 	if err != nil {
-		return ocr.PersistentState{}, err
+		return &ocr.PersistentState{}, err
 	}
 	return state.PersistentState, nil
 }
 
-func (db database) WriteState(state ocr.PersistentState) error {
+func (db database) WriteState(groupID ocrtypes.GroupID, state ocr.PersistentState) error {
 	return db.orm.SaveOffchainReportingPersistentState(PersistentState{
 		ID:              db.JobSpecID,
 		PersistentState: state,
@@ -134,7 +183,7 @@ func (db database) WriteState(state ocr.PersistentState) error {
 }
 
 func (db database) ReadConfig() (ocrconfig.Config, error) {
-	config, err := db.orm.OffchainReportingConfig(db.JobSpecID)
+	config, err := db.orm.FindOffchainReportingConfig(db.JobSpecID)
 	if err != nil {
 		return ocr.Config{}, err
 	}
