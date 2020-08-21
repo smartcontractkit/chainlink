@@ -1,5 +1,6 @@
 export interface FeedConfig {
   contractAddress: string
+  proxyAddress?: string
   contractType: 'aggregator'
   valuePrefix: '$' | 'Ξ' | '£' | '¥'
   name: string
