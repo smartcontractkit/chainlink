@@ -185,6 +185,9 @@ To remove any containers, volumes, and networks related to our docker-compose se
 ./compose clean
 ```
 
+If running in a CI environment where the `CI` environment variable is set, a cleanup will be run before any command
+is executed.
+
 ### Running your own commands based off of docker-compose
 
 The following commands allow you do just about anything:
