@@ -62,7 +62,7 @@ async function deployContract({ Factory, name, signer }, ...deployArgs) {
     const contractFactory = new Factory(signer)
     const contract = await contractFactory.deploy(...deployArgs, {
         gasPrice: ethers.utils.parseUnits('50', 'gwei'),
-        gasLimit: 1000,
+        gasLimit: 10 * 1000 * 1000, // 10 million
     })
     await contract.deployed()
     return contract
