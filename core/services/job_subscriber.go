@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -42,6 +43,7 @@ type jobSubscriber struct {
 	runManager       RunManager
 	jobResumer       SleeperTask
 	nextBlockWorker  *nextBlockWorker
+	logBroadcaster   eth.LogBroadcaster
 }
 
 type nextBlockWorker struct {
@@ -71,7 +73,7 @@ func (b *nextBlockWorker) Work() {
 }
 
 // NewJobSubscriber returns a new job subscriber.
-func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
+func NewJobSubscriber(store *store.Store, runManager RunManager, lb eth.LogBroadcaster) JobSubscriber {
 	b := &nextBlockWorker{runManager: runManager}
 	js := &jobSubscriber{
 		store:            store,
@@ -80,6 +82,7 @@ func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 		jobsMutex:        &sync.RWMutex{},
 		jobResumer:       NewSleeperTask(b),
 		nextBlockWorker:  b,
+		logBroadcaster:   lb,
 	}
 	return js
 }
@@ -95,7 +98,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 		return nil
 	}
 
-	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
+	sub, err := StartJobSubscription(job, js.logBroadcaster, js.runManager, logger.Default.Named("job_subscription"))
 	if err != nil {
 		js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
 		return err
