@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -459,6 +461,22 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 
 		return uint(len(jobs)), nil
 	})
+}
+
+func (orm *ORM) JobsAsInterfaces(fn func(jobSpec job.JobSpec) bool) error {
+	orm.MustEnsureAdvisoryLock()
+	var jobSpecs []offchainreporting.JobSpec
+	err := orm.DB.Find(&jobSpecs).Error
+	if err != nil {
+		return err
+	}
+	for _, jobSpec := range jobSpecs {
+		ok := fn(jobSpec)
+		if !ok {
+			break
+		}
+	}
+	return nil
 }
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
