@@ -2,9 +2,9 @@ import { partialAsFull } from '@chainlink/ts-helpers'
 import { AppState } from 'state'
 import { OracleNode } from '../../../config'
 
-import { upcasedOracles } from './selectors'
+import { upcaseOracles } from './selectors'
 
-describe('upcasedOracles', () => {
+describe('upcaseOracles', () => {
   const aggregatedState = partialAsFull<AppState>({
     aggregator: partialAsFull<AppState['aggregator']>({
       oracleNodes: {
@@ -31,7 +31,7 @@ describe('upcasedOracles', () => {
       oracleAddress2: 'Oracle 2',
     }
 
-    expect(upcasedOracles(aggregatedState)).toEqual(expectedResult)
+    expect(upcaseOracles(aggregatedState)).toEqual(expectedResult)
   })
 
   it('for v3 contract returns a record of node addresses and names', () => {
@@ -43,6 +43,6 @@ describe('upcasedOracles', () => {
       nodeAddress2: 'Oracle 2',
     }
 
-    expect(upcasedOracles(aggregatedStateV3)).toEqual(expectedResult)
+    expect(upcaseOracles(aggregatedStateV3)).toEqual(expectedResult)
   })
 })

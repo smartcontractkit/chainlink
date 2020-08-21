@@ -3,7 +3,7 @@ import { createSelector } from 'reselect'
 import { AppState } from 'state'
 import { OracleNode } from '../../../config'
 
-export const upcasedOracles = (
+export const upcaseOracles = (
   state: AppState,
 ): Record<OracleNode['address'], OracleNode['name']> => {
   /**
@@ -32,7 +32,7 @@ const oracleAnswers = (state: AppState) => state.aggregator.oracleAnswers
 const pendingAnswerId = (state: AppState) => state.aggregator.pendingAnswerId
 
 const oracles = createSelector(
-  [oracleList, upcasedOracles],
+  [oracleList, upcaseOracles],
   (
     list: Array<OracleNode['address']>,
     upcasedOracles: Record<OracleNode['address'], OracleNode['name']>,
