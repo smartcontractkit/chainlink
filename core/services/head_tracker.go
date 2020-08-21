@@ -555,6 +555,27 @@ func (ht *HeadTracker) subscribeToHead() error {
 	return nil
 }
 
+type htUnsubscriber interface {
+	Unsubscribe()
+}
+
+// timedUnsubscribe attempts to unsubscribe but aborts abruptly after a time delay
+// unblocking the application. This is an effort to mitigate the occasional
+// indefinite block described here from go-ethereum:
+// https://chainlink/pull/600#issuecomment-426320971
+func timedUnsubscribe(unsubscriber htUnsubscriber) {
+	unsubscribed := make(chan struct{})
+	go func() {
+		unsubscriber.Unsubscribe()
+		close(unsubscribed)
+	}()
+	select {
+	case <-unsubscribed:
+	case <-time.After(100 * time.Millisecond):
+		logger.Warnf("Subscription %T Unsubscribe timed out.", unsubscriber)
+	}
+}
+
 func (ht *HeadTracker) unsubscribeFromHead() error {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
