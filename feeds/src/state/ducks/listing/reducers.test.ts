@@ -37,6 +37,7 @@ describe('state/ducks/listing/reducers', () => {
       const feedA = partialAsFull<FeedConfig>({
         contractAddress: 'A',
         listing: true,
+        proxyAddress: 'ProxyAddress1',
       })
       const feedB = partialAsFull<FeedConfig>({
         contractAddress: 'B',
