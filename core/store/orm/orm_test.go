@@ -1926,7 +1926,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	require.Equal(t, uint32(9), roundID)
 }
 
-func TestORM_IncrFluxMonitorRoundSubmissions(t *testing.T) {
+func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -1934,13 +1934,18 @@ func TestORM_IncrFluxMonitorRoundSubmissions(t *testing.T) {
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
-		err := store.IncrFluxMonitorRoundSubmissions(address, roundID)
+		jobRun := cltest.NewJobRun(job)
+		require.NoError(t, store.CreateJobRun(&jobRun))
+		err := store.UpdateFluxMonitorRoundStats(address, roundID, jobRun.ID)
 		require.NoError(t, err)
 		fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, fmrs.NumSubmissions)
+		require.Equal(t, jobRun.ID, fmrs.JobRunID)
 	}
 }
 
