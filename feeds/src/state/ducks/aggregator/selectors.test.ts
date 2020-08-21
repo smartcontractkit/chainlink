@@ -1,25 +1,29 @@
-import { upcaseOracles } from './selectors'
+import { partialAsFull } from '@chainlink/ts-helpers'
+import { AppState } from 'state'
+import { OracleNode } from '../../../config'
 
-describe('upcaseOracles', () => {
-  const aggregatedState = {
-    aggregator: {
+import { upcasedOracles } from './selectors'
+
+describe('upcasedOracles', () => {
+  const aggregatedState = partialAsFull<AppState>({
+    aggregator: partialAsFull<AppState['aggregator']>({
       oracleNodes: {
-        oracleAddress1: {
+        oracleAddress1: partialAsFull<OracleNode>({
           name: 'Oracle 1',
           nodeAddress: ['nodeAddress1'],
           oracleAddress: 'oracleAddress1',
-        },
-        oracleAddress2: {
+        }),
+        oracleAddress2: partialAsFull<OracleNode>({
           name: 'Oracle 2',
           nodeAddress: ['nodeAddress2'],
           oracleAddress: 'oracleAddress2',
-        },
+        }),
       },
       config: {
         contractVersion: 2,
       },
-    },
-  }
+    }),
+  })
 
   it('for v2 contract returns a record of oracle addresses and names', () => {
     const expectedResult = {
@@ -27,7 +31,7 @@ describe('upcaseOracles', () => {
       oracleAddress2: 'Oracle 2',
     }
 
-    expect(upcaseOracles(aggregatedState)).toEqual(expectedResult)
+    expect(upcasedOracles(aggregatedState)).toEqual(expectedResult)
   })
 
   it('for v3 contract returns a record of node addresses and names', () => {
@@ -39,6 +43,6 @@ describe('upcaseOracles', () => {
       nodeAddress2: 'Oracle 2',
     }
 
-    expect(upcaseOracles(aggregatedStateV3)).toEqual(expectedResult)
+    expect(upcasedOracles(aggregatedStateV3)).toEqual(expectedResult)
   })
 })
