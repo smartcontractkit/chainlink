@@ -36,6 +36,14 @@ async function main() {
     console.log('Awaiting Geth DAG generation...')
     await gethDAGGenerationFinished([ geth1.provider, geth2.provider ])
 
+    console.log('Generate several transactions so the gas cost is enough to deploy the contract')
+    await mimicRegularTraffic({
+        funderPrivkey: accounts.carol.privkey.substring(2),
+        numAccounts: 20,
+        ethereumRPCProviders: RPC_ETHEREUM_PROVIDERS,
+    })
+    await sleep(10000)
+
     console.log('Deploying Flux Monitor contracts...')
     let { linkToken, fluxAggregator } = await deployFluxMonitorContracts(carol, [ neil.address, nelly.address ])
 
