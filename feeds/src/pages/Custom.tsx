@@ -1,36 +1,53 @@
 import { DispatchBinding } from '@chainlink/ts-helpers'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { RouteComponentProps } from 'react-router-dom'
-import { connect, MapDispatchToProps } from 'react-redux'
+import { connect, MapDispatchToProps, MapStateToProps } from 'react-redux'
 import { FeedConfig } from 'config'
 import { Header } from 'components/header'
 import { Aggregator, FluxAggregator } from 'components/aggregator'
-import { aggregatorOperations } from '../state/ducks/aggregator'
+import {
+  aggregatorActions,
+  aggregatorOperations,
+} from '../state/ducks/aggregator'
 import { useLocation } from 'react-router-dom'
 import { parseQuery, uIntFrom } from 'utils'
+import { AppState } from '../state/reducers'
 
 interface OwnProps
   extends RouteComponentProps<{ pair: string; network?: string }> {}
+
+interface StateProps {
+  config: FeedConfig
+}
 
 interface DispatchProps {
   fetchOracleNodes: DispatchBinding<
     typeof aggregatorOperations.fetchOracleNodes
   >
+  storeAggregatorConfig: DispatchBinding<
+    typeof aggregatorActions.storeAggregatorConfig
+  >
 }
 
-interface Props extends OwnProps, DispatchProps {}
+interface Props extends OwnProps, StateProps, DispatchProps {}
 
-const Page: React.FC<Props> = ({ fetchOracleNodes }) => {
+const Page: React.FC<Props> = ({
+  config,
+  fetchOracleNodes,
+  storeAggregatorConfig,
+}) => {
   const location = useLocation()
-  const [config] = useState<FeedConfig>(
-    parseConfig(parseQuery(location.search)),
-  )
+
+  useEffect(() => {
+    storeAggregatorConfig(parseConfig(parseQuery(location.search)))
+  }, [storeAggregatorConfig, location.search])
 
   useEffect(() => {
     fetchOracleNodes()
   }, [fetchOracleNodes])
 
   let content
+
   if (config && config.contractVersion === 3) {
     content = <FluxAggregator config={config} />
   } else if (config) {
@@ -68,8 +85,15 @@ function parseConfig(config: Record<string, string>): FeedConfig {
   }
 }
 
+const mapStateToProps: MapStateToProps<{}, OwnProps, AppState> = ({
+  aggregator: { config },
+}: AppState) => ({
+  config,
+})
+
 const mapDispatchToProps: MapDispatchToProps<DispatchProps, OwnProps> = {
   fetchOracleNodes: aggregatorOperations.fetchOracleNodes,
+  storeAggregatorConfig: aggregatorActions.storeAggregatorConfig,
 }
 
-export default connect(null, mapDispatchToProps)(Page)
+export default connect(mapStateToProps, mapDispatchToProps)(Page)
