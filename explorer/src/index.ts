@@ -4,10 +4,12 @@ import { logger } from './logging'
 import server from './server'
 import { getVersion } from './utils/version'
 import { Config } from './config'
+import { updateClientGaId } from './clientConfig'
 
 async function main() {
   const version = await getVersion(Config.env())
   logger.info(version)
+  updateClientGaId(Config.gaId())
 
   const db = await openDbConnection()
   try {
