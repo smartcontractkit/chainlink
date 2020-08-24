@@ -79,9 +79,9 @@ describe('state/ducks/aggregator/reducers', () => {
         sponsored: ['Synthetic'],
       }
 
-      const successAction = storeAggregatorConfig(config)
+      const storeAggregatorConfigAction = storeAggregatorConfig(config)
 
-      const state = reducer(INITIAL_STATE, successAction)
+      const state = reducer(INITIAL_STATE, storeAggregatorConfigAction)
       expect(state.config).toEqual(config)
     })
   })
