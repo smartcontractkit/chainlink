@@ -12,7 +12,7 @@ export function formatAnswer(
   value: any,
   multiply: string,
   decimalPlaces: number,
-  formatDecimalPlaces: number,
+  formatDecimalPlaces = 0,
 ): string {
   try {
     const decimals = 10 ** decimalPlaces
