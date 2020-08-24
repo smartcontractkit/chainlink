@@ -115,7 +115,7 @@ Observe network requests using the api having a different origin than the client
 Set Google Analytics tracking ID:
 
 ```
-export REACT_APP_EXPLORER_GA_ID="UA-128878871-10"
+GA_ID="UA-128878871-10"
 ```
 
 ## Typescript
