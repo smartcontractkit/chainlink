@@ -25,6 +25,7 @@ import {
   CONTRACT_ADDRESS,
   ETHGAS_PRICE,
   AggregatorActionTypes,
+  STORE_AGGREGATOR_CONFIG,
 } from './types'
 
 export interface State {
@@ -228,6 +229,12 @@ const reducer: Reducer<State, AggregatorActionTypes> = (
       return {
         ...state,
         ethGasPrice: action.payload,
+      }
+
+    case STORE_AGGREGATOR_CONFIG:
+      return {
+        ...state,
+        config: action.payload.config,
       }
 
     default:

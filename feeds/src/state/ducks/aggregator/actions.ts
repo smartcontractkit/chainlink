@@ -22,6 +22,7 @@ import {
   ANSWER_HISTORY,
   CONTRACT_ADDRESS,
   ETHGAS_PRICE,
+  STORE_AGGREGATOR_CONFIG,
   AggregatorActionTypes,
 } from './types'
 
@@ -180,5 +181,12 @@ export function setEthGasPrice(payload: any): AggregatorActionTypes {
   return {
     type: ETHGAS_PRICE,
     payload,
+  }
+}
+
+export function storeAggregatorConfig(config: FeedConfig): AggregatorActionTypes {
+  return {
+    type: STORE_AGGREGATOR_CONFIG,
+    payload: { config },
   }
 }
