@@ -21621,6 +21621,7 @@ hr {
   font-weight: 400;
   margin-bottom: 5px;
   color: #848484;
+  display:none;
 }
 .network-graph-info__title--name {
   font-size: 24px;
