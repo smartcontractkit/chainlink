@@ -184,7 +184,9 @@ export function setEthGasPrice(payload: any): AggregatorActionTypes {
   }
 }
 
-export function storeAggregatorConfig(config: FeedConfig): AggregatorActionTypes {
+export function storeAggregatorConfig(
+  config: FeedConfig,
+): AggregatorActionTypes {
   return {
     type: STORE_AGGREGATOR_CONFIG,
     payload: { config },

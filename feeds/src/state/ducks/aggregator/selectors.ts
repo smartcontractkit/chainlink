@@ -11,9 +11,7 @@ export const upcaseOracles = (
    * but in v3 - node addresses. Therefore, a different record of
    * pairs has to be made for each contract version.
    */
-  if (
-    state.aggregator.config.contractVersion === 2
-  ) {
+  if (state.aggregator.config.contractVersion === 2) {
     return Object.fromEntries(
       Object.entries(
         state.aggregator.oracleNodes,
