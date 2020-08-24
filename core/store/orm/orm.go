@@ -1309,42 +1309,25 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	if len(addresses) > 0 {
-		args := make([]interface{}, len(addresses))
-		in := ""
-		for i, id := range addresses {
-			args[i] = id
-			if i == 0 {
-				in = fmt.Sprintf("$%v", i+1)
-			} else {
-				in = fmt.Sprintf("%s, $%v", in, i+1)
-			}
+	err = orm.Transaction(func(tx *gorm.DB) error {
+		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
+		if len(addresses) > 0 {
+			q = q.Where("address in (?)", addresses)
 		}
-
-		query := "UPDATE keys SET last_used = clock_timestamp() " +
-			"WHERE id IN (" +
-			"SELECT id FROM keys WHERE address IN (" + in + ") ORDER BY last_used ASC NULLS FIRST, id ASC LIMIT 1" +
-			") " +
-			"RETURNING address"
-		err = orm.DB.DB().
-			QueryRow(query, args...).
-			Scan(&address)
-	} else {
-		query := "UPDATE keys SET last_used = clock_timestamp() " +
-			"WHERE id IN (" +
-			"SELECT id FROM keys ORDER BY last_used ASC NULLS FIRST, id ASC LIMIT 1" +
-			") " +
-			"RETURNING address"
-		err = orm.DB.DB().
-			QueryRow(query).
-			Scan(&address)
-	}
-
-	if err != nil && err != sql.ErrNoRows {
+		keys := make([]models.Key, 0)
+		err = q.Find(&keys).Error
+		if err != nil {
+			return err
+		}
+		if len(keys) == 0 {
+			return errors.New("no keys available")
+		}
+		leastRecentlyUsedKey := keys[0]
+		address = leastRecentlyUsedKey.Address.Address()
+		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
+	})
+	if err != nil {
 		return address, err
-	}
-	if err == sql.ErrNoRows {
-		return address, errors.New("no keys available")
 	}
 	return address, nil
 }
