@@ -34,6 +34,19 @@ describe('upcaseOracles', () => {
     expect(upcaseOracles(aggregatedState)).toEqual(expectedResult)
   })
 
+  it('for custom contract returns a record of oracle addresses and names', () => {
+    const aggregatedStateForCustomPage = JSON.parse(
+      JSON.stringify(aggregatedState),
+    )
+    aggregatedStateForCustomPage.aggregator.config = null
+    const expectedResult = {
+      oracleAddress1: 'Oracle 1',
+      oracleAddress2: 'Oracle 2',
+    }
+
+    expect(upcaseOracles(aggregatedStateForCustomPage)).toEqual(expectedResult)
+  })
+
   it('for v3 contract returns a record of node addresses and names', () => {
     const aggregatedStateV3 = JSON.parse(JSON.stringify(aggregatedState))
     aggregatedStateV3.aggregator.config.contractVersion = 3
