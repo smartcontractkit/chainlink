@@ -66,7 +66,7 @@ const Contract: React.FC<Props> = ({
           textAnchor="middle"
         >
           {latestAnswer
-            ? `${config.valuePrefix} ${latestAnswer}`
+            ? `${config.valuePrefix ?? ''} ${latestAnswer}`
             : 'Loading...'}
         </text>
       </g>
