@@ -77,6 +77,9 @@ type P2PBootstrapNode struct {
 	Multiaddr string `json:"multiAddr"`
 }
 
+func (n *P2PBootstrapNode) Scan(value interface{}) error { return json.Unmarshal(&n) }
+func (n P2PBootstrapNode) Value() (driver.Value, error)  { return json.Marshal(n) }
+
 func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
 	jobSpawner.RegisterJobType(
 		JobType,

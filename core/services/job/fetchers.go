@@ -13,6 +13,7 @@ import (
 )
 
 type Fetcher interface {
+	PipelineStage
 	Fetch() (interface{}, error)
 }
 
@@ -23,6 +24,27 @@ var (
 	FetcherTypeHttp   FetcherType = "http"
 	FetcherTypeMedian FetcherType = "median"
 )
+
+type BaseFetcher struct {
+	ID           uint64       `json:"-"`
+	Transformers Transformers `json:"transformPipeline,omitempty"`
+
+	// The following fields are mutually exclusive.  This is enforced by a DB constraint.
+	OffchainReportingJobID models.ID `json:"-"`
+	FluxMonitorJobID       models.ID `json:"-"`
+	DirectRequestJobID     models.ID `json:"-"`
+}
+
+func (f BaseFetcher) GetID() uint64 {
+	return f.ID
+}
+
+func (f *BaseFetcher) SetNotifiee(n Notifiee) {
+	f.notifiee = n
+	for _, transformer := range f.Transformers {
+		transformer.SetNotifiee(n)
+	}
+}
 
 type Fetchers []Fetcher
 
