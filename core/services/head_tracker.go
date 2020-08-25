@@ -421,6 +421,7 @@ func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
 	logger.Debugw("HeadTracker initiating callbacks",
 		"headNum", headWithChain.Number,
 		"chainLength", headWithChain.ChainLength(),
+		"numCallbacks", len(ht.callbacks),
 	)
 
 	if ht.store.Config.EnableBulletproofTxManager() {

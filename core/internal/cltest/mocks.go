@@ -275,6 +275,14 @@ func (mock *EthMock) BatchCallContext(ctx context.Context, elems []rpc.BatchElem
 	return nil
 }
 
+func (mock *EthMock) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	panic("unimplemented")
+}
+
+func (mock *EthMock) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
+	panic("unimplemented")
+}
+
 type MockResultFunc func(args ...interface{}) interface{}
 
 // assignResult attempts to mimick more closely how go-ethereum actually does
