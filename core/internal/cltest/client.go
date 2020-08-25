@@ -268,3 +268,11 @@ func (c *SimulatedBackendClient) SendTransaction(context.Context, *types.Transac
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	return c.Call(result, method, args)
 }
+
+func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	panic("unimplemented")
+}
+
+func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
+	panic("unimplemented")
+}
