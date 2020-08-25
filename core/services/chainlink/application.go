@@ -33,8 +33,8 @@ func (c *headTrackableCallback) Connect(*models.Head) error {
 	return nil
 }
 
-func (c *headTrackableCallback) Disconnect()                   {}
-func (c *headTrackableCallback) OnNewLongestChain(models.Head) {}
+func (c *headTrackableCallback) Disconnect()                                    {}
+func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}
 
 //go:generate mockery --name Application --output ../internal/mocks/ --case=underscore
 
@@ -287,5 +287,5 @@ func (p *pendingConnectionResumer) Connect(head *models.Head) error {
 	return p.runManager.ResumeAllPendingConnection()
 }
 
-func (p *pendingConnectionResumer) Disconnect()                   {}
-func (p *pendingConnectionResumer) OnNewLongestChain(models.Head) {}
+func (p *pendingConnectionResumer) Disconnect()                                    {}
+func (p *pendingConnectionResumer) OnNewLongestChain(context.Context, models.Head) {}

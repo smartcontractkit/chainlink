@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -13,6 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+const (
+	// maxEthNodeRequestTime is the worst case time we will wait for a response
+	// from the eth node before we consider it to be an error
+	maxEthNodeRequestTime = 4 * time.Second
 )
 
 var (
@@ -77,21 +84,23 @@ func (gu *gasUpdater) Disconnect() {
 }
 
 // OnNewLongestChain recalculates and sets global gas price on every head
-func (gu *gasUpdater) OnNewLongestChain(head models.Head) {
+func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
 	// Bail out as early as possible if the gas updater is disabled so we avoid
 	// any potential undesired side effects. Note that in a future iteration
 	// the GasUpdaterEnabled setting could be modifiable at runtime
 	if !gu.store.Config.GasUpdaterEnabled() {
 		return
 	}
+	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
+	defer cancel()
 	blockToFetch := head.Number - gu.blockDelay
 	if blockToFetch < 0 {
 		logger.Warnf("GasUpdater: skipping gas calculation, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY of %v", head.Number, gu.blockDelay)
 		return
 	}
-	block, err := gu.store.EthClient.BlockByNumber(context.TODO(), big.NewInt(blockToFetch))
+	block, err := gu.store.EthClient.BlockByNumber(ctx, big.NewInt(blockToFetch))
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("GasUpdater: error retrieving block %v", blockToFetch))
+		logger.Errorf("GasUpdater: error retrieving block %v: %s", blockToFetch, err)
 		return
 	}
 	if len(block.Transactions()) > 0 {

@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"testing"
@@ -24,7 +25,7 @@ func TestGasUpdater_OnNewLongestChain_whenDisabledDoesNothing(t *testing.T) {
 	gu := services.NewGasUpdater(store)
 	head := cltest.Head(0)
 
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 
 	// No mock calls
 	ethClient.AssertExpectations(t)
@@ -44,7 +45,7 @@ func TestGasUpdater_OnNewLongestChain_WithCurrentBlockHeightLessThanBlockDelayDo
 
 	for i := -1; i < 3; i++ {
 		head := cltest.Head(i)
-		gu.OnNewLongestChain(*head)
+		gu.OnNewLongestChain(context.TODO(), *head)
 	}
 
 	// No mock calls
@@ -66,7 +67,7 @@ func TestGasUpdater_OnNewLongestChain_WithErrorRetrievingBlockDoesNothing(t *tes
 
 	head := cltest.Head(3)
 
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 	ethClient.AssertExpectations(t)
 }
 
@@ -83,14 +84,14 @@ func TestGasUpdater_OnNewLongestChain_AddsBlockToBlockHistory(t *testing.T) {
 
 	ethClient.On("BlockByNumber", mock.Anything, big.NewInt(0)).Return(cltest.BlockWithTransactions(), nil)
 	head := cltest.Head(3)
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 
 	// Empty blocks are not added
 	assert.Len(t, gu.RollingBlockHistory(), 0)
 
 	ethClient.On("BlockByNumber", mock.Anything, big.NewInt(1)).Return(cltest.BlockWithTransactions(20000), nil)
 	head = cltest.Head(4)
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 
 	// Blocks with transactions are added
 	assert.Len(t, gu.RollingBlockHistory(), 1)
@@ -112,13 +113,13 @@ func TestGasUpdater_OnNewLongestChain_DoesNotOverflowBlockHistory(t *testing.T) 
 	for i := 0; i < 5; i++ {
 		ethClient.On("BlockByNumber", mock.Anything, big.NewInt(int64(i))).Return(cltest.BlockWithTransactions(42), nil)
 		head := cltest.Head(i + 3)
-		gu.OnNewLongestChain(*head)
+		gu.OnNewLongestChain(context.TODO(), *head)
 		assert.Len(t, gu.RollingBlockHistory(), i+1)
 	}
 
 	ethClient.On("BlockByNumber", mock.Anything, big.NewInt(5)).Return(cltest.BlockWithTransactions(42), nil)
 	head := cltest.Head(8)
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 
 	assert.Len(t, gu.RollingBlockHistory(), 5)
 }
@@ -140,14 +141,14 @@ func TestGasUpdater_OnNewLongestChain_SetsGlobalGasPriceWhenHistoryFull(t *testi
 	for i := 0; i < 3; i++ {
 		ethClient.On("BlockByNumber", mock.Anything, big.NewInt(int64(i))).Return(cltest.BlockWithTransactions(int64((1+i)*100)), nil)
 		head := cltest.Head(i)
-		gu.OnNewLongestChain(*head)
+		gu.OnNewLongestChain(context.TODO(), *head)
 		assert.Len(t, gu.RollingBlockHistory(), i+1)
 		assert.Equal(t, big.NewInt(42), config.EthGasPriceDefault())
 	}
 
 	ethClient.On("BlockByNumber", mock.Anything, big.NewInt(3)).Return(cltest.BlockWithTransactions(200, 300, 100, 100, 100, 100), nil)
 	head := cltest.Head(3)
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 
 	assert.Len(t, gu.RollingBlockHistory(), 3)
 	assert.Equal(t, big.NewInt(100), config.EthGasPriceDefault())
@@ -169,13 +170,13 @@ func TestGasUpdater_OnNewLongestChain_WillNotSetGasHigherThanEthMaxGasPriceWei(t
 
 	ethClient.On("BlockByNumber", mock.Anything, big.NewInt(0)).Return(cltest.BlockWithTransactions(9001), nil)
 	head := cltest.Head(0)
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 	assert.Len(t, gu.RollingBlockHistory(), 1)
 	assert.Equal(t, big.NewInt(42), config.EthGasPriceDefault())
 
 	ethClient.On("BlockByNumber", mock.Anything, big.NewInt(1)).Return(cltest.BlockWithTransactions(9002), nil)
 	head = cltest.Head(1)
-	gu.OnNewLongestChain(*head)
+	gu.OnNewLongestChain(context.TODO(), *head)
 
 	assert.Equal(t, big.NewInt(42), config.EthGasPriceDefault())
 }

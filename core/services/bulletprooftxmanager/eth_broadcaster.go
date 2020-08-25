@@ -255,7 +255,9 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		broadcastAt = etx.CreatedAt
 	}
 
-	sendError := sendTransaction(eb.ethClient, attempt)
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	sendError := sendTransaction(ctx, eb.ethClient, attempt)
 
 	if sendError.Fatal() {
 		etx.Error = sendError.StrPtr()

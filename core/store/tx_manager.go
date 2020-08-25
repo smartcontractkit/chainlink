@@ -197,7 +197,7 @@ func (txm *EthTxManager) Disconnect() {
 }
 
 // OnNewLongestChain does nothing; exists to comply with interface.
-func (txm *EthTxManager) OnNewLongestChain(head models.Head) {
+func (txm *EthTxManager) OnNewLongestChain(ctx context.Context, head models.Head) {
 	if txm.config.EnableBulletproofTxManager() {
 		return
 	}

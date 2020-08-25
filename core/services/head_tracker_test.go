@@ -359,13 +359,13 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	// Now the new chain is longer
 	blockHeaders = append(blockHeaders, &models.Head{Number: 5, Hash: cltest.NewHash(), ParentHash: blockHeaders[7].Hash, Timestamp: time.Unix(9, 0)})
 
-	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
+	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
 		return h.Number == 1 && h.Hash == blockHeaders[0].Hash
 	})).Return().Once()
-	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
+	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
 		return h.Number == 3 && h.Hash == blockHeaders[1].Hash
 	})).Return().Once()
-	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
+	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
 		if h.Number == 4 && h.Hash == blockHeaders[3].Hash {
 			// Check that the block came with its parents
 			require.NotNil(t, h.Parent)
@@ -378,7 +378,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 		}
 		return false
 	})).Return().Once()
-	checker.On("OnNewLongestChain", mock.MatchedBy(func(h models.Head) bool {
+	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
 		if h.Number == 5 && h.Hash == blockHeaders[8].Hash {
 			// This is the new longest chain, check that it came with its parents
 			require.NotNil(t, h.Parent)
