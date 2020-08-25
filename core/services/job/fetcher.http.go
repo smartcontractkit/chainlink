@@ -23,15 +23,17 @@ import (
 )
 
 type HttpFetcher struct {
-	ID                             uint64          `json:"-" gorm:"primary_key;auto_increment"`
+	BaseFetcher
+
 	URL                            models.WebURL   `json:"url"`
 	ExtendedPath                   ExtendedPath    `json:"extendedPath,omitempty"`
 	Headers                        http.Header     `json:"headers,omitempty"`
 	QueryParams                    QueryParameters `json:"queryParams,omitempty"`
 	Body                           interface{}     `json:"body,omitempty"`
 	AllowUnrestrictedNetworkAccess bool            `json:"-"`
+	Transformers                   Transformers    `json:"transformPipeline,omitempty"`
 
-	Config *orm.Config
+	Config *orm.Config `json:"-" gorm:"-"`
 }
 
 type httpRequestConfig struct {
@@ -41,7 +43,10 @@ type httpRequestConfig struct {
 	allowUnrestrictedNetworkAccess bool
 }
 
-func (f *HttpFetcher) Fetch() (interface{}, error) {
+func (f *HttpFetcher) Fetch() (out interface{}, err error) {
+	defer func() { f.Notifiee.OnEndStage(f, out, err) }()
+	f.Notifiee.OnBeginStage(f, nil)
+
 	var contentType string
 	if f.Method == "POST" {
 		contentType = "application/json"
@@ -66,7 +71,11 @@ func (f *HttpFetcher) Fetch() (interface{}, error) {
 	setHeaders(request, f.Headers, contentType)
 	httpConfig := defaultHTTPConfig(store)
 	httpConfig.allowUnrestrictedNetworkAccess = f.AllowUnrestrictedNetworkAccess
-	return sendRequest(request, httpConfig)
+	result, err := sendRequest(request, httpConfig)
+	if err != nil {
+		return nil, err
+	}
+	return f.Transformers.Transform(result)
 }
 
 func (f HttpFetcher) MarshalJSON() ([]byte, error) {
