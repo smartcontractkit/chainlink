@@ -28,7 +28,7 @@ import (
 const (
 	// maxEthNodeRequestTime is the worst case time we will wait for a response
 	// from the eth node before we consider it to be an error
-	maxEthNodeRequestTime = 2 * time.Minute
+	maxEthNodeRequestTime = 15 * time.Second
 )
 
 // SendEther creates a transaction that transfers the given value of ether
@@ -85,13 +85,13 @@ func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx 
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ethClient eth.Client, a models.EthTxAttempt) *sendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt) *sendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return FatalSendError(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)

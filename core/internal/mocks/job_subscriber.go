@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -26,13 +28,13 @@ func (_m *JobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	return r0
 }
 
-// Connect provides a mock function with given fields: _a0
-func (_m *JobSubscriber) Connect(_a0 *models.Head) error {
-	ret := _m.Called(_a0)
+// Connect provides a mock function with given fields: head
+func (_m *JobSubscriber) Connect(head *models.Head) error {
+	ret := _m.Called(head)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
-		r0 = rf(_a0)
+		r0 = rf(head)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -61,9 +63,9 @@ func (_m *JobSubscriber) Jobs() []models.JobSpec {
 	return r0
 }
 
-// OnNewLongestChain provides a mock function with given fields: head
-func (_m *JobSubscriber) OnNewLongestChain(head models.Head) {
-	_m.Called(head)
+// OnNewLongestChain provides a mock function with given fields: ctx, head
+func (_m *JobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
+	_m.Called(ctx, head)
 }
 
 // RemoveJob provides a mock function with given fields: ID

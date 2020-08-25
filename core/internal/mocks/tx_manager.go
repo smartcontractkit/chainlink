@@ -244,13 +244,13 @@ func (_m *TxManager) CodeAt(ctx context.Context, account common.Address, blockNu
 	return r0, r1
 }
 
-// Connect provides a mock function with given fields: _a0
-func (_m *TxManager) Connect(_a0 *models.Head) error {
-	ret := _m.Called(_a0)
+// Connect provides a mock function with given fields: head
+func (_m *TxManager) Connect(head *models.Head) error {
+	ret := _m.Called(head)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
-		r0 = rf(_a0)
+		r0 = rf(head)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -489,9 +489,9 @@ func (_m *TxManager) NextActiveAccount() *store.ManagedAccount {
 	return r0
 }
 
-// OnNewLongestChain provides a mock function with given fields: head
-func (_m *TxManager) OnNewLongestChain(head models.Head) {
-	_m.Called(head)
+// OnNewLongestChain provides a mock function with given fields: ctx, head
+func (_m *TxManager) OnNewLongestChain(ctx context.Context, head models.Head) {
+	_m.Called(ctx, head)
 }
 
 // PendingNonceAt provides a mock function with given fields: ctx, account
