@@ -246,9 +246,12 @@ func (ht *HeadTracker) receiveHeaders() error {
 				logger.Warn("got nil block header")
 				continue
 			}
-			if err := ht.handleNewHead(*blockHeader); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), ht.totalNewHeadTimeBudget())
+			if err := ht.handleNewHead(ctx, *blockHeader); err != nil {
+				cancel()
 				return err
 			}
+			cancel()
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {
 				return err
@@ -257,7 +260,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 	}
 }
 
-func (ht *HeadTracker) handleNewHead(head models.Head) error {
+func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) error {
 	defer func(start time.Time, number int64) {
 		elapsed := time.Since(start)
 		ms := float64(elapsed.Milliseconds())
@@ -307,12 +310,25 @@ func (ht *HeadTracker) handleNewHighestHead(head models.Head) error {
 		return err
 	}
 
-	ht.onNewLongestChain(headWithChain)
+	ht.onNewLongestChain(ctx, headWithChain)
 	return nil
 }
 
 func (ht *HeadTracker) isKovan() bool {
 	return ht.store.Config.ChainID().Cmp(kovanChainID) == 0
+}
+
+// totalNewHeadTimeBudget is the timeout on the shared context for all
+// requests triggered by a new head
+//
+// These values are chosen to be roughly 2 * block time (to give some leeway
+// for temporary overload). They are by no means set in stone and may require
+// adjustment based on real world feedback.
+func (ht *HeadTracker) totalNewHeadTimeBudget() time.Duration {
+	if ht.isKovan() {
+		return 8 * time.Second
+	}
+	return 26 * time.Second
 }
 
 // Maximum time we are allowed to spend backfilling heads. This should be
@@ -338,6 +354,9 @@ func (ht *HeadTracker) callbackExecutionThreshold() time.Duration {
 // GetChainWithBackfill returns a chain of the given length, backfilling any
 // heads that may be missing from the database
 func (ht *HeadTracker) GetChainWithBackfill(ctx context.Context, head models.Head, depth uint) (models.Head, error) {
+	ctx, cancel := context.WithTimeout(ctx, ht.backfillTimeBudget())
+	defer cancel()
+
 	head, err := ht.store.Chain(head.Hash, depth)
 	if err != nil {
 		return head, errors.Wrap(err, "GetChainWithBackfill failed fetching chain")
@@ -390,7 +409,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 			if errors.Cause(err) == ethereum.NotFound {
 				logger.Errorw("HeadTracker: backfill failed to fetch head (not found), chain will be truncated for this head", "headNum", i)
 			} else if errors.Cause(err) == context.DeadlineExceeded {
-				logger.Warnw("HeadTracker: backfill deadline exceeded, chain will be truncated for this head", "headNum", i)
+				logger.Infow("HeadTracker: backfill deadline exceeded, chain will be truncated for this head", "headNum", i)
 			} else {
 				logger.Errorw("HeadTracker: backfill encountered unknown error, chain will be truncated for this head", "headNum", i, "err", err)
 			}
@@ -414,7 +433,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.He
 	return *head, nil
 }
 
-func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
+func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain models.Head) {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()
 
@@ -425,20 +444,20 @@ func (ht *HeadTracker) onNewLongestChain(headWithChain models.Head) {
 	)
 
 	if ht.store.Config.EnableBulletproofTxManager() {
-		ht.concurrentlyExecuteCallbacks(headWithChain)
+		ht.concurrentlyExecuteCallbacks(ctx, headWithChain)
 	} else {
 		// NOTE: Legacy tx manager probably has implicit ordering requirements, so it's not safe to parallelise
-		ht.seriallyExecuteCallbacks(headWithChain)
+		ht.seriallyExecuteCallbacks(ctx, headWithChain)
 	}
 }
 
-func (ht *HeadTracker) concurrentlyExecuteCallbacks(headWithChain models.Head) {
+func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(ht.callbacks))
 	for idx, trackable := range ht.callbacks {
 		go func(i int, t strpkg.HeadTrackable) {
 			start := time.Now()
-			t.OnNewLongestChain(headWithChain)
+			t.OnNewLongestChain(ctx, headWithChain)
 			elapsed := time.Since(start)
 			logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
 			wg.Done()
@@ -447,10 +466,10 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(headWithChain models.Head) {
 	wg.Wait()
 }
 
-func (ht *HeadTracker) seriallyExecuteCallbacks(headWithChain models.Head) {
+func (ht *HeadTracker) seriallyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
 	for i, t := range ht.callbacks {
 		start := time.Now()
-		t.OnNewLongestChain(headWithChain)
+		t.OnNewLongestChain(ctx, headWithChain)
 		elapsed := time.Since(start)
 		logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
 	}

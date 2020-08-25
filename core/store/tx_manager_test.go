@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"math/big"
@@ -110,7 +111,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, ntx.Attempts, 1)
 
-	manager.OnNewLongestChain(*cltest.Head(bumpAt))
+	manager.OnNewLongestChain(context.TODO(), *cltest.Head(bumpAt))
 	ethClient.On("TransactionReceipt", mock.Anything, createdTx1.Attempts[0].Hash).Return(&types.Receipt{}, nil)
 	ethClient.On("SendRawTx", mock.Anything).Return(cltest.NewHash(), nil)
 
@@ -183,7 +184,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Equal(t, nonce, ntx.Nonce)
 	assert.Len(t, ntx.Attempts, 1)
 
-	manager.OnNewLongestChain(*cltest.Head(bumpAt))
+	manager.OnNewLongestChain(context.TODO(), *cltest.Head(bumpAt))
 	ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Once().Return(&types.Receipt{}, nil)
 	ethClient.On("SendRawTx", mock.Anything).Return(tx.Attempts[0].Hash, nil)
 
@@ -192,7 +193,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	assert.Nil(t, receipt)
 	assert.Equal(t, strpkg.Unconfirmed, state)
 
-	manager.OnNewLongestChain(*cltest.Head(bumpAgainAt))
+	manager.OnNewLongestChain(context.TODO(), *cltest.Head(bumpAgainAt))
 	ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Twice().Return(&types.Receipt{}, nil)
 
 	receipt, state, err = manager.BumpGasUntilSafe(tx.Attempts[0].Hash)
@@ -1073,7 +1074,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 		TxHash:      tx.Attempts[0].Hash,
 		BlockNumber: big.NewInt(int64(sentAt)),
 	}
-	manager.OnNewLongestChain(*cltest.Head(confirmedAt))
+	manager.OnNewLongestChain(context.TODO(), *cltest.Head(confirmedAt))
 	ethClient.On("TransactionReceipt", mock.Anything, tx.Attempts[0].Hash).Return(&confirmedReceipt, nil)
 
 	receipt, state, err := manager.BumpGasUntilSafe(tx.Attempts[0].Hash)

@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -132,7 +133,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		gethClient.On("BalanceAt", mock.Anything, k1Addr, big.NewInt(head.Number)).Once().Return(k1bal, nil)
 
 		// Do the thing
-		bm.OnNewLongestChain(*head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		assert.Equal(t, k0bal, bm.GetEthBalance(k0Addr).ToInt())
 		assert.Equal(t, k1bal, bm.GetEthBalance(k1Addr).ToInt())
@@ -146,7 +147,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(head.Number)).Once().Return(k0bal2, nil)
 		gethClient.On("BalanceAt", mock.Anything, k1Addr, big.NewInt(head.Number)).Once().Return(k1bal2, nil)
 
-		bm.OnNewLongestChain(*head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		assert.Equal(t, k0bal2, bm.GetEthBalance(k0Addr).ToInt())
 		assert.Equal(t, k1bal2, bm.GetEthBalance(k1Addr).ToInt())
@@ -169,7 +170,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		k0bal := big.NewInt(42)
 		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(0)).Once().Return(k0bal, nil)
 		head := cltest.Head(0)
-		bm.OnNewLongestChain(*head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		assert.Equal(t, k0bal, bm.GetEthBalance(k0Addr).ToInt())
 
@@ -177,19 +178,19 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		k0bal = big.NewInt(43)
 		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(0)).Once().Return(k0bal, nil)
 		head = cltest.Head(1)
-		bm.OnNewLongestChain(*head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		// If lagged head is exactly 0, uses 0
 		k0bal = big.NewInt(44)
 		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(0)).Once().Return(k0bal, nil)
 		head = cltest.Head(2)
-		bm.OnNewLongestChain(*head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		// If lagged head is positive, uses it
 		k0bal = big.NewInt(44)
 		gethClient.On("BalanceAt", mock.Anything, k0Addr, big.NewInt(1)).Once().Return(k0bal, nil)
 		head = cltest.Head(3)
-		bm.OnNewLongestChain(*head)
+		bm.OnNewLongestChain(context.TODO(), *head)
 
 		gethClient.AssertExpectations(t)
 	})
