@@ -5,6 +5,10 @@ pragma solidity 0.6.6;
  * @notice This contract provides a way to access blockhashes older than
  *   the 256 block limit imposed by the BLOCKHASH opcode.
  *   You may assume that any blockhash stored by the contract is correct.
+ *   Note that the contract depends on the format of serialized Ethereum
+ *   blocks. If a future hardfork of Ethereum changes that format, the 
+ *   logic in this contract may become incorrect and an updated version 
+ *   would have to be deployed.
  */
 contract BlockhashStore {
 
