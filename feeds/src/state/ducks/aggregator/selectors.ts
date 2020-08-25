@@ -10,14 +10,8 @@ export const upcaseOracles = (
    * In v2 of the contract, oracles' list has oracle addresses,
    * but in v3 - node addresses. Therefore, a different record of
    * pairs has to be made for each contract version.
-   *
-   * Custom pages that are used to test new contracts have their
-   * `config` attribute set as `null`, so we need to check that as well.
    */
-  if (
-    state.aggregator.config === null ||
-    state.aggregator.config.contractVersion === 2
-  ) {
+  if (state.aggregator.config.contractVersion === 2) {
     return Object.fromEntries(
       Object.entries(
         state.aggregator.oracleNodes,

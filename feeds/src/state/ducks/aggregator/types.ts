@@ -28,6 +28,7 @@ export const LATEST_ANSWER_TIMESTAMP = 'aggregator/LATEST_ANSWER_TIMESTAMP'
 export const ANSWER_HISTORY = 'aggregator/ANSWER_HISTORY'
 export const CONTRACT_ADDRESS = 'aggregator/CONTRACT_ADDRESS'
 export const ETHGAS_PRICE = 'aggregator/ETHGAS_PRICE'
+export const STORE_AGGREGATOR_CONFIG = 'aggregator/STORE_AGGREGATOR_CONFIG'
 
 export interface ClearStateAction {
   type: typeof CLEAR_STATE
@@ -135,6 +136,13 @@ export interface SetEthGasPriceAction {
   payload: any
 }
 
+export interface StoreAggregatorConfigAction {
+  type: typeof STORE_AGGREGATOR_CONFIG
+  payload: {
+    config: FeedConfig
+  }
+}
+
 export type AggregatorActionTypes =
   | ClearStateAction
   | FetchFeedByPairBeginAction
@@ -158,3 +166,4 @@ export type AggregatorActionTypes =
   | SetAnswersHistoryAction
   | SetCurrentAddressAction
   | SetEthGasPriceAction
+  | StoreAggregatorConfigAction
