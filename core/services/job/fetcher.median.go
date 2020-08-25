@@ -8,11 +8,24 @@ import (
 )
 
 type MedianFetcher struct {
-	ID       uint64   `json:"-" gorm:"primary_key;auto_increment"`
-	Fetchers Fetchers `json:"fetchers"`
+	BaseFetcher
+
+	ID        models.ID `json:"-" gorm:"primary_key;auto_increment"`
+	JobSpecID models.ID `json:"jobSpecID"`
+	Fetchers  Fetchers  `json:"fetchers"`
+}
+
+func (f *MedianFetcher) SetNotifiee(n Notifiee) {
+	f.BaseFetcher.SetNotifiee(n)
+	for _, fetcher := range f.Fetchers {
+		fetcher.SetNotifiee(n)
+	}
 }
 
 func (f MedianFetcher) Fetch() (interface{}, error) {
+	defer func() { f.notifiee.OnEndStage(f, out, err) }()
+	f.notifiee.OnBeginStage(f, nil)
+
 	answers := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -64,7 +77,8 @@ func (f MedianFetcher) Fetch() (interface{}, error) {
 	if len(answers)%2 == 1 {
 		return answers[k], nil
 	}
-	return answers[k].Add(answers[k-1]).Div(decimal.NewFromInt(2)), nil
+	median := answers[k].Add(answers[k-1]).Div(decimal.NewFromInt(2))
+	return f.Transformers.Transform(median)
 }
 
 func (f MedianFetcher) MarshalJSON() ([]byte, error) {

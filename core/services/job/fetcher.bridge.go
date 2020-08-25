@@ -20,20 +20,25 @@ import (
 )
 
 type BridgeFetcher struct {
+	BaseFetcher
+
 	ID           uint64                 `json:"-" gorm:"primary_key;auto_increment"`
 	BridgeName   string                 `json:"name"`
 	RequestData  map[string]interface{} `json:"requestData"`
-	Transformers Transformers           `json:"transformPipeline"`
+	Transformers Transformers           `json:"transformPipeline,omitempty"`
 
-	ORM    BridgeFetcherORM `json:"-"`
-	Config *orm.Config      `json:"-"`
+	ORM    BridgeFetcherORM `json:"-" gorm:"-"`
+	Config *orm.Config      `json:"-" gorm:"-"`
 }
 
 type BridgeFetcherORM interface {
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
 
-func (f BridgeFetcher) Fetch() (interface{}, error) {
+func (f BridgeFetcher) Fetch() (out interface{}, err error) {
+	defer func() { f.notifiee.OnEndStage(f, out, err) }()
+	f.notifiee.OnBeginStage(f, nil)
+
 	url, err := getBridgeURLFromName(f.BridgeName, f.ORM)
 	if err != nil {
 		return nil, err
@@ -63,7 +68,7 @@ func (f BridgeFetcher) Fetch() (interface{}, error) {
 		"answer", result,
 		"url", url.String(),
 	)
-	return f.Transformers.Run(result)
+	return f.Transformers.Transform(result)
 }
 
 // withRandomID add an arbitrary "id" field to the request json
