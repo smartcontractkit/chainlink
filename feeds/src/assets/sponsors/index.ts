@@ -33,6 +33,7 @@ import sandbank from './sandbank.png'
 import plasm from './plasm.png'
 import swipe from './swipe.png'
 import hxro from './hxro.png'
+import dydx from './dydx.png'
 
 // Listing Thumbnails
 
@@ -69,6 +70,7 @@ import sandbankTn from './sandbank_tn.png'
 import plasmTn from './plasm_tn.png'
 import swipeTn from './swipe_tn.png'
 import hxroTn from './hxro_tn.png'
+import dydxTn from './dydx_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -275,5 +277,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://hxro.io',
     imageLg: hxro,
     imageTn: hxroTn,
+  },
+  {
+    name: 'dYdX',
+    url: 'https://dydx.exchange',
+    imageLg: dydx,
+    imageTn: dydxTn,
   },
 ]
