@@ -1,7 +1,7 @@
 {
   "name": "@chainlink/explorer-client",
   "private": true,
-  "version": "0.8.3",
+  "version": "0.8.5",
   "keywords": [],
   "browserslist": {
     "production": [
