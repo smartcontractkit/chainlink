@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sync"
@@ -166,7 +167,7 @@ func (js *jobSubscriber) Disconnect() {
 }
 
 // OnNewLongestChain resumes all pending job runs based on the new head activity.
-func (js *jobSubscriber) OnNewLongestChain(head models.Head) {
+func (js *jobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head) {
 	js.nextBlockWorker.setHead(*head.ToInt())
 	js.jobResumer.WakeUp()
 }

@@ -1,6 +1,8 @@
 package store
 
 import (
+	"context"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -8,7 +10,7 @@ import (
 // after being attached to HeadTracker.
 //go:generate mockery --name HeadTrackable --output ../internal/mocks/ --case=underscore
 type HeadTrackable interface {
-	Connect(*models.Head) error
+	Connect(head *models.Head) error
 	Disconnect()
-	OnNewLongestChain(head models.Head)
+	OnNewLongestChain(ctx context.Context, head models.Head)
 }
