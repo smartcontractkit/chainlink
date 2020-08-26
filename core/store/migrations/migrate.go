@@ -51,7 +51,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588293486"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588757164"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1588853064"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1589206996"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1589462363"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1589470036"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1590226486"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1591141873"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1591603775"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1592355365"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1594306515"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1594393769"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1594642891"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1596021087"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -256,6 +266,46 @@ func init() {
 		{
 			ID:      "1586871710",
 			Migrate: migration1586871710.Migrate,
+		},
+		{
+			ID:      "1590226486",
+			Migrate: migration1590226486.Migrate,
+		},
+		{
+			ID:      "1591141873",
+			Migrate: migration1591141873.Migrate,
+		},
+		{
+			ID:      "1589206996",
+			Migrate: migration1589206996.Migrate,
+		},
+		{
+			ID:      "1589462363",
+			Migrate: migration1589462363.Migrate,
+		},
+		{
+			ID:      "1591603775",
+			Migrate: migration1591603775.Migrate,
+		},
+		{
+			ID:      "1592355365",
+			Migrate: migration1592355365.Migrate,
+		},
+		{
+			ID:      "1594393769",
+			Migrate: migration1594393769.Migrate,
+		},
+		{
+			ID:      "1594642891",
+			Migrate: migration1594642891.Migrate,
+		},
+		{
+			ID:      "1594306515",
+			Migrate: migration1594306515.Migrate,
+		},
+		{
+			ID:      "1596021087",
+			Migrate: migration1596021087.Migrate,
 		},
 	}
 }

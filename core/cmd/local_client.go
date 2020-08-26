@@ -12,10 +12,13 @@ import (
 	"runtime"
 	"strings"
 
+	"go.uber.org/multierr"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -24,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
@@ -36,7 +41,7 @@ const ownerPermsMask = os.FileMode(0700)
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	err := cli.Config.Validate()
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
@@ -50,7 +55,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
-		logNodeBalance(store)
 		logIfNonceOutOfSync(store)
 	})
 	store := app.GetStore()
@@ -105,31 +109,59 @@ func loggedStop(app chainlink.Application) {
 }
 
 func checkFilePermissions(rootDir string) error {
-	errorMsg := "%s has overly permissive file permissions, should be atleast %s"
-	keysDir := filepath.Join(rootDir, "tempkeys")
-	protectedFiles := []string{"secret", "cookie"}
-	err := filepath.Walk(keysDir,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			fileMode := info.Mode().Perm()
-			if fileMode&^ownerPermsMask != 0 {
-				return fmt.Errorf(errorMsg, path, ownerPermsMask)
-			}
-			return nil
-		})
-	if err != nil {
-		return err
-	}
-	for _, fileName := range protectedFiles {
-		fileInfo, err := os.Lstat(filepath.Join(rootDir, fileName))
+	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
+	tlsDir := filepath.Join(rootDir, "tls")
+	_, err := os.Stat(tlsDir)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Errorf("error checking perms of 'tls' directory: %v", err)
+	} else if err == nil {
+		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
 		if err != nil {
 			return err
 		}
-		perm := fileInfo.Mode().Perm()
-		if perm&^ownerPermsMask != 0 {
-			return fmt.Errorf(errorMsg, fileName, ownerPermsMask)
+
+		err = filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				logger.Errorf(`error checking perms of "%v": %v`, path, err)
+				return err
+			}
+			if utils.TooPermissive(info.Mode().Perm(), ownerPermsMask) {
+				newPerms := info.Mode().Perm() & ownerPermsMask
+				logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, info.Mode().Perm(), newPerms)
+				return utils.EnsureFilepathMaxPerms(path, newPerms)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Ensure `$CLROOT/{secret,cookie}` files' permissions are <= `ownerPermsMask``
+	protectedFiles := []string{"secret", "cookie", ".password", ".env", ".api"}
+	for _, fileName := range protectedFiles {
+		path := filepath.Join(rootDir, fileName)
+		fileInfo, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if utils.TooPermissive(fileInfo.Mode().Perm(), ownerPermsMask) {
+			newPerms := fileInfo.Mode().Perm() & ownerPermsMask
+			logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
+			err = utils.EnsureFilepathMaxPerms(path, newPerms)
+			if err != nil {
+				return err
+			}
+		}
+		owned, err := utils.IsFileOwnedByChainlink(fileInfo)
+		if err != nil {
+			logger.Warn(err)
+			continue
+		}
+		if !owned {
+			logger.Warnf("The file %v is not owned by the user running chainlink. This will be made mandatory in the future.", path)
 		}
 	}
 	return nil
@@ -142,7 +174,6 @@ func passwordFromFile(pwdFile string) (string, error) {
 	dat, err := ioutil.ReadFile(pwdFile)
 	return strings.TrimSpace(string(dat)), err
 }
-
 func logIfNonceOutOfSync(store *strpkg.Store) {
 	account := store.TxManager.NextActiveAccount()
 	if account == nil {
@@ -172,20 +203,6 @@ func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
 	}
 }
 
-func logNodeBalance(store *strpkg.Store) {
-	accounts, err := presenters.ShowEthBalance(store)
-	logger.WarnIf(err)
-	for _, a := range accounts {
-		logger.Infow(a["message"], "address", a["address"], "ethBalance", a["balance"])
-	}
-
-	accounts, err = presenters.ShowLinkBalance(store)
-	logger.WarnIf(err)
-	for _, a := range accounts {
-		logger.Infow(a["message"], "address", a["address"], "linkBalance", a["balance"])
-	}
-}
-
 func logConfigVariables(store *strpkg.Store) error {
 	wlc, err := presenters.NewConfigWhitelist(store)
 	if err != nil {
@@ -200,16 +217,27 @@ func logConfigVariables(store *strpkg.Store) error {
 // transactions in a given nonce range. This MUST NOT be run concurrently with
 // the node. Currently the advisory lock in FindAllTxsInNonceRange prevents
 // this.
-func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
+func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	beginningNonce := c.Uint("beginningNonce")
 	endingNonce := c.Uint("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint64("gasLimit")
+	addressHex := c.String("address")
+
+	addressBytes, err := hexutil.Decode(addressHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode address"))
+	}
+	address := gethCommon.BytesToAddress(addressBytes)
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
+	defer func() {
+		if serr := app.Stop(); serr != nil {
+			err = multierr.Append(err, serr)
+		}
+	}()
 	store := app.GetStore()
 
 	pwd, err := passwordFromFile(c.String("password"))
@@ -223,9 +251,23 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) error {
 
 	err = store.Start()
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
+	if store.Config.EnableBulletproofTxManager() {
+		logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+
+		ec := bulletprooftxmanager.NewEthConfirmer(store, cli.Config)
+		err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
+	} else {
+		logger.Infof("Rebroadcasting legacy transactions from %v to %v", beginningNonce, endingNonce)
+
+		err = rebroadcastLegacyTransactions(store, beginningNonce, endingNonce, gasPriceWei, overrideGasLimit)
+	}
+	return cli.errorOut(err)
+}
+
+func rebroadcastLegacyTransactions(store *strpkg.Store, beginningNonce uint, endingNonce uint, gasPriceWei uint64, overrideGasLimit uint64) (err error) {
 	lastHead, err := store.LastHead()
 	if err != nil {
 		return err
@@ -330,7 +372,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	return nil
 }
 
-func dropAndCreateDB(parsed url.URL) error {
+func dropAndCreateDB(parsed url.URL) (err error) {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
@@ -339,7 +381,11 @@ func dropAndCreateDB(parsed url.URL) error {
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
 	if err != nil {
@@ -368,12 +414,16 @@ func migrateTestDB(config *orm.Config) error {
 	return orm.Close()
 }
 
-func insertFixtures(config *orm.Config) error {
+func insertFixtures(config *orm.Config) (err error) {
 	db, err := sql.Open(string(orm.DialectPostgres), config.DatabaseURL())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
@@ -389,16 +439,46 @@ func insertFixtures(config *orm.Config) error {
 }
 
 // DeleteUser is run locally to remove the User row from the node's database.
-func (cli *Client) DeleteUser(c *clipkg.Context) error {
+func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app := cli.AppFactory.NewApplication(cli.Config)
-	defer app.Stop()
+	defer func() {
+		if serr := app.Stop(); serr != nil {
+			err = multierr.Append(err, serr)
+		}
+	}()
 	store := app.GetStore()
 	user, err := store.DeleteUser()
 	if err == nil {
 		logger.Info("Deleted API user ", user.Email)
 	}
 	return err
+}
+
+// SetNextNonce manually updates the keys.next_nonce field for the given key with the given nonce value
+func (cli *Client) SetNextNonce(c *clipkg.Context) error {
+	addressHex := c.String("address")
+	nextNonce := c.Uint64("nextNonce")
+
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	address, err := hexutil.Decode(addressHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode address"))
+	}
+
+	res := db.Exec(`UPDATE keys SET next_nonce = ? WHERE address = ?`, nextNonce, address)
+	if res.Error != nil {
+		return cli.errorOut(err)
+	}
+	if res.RowsAffected == 0 {
+		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
+	}
+	return nil
 }
 
 // ImportKey imports a key to be used with the chainlink node
@@ -417,12 +497,12 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		dstKeyPath = filepath.Join(dstDirPath, srcKeyFile) // ex: /clroot/keys/mykey
 	)
 
-	err := utils.EnsureDirAndPerms(dstDirPath, 0700|os.ModeDir)
+	err := utils.EnsureDirAndMaxPerms(dstDirPath, 0700|os.ModeDir)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	err = utils.CopyFileWithPerms(srcKeyPath, dstKeyPath, 0600)
+	err = utils.CopyFileWithMaxPerms(srcKeyPath, dstKeyPath, 0600)
 	if err != nil {
 		return cli.errorOut(err)
 	}

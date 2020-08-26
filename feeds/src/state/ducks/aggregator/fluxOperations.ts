@@ -8,15 +8,20 @@ import FluxAggregatorContract, {
   NewRoundEventLogFormat,
 } from '../../../contracts/FluxAggregatorContract'
 import * as actions from './actions'
-import { AppState } from 'state'
-import { Actions } from 'state/actions'
 import { ThunkAction } from 'redux-thunk'
 import { Dispatch } from 'redux'
+import { AppState } from 'state'
+import { AggregatorActionTypes } from './types'
 
 export default class FluxOperations {
   static contractInstance: FluxAggregatorContract
 
-  static fetchOracleList(): ThunkAction<void, AppState, void, Actions> {
+  static fetchOracleList(): ThunkAction<
+    void,
+    AppState,
+    void,
+    AggregatorActionTypes
+  > {
     return async (dispatch: Dispatch, getState: () => AppState) => {
       if (getState().aggregator.oracleList) {
         return
@@ -34,7 +39,7 @@ export default class FluxOperations {
     void,
     AppState,
     void,
-    Actions
+    AggregatorActionTypes
   > {
     return async (dispatch: Dispatch) => {
       try {
@@ -46,7 +51,12 @@ export default class FluxOperations {
     }
   }
 
-  static fetchLatestAnswer(): ThunkAction<void, AppState, void, Actions> {
+  static fetchLatestAnswer(): ThunkAction<
+    void,
+    AppState,
+    void,
+    AggregatorActionTypes
+  > {
     return async (dispatch: Dispatch) => {
       try {
         const payload = await FluxOperations.contractInstance.latestAnswer()
@@ -61,7 +71,7 @@ export default class FluxOperations {
     void,
     AppState,
     void,
-    Actions
+    AggregatorActionTypes
   > {
     return async (dispatch: Dispatch) => {
       try {
@@ -77,7 +87,7 @@ export default class FluxOperations {
   static fetchOracleAnswersById(request: {
     fromBlock: number
     round: number
-  }): ThunkAction<void, AppState, void, Actions> {
+  }): ThunkAction<void, AppState, void, AggregatorActionTypes> {
     return async (dispatch: Dispatch, getState: () => AppState) => {
       try {
         const currentLogs = getState().aggregator.oracleAnswers
@@ -106,7 +116,7 @@ export default class FluxOperations {
   static fetchLatestRequestTimestamp = (request: {
     fromBlock: number
     round: number
-  }): ThunkAction<void, AppState, void, Actions> => {
+  }): ThunkAction<void, AppState, void, AggregatorActionTypes> => {
     return async (dispatch: Dispatch) => {
       try {
         const logs = await FluxOperations.contractInstance.newRoundLogs(request)
@@ -118,10 +128,15 @@ export default class FluxOperations {
     }
   }
 
-  static fetchMinimumAnswers(): ThunkAction<void, AppState, void, Actions> {
+  static fetchMinimumAnswers(): ThunkAction<
+    void,
+    AppState,
+    void,
+    AggregatorActionTypes
+  > {
     return async (dispatch: Dispatch) => {
       try {
-        const payload = await FluxOperations.contractInstance.minimumAnswers()
+        const payload = await FluxOperations.contractInstance.minSubmissionCount()
         dispatch(actions.setMinumumAnswers(payload))
       } catch {
         console.error('Could not fetch minimum answers')
@@ -131,7 +146,7 @@ export default class FluxOperations {
 
   static fetchAnswerHistory(
     fromBlock: number,
-  ): ThunkAction<void, AppState, void, Actions> {
+  ): ThunkAction<void, AppState, void, AggregatorActionTypes> {
     return async (dispatch: Dispatch) => {
       try {
         const payload = await FluxOperations.contractInstance.answerUpdatedLogs(
@@ -271,7 +286,7 @@ export default class FluxOperations {
       // Current answer
       FluxOperations.fetchLatestAnswer()(dispatch, getState)
 
-      // initalise listeners
+      // initialise listeners
       FluxOperations.initListeners()(dispatch, getState)
 
       if (config.history) {

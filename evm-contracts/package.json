@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.0.3",
+  "version": "0.0.9",
   "description": "Smart contracts and their language abstractions for chainlink",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "author": "Chainlink devs",
@@ -12,12 +12,13 @@
     "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
     "test": "jest --testTimeout 80000 --forceExit",
-    "prepublishOnly": "yarn clean && yarn setup && yarn test && yarn setup"
+    "test:ci": "./scripts/test_ci",
+    "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
   },
   "devDependencies": {
     "@chainlink/belt": "0.0.1",
-    "@chainlink/test-helpers": "0.0.2",
-    "@types/jest": "^25.1.1",
+    "@chainlink/test-helpers": "0.0.5",
+    "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
     "ethers": "^4.0.45",
     "jest": "^25.1.0",
@@ -32,7 +33,7 @@
     "app.config.json"
   ],
   "optionalDependencies": {
-    "@truffle/contract": "^4.2.1",
+    "@truffle/contract": "^4.2.6",
     "ethers": "^4.0.45"
   }
 }

@@ -21,7 +21,7 @@ var (
 	})
 )
 
-//go:generate mockery -name JobSubscriber  -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name JobSubscriber  --output ../internal/mocks/ --case=underscore
 
 // JobSubscriber listens for push notifications of event logs from the ethereum
 // node's websocket for specific jobs by subscribing to ethLogs.
@@ -35,21 +35,35 @@ type JobSubscriber interface {
 
 // jobSubscriber implementation
 type jobSubscriber struct {
-	store                     *store.Store
-	jobSubscriptions          map[string]JobSubscription
-	jobsMutex                 *sync.RWMutex
-	runManager                RunManager
-	jobResumer                SleeperTask
-	resumeRunsOnNewHeadWorker *resumeRunsOnNewHeadWorker
+	store            *store.Store
+	jobSubscriptions map[string]JobSubscription
+	jobsMutex        *sync.RWMutex
+	runManager       RunManager
+	jobResumer       SleeperTask
+	nextBlockWorker  *nextBlockWorker
 }
 
-type resumeRunsOnNewHeadWorker struct {
+type nextBlockWorker struct {
 	runManager RunManager
 	head       big.Int
+	headMtx    sync.RWMutex
 }
 
-func (rw *resumeRunsOnNewHeadWorker) Work() {
-	err := rw.runManager.ResumeAllPendingNextBlock(&rw.head)
+func (b *nextBlockWorker) getHead() big.Int {
+	b.headMtx.RLock()
+	defer b.headMtx.RUnlock()
+	return b.head
+}
+
+func (b *nextBlockWorker) setHead(h big.Int) {
+	b.headMtx.Lock()
+	b.head = h
+	b.headMtx.Unlock()
+}
+
+func (b *nextBlockWorker) Work() {
+	head := b.getHead()
+	err := b.runManager.ResumeAllPendingNextBlock(&head)
 	if err != nil {
 		logger.Errorw("Failed to resume confirming tasks on new head", "error", err)
 	}
@@ -57,14 +71,14 @@ func (rw *resumeRunsOnNewHeadWorker) Work() {
 
 // NewJobSubscriber returns a new job subscriber.
 func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
-	rw := &resumeRunsOnNewHeadWorker{runManager: runManager}
+	b := &nextBlockWorker{runManager: runManager}
 	js := &jobSubscriber{
-		store:                     store,
-		runManager:                runManager,
-		jobSubscriptions:          map[string]JobSubscription{},
-		jobsMutex:                 &sync.RWMutex{},
-		jobResumer:                NewSleeperTask(rw),
-		resumeRunsOnNewHeadWorker: rw,
+		store:            store,
+		runManager:       runManager,
+		jobSubscriptions: map[string]JobSubscription{},
+		jobsMutex:        &sync.RWMutex{},
+		jobResumer:       NewSleeperTask(b),
+		nextBlockWorker:  b,
 	}
 	return js
 }
@@ -82,6 +96,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 
 	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
 	if err != nil {
+		js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
 		return err
 	}
 	js.addSubscription(sub)
@@ -134,7 +149,6 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 		models.InitiatorEthLog,
 		models.InitiatorRandomnessLog,
 		models.InitiatorRunLog,
-		models.InitiatorServiceAgreementExecutionLog,
 	)
 	return multierr.Append(merr, err)
 }
@@ -151,8 +165,8 @@ func (js *jobSubscriber) Disconnect() {
 	js.jobSubscriptions = map[string]JobSubscription{}
 }
 
-// OnNewHead resumes all pending job runs based on the new head activity.
-func (js *jobSubscriber) OnNewHead(head *models.Head) {
-	js.resumeRunsOnNewHeadWorker.head = *head.ToInt()
+// OnNewLongestChain resumes all pending job runs based on the new head activity.
+func (js *jobSubscriber) OnNewLongestChain(head models.Head) {
+	js.nextBlockWorker.setHead(*head.ToInt())
 	js.jobResumer.WakeUp()
 }

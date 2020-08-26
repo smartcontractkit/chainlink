@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -73,6 +74,29 @@ func TestORM_Unscoped(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJob()
+	job.Tasks = []models.TaskSpec{
+		models.TaskSpec{Type: models.MustNewTaskType("task1")},
+		models.TaskSpec{Type: models.MustNewTaskType("task2")},
+		models.TaskSpec{Type: models.MustNewTaskType("task3")},
+		models.TaskSpec{Type: models.MustNewTaskType("task4")},
+	}
+	assert.NoError(t, store.CreateJob(&job))
+
+	orm := store.ORM
+	retrievedJob, err := orm.FindJob(job.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
+	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")
+	assert.Equal(t, string(retrievedJob.Tasks[2].Type), "task3")
+	assert.Equal(t, string(retrievedJob.Tasks[3].Type), "task4")
 }
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
@@ -758,7 +782,10 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 
 func TestORM_GetLastNonce_Valid(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	store := app.Store
 	manager := store.TxManager
@@ -767,7 +794,6 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 
 	ethMock.Register("eth_getTransactionCount", utils.Uint64ToHex(one))
 	ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	ethMock.Register("eth_chainId", store.Config.ChainID())
 
 	assert.NoError(t, app.StartAndConnect())
 
@@ -800,12 +826,12 @@ func TestORM_MarkRan(t *testing.T) {
 
 	require.NoError(t, store.CreateInitiator(&initr))
 
-	assert.NoError(t, store.MarkRan(&initr, true))
+	assert.NoError(t, store.MarkRan(initr, true))
 	ir, err := store.FindInitiator(initr.ID)
 	assert.NoError(t, err)
 	assert.True(t, ir.Ran)
 
-	assert.Error(t, store.MarkRan(&initr, true))
+	assert.Error(t, store.MarkRan(initr, true))
 }
 
 func TestORM_FindUser(t *testing.T) {
@@ -988,8 +1014,8 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	events := []models.SyncEvent{}
-	err = orm.AllSyncEvents(func(event *models.SyncEvent) error {
-		events = append(events, *event)
+	err = orm.AllSyncEvents(func(event models.SyncEvent) error {
+		events = append(events, event)
 		return nil
 	})
 	require.NoError(t, err)
@@ -1221,14 +1247,14 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 	require.NoError(t, err)
 	earlier := models.Key{Address: earlierAddress, JSON: testJSON}
 
-	require.NoError(t, orm.FirstOrCreateKey(&earlier))
+	require.NoError(t, orm.CreateKeyIfNotExists(earlier))
 	time.Sleep(10 * time.Millisecond)
 
 	laterAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
 	require.NoError(t, err)
 	later := models.Key{Address: laterAddress, JSON: testJSON}
 
-	require.NoError(t, orm.FirstOrCreateKey(&later))
+	require.NoError(t, orm.CreateKeyIfNotExists(later))
 
 	keys, err := store.Keys()
 	require.NoError(t, err)
@@ -1255,7 +1281,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 
 	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
 	require.NoError(t, err)
-	require.NoError(t, orm.FirstOrCreateKey(seed))
+	require.NoError(t, orm.CreateKeyIfNotExists(seed))
 
 	require.True(t, isDirEmpty(t, keysDir))
 	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
@@ -1511,4 +1537,466 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, jobNumber, counter)
+}
+
+func TestORM_Heads_Chain(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// A competing chain existed from block num 3 to 4
+	var baseOfForkHash common.Hash
+	var longestChainHeadHash common.Hash
+	var parentHash *common.Hash
+	for idx := 0; idx < 8; idx++ {
+		h := *cltest.Head(idx)
+		if parentHash != nil {
+			h.ParentHash = *parentHash
+		}
+		parentHash = &h.Hash
+		if idx == 2 {
+			baseOfForkHash = h.Hash
+		} else if idx == 7 {
+			longestChainHeadHash = h.Hash
+		}
+		assert.Nil(t, store.IdempotentInsertHead(h))
+	}
+
+	competingHead1 := *cltest.Head(3)
+	competingHead1.ParentHash = baseOfForkHash
+	assert.Nil(t, store.IdempotentInsertHead(competingHead1))
+	competingHead2 := *cltest.Head(4)
+	competingHead2.ParentHash = competingHead1.Hash
+	assert.Nil(t, store.IdempotentInsertHead(competingHead2))
+
+	// Query for the top of the longer chain does not include the competing chain
+	h, err := store.Chain(longestChainHeadHash, 12)
+	require.NoError(t, err)
+	assert.Equal(t, longestChainHeadHash, h.Hash)
+	count := 1
+	for {
+		if h.Parent == nil {
+			break
+		}
+		require.NotEqual(t, competingHead1.Hash, h.Hash)
+		require.NotEqual(t, competingHead2.Hash, h.Hash)
+		h = *h.Parent
+		count++
+	}
+	assert.Equal(t, 8, count)
+
+	// If we set the limit lower we get fewer heads in chain
+	h, err = store.Chain(longestChainHeadHash, 2)
+	require.NoError(t, err)
+	assert.Equal(t, longestChainHeadHash, h.Hash)
+	count = 1
+	for {
+		if h.Parent == nil {
+			break
+		}
+		h = *h.Parent
+		count++
+	}
+	assert.Equal(t, 2, count)
+
+	// If we query for the top of the competing chain we get its parents
+	head, err := store.Chain(competingHead2.Hash, 12)
+	require.NoError(t, err)
+	assert.Equal(t, competingHead2.Hash, head.Hash)
+	require.NotNil(t, head.Parent)
+	assert.Equal(t, competingHead1.Hash, head.Parent.Hash)
+	require.NotNil(t, head.Parent.Parent)
+	assert.Equal(t, baseOfForkHash, head.Parent.Parent.Hash)
+	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
+
+	// Returns error if hash has no matches
+	_, err = store.Chain(cltest.NewHash(), 12)
+	require.Error(t, err)
+}
+
+func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// Returns nil when inserting first head
+	head := *cltest.Head(0)
+	require.NoError(t, store.IdempotentInsertHead(head))
+
+	// Head is inserted
+	foundHead, err := store.LastHead()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, foundHead.Hash)
+
+	// Returns nil when inserting same head again
+	require.NoError(t, store.IdempotentInsertHead(head))
+
+	// Head is still inserted
+	foundHead, err = store.LastHead()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, foundHead.Hash)
+}
+
+func TestORM_EthTaskRunTx(t *testing.T) {
+	t.Parallel()
+
+	// NOTE: Must sidestep transactional tests since we rely on transaction
+	// rollback due to constraint violation for this function
+	tc, orm, cleanup := cltest.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
+	defer cleanup()
+	store, cleanup := cltest.NewStoreWithConfig(tc)
+	store.ORM = orm
+	defer cleanup()
+
+	sharedTaskRunID := cltest.MustInsertTaskRun(t, store)
+	keys, err := orm.Keys()
+	require.NoError(t, err)
+	fromAddress := keys[0].Address.Address()
+
+	t.Run("creates eth_task_run_transaction and eth_tx", func(t *testing.T) {
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		gasLimit := uint64(42)
+
+		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		require.NoError(t, err)
+
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(sharedTaskRunID.UUID())
+		require.NoError(t, err)
+
+		assert.Equal(t, sharedTaskRunID.UUID(), etrt.TaskRunID)
+		require.NotNil(t, etrt.EthTx)
+		assert.Nil(t, etrt.EthTx.Nonce)
+		assert.Equal(t, fromAddress, etrt.EthTx.FromAddress)
+		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
+		assert.Equal(t, encodedPayload, etrt.EthTx.EncodedPayload)
+		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
+		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
+
+		// Do it again to test idempotence
+		err = store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		require.NoError(t, err)
+
+		// Ensure it didn't leave a stray EthTx hanging around
+		store.RawDB(func(db *gorm.DB) error {
+			var count int
+			require.NoError(t, db.Table("eth_txes").Count(&count).Error)
+			assert.Equal(t, 1, count)
+			return nil
+		})
+	})
+
+	t.Run("returns error if eth_task_run_transaction already exists with this task run ID but has different values", func(t *testing.T) {
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{3, 2, 1}
+		gasLimit := uint64(24)
+
+		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction already exists for task run ID")
+	})
+
+	t.Run("does not return error on re-insert if only the gas limit changed", func(t *testing.T) {
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		toAddress := cltest.NewAddress()
+		encodedPayload := []byte{0, 1, 2}
+		firstGasLimit := uint64(42)
+
+		// First insert
+		err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, firstGasLimit)
+		require.NoError(t, err)
+
+		secondGasLimit := uint64(99)
+
+		// Second insert
+		err = store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, secondGasLimit)
+		require.NoError(t, err)
+
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(taskRunID.UUID())
+		require.NoError(t, err)
+
+		// But the second insert did not change the gas limit
+		assert.Equal(t, firstGasLimit, etrt.EthTx.GasLimit)
+	})
+}
+
+func TestORM_FindJobWithErrorsPreloadsJobSpecErrors(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job1 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job1))
+	job2 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job2))
+
+	description1, description2 := "description 1", "description 2"
+
+	store.UpsertErrorFor(job1.ID, description1)
+	store.UpsertErrorFor(job1.ID, description2)
+
+	job1, err := store.FindJobWithErrors(job1.ID)
+	require.NoError(t, err)
+	job2, err = store.FindJobWithErrors(job2.ID)
+	require.NoError(t, err)
+
+	assert.Len(t, job1.Errors, 2)
+	assert.Len(t, job2.Errors, 0)
+
+	assert.Equal(t, job1.Errors[0].Description, description1)
+	assert.Equal(t, job1.Errors[1].Description, description2)
+}
+
+func TestORM_UpsertErrorFor_Happy(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job1 := cltest.NewJob()
+	job2 := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job1))
+	require.NoError(t, store.CreateJob(&job2))
+
+	description1, description2 := "description 1", "description 2"
+
+	store.UpsertErrorFor(job1.ID, description1)
+
+	tests := []struct {
+		jobID               *models.ID
+		description         string
+		expectedOccurrences uint
+	}{
+		{
+			job1.ID,
+			description1,
+			2, // duplicate
+		},
+		{
+			job1.ID,
+			description2,
+			1,
+		},
+		{
+			job2.ID,
+			description1,
+			1,
+		},
+		{
+			job2.ID,
+			description2,
+			1,
+		},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		testName := fmt.Sprintf(`Create JobSpecError with ID %v and description "%s"`, test.jobID, test.description)
+		t.Run(testName, func(t *testing.T) {
+			store.UpsertErrorFor(test.jobID, test.description)
+			jse, err := store.FindJobSpecError(test.jobID, test.description)
+			require.NoError(t, err)
+			require.Equal(t, test.expectedOccurrences, jse.Occurrences)
+		})
+	}
+}
+
+func TestORM_UpsertErrorFor_Error(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	job := cltest.NewJob()
+	require.NoError(t, store.CreateJob(&job))
+	description := "description"
+	store.UpsertErrorFor(job.ID, description)
+
+	tests := []struct {
+		name        string
+		jobID       *models.ID
+		description string
+	}{
+		{
+			"missing job",
+			models.NewID(),
+			description,
+		},
+		{
+			"missing description",
+			job.ID,
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			store.UpsertErrorFor(test.jobID, test.description)
+		})
+	}
+}
+
+func TestORM_FindOrCreateFluxMonitorRoundStats(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+	var roundID uint32 = 1
+
+	fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
+	require.NoError(t, err)
+	require.Equal(t, roundID, fmrs.RoundID)
+	require.Equal(t, address, fmrs.Aggregator)
+
+	count, err := store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+
+	fmrs, err = store.FindOrCreateFluxMonitorRoundStats(address, roundID)
+	require.NoError(t, err)
+	require.Equal(t, roundID, fmrs.RoundID)
+	require.Equal(t, address, fmrs.Aggregator)
+
+	count, err = store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
+
+func TestORM_DeleteFluxMonitorRoundsBackThrough(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+
+	for round := uint32(0); round < 10; round++ {
+		_, err := store.FindOrCreateFluxMonitorRoundStats(address, round)
+		require.NoError(t, err)
+	}
+
+	count, err := store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 10, count)
+
+	err = store.DeleteFluxMonitorRoundsBackThrough(cltest.NewAddress(), 5)
+	require.NoError(t, err)
+
+	count, err = store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 10, count)
+
+	err = store.DeleteFluxMonitorRoundsBackThrough(address, 5)
+	require.NoError(t, err)
+
+	count, err = store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 5, count)
+}
+
+func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+
+	for round := uint32(0); round < 10; round++ {
+		_, err := store.FindOrCreateFluxMonitorRoundStats(address, round)
+		require.NoError(t, err)
+	}
+
+	count, err := store.ORM.CountOf(&models.FluxMonitorRoundStats{})
+	require.NoError(t, err)
+	require.Equal(t, 10, count)
+
+	roundID, err := store.MostRecentFluxMonitorRoundID(cltest.NewAddress())
+	require.Error(t, err)
+	require.Equal(t, uint32(0), roundID)
+
+	roundID, err = store.MostRecentFluxMonitorRoundID(address)
+	require.NoError(t, err)
+	require.Equal(t, uint32(9), roundID)
+}
+
+func TestORM_IncrFluxMonitorRoundSubmissions(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := cltest.NewAddress()
+	var roundID uint32 = 1
+
+	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
+		err := store.IncrFluxMonitorRoundSubmissions(address, roundID)
+		require.NoError(t, err)
+		fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
+		require.NoError(t, err)
+		require.Equal(t, expectedCount, fmrs.NumSubmissions)
+	}
+}
+
+func TestORM_GetRoundRobinAddress(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	k0Address := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
+	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
+
+	require.NoError(t, store.CreateKeyIfNotExists(k1))
+	require.NoError(t, store.CreateKeyIfNotExists(k2))
+
+	t.Run("with no address filter, rotates between all addresses", func(t *testing.T) {
+		address, err := store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k0Address, address.Hex())
+
+		address, err = store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k1.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k2.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress()
+		require.NoError(t, err)
+		assert.Equal(t, k0Address, address.Hex())
+	})
+
+	t.Run("with address filter, rotates between given addresses", func(t *testing.T) {
+		addresses := []common.Address{k1.Address.Address(), k2.Address.Address()}
+
+		address, err := store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k1.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k2.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k1.Address.Hex(), address.Hex())
+
+		address, err = store.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		assert.Equal(t, k2.Address.Hex(), address.Hex())
+	})
+
+	t.Run("with address filter when no address matches", func(t *testing.T) {
+		_, err := store.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
+		require.Error(t, err)
+		require.Equal(t, "no keys available", err.Error())
+	})
 }

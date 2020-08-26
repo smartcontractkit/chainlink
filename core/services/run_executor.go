@@ -25,7 +25,7 @@ var (
 	)
 )
 
-//go:generate mockery -name RunExecutor -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name RunExecutor --output ../internal/mocks/ --case=underscore
 
 // RunExecutor handles the actual running of the job tasks
 type RunExecutor interface {
@@ -67,7 +67,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			start := time.Now()
 
 			// NOTE: adapters may define and return the new job run status in here
-			result := re.executeTask(&run, taskRun)
+			result := re.executeTask(&run, *taskRun)
 
 			taskRun.ApplyOutput(result)
 			run.ApplyOutput(result)
@@ -105,16 +105,16 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 	return nil
 }
 
-func (re *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) models.RunOutput {
-	taskCopy := taskRun.TaskSpec // deliberately copied to keep mutations local
+func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) models.RunOutput {
+	taskSpec := taskRun.TaskSpec
 
-	params, err := models.Merge(run.RunRequest.RequestParams, taskCopy.Params)
+	params, err := models.Merge(run.RunRequest.RequestParams, taskSpec.Params)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
-	taskCopy.Params = params
+	taskSpec.Params = params
 
-	adapter, err := adapters.For(taskCopy, re.store.Config, re.store.ORM)
+	adapter, err := adapters.For(taskSpec, re.store.Config, re.store.ORM)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -131,7 +131,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun *models.TaskRun) 
 		return models.NewRunOutputError(err)
 	}
 
-	input := *models.NewRunInput(run.ID, data, taskRun.Status)
+	input := *models.NewRunInput(run.ID, *taskRun.ID, data, taskRun.Status)
 	result := adapter.Perform(input, re.store)
 	promAdapterCallsVec.WithLabelValues(run.JobSpecID.String(), string(adapter.TaskType()), string(result.Status())).Inc()
 

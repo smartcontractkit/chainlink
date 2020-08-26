@@ -67,7 +67,7 @@ func TestConfig_readFromFile(t *testing.T) {
 
 	config := newConfigWithViper(v)
 	assert.Equal(t, config.RootDir(), "../../../tools/clroot/")
-	assert.Equal(t, config.MinOutgoingConfirmations(), uint64(2))
+	assert.Equal(t, config.MinRequiredOutgoingConfirmations(), uint64(2))
 	assert.Equal(t, config.MinimumContractPayment(), assets.NewLink(1000000000000))
 	assert.Equal(t, config.Dev(), true)
 	assert.Equal(t, config.TLSPort(), uint16(0))

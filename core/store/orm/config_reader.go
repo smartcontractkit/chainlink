@@ -30,12 +30,16 @@ type ConfigReader interface {
 	MaximumServiceDuration() models.Duration
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
+	EnableBulletproofTxManager() bool
+	EthBalanceMonitorBlockDelay() uint16
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
 	EthGasBumpWei() *big.Int
 	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
+	EthFinalityDepth() uint
+	EthHeadTrackerHistoryDepth() uint
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
 	GasUpdaterBlockDelay() uint16
@@ -51,7 +55,7 @@ type ConfigReader interface {
 	LogToDisk() bool
 	LogSQLStatements() bool
 	MinIncomingConfirmations() uint32
-	MinOutgoingConfirmations() uint64
+	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
 	MigrateDatabase() bool

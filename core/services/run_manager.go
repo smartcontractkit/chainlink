@@ -28,7 +28,7 @@ func (err RecurringScheduleJobError) Error() string {
 	return err.msg
 }
 
-//go:generate mockery -name RunManager -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name RunManager --output ../internal/mocks/ --case=underscore
 
 // RunManager supplies methods for queueing, resuming and cancelling jobs in
 // the RunQueue
@@ -246,7 +246,8 @@ func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) err
 	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
+			err := rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
+			logger.ErrorIf(err, "failed when run manager updates with error")
 			return
 		}
 
@@ -276,7 +277,8 @@ func (rm *runManager) ResumeAllPendingConnection() error {
 
 		currentTaskRun := run.NextTaskRun()
 		if currentTaskRun == nil {
-			rm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
+			err := rm.updateWithError(run, "Attempting to resume connecting run with no remaining tasks %s", run.ID)
+			logger.ErrorIf(err, "failed when run manager updates with error")
 			return
 		}
 

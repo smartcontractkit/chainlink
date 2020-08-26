@@ -188,7 +188,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
-	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
+	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.ToAddress.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
 	initr := j.Initiators[0]
@@ -266,7 +266,7 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 
 	adapter4, _ := adapters.For(j.Tasks[3], app.Store.Config, app.Store.ORM)
 	signTx := adapter4.BaseAdapter.(*adapters.EthTx)
-	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.Address.String())
+	assert.Equal(t, "0x356a04bCe728ba4c62A30294A55E6A8600a320B3", signTx.ToAddress.String())
 	assert.Equal(t, "0x609ff1bd", signTx.FunctionSelector.String())
 
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
@@ -487,12 +487,75 @@ func TestJobSpecsController_Show(t *testing.T) {
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
 	require.Len(t, j.Initiators, 1)
 	require.Len(t, respJob.Initiators, 1)
+	require.Len(t, respJob.Errors, 1)
 	assert.Equal(t, j.Initiators[0].Schedule, respJob.Initiators[0].Schedule, "should have the same schedule")
+}
+
+func TestJobSpecsController_Show_FluxMonitorJob(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	j := cltest.NewJobWithFluxMonitorInitiator()
+	app.Store.CreateJob(&j)
+
+	resp, cleanup := client.Get("/v2/specs/" + j.ID.String())
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	var respJob presenters.JobSpec
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
+	require.Equal(t, len(respJob.Initiators), len(j.Initiators))
+	require.Equal(t, respJob.Initiators[0].Address, j.Initiators[0].Address)
+	require.Equal(t, respJob.Initiators[0].RequestData, j.Initiators[0].RequestData)
+	require.Equal(t, respJob.Initiators[0].Feeds, j.Initiators[0].Feeds)
+	require.Equal(t, respJob.Initiators[0].Threshold, j.Initiators[0].Threshold)
+	require.Equal(t, respJob.Initiators[0].AbsoluteThreshold, j.Initiators[0].AbsoluteThreshold)
+	require.Equal(t, respJob.Initiators[0].IdleTimer, j.Initiators[0].IdleTimer)
+	require.Equal(t, respJob.Initiators[0].PollTimer, j.Initiators[0].PollTimer)
+	require.Equal(t, respJob.Initiators[0].Precision, j.Initiators[0].Precision)
+}
+
+func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	// Create a task with multiple jobs
+	j := cltest.NewJobWithWebInitiator()
+	j.Tasks = []models.TaskSpec{
+		models.TaskSpec{Type: models.MustNewTaskType("Task1")},
+		models.TaskSpec{Type: models.MustNewTaskType("Task2")},
+		models.TaskSpec{Type: models.MustNewTaskType("Task3")},
+		models.TaskSpec{Type: models.MustNewTaskType("Task4")},
+	}
+	assert.NoError(t, app.Store.CreateJob(&j))
+
+	resp, cleanup := client.Get("/v2/specs/" + j.ID.String())
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	var respJob presenters.JobSpec
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respJob))
+	assert.Equal(t, string(respJob.Tasks[0].Type), "task1")
+	assert.Equal(t, string(respJob.Tasks[1].Type), "task2")
+	assert.Equal(t, string(respJob.Tasks[2].Type), "task3")
+	assert.Equal(t, string(respJob.Tasks[3].Type), "task4")
 }
 
 func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication) *models.JobSpec {
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
 	app.Store.CreateJob(&j)
+
+	app.Store.UpsertErrorFor(j.ID, "job spec error description")
 
 	jr1 := cltest.NewJobRun(j)
 	assert.Nil(t, app.Store.CreateJobRun(&jr1))
@@ -536,7 +599,7 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 	defer cleanup()
 
-	resp, err := http.Get(app.Server.URL + "/v2/specs/" + "garbage")
+	resp, err := http.Get(app.Server.URL + "/v2/specs/garbage")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Response should be forbidden")
 }

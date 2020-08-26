@@ -1,7 +1,7 @@
 pragma solidity 0.4.24;
 
 import "./ChainlinkClient.sol";
-import "./interfaces/HistoricAggregatorInterface.sol";
+import "./interfaces/AggregatorInterface.sol";
 import "./vendor/SignedSafeMath.sol";
 import "./vendor/Ownable.sol";
 
@@ -11,7 +11,7 @@ import "./vendor/Ownable.sol";
  * requests to multiple Chainlink nodes and running aggregation
  * as the contract receives answers.
  */
-contract Aggregator is HistoricAggregatorInterface, ChainlinkClient, Ownable {
+contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   using SignedSafeMath for int256;
 
   struct Answer {
@@ -242,6 +242,7 @@ contract Aggregator is HistoricAggregatorInterface, ChainlinkClient, Ownable {
    */
   function latestAnswer()
     external
+    view
     returns (int256)
   {
     return currentAnswers[latestCompletedAnswer];
@@ -252,6 +253,7 @@ contract Aggregator is HistoricAggregatorInterface, ChainlinkClient, Ownable {
    */
   function latestTimestamp()
     external
+    view
     returns (uint256)
   {
     return updatedTimestamps[latestCompletedAnswer];
@@ -263,6 +265,7 @@ contract Aggregator is HistoricAggregatorInterface, ChainlinkClient, Ownable {
    */
   function getAnswer(uint256 _roundId)
     external
+    view
     returns (int256)
   {
     return currentAnswers[_roundId];
@@ -274,6 +277,7 @@ contract Aggregator is HistoricAggregatorInterface, ChainlinkClient, Ownable {
    */
   function getTimestamp(uint256 _roundId)
     external
+    view
     returns (uint256)
   {
     return updatedTimestamps[_roundId];
@@ -284,6 +288,7 @@ contract Aggregator is HistoricAggregatorInterface, ChainlinkClient, Ownable {
    */
   function latestRound()
     external
+    view
     returns (uint256)
   {
     return latestCompletedAnswer;

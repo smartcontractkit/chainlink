@@ -24,9 +24,15 @@ var (
 		Name: "stats_pusher_events_sent",
 		Help: "The number of events pushed up to explorer",
 	})
+
+	gormCallbacksMutex *sync.RWMutex
 )
 
-//go:generate mockery -name StatsPusher -output ../../internal/mocks/ -case=underscore
+func init() {
+	gormCallbacksMutex = new(sync.RWMutex)
+}
+
+//go:generate mockery --name StatsPusher --output ../../internal/mocks/ --case=underscore
 
 // StatsPusher polls for events and pushes them via a WebSocketClient. Events
 // are consumed by the Explorer. Currently there is only one event type: an
@@ -175,7 +181,9 @@ func (sp *statsPusher) pusherLoop(parentCtx context.Context) error {
 }
 
 func (sp *statsPusher) pushEvents() error {
-	err := sp.ORM.AllSyncEvents(func(event *models.SyncEvent) error {
+	gormCallbacksMutex.RLock()
+	defer gormCallbacksMutex.RUnlock()
+	err := sp.ORM.AllSyncEvents(func(event models.SyncEvent) error {
 		return sp.syncEvent(event)
 	})
 
@@ -187,7 +195,7 @@ func (sp *statsPusher) pushEvents() error {
 	return nil
 }
 
-func (sp *statsPusher) syncEvent(event *models.SyncEvent) error {
+func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 	sp.WSClient.Send([]byte(event.Body))
 	numberEventsSent.Inc()
 
@@ -237,7 +245,7 @@ func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Sco
 		presenter := SyncJobRunPresenter{run}
 		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
-			scope.Err(errors.Wrap(err, "createSyncEvent#json.Marshal failed"))
+			_ = scope.Err(errors.Wrap(err, "createSyncEvent#json.Marshal failed"))
 			return
 		}
 
@@ -246,16 +254,8 @@ func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Sco
 		}
 		err = scope.DB().Create(&event).Error
 		if err != nil {
-			scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
+			_ = scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
 			return
 		}
 	}
-}
-
-var (
-	gormCallbacksMutex *sync.Mutex
-)
-
-func init() {
-	gormCallbacksMutex = new(sync.Mutex)
 }

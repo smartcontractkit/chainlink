@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 )
 
 // RandomnessLogEvent provides functionality specific to a log event emitted
@@ -19,7 +18,7 @@ var _ LogRequest = RandomnessLogEvent{} // implements LogRequest interface
 // and the go-ethereum parser should prevent any invalid logs from reacching
 // this point, so Validate emits an error log on failure.
 func (le RandomnessLogEvent) Validate() bool {
-	_, err := vrf.ParseRandomnessRequestLog(le.Log)
+	_, err := ParseRandomnessRequestLog(le.Log)
 	switch {
 	case err != nil:
 		logger.Errorf("error while parsing RandomnessRequest log: %s on log %#+v",
@@ -46,7 +45,7 @@ func (le RandomnessLogEvent) ValidateRequester() error {
 
 // Requester pulls the requesting address out of the LogEvent's topics.
 func (le RandomnessLogEvent) Requester() common.Address {
-	log, err := vrf.ParseRandomnessRequestLog(le.Log)
+	log, err := ParseRandomnessRequestLog(le.Log)
 	if err != nil {
 		logger.Errorf("error while parsing RandomnessRequest log: %s on log %#+v",
 			err, le.Log)
@@ -58,7 +57,7 @@ func (le RandomnessLogEvent) Requester() common.Address {
 // RunRequest returns a RunRequest instance with all parameters
 // from a run log topic, like RequestID.
 func (le RandomnessLogEvent) RunRequest() (RunRequest, error) {
-	parsedLog, err := vrf.ParseRandomnessRequestLog(le.Log)
+	parsedLog, err := ParseRandomnessRequestLog(le.Log)
 	if err != nil {
 		return RunRequest{}, errors.Wrapf(err,
 			"while parsing log for VRF run request")
@@ -69,7 +68,7 @@ func (le RandomnessLogEvent) RunRequest() (RunRequest, error) {
 			"while parsing request params for VRF run request")
 	}
 
-	requestID := parsedLog.RequestID()
+	requestID := parsedLog.RequestID
 	requester := le.Requester()
 	return RunRequest{
 		RequestID:     &requestID,

@@ -27,6 +27,7 @@ else
 endif
 
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
+ECR_REPO := "$(AWS_ECR_ACCOUNT_URL):$(DOCKER_TAG)"
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -56,14 +57,21 @@ yarndep: ## Ensure all yarn dependencies are installed
 gen-builder-cache: gomod # generate a cache for the builder image
 	yarn install --frozen-lockfile
 	./tools/bin/restore-solc-cache
-	
+
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
 chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/eth" ## embed contracts in .go file
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
+
+.PHONY: chainlink-build
+chainlink-build:
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
+	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
+	go build $(GOFLAGS) -o chainlink ./core/
+	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
@@ -71,11 +79,20 @@ operator-ui: ## Build the static frontend UI.
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
+.PHONY: contracts-operator-ui-build
+contracts-operator-ui-build: # only compiles tsc and builds contracts and operator-ui
+	yarn setup:chainlink
+	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
+
+.PHONY: abigen
+abigen:
+	./tools/bin/build_abigen
+
 .PHONY: go-solidity-wrappers
-go-solidity-wrappers: ## Recompiles solidity contracts and their go wrappers
+go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers
 	yarn workspace @chainlink/contracts compile
-	go generate ./...
-	go run ./packr/main.go ./core/eth/
+	go generate ./core/internal/gethwrappers
+	go run ./packr/main.go ./core/services/eth/
 
 .PHONY: testdb
 testdb: ## Prepares the test database
@@ -94,6 +111,7 @@ docker: ## Build the docker image.
 .PHONY: dockerpush
 dockerpush: ## Push the docker image to dockerhub
 	docker push $(TAGGED_REPO)
+	docker push $(ECR_REPO)
 
 .PHONY: $(SGX_ENCLAVE)
 $(SGX_ENCLAVE):

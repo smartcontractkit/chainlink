@@ -1,7 +1,8 @@
-GETH_VERSION: 1.9.12
-flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json f1e5411a1c2c97a2f14a986f158a752bb3a13cb410ffdd674a8dba1afb53cf67
-link_token_interface: ./generation/../../../../evm-test-helpers/src/LinkToken.json a16bfa4690d25769959dd59034f03d101a46ecbf7e774a57ca6874f8352c8568
-solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json f0216e71d1bfeb6f85efe231e3ba9e751fb23b04b2a0d233b5edbd010d9488ec
-solidity_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json 1b1736395f3b4c1fb90eab2fcadd0529a0f093ccb279fda1d0759a7164ef5674
-solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json 7728afcea4e5cc711dd316fc479b1b6aea063a7107ca2afac9a9fe06431aa269
-solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json 16c1067441860757825991d8bd5dc3eac71b013a19a60e94ed9dcfb27f922215
+GETH_VERSION: 1.9.18
+flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json 518a47085bbbe1ed966a44597f5a0e90c210db1091207d2535302b94f58ea187
+solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
+solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json 182988dd1777d7d6def0212703b4e089ad9347791c300d5b4733ec12967883cf
+solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json d089593178c41de40ef86f63879582d6b22a5d47fb10eea671d2b0cd54cb45c8
+solidity_vrf_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
+solidity_vrf_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json 7f91b75e89d021f038cc44ffc531ef60436c7b9e23f632ec57238ec61a2df517
+vrf_testnet_d20: ../../../evm-contracts/abi/v0.6/VRFTestnetD20.json 63b798c5c80a0446e850a534a882c19d65f15d5e80ca0c7c3430441de38db307

@@ -13,13 +13,18 @@ export interface FeedConfig {
   heartbeat?: number
   compareOffchain?: string
   healthPrice?: string
-  multiply?: string
-  sponsored?: string[]
-  decimalPlaces?: number
-  contractVersion: 1 | 2 | 3
+  multiply: string
+  sponsored: string[]
+  decimalPlaces: number
+  formatDecimalPlaces: number
+  contractVersion: number
+
+  // extra config for custom contracts
+  historyDays?: number
 }
 
 export interface OracleNode {
+  oracleAddress: string
   address: string
   name: string
   networkId: number

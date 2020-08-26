@@ -16,6 +16,23 @@ import mcdex from './mcdex.png'
 import futureswap from './futureswap.png'
 import linkpool from './linkpool.png'
 import opium from './opium.png'
+import theforceprotocol from './theforceprotocol.png'
+import kyber from './kyber.png'
+import orchid from './orchid.png'
+import tornadoCash from './tornadocash.png'
+import bamboorelay from './bamboorelay.png'
+import bancor from './bancor.png'
+import bullionix from './bullionix.png'
+import gelato from './gelato.png'
+import wom from './wom.png'
+import consensuscell from './consensuscell.png'
+import digitix from './digitix.png'
+import ens from './ens.png'
+import gamerhash from './gamerhash.png'
+import sandbank from './sandbank.png'
+import plasm from './plasm.png'
+import swipe from './swipe.png'
+import hxro from './hxro.png'
 
 // Listing Thumbnails
 
@@ -35,6 +52,23 @@ import mcdexTn from './mcdex_tn.png'
 import futureswapTn from './futureswap_tn.png'
 import linkpoolTn from './linkpool_tn.png'
 import opiumTn from './opium_tn.png'
+import theforceprotocolTn from './theforceprotocol_tn.png'
+import kyberTn from './kyber_tn.png'
+import orchidTn from './orchid_tn.png'
+import tornadoCashTn from './tornadocash_tn.png'
+import bamboorelayTn from './bamboorelay_tn.png'
+import bancorTn from './bancor_tn.png'
+import bullionixTn from './bullionix_tn.png'
+import gelatoTn from './gelato_tn.png'
+import womTn from './wom_tn.png'
+import consensuscellTn from './consensuscell_tn.png'
+import digitixTn from './digitix_tn.png'
+import ensTn from './ens_tn.png'
+import gamerhashTn from './gamerhash_tn.png'
+import sandbankTn from './sandbank_tn.png'
+import plasmTn from './plasm_tn.png'
+import swipeTn from './swipe_tn.png'
+import hxroTn from './hxro_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -139,5 +173,107 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://trade.opium.exchange/',
     imageLg: opium,
     imageTn: opiumTn,
+  },
+  {
+    name: 'The Force Protocol',
+    url: 'https://www.theforceprotocol.com',
+    imageLg: theforceprotocol,
+    imageTn: theforceprotocolTn,
+  },
+  {
+    name: 'Kyber Network',
+    url: 'https://kyber.network/',
+    imageLg: kyber,
+    imageTn: kyberTn,
+  },
+  {
+    name: 'Orchid Network',
+    url: 'https://www.orchid.com/',
+    imageLg: orchid,
+    imageTn: orchidTn,
+  },
+  {
+    name: 'Tornado Cash',
+    url: 'https://tornado.cash',
+    imageLg: tornadoCash,
+    imageTn: tornadoCashTn,
+  },
+  {
+    name: 'Bamboo Relay',
+    url: 'https://bamboorelay.com',
+    imageLg: bamboorelay,
+    imageTn: bamboorelayTn,
+  },
+  {
+    name: 'Bancor',
+    url: 'https://www.bancor.network',
+    imageLg: bancor,
+    imageTn: bancorTn,
+  },
+  {
+    name: 'Bullionix',
+    url: 'https://bullionix.io',
+    imageLg: bullionix,
+    imageTn: bullionixTn,
+  },
+  {
+    name: 'Gelato',
+    url: 'https://gelato.network',
+    imageLg: gelato,
+    imageTn: gelatoTn,
+  },
+  {
+    name: 'WOM Protocol',
+    url: 'https://womprotocol.io',
+    imageLg: wom,
+    imageTn: womTn,
+  },
+  {
+    name: 'Consensus Cell',
+    url: 'https://www.cellnetwork.io',
+    imageLg: consensuscell,
+    imageTn: consensuscellTn,
+  },
+  {
+    name: 'DigiTix',
+    url: 'https://www.digitix.io',
+    imageLg: digitix,
+    imageTn: digitixTn,
+  },
+  {
+    name: 'ENS',
+    url: 'https://ens.domains',
+    imageLg: ens,
+    imageTn: ensTn,
+  },
+  {
+    name: 'Gamerhash',
+    url: 'https://gamerhash.com',
+    imageLg: gamerhash,
+    imageTn: gamerhashTn,
+  },
+  {
+    name: 'Sandbank',
+    url: 'https://sandbank.io',
+    imageLg: sandbank,
+    imageTn: sandbankTn,
+  },
+  {
+    name: 'Plasm Network',
+    url: 'https://www.plasmnet.io/',
+    imageLg: plasm,
+    imageTn: plasmTn,
+  },
+  {
+    name: 'Swipe',
+    url: 'https://swipe.io',
+    imageLg: swipe,
+    imageTn: swipeTn,
+  },
+  {
+    name: 'HXRO',
+    url: 'https://hxro.io',
+    imageLg: hxro,
+    imageTn: hxroTn,
   },
 ]

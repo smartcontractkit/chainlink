@@ -1,16 +1,17 @@
 pragma solidity 0.5.0;
 
-import "../vendor/CBOR.sol";
+import { CBOR as CBOR_Chainlink } from "../vendor/CBOR.sol";
+import { Buffer as Buffer_Chainlink } from "../vendor/Buffer.sol";
 
 library MaliciousChainlink {
-  using CBOR for Buffer.buffer;
+  using CBOR_Chainlink for Buffer_Chainlink.buffer;
 
   struct Request {
     bytes32 specId;
     address callbackAddress;
     bytes4 callbackFunctionId;
     uint256 nonce;
-    Buffer.buffer buf;
+    Buffer_Chainlink.buffer buf;
   }
 
   struct WithdrawRequest {
@@ -18,7 +19,7 @@ library MaliciousChainlink {
     address callbackAddress;
     bytes4 callbackFunctionId;
     uint256 nonce;
-    Buffer.buffer buf;
+    Buffer_Chainlink.buffer buf;
   }
 
   function initializeWithdraw(
@@ -27,7 +28,7 @@ library MaliciousChainlink {
     address _callbackAddress,
     bytes4 _callbackFunction
   ) internal pure returns (MaliciousChainlink.WithdrawRequest memory) {
-    Buffer.init(self.buf, 128);
+    Buffer_Chainlink.init(self.buf, 128);
     self.specId = _specId;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;

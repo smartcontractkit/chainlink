@@ -21,7 +21,7 @@ import (
 // For more information, see: https://github.com/ethereum/go-ethereum/issues/3731
 const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
 
-//go:generate mockery -name KeyStoreInterface -output ../internal/mocks/ -case=underscore
+//go:generate mockery --name KeyStoreInterface --output ../internal/mocks/ --case=underscore
 type KeyStoreInterface interface {
 	Accounts() []accounts.Account
 	Wallets() []accounts.Wallet
@@ -32,6 +32,7 @@ type KeyStoreInterface interface {
 	SignHash(hash common.Hash) (models.Signature, error)
 	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
 	GetAccounts() []accounts.Account
+	GetAccountByAddress(common.Address) (accounts.Account, error)
 
 	SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
@@ -143,4 +144,14 @@ func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
 // GetAccounts returns all accounts
 func (ks *KeyStore) GetAccounts() []accounts.Account {
 	return ks.Accounts()
+}
+
+// GetAccountByAddress returns the account matching the address provided, or an error if it is missing
+func (ks *KeyStore) GetAccountByAddress(address common.Address) (accounts.Account, error) {
+	for _, account := range ks.Accounts() {
+		if account.Address == address {
+			return account, nil
+		}
+	}
+	return accounts.Account{}, errors.New("no account found with that address")
 }

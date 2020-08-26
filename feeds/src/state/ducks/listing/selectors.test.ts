@@ -1,5 +1,5 @@
 import { partialAsFull } from '@chainlink/ts-helpers/src'
-import { feedGroups, answer } from './selectors'
+import { feedGroups, answer, answerTimestamp } from './selectors'
 import { FeedConfig } from 'config'
 import { AppState } from 'state/reducers'
 import { HealthCheck } from 'state/ducks/listing/reducers'
@@ -61,6 +61,29 @@ describe('state/ducks/listing/selectors', () => {
 
     it('returns undefined when there is no answer for the contract', () => {
       expect(answer(state, 'B')).toBeUndefined()
+    })
+  })
+
+  describe('answer timestamp', () => {
+    const feedA = partialAsFull<FeedConfig>({ contractAddress: 'A' })
+    const answersTimestamp: Record<FeedConfig['contractAddress'], number> = {
+      [feedA.contractAddress]: 1,
+    }
+    const healthChecks: Record<string, HealthCheck> = {}
+    const listingState = partialAsFull<AppState['listing']>({
+      answersTimestamp,
+      healthChecks,
+    })
+    const state = partialAsFull<AppState>({
+      listing: listingState,
+    })
+
+    it('returns the timestamp for the contract', () => {
+      expect(answerTimestamp(state, 'A')).toEqual(1)
+    })
+
+    it('returns undefined when there is no answer timestamp for the contract', () => {
+      expect(answerTimestamp(state, 'B')).toBeUndefined()
     })
   })
 })

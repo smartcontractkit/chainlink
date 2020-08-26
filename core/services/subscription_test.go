@@ -7,9 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/mock/gomock"
 
-	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -34,7 +32,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []ethpkg.Log{log})
+	eth.Register("eth_getLogs", []models.Log{log})
 	eth.RegisterSubscription("logs")
 
 	var count int32
@@ -85,8 +83,8 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	initr := job.Initiators[0]
 
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
-	eth.Register("eth_getLogs", []ethpkg.Log{log}) // backfill
-	logsChan := make(chan ethpkg.Log)
+	eth.Register("eth_getLogs", []models.Log{log}) // backfill
+	logsChan := make(chan models.Log)
 	eth.RegisterSubscription("logs", logsChan)
 
 	var count int32
@@ -119,7 +117,7 @@ func TestServices_ReceiveLogRequest_IgnoredLogWithRemovedFlag(t *testing.T) {
 
 	log := models.InitiatorLogEvent{
 		Initiator: jobSpec.Initiators[0],
-		Log: ethpkg.Log{
+		Log: models.Log{
 			Removed: true,
 		},
 	}
@@ -163,33 +161,6 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			hexutil.Bytes{},
 		},
 		{
-			"runlog v0 matching address",
-			"runlog",
-			sharedAddr,
-			sharedAddr,
-			models.RunLogTopic0original,
-			cltest.StringToVersionedLogData0(t,
-				"id",
-				`{"value":"100"}`,
-			),
-		},
-		{
-			"runlog v20190123 w/o address",
-			"runlog",
-			noAddr,
-			cltest.NewAddress(),
-			models.RunLogTopic20190123withFullfillmentParams,
-			cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`),
-		},
-		{
-			"runlog v20190123 matching address",
-			"runlog",
-			sharedAddr,
-			sharedAddr,
-			models.RunLogTopic20190123withFullfillmentParams,
-			cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`),
-		},
-		{
 			"runlog v20190207 w/o address",
 			"runlog",
 			noAddr,
@@ -213,8 +184,8 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []ethpkg.Log{})
-			logChan := make(chan ethpkg.Log, 1)
+			eth.Register("eth_getLogs", []models.Log{})
+			logChan := make(chan models.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			job := cltest.NewJob()
@@ -236,9 +207,9 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 
-			logChan <- ethpkg.Log{
+			logChan <- models.Log{
 				Address: test.logAddr,
-				Data:    ethpkg.UntrustedBytes(test.data),
+				Data:    models.UntrustedBytes(test.data),
 				Topics: []common.Hash{
 					test.topic0,
 					models.IDToTopic(job.ID),
@@ -268,9 +239,6 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 	}{
 		{
 			"runlog w non-matching topic",
-			cltest.StringToVersionedLogData20190123withFulfillmentParams(t, "id", `{"value":"100"}`)},
-		{
-			"runlog w non-matching topic",
 			cltest.StringToVersionedLogData20190207withoutIndexes(t, "id", cltest.NewAddress(), `{"value":"100"}`),
 		},
 	}
@@ -281,8 +249,8 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			defer cleanup()
 
 			eth := cltest.MockEthOnStore(t, store)
-			eth.Register("eth_getLogs", []ethpkg.Log{})
-			logChan := make(chan ethpkg.Log, 1)
+			eth.Register("eth_getLogs", []models.Log{})
+			logChan := make(chan models.Log, 1)
 			eth.RegisterSubscription("logs", logChan)
 
 			job := cltest.NewJob()
@@ -299,9 +267,9 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, subscription)
 
-			logChan <- ethpkg.Log{
+			logChan <- models.Log{
 				Address: sharedAddr,
-				Data:    ethpkg.UntrustedBytes(test.data),
+				Data:    models.UntrustedBytes(test.data),
 				Topics: []common.Hash{
 					common.Hash{},
 					models.IDToTopic(job.ID),
@@ -338,8 +306,8 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			txManager := new(mocks.TxManager)
-			store.TxManager = txManager
+			ethClient := new(mocks.Client)
+			store.EthClient = ethClient
 
 			currentHead := cltest.Head(test.currentHead)
 
@@ -356,8 +324,8 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
-			txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txManager.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
+			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
@@ -373,7 +341,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			<-executeJobChannel
 
-			txManager.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 			runManager.AssertExpectations(t)
 		})
 	}
@@ -397,10 +365,8 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			txmMock := new(mocks.TxManager)
-			store.TxManager = txmMock
+			ethClient := new(mocks.Client)
+			store.EthClient = ethClient
 
 			currentHead := cltest.Head(test.currentHead)
 
@@ -414,15 +380,16 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 				Addresses: []common.Address{initr.InitiatorParams.Address},
 				Topics: [][]common.Hash{
 					models.TopicsForInitiatorsWhichRequireJobSpecIDTopic[models.InitiatorRunLog],
-					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)}},
+					{models.IDToTopic(initr.JobSpecID), models.IDToHexTopic(initr.JobSpecID)},
+				},
 			}
 
-			receipt := cltest.TxReceiptFromFixture(t, "../eth/testdata/runlogReceipt.json")
+			receipt := cltest.TxReceiptFromFixture(t, "./eth/testdata/runlogReceipt.json")
 			log := receipt.Logs[3]
 			log.Topics[1] = models.IDToTopic(job.ID)
 
-			txmMock.On("SubscribeToLogs", mock.Anything, mock.Anything, expectedQuery).Return(cltest.EmptyMockSubscription(), nil)
-			txmMock.On("GetLogs", expectedQuery).Return([]ethpkg.Log{log}, nil)
+			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
+			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{*log}, nil)
 
 			executeJobChannel := make(chan struct{})
 
@@ -439,7 +406,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			<-executeJobChannel
 
 			runManager.AssertExpectations(t)
-			txmMock.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }

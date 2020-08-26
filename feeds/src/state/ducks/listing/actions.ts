@@ -1,90 +1,52 @@
 import { FeedConfig } from 'config'
+import {
+  FETCH_FEEDS_BEGIN,
+  FETCH_FEEDS_SUCCESS,
+  FETCH_FEEDS_ERROR,
+  ListingAnswer,
+  FETCH_ANSWER_SUCCESS,
+  FETCH_HEALTH_PRICE_SUCCESS,
+  ListingActionTypes,
+  FETCH_ANSWER_TIMESTAMP_SUCCESS,
+} from './types'
 
-/**
- * listing/FETCH_FEEDS_BEGIN
- */
-export interface FetchFeedsBeginAction {
-  type: 'listing/FETCH_FEEDS_BEGIN'
-}
-
-export function fetchFeedsBegin(): FetchFeedsBeginAction {
+export function fetchFeedsBegin(): ListingActionTypes {
   return {
-    type: 'listing/FETCH_FEEDS_BEGIN',
+    type: FETCH_FEEDS_BEGIN,
   }
 }
 
-/**
- * listing/FETCH_FEEDS_SUCCESS
- */
-export interface FetchFeedsSuccessAction {
-  type: 'listing/FETCH_FEEDS_SUCCESS'
-  payload: FeedConfig[]
-}
-
-export function fetchFeedsSuccess(
-  payload: FeedConfig[],
-): FetchFeedsSuccessAction {
+export function fetchFeedsSuccess(payload: FeedConfig[]): ListingActionTypes {
   return {
-    type: 'listing/FETCH_FEEDS_SUCCESS',
+    type: FETCH_FEEDS_SUCCESS,
     payload,
   }
 }
 
-/**
- * listing/FETCH_FEEDS_ERROR
- */
-export interface FetchFeedsErrorAction {
-  type: 'listing/FETCH_FEEDS_ERROR'
-  error: Error
-}
-
-export function fetchFeedsError(error: Error): FetchFeedsErrorAction {
+export function fetchFeedsError(error: Error): ListingActionTypes {
   return {
-    type: 'listing/FETCH_FEEDS_ERROR',
+    type: FETCH_FEEDS_ERROR,
     error,
   }
 }
 
-/**
- * listing/FETCH_ANSWER_SUCCESS
- */
-export interface ListingAnswer {
-  answer: string
-  config: FeedConfig
-}
-
-export interface FetchAnswerSuccessAction {
-  type: 'listing/FETCH_ANSWER_SUCCESS'
-  payload: ListingAnswer
-}
-
-export function fetchAnswerSuccess(
-  payload: ListingAnswer,
-): FetchAnswerSuccessAction {
+export function fetchAnswerSuccess(payload: ListingAnswer): ListingActionTypes {
   return {
-    type: 'listing/FETCH_ANSWER_SUCCESS',
+    type: FETCH_ANSWER_SUCCESS,
     payload,
   }
 }
 
-/**
- * listing/FETCH_HEALTH_PRICE_SUCCESS
- */
-export interface HealthPrice {
-  price: number
-  config: FeedConfig
-}
-
-export interface FetchHealthPriceSuccessAction {
-  type: 'listing/FETCH_HEALTH_PRICE_SUCCESS'
-  payload: HealthPrice
-}
-
-export function fetchHealthPriceSuccess(
-  payload: any,
-): FetchHealthPriceSuccessAction {
+export function fetchHealthPriceSuccess(payload: any): ListingActionTypes {
   return {
-    type: 'listing/FETCH_HEALTH_PRICE_SUCCESS',
+    type: FETCH_HEALTH_PRICE_SUCCESS,
+    payload,
+  }
+}
+
+export function fetchAnswerTimestampSuccess(payload: any): ListingActionTypes {
+  return {
+    type: FETCH_ANSWER_TIMESTAMP_SUCCESS,
     payload,
   }
 }

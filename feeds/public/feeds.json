@@ -1,17 +1,22 @@
 [
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "contractAddress": "0xF79D6aFBb6dA890132F9D7c355e3015f15F3406F",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "ETH / USD",
-    "valuePrefix": "$",
-    "pair": ["ETH", "USD"],
-    "heartbeat": 10800,
-    "path": "eth-usd",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
+    "heartbeat": 10800,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
+    "name": "ETH / USD",
+    "pair": [
+      "ETH",
+      "USD"
+    ],
+    "path": "eth-usd",
     "sponsored": [
       "Synthetix",
       "Loopring",
@@ -19,26 +24,39 @@
       "1inch",
       "ParaSwap",
       "MCDEX",
-      "Futureswap"
+      "Futureswap",
+      "DMM",
+      "Aave",
+      "The Force Protocol",
+      "DigiTix",
+      "Consensus Cell",
+      "ENS",
+      "Sandbank",
+      "Plasm Network",
+      "Swipe",
+      "HXRO"
     ],
     "threshold": 0.5,
-    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
-    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "contractAddress": "0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9",
     "contractType": "aggregator",
     "contractVersion": 1,
-    "name": "ETH / USD",
-    "valuePrefix": "$",
-    "pair": ["ETH", "USD"],
-    "heartbeat": 7200,
-    "path": "eth-usd-depreciated",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
     "multiply": "100000000",
+    "name": "ETH / USD (old)",
+    "pair": [
+      "ETH",
+      "USD"
+    ],
+    "path": "eth-usd-deprecated",
     "sponsored": [
       "Synthetix",
       "Loopring",
@@ -46,746 +64,1794 @@
       "1inch",
       "ParaSwap",
       "MCDEX",
-      "Futureswap"
+      "Futureswap",
+      "HXRO"
     ],
     "threshold": 0.5,
-    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
-    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
-    "listing": false
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
     "contractAddress": "0xF5fff180082d6017036B771bA883025c654BC935",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "BTC / USD",
-    "valuePrefix": "$",
-    "pair": ["BTC", "USD"],
-    "heartbeat": 10800,
-    "path": "btc-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 3,
-    "multiply": "100000000",
-    "sponsored": ["Synthetix"],
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin",
-    "listing": true
+    "heartbeat": 10800,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "BTC / USD",
+    "pair": [
+      "BTC",
+      "USD"
+    ],
+    "path": "btc-usd",
+    "sponsored": [
+      "Synthetix",
+      "Gamerhash",
+      "Sandbank",
+      "Plasm Network",
+      "HXRO"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/DAIUSDC/?exchange=COINBASE",
     "contractAddress": "0xa7D38FBD325a6467894A13EeFD977aFE558bC1f0",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "DAI / USD",
-    "valuePrefix": "$",
-    "pair": ["DAI", "USD"],
-    "path": "dai-usd",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 6,
-    "multiply": "100000000",
-    "sponsored": ["Futureswap"],
-    "threshold": 0.5,
-    "compareOffchain": "https://www.tradingview.com/symbols/DAIUSDC/?exchange=COINBASE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=dai",
-    "listing": true
+    "heartbeat": 86400,
+    "history": false,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "DAI / USD",
+    "pair": [
+      "DAI",
+      "USD"
+    ],
+    "path": "dai-usd",
+    "sponsored": [
+      "Futureswap",
+      "DMM"
+    ],
+    "threshold": 2,
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
     "contractAddress": "0x05Cf62c4bA0ccEA3Da680f9A8744Ac51116D6231",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "AUD / USD",
-    "valuePrefix": "$",
-    "pair": ["AUD", "USD"],
-    "heartbeat": 3600,
-    "path": "aud-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "AUD / USD",
+    "pair": [
+      "AUD",
+      "USD"
+    ],
+    "path": "aud-usd",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
     "contractAddress": "0x25Fa978ea1a7dc9bDc33a2959B9053EaE57169B5",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "EUR / USD",
-    "valuePrefix": "$",
-    "pair": ["EUR", "USD"],
-    "heartbeat": 3600,
-    "path": "eur-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "EUR / USD",
+    "pair": [
+      "EUR",
+      "USD"
+    ],
+    "path": "eur-usd",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
     "contractAddress": "0x02D5c618DBC591544b19d0bf13543c0728A3c4Ec",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "CHF / USD",
-    "valuePrefix": "$",
-    "pair": ["CHF", "USD"],
-    "heartbeat": 3600,
-    "path": "chf-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "CHF / USD",
+    "pair": [
+      "CHF",
+      "USD"
+    ],
+    "path": "chf-usd",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
     "contractAddress": "0x151445852B0cfDf6A4CC81440F2AF99176e8AD08",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "GBP / USD",
-    "valuePrefix": "$",
-    "pair": ["GBP", "USD"],
-    "heartbeat": 3600,
-    "path": "gbp-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "GBP / USD",
+    "pair": [
+      "GBP",
+      "USD"
+    ],
+    "path": "gbp-usd",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
     "contractAddress": "0xe1407BfAa6B5965BAd1C9f38316A3b655A09d8A6",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "JPY / USD",
-    "valuePrefix": "$",
-    "pair": ["JPY", "USD"],
-    "heartbeat": 3600,
-    "path": "jpy-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "JPY / USD",
+    "pair": [
+      "JPY",
+      "USD"
+    ],
+    "path": "jpy-usd",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
     "contractAddress": "0x8946A183BFaFA95BEcf57c5e08fE5B7654d2807B",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "XAG / USD",
-    "valuePrefix": "$",
-    "pair": ["XAG", "USD"],
-    "heartbeat": 3600,
-    "path": "xag-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "XAG / USD",
+    "pair": [
+      "XAG",
+      "USD"
+    ],
+    "path": "xag-usd",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
     "contractAddress": "0xafcE0c7b7fE3425aDb3871eAe5c0EC6d93E01935",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "XAU / USD",
-    "valuePrefix": "$",
-    "pair": ["XAU", "USD"],
-    "heartbeat": 3600,
-    "path": "xau-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "XAU / USD",
+    "pair": [
+      "XAU",
+      "USD"
+    ],
+    "path": "xau-usd",
+    "sponsored": [
+      "Synthetix",
+      "Bullionix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
     "contractAddress": "0x32dbd3214aC75223e27e575C53944307914F7a90",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "LINK / USD",
-    "valuePrefix": "$",
-    "pair": ["LINK", "USD"],
-    "path": "link-usd",
-    "networkId": 1,
-    "history": true,
     "decimalPlaces": 3,
-    "multiply": "100000000",
-    "sponsored": ["Set Protocol", "LinkPool"],
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
-    "listing": true
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "LINK / USD",
+    "pair": [
+      "LINK",
+      "USD"
+    ],
+    "path": "link-usd",
+    "sponsored": [
+      "Set Protocol",
+      "LinkPool"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
     "contractAddress": "0x8770Afe90c52Fd117f29192866DE705F63e59407",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "LRC / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["LRC", "ETH"],
-    "path": "lrc-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "sponsored": ["Loopring", "1inch", "ParaSwap"],
-    "threshold": 5,
-    "compareOffchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=loopring",
-    "listing": true
+    "heartbeat": 604800,
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "LRC / ETH",
+    "pair": [
+      "LRC",
+      "ETH"
+    ],
+    "path": "lrc-eth",
+    "sponsored": [
+      "Loopring",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/LENDETH/?exchange=BINANCE",
     "contractAddress": "0x1EeaF25f2ECbcAf204ECADc8Db7B0db9DA845327",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "LEND / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["LEND", "ETH"],
-    "path": "lend-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "name": "LEND / ETH",
+    "pair": [
+      "LEND",
+      "ETH"
+    ],
+    "path": "lend-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 2,
-    "compareOffchain": "https://www.tradingview.com/symbols/LENDETH/?exchange=BINANCE",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0x0133Aa47B6197D0BA090Bf2CD96626Eb71fFd13c",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "BTC / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["BTC", "ETH"],
-    "path": "btc-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=bitcoin",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx", "1inch", "ParaSwap"],
+    "name": "BTC / ETH",
+    "pair": [
+      "BTC",
+      "ETH"
+    ],
+    "path": "btc-eth",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Dolomite",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 2,
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
     "contractAddress": "0xDa3d675d50fF6C555973C4f0424964e1F6A4e7D3",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "MKR / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["MKR", "ETH"],
-    "path": "mkr-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=maker",
-    "listing": true
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "MKR / ETH",
+    "pair": [
+      "MKR",
+      "ETH"
+    ],
+    "path": "mkr-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/MANAETH/?exchange=BINANCE",
     "contractAddress": "0xc89c4ed8f52Bb17314022f6c0dCB26210C905C97",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "MANA / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["MANA", "ETH"],
-    "path": "mana-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "name": "MANA / ETH",
+    "pair": [
+      "MANA",
+      "ETH"
+    ],
+    "path": "mana-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 2,
-    "compareOffchain": "https://www.tradingview.com/symbols/MANAETH/?exchange=BINANCE",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
     "contractAddress": "0xd0e785973390fF8E77a83961efDb4F271E6B8152",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "KNC / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["KNC", "ETH"],
-    "path": "knc-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx", "1inch", "ParaSwap"],
-    "threshold": 2,
-    "compareOffchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=kyber-network",
-    "listing": true
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "KNC / ETH",
+    "pair": [
+      "KNC",
+      "ETH"
+    ],
+    "path": "knc-eth",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
     "contractAddress": "0xeCfA53A8bdA4F0c4dd39c55CC8deF3757aCFDD07",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "LINK / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["LINK", "ETH"],
-    "path": "link-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx", "1inch", "ParaSwap"],
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=chainlink",
-    "listing": true
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "LINK / ETH",
+    "pair": [
+      "LINK",
+      "ETH"
+    ],
+    "path": "link-eth",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0xdE54467873c3BCAA76421061036053e371721708",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "USDC / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["USDC", "ETH"],
-    "path": "usdc-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "name": "USDC / ETH",
+    "pair": [
+      "USDC",
+      "ETH"
+    ],
+    "path": "usdc-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "DMM",
+      "The Force Protocol",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
     "contractAddress": "0xb8b513d9cf440C1b6f5C7142120d611C94fC220c",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "REP / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["REP", "ETH"],
-    "path": "rep-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
-    "threshold": 2,
-    "compareOffchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=augur",
-    "listing": true
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "REP / ETH",
+    "pair": [
+      "REP",
+      "ETH"
+    ],
+    "path": "rep-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
     "contractAddress": "0xA0F9D94f060836756FFC84Db4C78d097cA8C23E8",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "ZRX / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["ZRX", "ETH"],
-    "path": "zrx-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx", "1inch", "ParaSwap"],
-    "threshold": 2,
-    "compareOffchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=0x",
-    "listing": true
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "ZRX / ETH",
+    "pair": [
+      "ZRX",
+      "ETH"
+    ],
+    "path": "zrx-eth",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
     "contractAddress": "0x9b4e2579895efa2b4765063310Dc4109a7641129",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "BAT / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["BAT", "ETH"],
-    "path": "bat-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
-    "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
-    "threshold": 2,
-    "compareOffchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
+    "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=basic-attention-token",
-    "listing": true
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "BAT / ETH",
+    "pair": [
+      "BAT",
+      "ETH"
+    ],
+    "path": "bat-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0x037E8F2125bF532F3e228991e051c8A7253B642c",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "DAI / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["DAI", "ETH"],
-    "path": "dai-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "Nexus Mutual", "bZx", "1inch", "ParaSwap", "Opium.exchange"],
+    "name": "DAI / ETH",
+    "pair": [
+      "DAI",
+      "ETH"
+    ],
+    "path": "dai-eth",
+    "sponsored": [
+      "Aave",
+      "Nexus Mutual",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Opium.exchange",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/DAIETH/?exchange=BITFINEX",
-    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=dai",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0x73ead35fd6A572EF763B13Be65a9db96f7643577",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "TUSD / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["TUSD", "ETH"],
-    "path": "tusd-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "name": "TUSD / ETH",
+    "pair": [
+      "TUSD",
+      "ETH"
+    ],
+    "path": "tusd-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.coingecko.com/en/coins/true-usd/eth",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0xa874fe207DF445ff19E7482C746C4D3fD0CB9AcE",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "USDT / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["USDT", "ETH"],
-    "path": "usdt-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "name": "USDT / ETH",
+    "pair": [
+      "USDT",
+      "ETH"
+    ],
+    "path": "usdt-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "The Force Protocol",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.coingecko.com/en/coins/tether/eth",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0x5d4BB541EED49D0290730b4aB332aA46bd27d888",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "BUSD / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["BUSD", "ETH"],
-    "path": "busd-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "name": "BUSD / ETH",
+    "pair": [
+      "BUSD",
+      "ETH"
+    ],
+    "path": "busd-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://nomics.com/markets/busd-binance-usd/eth-ethereum",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0x6d626Ff97f0E89F6f983dE425dc5B24A18DE26Ea",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "SUSD / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["SUSD", "ETH"],
-    "path": "susd-eth",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
     "multiply": "1000000000000000000",
-    "sponsored": ["Aave", "bZx", "1inch", "ParaSwap"],
+    "name": "SUSD / ETH",
+    "pair": [
+      "SUSD",
+      "ETH"
+    ],
+    "path": "susd-eth",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.coingecko.com/en/coins/susd/eth",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0xE23d1142dE4E83C08bb048bcab54d50907390828",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "SNX / ETH",
-    "valuePrefix": "Ξ",
-    "pair": ["SNX", "ETH"],
-    "path": "snx-eth",
-    "networkId": 1,
-    "history": false,
-    "multiply": "1000000000000000000",
     "decimalPlaces": 9,
-    "sponsored": ["Aave", "1inch", "ParaSwap"],
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "SNX / ETH",
+    "pair": [
+      "SNX",
+      "ETH"
+    ],
+    "path": "snx-eth",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 2,
-    "compareOffchain": "https://www.coingecko.com/en/coins/synthetix-network-token/eth",
-    "listing": true
+    "valuePrefix": "Ξ"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0xB836ADc21C241b096A98Dd677eD25a6E3EFA8e94",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "XHV / USD",
-    "valuePrefix": "$",
-    "pair": ["XHV", "USD"],
-    "path": "xhv-usd",
-    "networkId": 1,
-    "history": false,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": true,
+    "listing": true,
     "multiply": "100000000",
-    "decimalPlaces": 9,
-    "sponsored": ["Haven Protocol"],
+    "name": "XHV / USD",
+    "pair": [
+      "XHV",
+      "USD"
+    ],
+    "path": "xhv-usd",
+    "sponsored": [
+      "Haven Protocol"
+    ],
     "threshold": 2,
-    "compareOffchain": "https://www.coingecko.com/en/coins/haven/usd",
-    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=haven",
-    "listing": true
+    "valuePrefix": "$"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0x16924ae9C2ac6cdbC9D6bB16FAfCD38BeD560936",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "FTSE / GBP",
-    "valuePrefix": "£",
-    "pair": ["FTSE", "GBP"],
-    "heartbeat": 7200,
-    "path": "ftse-gbp",
-    "networkId": 1,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
     "history": false,
-    "decimalPlaces": 8,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "FTSE / GBP",
+    "pair": [
+      "FTSE",
+      "GBP"
+    ],
+    "path": "ftse-gbp",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.google.com/search?tbm=fin&q=INDEXFTSE:+UKX&stick=H4sIAAAAAAAAAONgecRowi3w8sc9YSntSWtOXmNU5eIKzsgvd80rySypFBLnYoOyeKW4uTj1c_UNjDJyzMp5FrHyefq5uEa4hQS7WimEekcAAMw2dBpKAAAA&sa=X&ved=2ahUKEwjzqpm3_szoAhVQrZ4KHVpsD1AQ3ecFMAB6BAgYEA0&biw=1728&bih=1417#scso=_E46HXuuBFve30PEPw7aEiAY1:0",
-    "listing": true
+    "valuePrefix": "£"
   },
   {
+    "compareOffchain": "",
     "contractAddress": "0x3f6E09A4EC3811765F5b2ad15c0279910dbb2c04",
     "contractType": "aggregator",
     "contractVersion": 2,
-    "name": "N225 / JPY",
-    "valuePrefix": "¥",
-    "pair": ["N225", "JPY"],
-    "heartbeat": 7200,
-    "path": "n225-jpy",
-    "networkId": 1,
-    "history": false,
     "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": false,
+    "listing": true,
     "multiply": "100000000",
-    "sponsored": ["Synthetix"],
+    "name": "N225 / JPY",
+    "pair": [
+      "N225",
+      "JPY"
+    ],
+    "path": "n225-jpy",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/INDEX-NKY",
-    "listing": true
+    "valuePrefix": "¥"
   },
   {
-    "contractAddress": "0xEa7302472d58761582408F8512C24fc5bb8DBB70",
+    "compareOffchain": "https://www.tradingview.com/symbols/OXTUSD/?exchange=COINBASE",
+    "contractAddress": "0x11eF34572CcaB4c85f0BAf03c36a14e0A9C8C7eA",
     "contractType": "aggregator",
-    "name": "BNB / USD",
-    "pair": ["BNB", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 1800,
-    "path": "bnb-usd",
-    "networkId": 3,
+    "contractVersion": 2,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=orchid-protocol",
+    "history": false,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "OXT / USD",
+    "pair": [
+      "OXT",
+      "USD"
+    ],
+    "path": "oxt-usd",
+    "sponsored": [
+      "Orchid Network"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x560B06e8897A0E52DbD5723271886BbCC5C1f52a",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
     "history": true,
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/BNBUSD/?exchange=BINANCE",
-    "listing": false
+    "listing": true,
+    "multiply": "100000000",
+    "name": "BNT / USD",
+    "pair": [
+      "BNT",
+      "USD"
+    ],
+    "path": "bnt-usd",
+    "sponsored": [
+      "Bancor"
+    ],
+    "threshold": 2,
+    "valuePrefix": "$"
   },
   {
-    "contractAddress": "0x1c44616CdB7FAe1ba69004ce6010248147CE019e",
+    "compareOffchain": "",
+    "contractAddress": "0xA417221ef64b1549575C977764E651c9FAB50141",
     "contractType": "aggregator",
-    "name": "BTC / USD",
-    "pair": ["BTC", "USD"],
-    "valuePrefix": "$",
+    "contractVersion": 2,
+    "decimalPlaces": 0,
+    "formatDecimalPlaces": 9,
+    "healthPrice": "",
+    "heartbeat": 7200,
+    "history": false,
+    "listing": true,
+    "multiply": "1",
+    "name": "Fast Gas / Gwei",
+    "pair": [
+      "Fast Gas",
+      "Gwei"
+    ],
+    "path": "fast-gas-gwei",
+    "sponsored": [
+      "Tornado Cash",
+      "Gelato"
+    ],
+    "threshold": 25,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xc95B41df94F3890122B2bcEf9005AFDe17773dB2",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
     "heartbeat": 3600,
-    "path": "btc-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 0.5,
-    "compareOffchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
-    "listing": false
-  },
-  {
-    "contractAddress": "0x46aD082e62D86089b7365320081685115F50d8B3",
-    "contractType": "aggregator",
-    "name": "SNX / USD",
-    "pair": ["SNX", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 1800,
-    "path": "snx-usd",
-    "networkId": 3,
-    "history": true,
+    "history": false,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "FTSE / GBP",
+    "pair": [
+      "FTSE",
+      "GBP"
+    ],
+    "path": "ftse-gbp2",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.coingecko.com/en/coins/synthetix-network-token/usd",
-    "listing": false
+    "valuePrefix": "£"
   },
   {
-    "contractAddress": "0x60289a8aa8ae8e2e2d03d5c1ad851a991cf29100",
-    "contractVersion": 2,
-    "contractType": "aggregator",
-    "name": "XTZ / USD",
-    "pair": ["XTZ", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 1800,
-    "path": "xtz-usd",
-    "networkId": 3,
-    "history": true,
+    "compareOffchain": "",
+    "contractAddress": "0x060f728deB96875F992C97414eFf2B3ef6c58EC7",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "SUSD / ETH",
+    "pair": [
+      "SUSD",
+      "ETH"
+    ],
+    "path": "susd-eth2",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/XTZUSD/?exchange=COINBASE",
-    "listing": false
+    "valuePrefix": "Ξ"
   },
   {
-    "contractAddress": "0x0Be00A19538Fac4BE07AC360C69378B870c412BF",
-    "contractType": "aggregator",
-    "name": "ETH / USD",
-    "pair": ["ETH", "USD"],
-    "valuePrefix": "$",
-    "path": "eth-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 0.5,
-    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
-    "listing": false
+    "compareOffchain": "https://www.tradingview.com/symbols/KNCETH/?exchange=BINANCE",
+    "contractAddress": "0x075Fe11b3Dd9c605f7fd09FF9310e3E37baaBC9e",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=kyber-network",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "KNC / ETH",
+    "pair": [
+      "KNC",
+      "ETH"
+    ],
+    "path": "knc-eth2",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   },
   {
-    "contractVersion": 2,
-    "contractAddress": "0xf230921e0bd70d5d3054aad25f8203e9853d5080",
-    "contractType": "aggregator",
-    "name": "MKR / USD",
-    "pair": ["MKR", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 1800,
-    "path": "mkr-usd",
-    "networkId": 3,
-    "history": true,
+    "compareOffchain": "",
+    "contractAddress": "0x00d02526CA08488342aB634de3B2d0050ecC7f60",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "USDC / ETH",
+    "pair": [
+      "USDC",
+      "ETH"
+    ],
+    "path": "usdc-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "DMM",
+      "The Force Protocol",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/MKRUSD/?exchange=BITFINEX",
-    "listing": false
+    "valuePrefix": "Ξ"
   },
   {
-    "contractVersion": 2,
-    "contractAddress": "0x4121c27b5bed6628b46493445108c34e130c996a",
-    "contractType": "aggregator",
-    "name": "TRX / USD",
-    "pair": ["TRX", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 1800,
-    "path": "trx-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/TRXUSD/?exchange=BITFINEX",
-    "listing": false
+    "compareOffchain": "https://www.tradingview.com/symbols/BATETH/?exchange=COINBASE",
+    "contractAddress": "0x3146392934Da3AE09447CD7Fe4061d8aa96B50ae",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=basic-attention-token",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "BAT / ETH",
+    "pair": [
+      "BAT",
+      "ETH"
+    ],
+    "path": "bat-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   },
   {
-    "contractVersion": 2,
-    "contractAddress": "0x1b7ce2481149328c5e00efa6daa82de8e24f078b",
-    "contractType": "aggregator",
-    "name": "AUD / USD",
-    "pair": ["AUD", "USD"],
-    "valuePrefix": "$",
+    "compareOffchain": "",
+    "contractAddress": "0x4Fa0655c09E0b5B2F50F1bd861B2d9BC63ccBBCB",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
     "heartbeat": 3600,
-    "path": "aud-usd",
-    "networkId": 3,
-    "history": true,
+    "history": false,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "N225 / JPY",
+    "pair": [
+      "N225",
+      "JPY"
+    ],
+    "path": "n225-jpy2",
+    "sponsored": [
+      "Synthetix"
+    ],
     "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
-    "listing": false
+    "valuePrefix": "¥"
   },
   {
-    "contractVersion": 2,
-    "contractAddress": "0xc8bc999deab18feca1c5fbd6bffe9975ac396402",
-    "contractType": "aggregator",
-    "name": "XAG / USD",
-    "pair": ["XAG", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 3600,
-    "path": "xag-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
-    "listing": false
-  },
-  {
-    "contractVersion": 2,
-    "contractAddress": "0xcd80a8f6915c78b3e65d30f94468547e021ccf9b",
-    "contractType": "aggregator",
-    "name": "CHF / USD",
-    "pair": ["CHF", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 3600,
-    "path": "chf-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
-    "listing": false
-  },
-  {
-    "contractVersion": 2,
-    "contractAddress": "0x174754491a4ca333bf777387b0926bc8ecaf7f6e",
-    "contractType": "aggregator",
-    "name": "GBP / USD",
-    "pair": ["GBP", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 3600,
-    "path": "gbp-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
-    "listing": false
-  },
-  {
-    "contractVersion": 2,
-    "contractAddress": "0xf45a5bb73124907e8c391c6a1001896f62f8f290",
-    "contractType": "aggregator",
-    "name": "XAU / USD",
-    "pair": ["XAU", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 3600,
-    "path": "xau-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
-    "listing": false
-  },
-  {
-    "contractVersion": 2,
-    "contractAddress": "0x152cfa5d0e11ab0355179cd812035c2c64d750bd",
-    "contractType": "aggregator",
-    "name": "EUR / USD",
-    "pair": ["EUR", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 3600,
-    "path": "eur-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 1,
-    "compareOffchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
-    "listing": false
-  },
-  {
-    "contractVersion": 2,
-    "contractAddress": "0xe3153d946c958e334285f4aa93c6a3d8f5dfbff7",
-    "contractType": "aggregator",
-    "name": "JPY / USD",
-    "pair": ["JPY", "USD"],
-    "valuePrefix": "$",
-    "heartbeat": 3600,
-    "path": "jpy-usd",
-    "networkId": 3,
-    "history": true,
-    "threshold": 1,
     "compareOffchain": "https://www.tradingview.com/symbols/JPYUSD/?exchange=FX_IDC",
-    "listing": false
+    "contractAddress": "0x87CFEA02C8322653a7335C6f72Be19ce54ECbFb5",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "JPY / USD",
+    "pair": [
+      "JPY",
+      "USD"
+    ],
+    "path": "jpy-usd2",
+    "sponsored": [
+      "Synthetix"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/MANAETH/?exchange=BINANCE",
+    "contractAddress": "0x3162C2De0C254B97d869a070929B518b5B9B56B3",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "MANA / ETH",
+    "pair": [
+      "MANA",
+      "ETH"
+    ],
+    "path": "mana-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xd866A07Dea5Ee3c093e21d33660b5579C21F140b",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "DAI / ETH",
+    "pair": [
+      "DAI",
+      "ETH"
+    ],
+    "path": "dai-eth2",
+    "sponsored": [
+      "Aave",
+      "Nexus Mutual",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Opium.exchange",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/ZRXETH/?exchange=BINANCE",
+    "contractAddress": "0xE03b49682965A1EB5230D41f96E10896dc563F0D",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=0x",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "ZRX / ETH",
+    "pair": [
+      "ZRX",
+      "ETH"
+    ],
+    "path": "zrx-eth2",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x1058a82C25F55aB8ab0cE717F3e6e164E80f1A0B",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "USDT / ETH",
+    "pair": [
+      "USDT",
+      "ETH"
+    ],
+    "path": "usdt-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "The Force Protocol",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x93d7bBf4CF42bDA5Bb86EaDFad09271040cc10e8",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "SNX / ETH",
+    "pair": [
+      "SNX",
+      "ETH"
+    ],
+    "path": "snx-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/GBPUSD/?exchange=FX_IDC",
+    "contractAddress": "0x3a6e27b663593E34a7FB80bA9544d9E8BAbdF001",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "GBP / USD",
+    "pair": [
+      "GBP",
+      "USD"
+    ],
+    "path": "gbp-usd2",
+    "sponsored": [
+      "Synthetix"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/LINKUSD/?exchange=COINBASE",
+    "contractAddress": "0x8cDE021F0BfA5f82610e8cE46493cF66AC04Af53",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "LINK / USD",
+    "pair": [
+      "LINK",
+      "USD"
+    ],
+    "path": "link-usd2",
+    "sponsored": [
+      "Set Protocol",
+      "LinkPool"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/XAGUSD/?exchange=FX_IDC",
+    "contractAddress": "0xF320E19B2ED82F1B226b006cD43FE600FEA56615",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "XAG / USD",
+    "pair": [
+      "XAG",
+      "USD"
+    ],
+    "path": "xag-usd2",
+    "sponsored": [
+      "Synthetix"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/REPETH/?exchange=BINANCE",
+    "contractAddress": "0x8e1BB728b37832754A260D99B5467fE6d164c068",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=augur",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "REP / ETH",
+    "pair": [
+      "REP",
+      "ETH"
+    ],
+    "path": "rep-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/LINKETH/?exchange=COINBASE",
+    "contractAddress": "0x7E6C635d6A53B5033D1B0ceE84ecCeA9096859e4",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=chainlink",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "LINK / ETH",
+    "pair": [
+      "LINK",
+      "ETH"
+    ],
+    "path": "link-eth2",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x0c632eC5982e3A8dC116a02ebA7A419efec170B1",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "TUSD / ETH",
+    "pair": [
+      "TUSD",
+      "ETH"
+    ],
+    "path": "tusd-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/BTCUSD/?exchange=COINBASE",
+    "contractAddress": "0xF570deEffF684D964dc3E15E1F9414283E3f7419",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin",
+    "heartbeat": 10800,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "BTC / USD",
+    "pair": [
+      "BTC",
+      "USD"
+    ],
+    "path": "btc-usd2",
+    "sponsored": [
+      "Synthetix",
+      "Gamerhash",
+      "Sandbank",
+      "Plasm Network",
+      "HXRO"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
+    "contractAddress": "0x00c7A37B03690fb9f41b5C5AF8131735C7275446",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
+    "heartbeat": 10800,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "ETH / USD",
+    "pair": [
+      "ETH",
+      "USD"
+    ],
+    "path": "eth-usd2",
+    "sponsored": [
+      "Synthetix",
+      "Loopring",
+      "OpenLaw",
+      "1inch",
+      "ParaSwap",
+      "MCDEX",
+      "Futureswap",
+      "DMM",
+      "Aave",
+      "The Force Protocol",
+      "DigiTix",
+      "Consensus Cell",
+      "ENS",
+      "Sandbank",
+      "Plasm Network",
+      "Swipe",
+      "HXRO"
+    ],
+    "threshold": 0.5,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/MKRETH/?exchange=BITFINEX",
+    "contractAddress": "0x204A6FE11De66aa463879f47F3533Dd87d47020D",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=maker",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "MKR / ETH",
+    "pair": [
+      "MKR",
+      "ETH"
+    ],
+    "path": "mkr-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/CHFUSD/?exchange=FX_IDC",
+    "contractAddress": "0xdf005CaD29AAC8b1170960807f99B62aaeD1bb0a",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "CHF / USD",
+    "pair": [
+      "CHF",
+      "USD"
+    ],
+    "path": "chf-usd2",
+    "sponsored": [
+      "Synthetix"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/EURUSD/?exchange=FX_IDC",
+    "contractAddress": "0x8f71c9c583248A11CAcBbC8FD0D5dFa483D3b109",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "EUR / USD",
+    "pair": [
+      "EUR",
+      "USD"
+    ],
+    "path": "eur-usd2",
+    "sponsored": [
+      "Synthetix"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x661BE809784E094eA70F980939Cf3f09337A3178",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "BUSD / ETH",
+    "pair": [
+      "BUSD",
+      "ETH"
+    ],
+    "path": "busd-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 1,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/LRCETH/?exchange=BINANCE",
+    "contractAddress": "0x174b0B72ca036b0b64F190Ed83630751195D3362",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=loopring",
+    "heartbeat": 604800,
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "LRC / ETH",
+    "pair": [
+      "LRC",
+      "ETH"
+    ],
+    "path": "lrc-eth2",
+    "sponsored": [
+      "Loopring",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xbD72DA70007E47AAf1BBD84918675392cf6885F7",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=bitcoin",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "BTC / ETH",
+    "pair": [
+      "BTC",
+      "ETH"
+    ],
+    "path": "btc-eth2",
+    "sponsored": [
+      "Aave",
+      "bZx",
+      "1inch",
+      "ParaSwap",
+      "Dolomite",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x9c6b454D42a69088719fF8B2Ab30C04808c8D061",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "XHV / USD",
+    "pair": [
+      "XHV",
+      "USD"
+    ],
+    "path": "xhv-usd2",
+    "sponsored": [
+      "Haven Protocol"
+    ],
+    "threshold": 2,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/AUDUSD/?exchange=FX_IDC",
+    "contractAddress": "0x3A33c0eFD0EB8fd38a6E1904dF1E32f95F67616b",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "AUD / USD",
+    "pair": [
+      "AUD",
+      "USD"
+    ],
+    "path": "aud-usd2",
+    "sponsored": [
+      "Synthetix"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/LENDETH/?exchange=BINANCE",
+    "contractAddress": "0x0a2539a614E28ddDD02ebF396D2611B4f7d552FC",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "history": false,
+    "listing": false,
+    "multiply": "1000000000000000000",
+    "name": "LEND / ETH",
+    "pair": [
+      "LEND",
+      "ETH"
+    ],
+    "path": "lend-eth2",
+    "sponsored": [
+      "Aave",
+      "1inch",
+      "ParaSwap",
+      "Kyber Network",
+      "Bamboo Relay"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://www.tradingview.com/symbols/XAUUSD/?exchange=FX_IDC",
+    "contractAddress": "0x06A7689149cf04DacFDE555d1e1EAD7dD7370316",
+    "contractType": "flux-aggregator",
+    "contractVersion": 3,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": true,
+    "listing": false,
+    "multiply": "100000000",
+    "name": "XAU / USD",
+    "pair": [
+      "XAU",
+      "USD"
+    ],
+    "path": "xau-usd2",
+    "sponsored": [
+      "Synthetix"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xB7B1C8F4095D819BDAE25e7a63393CDF21fd02Ea",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=republic-protocol",
+    "heartbeat": 86400,
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "REN / ETH",
+    "pair": [
+      "REN",
+      "ETH"
+    ],
+    "path": "ren-eth",
+    "sponsored": [
+      "Bancor",
+      "Aave"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x3E0De81e212eB9ECCD23bb3a9B0E1FAC6C8170fc",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=enjincoin",
+    "heartbeat": 86400,
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "ENJ / ETH",
+    "pair": [
+      "ENJ",
+      "ETH"
+    ],
+    "path": "enj-eth",
+    "sponsored": [
+      "Bancor",
+      "Aave"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x3dBb9Fa54eFc244e1823B5782Be8a08cC143ea5e",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=wom-token",
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "WOM / ETH",
+    "pair": [
+      "WOM",
+      "ETH"
+    ],
+    "path": "wom-eth",
+    "sponsored": [
+      "WOM Protocol"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eth&ids=yearn-finance",
+    "contractAddress": "0x2CbfD29947F774B8cF338f776915e6Fee052f236",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 3600,
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "YFI / ETH",
+    "pair": [
+      "YFI",
+      "ETH"
+    ],
+    "path": "yfi-eth",
+    "sponsored": [
+      "Opium.exchange"
+    ],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
+  },
+  {
+    "compareOffchain": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=sxp",
+    "contractAddress": "0x21f333fd6e4c63Ad826e47fa4249C9Fa18a335c1",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": false,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "SXP / USD",
+    "pair": [
+      "SXP",
+      "USD"
+    ],
+    "path": "sxp-usd",
+    "sponsored": [
+      "Swipe"
+    ],
+    "threshold": 1,
+    "valuePrefix": "$"
   }
 ]

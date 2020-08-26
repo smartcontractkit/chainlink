@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -16,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJobSubscriber_OnNewHead(t *testing.T) {
+func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -43,16 +42,16 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
-	jobSubscriber.OnNewHead(cltest.Head(1337))
+	jobSubscriber.OnNewLongestChain(*cltest.Head(1337))
 
 	// Make sure ResumeAllPendingNextBlock is reached before sending the next head
 	wg.Wait()
 
 	// This head should get dropped
-	jobSubscriber.OnNewHead(cltest.Head(1338))
+	jobSubscriber.OnNewLongestChain(*cltest.Head(1338))
 
 	// This head should get processed
-	jobSubscriber.OnNewHead(cltest.Head(1339))
+	jobSubscriber.OnNewLongestChain(*cltest.Head(1339))
 
 	// Unblock the channel
 	cltest.CallbackOrTimeout(t, "ResumeAllPendingNextBlock", func() {
@@ -67,7 +66,7 @@ func TestJobSubscriber_OnNewHead(t *testing.T) {
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
-	jobSubscriber.OnNewHead(cltest.Head(1340))
+	jobSubscriber.OnNewLongestChain(*cltest.Head(1340))
 
 	cltest.CallbackOrTimeout(t, "ResumeAllPendingNextBlock #2", func() {
 		<-resumeJobChannel
@@ -140,8 +139,8 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 
 	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_getLogs", []ethpkg.Log{})
-	eth.Register("eth_getLogs", []ethpkg.Log{})
+	eth.Register("eth_getLogs", []models.Log{})
+	eth.Register("eth_getLogs", []models.Log{})
 
 	jobSpec1 := cltest.NewJobWithLogInitiator()
 	jobSpec2 := cltest.NewJobWithLogInitiator()

@@ -124,3 +124,39 @@ export function eventExists(
 
   return event
 }
+
+/**
+ * Assert that an event doesnt exist
+ *
+ * @param receipt The contract receipt to find the event in
+ * @param eventDescription A description of the event to search by
+ */
+export function eventDoesNotExist(
+  receipt: ContractReceipt,
+  eventDescription: EventDescription,
+) {
+  const event = findEventIn(receipt, eventDescription)
+  if (event) {
+    throw Error(
+      `Found ${eventDescription.name} in transaction receipt, when expecting no instances`,
+    )
+  }
+}
+
+/**
+ * Assert that an event doesnt exist
+ *
+ * @param max The maximum allowable gas difference
+ * @param receipt1 The contract receipt to compare to
+ * @param receipt2 The contract receipt with a gas difference
+ */
+export function gasDiffLessThan(
+  max: number,
+  receipt1: ContractReceipt,
+  receipt2: ContractReceipt,
+) {
+  assert(receipt1, 'receipt1 is not present for gas comparison')
+  assert(receipt2, 'receipt2 is not present for gas comparison')
+  const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+  assert.isAbove(max, diff?.toNumber() || Infinity)
+}

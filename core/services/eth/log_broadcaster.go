@@ -6,20 +6,20 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
+	"github.com/tevino/abool"
 )
 
-//go:generate mockery -name LogBroadcaster -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name LogListener -output ../../internal/mocks/ -case=underscore
-//go:generate mockery -name LogBroadcast -output ../../internal/mocks/ -case=underscore
+//go:generate mockery --name LogBroadcaster --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name LogListener --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name LogBroadcast --output ../../internal/mocks/ --case=underscore
 
 // The LogBroadcaster manages log subscription requests for the Chainlink node.  Instead
 // of creating a new websocket subscription for each request, it multiplexes all subscriptions
@@ -27,7 +27,7 @@ import (
 // relevant subscribers.
 type LogBroadcaster interface {
 	utils.DependentAwaiter
-	Start()
+	Start() error
 	Register(address common.Address, listener LogListener) (connected bool)
 	Unregister(address common.Address, listener LogListener)
 	Stop()
@@ -42,12 +42,17 @@ type LogListener interface {
 	JobID() *models.ID
 }
 
+type ormInterface interface {
+	HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error)
+	MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID) error
+}
+
 type logBroadcaster struct {
-	ethClient     eth.Client
-	orm           *orm.ORM
+	ethClient     Client
+	orm           ormInterface
 	backfillDepth uint64
-	connected     bool
-	started       bool
+	connected     *abool.AtomicBool
+	started       *abool.AtomicBool
 
 	listeners        map[common.Address]map[LogListener]struct{}
 	chAddListener    chan registration
@@ -59,11 +64,13 @@ type logBroadcaster struct {
 }
 
 // NewLogBroadcaster creates a new instance of the logBroadcaster
-func NewLogBroadcaster(store *store.Store) LogBroadcaster {
+func NewLogBroadcaster(ethClient Client, orm ormInterface, backfillDepth uint64) LogBroadcaster {
 	return &logBroadcaster{
-		ethClient:        store.TxManager,
-		orm:              store.ORM,
-		backfillDepth:    store.Config.BlockBackfillDepth(),
+		ethClient:        ethClient,
+		orm:              orm,
+		backfillDepth:    backfillDepth,
+		connected:        abool.New(),
+		started:          abool.New(),
 		listeners:        make(map[common.Address]map[LogListener]struct{}),
 		chAddListener:    make(chan registration),
 		chRemoveListener: make(chan registration),
@@ -73,73 +80,61 @@ func NewLogBroadcaster(store *store.Store) LogBroadcaster {
 	}
 }
 
-// The LogBroadcast type wraps an eth.Log but provides additional functionality
+// The LogBroadcast type wraps an models.Log but provides additional functionality
 // for determining whether or not the log has been consumed and for marking
 // the log as consumed
 type LogBroadcast interface {
-	Log() interface{}
-	UpdateLog(eth.RawLog)
+	Log() Log
+	UpdateLog(Log)
 	WasAlreadyConsumed() (bool, error)
 	MarkConsumed() error
 }
 
+type Log interface {
+	RawLog() types.Log
+}
+
+type GethRawLog struct {
+	types.Log
+}
+
+func (rl GethRawLog) RawLog() types.Log { return rl.Log }
+
 type logBroadcast struct {
-	orm        *orm.ORM
-	log        eth.RawLog
+	orm        ormInterface
+	log        Log
 	consumerID *models.ID
 }
 
-func (lb *logBroadcast) Log() interface{} {
+func (lb *logBroadcast) Log() Log {
 	return lb.log
 }
 
-func (lb *logBroadcast) UpdateLog(newLog eth.RawLog) {
+func (lb *logBroadcast) UpdateLog(newLog Log) {
 	lb.log = newLog
 }
 
 func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
-	return lb.orm.HasConsumedLog(lb.log, lb.consumerID)
+	rawLog := lb.log.RawLog()
+	return lb.orm.HasConsumedLog(rawLog.BlockHash, rawLog.Index, lb.consumerID)
 }
 
 func (lb *logBroadcast) MarkConsumed() error {
-	lc := models.NewLogConsumption(lb.log, lb.consumerID)
-	return lb.orm.CreateLogConsumption(&lc)
+	rawLog := lb.log.RawLog()
+	return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.consumerID)
 }
 
+// A `registration` represents a LogListener's subscription to the logs of a
+// particular contract.
 type registration struct {
 	address  common.Address
 	listener LogListener
 }
 
-// A ManagedSubscription acts as wrapper for the eth.Subscription. Specifically, the
-// ManagedSubscription closes the log channel as soon as the unsubscribe request is made
-type ManagedSubscription interface {
-	Err() <-chan error
-	Logs() chan eth.Log
-	Unsubscribe()
-}
-
-type managedSubscription struct {
-	subscription eth.Subscription
-	chRawLogs    chan eth.Log
-}
-
-func (sub managedSubscription) Err() <-chan error {
-	return sub.subscription.Err()
-}
-
-func (sub managedSubscription) Logs() chan eth.Log {
-	return sub.chRawLogs
-}
-
-func (sub managedSubscription) Unsubscribe() {
-	sub.subscription.Unsubscribe()
-	close(sub.chRawLogs)
-}
-
-func (b *logBroadcaster) Start() {
+func (b *logBroadcaster) Start() error {
 	go b.awaitInitialSubscribers()
-	b.started = true
+	b.started.Set()
+	return nil
 }
 
 func (b *logBroadcaster) awaitInitialSubscribers() {
@@ -169,9 +164,9 @@ func (b *logBroadcaster) addresses() []common.Address {
 
 func (b *logBroadcaster) Stop() {
 	close(b.chStop)
-	if b.started {
+	if b.started.IsSet() {
 		<-b.chDone
-		b.started = false
+		b.started.UnSet()
 
 	}
 }
@@ -181,7 +176,7 @@ func (b *logBroadcaster) Register(address common.Address, listener LogListener) 
 	case b.chAddListener <- registration{address, listener}:
 	case <-b.chStop:
 	}
-	return b.connected
+	return b.connected.IsSet()
 }
 
 func (b *logBroadcaster) Unregister(address common.Address, listener LogListener) {
@@ -201,10 +196,10 @@ func (b *logBroadcaster) Unregister(address common.Address, listener LogListener
 func (b *logBroadcaster) startResubscribeLoop() {
 	defer close(b.chDone)
 
-	var subscription ManagedSubscription = newNoopSubscription()
+	var subscription managedSubscription = newNoopSubscription()
 	defer func() { subscription.Unsubscribe() }()
 
-	var chRawLogs chan eth.Log
+	var chRawLogs chan types.Log
 	for {
 		newSubscription, abort := b.createSubscription()
 		if abort {
@@ -238,17 +233,23 @@ func (b *logBroadcaster) startResubscribeLoop() {
 	}
 }
 
-func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan eth.Log, abort bool) {
+func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort bool) {
 	if len(b.listeners) == 0 {
-		ch := make(chan eth.Log)
+		ch := make(chan types.Log)
 		close(ch)
 		return ch, false
 	}
 
 	abort = utils.RetryWithBackoff(b.chStop, "backfilling logs", func() error {
-		latestBlock, err := b.ethClient.GetLatestBlock()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		latestBlock, err := b.ethClient.HeaderByNumber(ctx, nil)
 		if err != nil {
 			return err
+		} else if latestBlock == nil {
+			logger.Warn("got nil block header")
+			return errors.New("got nil block header")
 		}
 		currentHeight := uint64(latestBlock.Number)
 
@@ -264,12 +265,12 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan eth.Log, abort bo
 			Addresses: b.addresses(),
 		}
 
-		logs, err := b.ethClient.GetLogs(q)
+		logs, err := b.ethClient.FilterLogs(ctx, q)
 		if err != nil {
 			return err
 		}
 
-		chBackfilledLogs = make(chan eth.Log)
+		chBackfilledLogs = make(chan types.Log)
 		go b.deliverBackfilledLogs(logs, chBackfilledLogs)
 		return nil
 
@@ -277,7 +278,7 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan eth.Log, abort bo
 	return
 }
 
-func (b *logBroadcaster) deliverBackfilledLogs(logs []eth.Log, chBackfilledLogs chan<- eth.Log) {
+func (b *logBroadcaster) deliverBackfilledLogs(logs []types.Log, chBackfilledLogs chan<- types.Log) {
 	defer close(chBackfilledLogs)
 	for _, log := range logs {
 		select {
@@ -289,7 +290,7 @@ func (b *logBroadcaster) deliverBackfilledLogs(logs []eth.Log, chBackfilledLogs 
 }
 
 func (b *logBroadcaster) notifyConnect() {
-	b.connected = true
+	b.connected.Set()
 	for _, listeners := range b.listeners {
 		for listener := range listeners {
 			listener.OnConnect()
@@ -298,7 +299,7 @@ func (b *logBroadcaster) notifyConnect() {
 }
 
 func (b *logBroadcaster) notifyDisconnect() {
-	b.connected = false
+	b.connected.UnSet()
 	for _, listeners := range b.listeners {
 		for listener := range listeners {
 			listener.OnDisconnect()
@@ -306,7 +307,7 @@ func (b *logBroadcaster) notifyDisconnect() {
 	}
 }
 
-func (b *logBroadcaster) process(subscription eth.Subscription, chRawLogs <-chan eth.Log) (shouldResubscribe bool, _ error) {
+func (b *logBroadcaster) process(subscription managedSubscription, chRawLogs <-chan types.Log) (shouldResubscribe bool, _ error) {
 	// We debounce requests to subscribe and unsubscribe to avoid making too many
 	// RPC calls to the Ethereum node, particularly on startup.
 	var needsResubscribe bool
@@ -338,17 +339,38 @@ func (b *logBroadcaster) process(subscription eth.Subscription, chRawLogs <-chan
 	}
 }
 
-func (b *logBroadcaster) onRawLog(rawLog eth.Log) {
+func (b *logBroadcaster) onRawLog(rawLog types.Log) {
 	for listener := range b.listeners[rawLog.Address] {
 		// Ignore duplicate logs sent back due to reorgs
 		if rawLog.Removed {
 			continue
 		}
 
-		rawLogCopy := rawLog.Copy()
-		lb := logBroadcast{b.orm, &rawLogCopy, listener.JobID()}
-		listener.HandleLog(&lb, nil)
+		// Deep copy the log so that subscribers aren't sharing any state
+		rawLogCopy := copyLog(rawLog)
+		lb := &logBroadcast{log: GethRawLog{rawLogCopy}, orm: b.orm, consumerID: listener.JobID()}
+		listener.HandleLog(lb, nil)
 	}
+}
+
+func copyLog(l types.Log) types.Log {
+	var cpy types.Log
+	cpy.Address = l.Address
+	if l.Topics != nil {
+		cpy.Topics = make([]common.Hash, len(l.Topics))
+		copy(cpy.Topics, l.Topics)
+	}
+	if l.Data != nil {
+		cpy.Data = make([]byte, len(l.Data))
+		copy(cpy.Data, l.Data)
+	}
+	cpy.BlockNumber = l.BlockNumber
+	cpy.TxHash = l.TxHash
+	cpy.TxIndex = l.TxIndex
+	cpy.BlockHash = l.BlockHash
+	cpy.Index = l.Index
+	cpy.Removed = l.Removed
+	return cpy
 }
 
 func (b *logBroadcaster) onAddListener(r registration) (needsResubscribe bool) {
@@ -379,7 +401,7 @@ func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool
 // createSubscription creates a new log subscription starting at the current block.  If previous logs
 // are needed, they must be obtained through backfilling, as subscriptions can only be started from
 // the current head.
-func (b *logBroadcaster) createSubscription() (sub ManagedSubscription, abort bool) {
+func (b *logBroadcaster) createSubscription() (sub managedSubscription, abort bool) {
 	if len(b.listeners) == 0 {
 		return newNoopSubscription(), false
 	}
@@ -388,16 +410,16 @@ func (b *logBroadcaster) createSubscription() (sub ManagedSubscription, abort bo
 		filterQuery := ethereum.FilterQuery{
 			Addresses: b.addresses(),
 		}
-		chRawLogs := make(chan eth.Log)
+		chRawLogs := make(chan types.Log)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		innerSub, err := b.ethClient.SubscribeToLogs(ctx, chRawLogs, filterQuery)
+		innerSub, err := b.ethClient.SubscribeFilterLogs(ctx, filterQuery, chRawLogs)
 		if err != nil {
 			return err
 		}
 
-		sub = managedSubscription{
+		sub = managedSubscriptionImpl{
 			subscription: innerSub,
 			chRawLogs:    chRawLogs,
 		}
@@ -406,31 +428,57 @@ func (b *logBroadcaster) createSubscription() (sub ManagedSubscription, abort bo
 	return
 }
 
+// A managedSubscription acts as wrapper for the Subscription. Specifically, the
+// managedSubscription closes the log channel as soon as the unsubscribe request is made
+type managedSubscription interface {
+	Err() <-chan error
+	Logs() chan types.Log
+	Unsubscribe()
+}
+
+type managedSubscriptionImpl struct {
+	subscription ethereum.Subscription
+	chRawLogs    chan types.Log
+}
+
+func (sub managedSubscriptionImpl) Err() <-chan error {
+	return sub.subscription.Err()
+}
+
+func (sub managedSubscriptionImpl) Logs() chan types.Log {
+	return sub.chRawLogs
+}
+
+func (sub managedSubscriptionImpl) Unsubscribe() {
+	sub.subscription.Unsubscribe()
+	close(sub.chRawLogs)
+}
+
 type noopSubscription struct {
-	chRawLogs chan eth.Log
+	chRawLogs chan types.Log
 }
 
 func newNoopSubscription() noopSubscription {
-	return noopSubscription{make(chan eth.Log)}
+	return noopSubscription{make(chan types.Log)}
 }
 
-func (s noopSubscription) Err() <-chan error  { return nil }
-func (s noopSubscription) Logs() chan eth.Log { return s.chRawLogs }
-func (s noopSubscription) Unsubscribe()       { close(s.chRawLogs) }
+func (s noopSubscription) Err() <-chan error    { return nil }
+func (s noopSubscription) Logs() chan types.Log { return s.chRawLogs }
+func (s noopSubscription) Unsubscribe()         { close(s.chRawLogs) }
 
 // DecodingLogListener receives raw logs from the LogBroadcaster and decodes them into
 // Go structs using the provided ContractCodec (a simple wrapper around a go-ethereum
 // ABI type).
 type decodingLogListener struct {
 	logTypes map[common.Hash]reflect.Type
-	codec    eth.ContractCodec
+	codec    ContractCodec
 	LogListener
 }
 
 var _ LogListener = (*decodingLogListener)(nil)
 
 // NewDecodingLogListener creates a new decodingLogListener
-func NewDecodingLogListener(codec eth.ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener LogListener) LogListener {
+func NewDecodingLogListener(codec ContractCodec, nativeLogTypes map[common.Hash]Log, innerListener LogListener) LogListener {
 	logTypes := make(map[common.Hash]reflect.Type)
 	for eventID, logStruct := range nativeLogTypes {
 		logTypes[eventID] = reflect.TypeOf(logStruct)
@@ -449,9 +497,9 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 		return
 	}
 
-	rawLog, is := lb.Log().(*eth.Log)
+	rawLog, is := lb.Log().(GethRawLog)
 	if !is {
-		panic("DecodingLogListener expects to receive a logBroadcast with a *eth.Log")
+		panic("DecodingLogListener expects to receive a logBroadcast with a GethRawLog")
 	}
 
 	if len(rawLog.Topics) == 0 {
@@ -464,16 +512,20 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 		return
 	}
 
-	var decodedLog eth.RawLog
+	var decodedLog Log
+	var ok bool
 	if logType.Kind() == reflect.Ptr {
-		decodedLog = reflect.New(logType.Elem()).Interface().(eth.RawLog)
+		decodedLog, ok = reflect.New(logType.Elem()).Interface().(Log)
 	} else {
-		decodedLog = reflect.New(logType).Interface().(eth.RawLog)
+		decodedLog, ok = reflect.New(logType).Interface().(Log)
+	}
+	if !ok {
+		panic("DecodingLogListener expects a Rawlog logType")
 	}
 
 	// Insert the raw log into the ".Log" field
 	logStructV := reflect.ValueOf(decodedLog).Elem()
-	logStructV.FieldByName("Log").Set(reflect.ValueOf(*rawLog))
+	logStructV.FieldByName("GethRawLog").Set(reflect.ValueOf(rawLog))
 
 	// Decode the raw log into the struct
 	event, err := l.codec.ABI().EventByID(eventID)
@@ -481,7 +533,7 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 		l.LogListener.HandleLog(nil, err)
 		return
 	}
-	err = l.codec.UnpackLog(decodedLog, event.RawName, *rawLog)
+	err = l.codec.UnpackLog(decodedLog, event.RawName, rawLog.Log)
 	if err != nil {
 		l.LogListener.HandleLog(nil, err)
 		return
@@ -491,12 +543,12 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 	l.LogListener.HandleLog(lb, nil)
 }
 
-func appendLogChannel(ch1, ch2 <-chan eth.Log) chan eth.Log {
+func appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log {
 	if ch1 == nil && ch2 == nil {
 		return nil
 	}
 
-	chCombined := make(chan eth.Log)
+	chCombined := make(chan types.Log)
 
 	go func() {
 		defer close(chCombined)

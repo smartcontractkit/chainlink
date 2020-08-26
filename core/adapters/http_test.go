@@ -3,6 +3,9 @@ package adapters_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -132,7 +135,7 @@ func TestHTTP_TooLarge(t *testing.T) {
 			result := hga.Perform(input, store)
 
 			require.Error(t, result.Error())
-			assert.Equal(t, "All attempts fail:\n#1: HTTP response too large, must be less than 1 bytes", result.Error().Error())
+			assert.Contains(t, result.Error().Error(), "HTTP response too large")
 			assert.Equal(t, "", result.Result().String())
 		})
 	}
@@ -719,4 +722,127 @@ func TestHTTP_JSONDeserializationDoesNotSetAllowUnrestrictedNetworkAccess(t *tes
 	err = json.Unmarshal([]byte(`{"allowUnrestrictedNetworkAccess": true}`), &hpa)
 	require.NoError(t, err)
 	assert.False(t, hpa.AllowUnrestrictedNetworkAccess)
+}
+
+func TestHTTP_RetryPolicy(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Parallel()
+	str := leanStore()
+	input := cltest.NewRunInputWithResult("testRetryPolicy")
+
+	t.Run("don't retry if the response status is", func(t *testing.T) {
+		for _, statusCode := range []int{200, 300, 400} {
+			t.Run(strconv.Itoa(statusCode), func(t *testing.T) {
+				t.Parallel()
+				counter := uint32(0)
+				srv := httptest.NewServer(http.HandlerFunc(
+					func(w http.ResponseWriter, r *http.Request) {
+						atomic.AddUint32(&counter, 1)
+						w.WriteHeader(statusCode)
+					}))
+				defer srv.Close()
+				hga := makeHTTPGetAdapter(t, srv)
+				_ = hga.Perform(input, str)
+				if atomic.LoadUint32(&counter) != 1 {
+					t.Fatalf("expected retry count to be 1 for status %d but is %d", statusCode, counter)
+				}
+			})
+		}
+	})
+	t.Run("retry if the response is 5xx", func(t *testing.T) {
+		t.Parallel()
+		counter := uint32(0)
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddUint32(&counter, 1)
+				if counter <= 2 {
+					w.WriteHeader(500)
+					return
+				}
+				w.WriteHeader(200)
+			}))
+		defer srv.Close()
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		if atomic.LoadUint32(&counter) != 3 {
+			t.Fatalf("expected adapter to make 3 call, when the first 2 are 500s, instead it made %d calls", counter)
+		}
+	})
+	t.Run("don't retry if response body is too large", func(t *testing.T) {
+		t.Parallel()
+		counter := uint32(0)
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddUint32(&counter, 1)
+				w.WriteHeader(200)
+				largeBody := fillBlob(str.Config.DefaultHTTPLimit() + 10)
+				w.Write(largeBody)
+			}))
+		defer srv.Close()
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		if atomic.LoadUint32(&counter) != 1 {
+			t.Fatalf("expected adapter to give up when it receives a large response but instead it tried %d times", counter)
+		}
+	})
+	t.Run("retry maxAttempts times then give up", func(t *testing.T) {
+		t.Parallel()
+		var counter uint32 = 0
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddUint32(&counter, 1)
+				w.WriteHeader(500)
+			}))
+		defer srv.Close()
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		expected := str.Config.DefaultMaxHTTPAttempts()
+		if atomic.LoadUint32(&counter) != uint32(expected) {
+			t.Fatalf("expected adapter to give up after %d attempts but instead it tried %d times", expected, counter)
+		}
+	})
+	t.Run("retry if the server is broken", func(t *testing.T) {
+		t.Parallel()
+		var counter uint32 = 0
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddUint32(&counter, 1)
+				hj, ok := w.(http.Hijacker)
+				if !ok {
+					t.Fatalf("Unable to hijack response writer!")
+				}
+				conn, _, err := hj.Hijack()
+				if err != nil {
+					require.NoError(t, err)
+				}
+				conn.Close()
+			}))
+		defer srv.Close()
+		hga := makeHTTPGetAdapter(t, srv)
+		_ = hga.Perform(input, str)
+		expected := uint32(str.Config.DefaultMaxHTTPAttempts())
+		if atomic.LoadUint32(&counter) != expected {
+			t.Fatalf("expected adapter to try %d times but got %d when the server is broken", expected, counter)
+		}
+	})
+}
+
+// Helpers
+
+func makeHTTPGetAdapter(t *testing.T, server *httptest.Server) *adapters.HTTPGet {
+	return &adapters.HTTPGet{
+		URL:                            cltest.WebURL(t, server.URL),
+		AllowUnrestrictedNetworkAccess: true,
+	}
+}
+
+func fillBlob(size int64) []byte {
+	body := make([]byte, size)
+	var i int64
+	for i = 0; i < size; i++ {
+		body[i] = 'x'
+	}
+	return body
 }

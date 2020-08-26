@@ -318,7 +318,10 @@ func ValidPublicKey(p kyber.Point) bool {
 	if p == (*secp256k1Point)(nil) || p == nil {
 		return false
 	}
-	P := p.(*secp256k1Point)
+	P, ok := p.(*secp256k1Point)
+	if !ok {
+		return false
+	}
 	maybeY := maybeSqrtInField(rightHandSide(P.X))
 	return maybeY != nil && (P.Y.Equal(maybeY) || P.Y.Equal(maybeY.Neg(maybeY)))
 }

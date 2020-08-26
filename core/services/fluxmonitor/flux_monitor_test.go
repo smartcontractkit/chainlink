@@ -12,10 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	ethsvc "github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -24,14 +23,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-const oracleCount uint32 = 17
+const oracleCount uint8 = 17
 
 var (
 	submitHash     = utils.MustHash("submit(uint256,int256)")
@@ -68,13 +67,12 @@ func TestConcreteFluxMonitor_Start_withEthereumDisabled(t *testing.T) {
 			defer cleanup()
 			runManager := new(mocks.RunManager)
 
-			fm := fluxmonitor.New(store, runManager)
-			logBroadcaster := fm.(fluxmonitor.MockableLogBroadcaster).MockLogBroadcaster()
+			lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+			fm := fluxmonitor.New(store, runManager, lb)
 
 			err := fm.Start()
 			require.NoError(t, err)
 			defer fm.Stop()
-			assert.Equal(t, test.wantStarted, logBroadcaster.Started)
 		})
 	}
 }
@@ -85,8 +83,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 	txm := new(mocks.TxManager)
 	store.TxManager = txm
-	txm.On("GetLatestBlock").Return(eth.Block{Number: hexutil.Uint64(123)}, nil)
-	txm.On("GetLogs", mock.Anything).Return([]eth.Log{}, nil)
+	txm.On("FilterLogs", mock.Anything).Return([]models.Log{}, nil)
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()
@@ -100,7 +97,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		fm := fluxmonitor.New(store, runManager)
+		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		require.NoError(t, lb.Start())
+		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 		require.NoError(t, fm.Start())
 
@@ -132,7 +131,9 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		job := cltest.NewJobWithRunLogInitiator()
 		runManager := new(mocks.RunManager)
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		fm := fluxmonitor.New(store, runManager)
+		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		require.NoError(t, lb.Start())
+		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
 
 		err := fm.Start()
@@ -276,7 +277,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 					PaymentAmount:     paymentAmount,
 					OracleCount:       oracleCount,
 				}
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState, nil).Maybe()
+				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState, nil).Maybe()
 
 				if test.expectedToPoll {
 					fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil)
@@ -322,6 +323,48 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			})
 		}
 	}
+}
+
+// If the roundState method is unable to communicate with the contract (possibly due to
+// incorrect address) then the pollIfEligible method should create a JobSpecErr record
+func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	nodeAddr := ensureAccount(t, store)
+
+	rm := new(mocks.RunManager)
+	fetcher := new(mocks.Fetcher)
+	fluxAggregator := new(mocks.FluxAggregator)
+
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	roundState := contracts.FluxAggregatorRoundState{}
+	require.Len(t, job.Errors, 0)
+	err := store.CreateJob(&job)
+	require.NoError(t, err)
+
+	fluxAggregator.On("RoundState", nodeAddr, mock.Anything).Return(roundState, errors.New("err")).Once()
+	checker, err := fluxmonitor.NewPollingDeviationChecker(
+		store,
+		fluxAggregator,
+		initr,
+		nil,
+		rm,
+		fetcher,
+		func() {},
+	)
+	require.NoError(t, err)
+	checker.OnConnect()
+
+	checker.ExportedPollIfEligible(1, 1)
+
+	job, err = store.FindJobWithErrors(job.ID)
+	require.NoError(t, err)
+	require.Len(t, job.Errors, 1)
+
+	fluxAggregator.AssertExpectations(t)
+	fetcher.AssertExpectations(t)
+	rm.AssertExpectations(t)
 }
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
@@ -372,17 +415,17 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	chSafeToFillQueue := make(chan struct{})
 
 	fluxAggregator := new(mocks.FluxAggregator)
-	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
 	fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
-	fluxAggregator.On("RoundState", nodeAddr).
+	fluxAggregator.On("RoundState", nodeAddr, uint32(1)).
 		Return(makeRoundStateForRoundID(1), nil).
 		Run(func(mock.Arguments) {
 			close(chSafeToFillQueue)
 			<-chBlock
 		}).
 		Once()
-	fluxAggregator.On("RoundState", nodeAddr).Return(makeRoundStateForRoundID(3), nil).Once()
-	fluxAggregator.On("RoundState", nodeAddr).Return(makeRoundStateForRoundID(4), nil).Once()
+	fluxAggregator.On("RoundState", nodeAddr, uint32(3)).Return(makeRoundStateForRoundID(3), nil).Once()
+	fluxAggregator.On("RoundState", nodeAddr, uint32(4)).Return(makeRoundStateForRoundID(4), nil).Once()
 
 	fetcher := new(mocks.Fetcher)
 	fetcher.On("Fetch").Return(decimal.NewFromInt(fetchedValue), nil)
@@ -413,7 +456,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	for i := 1; i <= 4; i++ {
 		logBroadcast := new(mocks.LogBroadcast)
-		logBroadcast.On("Log").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i))})
+		logBroadcast.On("Log").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i)), StartedAt: big.NewInt(0)})
 		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
 		logBroadcast.On("MarkConsumed").Return(nil)
 		logBroadcasts = append(logBroadcasts, logBroadcast)
@@ -467,7 +510,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
-			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
 
 			idleDurationOccured := make(chan struct{}, 3)
 
@@ -475,8 +518,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 			if test.expectedToSubmit {
 				// idleDuration 1
-				roundState1 := contracts.FluxAggregatorRoundState{ReportableRoundID: 2, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
+				roundState1 := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
+				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
 					idleDurationOccured <- struct{}{}
 				})
 			}
@@ -500,22 +543,23 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				require.Eventually(t, func() bool { return len(idleDurationOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
 
 				chBlock := make(chan struct{})
-				// NewRound
-				roundState2 := contracts.FluxAggregatorRoundState{ReportableRoundID: 3, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
+				// NewRound resets the idle timer
+				roundState2 := contracts.FluxAggregatorRoundState{ReportableRoundID: 2, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
+				fluxAggregator.On("RoundState", nodeAddr, uint32(2)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
 					close(chBlock)
 				})
 
-				decodedLog := contracts.LogNewRound{RoundId: big.NewInt(1)}
+				decodedLog := contracts.LogNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
 				logBroadcast.On("Log").Return(&decodedLog)
 				logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
 				logBroadcast.On("MarkConsumed").Return(nil).Once()
 				deviationChecker.HandleLog(logBroadcast, nil)
 
-				<-chBlock
+				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
+
 				// idleDuration 2
-				roundState3 := contracts.FluxAggregatorRoundState{ReportableRoundID: 4, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
-				fluxAggregator.On("RoundState", nodeAddr).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
+				roundState3 := contracts.FluxAggregatorRoundState{ReportableRoundID: 3, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
+				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
 					idleDurationOccured <- struct{}{}
 				})
 				require.Eventually(t, func() bool { return len(idleDurationOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
@@ -549,16 +593,20 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	initr.PollTimer.Disabled = true
 	initr.IdleTimer.Disabled = true
 
+	ch := make(chan struct{})
+
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
-	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
-	fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+	fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
 		ReportableRoundID: 1,
 		EligibleToSubmit:  false,
 		LatestAnswer:      answerBigInt,
 		StartedAt:         0,
 		Timeout:           0,
-	}, nil).Once()
+	}, nil).
+		Run(func(mock.Arguments) { close(ch) }).
+		Once()
 
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
@@ -571,10 +619,12 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	)
 	require.NoError(t, err)
 
+	deviationChecker.ExportedRoundState()
 	deviationChecker.Start()
 	deviationChecker.OnConnect()
 
-	deviationChecker.ExportedPollIfEligible(0, 0)
+	gomega.NewGomegaWithT(t).Eventually(ch).Should(gomega.BeClosed())
+
 	deviationChecker.Stop()
 
 	fetcher.AssertExpectations(t)
@@ -601,24 +651,31 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
-	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, ethsvc.UnsubscribeFunc(func() {}), nil)
+	chRoundState1 := make(chan struct{})
+	chRoundState2 := make(chan struct{})
+
+	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
 
 	startedAt := uint64(time.Now().Unix())
 	timeout := uint64(3)
-	fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+	fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
 		ReportableRoundID: 1,
 		EligibleToSubmit:  false,
 		LatestAnswer:      answerBigInt,
 		StartedAt:         startedAt,
 		Timeout:           timeout,
-	}, nil).Once()
-	fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+	}, nil).Once().
+		Run(func(mock.Arguments) { close(chRoundState1) }).
+		Once()
+	fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
 		ReportableRoundID: 1,
 		EligibleToSubmit:  false,
 		LatestAnswer:      answerBigInt,
 		StartedAt:         startedAt,
 		Timeout:           timeout,
-	}, nil).Once()
+	}, nil).Once().
+		Run(func(mock.Arguments) { close(chRoundState2) }).
+		Once()
 
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
@@ -631,10 +688,12 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	)
 	require.NoError(t, err)
 
+	deviationChecker.ExportedRoundState()
 	deviationChecker.Start()
 	deviationChecker.OnConnect()
 
-	deviationChecker.ExportedPollIfEligible(0, 0)
+	gomega.NewGomegaWithT(t).Eventually(chRoundState1).Should(gomega.BeClosed())
+	gomega.NewGomegaWithT(t).Eventually(chRoundState2).Should(gomega.BeClosed())
 
 	time.Sleep(time.Duration(2*timeout) * time.Second)
 	deviationChecker.Stop()
@@ -648,23 +707,13 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 
 	type roundIDCase struct {
 		name                     string
-		storedReportableRoundID  *big.Int
 		fetchedReportableRoundID uint32
 		logRoundID               int64
 	}
 	var (
-		stored_lt_fetched_lt_log = roundIDCase{"stored < fetched < log", big.NewInt(5), 10, 15}
-		stored_lt_log_lt_fetched = roundIDCase{"stored < log < fetched", big.NewInt(5), 15, 10}
-		fetched_lt_stored_lt_log = roundIDCase{"fetched < stored < log", big.NewInt(10), 5, 15}
-		fetched_lt_log_lt_stored = roundIDCase{"fetched < log < stored", big.NewInt(15), 5, 10}
-		log_lt_fetched_lt_stored = roundIDCase{"log < fetched < stored", big.NewInt(15), 10, 5}
-		log_lt_stored_lt_fetched = roundIDCase{"log < stored < fetched", big.NewInt(10), 15, 5}
-		stored_lt_fetched_eq_log = roundIDCase{"stored < fetched = log", big.NewInt(5), 10, 10}
-		stored_eq_fetched_lt_log = roundIDCase{"stored = fetched < log", big.NewInt(5), 5, 10}
-		stored_eq_log_lt_fetched = roundIDCase{"stored = log < fetched", big.NewInt(5), 10, 5}
-		fetched_lt_stored_eq_log = roundIDCase{"fetched < stored = log", big.NewInt(10), 5, 10}
-		fetched_eq_log_lt_stored = roundIDCase{"fetched = log < stored", big.NewInt(10), 5, 5}
-		log_lt_fetched_eq_stored = roundIDCase{"log < fetched = stored", big.NewInt(10), 10, 5}
+		fetched_lt_log = roundIDCase{"fetched < log", 10, 15}
+		fetched_gt_log = roundIDCase{"fetched > log", 15, 10}
+		fetched_eq_log = roundIDCase{"fetched = log", 10, 10}
 	)
 
 	type answerCase struct {
@@ -684,198 +733,54 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 		roundIDCase
 		answerCase
 	}{
-		{true, true, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{true, true, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{true, true, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{true, true, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{true, true, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{true, true, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{true, true, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{true, true, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{true, true, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{true, true, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{true, true, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{true, true, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, true, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{true, true, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{true, true, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{true, true, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, true, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{true, true, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{true, true, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{true, true, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{true, true, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{true, true, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{true, true, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{true, true, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{true, true, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{true, true, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{true, true, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{true, true, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{true, true, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{true, true, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{true, true, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, true, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{true, true, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{true, true, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{true, true, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, true, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, true, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, true, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{true, true, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{true, true, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{true, false, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{true, false, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{true, false, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{true, false, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{true, false, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{true, false, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{true, false, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{true, false, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{true, false, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{true, false, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{true, false, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{true, false, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, false, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{true, false, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{true, false, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{true, false, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, false, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{true, false, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{true, false, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{true, false, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{true, false, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{true, false, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{true, false, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{true, false, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{true, false, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{true, false, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{true, false, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{true, false, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{true, false, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{true, false, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{true, false, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{true, false, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{true, false, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{true, false, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{true, false, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{true, false, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{true, false, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{true, false, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{true, false, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{true, false, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, true, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{false, true, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{false, true, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{false, true, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{false, true, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{false, true, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{false, true, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{false, true, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{false, true, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{false, true, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{false, true, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{false, true, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, true, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{false, true, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{false, true, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{false, true, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, true, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{false, true, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{false, true, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, true, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{false, true, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{false, true, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{false, true, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{false, true, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{false, true, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{false, true, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{false, true, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{false, true, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{false, true, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{false, true, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{false, true, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, true, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{false, true, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{false, true, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{false, true, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, true, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, true, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, true, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{false, true, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{false, true, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, false, true, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{false, false, true, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{false, false, true, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{false, false, true, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{false, false, true, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{false, false, true, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{false, false, true, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{false, false, true, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{false, false, true, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{false, false, true, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{false, false, true, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{false, false, true, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, false, true, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, true, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, true, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{false, false, true, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{false, false, true, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{false, false, true, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, true, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, false, true, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, true, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, true, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{false, false, true, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{false, false, true, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
-		{false, false, false, stored_lt_fetched_lt_log, deviationThresholdExceeded},
-		{false, false, false, stored_lt_log_lt_fetched, deviationThresholdExceeded},
-		{false, false, false, fetched_lt_stored_lt_log, deviationThresholdExceeded},
-		{false, false, false, fetched_lt_log_lt_stored, deviationThresholdExceeded},
-		{false, false, false, log_lt_fetched_lt_stored, deviationThresholdExceeded},
-		{false, false, false, log_lt_stored_lt_fetched, deviationThresholdExceeded},
-		{false, false, false, stored_lt_fetched_eq_log, deviationThresholdExceeded},
-		{false, false, false, stored_eq_fetched_lt_log, deviationThresholdExceeded},
-		{false, false, false, stored_eq_log_lt_fetched, deviationThresholdExceeded},
-		{false, false, false, fetched_lt_stored_eq_log, deviationThresholdExceeded},
-		{false, false, false, fetched_eq_log_lt_stored, deviationThresholdExceeded},
-		{false, false, false, log_lt_fetched_eq_stored, deviationThresholdExceeded},
-		{false, false, false, stored_lt_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, false, stored_lt_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, false, fetched_lt_stored_lt_log, deviationThresholdNotExceeded},
-		{false, false, false, fetched_lt_log_lt_stored, deviationThresholdNotExceeded},
-		{false, false, false, log_lt_fetched_lt_stored, deviationThresholdNotExceeded},
-		{false, false, false, log_lt_stored_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, false, stored_lt_fetched_eq_log, deviationThresholdNotExceeded},
-		{false, false, false, stored_eq_fetched_lt_log, deviationThresholdNotExceeded},
-		{false, false, false, stored_eq_log_lt_fetched, deviationThresholdNotExceeded},
-		{false, false, false, fetched_lt_stored_eq_log, deviationThresholdNotExceeded},
-		{false, false, false, fetched_eq_log_lt_stored, deviationThresholdNotExceeded},
-		{false, false, false, log_lt_fetched_eq_stored, deviationThresholdNotExceeded},
+		{true, true, true, fetched_lt_log, deviationThresholdExceeded},
+		{true, true, true, fetched_gt_log, deviationThresholdExceeded},
+		{true, true, true, fetched_eq_log, deviationThresholdExceeded},
+		{true, true, true, fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, true, fetched_gt_log, deviationThresholdNotExceeded},
+		{true, true, true, fetched_eq_log, deviationThresholdNotExceeded},
+		{true, true, false, fetched_lt_log, deviationThresholdExceeded},
+		{true, true, false, fetched_gt_log, deviationThresholdExceeded},
+		{true, true, false, fetched_eq_log, deviationThresholdExceeded},
+		{true, true, false, fetched_lt_log, deviationThresholdNotExceeded},
+		{true, true, false, fetched_gt_log, deviationThresholdNotExceeded},
+		{true, true, false, fetched_eq_log, deviationThresholdNotExceeded},
+		{true, false, true, fetched_lt_log, deviationThresholdExceeded},
+		{true, false, true, fetched_gt_log, deviationThresholdExceeded},
+		{true, false, true, fetched_eq_log, deviationThresholdExceeded},
+		{true, false, true, fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, true, fetched_gt_log, deviationThresholdNotExceeded},
+		{true, false, true, fetched_eq_log, deviationThresholdNotExceeded},
+		{true, false, false, fetched_lt_log, deviationThresholdExceeded},
+		{true, false, false, fetched_gt_log, deviationThresholdExceeded},
+		{true, false, false, fetched_eq_log, deviationThresholdExceeded},
+		{true, false, false, fetched_lt_log, deviationThresholdNotExceeded},
+		{true, false, false, fetched_gt_log, deviationThresholdNotExceeded},
+		{true, false, false, fetched_eq_log, deviationThresholdNotExceeded},
+		{false, true, true, fetched_lt_log, deviationThresholdExceeded},
+		{false, true, true, fetched_gt_log, deviationThresholdExceeded},
+		{false, true, true, fetched_eq_log, deviationThresholdExceeded},
+		{false, true, true, fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, true, fetched_gt_log, deviationThresholdNotExceeded},
+		{false, true, true, fetched_eq_log, deviationThresholdNotExceeded},
+		{false, true, false, fetched_lt_log, deviationThresholdExceeded},
+		{false, true, false, fetched_gt_log, deviationThresholdExceeded},
+		{false, true, false, fetched_eq_log, deviationThresholdExceeded},
+		{false, true, false, fetched_lt_log, deviationThresholdNotExceeded},
+		{false, true, false, fetched_gt_log, deviationThresholdNotExceeded},
+		{false, true, false, fetched_eq_log, deviationThresholdNotExceeded},
+		{false, false, true, fetched_lt_log, deviationThresholdExceeded},
+		{false, false, true, fetched_gt_log, deviationThresholdExceeded},
+		{false, false, true, fetched_eq_log, deviationThresholdExceeded},
+		{false, false, true, fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, true, fetched_gt_log, deviationThresholdNotExceeded},
+		{false, false, true, fetched_eq_log, deviationThresholdNotExceeded},
+		{false, false, false, fetched_lt_log, deviationThresholdExceeded},
+		{false, false, false, fetched_gt_log, deviationThresholdExceeded},
+		{false, false, false, fetched_eq_log, deviationThresholdExceeded},
+		{false, false, false, fetched_lt_log, deviationThresholdNotExceeded},
+		{false, false, false, fetched_gt_log, deviationThresholdNotExceeded},
+		{false, false, false, fetched_eq_log, deviationThresholdNotExceeded},
 	}
 
 	for _, test := range tests {
@@ -927,7 +832,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToFetchRoundState {
-				fluxAggregator.On("RoundState", nodeAddr).Return(contracts.FluxAggregatorRoundState{
+				fluxAggregator.On("RoundState", nodeAddr, uint32(test.logRoundID)).Return(contracts.FluxAggregatorRoundState{
 					ReportableRoundID: test.fetchedReportableRoundID,
 					LatestAnswer:      big.NewInt(test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
 					EligibleToSubmit:  test.eligible,
@@ -968,15 +873,13 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			checker.ExportedSetStoredReportableRoundID(test.storedReportableRoundID)
-
 			checker.OnConnect()
 
 			var startedBy common.Address
 			if test.startedBySelf {
 				startedBy = nodeAddr
 			}
-			checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy})
+			checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{RoundId: big.NewInt(test.logRoundID), StartedBy: startedBy, StartedAt: big.NewInt(0)})
 
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
@@ -1205,7 +1108,7 @@ func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
 			state := contracts.FluxAggregatorRoundState{
 				AvailableFunds: big.NewInt(int64(test.funds)),
 				PaymentAmount:  big.NewInt(int64(payment)),
-				OracleCount:    uint32(oracleCount),
+				OracleCount:    uint8(oracleCount),
 			}
 			assert.Equal(t, test.want, checker.ExportedSufficientFunds(state))
 		})
@@ -1351,21 +1254,22 @@ func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast_Happy(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	p := cltest.NewPollingDeviationChecker(t, store)
+	p.ExportedFluxAggregator().(*mocks.FluxAggregator).
+		On("RoundState", mock.Anything, mock.Anything).
+		Return(contracts.FluxAggregatorRoundState{ReportableRoundID: 123}, nil)
+
 	logBroadcast := new(mocks.LogBroadcast)
 	logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
+	logBroadcast.On("Log").Return(&contracts.LogAnswerUpdated{})
 	logBroadcast.On("MarkConsumed").Return(nil).Once()
 
-	called := false
-	callback := func() {
-		if called == false {
-			called = true
-		} else {
-			t.Fatal("callback called more than once!")
-		}
-	}
+	p.ExportedBacklog().Add(fluxmonitor.PriorityNewRoundLog, logBroadcast)
+	p.ExportedProcessLogs()
 
-	fluxmonitor.ExportedConsumeLogBroadcast(logBroadcast, callback)
-	assert.True(t, called)
 	logBroadcast.AssertExpectations(t)
 }
 
@@ -1384,16 +1288,172 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			p := cltest.NewPollingDeviationChecker(t, store)
+
 			logBroadcast := new(mocks.LogBroadcast)
 			logBroadcast.On("WasAlreadyConsumed").Return(test.consumed, test.err).Once()
-			logBroadcast.On("MarkConsumed").Return(nil).Maybe()
 
-			called := false
-			callback := func() { called = true }
+			p.ExportedBacklog().Add(fluxmonitor.PriorityNewRoundLog, logBroadcast)
+			p.ExportedProcessLogs()
 
-			fluxmonitor.ExportedConsumeLogBroadcast(logBroadcast, callback)
-			assert.False(t, called)
 			logBroadcast.AssertExpectations(t)
 		})
 	}
+}
+
+func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
+	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
+		store, cleanup := cltest.NewStore(t)
+		defer cleanup()
+
+		nodeAddr := ensureAccount(t, store)
+
+		job := cltest.NewJobWithFluxMonitorInitiator()
+		initr := job.Initiators[0]
+		initr.ID = 1
+		initr.PollTimer.Disabled = true
+		initr.IdleTimer.Disabled = true
+		run := cltest.NewJobRun(job)
+
+		rm := new(mocks.RunManager)
+		fetcher := new(mocks.Fetcher)
+		fluxAggregator := new(mocks.FluxAggregator)
+
+		paymentAmount := store.Config.MinimumContractPayment().ToInt()
+		availableFunds := big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
+
+		const (
+			roundID = 3
+			answer  = 100
+		)
+
+		checker, err := fluxmonitor.NewPollingDeviationChecker(
+			store,
+			fluxAggregator,
+			initr,
+			nil,
+			rm,
+			fetcher,
+			func() {},
+		)
+		require.NoError(t, err)
+
+		checker.OnConnect()
+
+		// Fire off the NewRound log, which the node should respond to
+		fluxAggregator.On("RoundState", nodeAddr, uint32(roundID)).
+			Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				LatestAnswer:      big.NewInt(answer),
+				EligibleToSubmit:  true,
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
+				OracleCount:       1,
+			}, nil).
+			Once()
+		fetcher.On("Fetch").
+			Return(decimal.NewFromInt(answer), nil).
+			Once()
+		fluxAggregator.On("GetMethodID", "submit").
+			Return(submitSelector, nil).
+			Once()
+		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
+			Return(&run, nil).
+			Once()
+		checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{
+			RoundId:   big.NewInt(roundID),
+			StartedAt: big.NewInt(0),
+		})
+
+		// Now force the node to try to poll and ensure it does not respond this time
+		fluxAggregator.On("RoundState", nodeAddr, uint32(0)).
+			Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				LatestAnswer:      big.NewInt(answer),
+				EligibleToSubmit:  true,
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
+				OracleCount:       1,
+			}, nil).
+			Once()
+		checker.ExportedPollIfEligible(0, 0)
+
+		rm.AssertExpectations(t)
+		fetcher.AssertExpectations(t)
+		fluxAggregator.AssertExpectations(t)
+	})
+
+	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
+		store, cleanup := cltest.NewStore(t)
+		defer cleanup()
+
+		nodeAddr := ensureAccount(t, store)
+
+		job := cltest.NewJobWithFluxMonitorInitiator()
+		initr := job.Initiators[0]
+		initr.ID = 1
+		initr.PollTimer.Disabled = true
+		initr.IdleTimer.Disabled = true
+		run := cltest.NewJobRun(job)
+
+		rm := new(mocks.RunManager)
+		fetcher := new(mocks.Fetcher)
+		fluxAggregator := new(mocks.FluxAggregator)
+
+		paymentAmount := store.Config.MinimumContractPayment().ToInt()
+		availableFunds := big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
+
+		const (
+			roundID = 3
+			answer  = 100
+		)
+
+		checker, err := fluxmonitor.NewPollingDeviationChecker(
+			store,
+			fluxAggregator,
+			initr,
+			nil,
+			rm,
+			fetcher,
+			func() {},
+		)
+		require.NoError(t, err)
+
+		checker.OnConnect()
+
+		// First, force the node to try to poll, which should result in a submission
+		fluxAggregator.On("RoundState", nodeAddr, uint32(0)).
+			Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: roundID,
+				LatestAnswer:      big.NewInt(answer),
+				EligibleToSubmit:  true,
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
+				OracleCount:       1,
+			}, nil).
+			Once()
+		fetcher.On("Fetch").
+			Return(decimal.NewFromInt(answer), nil).
+			Once()
+		fluxAggregator.On("GetMethodID", "submit").
+			Return(submitSelector, nil).
+			Once()
+		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
+			Return(&run, nil).
+			Once()
+		checker.ExportedPollIfEligible(0, 0)
+
+		// Now fire off the NewRound log and ensure it does not respond this time
+		checker.ExportedRespondToNewRoundLog(&contracts.LogNewRound{
+			RoundId:   big.NewInt(roundID),
+			StartedAt: big.NewInt(0),
+		})
+
+		rm.AssertExpectations(t)
+		fetcher.AssertExpectations(t)
+		fluxAggregator.AssertExpectations(t)
+	})
 }

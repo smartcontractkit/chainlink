@@ -1,5 +1,5 @@
 diff --git a/node_modules/@0x/sol-compiler/lib/src/utils/compiler.js b/node_modules/@0x/sol-compiler/lib/src/utils/compiler.js
-index 3f22564..61b3e15 100644
+index 3f22564..22afa17 100644
 --- a/node_modules/@0x/sol-compiler/lib/src/utils/compiler.js
 +++ b/node_modules/@0x/sol-compiler/lib/src/utils/compiler.js
 @@ -210,7 +210,7 @@ function getSolcJSReleasesAsync(isOfflineMode) {
@@ -20,6 +20,15 @@ index 3f22564..61b3e15 100644
              compiled = JSON.parse(standardOutputStr);
              return [2 /*return*/, compiled];
          });
+@@ -252,7 +252,7 @@ function compileDockerAsync(solcVersion, standardInput) {
+         var standardInputStr, dockerCommand, standardOutputStr, compiled;
+         return __generator(this, function (_a) {
+             standardInputStr = JSON.stringify(standardInput, null, 2);
+-            dockerCommand = "docker run -i -a stdin -a stdout -a stderr ethereum/solc:" + solcVersion + " solc --standard-json";
++            dockerCommand = "docker run -i -a stdin -a stdout -a stderr ethereum/solc:" + solcVersion + " --standard-json";
+             standardOutputStr = child_process_1.execSync(dockerCommand, { input: standardInputStr }).toString();
+             compiled = JSON.parse(standardOutputStr);
+             return [2 /*return*/, compiled];
 diff --git a/node_modules/@0x/sol-compiler/lib/src/utils/constants.js b/node_modules/@0x/sol-compiler/lib/src/utils/constants.js
 index 4c7aca0..26b6ac2 100644
 --- a/node_modules/@0x/sol-compiler/lib/src/utils/constants.js

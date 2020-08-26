@@ -27,7 +27,7 @@ interface DecodedLog {
 }
 
 interface SubmissionReceivedEventLog extends Log {
-  answer: number
+  submission: number
   round: number
   oracle: string
 }
@@ -64,6 +64,22 @@ export interface NewRoundEventLogFormat extends DecodedLog {
   startedAt: number
   answerId: number
 }
+
+// Named tuple types are not currently supported in TS. There is discussion
+// that it will be added in TS 4.0.
+// https://github.com/Microsoft/TypeScript/issues/28259#issuecomment-622553692
+export type OracleRoundStateRoundId = number
+export type OracleRoundStateStartedAt = ethers.utils.BigNumber
+export type OracleRoundState = [
+  boolean,
+  OracleRoundStateRoundId,
+  ethers.utils.BigNumber,
+  OracleRoundStateStartedAt,
+  ethers.utils.BigNumber,
+  ethers.utils.BigNumber,
+  number,
+  ethers.utils.BigNumber,
+]
 
 export default class FluxContract {
   private submissionReceivedEvent: EventListener = {
@@ -128,12 +144,12 @@ export default class FluxContract {
     return await this.contract.getOracles()
   }
 
-  async minimumAnswers(): Promise<number> {
+  async minSubmissionCount(): Promise<number> {
     if (!this.contract) {
       throw Error('Contract instance does not exist')
     }
 
-    return await this.contract.minAnswerCount()
+    return await this.contract.minSubmissionCount()
   }
 
   async latestRound(): Promise<number> {
@@ -150,8 +166,14 @@ export default class FluxContract {
       throw Error('Contract instance does not exist')
     }
 
-    const reportingRound = await this.contract.reportingRound()
-    return reportingRound.toNumber()
+    const state: OracleRoundState = await this.contract.oracleRoundState(
+      '0x0000000000000000000000000000000000000000',
+      0,
+    )
+    const roundId = state[1]
+    const startedAt = state[3]
+
+    return startedAt.eq(ethers.utils.bigNumberify(0)) ? roundId - 1 : roundId
   }
 
   async latestAnswer(): Promise<string> {
@@ -164,6 +186,7 @@ export default class FluxContract {
       latestAnswer,
       this.options.multiply,
       this.options.decimalPlaces,
+      this.options.formatDecimalPlaces,
     )
   }
 
@@ -186,6 +209,7 @@ export default class FluxContract {
       getAnswer,
       this.options.multiply,
       this.options.decimalPlaces,
+      this.options.formatDecimalPlaces,
     )
   }
 
@@ -243,15 +267,17 @@ export default class FluxContract {
           },
           (decodedLog: SubmissionReceivedEventLog) => ({
             answerFormatted: formatAnswer(
-              decodedLog.answer,
+              decodedLog.submission,
               this.options.multiply,
               this.options.decimalPlaces,
+              this.options.formatDecimalPlaces,
             ),
-            answer: Number(decodedLog.answer),
+            answer: Number(decodedLog.submission),
             answerId: Number(decodedLog.round),
             sender: decodedLog.oracle,
           }),
         )
+
         const logWithTimestamp = await this.addBlockTimestampToLogs([logged])
         const logWithGasPrice = await this.addGasPriceToLogs(
           logWithTimestamp,
@@ -353,11 +379,12 @@ export default class FluxContract {
       },
       (decodedLog: SubmissionReceivedEventLog) => ({
         answerFormatted: formatAnswer(
-          decodedLog.answer,
+          decodedLog.submission,
           this.options.multiply,
           this.options.decimalPlaces,
+          this.options.formatDecimalPlaces,
         ),
-        answer: Number(decodedLog.answer),
+        answer: Number(decodedLog.submission),
         answerId: Number(decodedLog.round),
         sender: decodedLog.oracle,
       }),
@@ -391,6 +418,7 @@ export default class FluxContract {
           decodedLog.current,
           this.options.multiply,
           this.options.decimalPlaces,
+          this.options.formatDecimalPlaces,
         ),
         answer: Number(decodedLog.current),
         answerId: Number(decodedLog.roundId),

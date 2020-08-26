@@ -45,6 +45,27 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws-region: "${{ secrets.AWS_DEFAULT_REGION }}"
+          role-to-assume: "${{ secrets.AWS_ROLE_TO_ASSUME }}"
+          role-duration-seconds: 1200
+          role-session-name: "temp-session"
+          role-skip-session-tagging: true
+
+      - name: Docker login to ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Push to ECR
+        env:
+          TAG: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
+        run: |
+          docker tag "smartcontract/builder-cache:${TAG}" "${{ secrets.AWS_ECR_ACCOUNT_URL }}/builder-cache:${TAG}"
+          docker push "${{ secrets.AWS_ECR_ACCOUNT_URL }}/builder-cache:${TAG}"
+
       - name: Update docker files
         uses: smartcontractkit/docker-cache@99a8aec1b4eb98e0627aefe07223c9d8bec5ba33
         with:

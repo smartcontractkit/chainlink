@@ -18,7 +18,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-//go:generate mockery -name Fetcher -output ../../internal/mocks/ -case=underscore
+//go:generate mockery --name Fetcher --output ../../internal/mocks/ --case=underscore
 
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
@@ -50,12 +50,16 @@ func newHTTPFetcher(
 }
 
 func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
-	r, err := p.client.Post(p.url.String(), "application/json", strings.NewReader(p.requestData))
+	request, err := withRandomID(p.requestData)
+	if err != nil {
+		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s, cannot add request ID", p.url.String()))
+	}
+	r, err := p.client.Post(p.url.String(), "application/json", strings.NewReader(request))
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s with payload '%s'", p.url.String(), p.requestData))
 	}
 
-	defer r.Body.Close()
+	defer logger.ErrorIfCalling(r.Body.Close)
 	target := adapterResponse{}
 	if err = json.NewDecoder(r.Body).Decode(&target); err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to decode price from %s", p.url.String()))
@@ -84,6 +88,18 @@ func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
 
 func (p *httpFetcher) String() string {
 	return fmt.Sprintf("http price fetcher: %s", p.url.String())
+}
+
+// withRandomID add an arbitrary "id" field to the request json
+// this is done in order to keep request payloads consistent in format
+// between flux monitor polling requests and http/bridge adapters
+func withRandomID(rawReqData string) (string, error) {
+	rawReqData = strings.TrimSpace(rawReqData)
+	valid := json.Valid([]byte(rawReqData))
+	if !valid {
+		return "", errors.New(fmt.Sprintf("invalid raw request json: %s", rawReqData))
+	}
+	return fmt.Sprintf(`{"id":"%s",%s`, models.NewID(), rawReqData[1:]), nil
 }
 
 type adapterResponseData struct {

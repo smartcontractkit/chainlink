@@ -1,5 +1,4 @@
 import * as d3 from 'd3'
-import { ethers } from 'ethers'
 import { formatAnswer } from 'contracts/utils'
 import { humanizeUnixTimestamp } from 'utils'
 
@@ -52,8 +51,19 @@ export default class HistoryGraph {
       .append('path')
       .attr('class', 'bollinger-ma')
 
+    this.clip = this.svg
+      .append('defs')
+      .append('svg:clipPath')
+      .attr('id', 'clip')
+      .append('svg:rect')
+      .attr('width', this.width - this.margin.left)
+      .attr('height', this.height)
+      .attr('x', 0)
+      .attr('y', 0)
+
     this.path = this.svg
       .append('g')
+      .attr('class', 'chart-line')
       .attr(
         'transform',
         'translate(' + this.margin.left + ',' + this.margin.top + ')',
@@ -62,6 +72,7 @@ export default class HistoryGraph {
       .attr('class', 'line')
       .attr('stroke', '#a0a0a0')
       .attr('fill', 'none')
+      .attr('clip-path', 'url(#clip)')
 
     this.tooltip = this.svg
       .append('g')
@@ -87,17 +98,108 @@ export default class HistoryGraph {
       .attr('x', '10')
       .attr('y', '10')
 
-    this.overlay = this.svg
-      .append('rect')
-      .attr('width', this.width - this.margin.left)
-      .attr('height', this.height)
-      .style('fill', 'none')
-      .style('pointer-events', 'all')
+    this.brushX = d3.brushX()
+
+    this.brush = this.svg
+      .append('g')
+      .attr('class', 'brush')
       .attr(
         'transform',
         'translate(' + this.margin.left + ',' + this.margin.top + ')',
       )
       .on('mouseout', () => this.tooltip.style('display', 'none'))
+
+    this.zoomOutBtn = this.svg
+      .append('g')
+      .attr(
+        'transform',
+        'translate(' + (this.width - 70) + ',' + this.height + ')',
+      )
+      .style('opacity', 0)
+      .style('cursor', 'pointer')
+
+    this.zoomOutBtn
+      .append('rect')
+      .attr('class', 'y')
+      .style('fill', '#375bd2')
+      .style('stroke', '#375bd2')
+      .attr('width', '70')
+      .attr('height', '25')
+
+    this.zoomOutBtn
+      .append('text')
+      .attr('fill', '#fff')
+      .text('Zoom out')
+      .attr('x', '10')
+      .attr('y', '16')
+      .style('font-size', 12)
+  }
+
+  updateBrushed() {
+    if (!this.x) {
+      return
+    }
+
+    const extent = d3.event.selection
+    if (extent) {
+      this.x.domain([this.x.invert(extent[0]), this.x.invert(extent[1])])
+      this.brush.call(this.brushX.move, null)
+
+      this.zoomOutBtn
+        .transition()
+        .duration(300)
+        .style('opacity', 1)
+    }
+
+    this.xAxis
+      .transition()
+      .duration(300)
+      .call(
+        d3
+          .axisBottom()
+          .scale(this.x)
+          .ticks(7)
+          .tickFormat(f => humanizeUnixTimestamp(f)),
+      )
+
+    const line = d3
+      .line()
+      .x(d => this.x(d.timestamp))
+      .y(d => this.y(Number(d.answer)))
+
+    this.path
+      .transition()
+      .duration(300)
+      .attr('d', line)
+  }
+
+  zoomOut(data) {
+    this.x.domain(d3.extent(data, d => d.timestamp))
+
+    const xAxis = d3
+      .axisBottom()
+      .scale(this.x)
+      .tickFormat(f => humanizeUnixTimestamp(f))
+
+    this.xAxis
+      .transition()
+      .duration(300)
+      .call(xAxis)
+
+    const line = d3
+      .line()
+      .x(d => this.x(d.timestamp))
+      .y(d => this.y(Number(d.answer)))
+
+    this.path
+      .transition()
+      .duration(300)
+      .attr('d', line)
+
+    this.zoomOutBtn
+      .transition()
+      .duration(300)
+      .style('opacity', 0)
   }
 
   update(data) {
@@ -121,9 +223,10 @@ export default class HistoryGraph {
       .ticks(4)
       .tickFormat(f =>
         formatAnswer(
-          ethers.utils.bigNumberify(f),
+          f,
           this.config.multiply,
           this.config.decimalPlaces,
+          this.config.formatDecimalPlaces,
         ),
       )
 
@@ -142,7 +245,7 @@ export default class HistoryGraph {
       .ticks(7)
       .tickFormat(f => humanizeUnixTimestamp(f))
 
-    this.svg
+    this.xAxis = this.svg
       .append('g')
       .attr('class', 'x-axis')
       .attr(
@@ -155,26 +258,28 @@ export default class HistoryGraph {
       .line()
       .x(d => this.x(d.timestamp))
       .y(d => this.y(Number(d.answer)))
-      .curve(d3.curveMonotoneX)
 
     this.path.datum(data).attr('d', this.line)
 
-    const totalLength = this.path.node().getTotalLength()
-
-    this.path
-      .attr('stroke-dasharray', totalLength + ' ' + totalLength)
-      .attr('stroke-dashoffset', totalLength)
-      .transition()
-      .duration(2000)
-      .attr('stroke-dashoffset', 0)
-
-    this.overlay.on('mousemove', () => this.mousemove(data))
+    this.brush.on('mousemove', () => this.mousemove(data))
 
     this.updateMa(data)
+
+    this.svg.on('dblclick', () => this.zoomOut(data))
+    this.zoomOutBtn.on('click', () => this.zoomOut(data))
+
+    this.brush.call(
+      this.brushX
+        .extent([
+          [0, 0],
+          [this.width - this.margin.left, this.height],
+        ])
+        .on('end', () => this.updateBrushed()),
+    )
   }
 
   mousemove(data) {
-    const x0 = this.x.invert(d3.mouse(this.overlay.node())[0])
+    const x0 = this.x.invert(d3.mouse(this.brush.node())[0])
     const i = this.bisectDate(data, x0, 1)
     const d0 = data[i - 1]
     const d1 = data[i]
@@ -192,7 +297,9 @@ export default class HistoryGraph {
           (this.y(d.answer) + this.margin.top) +
           ')',
       )
-    this.tooltipTimestamp.text(() => humanizeUnixTimestamp(d.timestamp))
+    this.tooltipTimestamp.text(() =>
+      humanizeUnixTimestamp(d.timestamp, 'LL LTS'),
+    )
     this.tooltipPrice.text(
       () => `${this.config.valuePrefix} ${d.answerFormatted}`,
     )

@@ -15,54 +15,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTransfersController_CreateSuccess(t *testing.T) {
-	t.Parallel()
-
-	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
-	defer cleanup()
-
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_chainId", config.ChainID())
-		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	})
-
-	client := app.NewHTTPClient()
-
-	assert.NoError(t, app.StartAndConnect())
-
-	request := models.SendEtherRequest{
-		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		Amount:             assets.NewEth(100),
-	}
-
-	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
-
-	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
-	defer cleanup()
-
-	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Len(t, errors.Errors, 0)
-
-	ethMock.AllCalled()
-}
-
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
 		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 
 	client := app.NewHTTPClient()
@@ -72,7 +38,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        app.Store.TxManager.NextActiveAccount().Address,
-		Amount:             assets.NewEth(100),
+		Amount:             *assets.NewEth(100),
 	}
 
 	body, err := json.Marshal(&request)
@@ -92,13 +58,15 @@ func TestTransfersController_TransferError(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_chainId", config.ChainID())
 		ethMock.RegisterError("eth_sendRawTransaction", "No dice")
 	})
 
@@ -108,7 +76,8 @@ func TestTransfersController_TransferError(t *testing.T) {
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		Amount:             assets.NewEth(100),
+		FromAddress:        app.Store.TxManager.NextActiveAccount().Address,
+		Amount:             *assets.NewEth(100),
 	}
 
 	body, err := json.Marshal(&request)
@@ -126,13 +95,15 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 
 	client := app.NewHTTPClient()

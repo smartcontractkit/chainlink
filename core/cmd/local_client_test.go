@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -218,19 +219,31 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 func TestClient_ImportKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.EthMockRegisterChainID)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.AllowUnstarted,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
-	require.NoError(t, app.Start())
 
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("import", 0)
 	set.Parse([]string{"../internal/fixtures/keys/7fc66c61f88A61DFB670627cA715Fe808057123e.json"})
 	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ImportKey(c))
+	require.NoError(t, client.ImportKey(c))
+
+	// importing again simply upserts
+	require.NoError(t, client.ImportKey(c))
 
 	keys, err := app.GetStore().Keys()
 	require.NoError(t, err)
+
+	require.Len(t, keys, 2)
+	require.Equal(t, int32(1), keys[0].ID)
+	require.Greater(t, keys[1].ID, int32(1))
+
 	addresses := []string{}
 	for _, k := range keys {
 		addresses = append(addresses, k.Address.String())
@@ -269,6 +282,77 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 	}
 }
 
+func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
+	beginningNonce := uint(7)
+	endingNonce := uint(10)
+	gasPrice := big.NewInt(100000000000)
+	gasLimit := uint64(3000000)
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("beginningNonce", beginningNonce, "")
+	set.Uint("endingNonce", endingNonce, "")
+	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
+	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	c := cli.NewContext(nil, set, nil)
+
+	// {"range_start", beginningNonce},
+	// Use the a non-transactional db for this test because we need to
+	// test multiple connections to the database, and changes made within
+	// the transaction cannot be seen from another connection.
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
+	defer cleanup()
+	config.Config.Dialect = orm.DialectPostgres
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
+	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+	defer connectedCleanup()
+
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, 7, 42)
+
+	// Use the same config as the connectedStore so that the advisory
+	// lock ID is the same. We set the config to be Postgres Without
+	// Lock, because the db locking strategy is decided when we
+	// initialize the store/ORM.
+	config.Config.Dialect = orm.DialectPostgresWithoutLock
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+	store.KeyStore.Unlock(cltest.Password)
+	require.NoError(t, connectedStore.Start())
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Stop").Return(nil)
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+	client := cmd.Client{
+		Config:                 config.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	config.Config.Dialect = orm.DialectTransactionWrappedPostgres
+
+	for i := beginningNonce; i <= endingNonce; i++ {
+		n := i
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return uint(tx.Nonce()) == n
+		})).Once().Return(nil)
+	}
+
+	// We set the dialect back after initialization so that we can check
+	// that it was set back to WithoutLock at the end of the test.
+	assert.NoError(t, client.RebroadcastTransactions(c))
+	// Check that the Dialect was set back when the command was run.
+	assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
+
+	app.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
+}
+
 func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
@@ -280,6 +364,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
@@ -293,11 +378,12 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.dbName, func(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
-			// test multiple connections to the datbase, and changes made within
+			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcast_txs", true)
+			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true)
 			defer cleanup()
 			config.Config.Dialect = orm.DialectPostgres
+			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 			defer connectedCleanup()
 
@@ -313,7 +399,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 
 			// Use the same config as the connectedStore so that the advisory
 			// lock ID is the same. We set the config to be Postgres Without
-			// Lock, because the db locking stratgey is decided when we
+			// Lock, because the db locking strategy is decided when we
 			// initialize the store/ORM.
 			config.Config.Dialect = orm.DialectPostgresWithoutLock
 			store, cleanup := cltest.NewStoreWithConfig(config)
@@ -368,6 +454,7 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
@@ -420,4 +507,66 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 			txManager.AssertExpectations(t)
 		})
 	}
+}
+
+func TestClient_SetNextNonce(t *testing.T) {
+	// Need to use separate database
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "setnextnonce", true, true)
+	defer cleanup()
+	config.Config.Dialect = orm.DialectPostgres
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+
+	client := cmd.Client{
+		Config: config.Config,
+		Runner: cltest.EmptyRunner{},
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("nextNonce", 42, "")
+	defaultFromAddress := cltest.GetDefaultFromAddress(t, store)
+	set.String("address", defaultFromAddress.Hex(), "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.SetNextNonce(c))
+
+	var key models.Key
+	require.NoError(t, store.DB.First(&key).Error)
+	require.NotNil(t, key.NextNonce)
+	require.Equal(t, int64(42), *key.NextNonce)
+}
+
+func TestClient_P2P_CreateKey(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+
+	auth := cltest.CallbackAuthenticator{}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("password", "../internal/fixtures/correct_password.txt", "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.CreateP2PKey(c))
+
+	keys, err := app.GetStore().FindEncryptedP2PKeys()
+	require.NoError(t, err)
+
+	require.Len(t, keys, 1)
+
+	e := keys[0]
+	_, err = e.Decrypt(cltest.Password)
+	require.NoError(t, err)
 }

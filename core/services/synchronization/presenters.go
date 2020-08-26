@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/eth"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	null "gopkg.in/guregu/null.v3"
 )
 
@@ -98,13 +98,13 @@ func fetchLatestOutgoingTxHash(tr models.TaskRun) (*syncReceiptPresenter, error)
 }
 
 func formatEthereumReceipt(str string) (*syncReceiptPresenter, error) {
-	var receipt eth.TxReceipt
+	var receipt types.Receipt
 	err := json.Unmarshal([]byte(str), &receipt)
 	if err != nil {
 		return nil, err
 	}
 	return &syncReceiptPresenter{
-		Hash:   receipt.Hash,
+		Hash:   receipt.TxHash,
 		Status: runLogStatusPresenter(receipt),
 	}, nil
 }
@@ -126,8 +126,8 @@ const (
 	StatusNoFulfilledRunLog = "noFulfilledRunLog"
 )
 
-func runLogStatusPresenter(receipt eth.TxReceipt) TxStatus {
-	if receipt.FulfilledRunLog() {
+func runLogStatusPresenter(receipt types.Receipt) TxStatus {
+	if models.ReceiptIndicatesRunLogFulfillment(receipt) {
 		return StatusFulfilledRunLog
 	}
 	return StatusNoFulfilledRunLog

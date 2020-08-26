@@ -1,0 +1,11 @@
+#!/bin/bash
+# Run each solidity version test directory in serial, to prevent out of memory errors
+
+for dir in test/*/     # list directories in the form "/test/dirname/"
+do
+    dir=${dir%*/}      # remove the trailing "/"
+    testdir="${dir##*/}" # store everything after the final "/"
+    bold=$(tput bold)
+    printf '\n%sRunning solidity tests for: %s%s\n' "$bold" "$testdir" "$bold"
+    yarn test "$testdir"
+done

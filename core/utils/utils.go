@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 
-	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"github.com/tevino/abool"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 	null "gopkg.in/guregu/null.v3"
@@ -85,7 +85,7 @@ func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
-	return logger.ISO8601UTC(t)
+	return t.UTC().Format(time.RFC3339)
 }
 
 // NullISO8601UTC returns formatted time if valid, empty string otherwise.
@@ -173,28 +173,6 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
-// ToFilterArg filters logs with the given FilterQuery
-// https://github.com/ethereum/go-ethereum/blob/762f3a48a00da02fe58063cb6ce8dc2d08821f15/ethclient/ethclient.go#L363
-func ToFilterArg(q ethereum.FilterQuery) interface{} {
-	arg := map[string]interface{}{
-		"fromBlock": toBlockNumArg(q.FromBlock),
-		"toBlock":   toBlockNumArg(q.ToBlock),
-		"address":   q.Addresses,
-		"topics":    q.Topics,
-	}
-	if q.FromBlock == nil {
-		arg["fromBlock"] = "0x0"
-	}
-	return arg
-}
-
-func toBlockNumArg(number *big.Int) string {
-	if number == nil {
-		return "latest"
-	}
-	return hexutil.EncodeBig(number)
-}
-
 // Sleeper interface is used for tasks that need to be done on some
 // interval, excluding Cron, like reconnecting.
 type Sleeper interface {
@@ -207,24 +185,25 @@ type Sleeper interface {
 // BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
 	backoff.Backoff
-	beenRun bool
+	beenRun *abool.AtomicBool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
 // sleep for 0 seconds initially, then backs off from 1 second minimum
 // to 10 seconds maximum.
 func NewBackoffSleeper() *BackoffSleeper {
-	return &BackoffSleeper{Backoff: backoff.Backoff{
-		Min: 1 * time.Second,
-		Max: 10 * time.Second,
-	}}
+	return &BackoffSleeper{
+		Backoff: backoff.Backoff{
+			Min: 1 * time.Second,
+			Max: 10 * time.Second,
+		},
+		beenRun: abool.New(),
+	}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
 func (bs *BackoffSleeper) Sleep() {
-	if !bs.beenRun {
-		time.Sleep(0)
-		bs.beenRun = true
+	if bs.beenRun.SetToIf(false, true) {
 		return
 	}
 	time.Sleep(bs.Backoff.Duration())
@@ -232,8 +211,7 @@ func (bs *BackoffSleeper) Sleep() {
 
 // After returns the duration for the next stop, and increments the backoff.
 func (bs *BackoffSleeper) After() time.Duration {
-	if !bs.beenRun {
-		bs.beenRun = true
+	if bs.beenRun.SetToIf(false, true) {
 		return 0
 	}
 	return bs.Backoff.Duration()
@@ -241,7 +219,7 @@ func (bs *BackoffSleeper) After() time.Duration {
 
 // Duration returns the current duration value.
 func (bs *BackoffSleeper) Duration() time.Duration {
-	if !bs.beenRun {
+	if !bs.beenRun.IsSet() {
 		return 0
 	}
 	return bs.ForAttempt(bs.Attempt())
@@ -249,7 +227,7 @@ func (bs *BackoffSleeper) Duration() time.Duration {
 
 // Reset resets the backoff intervals.
 func (bs *BackoffSleeper) Reset() {
-	bs.beenRun = false
+	bs.beenRun.UnSet()
 	bs.Backoff.Reset()
 }
 
@@ -655,4 +633,18 @@ func (q *BoundedPriorityQueue) Empty() bool {
 		}
 	}
 	return true
+}
+
+// WrapIfError decorates an error with the given message.  It is intended to
+// be used with `defer` statements, like so:
+//
+// func SomeFunction() (err error) {
+//     defer WrapIfError(&err, "error in SomeFunction:")
+//
+//     ...
+// }
+func WrapIfError(err *error, msg string) {
+	if *err != nil {
+		*err = errors.Wrap(*err, msg)
+	}
 }

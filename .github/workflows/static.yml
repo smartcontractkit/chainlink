@@ -34,34 +34,43 @@ jobs:
       - uses: actions/setup-go@v2
       - run: go install honnef.co/go/tools/cmd/staticcheck
       - run: $HOME/go/bin/staticcheck ./...
-  # TODO: Enable linters below one by one and fix issues with each
-  # lint:
-  #   name: Lint
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: lint
-  #       comment: false
-  # errcheck:
-  #   name: errcheck
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/setup-go@v2
-  #   - uses: actions/checkout@v2
-  #   - run: go get -u github.com/kisielk/errcheck
-  #   # Can't get -ignorepkg to actually ignore internal... This needs more work
-  #   - run: errcheck -ignore 'cltest:.*' -ignoretests -asserts -ignoregenerated ./... | grep -v internal
-  # sec:
-  #   name: Sec
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@master
-  #   - name: check
-  #     uses: grandcolline/golang-github-actions@v1.1.0
-  #     with:
-  #       run: sec
-  #       flags: "-exclude=G104"
-  #       comment: false
+  errcheck:
+    name: errcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go get -v github.com/kisielk/errcheck
+      - run: set +e ; d="$($HOME/go/bin/errcheck -ignoretests -asserts -ignoregenerated ./... | grep -v internal)"; if [ -n "$d" ]; then echo "errcheck output:" ; echo "$d"; exit 1; else exit 0 ; fi ; set -e
+  sec:
+    name: sec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go get -v github.com/securego/gosec/cmd/gosec
+      - run: $HOME/go/bin/gosec -exclude=G101,G104,G204,G304 -exclude-dir ingester ./...
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go get -v golang.org/x/lint/golint
+      - run: set +e ; d="$($HOME/go/bin/golint -min_confidence 1 ./... | grep -v comment)" ; if [ -z "$d" ]; then exit 0 ; else echo "golint check output:" ; echo "$d" ; exit 1 ; fi ; set -e
+  exportloopref:
+    name: exportloopref
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go get -v github.com/kyoh86/exportloopref/cmd/exportloopref
+      - run: $HOME/go/bin/exportloopref ./...
+  exhaustive:
+    name: exhaustive
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - run: go get -v github.com/nishanths/exhaustive/...
+      - run: $HOME/go/bin/exhaustive -default-signifies-exhaustive ./...

@@ -64,18 +64,6 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
-				{
-					Name:        "withdraw",
-					Usage:       "Withdraw to <address>, <amount> units of LINK from the configured Oracle Contract",
-					Description: "Only works if the Chainlink node is the owner of the contract being withdrawn from",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "from",
-							Usage: "override the configured oracle address to withdraw from",
-						},
-					},
-					Action: client.Withdraw,
-				},
 			},
 		},
 
@@ -228,6 +216,21 @@ func NewApp(client *Client) *cli.App {
 					Action:  client.ImportKey,
 				},
 				{
+					Name:   "setnextnonce",
+					Usage:  "Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.",
+					Action: client.SetNextNonce,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "address",
+							Usage: "address of the key for which to set the nonce",
+						},
+						cli.Uint64Flag{
+							Name:  "nextNonce",
+							Usage: "the next nonce in the sequence",
+						},
+					},
+				},
+				{
 					Name:    "start",
 					Aliases: []string{"node", "n"},
 					Flags: []cli.Flag{
@@ -255,6 +258,20 @@ func NewApp(client *Client) *cli.App {
 					},
 					Usage:  "Run the chainlink node",
 					Action: client.RunNode,
+				},
+				cli.Command{
+					Name:   "p2p",
+					Usage:  "Local commands for administering the node's p2p layer",
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create a p2p key, encrypted with password from the
+               password file, and store it in the database.`),
+							Flags:  flags("password, p"),
+							Action: client.CreateP2PKey,
+						},
+					},
 				},
 				cli.Command{
 					Name: "vrf",
@@ -316,20 +333,24 @@ func NewApp(client *Client) *cli.App {
 					Action: client.RebroadcastTransactions,
 					Flags: []cli.Flag{
 						cli.Uint64Flag{
-							Name:  "beginningNonce",
+							Name:  "beginningNonce, b",
 							Usage: "beginning of nonce range to rebroadcast",
 						},
 						cli.Uint64Flag{
-							Name:  "endingNonce",
+							Name:  "endingNonce, e",
 							Usage: "end of nonce range to rebroadcast (inclusive)",
 						},
 						cli.Uint64Flag{
-							Name:  "gasPriceWei",
+							Name:  "gasPriceWei, g",
 							Usage: "gas price (in Wei) to rebroadcast transactions at",
 						},
 						cli.StringFlag{
 							Name:  "password, p",
 							Usage: "text file holding the password for the node's account",
+						},
+						cli.StringFlag{
+							Name:  "address, a",
+							Usage: "The address (in hex format) for the key which we want to rebroadcast transactions",
 						},
 						cli.Uint64Flag{
 							Name:  "gasLimit",
@@ -425,14 +446,8 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling Ethereum transactions",
 			Subcommands: []cli.Command{
 				{
-					Name:  "create",
-					Usage: "Send <amount> ETH from the node's ETH account to an <address>.",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "from, f",
-							Usage: "optional flag to specify which address should send the transaction",
-						},
-					},
+					Name:   "create",
+					Usage:  "Send <amount> Eth from node ETH account <fromAddress> to destination <toAddress>.",
 					Action: client.SendEther,
 				},
 				{

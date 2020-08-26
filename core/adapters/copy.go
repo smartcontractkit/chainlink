@@ -24,6 +24,6 @@ func (c *Copy) Perform(input models.RunInput, store *store.Store) models.RunOutp
 	}
 
 	jp := JSONParse{Path: c.CopyPath}
-	input = *models.NewRunInput(input.JobRunID(), data, input.Status())
+	input = input.CloneWithData(data)
 	return jp.Perform(input, store)
 }

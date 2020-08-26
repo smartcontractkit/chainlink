@@ -1,27 +1,20 @@
 // package gethwrappers_test verifies correct and up-to-date generation of golang wrappers
 // for solidity contracts. See go_generate.go for the actual generation.
-package gethwrappers_test
+package gethwrappers
 
 import (
-	"bufio"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethParams "github.com/ethereum/go-ethereum/params"
-	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 
 	"github.com/fatih/color"
 
@@ -29,42 +22,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// contractVersion records information about the solidity compiler artifact a
-// golang contract wrapper package depends on.
-type contractVersion struct {
-	// path to compiler artifact used by generate.sh to create wrapper package
-	compilerArtifactPath string
-	// hash of the artifact at the timem the wrapper was last generated
-	hash string
-}
-
-// integratedVersion carries the full versioning information checked in this test
-type integratedVersion struct {
-	// Version of geth last used to generate the wrappers
-	gethVersion string
-	// { golang-pkg-name: version_info }
-	contractVersions map[string]contractVersion
-}
-
 // TestCheckContractHashesFromLastGoGenerate compares the metadata recorded by
 // record_versions.sh, and fails if it indicates that the corresponding golang
 // wrappers are out of date with respect to the solidty contracts they wrap. See
 // record_versions.sh for description of file format.
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
-	versions := readVersionsDB(t)
-	require.NotEmpty(t, versions.gethVersion,
+	versions, err := ReadVersionsDB()
+	require.NoError(t, err)
+	require.NotEmpty(t, versions.GethVersion,
 		`version DB should have a "GETH_VERSION:" line`)
-	require.Equal(t, versions.gethVersion, gethParams.Version,
-		color.HiRedString(boxOutput("please re-run `go generate ./core/services/vrf` and commit the changes")))
-	for _, contractVersionInfo := range versions.contractVersions {
+	wd, err := os.Getwd()
+	if err != nil {
+		wd = "<directory containing this test>"
+	}
+	require.Equal(t, versions.GethVersion, gethParams.Version,
+		color.HiRedString(boxOutput("please re-run `go generate %s` and commit the"+
+			"changes", wd)))
+	for _, contractVersionInfo := range versions.ContractVersions {
 		compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			t, contractVersionInfo)
 	}
+	// Just check that LinkToken details haven't changed (they never ought to)
+	linkDetails, err := ioutil.ReadFile(filepath.Join(getProjectRoot(t),
+		"evm-test-helpers/src/LinkToken.json"))
+	require.NoError(t, err, "could not read link contract details")
+	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(linkDetails)),
+		"27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922",
+		"should never differ!")
 }
 
 // compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources checks that
-// the file at each contractVersion.compilerArtifactPath hashes to its
-// contractVersion.hash, and that the solidity source code recorded in the
+// the file at each ContractVersion.CompilerArtifactPath hashes to its
+// ContractVersion.Hash, and that the solidity source code recorded in the
 // compiler artifact matches the current solidity contracts.
 //
 // Most of the compiler artifacts should contain output from sol-compiler, or
@@ -76,61 +65,33 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 // directory, and <code> is the source code of the contract at the time the JSON
 // file was generated.
 func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
-	t *testing.T, versionInfo contractVersion,
+	t *testing.T, versionInfo ContractVersion,
 ) {
-	apath := versionInfo.compilerArtifactPath
-	// check the compiler outputs (abi and bytecode object) haven't changed
-	compilerJSON, err := ioutil.ReadFile(apath)
-	require.NoError(t, err, "failed to read JSON compiler artifact %s", apath)
-	abiPath := "compilerOutput.abi"
-	binPath := "compilerOutput.evm.bytecode.object"
-	isLINKCompilerOutput :=
-		path.Base(versionInfo.compilerArtifactPath) == "LinkToken.json"
-	if isLINKCompilerOutput {
-		abiPath = "abi"
-		binPath = "bytecode"
-	}
-	// Normalize the whitespace in the ABI JSON
-	abiBytes, err := utils.NormalizedJSON(
-		[]byte(gjson.GetBytes(compilerJSON, abiPath).String()))
-	assert.NoError(t, err, "failed to normalize JSON %s", compilerJSON)
-	binBytes := gjson.GetBytes(compilerJSON, binPath).String()
-	if !isLINKCompilerOutput {
-		// Remove the varying contract metadata, as in ./generation/generate.sh
-		binBytes = binBytes[:len(binBytes)-106]
-	}
-	hasher := sha256.New()
-	hashMsg := string(abiBytes+binBytes) + "\n" // newline from <<< in record_versions.sh
-	_, err = io.WriteString(hasher, hashMsg)
-	require.NoError(t, err, "failed to hash compiler artifact %s", apath)
+	apath := versionInfo.CompilerArtifactPath
+	contract, err := ExtractContractDetails(apath)
+	require.NoError(t, err, "could not get details for contract %s", versionInfo)
+	hash := contract.VersionHash()
 	thisDir, err := os.Getwd()
 	if err != nil {
 		thisDir = "<could not get absolute path to gethwrappers package>"
 	}
 	recompileCommand := color.HiRedString(fmt.Sprintf("`%s && go generate %s`",
 		compileCommand(t), thisDir))
-	assert.Equal(t, versionInfo.hash, fmt.Sprintf("%x", hasher.Sum(nil)),
+	assert.Equal(t, versionInfo.Hash, hash,
 		boxOutput(`compiler artifact %s has changed; please rerun
 %s
 and commit the changes`, apath, recompileCommand))
 
-	var artifact struct {
-		Sources map[string]string `json:"sourceCodes"`
-	}
-	require.NoError(t, json.Unmarshal(compilerJSON, &artifact),
-		"could not read compiler artifact %s", apath)
-
-	if !isLINKCompilerOutput { // No need to check contract source for LINK token
-		// Check that each of the contract source codes hasn't changed
-		soliditySourceRoot := filepath.Dir(filepath.Dir(filepath.Dir(apath)))
-		contractPath := filepath.Join(soliditySourceRoot, "src", "v0.6")
-		for sourcePath, sourceCode := range artifact.Sources { // compare to current source
-			sourcePath = filepath.Join(contractPath, sourcePath)
-			actualSource, err := ioutil.ReadFile(sourcePath)
-			require.NoError(t, err, "could not read "+sourcePath)
-			// These outputs are huge, so silence them by assert.True on explicit equality
-			assert.True(t, string(actualSource) == sourceCode,
-				boxOutput(`Change detected in %s,
+	// Check that each of the contract source codes hasn't changed
+	soliditySourceRoot := filepath.Dir(filepath.Dir(filepath.Dir(apath)))
+	contractPath := filepath.Join(soliditySourceRoot, "src", "v0.6")
+	for sourcePath, sourceCode := range contract.Sources { // compare to current source
+		sourcePath = filepath.Join(contractPath, sourcePath)
+		actualSource, err := ioutil.ReadFile(sourcePath)
+		require.NoError(t, err, "could not read "+sourcePath)
+		// These outputs are huge, so silence them by assert.True on explicit equality
+		assert.True(t, string(actualSource) == sourceCode,
+			boxOutput(`Change detected in %s,
 which is a dependency of %s.
 
 For the gethwrappers package, please rerun
@@ -138,55 +99,8 @@ For the gethwrappers package, please rerun
 %s
 
 and commit the changes`,
-					sourcePath, versionInfo.compilerArtifactPath, recompileCommand))
-		}
+				sourcePath, versionInfo.CompilerArtifactPath, recompileCommand))
 	}
-}
-
-func versionsDBLineReader() (*bufio.Scanner, error) {
-	dirOfThisTest, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	dBBasename := "generated-wrapper-dependency-versions-do-not-edit.txt"
-	dbPath := filepath.Join(dirOfThisTest, "generation", dBBasename)
-	versionsDBFile, err := os.Open(dbPath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not open versions database")
-	}
-	return bufio.NewScanner(versionsDBFile), nil
-
-}
-
-// readVersionsDB populates an integratedVersion with all the info in the
-// versions DB
-func readVersionsDB(t *testing.T) integratedVersion {
-	rv := integratedVersion{}
-	rv.contractVersions = make(map[string]contractVersion)
-	db, err := versionsDBLineReader()
-	require.NoError(t, err)
-	for db.Scan() {
-		line := strings.Fields(db.Text())
-		require.True(t, strings.HasSuffix(line[0], ":"),
-			`each line in versions.txt should start with "$TOPIC:"`)
-		topic := stripTrailingColon(line[0], "")
-		if topic == "GETH_VERSION" {
-			require.Len(t, line, 2,
-				"GETH_VERSION line should contain geth version, and only that")
-			require.Empty(t, rv.gethVersion, "more than one geth version")
-			rv.gethVersion = line[1]
-		} else { // It's a wrapper from a json compiler artifact
-			require.Len(t, line, 3,
-				`"%s" should have three elements "<pkgname>: <compiler-artifact-path> <compiler-artifact-hash>"`,
-				db.Text())
-			_, alreadyExists := rv.contractVersions[topic]
-			require.False(t, alreadyExists, `topic "%s" already mentioned!`, topic)
-			rv.contractVersions[topic] = contractVersion{
-				compilerArtifactPath: line[1], hash: line[2],
-			}
-		}
-	}
-	return rv
 }
 
 // Ensure that solidity compiler artifacts are present before running this test,
@@ -217,8 +131,6 @@ func init() {
 		panic(err)
 	}
 }
-
-var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 
 // compileCommand() is a shell command which compiles chainlink's solidity
 // contracts.
@@ -274,4 +186,19 @@ func Example_boxOutput() {
 	// →  README     ←
 	// →             ←
 	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
+}
+
+// getProjectRoot returns the root of the chainlink project
+func getProjectRoot(t *testing.T) (rootPath string) {
+	root, err := os.Getwd()
+	require.NoError(t, err, "could not get current working directory")
+	for root != "/" { // Walk up path to find dir containing go.mod
+		if _, err := os.Stat(filepath.Join(root, "go.mod")); os.IsNotExist(err) {
+			root = filepath.Dir(root)
+		} else {
+			return root
+		}
+	}
+	t.Fatal("could not find project root")
+	panic("can't get here") // Appease staticcheck
 }

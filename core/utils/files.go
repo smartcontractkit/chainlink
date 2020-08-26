@@ -4,6 +4,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"syscall"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/pkg/errors"
 )
@@ -16,13 +19,25 @@ func FileExists(name string) bool {
 	return true
 }
 
-// Ensures that the given path exists, that it's a directory, and that it has the
-// specified permissions (+ the ModeDir bit).
+func TooPermissive(fileMode, maxAllowedPerms os.FileMode) bool {
+	return fileMode&^maxAllowedPerms != 0
+}
+
+func IsFileOwnedByChainlink(fileInfo os.FileInfo) (bool, error) {
+	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return false, errors.Errorf("Unable to determine file owner of %s", fileInfo.Name())
+	}
+	return int(stat.Uid) == os.Getuid(), nil
+}
+
+// Ensures that the given path exists, that it's a directory, and that it has
+// permissions that are no more permissive than the given ones.
 //
 // - If the path does not exist, it is created
 // - If the path exists, but is not a directory, an error is returned
 // - If the path exists, and is a directory, but has the wrong perms, it is chmod'ed
-func EnsureDirAndPerms(path string, perms os.FileMode) error {
+func EnsureDirAndMaxPerms(path string, perms os.FileMode) error {
 	stat, err := os.Stat(path)
 	if err != nil && !os.IsNotExist(err) {
 		// Regular error
@@ -35,18 +50,20 @@ func EnsureDirAndPerms(path string, perms os.FileMode) error {
 		return errors.Errorf("%v already exists and is not a directory", path)
 	} else if stat.Mode() != perms {
 		// Dir exists, but wrong perms, so chmod
-		return os.Chmod(path, perms|os.ModeDir)
+		return os.Chmod(path, (stat.Mode()&perms)|os.ModeDir)
 	}
 	return nil
 }
 
-func WriteFileWithPerms(path string, data []byte, perms os.FileMode) error {
+// Writes `data` to `path` and ensures that the file has permissions that
+// are no more permissive than the given ones.
+func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) error {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	err = EnsurePerms(f, perms)
+	defer logger.ErrorIfCalling(f.Close)
+	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
 		return err
 	}
@@ -54,21 +71,22 @@ func WriteFileWithPerms(path string, data []byte, perms os.FileMode) error {
 	return err
 }
 
-// Copies the file at `srcPath` to `dstPath` and ensures that it has the given permissions.
-func CopyFileWithPerms(srcPath, dstPath string, perms os.FileMode) error {
+// Copies the file at `srcPath` to `dstPath` and ensures that it has
+// permissions that are no more permissive than the given ones.
+func CopyFileWithMaxPerms(srcPath, dstPath string, perms os.FileMode) error {
 	src, err := os.Open(srcPath)
 	if err != nil {
 		return err
 	}
-	defer src.Close()
+	defer logger.ErrorIfCalling(src.Close)
 
 	dst, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer logger.ErrorIfCalling(dst.Close)
 
-	err = EnsurePerms(dst, perms)
+	err = EnsureFileMaxPerms(dst, perms)
 	if err != nil {
 		return err
 	}
@@ -78,8 +96,9 @@ func CopyFileWithPerms(srcPath, dstPath string, perms os.FileMode) error {
 	return err
 }
 
-// Ensures that the given file or directory has the given permissions.
-func EnsurePerms(file *os.File, perms os.FileMode) error {
+// Ensures that the given file has permissions that are no more
+// permissive than the given ones.
+func EnsureFileMaxPerms(file *os.File, perms os.FileMode) error {
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -87,7 +106,19 @@ func EnsurePerms(file *os.File, perms os.FileMode) error {
 	if stat.Mode() == perms {
 		return nil
 	}
-	return file.Chmod(perms)
+	return file.Chmod(stat.Mode() & perms)
+}
+
+// Ensures that the file at the given filepath has permissions that are
+// no more permissive than the given ones.
+func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) error {
+	dst, err := os.OpenFile(filepath, os.O_RDWR, perms)
+	if err != nil {
+		return err
+	}
+	defer logger.ErrorIfCalling(dst.Close)
+
+	return EnsureFileMaxPerms(dst, perms)
 }
 
 // FilesInDir returns an array of filenames in the directory.
@@ -96,7 +127,7 @@ func FilesInDir(dir string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	defer f.Close()
+	defer logger.ErrorIfCalling(f.Close)
 
 	r, err := f.Readdirnames(-1)
 	if err != nil {

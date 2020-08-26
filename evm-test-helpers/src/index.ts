@@ -4,17 +4,7 @@ import * as extensions from './extensions'
 import * as helpers from './helpers'
 import * as matchers from './matchers'
 import * as setup from './setup'
-import * as interfaces from './interfaces'
 import * as wallet from './wallet'
 
 export * from './contracts'
-export {
-  contract,
-  helpers,
-  debug,
-  wallet,
-  matchers,
-  setup,
-  extensions,
-  interfaces,
-}
+export { contract, helpers, debug, wallet, matchers, setup, extensions }

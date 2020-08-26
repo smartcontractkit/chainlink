@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,4 +82,20 @@ func TestKeyStore_SignHash_Success(t *testing.T) {
 
 	_, err := store.KeyStore.SignHash(cltest.StringToHash("abc123"))
 	assert.NoError(t, err)
+}
+
+func TestKeyStore_GetAccountByAddress(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	address := gethCommon.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
+	account, err := store.KeyStore.GetAccountByAddress(address)
+	require.NoError(t, err)
+	require.Equal(t, address, account.Address)
+
+	missingAddress := cltest.NewAddress()
+	account, err = store.KeyStore.GetAccountByAddress(missingAddress)
+	require.EqualError(t, err, "no account found with that address")
 }

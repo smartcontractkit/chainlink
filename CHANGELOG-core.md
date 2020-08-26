@@ -7,11 +7,113 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.12] - 2020-08-10
+
+### Fixed
+
+Added a workaround for Infura users who are seeing "error getting balance: header not found".
+
+This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
+
+## [0.8.11] - 2020-07-27
+
+### Added
+
+- Job specs now support pinning to multiple keys using the new `fromAddresses` field in the ethtx task spec.
+
+### Changed
+
+- Using `fromAddress` in ethtx task specs has been deprecated. Please use `fromAddresses` instead.
+
+### Breaking changes
+
+- Support for RunLogTopic0original and RunLogTopic20190123withFullfillmentParams logs has been dropped. This should not affect any users since these logs predate Chainlink's mainnet launch and have never been used on mainnet.
+
+IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by  defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
+
+This is done to allow increases in throughput when a node operator has multiple whitelisted addresses for their oracle.
+
+If your node has multiple keys, you will need to take one of the three following actions:
+
+1. Make sure all keys are valid for all job specs
+2. Pin job specs to a valid subset of key(s) using `fromAddresses`
+3. Delete the key(s) you don't want to use
+
+If your node only has one key, no action is required.
+
+## [0.8.10] - 2020-07-14
+
+### Fixed
+- Incorrect sequence on keys table in some edge cases
+
+## [0.8.9] - 2020-07-13
+
+### Added
+
+- Added a check on sensitive file ownership that gives a warning if certain files are not owned by the user running chainlink
+- Added mechanism to asynchronously communicate when a job spec has an ethereum interaction error (or any async error) with a UI screen
+- Gas Bumper now bumps based on the current gas price instead of the gas price of the original transaction
+
+### Fixed
+- Support for multiple node addresses
+
+## [0.8.8] - 2020-06-29
+
+### Added
+
+- `ethtx` tasks now support a new parameter, `minRequiredOutgoingConfirmations` which allows you to tune how many confirmations are required before moving on from an `ethtx` task on a per task basis (only works with BulletproofTxManager). If it is not supplied, the default of `MIN_OUTGOING_CONFIRMATIONS` is used (same as the old behaviour).
+
+### Changed
+
+- HeadTracker now automatically backfills missing heads up to `ETH_FINALITY_DEPTH`
+- The strategy for gas bumping has been changed to produce a potentially higher gas cost in exchange for the transaction getting through faster.
+
+### Breaking changes
+
+- `admin withdraw` command has been removed. This was only ever useful to withdraw LINK if the Oracle contract was owned by the Chainlink node address. It is no longer recommended to have the Oracle owner be the chainlink node address.
+- Fixed `txs create` to send the amount in Eth not in Wei (as per the documentation)
+
+## [0.8.7] - 2020-06-15
+
+### Added
+
+This release contains a number of features aimed at improving the node's reliability when putting transactions on-chain.
+
+- An experimental new transaction manager is introduced that delivers reliability improvements compared to the old one, especially when faced with difficult network conditions or spiking gas prices. It also reduces load on the database and makes fewer calls to the eth node compared to the old tx manager.
+- Along with the new transaction manager is a local client command for manually controlling the node nonce - `setnextnonce`. This should never be necessary under normal operation and is included only for use in emergencies.
+- New prometheus metrics for the head tracker:
+  - `head_tracker_heads_in_queue` - The number of heads currently waiting to be executed. You can think of this as the 'load' on the head tracker. Should rarely or never be more than 0.
+  - `head_tracker_callback_execution_duration` - How long it took to execute all callbacks. If the average of this exceeds the time between blocks, your node could lag behind and delay transactions.
+- Nodes transmit their build info to Explorer for better debugging/tracking.
+
+### Env var changes
+
+- `ENABLE_BULLETPROOF_TX_MANAGER` - set this to true to enable the experimental new transaction manager 
+- `ETH_GAS_BUMP_PERCENT` default value has been increased from 10% to 20%
+- `ETH_GAS_BUMP_THRESHOLD` default value has been decreased from 12 to 3
+- `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
+- `EthHeadTrackerHistoryDepth` specifies how many heads the head tracker should keep in the database. The default is 100. It is not recommended to change this setting.
+- Update README.md with links to mockery, jq, and gencodec as they are required to run `go generate ./...`
+
+## [0.8.6] - 2020-06-08
+
+### Added
+
+- The node now logs the eth client RPC calls
+- More reliable Ethereum block header tracking
+- Limit the amount of an HTTP response body that the node will read
+- Make Aggregator contract interface viewable
+- More resilient handling of chain reorganizations
+
+## [0.8.5] - 2020-06-01
+
 ### Added
 
 - The chainlink node can now be configured to backfill logs from `n` blocks after a
   connection to the ethereum client is reset. This value is specified with an environment
   variable `BLOCK_BACKFILL_DEPTH`.
+- The chainlink node now sets file permissions on sensitive files on startup (tls, .api, .env, .password and secret)
+- AggregatorInterface now has description and version fields.
 
 ### Changed
 
@@ -20,6 +122,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   introduced on the `AggregatorInterface`(`getRoundData` and `latestRoundData`),
   as they return metadata to indicate freshness of the data in a single
   cross-contract call.
+- Solidity: Marked `HistoricAggregatorInterface` methods (`latestAnswer`,
+  `latestRound`, `latestTimestamp`, `getAnswer`, `getTimestamp`) as deprecated
+  on `FluxAggregator`, `WhitelistedAggregator`, `AggregatorProxy`,
+  `WhitelistedAggregatorProxy`.
+- Updated the solidity compiler version for v0.6 from 0.6.2 to 0.6.6.
+- AccessControlledAggregatorProxy checks an external contract for users to be able to
+  read functions.
 
 ### Fixed
 

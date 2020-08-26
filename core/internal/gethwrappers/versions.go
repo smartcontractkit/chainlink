@@ -1,0 +1,137 @@
+package gethwrappers
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/pkg/errors"
+)
+
+// ContractVersion records information about the solidity compiler artifact a
+// golang contract wrapper package depends on.
+type ContractVersion struct {
+	// path to compiler artifact used by generate.sh to create wrapper package
+	CompilerArtifactPath string
+	// Hash of the artifact at the timem the wrapper was last generated
+	Hash string
+}
+
+// IntegratedVersion carries the full versioning information checked in this test
+type IntegratedVersion struct {
+	// Version of geth last used to generate the wrappers
+	GethVersion string
+	// { golang-pkg-name: version_info }
+	ContractVersions map[string]ContractVersion
+}
+
+func dbPath() (path string, err error) {
+	dirOfThisTest, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	dBBasename := "generated-wrapper-dependency-versions-do-not-edit.txt"
+	return filepath.Join(dirOfThisTest, "generation", dBBasename), nil
+}
+
+func versionsDBLineReader() (*bufio.Scanner, error) {
+	versionsDBPath, err := dbPath()
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not construct versions DB path")
+	}
+	versionsDBFile, err := os.Open(versionsDBPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not open versions database")
+	}
+	return bufio.NewScanner(versionsDBFile), nil
+
+}
+
+// readVersionsDB populates an IntegratedVersion with all the info in the
+// versions DB
+func ReadVersionsDB() (*IntegratedVersion, error) {
+	rv := IntegratedVersion{}
+	rv.ContractVersions = make(map[string]ContractVersion)
+	db, err := versionsDBLineReader()
+	if err != nil {
+		return nil, err
+	}
+	for db.Scan() {
+		line := strings.Fields(db.Text())
+		if !strings.HasSuffix(line[0], ":") {
+			return nil, errors.Errorf(
+				`each line in versions.txt should start with "$TOPIC:"`)
+		}
+		topic := stripTrailingColon(line[0], "")
+		if topic == "GETH_VERSION" {
+			if len(line) != 2 {
+				return nil, errors.Errorf("GETH_VERSION line should contain geth "+
+					"version, and only that: %s", line)
+			}
+			if rv.GethVersion != "" {
+				return nil, errors.Errorf("more than one geth version")
+			}
+			rv.GethVersion = line[1]
+		} else { // It's a wrapper from a json compiler artifact
+			if len(line) != 3 {
+				return nil, errors.Errorf(`"%s" should have three elements `+
+					`"<pkgname>: <compiler-artifact-path> <compiler-artifact-hash>"`,
+					db.Text())
+			}
+			_, alreadyExists := rv.ContractVersions[topic]
+			if alreadyExists {
+				return nil, errors.Errorf(`topic "%s" already mentioned!`, topic)
+			}
+			rv.ContractVersions[topic] = ContractVersion{
+				CompilerArtifactPath: line[1], Hash: line[2],
+			}
+		}
+	}
+	return &rv, nil
+}
+
+var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
+
+func WriteVersionsDB(db *IntegratedVersion) error {
+	versionsDBPath, err := dbPath()
+	if err != nil {
+		return errors.Wrap(err, "could not construct path to versions DB")
+	}
+	f, err := os.Create(versionsDBPath)
+	if err != nil {
+		return errors.Wrapf(err, "while opening %s", versionsDBPath)
+	}
+	defer logger.ErrorIfCalling(f.Close)
+	gethLine := "GETH_VERSION: " + db.GethVersion + "\n"
+	n, err := f.WriteString(gethLine)
+	if err != nil {
+		return errors.Wrapf(err, "while recording geth version line")
+	}
+	if n != len(gethLine) {
+		return errors.Errorf("failed to write entire geth version line, %s", gethLine)
+	}
+	var pkgNames []string
+	for name := range db.ContractVersions {
+		pkgNames = append(pkgNames, name)
+	}
+	sort.Strings(pkgNames)
+	for _, name := range pkgNames {
+		vinfo := db.ContractVersions[name]
+		versionLine := fmt.Sprintf("%s: %s %s\n", name, vinfo.CompilerArtifactPath,
+			vinfo.Hash)
+		n, err = f.WriteString(versionLine)
+		if err != nil {
+			return errors.Wrapf(err, "while recording %s version line", name)
+		}
+		if n != len(versionLine) {
+			return errors.Errorf("failed to write entire version line %s", versionLine)
+		}
+	}
+	return nil
+}

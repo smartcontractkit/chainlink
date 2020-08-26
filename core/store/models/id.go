@@ -13,6 +13,11 @@ import (
 // ID is a UUID that has a custom display format
 type ID uuid.UUID
 
+// UUID converts it back into a uuid.UUID
+func (id ID) UUID() uuid.UUID {
+	return uuid.UUID(id)
+}
+
 // NewID returns a new ID
 func NewID() *ID {
 	uuid := uuid.NewV4()

@@ -26,6 +26,7 @@ services:
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
       - ENABLE_EXPERIMENTAL_ADAPTERS
+      - ENABLE_BULLETPROOF_TX_MANAGER
     env_file:
       - chainlink-variables.env
     ports:
@@ -57,6 +58,7 @@ services:
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
       - ENABLE_EXPERIMENTAL_ADAPTERS
+      - ENABLE_BULLETPROOF_TX_MANAGER
     env_file:
       - chainlink-variables.env
     ports:
@@ -121,7 +123,7 @@ secrets:
   apicredentials:
     file: ../clroot/apicredentials
   keystore:
-    file: ../secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
+    file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
 
 volumes:
   explorer-db-data:

@@ -3,7 +3,15 @@ import { Dispatch } from 'redux'
 import { FunctionFragment } from 'ethers/utils'
 import { JsonRpcProvider } from 'ethers/providers'
 import { FeedConfig, Config } from '../../../config'
-import * as actions from './actions'
+import {
+  fetchFeedsBegin,
+  fetchFeedsSuccess,
+  fetchFeedsError,
+  fetchAnswerSuccess,
+  fetchHealthPriceSuccess,
+  fetchAnswerTimestampSuccess,
+} from './actions'
+import { ListingAnswer, HealthPrice, ListingTimestamp } from './types'
 import {
   createContract,
   createInfuraProvider,
@@ -15,15 +23,15 @@ import {
  */
 export function fetchFeeds() {
   return async (dispatch: Dispatch) => {
-    dispatch(actions.fetchFeedsBegin())
+    dispatch(fetchFeedsBegin())
     jsonapi
       .fetchWithTimeout(Config.feedsJson(), {})
       .then((r: Response) => r.json())
       .then((json: FeedConfig[]) => {
-        dispatch(actions.fetchFeedsSuccess(json))
+        dispatch(fetchFeedsSuccess(json))
       })
       .catch(e => {
-        dispatch(actions.fetchFeedsError(e))
+        dispatch(fetchFeedsError(e))
       })
   }
 }
@@ -31,23 +39,39 @@ export function fetchFeeds() {
 /**
  * answers
  */
-export function fetchAnswer(config: FeedConfig) {
+export function fetchLatestData(config: FeedConfig) {
   return async (dispatch: Dispatch) => {
     try {
       const provider = createInfuraProvider()
-      const payload = await latestAnswer(config, provider)
+      const answerPayload = await latestAnswer(config, provider)
+      const timestampPayload = await latestTimestamp(config, provider)
+
       const answer = formatAnswer(
-        payload,
+        answerPayload,
         config.multiply,
         config.decimalPlaces,
+        config.formatDecimalPlaces,
       )
-      const listingAnswer: actions.ListingAnswer = { answer, config }
+      const listingAnswer: ListingAnswer = { answer, config }
+      const listingAnswerTimestamp: ListingTimestamp = {
+        timestamp: Number(timestampPayload),
+        config,
+      }
 
-      dispatch(actions.fetchAnswerSuccess(listingAnswer))
+      dispatch(fetchAnswerSuccess(listingAnswer))
+      dispatch(fetchAnswerTimestampSuccess(listingAnswerTimestamp))
     } catch {
       console.error('Could not fetch answer')
     }
   }
+}
+
+async function latestTimestamp(
+  contractConfig: FeedConfig,
+  provider: JsonRpcProvider,
+) {
+  const contract = answerContract(contractConfig.contractAddress, provider)
+  return await contract.latestTimestamp()
 }
 
 const LATEST_ANSWER_CONTRACT_VERSIONS = [2, 3]
@@ -83,6 +107,15 @@ const ANSWER_ABI: FunctionFragment[] = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    constant: true,
+    inputs: [],
+    name: 'latestTimestamp',
+    outputs: [{ name: '', type: 'uint256' }],
+    payable: false,
+    stateMutability: 'view',
+    type: 'function',
+  },
 ]
 
 function answerContract(contractAddress: string, provider: JsonRpcProvider) {
@@ -98,14 +131,12 @@ export function fetchHealthStatus(feed: FeedConfig) {
     const priceResponse = await fetchHealthPrice(feed)
 
     if (priceResponse) {
-      dispatch(actions.fetchHealthPriceSuccess(priceResponse))
+      dispatch(fetchHealthPriceSuccess(priceResponse))
     }
   }
 }
 
-async function fetchHealthPrice(
-  config: any,
-): Promise<actions.HealthPrice | undefined> {
+async function fetchHealthPrice(config: any): Promise<HealthPrice | undefined> {
   if (!config.healthPrice) return
 
   const json = await fetch(config.healthPrice).then(r => r.json())

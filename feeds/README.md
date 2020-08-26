@@ -49,41 +49,15 @@ https://www.netlify.com/blog/2015/10/01/a-step-by-step-guide-middleman-on-netlif
 
 ## Hidden Features
 
-### Display Offchain Comparison Links
+### Display Offchain Comparison Links, Contract Health
 
-On the landing page you can enable a link to an offchain price comparison resource with the `compare-offchain` query parameter.
+On the landing page you can enable a link to an offchain price comparison resource and health checks with the `details` query parameter.
 
 ```
-https://feeds.chain.link?compare-offchain=true
+https://feeds.chain.link?details=true
 ```
 
 ![display-offchain-comparison](./docs/feed-landing-compare-offchain.png)
-
-### Display Reference Contract Health
-
-On the landing page you can enable live health checks with:
-
-```
-https://feeds.chain.link?health=true
-```
-
-### Override feeds & nodes JSON endpoints
-
-Override the urls with a URI encoded query param
-
-```
-https://feeds.chain.link?feeds-json=https%3A%2F%2Fweiwatchers.com%2Ffeeds.json
-https://feeds.chain.link?nodes-json=https%3A%2F%2Fweiwatchers.com%2Fnodes.json
-```
-
-You can use the browser console to encode your URI:
-
-```javascript
-> encodeURIComponent('https://weiwatchers.com/feeds.json')
-"https%3A%2F%2Fweiwatchers.com%2Ffeeds.json"
-```
-
-![reference-contract-health](./docs/reference-contract-health.png)
 
 #### Checks
 
@@ -95,6 +69,24 @@ Color Codes
 - Red: A check has failed (hover for tooltip that includes failed checks)
 - Yellow: Unknown status (when the price health check is not configured)
 - Green: Ok
+
+### Override feeds & nodes JSON endpoints
+
+Override the urls with a URI encoded query param (NOTE: this is blocked on feeds.chain.link -- use locally or in our test environment instead)
+
+```
+https://<host>/?feeds-json=https%3A%2F%2Fweiwatchers.com%2Ffeeds-ropsten.json
+https://<host>/?nodes-json=https%3A%2F%2Fweiwatchers.com%2Fnodes-ropsten.json
+```
+
+You can use the browser console to encode your URI:
+
+```javascript
+> encodeURIComponent('https://weiwatchers.com/feeds.json')
+"https%3A%2F%2Fweiwatchers.com%2Ffeeds.json"
+```
+
+![reference-contract-health](./docs/reference-contract-health.png)
 
 ## Available env vars
 

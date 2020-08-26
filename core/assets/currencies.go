@@ -2,24 +2,26 @@ package assets
 
 import (
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/willf/pad"
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 var ErrNoQuotesForCurrency = errors.New("cannot unmarshal json.Number into currency")
 
+// getDenominator returns 10**precision.
+func getDenominator(precision int) *big.Int {
+	x := big.NewInt(10)
+	return new(big.Int).Exp(x, big.NewInt(int64(precision)), nil)
+}
+
 func format(i *big.Int, precision int) string {
-	v := "1" + pad.Right("", precision, "0")
-	d := &big.Int{}
-	d.SetString(v, 10)
-	r := &big.Rat{}
-	r.SetFrac(i, d)
+	r := big.NewRat(1, 1).SetFrac(i, getDenominator(precision))
 	return fmt.Sprintf("%v", r.FloatString(precision))
 }
 
@@ -163,9 +165,25 @@ func (l *Link) Scan(value interface{}) error {
 // Eth contains a field to represent the smallest units of ETH
 type Eth big.Int
 
-// NewEth returns a new struct to represent ETH from it's smallest unit
+// NewEth returns a new struct to represent ETH from it's smallest unit (wei)
 func NewEth(w int64) *Eth {
 	return (*Eth)(big.NewInt(w))
+}
+
+// NewEthValue returns a new struct to represent ETH from it's smallest unit (wei)
+func NewEthValue(w int64) Eth {
+	eth := NewEth(w)
+	return *eth
+}
+
+// NewEthValueS returns a new struct to represent ETH from a string value of Eth (not wei)
+func NewEthValueS(s string) (Eth, error) {
+	e, err := decimal.NewFromString(s)
+	if err != nil {
+		return Eth{}, err
+	}
+	w := e.Mul(decimal.RequireFromString("10").Pow(decimal.RequireFromString("18")))
+	return *(*Eth)(w.BigInt()), nil
 }
 
 // Cmp delegates to *big.Int.Cmp
@@ -232,4 +250,14 @@ func (*Eth) Symbol() string {
 // ToInt returns the Eth value as a *big.Int.
 func (e *Eth) ToInt() *big.Int {
 	return (*big.Int)(e)
+}
+
+// Scan reads the database value and returns an instance.
+func (e *Eth) Scan(value interface{}) error {
+	return (*utils.Big)(e).Scan(value)
+}
+
+// Value returns the Eth value for serialization to database.
+func (e Eth) Value() (driver.Value, error) {
+	return (utils.Big)(e).Value()
 }

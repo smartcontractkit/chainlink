@@ -116,35 +116,37 @@ go build -o chainlink ./core/
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 
-2. Build contracts:
+2. Install [gencodec](https://github.com/fjl/gencodec), [mockery version 1.0.0](https://github.com/vektra/mockery/releases/tag/v1.0.0), and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
+
+3. Build contracts:
 
 ```bash
 yarn
 yarn setup:contracts
 ```
 
-3. Generate and compile static assets:
+4. Generate and compile static assets:
 
 ```bash
 go generate ./...
 go run ./packr/main.go ./core/eth/
 ```
 
-4. Prepare your development environment:
+5. Prepare your development environment:
 
 ```bash
 export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
 export CHAINLINK_DEV=true # I prefer to use direnv and skip this
 ```
 
-5.  Drop/Create test database and run migrations:
+6.  Drop/Create test database and run migrations:
 ```
 go run ./core/main.go local db preparetest
 ```
 
 If you do end up modifying the migrations for the database, you will need to rerun
 
-6. Run tests:
+7. Run tests:
 
 ```bash
 go test -parallel=1 ./...
@@ -169,7 +171,7 @@ yarn run test-sol
 
 ### Use of Go Generate
 
-Go generate is used to generate mocks in this project. Mocks are generate with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
+Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
 
 ### Development Tips
 

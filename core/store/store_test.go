@@ -1,7 +1,6 @@
 package store_test
 
 import (
-	"fmt"
 	"math/big"
 	"path/filepath"
 	"regexp"
@@ -58,7 +57,6 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 
 	// assert creation on disk is successful
 	files, err := utils.FilesInDir(app.Config.KeysDir())
-	fmt.Println(app.Config.KeysDir())
 	require.NoError(t, err)
 	require.Len(t, files, 2)
 
@@ -144,7 +142,9 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
 		meth.Register("eth_getTransactionCount", "0x1")

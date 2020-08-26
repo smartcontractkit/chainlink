@@ -32,10 +32,9 @@ describe('components/listing/GridItem', () => {
         <GridItem
           feed={feed}
           answer={'10.1'}
-          enableHealth={false}
-          compareOffchain={false}
-          fetchAnswer={jest.fn()}
+          fetchLatestData={jest.fn()}
           fetchHealthStatus={jest.fn()}
+          enableDetails={false}
         />
       </AllTheProviders>,
     )

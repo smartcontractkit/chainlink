@@ -1,4 +1,4 @@
-pragma solidity 0.6.2;
+pragma solidity 0.6.6;
 
 /**
  * @title BlockhashStore
@@ -46,7 +46,7 @@ contract BlockhashStore {
     //   | |   |
     //   | |   +--- PARENTHASH is 32 bytes. rlpenc(PARENTHASH) is 0xa || PARENTHASH.
     //   | |
-    //   | +--- 2 bytes containing the sum of the lenghts of the encoded list items
+    //   | +--- 2 bytes containing the sum of the lengths of the encoded list items
     //   |
     //   +--- 0xf9 because we have a list and (sum of lengths of encoded list items) fits exactly into two bytes.
     //

@@ -14,9 +14,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
-	ethpkg "github.com/smartcontractkit/chainlink/core/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -71,22 +71,10 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			Name:    "verifyVRFProof",
 			RawName: "verifyVRFProof",
 			Inputs: []abi.Argument{
-				abi.Argument{
-					Name: "gammaX",
-					Type: uint256Type,
-				},
-				abi.Argument{
-					Name: "gammaY",
-					Type: uint256Type,
-				},
-				abi.Argument{
-					Name: "c",
-					Type: uint256Type,
-				},
-				abi.Argument{
-					Name: "s",
-					Type: uint256Type,
-				},
+				{Name: "gammaX", Type: uint256Type},
+				{Name: "gammaY", Type: uint256Type},
+				{Name: "c", Type: uint256Type},
+				{Name: "s", Type: uint256Type},
 			},
 			Outputs: []abi.Argument{},
 		},
@@ -126,7 +114,10 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 
 	expectedAsHex := strings.Join(append(selector, values...), "")
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	store := app.Store
 
@@ -137,7 +128,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	hash := cltest.NewHash()
-	sentAt := uint64(23456)
+	sentAt := int64(23456)
 	confirmed := sentAt + 1
 	app.EthMock.Register("eth_sendRawTransaction", hash,
 		func(_ interface{}, data ...interface{}) error {
@@ -148,7 +139,7 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 			assert.Equal(t, expectedAsHex, hexutil.Encode(tx.Data()))
 			return nil
 		})
-	receipt := ethpkg.TxReceipt{Hash: hash, BlockNumber: cltest.Int(confirmed)}
+	receipt := &gethTypes.Receipt{TxHash: hash, BlockNumber: big.NewInt(confirmed)}
 	app.EthMock.Register("eth_getTransactionReceipt", receipt)
 	input := cltest.NewRunInputWithString(t, rawInput)
 	responseData := adapterUnderTest.Perform(input, store)
