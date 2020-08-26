@@ -34,6 +34,7 @@ import plasm from './plasm.png'
 import swipe from './swipe.png'
 import hxro from './hxro.png'
 import dydx from './dydx.png'
+import definer from './definer.png'
 
 // Listing Thumbnails
 
@@ -71,6 +72,7 @@ import plasmTn from './plasm_tn.png'
 import swipeTn from './swipe_tn.png'
 import hxroTn from './hxro_tn.png'
 import dydxTn from './dydx_tn.png'
+import definerTn from './definer_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -283,5 +285,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://dydx.exchange',
     imageLg: dydx,
     imageTn: dydxTn,
+  },
+  {
+    name: 'DeFiner',
+    url: 'https://definer.org',
+    imageLg: definer,
+    imageTn: definerTn,
   },
 ]

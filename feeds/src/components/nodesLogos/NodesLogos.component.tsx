@@ -38,6 +38,8 @@ import syncnode from 'assets/nodes/syncnode.png'
 import vulcanLink from 'assets/nodes/vulcanLink.png'
 import youbi from 'assets/nodes/youbi.png'
 import staked from 'assets/nodes/staked.png'
+import kyber from 'assets/nodes/kyber.png'
+import blocksize from 'assets/nodes/blocksize.png'
 
 interface Node {
   name: string
@@ -236,6 +238,16 @@ const list: Node[] = [
     name: 'Staked',
     url: 'http://www.staked.us',
     src: staked,
+  },
+  {
+    name: 'Kyber',
+    url: 'https://kyber.network',
+    src: kyber,
+  },
+  {
+    name: 'Blocksize Capital',
+    url: 'https://www.blocksize-capital.com/',
+    src: blocksize,
   },
 ]
 
