@@ -36,16 +36,14 @@ export default class ChainlinkClient {
    * pauses the docker container running this CL node
    */
   public async pause() {
-    const paused = (await this.state()).Paused
-    if (!paused) await this.container.pause()
+    await this.container.pause()
   }
 
   /**
    * unpauses the docker container running this CL node
    */
   public async unpause() {
-    const paused = (await this.state()).Paused
-    if (paused) await this.container.unpause()
+    await this.container.unpause()
   }
 
   public login() {
@@ -70,13 +68,6 @@ export default class ChainlinkClient {
 
   public getAdminInfo(): KeyInfo[] {
     return this.execute('admin info') as KeyInfo[]
-  }
-
-  /**
-   * returns the state of the docker container running this CL node
-   */
-  private async state(): Promise<Dockerode.ContainerInspectInfo['State']> {
-    return await this.container.inspect().then(res => res.State)
   }
 
   /**

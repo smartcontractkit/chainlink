@@ -1,5 +1,7 @@
 package bulletprooftxmanager
 
+// NOTE: See: https://godoc.org/time#Timer.Stop for an explanation of this pattern
+
 import (
 	"context"
 	"fmt"
@@ -49,9 +51,9 @@ type EthBroadcaster interface {
 }
 
 type ethBroadcaster struct {
-	store             *store.Store
-	gethClientWrapper store.GethClientWrapper
-	config            orm.ConfigReader
+	store     *store.Store
+	ethClient eth.Client
+	config    orm.ConfigReader
 
 	started    bool
 	stateMutex sync.RWMutex
@@ -66,12 +68,12 @@ type ethBroadcaster struct {
 // NewEthBroadcaster returns a new concrete ethBroadcaster
 func NewEthBroadcaster(store *store.Store, config orm.ConfigReader) EthBroadcaster {
 	return &ethBroadcaster{
-		store:             store,
-		config:            config,
-		gethClientWrapper: store.GethClientWrapper,
-		trigger:           make(chan struct{}, 1),
-		chStop:            make(chan struct{}),
-		chDone:            make(chan struct{}),
+		store:     store,
+		config:    config,
+		ethClient: store.EthClient,
+		trigger:   make(chan struct{}, 1),
+		chStop:    make(chan struct{}),
+		chDone:    make(chan struct{}),
 	}
 }
 
@@ -116,7 +118,7 @@ func (eb *ethBroadcaster) Trigger() {
 func (eb *ethBroadcaster) monitorEthTxs() {
 	defer close(eb.chDone)
 	for {
-		pollDatabaseTimer := time.NewTimer(databasePollInterval)
+		pollDBTimer := time.NewTimer(databasePollInterval)
 
 		keys, err := eb.store.Keys()
 
@@ -143,10 +145,17 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 
 		select {
 		case <-eb.chStop:
+			// NOTE: See: https://godoc.org/time#Timer.Stop for an explanation of this pattern
+			if !pollDBTimer.Stop() {
+				<-pollDBTimer.C
+			}
 			return
 		case <-eb.trigger:
+			if !pollDBTimer.Stop() {
+				<-pollDBTimer.C
+			}
 			continue
-		case <-pollDatabaseTimer.C:
+		case <-pollDBTimer.C:
 			continue
 		}
 	}
@@ -184,15 +193,15 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
-		attempt, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
+		a, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
-		if err := eb.saveInProgressTransaction(etx, &attempt); err != nil {
+		if err := eb.saveInProgressTransaction(etx, &a); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 
-		if err := eb.handleInProgressEthTx(*etx, attempt, true); err != nil {
+		if err := eb.handleInProgressEthTx(*etx, a, true); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 	}
@@ -246,7 +255,9 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		broadcastAt = etx.CreatedAt
 	}
 
-	sendError := sendTransaction(eb.gethClientWrapper, attempt)
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	sendError := sendTransaction(ctx, eb.ethClient, attempt)
 
 	if sendError.Fatal() {
 		etx.Error = sendError.StrPtr()
@@ -281,11 +292,22 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		// If it turns out to have been an external wallet, this transaction
 		// will be retried on every new head (and will fail) until we reach out
 		// block depth target and then abandoned.
-		return saveUnconfirmed(eb.store, &etx, attempt)
+		//
+		// Assume success and hand off to the ethConfirmer.
+		sendError = nil
 	}
 
 	if sendError.IsTerminallyUnderpriced() {
 		return eb.tryAgainWithHigherGasPrice(sendError, etx, attempt, isVirginTransaction)
+	}
+
+	if sendError.IsTemporarilyUnderpriced() {
+		// If we can't even get the transaction into the mempool at all, assume
+		// success (even though the transaction will never confirm) and hand
+		// off to the ethConfirmer to bump gas periodically until we _can_ get
+		// it in
+		logger.Infow("EthBroadcaster: Transaction temporarily underpriced", "ethTxID", etx.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
+		sendError = nil
 	}
 
 	if sendError != nil {
@@ -303,7 +325,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 // external wallet's transaction is reorged out we can end up with a gap in the
 // nonce sequence.  AT ALL COSTS we must have a locally gapless and monotonically
 // increasing nonce sequence.
-func (eb *ethBroadcaster) handleExternalWalletUsedNonce(etx *models.EthTx, etxAttempt models.EthTxAttempt) error {
+func (eb *ethBroadcaster) handleExternalWalletUsedNonce(etx *models.EthTx, attempt models.EthTxAttempt) error {
 	logger.Errorf("nonce of %v was too low for eth_tx %v. Address %s has been used by another wallet. "+
 		"This is NOT SUPPORTED by chainlink and can lead to lost or reverted transactions. "+
 		"Will create a duplicate eth_tx and attempt to resend at a higher nonce...",
@@ -311,7 +333,7 @@ func (eb *ethBroadcaster) handleExternalWalletUsedNonce(etx *models.EthTx, etxAt
 
 	clonedEtx := cloneForRebroadcast(etx)
 
-	return saveUnconfirmed(eb.store, etx, etxAttempt, func(tx *gorm.DB) error {
+	return saveUnconfirmed(eb.store, etx, attempt, func(tx *gorm.DB) error {
 		err := tx.Save(&clonedEtx).Error
 		if err != nil {
 			return errors.Wrap(err, "handleExternalWalletUsedNonce failed to save cloned eth_tx")
@@ -396,11 +418,17 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTx
 }
 
 func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx models.EthTx, attempt models.EthTxAttempt, isVirginTransaction bool) error {
-	bumpedGasPrice := BumpGas(eb.config, attempt.GasPrice.ToInt())
+	bumpedGasPrice, err := BumpGas(eb.config, attempt.GasPrice.ToInt())
+	if err != nil {
+		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
+	}
 	logger.Errorf("default gas price %v wei was rejected by the eth node for being too low. "+
 		"Eth node returned: '%s'. "+
 		"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing ETH_GAS_PRICE_DEFAULT", eb.config.EthGasPriceDefault(), sendError.Error(), bumpedGasPrice)
+	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EthMaxGasPriceWei()) == 0 {
+		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
+	}
 	replacementAttempt, err := newAttempt(eb.store, etx, bumpedGasPrice)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
@@ -460,7 +488,7 @@ func (eb *ethBroadcaster) loadAndSaveNonce(address gethCommon.Address) (int64, e
 	if err != nil {
 		return 0, errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
 	}
-	res := eb.store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE next_nonce IS NULL`, nonce)
+	res := eb.store.DB.Exec(`UPDATE keys SET next_nonce = ? WHERE next_nonce IS NULL AND address = ?`, nonce, address)
 	if res.Error != nil {
 		return 0, errors.Wrap(err, "GetNextNonce failed to save new nonce loaded from eth client")
 	}
@@ -481,14 +509,10 @@ func (eb *ethBroadcaster) loadAndSaveNonce(address gethCommon.Address) (int64, e
 }
 
 func (eb *ethBroadcaster) loadInitialNonceFromEthClient(account gethCommon.Address) (nextNonce uint64, err error) {
-	err = eb.gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
-		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
-		defer cancel()
-		nextNonce, err = gethClient.PendingNonceAt(ctx, account)
-		return errors.WithStack(err)
-	})
-
-	return nextNonce, err
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	nextNonce, err = eb.ethClient.PendingNonceAt(ctx, account)
+	return nextNonce, errors.WithStack(err)
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1

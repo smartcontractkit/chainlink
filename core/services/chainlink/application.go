@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"context"
 	stderr "errors"
 	"os"
 	"os/signal"
@@ -32,8 +33,8 @@ func (c *headTrackableCallback) Connect(*models.Head) error {
 	return nil
 }
 
-func (c *headTrackableCallback) Disconnect()                   {}
-func (c *headTrackableCallback) OnNewLongestChain(models.Head) {}
+func (c *headTrackableCallback) Disconnect()                                    {}
+func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}
 
 //go:generate mockery --name Application --output ../internal/mocks/ --case=underscore
 
@@ -94,7 +95,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
-	balanceMonitor := services.NewBalanceMonitor(store, store.GethClientWrapper)
+	balanceMonitor := services.NewBalanceMonitor(store)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -158,8 +159,14 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
+	err := app.Store.EthClient.Dial(context.TODO())
+	if err != nil {
+		return err
+	}
+
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
+		err,
 		app.Store.Start(),
 		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
@@ -280,5 +287,5 @@ func (p *pendingConnectionResumer) Connect(head *models.Head) error {
 	return p.runManager.ResumeAllPendingConnection()
 }
 
-func (p *pendingConnectionResumer) Disconnect()                   {}
-func (p *pendingConnectionResumer) OnNewLongestChain(models.Head) {}
+func (p *pendingConnectionResumer) Disconnect()                                    {}
+func (p *pendingConnectionResumer) OnNewLongestChain(context.Context, models.Head) {}

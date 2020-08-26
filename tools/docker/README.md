@@ -185,6 +185,9 @@ To remove any containers, volumes, and networks related to our docker-compose se
 ./compose clean
 ```
 
+If running in a CI environment where the `CI` environment variable is set, a cleanup will be run before any command
+is executed.
+
 ### Running your own commands based off of docker-compose
 
 The following commands allow you do just about anything:
@@ -294,3 +297,72 @@ This is most likely due to the (Allow Origins access policy](https://docs.chain.
 # Disable ALLOW_ORIGINS for testing
 echo "ALLOW_ORIGINS=*" >> chainlink-variables.env
 ```
+
+# Using the dockerized development environment
+
+The dockerized development environment provides an alternative development and testing environment to the docker-compose setup as described above. The goals for this environment are to:
+
+- create a development environment that is easily configured by interview candidates, potential contributors, etc.
+- contain all dependencies in a single docker image
+- contain sensible, pre-configured defaults
+
+The entire chainlink repo is bind-mounted so any changes will take effect immediately - this makes the env good for TDD. Node modules are also bind-mounted, so you shouldn't have to install many deps after launching the container. Go deps are not bind-mounted, so you will have to install those after starting the container. You should only need to do this once, as long as you re-use the container.
+
+The docker env contains direnv, so whatever changes you make locally to your (bind-mounted) `.envrc` will be reflected in the docker container. The container is built with a default ENV that should require minimal changes for basic testing and development.
+
+### Building the dev environment
+
+```bash
+# build the image and tag it as chainlink-develop
+docker build ./tools/docker/ -t chainlink-develop:latest -f ./tools/docker/develop.Dockerfile
+# create the image
+docker container create -v /home/ryan/chainlink/chainlink:/root/chainlink --name chainlink-dev chainlink-develop:latest
+# if you want to access the db, chain, node, or explorer from the host... expose the relevant ports
+# This could also be used in case you want to run some services in the container, and others directly
+# on the host
+docker container create -v /home/ryan/chainlink/chainlink:/root/chainlink --name chainlink-dev -p 5432:5432 -p 6688:6688 -p 6689:6689 -p 3000:3000 -p 3001:3001 -p 8545:8545 -p 8546:8546 chainlink-develop:latest
+# start the container (this will run in the background until you stop it)
+docker start chainlink-dev
+```
+
+### Connecting to the dev environment
+
+```bash
+# connect to the container by opening bash prompts - you can open as many as you'd like
+docker exec -ti chainlink-dev bash
+```
+
+### Run services / tests inside container
+
+\$ --> inside container bash prompt
+
+This is nothing new, just a demonstration that you should be able to run all the commands/tests/services you normally do for development/testing, but now inside of the docker container. As mentioned above, if you want access to these services on the host machine, you will have to expose their ports.
+
+```bash
+# install deps and chainlink
+$ make install
+
+# run go tests
+$ go run ./core/main.go local db preparetest
+$ go test ./...
+
+# run evm/explorer/operatorUI tests
+$ yarn workspace @chainlink/contracts test
+$ yarn workspace @chainlink/explorer test
+$ yarn workspace @chainlink/operator-ui test
+
+# start geth
+$ geth --dev --datadir ./tools/gethnet/datadir --mine --ipcdisable --dev.period 2 --unlock 0x9ca9d2d5e04012c9ed24c0e513c9bfaa4a2dd77f --password ./tools/clroot/password.txt --config ./tools/gethnet/config.toml
+
+# run chainlink node (will require changing env vars from defaults)
+$ chainlink local node -a ./tools/secrets/apicredentials -p ./tools/secrets/password.txt
+```
+
+### Included Tooling:
+
+This image contains the following additional tools:
+
+- geth, openethereum, ganache
+- delve, gofuzz
+- slither, echidna
+- web3.py

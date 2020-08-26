@@ -39,22 +39,21 @@ var (
 	parInsufficientGasPrice = regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price")
 
 	// Fatal
-	parInsufficientGas     = regexp.MustCompile("^Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction")
-	parInsufficientBalance = regexp.MustCompile("^Insufficient funds. The account you tried to send transaction from does not have enough funds.")
-	parGasLimitExceeded    = regexp.MustCompile("^Transaction cost exceeds current gas limit. Limit:")
-	parInvalidSignature    = regexp.MustCompile("^Invalid signature")
-	parInvalidGasLimit     = "Supplied gas is beyond limit."
-	parSenderBanned        = "Sender is banned in local queue."
-	parRecipientBanned     = "Recipient is banned in local queue."
-	parCodeBanned          = "Code is banned in local queue."
-	parNotAllowed          = "Transaction is not permitted."
-	parTooBig              = "Transaction is too big, see chain specification for the limit."
-	parInvalidRlp          = regexp.MustCompile("^Invalid RLP data:")
+	parInsufficientGas  = regexp.MustCompile("^Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction")
+	parGasLimitExceeded = regexp.MustCompile("^Transaction cost exceeds current gas limit. Limit:")
+	parInvalidSignature = regexp.MustCompile("^Invalid signature")
+	parInvalidGasLimit  = "Supplied gas is beyond limit."
+	parSenderBanned     = "Sender is banned in local queue."
+	parRecipientBanned  = "Recipient is banned in local queue."
+	parCodeBanned       = "Code is banned in local queue."
+	parNotAllowed       = "Transaction is not permitted."
+	parTooBig           = "Transaction is too big, see chain specification for the limit."
+	parInvalidRlp       = regexp.MustCompile("^Invalid RLP data:")
 )
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *sendError) IsReplacementUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()) || s.Error() == parLimitReached)
+	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()))
 }
 
 func (s *sendError) IsNonceTooLowError() bool {
@@ -69,7 +68,11 @@ func (s *sendError) IsTransactionAlreadyInMempool() bool {
 // IsTerminallyUnderpriced indicates that this transaction is so far
 // underpriced the node won't even accept it in the first place
 func (s *sendError) IsTerminallyUnderpriced() bool {
-	return s != nil && s.err != nil && (s.Error() == "transaction underpriced" || s.Error() == parLimitReached || parInsufficientGasPrice.MatchString(s.Error()))
+	return s != nil && s.err != nil && (s.Error() == "transaction underpriced" || parInsufficientGasPrice.MatchString(s.Error()))
+}
+
+func (s *sendError) IsTemporarilyUnderpriced() bool {
+	return s != nil && s.err != nil && s.Error() == parLimitReached
 }
 
 func NewFatalSendError(s string) *sendError {
@@ -121,7 +124,6 @@ func isParityFatal(s string) bool {
 		s == parNotAllowed ||
 		s == parTooBig ||
 		(parInsufficientGas.MatchString(s) ||
-			parInsufficientBalance.MatchString(s) ||
 			parGasLimitExceeded.MatchString(s) ||
 			parInvalidSignature.MatchString(s) ||
 			parInvalidRlp.MatchString(s))

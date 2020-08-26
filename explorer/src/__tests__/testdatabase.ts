@@ -14,8 +14,5 @@ const TRUNCATE_TABLES: string[] = [
   'ethereum_log',
 ]
 
-export const clearDb = async () => {
-  return getConnection().query(
-    `TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`,
-  )
-}
+export const clearDb = (): Promise<any> =>
+  getConnection().query(`TRUNCATE TABLE ${TRUNCATE_TABLES.join(',')} CASCADE`)

@@ -34,12 +34,14 @@ describe('state/ducks/aggregator/reducers', () => {
       const oracleNodeA: OracleNode = {
         address: '-',
         oracleAddress: 'A',
+        nodeAddress: ['C'],
         name: 'Fiews',
         networkId: 1,
       }
       const oracleNodeB: OracleNode = {
         address: '-',
         oracleAddress: 'B',
+        nodeAddress: ['D'],
         name: 'LinkPool',
         networkId: 1,
       }

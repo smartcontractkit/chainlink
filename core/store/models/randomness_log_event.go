@@ -68,7 +68,7 @@ func (le RandomnessLogEvent) RunRequest() (RunRequest, error) {
 			"while parsing request params for VRF run request")
 	}
 
-	requestID := parsedLog.RequestID()
+	requestID := parsedLog.RequestID
 	requester := le.Requester()
 	return RunRequest{
 		RequestID:     &requestID,

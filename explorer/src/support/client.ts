@@ -3,9 +3,9 @@ import WebSocket from 'ws'
 import { Config } from '../config'
 import {
   ACCESS_KEY_HEADER,
-  SECRET_HEADER,
-  CORE_VERSION_HEADER,
   CORE_SHA_HEADER,
+  CORE_VERSION_HEADER,
+  SECRET_HEADER,
 } from '../utils/constants'
 
 export const newChainlinkNode = (
@@ -31,7 +31,8 @@ export const newChainlinkNode = (
 
   return new Promise((resolve, reject) => {
     ws.on('error', error => {
-      error.message += '[newChainlinkNode] Error on opening websocket:'
+      error.message =
+        '[newChainlinkNode] Error on opening websocket:' + error.message
       reject(error)
     })
 

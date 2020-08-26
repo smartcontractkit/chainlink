@@ -11,10 +11,17 @@ import './index.css'
 import * as serviceWorker from './serviceWorker'
 import { theme } from '@chainlink/styleguide'
 import ReactGA from 'react-ga'
-import { Config } from './config'
 
-ReactGA.initialize(Config.gaId())
-ReactGA.pageview(window.location.pathname + window.location.search)
+interface BeConfig {
+  GA_ID: string
+}
+
+fetch('./config.json')
+  .then(response => response.json())
+  .then((beConfig: BeConfig) => {
+    ReactGA.initialize(beConfig.GA_ID)
+    ReactGA.pageview(window.location.pathname + window.location.search)
+  })
 
 JavascriptTimeAgo.locale(en)
 moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'

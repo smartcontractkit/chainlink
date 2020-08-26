@@ -171,7 +171,7 @@ yarn run test-sol
 
 ### Use of Go Generate
 
-Go generate is used to generate mocks in this project. Mocks are generate with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
+Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
 
 ### Development Tips
 

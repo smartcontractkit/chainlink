@@ -10,9 +10,4 @@ describe('config', () => {
     process.env.REACT_APP_EXPLORER_BASEURL = 'baseUrl'
     expect(Config.baseUrl()).toEqual('baseUrl')
   })
-
-  it('returns gaId key from the process env', () => {
-    process.env.REACT_APP_EXPLORER_GA_ID = 'gaId'
-    expect(Config.gaId()).toEqual('gaId')
-  })
 })

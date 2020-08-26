@@ -113,7 +113,11 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
+			app, cleanup := cltest.NewApplicationWithKey(t,
+				cltest.LenientEthMock,
+				cltest.EthMockRegisterChainID,
+				cltest.EthMockRegisterGetBalance,
+			)
 			defer cleanup()
 
 			ethMock := app.EthMock
@@ -121,7 +125,6 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.Register("eth_getTransactionCount", "0x1")
 				meth.RegisterSubscription("logs", logs)
-				meth.Register("eth_chainId", app.Store.Config.ChainID())
 			})
 			assert.NoError(t, app.StartAndConnect())
 

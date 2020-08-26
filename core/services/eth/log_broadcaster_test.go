@@ -18,7 +18,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -55,13 +55,13 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	defer cleanup()
 
 	const (
-		blockHeight uint64 = 123
+		blockHeight int64 = 123
 	)
 
-	txManager := new(mocks.TxManager)
+	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
 	listener := new(mocks.LogListener)
-	store.TxManager = txManager
+	store.EthClient = ethClient
 
 	chOkayToAssert := make(chan struct{}) // avoid flaky tests
 
@@ -72,13 +72,13 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	chSubscribe := make(chan struct{}, 10)
-	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(mock.Arguments) { chSubscribe <- struct{}{} })
-	txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).Return([]models.Log{}, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
-	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.AddDependents(2)
 	lb.Start()
 
@@ -95,7 +95,7 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 
 	<-chOkayToAssert
 
-	txManager.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 }
 
@@ -106,31 +106,29 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	defer cleanup()
 
 	const (
-		numContracts        = 3
-		blockHeight  uint64 = 123
+		numContracts       = 3
+		blockHeight  int64 = 123
 	)
 
-	txManager := new(mocks.TxManager)
+	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
-	store.TxManager = txManager
+	store.EthClient = ethClient
 
 	var subscribeCalls int32
 	var unsubscribeCalls int32
-	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(args mock.Arguments) {
 			atomic.AddInt32(&subscribeCalls, 1)
 		})
-	txManager.On("GetLatestBlock").
-		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).
-		Return(nil, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil)
 	sub.On("Unsubscribe").
 		Return().
 		Run(func(mock.Arguments) { atomic.AddInt32(&unsubscribeCalls, 1) })
 	sub.On("Err").Return(nil)
 
-	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	type registration struct {
@@ -159,7 +157,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	lb.Stop()
 	gomega.NewGomegaWithT(t).Consistently(atomic.LoadInt32(&unsubscribeCalls)).Should(gomega.Equal(int32(1)))
 
-	txManager.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 }
 
@@ -183,37 +181,35 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	const blockHeight uint64 = 0
+	const blockHeight int64 = 0
 
-	txManager := new(mocks.TxManager)
+	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
-	store.TxManager = txManager
+	store.EthClient = ethClient
 
-	chchRawLogs := make(chan chan<- models.Log, 1)
-	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+	chchRawLogs := make(chan chan<- types.Log, 1)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchRawLogs <- args.Get(1).(chan<- models.Log)
+			chchRawLogs <- args.Get(2).(chan<- types.Log)
 		}).
 		Return(sub, nil).
 		Once()
-	txManager.On("GetLatestBlock").
-		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).
-		Return(nil, nil)
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	addr1 := cltest.NewAddress()
 	addr2 := cltest.NewAddress()
-	addr1SentLogs := []models.Log{
+	addr1SentLogs := []types.Log{
 		{Address: addr1, BlockNumber: 1, BlockHash: cltest.NewHash()},
 		{Address: addr1, BlockNumber: 2, BlockHash: cltest.NewHash()},
 		{Address: addr1, BlockNumber: 3, BlockHash: cltest.NewHash()},
 	}
-	addr2SentLogs := []models.Log{
+	addr2SentLogs := []types.Log{
 		{Address: addr2, BlockNumber: 4, BlockHash: cltest.NewHash()},
 		{Address: addr2, BlockNumber: 5, BlockHash: cltest.NewHash()},
 		{Address: addr2, BlockNumber: 6, BlockHash: cltest.NewHash()},
@@ -277,15 +273,15 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	lb.Stop()
 
 	for i := range addr1SentLogs {
-		require.Equal(t, &addr1SentLogs[i], addr1Logs1[i])
-		require.Equal(t, &addr1SentLogs[i], addr1Logs2[i])
+		require.Equal(t, addr1SentLogs[i], addr1Logs1[i].(eth.GethRawLog).Log)
+		require.Equal(t, addr1SentLogs[i], addr1Logs2[i].(eth.GethRawLog).Log)
 	}
 	for i := range addr2SentLogs {
-		require.Equal(t, &addr2SentLogs[i], addr2Logs1[i])
-		require.Equal(t, &addr2SentLogs[i], addr2Logs2[i])
+		require.Equal(t, addr2SentLogs[i], addr2Logs1[i].(eth.GethRawLog).Log)
+		require.Equal(t, addr2SentLogs[i], addr2Logs2[i].(eth.GethRawLog).Log)
 	}
 
-	txManager.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 }
 
@@ -300,39 +296,59 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 		expectedBlock = 5
 	)
 
-	txManager := new(mocks.TxManager)
+	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
-	store.TxManager = txManager
+	store.EthClient = ethClient
 
+	addr0 := cltest.NewAddress()
 	addr1 := cltest.NewAddress()
 	addr2 := cltest.NewAddress()
 
-	chchRawLogs := make(chan chan<- models.Log, 1)
-	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+	chchRawLogs := make(chan chan<- types.Log, 1)
+	chStarted := make(chan struct{})
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchRawLogs <- args.Get(1).(chan<- models.Log)
+			chchRawLogs <- args.Get(2).(chan<- types.Log)
+			close(chStarted)
 		}).
 		Return(sub, nil).
-		Twice()
-
-	txManager.On("GetLatestBlock").
-		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).
+		Once()
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			query := args.Get(0).(ethereum.FilterQuery)
+			chchRawLogs <- args.Get(2).(chan<- types.Log)
+		}).
+		Return(sub, nil).
+		Times(2)
+
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).
+		Return(&models.Head{Number: blockHeight}, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			query := args.Get(1).(ethereum.FilterQuery)
 			require.Equal(t, big.NewInt(expectedBlock), query.FromBlock)
-			require.Contains(t, query.Addresses, addr1)
+			require.Contains(t, query.Addresses, addr0)
 			require.Len(t, query.Addresses, 1)
 		}).
 		Return(nil, nil).
 		Once()
-	txManager.On("GetLogs", mock.Anything).
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			query := args.Get(0).(ethereum.FilterQuery)
+			query := args.Get(1).(ethereum.FilterQuery)
 			require.Equal(t, big.NewInt(expectedBlock), query.FromBlock)
+			require.Contains(t, query.Addresses, addr0)
+			require.Contains(t, query.Addresses, addr1)
+			require.Len(t, query.Addresses, 2)
+		}).
+		Return(nil, nil).
+		Once()
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			query := args.Get(1).(ethereum.FilterQuery)
+			require.Equal(t, big.NewInt(expectedBlock), query.FromBlock)
+			require.Contains(t, query.Addresses, addr0)
 			require.Contains(t, query.Addresses, addr1)
 			require.Contains(t, query.Addresses, addr2)
-			require.Len(t, query.Addresses, 2)
+			require.Len(t, query.Addresses, 3)
 		}).
 		Return(nil, nil).
 		Once()
@@ -340,27 +356,42 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
+	listener0 := new(mocks.LogListener)
 	listener1 := new(mocks.LogListener)
 	listener2 := new(mocks.LogListener)
+	listener0.On("OnConnect").Return()
 	listener1.On("OnConnect").Return()
 	listener2.On("OnConnect").Return()
+	listener0.On("OnDisconnect").Return()
 	listener1.On("OnDisconnect").Return()
 	listener2.On("OnDisconnect").Return()
 
-	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
-	lb.Start()                    // Subscribe #1
-	lb.Register(addr1, listener1) // Subscribe #2
-	chRawLogs := <-chchRawLogs
-	chRawLogs <- models.Log{BlockNumber: expectedBlock}
-	lb.Register(addr2, listener2) // Subscribe #3
+	lb := eth.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
+	lb.AddDependents(1)
+	lb.Start() // Subscribe #0
+	lb.Register(addr0, listener0)
+	lb.DependentReady()
+	<-chStarted // Await startup
+	<-chchRawLogs
+	lb.Register(addr1, listener1) // Subscribe #1
+	<-chchRawLogs
+	// chRawLogs <- types.Log{BlockNumber: expectedBlock}
+	lb.Register(addr2, listener2) // Subscribe #2
 	<-chchRawLogs
 
 	lb.Stop()
 
-	txManager.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 	listener1.AssertExpectations(t)
 	listener2.AssertExpectations(t)
 	sub.AssertExpectations(t)
+}
+
+type LogNewRound struct {
+	eth.GethRawLog
+	RoundId   *big.Int
+	StartedBy common.Address
+	StartedAt *big.Int
 }
 
 func TestDecodingLogListener(t *testing.T) {
@@ -370,15 +401,8 @@ func TestDecodingLogListener(t *testing.T) {
 	contract, err := eth.GetV6ContractCodec("FluxAggregator")
 	require.NoError(t, err)
 
-	type LogNewRound struct {
-		models.Log
-		RoundId   *big.Int
-		StartedBy common.Address
-		StartedAt *big.Int
-	}
-
-	logTypes := map[common.Hash]interface{}{
-		eth.MustGetV6ContractEventID("FluxAggregator", "NewRound"): LogNewRound{},
+	logTypes := map[common.Hash]eth.Log{
+		eth.MustGetV6ContractEventID("FluxAggregator", "NewRound"): &LogNewRound{},
 	}
 
 	var decodedLog interface{}
@@ -392,10 +416,10 @@ func TestDecodingLogListener(t *testing.T) {
 	}
 
 	decodingListener := eth.NewDecodingLogListener(contract, logTypes, &listener)
-	rawLog := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
+	rawLog := eth.GethRawLog{cltest.LogFromFixture(t, "../testdata/new_round_log.json")}
 	logBroadcast := new(mocks.LogBroadcast)
 
-	logBroadcast.On("Log").Return(&rawLog).Once()
+	logBroadcast.On("Log").Return(rawLog).Once()
 	logBroadcast.On("UpdateLog", mock.Anything).Run(func(args mock.Arguments) {
 		logBroadcast.On("Log").Return(args.Get(0))
 	})
@@ -404,7 +428,7 @@ func TestDecodingLogListener(t *testing.T) {
 	require.NoError(t, err)
 	newRoundLog := decodedLog.(*LogNewRound)
 
-	require.Equal(t, newRoundLog.Log, rawLog)
+	require.Equal(t, newRoundLog.Log, rawLog.Log)
 	require.True(t, newRoundLog.RoundId.Cmp(big.NewInt(1)) == 0)
 	require.Equal(t, newRoundLog.StartedBy, common.HexToAddress("f17f52151ebef6c7334fad080c5704d77216b732"))
 	require.True(t, newRoundLog.StartedAt.Cmp(big.NewInt(15)) == 0)
@@ -420,9 +444,9 @@ func TestDecodingLogListener(t *testing.T) {
 func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	t.Parallel()
 
-	logs := make(map[uint]models.Log)
+	logs := make(map[uint]types.Log)
 	for n := 1; n < 18; n++ {
-		logs[uint(n)] = models.Log{
+		logs[uint(n)] = types.Log{
 			BlockNumber: uint64(n),
 			BlockHash:   cltest.NewHash(),
 			Index:       0,
@@ -431,8 +455,8 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		blockHeight1     uint64
-		blockHeight2     uint64
+		blockHeight1     int64
+		blockHeight2     int64
 		batch1           []uint
 		backfillableLogs []uint
 		batch2           []uint
@@ -484,18 +508,18 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			var backfillDepth uint64 = 5 // something other than default
-			store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), backfillDepth)
+			var backfillDepth int64 = 5 // something other than default
+			store.Config.Set(orm.EnvVarName("BlockBackfillDepth"), uint64(backfillDepth))
 
-			txManager := new(mocks.TxManager)
+			ethClient := new(mocks.Client)
 			sub := new(mocks.Subscription)
-			store.TxManager = txManager
+			store.EthClient = ethClient
 
-			chchRawLogs := make(chan chan<- models.Log, 1)
+			chchRawLogs := make(chan chan<- types.Log, 1)
 
 			// helper function to validate backfilled logs are being requested correctly
 			checkFromBlock := func(args mock.Arguments) {
-				fromBlock := args.Get(0).(ethereum.FilterQuery).FromBlock
+				fromBlock := args.Get(1).(ethereum.FilterQuery).FromBlock
 				expected := big.NewInt(0)
 				if test.blockHeight2 > backfillDepth {
 					expected = big.NewInt(int64(test.blockHeight2 - backfillDepth))
@@ -503,25 +527,26 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				require.Equal(t, expected, fromBlock)
 			}
 
-			txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+			ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {
-					chRawLogs := args.Get(1).(chan<- models.Log)
+					chRawLogs := args.Get(2).(chan<- types.Log)
 					chchRawLogs <- chRawLogs
 				}).
 				Return(sub, nil).
 				Twice()
 
-			txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(test.blockHeight1)}, nil).Once()
-			txManager.On("GetLogs", mock.Anything).Return(nil, nil).Once()
+			ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).
+				Return(&models.Head{Number: test.blockHeight1}, nil).Once()
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Once()
 
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 
-			lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+			lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 			lb.Start()
 
-			var recvd []*models.Log
 			recvdMutex := new(sync.RWMutex)
+			var recvd []eth.GethRawLog
 
 			handleLog := func(lb eth.LogBroadcast, err error) {
 				require.NoError(t, err)
@@ -529,7 +554,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				require.NoError(t, err)
 				if !consumed {
 					recvdMutex.Lock()
-					recvd = append(recvd, lb.Log().(*models.Log))
+					recvd = append(recvd, lb.Log().(eth.GethRawLog))
 					recvdMutex.Unlock()
 					err = lb.MarkConsumed()
 					require.NoError(t, err)
@@ -556,16 +581,17 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			recvdMutex.Lock()
 			for i, logNum := range test.batch1 {
-				require.Equal(t, *recvd[i], logs[logNum])
+				require.Equal(t, recvd[i].Log, logs[logNum])
 			}
 			recvdMutex.Unlock()
 
-			var backfillableLogs []models.Log
+			var backfillableLogs []types.Log
 			for _, logNum := range test.backfillableLogs {
 				backfillableLogs = append(backfillableLogs, logs[logNum])
 			}
-			txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(test.blockHeight2)}, nil).Once()
-			txManager.On("GetLogs", mock.Anything).Run(checkFromBlock).Return(backfillableLogs, nil).Once()
+			ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).
+				Return(&models.Head{Number: test.blockHeight2}, nil).Once()
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Run(checkFromBlock).Return(backfillableLogs, nil).Once()
 			// Trigger resubscription
 			lb.Register(common.Address{1}, &simpleLogListener{})
 			chRawLogs2 := <-chchRawLogs
@@ -582,12 +608,12 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			recvdMutex.Lock()
 			for i, logNum := range test.expectedFinal {
-				require.Equal(t, *recvd[i], logs[logNum])
+				require.Equal(t, recvd[i].Log, logs[logNum])
 			}
 			recvdMutex.Unlock()
 
 			lb.Stop()
-			txManager.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }
@@ -595,7 +621,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 func TestAppendLogChannel(t *testing.T) {
 	t.Parallel()
 
-	logs1 := []models.Log{
+	logs1 := []types.Log{
 		{BlockNumber: 1},
 		{BlockNumber: 2},
 		{BlockNumber: 3},
@@ -603,7 +629,7 @@ func TestAppendLogChannel(t *testing.T) {
 		{BlockNumber: 5},
 	}
 
-	logs2 := []models.Log{
+	logs2 := []types.Log{
 		{BlockNumber: 6},
 		{BlockNumber: 7},
 		{BlockNumber: 8},
@@ -611,7 +637,7 @@ func TestAppendLogChannel(t *testing.T) {
 		{BlockNumber: 10},
 	}
 
-	logs3 := []models.Log{
+	logs3 := []types.Log{
 		{BlockNumber: 11},
 		{BlockNumber: 12},
 		{BlockNumber: 13},
@@ -619,9 +645,9 @@ func TestAppendLogChannel(t *testing.T) {
 		{BlockNumber: 15},
 	}
 
-	ch1 := make(chan models.Log)
-	ch2 := make(chan models.Log)
-	ch3 := make(chan models.Log)
+	ch1 := make(chan types.Log)
+	ch2 := make(chan types.Log)
+	ch3 := make(chan types.Log)
 
 	chCombined := eth.ExposedAppendLogChannel(ch1, ch2)
 	chCombined = eth.ExposedAppendLogChannel(chCombined, ch3)
@@ -659,29 +685,29 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	const blockHeight uint64 = 0
+	const blockHeight int64 = 0
 
-	txManager := new(mocks.TxManager)
+	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
-	store.TxManager = txManager
+	store.EthClient = ethClient
 
-	chchRawLogs := make(chan chan<- models.Log, 1)
+	chchRawLogs := make(chan chan<- types.Log, 1)
 
-	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chRawLogs := args.Get(1).(chan<- models.Log)
+			chRawLogs := args.Get(2).(chan<- types.Log)
 			chchRawLogs <- chRawLogs
 		}).
 		Return(sub, nil).
 		Once()
 
-	txManager.On("GetLatestBlock").Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).Return([]models.Log{}, nil).Once()
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil).Once()
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 
 	lb.Start()
 
@@ -708,8 +734,8 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	lb.Register(addr, &logListener)
 
 	chRawLogs := <-chchRawLogs
-	chRawLogs <- models.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
-	chRawLogs <- models.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
+	chRawLogs <- types.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
+	chRawLogs <- types.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
 
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&listenerCount) == 2 }, 5*time.Second, 10*time.Millisecond)
 	requireLogConsumptionCount(t, store, 2)
@@ -719,24 +745,23 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	txManager := new(mocks.TxManager)
+	ethClient := new(mocks.Client)
 	sub := new(mocks.Subscription)
-	store.TxManager = txManager
+	store.EthClient = ethClient
 
-	const blockHeight uint64 = 0
+	const blockHeight int64 = 0
 
-	chchRawLogs := make(chan chan<- models.Log, 1)
-	txManager.On("SubscribeToLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(1).(chan<- models.Log) }).
+	chchRawLogs := make(chan chan<- types.Log, 1)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchRawLogs <- args.Get(2).(chan<- types.Log) }).
 		Return(sub, nil).
 		Once()
-	txManager.On("GetLatestBlock").
-		Return(models.Block{Number: hexutil.Uint64(blockHeight)}, nil)
-	txManager.On("GetLogs", mock.Anything).Return([]models.Log{}, nil).Once()
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil).Once()
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
-	lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+	lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	blockHash0 := cltest.NewHash()
@@ -746,7 +771,7 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	blockHash2R := cltest.NewHash()
 
 	addr := cltest.NewAddress()
-	logs := []models.Log{
+	logs := []types.Log{
 		{Address: addr, BlockHash: blockHash0, BlockNumber: 0, Index: 0},
 		{Address: addr, BlockHash: blockHash1, BlockNumber: 1, Index: 0},
 		{Address: addr, BlockHash: blockHash2, BlockNumber: 2, Index: 0},
@@ -754,14 +779,14 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		{Address: addr, BlockHash: blockHash2R, BlockNumber: 2, Index: 0},
 	}
 
-	var recvd []*models.Log
+	var recvd []eth.GethRawLog
 	recvdMutex := new(sync.RWMutex)
 
 	job := createJob(t, store)
 	listener := simpleLogListener{
 		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
-			ethLog := lb.Log().(*models.Log)
+			ethLog := lb.Log().(eth.GethRawLog)
 			recvdMutex.Lock()
 			recvd = append(recvd, ethLog)
 			recvdMutex.Unlock()
@@ -788,8 +813,8 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	recvdMutex.Lock()
 	defer recvdMutex.Unlock()
 	for idx, receivedLog := range recvd {
-		require.Equal(t, receivedLog, &logs[idx])
+		require.Equal(t, receivedLog.Log, logs[idx])
 	}
 
-	txManager.AssertExpectations(t)
+	ethClient.AssertExpectations(t)
 }

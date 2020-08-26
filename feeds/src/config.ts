@@ -1,5 +1,6 @@
 export interface FeedConfig {
   contractAddress: string
+  proxyAddress?: string
   contractType: 'aggregator'
   valuePrefix: '$' | 'Ξ' | '£' | '¥'
   name: string
@@ -17,7 +18,7 @@ export interface FeedConfig {
   sponsored: string[]
   decimalPlaces: number
   formatDecimalPlaces: number
-  contractVersion: 1 | 2 | 3
+  contractVersion: number
 
   // extra config for custom contracts
   historyDays?: number
@@ -26,6 +27,7 @@ export interface FeedConfig {
 export interface OracleNode {
   oracleAddress: string
   address: string
+  nodeAddress: string[]
   name: string
   networkId: number
 }

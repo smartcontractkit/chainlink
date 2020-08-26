@@ -18,10 +18,10 @@ type LogConsumption struct {
 }
 
 // NewLogConsumption creates a new LogConsumption
-func NewLogConsumption(log RawLog, jobID *ID) LogConsumption {
+func NewLogConsumption(blockHash common.Hash, logIndex uint, jobID *ID) LogConsumption {
 	return LogConsumption{
-		BlockHash: log.GetBlockHash(),
-		LogIndex:  log.GetIndex(),
+		BlockHash: blockHash,
+		LogIndex:  logIndex,
 		JobID:     jobID,
 	}
 }

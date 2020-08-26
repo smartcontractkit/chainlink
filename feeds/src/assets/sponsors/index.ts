@@ -25,13 +25,14 @@ import bancor from './bancor.png'
 import bullionix from './bullionix.png'
 import gelato from './gelato.png'
 import wom from './wom.png'
-
 import consensuscell from './consensuscell.png'
 import digitix from './digitix.png'
 import ens from './ens.png'
 import gamerhash from './gamerhash.png'
-import lien from './lien.png'
 import sandbank from './sandbank.png'
+import plasm from './plasm.png'
+import swipe from './swipe.png'
+import hxro from './hxro.png'
 
 // Listing Thumbnails
 
@@ -60,13 +61,14 @@ import bancorTn from './bancor_tn.png'
 import bullionixTn from './bullionix_tn.png'
 import gelatoTn from './gelato_tn.png'
 import womTn from './wom_tn.png'
-
 import consensuscellTn from './consensuscell_tn.png'
 import digitixTn from './digitix_tn.png'
 import ensTn from './ens_tn.png'
 import gamerhashTn from './gamerhash_tn.png'
-import lienTn from './lien_tn.png'
 import sandbankTn from './sandbank_tn.png'
+import plasmTn from './plasm_tn.png'
+import swipeTn from './swipe_tn.png'
+import hxroTn from './hxro_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -251,15 +253,27 @@ export const sponsorList: SponsorListItem[] = [
     imageTn: gamerhashTn,
   },
   {
-    name: 'Lien',
-    url: 'https://lien.finance',
-    imageLg: lien,
-    imageTn: lienTn,
-  },
-  {
     name: 'Sandbank',
     url: 'https://sandbank.io',
     imageLg: sandbank,
     imageTn: sandbankTn,
+  },
+  {
+    name: 'Plasm Network',
+    url: 'https://www.plasmnet.io/',
+    imageLg: plasm,
+    imageTn: plasmTn,
+  },
+  {
+    name: 'Swipe',
+    url: 'https://swipe.io',
+    imageLg: swipe,
+    imageTn: swipeTn,
+  },
+  {
+    name: 'HXRO',
+    url: 'https://hxro.io',
+    imageLg: hxro,
+    imageTn: hxroTn,
   },
 ]

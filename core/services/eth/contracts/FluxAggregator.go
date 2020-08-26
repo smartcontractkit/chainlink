@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -39,7 +38,7 @@ type fluxAggregator struct {
 }
 
 type LogNewRound struct {
-	models.Log
+	eth.GethRawLog
 	RoundId   *big.Int
 	StartedBy common.Address
 	// seconds since unix epoch
@@ -47,15 +46,15 @@ type LogNewRound struct {
 }
 
 type LogAnswerUpdated struct {
-	models.Log
+	eth.GethRawLog
 	Current   *big.Int
 	RoundId   *big.Int
 	UpdatedAt *big.Int
 }
 
-var fluxAggregatorLogTypes = map[common.Hash]interface{}{
-	AggregatorNewRoundLogTopic20191220:      LogNewRound{},
-	AggregatorAnswerUpdatedLogTopic20191220: LogAnswerUpdated{},
+var fluxAggregatorLogTypes = map[common.Hash]eth.Log{
+	AggregatorNewRoundLogTopic20191220:      &LogNewRound{},
+	AggregatorAnswerUpdatedLogTopic20191220: &LogAnswerUpdated{},
 }
 
 func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) (FluxAggregator, error) {

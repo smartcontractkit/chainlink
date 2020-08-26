@@ -65,6 +65,22 @@ export interface NewRoundEventLogFormat extends DecodedLog {
   answerId: number
 }
 
+// Named tuple types are not currently supported in TS. There is discussion
+// that it will be added in TS 4.0.
+// https://github.com/Microsoft/TypeScript/issues/28259#issuecomment-622553692
+export type OracleRoundStateRoundId = number
+export type OracleRoundStateStartedAt = ethers.utils.BigNumber
+export type OracleRoundState = [
+  boolean,
+  OracleRoundStateRoundId,
+  ethers.utils.BigNumber,
+  OracleRoundStateStartedAt,
+  ethers.utils.BigNumber,
+  ethers.utils.BigNumber,
+  number,
+  ethers.utils.BigNumber,
+]
+
 export default class FluxContract {
   private submissionReceivedEvent: EventListener = {
     filter: {},
@@ -150,8 +166,14 @@ export default class FluxContract {
       throw Error('Contract instance does not exist')
     }
 
-    const reportingRound = await this.contract.reportingRound()
-    return reportingRound.toNumber()
+    const state: OracleRoundState = await this.contract.oracleRoundState(
+      '0x0000000000000000000000000000000000000000',
+      0,
+    )
+    const roundId = state[1]
+    const startedAt = state[3]
+
+    return startedAt.eq(ethers.utils.bigNumberify(0)) ? roundId - 1 : roundId
   }
 
   async latestAnswer(): Promise<string> {

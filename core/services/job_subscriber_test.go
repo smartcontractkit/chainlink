@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"context"
 	"math/big"
 	"sync"
 	"testing"
@@ -42,16 +43,16 @@ func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
-	jobSubscriber.OnNewLongestChain(*cltest.Head(1337))
+	jobSubscriber.OnNewLongestChain(context.TODO(), *cltest.Head(1337))
 
 	// Make sure ResumeAllPendingNextBlock is reached before sending the next head
 	wg.Wait()
 
 	// This head should get dropped
-	jobSubscriber.OnNewLongestChain(*cltest.Head(1338))
+	jobSubscriber.OnNewLongestChain(context.TODO(), *cltest.Head(1338))
 
 	// This head should get processed
-	jobSubscriber.OnNewLongestChain(*cltest.Head(1339))
+	jobSubscriber.OnNewLongestChain(context.TODO(), *cltest.Head(1339))
 
 	// Unblock the channel
 	cltest.CallbackOrTimeout(t, "ResumeAllPendingNextBlock", func() {
@@ -66,7 +67,7 @@ func TestJobSubscriber_OnNewLongestChain(t *testing.T) {
 		Run(func(mock.Arguments) {
 			resumeJobChannel <- struct{}{}
 		})
-	jobSubscriber.OnNewLongestChain(*cltest.Head(1340))
+	jobSubscriber.OnNewLongestChain(context.TODO(), *cltest.Head(1340))
 
 	cltest.CallbackOrTimeout(t, "ResumeAllPendingNextBlock #2", func() {
 		<-resumeJobChannel

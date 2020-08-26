@@ -1,0 +1,12 @@
+name: Go Dependency Checker
+
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Check
+      uses: sonatype-nexus-community/nancy-github-action@76cc24d43c279e8f357d4dccf5ce226835f8385f
+      with:
+        target: go.sum
