@@ -9,22 +9,64 @@ import (
 
 // Migrate creates the offchain_reporting_job_specs table
 func Migrate(tx *gorm.DB) error {
-	// err := tx.Exec(`
-	//        CREATE TABLE offchain_reporting_job_specs (
-	//            id uuid PRIMARY KEY,
-	//            contract_address bytea NOT NULL,
-	//            p2p_node_id text NOT NULL,
-	//            p2p_bootstrap_nodes jsonb NOT NULL,
-	//            key_bundle text NOT NULL,
-	//            monitoring_endpoint text NOT NULL,
-	//            node_address bytea NOT NULL,
-	//            observation_timeout integer NOT NULL,
-	//            observation_source jsonb NOT NULL
-	//        );
-	//    `).Error
-	// if err != nil {
-	// 	return err
-	// }
+	return tx.Exec(`
+		CREATE TABLE ocrv1_oracles (
+			id BIGSERIAL PRIMARY KEY,
+			observation_timeout interval NOT NULL,
+			contract_address bytea NOT NULL,
+			CONSTRAINT chk_contract_address_length CHECK (octet_length(contract_address) = 20),
+			p2p_peer_id text NOT NULL REFERENCES encrypted_p2p_keys (peer_id),
+			p2p_bootstrap_peers jsonb NOT NULL, -- NOTE: Needs revisiting
+			key_bundle_id bytea NOT NULL REFERENCES encrypted_ocrv1_key_bundles (id),
+			transmitter_address bytea NOT NULL REFERENCES keys (address),
+			observation_aggregator_id bigint NOT NULL REFERENCES observation_aggregators(id),
+			monitoring_endpoint TEXT,
+			created_at timestamptz NOT NULL
+		);
+
+		CREATE UNIQUE INDEX idx_ocrv1_oracles_unique_key_bundles ON ocrv1_oracles (key_bundle_id, contract_address);
+		CREATE UNIQUE INDEX idx_ocrv1_oracles_unique_peer_ids ON ocrv1_oracles (p2p_peer_id, contract_address);
+
+		CREATE TABLE encrypted_ocrv1_key_bundles (
+			-- NOTE: Key bundle ID is intended to be set by software as keccak256 hash of {onchain sig pubkey, offchain sig pubkey, config decryption pubkey}
+			id bytea NOT NULL PRIMARY KEY,
+			CONSTRAINT chk_id_length CHECK (octet_length(id) = 32),
+			encrypted_priv_key_bundle jsonb NOT NULL,
+			created_at timestamptz NOT NULL,
+		);
+
+		CREATE TYPE observation_aggregator_type AS ENUM ('median');
+
+		CREATE TABLE observation_aggregators (
+			id BIGSERIAL PRIMARY KEY,
+			type observation_aggregator_type NOT NULL,
+			created_at timestamptz NOT NULL,
+		);
+
+		CREATE TYPE observation_source_type AS ENUM ('http', 'bridge');
+
+		CREATE TABLE observation_sources (
+			id BIGSERIAL PRIMARY KEY,
+			name TEXT,
+			type observation_source_type NOT NULL,
+			params jsonb NOT NULL,
+			created_at timestamptz NOT NULL,
+			updated_at timestamptz NOT NULL,
+		);
+
+		CREATE UNIQUE INDEX idx_unique_observation_sources ON observation_sources (params);
+		CREATE UNIQUE INDEX idx_unique_observation_source_names ON observation_sources (name);
+
+		CREATE TABLE observation_aggregator_sources (
+			observation_aggregator_id BIGINT NOT NULL REFERENCES observation_aggregators (id),
+			observation_source_id BIGINT NOT NULL REFERENCES observation_sources (id),
+			PRIMARY KEY(observation_aggregator_id, observation_source_id),
+			created_at timestamptz NOT NULL
+		);
+
+		CREATE INDEX idx_observation_aggregator_sources_observation_source_id ON observation_aggregator_sources (observation_source_id);
+
+	`).Error
 
 	// err = tx.Exec(`
 	//        CREATE TABLE offchain_reporting_persistent_states (
