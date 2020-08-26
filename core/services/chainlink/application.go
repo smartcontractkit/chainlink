@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	// "github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -101,19 +101,19 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	balanceMonitor := services.NewBalanceMonitor(store)
 
-	jobSpawner := job.NewSpawner(store.ORM)
-	offchainreporting.RegisterJobTypes(jobSpawner)
+	// jobSpawner := job.NewSpawner(store.ORM)
+	// offchainreporting.RegisterJobTypes(jobSpawner)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
-		JobSubscriber:            jobSubscriber,
-		GasUpdater:               gasUpdater,
-		EthBroadcaster:           ethBroadcaster,
-		LogBroadcaster:           logBroadcaster,
-		JobSpawner:               jobSpawner,
+		JobSubscriber:  jobSubscriber,
+		GasUpdater:     gasUpdater,
+		EthBroadcaster: ethBroadcaster,
+		LogBroadcaster: logBroadcaster,
+		// JobSpawner:               jobSpawner,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -284,7 +284,7 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 		return err
 	}
 
-	app.JobSpawner.AddJob(job)
+	app.JobSpawner.AddJob(sa.JobSpec)
 
 	app.Scheduler.AddJob(sa.JobSpec)
 

@@ -3,11 +3,13 @@ package job
 import (
 	"bytes"
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -15,7 +17,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -25,15 +26,18 @@ import (
 type HttpFetcher struct {
 	BaseFetcher
 
+	Method                         string          `json:"method"`
 	URL                            models.WebURL   `json:"url"`
-	ExtendedPath                   ExtendedPath    `json:"extendedPath,omitempty"`
-	Headers                        http.Header     `json:"headers,omitempty"`
-	QueryParams                    QueryParameters `json:"queryParams,omitempty"`
-	Body                           interface{}     `json:"body,omitempty"`
+	ExtendedPath                   ExtendedPath    `json:"extendedPath,omitempty" gorm:"type:jsonb"`
+	Headers                        Header          `json:"headers,omitempty" gorm:"type:jsonb"`
+	QueryParams                    QueryParameters `json:"queryParams,omitempty" gorm:"type:jsonb"`
+	RequestData                    interface{}     `json:"body,omitempty" gorm:"type:jsonb"`
 	AllowUnrestrictedNetworkAccess bool            `json:"-"`
-	Transformers                   Transformers    `json:"transformPipeline,omitempty"`
+	Transformers                   Transformers    `json:"transformPipeline,omitempty" gorm:"-"`
 
-	Config *orm.Config `json:"-" gorm:"-"`
+	defaultHTTPTimeout     models.Duration
+	defaultMaxHTTPAttempts uint
+	defaultHTTPLimit       int64
 }
 
 type httpRequestConfig struct {
@@ -44,8 +48,8 @@ type httpRequestConfig struct {
 }
 
 func (f *HttpFetcher) Fetch() (out interface{}, err error) {
-	defer func() { f.Notifiee.OnEndStage(f, out, err) }()
-	f.Notifiee.OnBeginStage(f, nil)
+	defer func() { f.notifiee.OnEndStage(f, out, err) }()
+	f.notifiee.OnBeginStage(f, nil)
 
 	var contentType string
 	if f.Method == "POST" {
@@ -53,29 +57,39 @@ func (f *HttpFetcher) Fetch() (out interface{}, err error) {
 	}
 
 	var body io.Reader
-	if f.Body != nil {
-		bs, err := json.Marshal(f.Body)
+	if f.RequestData != nil {
+		bs, err := json.Marshal(f.RequestData)
 		if err != nil {
 			return nil, err
 		}
-		body = bytes.NewBufferString(bs)
+		body = bytes.NewBuffer(bs)
 	}
 
-	request, err := http.NewRequest(f.Method, f.URL, body)
+	request, err := http.NewRequest(f.Method, f.URL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
 	appendExtendedPath(request, f.ExtendedPath)
 	appendQueryParams(request, f.QueryParams)
-	setHeaders(request, f.Headers, contentType)
-	httpConfig := defaultHTTPConfig(store)
+	setHeaders(request, http.Header(f.Headers), contentType)
+	httpConfig := httpRequestConfig{
+		f.defaultHTTPTimeout.Duration(),
+		f.defaultMaxHTTPAttempts,
+		f.defaultHTTPLimit,
+		false,
+	}
 	httpConfig.allowUnrestrictedNetworkAccess = f.AllowUnrestrictedNetworkAccess
 	result, err := sendRequest(request, httpConfig)
 	if err != nil {
 		return nil, err
 	}
 	return f.Transformers.Transform(result)
+}
+
+func (f *HttpFetcher) SetNotifiee(n Notifiee) {
+	f.notifiee = n
+	f.Transformers.SetNotifiee(n)
 }
 
 func (f HttpFetcher) MarshalJSON() ([]byte, error) {
@@ -318,6 +332,13 @@ func (qp *QueryParameters) UnmarshalJSON(input []byte) error {
 	return err
 }
 
+func (qp *QueryParameters) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), qp)
+}
+func (qp QueryParameters) Value() (driver.Value, error) {
+	return json.Marshal(qp)
+}
+
 func splitQueryString(r rune) bool {
 	return r == '=' || r == '&'
 }
@@ -355,11 +376,85 @@ func (ep *ExtendedPath) UnmarshalJSON(input []byte) error {
 	return err
 }
 
-func defaultHTTPConfig(store *store.Store) httpRequestConfig {
-	return httpRequestConfig{
-		store.Config.DefaultHTTPTimeout().Duration(),
-		store.Config.DefaultMaxHTTPAttempts(),
-		store.Config.DefaultHTTPLimit(),
-		false,
+func (ep *ExtendedPath) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), ep)
+}
+func (ep ExtendedPath) Value() (driver.Value, error) {
+	return json.Marshal(ep)
+}
+
+type Header http.Header
+
+func (h *Header) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), h)
+}
+func (h Header) Value() (driver.Value, error) {
+	return json.Marshal(h)
+}
+
+var privateIPBlocks []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8",    // IPv4 loopback
+		"10.0.0.0/8",     // RFC1918
+		"172.16.0.0/12",  // RFC1918
+		"192.168.0.0/16", // RFC1918
+		"169.254.0.0/16", // RFC3927 link-local
+		"::1/128",        // IPv6 loopback
+		"fe80::/10",      // IPv6 link-local
+		"fc00::/7",       // IPv6 unique local addr
+	} {
+		_, block, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic(fmt.Errorf("parse error on %q: %v", cidr, err))
+		}
+		privateIPBlocks = append(privateIPBlocks, block)
 	}
+}
+
+func isRestrictedIP(ip net.IP) bool {
+	if !ip.IsGlobalUnicast() ||
+		ip.IsLoopback() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast() ||
+		ip.IsUnspecified() ||
+		ip.Equal(net.IPv4bcast) ||
+		ip.Equal(net.IPv4allsys) ||
+		ip.Equal(net.IPv4allrouter) ||
+		ip.Equal(net.IPv4zero) ||
+		ip.IsMulticast() {
+		return true
+	}
+
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// restrictedDialContext wraps the Dialer such that after successful connection,
+// we check the IP.
+// If the resolved IP is restricted, close the connection and return an error.
+func restrictedDialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	con, err := (&net.Dialer{
+		// Defaults from GoLang standard http package
+		// https://golang.org/pkg/net/http/#RoundTripper
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}).DialContext(ctx, network, address)
+	if err == nil {
+		// If a connection could be established, ensure its not local or private
+		a, _ := con.RemoteAddr().(*net.TCPAddr)
+
+		if isRestrictedIP(a.IP) {
+			defer logger.ErrorIfCalling(con.Close)
+			return nil, fmt.Errorf("disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons. If you really want to allow this, consider using the httpgetwithunrestrictednetworkaccess or httppostwithunrestrictednetworkaccess adapter instead", a.IP.String())
+		}
+	}
+	return con, err
 }

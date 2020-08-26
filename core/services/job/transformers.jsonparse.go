@@ -10,15 +10,15 @@ import (
 
 type JSONParseTransformer struct {
 	BaseTransformer
-	Path []string `json:"path"`
+	Path []string `json:"path" gorm:"type:jsonb"`
 }
 
 var (
-	_ Transformer   = JSONParseTransformer{}
-	_ PipelineStage = JSONParseTransformer{}
+	_ Transformer   = (*JSONParseTransformer)(nil)
+	_ PipelineStage = (*JSONParseTransformer)(nil)
 )
 
-func (t JSONParseTransformer) Transform(input interface{}) (out interface{}, err error) {
+func (t *JSONParseTransformer) Transform(input interface{}) (out interface{}, err error) {
 	defer func() { t.notifiee.OnEndStage(t, out, err) }()
 	t.notifiee.OnBeginStage(t, input)
 
