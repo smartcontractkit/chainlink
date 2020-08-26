@@ -2,8 +2,6 @@ package job
 
 import (
 	"encoding/json"
-	"strconv"
-	"strings"
 
 	"github.com/shopspring/decimal"
 
@@ -12,15 +10,15 @@ import (
 
 type MultiplyTransformer struct {
 	BaseTransformer
-	Times decimal.Decimal `json:"times"`
+	Times decimal.Decimal `json:"times" gorm:"type:text;not null"`
 }
 
 var (
-	_ Transformer   = MultiplyTransformer{}
-	_ PipelineStage = MultiplyTransformer{}
+	_ Transformer   = (*MultiplyTransformer)(nil)
+	_ PipelineStage = (*MultiplyTransformer)(nil)
 )
 
-func (t MultiplyTransformer) Transform(input interface{}) (out interface{}, err error) {
+func (t *MultiplyTransformer) Transform(input interface{}) (out interface{}, err error) {
 	defer func() { t.notifiee.OnEndStage(t, out, err) }()
 	t.notifiee.OnBeginStage(t, input)
 

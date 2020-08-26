@@ -2,13 +2,8 @@ package job
 
 import (
 	"encoding/json"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type Transformer interface {
@@ -17,16 +12,16 @@ type Transformer interface {
 }
 
 type BaseTransformer struct {
-	ID       uint64   `json:"-" gorm:"primary_key;auto_increment"`
+	// ID       uint64   `json:"-" gorm:"primary_key"`
 	notifiee Notifiee `json:"-" gorm:"-"`
 }
 
-func (t BaseTransformer) GetID() uint64           { return t.ID }
+// func (t BaseTransformer) GetID() uint64           { return t.ID }
 func (t *BaseTransformer) SetNotifiee(n Notifiee) { t.notifiee = n }
 
 type TransformerType string
 
-var (
+const (
 	TransformerTypeJSONParse TransformerType = "jsonparse"
 	TransformerTypeMultiply  TransformerType = "multiply"
 )
@@ -46,6 +41,12 @@ func (t Transformers) Transform(input interface{}) (interface{}, error) {
 		}
 	}
 	return input, nil
+}
+
+func (t Transformers) SetNotifiee(n Notifiee) {
+	for _, transformer := range t {
+		transformer.SetNotifiee(n)
+	}
 }
 
 func (t *Transformers) UnmarshalJSON(bs []byte) (err error) {
@@ -71,7 +72,7 @@ func (t *Transformers) UnmarshalJSON(bs []byte) (err error) {
 			if err != nil {
 				return err
 			}
-			transformer = jsonTransformer
+			transformer = &jsonTransformer
 
 		case TransformerTypeMultiply:
 			multiplyTransformer := MultiplyTransformer{}
@@ -79,7 +80,7 @@ func (t *Transformers) UnmarshalJSON(bs []byte) (err error) {
 			if err != nil {
 				return err
 			}
-			transformer = multiplyTransformer
+			transformer = &multiplyTransformer
 
 		default:
 			return errors.Errorf("invalid transformer type '%v'", header.Type)
