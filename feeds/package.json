@@ -20,9 +20,9 @@
   },
   "scripts": {
     "start": "npm run server",
-    "start:dev": "cross-env PORT=3002 react-scripts start",
+    "start:dev": "cross-env PORT=3002 craco start",
     "prebuild": "yarn run build-theme",
-    "build": "react-scripts build",
+    "build": "craco build",
     "clean": "rimraf -rf build",
     "test": "jest",
     "build-theme": "lessc --js src/theme/theme.less src/theme.css",
@@ -62,14 +62,20 @@
     "webpack": "4.41.2"
   },
   "devDependencies": {
+    "@craco/craco": "^5.5.0",
     "@testing-library/jest-dom": "^5.10.1",
     "@testing-library/react": "^10.0.1",
     "@types/jest": "^26.0.8",
     "@types/react-router": "^5.1.4",
     "@types/redux-thunk": "^2.1.0",
+    "brotli-webpack-plugin": "^1.1.0",
+    "compression-webpack-plugin": "^3.1.0",
     "cross-env": "^7.0.2",
+    "dynamic-cdn-webpack-plugin": "^5.0.0",
+    "html-webpack-plugin": "^4.0.0-beta.5",
     "jest": "^24.9.0",
     "jest-transform-stub": "^2.0.0",
+    "module-to-cdn": "^3.1.2",
     "redux-mock-store": "^1.5.4",
     "rimraf": "^3.0.2",
     "ts-jest": "^24.1.0"
