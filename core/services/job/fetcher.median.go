@@ -4,25 +4,22 @@ import (
 	"encoding/json"
 	"sort"
 
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type MedianFetcher struct {
 	BaseFetcher
 
-	ID        models.ID `json:"-" gorm:"primary_key;auto_increment"`
-	JobSpecID models.ID `json:"jobSpecID"`
-	Fetchers  Fetchers  `json:"fetchers"`
+	Fetchers     Fetchers     `json:"fetchers" gorm:"-"`
+	Transformers Transformers `json:"transformPipeline,omitempty" gorm:"-"`
 }
 
-func (f *MedianFetcher) SetNotifiee(n Notifiee) {
-	f.BaseFetcher.SetNotifiee(n)
-	for _, fetcher := range f.Fetchers {
-		fetcher.SetNotifiee(n)
-	}
-}
-
-func (f MedianFetcher) Fetch() (interface{}, error) {
+func (f *MedianFetcher) Fetch() (out interface{}, err error) {
 	defer func() { f.notifiee.OnEndStage(f, out, err) }()
 	f.notifiee.OnBeginStage(f, nil)
 
@@ -79,6 +76,11 @@ func (f MedianFetcher) Fetch() (interface{}, error) {
 	}
 	median := answers[k].Add(answers[k-1]).Div(decimal.NewFromInt(2))
 	return f.Transformers.Transform(median)
+}
+
+func (f *MedianFetcher) SetNotifiee(n Notifiee) {
+	f.notifiee = n
+	f.Fetchers.SetNotifiee(n)
 }
 
 func (f MedianFetcher) MarshalJSON() ([]byte, error) {

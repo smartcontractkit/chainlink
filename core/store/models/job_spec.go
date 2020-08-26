@@ -57,12 +57,11 @@ type JobSpec struct {
 	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;association_autoupdate:false;association_autocreate:false"`
 }
 
-func (j JobSpec) JobSpecID() *ID {
+func (j JobSpec) JobID() *ID {
 	return j.ID
 }
 
 func (j JobSpec) JobType() string {
-	var fluxMonitor bool
 	for _, initr := range j.Initiators {
 		if initr.Type == InitiatorFluxMonitor {
 			return InitiatorFluxMonitor
