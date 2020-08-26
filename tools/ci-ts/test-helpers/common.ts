@@ -91,6 +91,7 @@ export async function wait(ms: number) {
  * @param value the value to set on the adapter
  */
 export async function changePriceFeed(adapter: string, value: number) {
+  console.log('Changing price feed', adapter, 'to', value)
   const url = new URL('result', adapter).href
   const response = await fetch(url, {
     method: 'PATCH',
@@ -124,7 +125,7 @@ export async function waitForService(
 }
 
 /**
- * assertAsync asserts that a condition is evantually met, with a
+ * assertAsync asserts that a condition is eventually met, with a
  * default timeout of 30 seconds
  *
  * @param f function to run every second and check for truthy return value
@@ -136,31 +137,25 @@ export async function assertAsync(
   errorMessage: string,
   timeout = DEFAULT_TIMEOUT_MS,
 ) {
-  return new Promise((res, rej) => {
-    // eslint-disable-next-line
-    let interval: NodeJS.Timeout, timer: NodeJS.Timeout
-
-    function resolveIfFulfilled(fulfilled: boolean) {
-      if (fulfilled === true) {
-        clearTimeout(timer)
-        clearInterval(interval)
-        res()
-      }
+  const start = new Date().getTime()
+  while (new Date().getTime() < start + timeout) {
+    const result = await f()
+    if (result === true) {
+      return
     }
+    await sleep(1000)
+  }
+  throw new Error(errorMessage)
+}
 
-    timer = setTimeout(() => {
-      clearInterval(interval)
-      rej(errorMessage)
-    }, timeout)
-
-    interval = setInterval(() => {
-      const result = f()
-      if (result instanceof Promise) {
-        result.then(resolveIfFulfilled)
-      } else {
-        resolveIfFulfilled(result)
-      }
-    }, 1000)
+/**
+ * sleep returns a Promise that resolves after the given number of milliseconds.
+ *
+ * @param ms the number of milliseconds to sleep
+ */
+export function sleep(ms: number) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms)
   })
 }
 
@@ -177,11 +172,30 @@ export async function assertJobRun(
   count: number,
   errorMessage: string,
 ) {
-  await assertAsync(() => {
+  await assertAsync(async () => {
     const jobRuns = clClient.getJobRuns()
+    console.log('Waiting for', errorMessage, `(${clClient.name})`)
+    console.log(`JOB RUNS ${clClient.name}:`, clClient.name, jobRuns)
     const jobRun = jobRuns[jobRuns.length - 1]
     return jobRuns.length === count && jobRun.status === 'completed'
   }, `${errorMessage} : job not run on ${clClient.name}`)
+}
+
+/**
+ * forces parity to mimic geth's behavior of mining a block every two seconds, by broadcasting a transaction
+ * at the same interval from the provided account
+ * @param wallet the account to send transactions from
+ * @param interval the target interval at which to send those transactions
+ */
+export function setRecurringTx(wallet: ethers.Wallet, interval = 2000): number {
+  return (setInterval(async () => {
+    await (
+      await wallet.sendTransaction({
+        to: ethers.constants.AddressZero,
+        value: 0,
+      })
+    ).wait()
+  }, interval) as unknown) as number
 }
 
 /**

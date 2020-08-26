@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -48,12 +49,12 @@ func LogFromFixture(t *testing.T, path string) models.Log {
 }
 
 // TxReceiptFromFixture create ethtypes.log from file path
-func TxReceiptFromFixture(t *testing.T, path string) models.TxReceipt {
+func TxReceiptFromFixture(t *testing.T, path string) *types.Receipt {
 	jsonStr := JSONFromFixture(t, path).Get("result").String()
 
-	var receipt models.TxReceipt
+	var receipt types.Receipt
 	err := json.Unmarshal([]byte(jsonStr), &receipt)
 	require.NoError(t, err)
 
-	return receipt
+	return &receipt
 }

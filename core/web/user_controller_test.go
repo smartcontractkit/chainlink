@@ -79,7 +79,11 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 func TestUserController_AccountBalances_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -88,12 +92,12 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 
 	ethMock := app.EthMock
 	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getBalance", "0x0100")
-		ethMock.Register("eth_call", "0x0100")
+		ethMock.Register("eth_getBalance", "0x100")
+		ethMock.Register("eth_call", "0x100")
 	})
 	ethMock.Context("second wallet", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getBalance", "0x01")
-		ethMock.Register("eth_call", "0x01")
+		ethMock.Register("eth_getBalance", "0x1")
+		ethMock.Register("eth_call", "0x1")
 	})
 
 	resp, cleanup := client.Get("/v2/user/balances")

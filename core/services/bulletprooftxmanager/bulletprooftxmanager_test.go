@@ -5,8 +5,13 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBulletproofTxManager_BumpGas(t *testing.T) {
@@ -82,12 +87,31 @@ func TestBulletproofTxManager_BumpGas(t *testing.T) {
 			config.Set("ETH_GAS_BUMP_PERCENT", test.bumpPercent)
 			config.Set("ETH_GAS_BUMP_WEI", test.bumpWei)
 			config.Set("ETH_MAX_GAS_PRICE_WEI", test.maxGasPriceWei)
-			actual := bulletprooftxmanager.BumpGas(config, test.originalGasPrice)
+			actual, err := bulletprooftxmanager.BumpGas(config, test.originalGasPrice)
+			require.NoError(t, err)
 			if actual.Cmp(test.expected) != 0 {
 				t.Fatalf("Expected %s but got %s", test.expected.String(), actual.String())
 			}
 		})
 	}
+}
+
+func TestBulletproofTxManager_BumpGas_Error(t *testing.T) {
+	config := orm.NewConfig()
+	config.Set("ETH_GAS_BUMP_PERCENT", "0")
+	config.Set("ETH_GAS_BUMP_WEI", "0")
+	config.Set("ETH_MAX_GAS_PRICE_WEI", "40000000000")
+
+	originalGasPrice := toBigInt("3e10") // 30 GWei
+	_, err := bulletprooftxmanager.BumpGas(config, originalGasPrice)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "bumped gas price of 30000000000 is equal to original gas price of 30000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
+
+	// But not if it's exactly the maximum
+	originalGasPrice = toBigInt("4e10") // 40 GWei
+	bumpedGasPrice, err := bulletprooftxmanager.BumpGas(config, originalGasPrice)
+	require.NoError(t, err)
+	require.Equal(t, originalGasPrice, bumpedGasPrice)
 }
 
 // Helpers
@@ -101,4 +125,17 @@ func toBigInt(input string) *big.Int {
 	var i = new(big.Int)
 	i, _ = flt.Int(i)
 	return i
+}
+
+func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := utils.ZeroAddress
+	to := utils.ZeroAddress
+	value := assets.NewEth(1)
+
+	_, err := bulletprooftxmanager.SendEther(store, from, to, *value)
+	require.Error(t, err)
+	require.EqualError(t, err, "cannot send ether to zero address")
 }

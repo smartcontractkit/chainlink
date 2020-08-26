@@ -275,7 +275,7 @@ func (le RunLogEvent) Validate() bool {
 func contractPayment(log Log) (*assets.Link, error) {
 	var encodedAmount common.Hash
 	paymentStart := requesterSize + idSize
-	paymentData, err := log.Data.SafeByteSlice(paymentStart, paymentStart+paymentSize)
+	paymentData, err := UntrustedBytes(log.Data).SafeByteSlice(paymentStart, paymentStart+paymentSize)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func (le RunLogEvent) ValidateRequester() error {
 
 // Requester pulls the requesting address out of the LogEvent's topics.
 func (le RunLogEvent) Requester() (common.Address, error) {
-	requesterData, err := le.Log.Data.SafeByteSlice(0, requesterSize)
+	requesterData, err := UntrustedBytes(le.Log.Data).SafeByteSlice(0, requesterSize)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -359,10 +359,10 @@ func (le RunLogEvent) JSON() (JSON, error) {
 }
 
 func parserFromLog(log Log) (logRequestParser, error) {
-	topic, err := log.GetTopic(0)
-	if err != nil {
-		return nil, errors.Wrap(err, "log#GetTopic(0)")
+	if len(log.Topics) == 0 {
+		return nil, errors.New("log has no topics")
 	}
+	topic := log.Topics[0]
 	parser, ok := topicFactoryMap[topic]
 	if !ok {
 		return nil, fmt.Errorf("no parser for the RunLogEvent topic %s", topic.String())
@@ -398,7 +398,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 		return JSON{}, errors.New("malformed data")
 	}
 
-	dataLengthBytes, err := data.SafeByteSlice(dataLengthStart, dataLengthStart+32)
+	dataLengthBytes, err := UntrustedBytes(data).SafeByteSlice(dataLengthStart, dataLengthStart+32)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -408,7 +408,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 		return JSON{}, errors.New("cbor too short")
 	}
 
-	cborData, err := data.SafeByteSlice(cborStart, cborStart+int(dataLength))
+	cborData, err := UntrustedBytes(data).SafeByteSlice(cborStart, cborStart+int(dataLength))
 	if err != nil {
 		return JSON{}, err
 	}
@@ -418,7 +418,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 		return js, fmt.Errorf("Error parsing CBOR: %v", err)
 	}
 
-	dataPrefixBytes, err := data.SafeByteSlice(idStart, expirationEnd)
+	dataPrefixBytes, err := UntrustedBytes(data).SafeByteSlice(idStart, expirationEnd)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -432,7 +432,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 
 func (parseRunLog20190207withoutIndexes) parseRequestID(log Log) (common.Hash, error) {
 	start := requesterSize
-	requestIDBytes, err := log.Data.SafeByteSlice(start, start+idSize)
+	requestIDBytes, err := UntrustedBytes(log.Data).SafeByteSlice(start, start+idSize)
 	if err != nil {
 		return common.Hash{}, err
 	}

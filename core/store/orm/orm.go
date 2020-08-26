@@ -1309,58 +1309,31 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	if len(addresses) > 0 {
-		args := make([]interface{}, len(addresses))
-		in := ""
-		for i, id := range addresses {
-			args[i] = id
-			if i == 0 {
-				in = fmt.Sprintf("$%v", i+1)
-			} else {
-				in = fmt.Sprintf("%s, $%v", in, i+1)
-			}
+	err = orm.Transaction(func(tx *gorm.DB) error {
+		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
+		if len(addresses) > 0 {
+			q = q.Where("address in (?)", addresses)
 		}
-
-		query := "UPDATE keys SET last_used = clock_timestamp() " +
-			"WHERE id IN (" +
-			"SELECT id FROM keys WHERE address IN (" + in + ") ORDER BY last_used ASC NULLS FIRST, id ASC LIMIT 1" +
-			") " +
-			"RETURNING address"
-		err = orm.DB.DB().
-			QueryRow(query, args...).
-			Scan(&address)
-	} else {
-		query := "UPDATE keys SET last_used = clock_timestamp() " +
-			"WHERE id IN (" +
-			"SELECT id FROM keys ORDER BY last_used ASC NULLS FIRST, id ASC LIMIT 1" +
-			") " +
-			"RETURNING address"
-		err = orm.DB.DB().
-			QueryRow(query).
-			Scan(&address)
-	}
-
-	if err != nil && err != sql.ErrNoRows {
+		keys := make([]models.Key, 0)
+		err = q.Find(&keys).Error
+		if err != nil {
+			return err
+		}
+		if len(keys) == 0 {
+			return errors.New("no keys available")
+		}
+		leastRecentlyUsedKey := keys[0]
+		address = leastRecentlyUsedKey.Address.Address()
+		return tx.Model(&leastRecentlyUsedKey).Update("last_used", time.Now()).Error
+	})
+	if err != nil {
 		return address, err
-	}
-	if err == sql.ErrNoRows {
-		return address, errors.New("no keys available")
 	}
 	return address, nil
 }
 
 // HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(rawLog models.RawLog, JobID *models.ID) (bool, error) {
-	lc := models.LogConsumption{
-		BlockHash: rawLog.GetBlockHash(),
-		LogIndex:  rawLog.GetIndex(),
-		JobID:     JobID,
-	}
-	return orm.LogConsumptionExists(&lc)
-}
-
-// LogConsumptionExists reports whether a given LogConsumption record already exists
-func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
+func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error) {
 	query := "SELECT exists (" +
 		"SELECT id FROM log_consumptions " +
 		"WHERE block_hash=$1 " +
@@ -1370,7 +1343,7 @@ func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
 
 	var exists bool
 	err := orm.DB.DB().
-		QueryRow(query, lc.BlockHash, lc.LogIndex, lc.JobID).
+		QueryRow(query, blockHash, logIndex, jobID).
 		Scan(&exists)
 	if err != nil && err != sql.ErrNoRows {
 		return false, err
@@ -1378,19 +1351,14 @@ func (orm *ORM) LogConsumptionExists(lc *models.LogConsumption) (bool, error) {
 	return exists, nil
 }
 
-// CreateLogConsumption creates a new LogConsumption record
-func (orm *ORM) CreateLogConsumption(lc *models.LogConsumption) error {
+// MarkLogConsumed creates a new LogConsumption record
+func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Create(lc).Error
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID)
+	return orm.DB.Create(&lc).Error
 }
 
-// FindLogConsumer finds the consuming job of a particular LogConsumption record
-func (orm *ORM) FindLogConsumer(lc *models.LogConsumption) (models.JobSpec, error) {
-	orm.MustEnsureAdvisoryLock()
-	return orm.FindJob(lc.JobID)
-}
-
-// FindOrCreateFluxMonitorRoundStats find the round stats record for agiven oracle on a given round, or creates
+// FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
 // it if no record exists
 func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (models.FluxMonitorRoundStats, error) {
 	orm.MustEnsureAdvisoryLock()
@@ -1422,19 +1390,20 @@ func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32,
 	return stats.RoundID, nil
 }
 
-// IncrFluxMonitorRoundSubmissions trys to create a RoundStat record for the given oracle
+// UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (orm *ORM) IncrFluxMonitorRoundSubmissions(aggregator common.Address, roundID uint32) error {
+func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, jobRunID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Exec(`
         INSERT INTO flux_monitor_round_stats (
-            aggregator, round_id, num_new_round_logs, num_submissions
+            aggregator, round_id, job_run_id, num_new_round_logs, num_submissions
         ) VALUES (
-            ?, ?, 0, 1
+            ?, ?, ?, 0, 1
         ) ON CONFLICT (aggregator, round_id)
-        DO UPDATE
-        SET num_submissions = flux_monitor_round_stats.num_submissions + 1
-    `, aggregator, roundID).Error
+        DO UPDATE SET
+					num_submissions = flux_monitor_round_stats.num_submissions + 1,
+					job_run_id = EXCLUDED.job_run_id
+    `, aggregator, roundID, jobRunID).Error
 }
 
 // ClobberDiskKeyStoreWithDBKeys writes all keys stored in the orm to

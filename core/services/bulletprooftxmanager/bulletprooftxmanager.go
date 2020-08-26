@@ -28,12 +28,15 @@ import (
 const (
 	// maxEthNodeRequestTime is the worst case time we will wait for a response
 	// from the eth node before we consider it to be an error
-	maxEthNodeRequestTime = 2 * time.Minute
+	maxEthNodeRequestTime = 15 * time.Second
 )
 
 // SendEther creates a transaction that transfers the given value of ether
-func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (models.EthTx, error) {
-	ethtx := models.EthTx{
+func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (etx models.EthTx, err error) {
+	if to == utils.ZeroAddress {
+		return etx, errors.New("cannot send ether to zero address")
+	}
+	etx = models.EthTx{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: []byte{},
@@ -41,8 +44,8 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 		GasLimit:       s.Config.EthGasLimitDefault(),
 		State:          models.EthTxUnstarted,
 	}
-	err := s.DB.Create(&ethtx).Error
-	return ethtx, err
+	err = s.DB.Create(&etx).Error
+	return etx, err
 }
 
 func newAttempt(s *strpkg.Store, etx models.EthTx, gasPrice *big.Int) (models.EthTxAttempt, error) {
@@ -82,16 +85,16 @@ func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx 
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(gethClientWrapper strpkg.GethClientWrapper, a models.EthTxAttempt) *sendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt) *sendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return FatalSendError(err)
 	}
-	err = gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
-		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
-		defer cancel()
-		return errors.WithStack(gethClient.SendTransaction(ctx, signedTx))
-	})
+
+	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
+	defer cancel()
+	err = ethClient.SendTransaction(ctx, signedTx)
+	err = errors.WithStack(err)
 
 	logger.Debugw("BulletproofTxManager: Broadcasting transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64())
 	sendErr := SendError(err)
@@ -104,20 +107,28 @@ func sendTransaction(gethClientWrapper strpkg.GethClientWrapper, a models.EthTxA
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
-func sendEmptyTransaction(gethClientWrapper strpkg.GethClientWrapper, keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+func sendEmptyTransaction(
+	ethClient eth.Client,
+	keyStore strpkg.KeyStoreInterface,
+	nonce uint64,
+	gasLimit uint64,
+	gasPriceWei *big.Int,
+	account gethAccounts.Account,
+	chainID *big.Int,
+) (_ *gethTypes.Transaction, err error) {
+	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
+
 	to := utils.ZeroAddress
 	value := big.NewInt(0)
 	payload := []byte{}
 	tx := gethTypes.NewTransaction(nonce, to, value, gasLimit, gasPriceWei, payload)
 	signedTx, err := keyStore.SignTx(account, tx, chainID)
 	if err != nil {
-		return signedTx, errors.Wrap(err, "sendEmptyTransaction failed")
+		return signedTx, err
 	}
-	err = gethClientWrapper.GethClient(func(gethClient eth.GethClient) error {
-		ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
-		defer cancel()
-		return errors.Wrap(gethClient.SendTransaction(ctx, signedTx), "sendEmptyTransaction failed")
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	defer cancel()
+	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
 }
 
@@ -125,10 +136,19 @@ func sendEmptyTransaction(gethClientWrapper strpkg.GethClientWrapper, keyStore s
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT)
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI)
 // - The configured default base gas price (ETH_GAS_PRICE_DEFAULT)
-func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) *big.Int {
+func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, error) {
 	// Currently this lives in store because TxManager also needs it.
 	// It can move here permanently once the old TxManager has been deleted.
-	return strpkg.BumpGas(config, originalGasPrice)
+	bumpedGasPrice := strpkg.BumpGas(config, originalGasPrice)
+	if bumpedGasPrice.Cmp(originalGasPrice) == 0 && bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) != 0 {
+		// NOTE: This really shouldn't happen since we enforce minimums for
+		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
+		// but it's here anyway for a "belts and braces" approach
+		return nil, errors.Errorf("bumped gas price of %s is equal to original gas price of %s."+
+			" ACTION REQUIRED: This is a configuration error, you must increase either "+
+			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
+	}
+	return bumpedGasPrice, nil
 }
 
 func withAdvisoryLock(s *strpkg.Store, classID int32, objectID int32, f func() error) error {
@@ -145,11 +165,13 @@ func withAdvisoryLock(s *strpkg.Store, classID int32, objectID int32, f func() e
 	return f()
 }
 
-func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectID int32) error {
+func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectID int32) (err error) {
+	defer utils.WrapIfError(&err, "tryAdvisoryLock failed")
+
 	gotLock := false
 	rows, err := conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1, $2)", classID, objectID)
 	if err != nil {
-		return errors.Wrap(err, "tryAdvisoryLock failed")
+		return err
 	}
 	defer logger.ErrorIfCalling(rows.Close)
 	gotRow := rows.Next()
@@ -157,7 +179,7 @@ func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectI
 		return errors.New("query unexpectedly returned 0 rows")
 	}
 	if err := rows.Scan(&gotLock); err != nil {
-		return errors.Wrap(err, "tryAdvisoryLock failed")
+		return err
 	}
 	if gotLock {
 		return nil

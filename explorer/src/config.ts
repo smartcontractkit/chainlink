@@ -79,6 +79,10 @@ export class Config {
       [key]: value,
     })
   }
+
+  static gaId(env = process.env): string {
+    return env.GA_ID ?? ''
+  }
 }
 
 /**

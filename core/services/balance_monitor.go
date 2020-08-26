@@ -9,12 +9,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 )
 
 // BalanceMonitor checks the balance for each key on every new head
@@ -24,26 +22,24 @@ type BalanceMonitor interface {
 }
 
 type balanceMonitor struct {
-	store             *store.Store
-	gethClientWrapper store.GethClientWrapper
-	ethBalances       map[gethCommon.Address]*assets.Eth
-	ethBalancesMtx    *sync.RWMutex
+	store          *store.Store
+	ethBalances    map[gethCommon.Address]*assets.Eth
+	ethBalancesMtx *sync.RWMutex
 }
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(store *store.Store, gethClientWrapper store.GethClientWrapper) BalanceMonitor {
+func NewBalanceMonitor(store *store.Store) BalanceMonitor {
 	return &balanceMonitor{
-		store:             store,
-		gethClientWrapper: gethClientWrapper,
-		ethBalances:       make(map[gethCommon.Address]*assets.Eth),
-		ethBalancesMtx:    new(sync.RWMutex),
+		store:          store,
+		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
+		ethBalancesMtx: new(sync.RWMutex),
 	}
 }
 
 // Connect complies with HeadTrackable
 func (bm *balanceMonitor) Connect(_ *models.Head) error {
 	// Connect head can be out of date, so always query the latest balance
-	bm.checkBalance(nil)
+	bm.checkBalance(context.TODO(), nil)
 	return nil
 }
 
@@ -53,11 +49,11 @@ func (bm *balanceMonitor) Disconnect() {}
 const ethFetchTimeout = 2 * time.Second
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(head models.Head) {
-	bm.checkBalance(&head)
+func (bm *balanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {
+	bm.checkBalance(ctx, &head)
 }
 
-func (bm *balanceMonitor) checkBalance(head *models.Head) {
+func (bm *balanceMonitor) checkBalance(parentCtx context.Context, head *models.Head) {
 	keys, err := bm.store.Keys()
 	if err != nil {
 		logger.Error("BalanceMonitor: error getting keys", err)
@@ -69,38 +65,37 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 		wg.Add(1)
 
 		go func(k models.Key) {
-			ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
+			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(parentCtx, ethFetchTimeout)
 			defer cancel()
 
 			var headNum *big.Int
-
-			err := bm.gethClientWrapper.GethClient(func(c eth.GethClient) error {
-				var err error
-				var bal *big.Int
-				if head == nil {
-					headNum = nil
-					bal, err = c.BalanceAt(ctx, k.Address.Address(), nil)
-				} else {
-					headNum = big.NewInt(bm.withLag(head.Number))
-					bal, err = c.BalanceAt(ctx, k.Address.Address(), headNum)
-				}
-				if err != nil {
-					return errors.Wrap(err, "error getting balance")
-				}
-				if bal == nil {
-					return errors.New("BalanceMonitor: invariant violation, bal may not be nil")
-				}
-				ethBal := assets.Eth(*bal)
-
-				bm.updateBalance(ethBal, k.Address.Address(), headNum)
-				return nil
-			})
-
-			if err != nil {
-				logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: %s", k.Address.Hex(), err.Error()), "err", err, "address", k.Address, "headNum", headNum)
+			var err error
+			var bal *big.Int
+			if head == nil {
+				headNum = nil
+				bal, err = bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
+			} else {
+				headNum = big.NewInt(bm.withLag(head.Number))
+				bal, err = bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), headNum)
 			}
-
-			wg.Done()
+			if err != nil {
+				logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: %s", k.Address.Hex(), err.Error()),
+					"err", err,
+					"address", k.Address,
+					"headNum", headNum,
+				)
+			} else if bal == nil {
+				logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", k.Address.Hex()),
+					"err", err,
+					"address", k.Address,
+					"headNum", headNum,
+				)
+			} else {
+				ethBal := assets.Eth(*bal)
+				bm.updateBalance(ethBal, k.Address.Address(), headNum)
+			}
 		}(key)
 	}
 
