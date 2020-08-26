@@ -1,4 +1,5 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const DynamicCdnWebpackPlugin = require('dynamic-cdn-webpack-plugin')
 const CompressionPlugin = require('compression-webpack-plugin')
 const BrotliPlugin = require('brotli-webpack-plugin')
 const webpack = require('webpack')
@@ -7,6 +8,7 @@ module.exports = {
   webpack: {
     plugins: [
       new HtmlWebpackPlugin(),
+      new DynamicCdnWebpackPlugin(),
       new CompressionPlugin({
         test: /\.js$|\.css$|\.html$|\.svg/,
         filename: '[path].gz[query]',

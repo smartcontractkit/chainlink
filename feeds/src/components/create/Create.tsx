@@ -2,7 +2,7 @@ import React from 'react'
 import { ethers } from 'ethers'
 import { Form, Select, Input, Button, InputNumber } from 'antd'
 import { FormComponentProps } from 'antd/lib/form/Form'
-import { withRouter, RouteComponentProps } from 'react-router'
+import { withRouter, RouteComponentProps } from 'react-router-dom'
 import { Networks, stringifyQuery } from 'utils'
 
 const { Option } = Select
