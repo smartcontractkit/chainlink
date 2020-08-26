@@ -17,11 +17,11 @@ set -ex
 # to work with.
 #
 # Argument <image> is likely one of the following:
-# integration
-# cypress_job_server
+# test-integration
+# test-cypress-job-server
+# test-external-adapter
+# test-echo-server
 # ingester
-# external_adapter
-# echo_server
 #
 
 if [ -z "$DOCKERHUB_PASS" ]
