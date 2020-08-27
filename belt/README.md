@@ -1,11 +1,20 @@
-# @chainlink/belt
+<br/>
+<p align="center">
+<a href="https://chain.link/" target="_blank" color="#0d2990">
+  <img src="../styleguide/static/images/logo-belt-blue.svg" width="225" alt="Chainlink logo">
+</a>
+</p>
+<br/>
 
-A toolbelt for performing various commands on chainlink smart contracts.
+[![npm](https://img.shields.io/npm/v/@chainlink/belt?style=flat-square)](https://www.npmjs.com/package/@chainlink/belt)
+[![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
+[![npm downloads](https://img.shields.io/npm/dt/@chainlink/belt?style=flat-square)](https://npmjs.com/package/@chainlink/belt)
+
+Chainlink Belt is a toolbelt for performing various commands on Chainlink smart contracts.
 This cli tool is currently used within `@chainlink/contracts` for the usage of running
 build and development tools across multiple solidity contract versions.
 
 <!-- toc -->
-* [@chainlink/belt](#chainlinkbelt)
 * [Usage](#usage)
 * [Commands](#commands)
 <!-- tocstop -->
@@ -59,7 +68,7 @@ EXAMPLES
   belt box -l
 ```
 
-_See code: [src/src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/src/commands/box.ts)_
+_See code: [src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/commands/box.ts)_
 
 ## `belt compile [COMPILER]`
 
@@ -91,7 +100,7 @@ EXAMPLE
   ...
 ```
 
-_See code: [src/src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/src/commands/compile.ts)_
+_See code: [src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/commands/compile.ts)_
 
 ## `belt help [COMMAND]`
 

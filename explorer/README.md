@@ -1,6 +1,26 @@
-# Explorer
+# @chainlink/explorer
 
-## Environment variables
+[![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
+
+Chainlink Explorer is a web application providing search functionality on
+Chainlink Operator Jobs, Runs, Transactions, and more.
+
+## Requirements
+
+* Docker
+* PostgreSQL
+* Yarn
+
+## Installation
+
+```
+yarn install
+cd client && yarn install && cd -
+```
+
+## Configuration
+
+### Environment
 
 See [./src/config.ts](./src/config.ts) for the available list of environment variables.
 
@@ -8,23 +28,14 @@ See [./src/config.ts](./src/config.ts) for the available list of environment var
 
 ### Build Docker image
 
-The Explorer application is part of our yarn workspace monorepo. To ensure that `yarn` can
+Chainlink Explorer is part of our yarn workspace monorepo. To ensure that `yarn` can
 resolve dependencies correctly you must build the Docker image from the root of the monorepo.
 
 ```bash
 docker build . -f explorer/Dockerfile -t smartcontract/explorer
 ```
 
-## Setup
-
-### Install packages
-
-```
-yarn install
-cd client && yarn install && cd -
-```
-
-### Database Configuration
+### Database
 
 ##### Creation
 
@@ -110,7 +121,7 @@ Another way of testing a separate domain is to not use ngrok to forward the clie
 You should now be able to visit the client via browser by using the forwarded ngrok url, or localhost.
 Observe network requests using the api having a different origin than the client, and successfully returning data.
 
-### Configuring the client environment variables
+#### Configuring the client environment variables
 
 Set Google Analytics tracking ID:
 

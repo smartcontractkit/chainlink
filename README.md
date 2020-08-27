@@ -1,19 +1,29 @@
-# Chainlink
+<br/>
+<p align="center">
+<a href="https://chain.link" target="_blank">
+<img src="./styleguide/static/images/logo-chainlink-blue.svg" width="225" alt="Chainlink logo">
+</a>
+</p>
+<br/>
 
-[![Join the chat at https://discordapp.com/invite/aSK4zew](https://img.shields.io/discord/592041321326182401.svg?logoColor=white)](https://discordapp.com/invite/aSK4zew)
-[![CircleCI](https://circleci.com/gh/smartcontractkit/chainlink.svg?style=shield)](https://circleci.com/gh/smartcontractkit/chainlink)
-[![Go Report Card](https://goreportcard.com/badge/github.com/smartcontractkit/chainlink)](https://goreportcard.com/report/github.com/smartcontractkit/chainlink)
-[![GoDoc](https://godoc.org/github.com/smartcontractkit/chainlink?status.svg)](https://godoc.org/github.com/smartcontractkit/chainlink)
+
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)
+[![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
+[![GitHub workflow changelog](https://img.shields.io/github/workflow/status/smartcontractkit/chainlink/Changelog?style=flat-square&label=github-actions)](https://github.com/smartcontractkit/chainlink/actions?query=workflow%3AChangelog)
+[![CircleCI build](https://img.shields.io/circleci/build/github/smartcontractkit/chainlink/master?style=flat-square&label=circleci&logo=circleci)](https://circleci.com/gh/smartcontractkit/chainlink/tree/master)
 [![Maintainability](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/maintainability)](https://codeclimate.com/github/smartcontractkit/chainlink/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/273722bb9f6f22d799bd/test_coverage)](https://codeclimate.com/github/smartcontractkit/chainlink/test_coverage)
+[![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
 
-Chainlink is middleware to simplify communication with blockchains.
+[Chainlink](https://chain.link/) is middleware to simplify communication with blockchains.
 Here you'll find the Chainlink Golang node, currently in alpha.
 This initial implementation is intended for use and review by developers,
 and will go on to form the basis for Chainlink's [decentralized oracle network](https://link.smartcontract.com/whitepaper).
 Further development of the Chainlink Node and Chainlink Network will happen here,
 if you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
-The current node supports:
+
+## Features
 
 - easy connectivity of on-chain contracts to any off-chain computation or API
 - multiple methods for scheduling both on-chain and off-chain computation for a user's smart contract
@@ -24,6 +34,14 @@ The current node supports:
 - easy to install node, which runs natively across operating systems, blazingly fast, and with a low memory footprint
 
 Examples of how to utilize and integrate Chainlinks can be found in the [Chainlink Truffle Box](https://github.com/smartcontractkit/box).
+
+## Community
+
+Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew)
+is the primary communication channel used for day to day communication,
+answering development questions, and aggregating Chainlink related content. Take
+a look at the [community docs](../docs/COMMUNITY.md) for more information 
+regarding Chainlink social accounts, news, and networking.
 
 ## Install
 
@@ -75,17 +93,18 @@ Check out the [docs'](https://docs.chain.link/) pages on [Adapters](https://docs
 
 You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the docs](https://docs.chain.link/docs/configuration-variables).
 
-## Project Directory
+## Project Structure
 
-This project contains several sub-projects, some with their own documentation.
+Chainlink is a monorepo containing several logicaly separatable and relatable 
+projects.
 
 - [core](./core) - the core Chainlink node
 - [@chainlink/belt](./belt) - tools for performing commands on Chainlink smart contracts
 - [@chainlink/contracts](./evm-contracts) - smart contracts
 - [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
-- [explorer](./explorer) - [Chainlink Explorer](https://explorer.chain.link/)
+- [explorer](./explorer) - [Mainnet Chainlink Explorer](https://explorer.chain.link/)
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
-- [sgx](./core/sgx) - experimental, optional module that can be loaded into Chainlink to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
+- [sgx](./core/sgx) - an optional and experimental Chainlink module to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
 - [styleguide](./styleguide) - Chainlink style guide
 - [tools](./tools) - Chainlink tools
 
@@ -184,3 +203,8 @@ Chainlink's source code is [licensed under the MIT License](./LICENSE), and cont
 Please check out our [contributing guidelines](./docs/CONTRIBUTING.md) for more details.
 
 Thank you!
+
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)
+
