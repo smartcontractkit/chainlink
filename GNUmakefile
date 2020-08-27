@@ -90,7 +90,7 @@ abigen:
 
 .PHONY: go-solidity-wrappers
 go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers
-	yarn workspace @chainlink/contracts compile
+	yarn workspace @chainlink/contracts compile:clean
 	go generate ./core/internal/gethwrappers
 	go run ./packr/main.go ./core/services/eth/
 
