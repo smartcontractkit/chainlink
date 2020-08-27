@@ -8,6 +8,7 @@
   "private": false,
   "scripts": {
     "compile": "belt compile all",
+    "compile:clean": "yarn clean && yarn compile",
     "setup": "yarn compile && tsc -b tsconfig.test.json tsconfig.ethers.json",
     "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
