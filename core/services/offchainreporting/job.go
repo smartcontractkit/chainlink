@@ -2,6 +2,7 @@ package offchainreporting
 
 import (
 	"encoding/json"
+	"fmt"
 	// "math/big"
 	"time"
 
@@ -21,7 +22,8 @@ import (
 const JobType = "offchainreporting"
 
 type JobSpec struct {
-	ID                 *models.ID         `json:"id"`
+	// ID                 *models.ID         `json:"id" gorm:"primary_key;not null"`
+	JobSpecID          *models.ID         `json:"id"`
 	ContractAddress    common.Address     `json:"contractAddress"`
 	P2PNodeID          string             `json:"p2pNodeID"`
 	P2PBootstrapNodes  []P2PBootstrapNode `json:"p2pBootstrapNodes" gorm:"type:jsonb"`
@@ -37,7 +39,7 @@ type JobSpec struct {
 var _ job.JobSpec = JobSpec{}
 
 func (spec JobSpec) JobID() *models.ID {
-	return spec.ID
+	return spec.JobSpecID
 }
 
 func (spec JobSpec) JobType() string {
@@ -78,8 +80,9 @@ type P2PBootstrapNode struct {
 // func (n P2PBootstrapNode) Value() (driver.Value, error)  { return json.Marshal(n) }
 
 type JobSpecDBRow struct {
+	ID                uint64 `gorm:"primary_key;not null;auto_increment"`
 	*JobSpec          `gorm:"embedded;"`
-	ObservationSource *job.FetcherDBRow `gorm:"foreignkey:job_spec_id"`
+	ObservationSource *job.FetcherDBRow `gorm:"preload:true;polymorphic:Parent;association_autoupdate:true;association_autocreate:true"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -89,9 +92,12 @@ func (spec JobSpecDBRow) TableName() string {
 }
 
 func (spec *JobSpec) ForDB() *JobSpecDBRow {
+	fetcher := job.WrapFetchersForDB(spec.ObservationSource)[0]
+	bs, _ := json.MarshalIndent(fetcher, "", "    ")
+	fmt.Println(string(bs))
 	return &JobSpecDBRow{
 		JobSpec:           spec,
-		ObservationSource: job.WrapFetchersForDB(spec.ObservationSource)[0],
+		ObservationSource: fetcher,
 	}
 }
 

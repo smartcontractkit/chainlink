@@ -6,38 +6,46 @@ import (
 
 type (
 	FetcherDBRow struct {
-		ID        uint64 `gorm:"primary_key;auto_increment;"`
-		CreatedAt time.Time
-		UpdatedAt time.Time
+		ID         uint64 `gorm:"primary_key;auto_increment;"`
+		CreatedAt  time.Time
+		UpdatedAt  time.Time
+		ParentID   uint64
+		ParentType string
 
-		HttpFetcher   *HttpFetcherDBRow
-		BridgeFetcher *BridgeFetcherDBRow
-		MedianFetcher *MedianFetcherDBRow
+		HttpFetcher   *HttpFetcherDBRow   `gorm:"preload:true;foreignkey:fetcher_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		BridgeFetcher *BridgeFetcherDBRow `gorm:"preload:true;foreignkey:fetcher_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		MedianFetcher *MedianFetcherDBRow `gorm:"preload:true;foreignkey:fetcher_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
 	}
 
 	HttpFetcherDBRow struct {
-		ID           uint64 `gorm:"primary_key;auto_increment;"`
-		CreatedAt    time.Time
-		UpdatedAt    time.Time
+		ID        uint64 `gorm:"primary_key;auto_increment;"`
+		FetcherID uint64
+		CreatedAt time.Time
+		UpdatedAt time.Time
+
 		*HttpFetcher `gorm:"embedded;"`
-		Transformers []*TransformerDBRow
+		Transformers []*TransformerDBRow `gorm:"foreignkey:fetcher_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
 	}
 
 	BridgeFetcherDBRow struct {
-		ID             uint64 `gorm:"primary_key;auto_increment;"`
-		CreatedAt      time.Time
-		UpdatedAt      time.Time
+		ID        uint64 `gorm:"primary_key;auto_increment;"`
+		FetcherID uint64
+		CreatedAt time.Time
+		UpdatedAt time.Time
+
 		*BridgeFetcher `gorm:"embedded;"`
-		Transformers   []*TransformerDBRow
+		Transformers   []*TransformerDBRow `gorm:"foreignkey:fetcher_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
 	}
 
 	MedianFetcherDBRow struct {
-		ID             uint64 `gorm:"primary_key;auto_increment;"`
-		CreatedAt      time.Time
-		UpdatedAt      time.Time
+		ID        uint64 `gorm:"primary_key;auto_increment;"`
+		FetcherID uint64
+		CreatedAt time.Time
+		UpdatedAt time.Time
+
 		*MedianFetcher `gorm:"embedded;"`
-		Fetchers       []*FetcherDBRow `gorm:"foreignkey:parent_id"`
-		Transformers   []*TransformerDBRow
+		Fetchers       []*FetcherDBRow     `gorm:"foreignkey:parent_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		Transformers   []*TransformerDBRow `gorm:"foreignkey:fetcher_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
 	}
 )
 
@@ -49,14 +57,16 @@ func (MedianFetcherDBRow) TableName() string { return "median_fetchers" }
 type (
 	TransformerDBRow struct {
 		ID                   uint64 `gorm:"primary_key;auto_increment"`
+		FetcherID            uint64
 		CreatedAt            time.Time
 		UpdatedAt            time.Time
-		MultiplyTransformer  *MultiplyTransformerDBRow
-		JSONParseTransformer *JSONParseTransformerDBRow
+		MultiplyTransformer  *MultiplyTransformerDBRow  `gorm:"foreignkey:transformer_id;association_autoupdate:true;association_autocreate:true"`
+		JSONParseTransformer *JSONParseTransformerDBRow `gorm:"foreignkey:transformer_id;association_autoupdate:true;association_autocreate:true"`
 	}
 
 	MultiplyTransformerDBRow struct {
 		ID                   uint64 `gorm:"primary_key;auto_increment"`
+		TransformerID        uint64
 		CreatedAt            time.Time
 		UpdatedAt            time.Time
 		*MultiplyTransformer `gorm:"embedded;"`
@@ -64,6 +74,7 @@ type (
 
 	JSONParseTransformerDBRow struct {
 		ID                    uint64 `gorm:"primary_key;auto_increment"`
+		TransformerID         uint64
 		CreatedAt             time.Time
 		UpdatedAt             time.Time
 		*JSONParseTransformer `gorm:"embedded;"`
@@ -103,4 +114,34 @@ func WrapTransformersForDB(transformers ...Transformer) []*TransformerDBRow {
 		}
 	}
 	return dbRows
+}
+
+func UnwrapFetchersFromDB(rows ...*FetcherDBRow) Fetchers {
+	var fetchers Fetchers
+	for _, row := range rows {
+		if row.BridgeFetcher != nil {
+			row.BridgeFetcher.BridgeFetcher.Transformers = UnwrapTransformersFromDB(row.BridgeFetcher.Transformers)
+			fetchers = append(fetchers, row.BridgeFetcher.BridgeFetcher)
+		} else if row.HttpFetcher != nil {
+			row.HttpFetcher.HttpFetcher.Transformers = UnwrapTransformersFromDB(row.HttpFetcher.Transformers)
+			fetchers = append(fetchers, row.HttpFetcher.HttpFetcher)
+		} else if row.MedianFetcher != nil {
+			row.MedianFetcher.MedianFetcher.Fetchers = UnwrapFetchersFromDB(row.MedianFetcher.Fetchers...)
+			row.MedianFetcher.MedianFetcher.Transformers = UnwrapTransformersFromDB(row.MedianFetcher.Transformers)
+			fetchers = append(fetchers, row.MedianFetcher.MedianFetcher)
+		}
+	}
+	return fetchers
+}
+
+func UnwrapTransformersFromDB(rows []*TransformerDBRow) Transformers {
+	var transformers Transformers
+	for _, row := range rows {
+		if row.MultiplyTransformer != nil {
+			transformers = append(transformers, row.MultiplyTransformer)
+		} else if row.JSONParseTransformer != nil {
+			transformers = append(transformers, row.JSONParseTransformer)
+		}
+	}
+	return transformers
 }

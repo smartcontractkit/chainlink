@@ -1,6 +1,7 @@
 package job
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -10,7 +11,7 @@ import (
 
 type JSONParseTransformer struct {
 	BaseTransformer
-	Path []string `json:"path" gorm:"type:jsonb"`
+	Path JSONPath `json:"path" gorm:"type:jsonb"`
 }
 
 var (
@@ -83,4 +84,13 @@ func (t JSONParseTransformer) MarshalJSON() ([]byte, error) {
 		TransformerTypeJSONParse,
 		preventInfiniteRecursion(t),
 	})
+}
+
+type JSONPath []string
+
+func (p *JSONPath) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), p)
+}
+func (p JSONPath) Value() (driver.Value, error) {
+	return json.Marshal(p)
 }
