@@ -31,7 +31,7 @@ type HttpFetcher struct {
 	ExtendedPath                   ExtendedPath    `json:"extendedPath,omitempty" gorm:"type:jsonb"`
 	Headers                        Header          `json:"headers,omitempty" gorm:"type:jsonb"`
 	QueryParams                    QueryParameters `json:"queryParams,omitempty" gorm:"type:jsonb"`
-	RequestData                    interface{}     `json:"body,omitempty" gorm:"type:jsonb"`
+	RequestData                    HttpRequestData `json:"body,omitempty" gorm:"type:jsonb"`
 	AllowUnrestrictedNetworkAccess bool            `json:"-"`
 	Transformers                   Transformers    `json:"transformPipeline,omitempty" gorm:"-"`
 
@@ -389,6 +389,15 @@ func (h *Header) Scan(value interface{}) error {
 	return json.Unmarshal(value.([]byte), h)
 }
 func (h Header) Value() (driver.Value, error) {
+	return json.Marshal(h)
+}
+
+type HttpRequestData map[string]interface{}
+
+func (h *HttpRequestData) Scan(value interface{}) error {
+	return json.Unmarshal(value.([]byte), h)
+}
+func (h HttpRequestData) Value() (driver.Value, error) {
 	return json.Marshal(h)
 }
 
