@@ -14,9 +14,9 @@ import (
 type BridgeFetcher struct {
 	BaseFetcher
 
-	BridgeName   string                 `json:"name"`
-	RequestData  map[string]interface{} `json:"requestData" gorm:"type:jsonb"`
-	Transformers Transformers           `json:"transformPipeline,omitempty" gorm:"-"`
+	BridgeName   string          `json:"name"`
+	RequestData  HttpRequestData `json:"requestData" gorm:"type:jsonb"`
+	Transformers Transformers    `json:"transformPipeline,omitempty" gorm:"-"`
 
 	ORM                BridgeFetcherORM `json:"-" gorm:"-"`
 	defaultHTTPTimeout models.Duration
