@@ -7,18 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Chainlink header images to the following `README.md` files: root, core, 
+  evm-contracts, and evm-test-helpers.
+
 ## [0.8.13] - 2020-08-31
 
-## Changed
+### Changed
 
-Performance improvements when using BulletproofTxManager.
+- Performance improvements when using BulletproofTxManager.
 
 ## [0.8.12] - 2020-08-10
 
 ### Fixed
 
-Added a workaround for Infura users who are seeing "error getting balance: header not found".
-
+- Added a workaround for Infura users who are seeing "error getting balance: header not found".
 This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
 
 ## [0.8.11] - 2020-07-27
