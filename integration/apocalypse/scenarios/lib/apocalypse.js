@@ -12,6 +12,19 @@ async function mimicRegularTraffic({ funderPrivkey, numAccounts, ethereumRPCProv
     }
 }
 
+function fundAccount(job) {
+    let nonce = job.sender.nonce
+    job.sender.nonce++
+    return job.sender.wallet.sendTransaction({
+        to: job.wallet.address,
+        value: ethers.utils.parseUnits('5', 'ether'),
+        gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+        nonce: nonce,
+    }).catch(err => {
+        console.log(err, 'nonce =', nonce, job.sender.wallet.address, job.sender.nonce, job.providerURL)
+    })
+}
+
 async function makeRandomAccounts(funderPrivkey, num, ethereumRPCProviders) {
     let senders = []
     for (let providerURL of ethereumRPCProviders) {
@@ -31,20 +44,7 @@ async function makeRandomAccounts(funderPrivkey, num, ethereumRPCProviders) {
         }
     })
     // Fund the accounts
-    await Promise.all(
-        jobs.map(job => {
-            let nonce = job.sender.nonce
-            job.sender.nonce++
-            return job.sender.wallet.sendTransaction({
-                to: job.wallet.address,
-                value: ethers.utils.parseUnits('5', 'ether'),
-                gasPrice: ethers.utils.parseUnits('20', 'gwei'),
-                nonce: nonce,
-            }).catch(err => {
-                console.log(err, 'nonce =', nonce, job.sender.wallet.address, job.sender.nonce, job.providerURL)
-            })
-        })
-    )
+    await Promise.all(jobs.map(fundAccount))
     return jobs.map(job => job.wallet)
 }
 
