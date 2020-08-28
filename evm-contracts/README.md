@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
 <a href="https://chain.link/" target="_blank" color="#0d2990">
-  <img src="../styleguide/static/images/logo-contracts-blue.svg" width="225" alt="Chainlink logo">
+  <img src="https://raw.githubusercontent.com/smartcontractkit/explorer/develop/styleguide/static/images/logo-contracts-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
@@ -9,7 +9,6 @@
 [![npm](https://img.shields.io/npm/v/@chainlink/contracts?style=flat-square)](https://www.npmjs.com/package/@chainlink/contracts)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
 [![npm downloads](https://img.shields.io/npm/dt/@chainlink/contracts?style=flat-square)](https://npmjs.com/package/@chainlink/contracts)
-
 
 [Chainlink's](https://chain.link/) solidity contracts and abstractions.
 

@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
 <a href="https://chain.link/" target="_blank" color="#0d2990">
-  <img src="../styleguide/static/images/logo-test-helpers-blue.svg" width="225" alt="Chainlink logo">
+  <img src="https://raw.githubusercontent.com/smartcontractkit/explorer/develop/styleguide/static/images/logo-test-helpers-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
