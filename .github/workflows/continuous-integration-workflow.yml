@@ -121,44 +121,6 @@ jobs:
           name: logs
           path: ./integration/logs
 
-  styleguide:
-    name: Styleguide
-    runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.34
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v1
-        with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
-      - name: Run styleguide tests
-        run: yarn workspace @chainlink/styleguide test
-
-  json-api-client:
-    name: JSON API client
-    runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.34
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v1
-        with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
-      - name: Run JSON API client tests
-        run: yarn workspace @chainlink/json-api-client test
-
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
@@ -183,83 +145,11 @@ jobs:
           name: logs
           path: ./integration/logs
 
-  explorer:
-    name: Explorer
-    runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.34
-    services:
-      postgres:
-        image: postgres:11
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: explorer_test
-        # Set health checks to wait until postgres has started
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      TYPEORM_NAME: ci-gh
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v1
-        with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
-      - name: Run setup
-        run: yarn workspace @chainlink/explorer setup
-      - name: Run Yarn migrations
-        run: yarn workspace @chainlink/explorer test:migration:run
-      - name: Run Server Tests
-        run: yarn workspace @chainlink/explorer test:ci
-      - name: Run Client dependency setup
-        run: yarn workspace @chainlink/explorer-client setup
-      - name: Run Client tests
-        run: yarn workspace @chainlink/explorer-client test:ci
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
-
-  feeds:
-    name: Feeds
-    runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.34
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v1
-        with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
-      - name: Run Feeds setup
-        run: yarn workspace @chainlink/feeds setup
-      - name: Run Feeds tests
-        run: yarn workspace @chainlink/feeds test
-        env:
-          CI: true
-
   reportcoverage:
     name: Report test coverage
     runs-on: ubuntu-latest
     container: smartcontract/builder:1.0.34
-    needs: [core, solidity, operator-ui, rust, explorer]
+    needs: [core, solidity, operator-ui, rust]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -319,18 +209,3 @@ jobs:
         run: make yarndep
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
-
-  repo-dispatch-build-publish-explorer:
-    name: Kick off build-publish-explorer workflow
-    runs-on: ubuntu-latest
-    needs:
-      - styleguide
-      - json-api-client
-      - explorer
-    steps:
-      - name: Issue repository dispatch
-        # Pin to v1.0.0
-        uses: peter-evans/repository-dispatch@0ae1c4b014bff102f1063cd67a53fc4a91311d1b
-        with:
-          token: ${{ secrets.REPO_ACCESS_TOKEN }}
-          event-type: build-publish-explorer
