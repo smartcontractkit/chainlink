@@ -43,16 +43,10 @@ async function successfulJobRuns(nodeURL, jobSpecID, num, tmpdir) {
     while (true) {
         let runs = JSON.parse(await run(`chainlink -j runs list`, { CLIENT_NODE_URL: nodeURL, ROOT: tmpdir }))
         console.log('runs ~>', runs)
-        if (runs instanceof Array) {
-            runs = runs.filter(run => run.jobId === jobSpecID)
-
-            for (let run of runs) {
-                if (run.status === 'errored') {
-                    throw new Error('job run errored')
-                }
-            }
+        const failedRun = (run) => run.jobId === jobSpecID && run.status === 'errored'
+        if (Array.isArray(runs) && runs.find(failedRun)) {
+          throw new Error('job run errored');
         }
-
         await sleep(3000)
     }
 }
@@ -69,49 +63,54 @@ function makeJobSpecEthlog(oracleContractAddress) {
     }
 }
 
+const initiators = [
+    {
+        type: "fluxmonitor",
+        params: {
+            address: aggregatorContractAddress,
+            requestData: {
+                data: {
+                    coin: 'ETH',
+                    market: 'USD',
+                },
+            },
+            feeds: [ feedAddr ],
+            precision: 2,
+            threshold: 5,
+            idleTimer: {
+              disabled: true,
+            },
+            pollTimer: {
+              period: '15s',
+            },
+        }
+    }
+];
+
+const tasks = [
+    {
+        type: "multiply",
+        confirmations: null,
+        params: {
+            times: 100,
+        }
+    },
+    {
+        type: "ethuint256",
+        confirmations: null,
+        params: {}
+    },
+    {
+        type: "ethtx",
+        confirmations: null,
+        params: {}
+    },
+];
+
+
 function makeJobSpecFluxMonitor(aggregatorContractAddress, feedAddr) {
     return {
-        initiators: [
-            {
-                type: "fluxmonitor",
-                params: {
-                    address: aggregatorContractAddress,
-                    requestData: {
-                        data: {
-                            coin: 'ETH',
-                            market: 'USD',
-                        },
-                    },
-                    feeds: [ feedAddr ],
-                    precision: 2,
-                    threshold: 5,
-                    idleTimer: {
-                      disabled: true,
-                    },
-                    pollTimer: {
-                      period: '15s',
-                    },
-                }
-            }
-        ],
-        tasks: [
-            {
-                type: "multiply",
-                confirmations: null,
-                params: {
-                    times: 100,
-                }
-            },
-            {
-                type: "ethuint256",
-                confirmations: null,
-                params: {}
-            },
-            {
-                type: "ethtx",
-                confirmations: null,
-                params: {}
-            },
-        ],
+        initiators: initiators,
+        tasks: tasks,
     }
 }

@@ -59,7 +59,7 @@ const nelly = new ethers.Wallet(
   new ethers.providers.JsonRpcProvider(RPC_GETH2),
 )
 
-async function main() {
+async function setup() {
   console.log('Awaiting Geth DAG generation...')
   await gethDAGGenerationFinished([geth1.provider, geth2.provider])
 
@@ -97,6 +97,10 @@ async function main() {
   await chainlinkLogin(CHAINLINK_URL_NELLY, '/tmp/nelly')
 
   await sleep(5000)
+}
+
+async function main() {
+  await setup()
 
   console.log('Adding job specs to Chainlink nodes...')
   const jobSpecNeil = await addJobSpec(
