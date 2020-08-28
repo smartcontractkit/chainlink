@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
 <a href="https://chain.link/" target="_blank" color="#0d2990">
-  <img src="../styleguide/static/images/logo-belt-blue.svg" width="225" alt="Chainlink logo">
+  <img src="https://raw.githubusercontent.com/smartcontractkit/explorer/develop/styleguide/static/images/logo-belt-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
@@ -15,13 +15,15 @@ This cli tool is currently used within `@chainlink/contracts` for the usage of r
 build and development tools across multiple solidity contract versions.
 
 <!-- toc -->
-* [Usage](#usage)
-* [Commands](#commands)
-<!-- tocstop -->
+
+- [Usage](#usage)
+- [Commands](#commands)
+  <!-- tocstop -->
 
 # Usage
 
 <!-- usage -->
+
 ```sh-session
 $ npm install -g @chainlink/belt
 $ belt COMMAND
@@ -33,14 +35,16 @@ USAGE
   $ belt COMMAND
 ...
 ```
+
 <!-- usagestop -->
 
 # Commands
 
 <!-- commands -->
-* [`belt box [PATH]`](#belt-box-path)
-* [`belt compile [COMPILER]`](#belt-compile-compiler)
-* [`belt help [COMMAND]`](#belt-help-command)
+
+- [`belt box [PATH]`](#belt-box-path)
+- [`belt compile [COMPILER]`](#belt-compile-compiler)
+- [`belt help [COMMAND]`](#belt-help-command)
 
 ## `belt box [PATH]`
 
@@ -118,4 +122,5 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
+
 <!-- commandsstop -->
