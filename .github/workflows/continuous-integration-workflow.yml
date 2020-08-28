@@ -80,10 +80,12 @@ jobs:
       matrix:
         test: ['test', 'test:ts']
         geth: [true, false]
+        explorer: ['latest', 'develop']
     env:
       GETH_MODE: ${{ matrix.geth }}
       CI: true
       CHAINLINK_DB_NAME: postgres
+      EXPLORER_DOCKER_TAG: ${{ matrix.explorer }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
