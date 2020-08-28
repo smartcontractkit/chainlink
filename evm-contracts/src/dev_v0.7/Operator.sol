@@ -135,8 +135,8 @@ contract Operator is
     bytes32 data
   )
     external
-    onlyAuthorizedNode()
     override
+    onlyAuthorizedNode()
     isValidRequest(requestId)
     returns (bool)
   {
