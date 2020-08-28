@@ -17,11 +17,6 @@ COPY patches patches
 COPY solc_bin solc_bin
 COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
-COPY styleguide/package.json ./styleguide/
-COPY tools/json-api-client/package.json ./tools/json-api-client/
-COPY tools/local-storage/package.json ./tools/local-storage/
-COPY tools/redux/package.json ./tools/redux/
-COPY tools/ts-helpers/package.json ./tools/ts-helpers/
 COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json ./evm-test-helpers/
@@ -37,11 +32,6 @@ ARG SGX_SIMULATION
 # Install chainlink
 COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY operator_ui ./operator_ui
-COPY styleguide ./styleguide
-COPY tools/json-api-client ./tools/json-api-client
-COPY tools/local-storage ./tools/local-storage
-COPY tools/redux ./tools/redux
-COPY tools/ts-helpers ./tools/ts-helpers
 COPY belt ./belt
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers ./evm-test-helpers
