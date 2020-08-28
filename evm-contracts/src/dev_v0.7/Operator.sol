@@ -9,7 +9,7 @@ import "./interfaces/WithdrawalInterface.sol";
 import "./vendor/SafeMath.sol";
 
 /**
- * @title The Chainlink Oracle contract
+ * @title The Chainlink Operator contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
 contract Operator is
@@ -135,7 +135,7 @@ contract Operator is
     bytes32 data
   )
     external
-    onlyAuthorizedNode
+    onlyAuthorizedNode()
     override
     isValidRequest(requestId)
     returns (bool)
@@ -195,7 +195,7 @@ contract Operator is
   function withdraw(address recipient, uint256 amount)
     external
     override(OracleInterface, WithdrawalInterface)
-    onlyOwner
+    onlyOwner()
     hasAvailableFunds(amount)
   {
     s_withdrawableTokens = s_withdrawableTokens.sub(amount);
