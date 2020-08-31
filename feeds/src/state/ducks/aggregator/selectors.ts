@@ -11,20 +11,17 @@ export const upcaseOracles = (
    * but in v3 - node addresses.
    */
 
-  let upcased: string[][] = []
+  return Object.entries(state.aggregator.oracleNodes).reduce(
+    (accumulator: Record<string, string>, [oracleAddress, oracle]) => {
+      accumulator[oracleAddress] = oracle.name
+      oracle.nodeAddress.forEach(nodeAddress => {
+        accumulator[nodeAddress] = oracle.name
+      })
 
-  for (const [address, oracle] of Object.entries(
-    state.aggregator.oracleNodes,
-  )) {
-    const nodes = oracle.nodeAddress.map((address: string) => [
-      address,
-      oracle.name,
-    ])
-    nodes.push([address, oracle.name])
-    upcased = [...upcased, ...nodes]
-  }
-
-  return Object.fromEntries(upcased)
+      return accumulator
+    },
+    {},
+  )
 }
 
 const oracleList = (state: AppState) => state.aggregator.oracleList
@@ -44,7 +41,6 @@ const oracles = createSelector(
     upcasedOracles: Record<OracleNode['oracleAddress'], OracleNode['name']>,
   ): Oracle[] => {
     if (!list) return []
-
     const result = list
       .map(address => {
         const oracle: Oracle = {
