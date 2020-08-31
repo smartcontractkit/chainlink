@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 
 import { CBOR as CBOR_Chainlink } from "./vendor/CBOR.sol";
-import { Buffer as Buffer_Chainlink } from "./vendor/Buffer.sol";
+import { BufferChainlink as Buffer_Chainlink } from "./vendor/BufferChainlink.sol";
 
 /**
  * @title Library for common Chainlink functions
