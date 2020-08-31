@@ -378,6 +378,25 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-integration
+
+  build-publish-ts-integration:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/docker/ts-integration.Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/test-ts-integration:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-ts-integration
   build-publish-cypress-job-server:
     resource_class: large
     machine:
@@ -614,6 +633,13 @@ workflows:
             tags:
               only: /^v.*/
       - build-publish-integration:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - develop
+      - build-publish-ts-integration:
           filters:
             tags:
               only: /^v.*/
