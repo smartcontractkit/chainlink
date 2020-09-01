@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	logpkg "github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -78,11 +78,13 @@ var storeCounter uint64
 
 var minimumContractPayment = assets.NewLink(100)
 
+var logger *logpkg.Logger
+
 func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
-	logger.SetLogger(CreateTestLogger(lvl))
+	logger = logpkg.CreateTestLogger(lvl)
 	// Register txdb as dialect wrapping postgres
 	// See: DialectTransactionWrappedPostgres
 	config := orm.NewConfig()
