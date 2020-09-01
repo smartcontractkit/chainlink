@@ -15,7 +15,7 @@ require (
 	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/ethereum/go-ethereum v1.9.18
+	github.com/ethereum/go-ethereum v1.9.20
 	github.com/fatih/color v1.9.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/garyburd/redigo v1.6.0 // indirect
