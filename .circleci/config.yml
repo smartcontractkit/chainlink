@@ -176,38 +176,6 @@ jobs:
       - run: ./tools/ci/solidity_test
       - store_artifacts:
           path: ./integration/logs
-  styleguide:
-    docker:
-      - image: smartcontract/builder:1.0.33
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-      - run: make yarndep
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-          paths:
-            - /usr/local/share/.cache/yarn
-      - run: yarn workspace @chainlink/styleguide run test
-  json-api-client:
-    docker:
-      - image: smartcontract/builder:1.0.33
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-      - run: make yarndep
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-          paths:
-            - /usr/local/share/.cache/yarn
-      - run: yarn workspace @chainlink/json-api-client run test
   operator-ui:
     resource_class: xlarge
     docker:
@@ -228,69 +196,6 @@ jobs:
       - run: ./tools/ci/operator_ui_test
       - store_artifacts:
           path: ./integration/logs
-  explorer:
-    resource_class: xlarge
-    working_directory: ~/chainlink
-    docker:
-      - image: circleci/node:10.16.3-browsers
-        environment:
-          TYPEORM_NAME: ci
-      - image: circleci/postgres:11-alpine
-        environment:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: explorer_test
-    steps:
-      - checkout:
-          path: ~/chainlink
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
-      - run:
-          name: Install New Packages
-          command: make yarndep
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-node:10.16.3-browsers-{{ checksum "yarn.lock" }}
-          paths:
-            - ~/.cache/yarn
-            - /usr/local/share/.cache/yarn
-      - run: yarn workspace @chainlink/explorer setup
-      - run: yarn workspace @chainlink/explorer run test:migration:run
-      - run:
-          name: Run Server Tests
-          command: yarn workspace @chainlink/explorer run test:ci
-      - run:
-          name: Run Client dependency setup
-          command: yarn workspace @chainlink/explorer-client run setup
-      - run:
-          name: Run Client Tests
-          command: yarn workspace @chainlink/explorer-client run test:ci
-      - store_artifacts:
-          path: ./integration/logs
-  feeds:
-    resource_class: large
-    docker:
-      - image: smartcontract/builder:1.0.33
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-      - run: make yarndep
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-          paths:
-            - /usr/local/share/.cache/yarn
-      - run:
-          name: Run dependency setup
-          command: yarn workspace @chainlink/feeds run setup
-      - run:
-          name: Run Tests
-          command: yarn workspace @chainlink/feeds run test
   forks:
     machine:
       image: ubuntu-1604:201903-01
@@ -307,23 +212,6 @@ jobs:
       - run: ./tools/ci/forks_test
       - store_artifacts:
           path: ./integration/forks/logs
-  build-publish-explorer:
-    machine:
-      image: circleci/classic:201808-01
-      docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: docker build -f explorer/Dockerfile -t smartcontract/explorer:circleci .
-      - run:
-          name: Docker push, if applicable
-          command: |
-            tools/ci/push_explorer "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
   build-publish-chainlink:
     resource_class: large
     machine:
@@ -565,18 +453,6 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - styleguide:
-          filters:
-            tags:
-              only:
-                - /^v.*/
-                - /^explorer-v.*/
-      - json-api-client:
-          filters:
-            tags:
-              only:
-                - /^v.*/
-                - /^explorer-v.*/
       - operator-ui:
           filters:
             tags:
@@ -585,16 +461,6 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - explorer:
-          filters: # all branches, and /^explorer-v../ tags for build-publish...
-            tags:
-              only: /^explorer-v.*/
-      - feeds:
-          filters:
-            tags:
-              only:
-                - /^v.*/
-                - /^explorer-v.*/
       - lint:
           filters:
             tags:
@@ -607,14 +473,6 @@ workflows:
               only:
                 - /^v.*/
                 - /^explorer-v.*/
-      - build-publish-explorer:
-          requires:
-            - styleguide
-            - json-api-client
-            - explorer
-          filters:
-            tags:
-              only: /^explorer-v.*/
       - build-chainlink-sgx:
           filters:
             tags:
@@ -624,8 +482,6 @@ workflows:
             - core-go-test
             - geth-postgres
             - parity-postgres
-            - styleguide
-            - json-api-client
             - operator-ui
             - rust
           filters:
@@ -661,7 +517,6 @@ workflows:
             - solidity
             - operator-ui
             - rust
-            - explorer
           filters:
             tags:
               ignore:
@@ -675,7 +530,7 @@ workflows:
                 - /^hotfix\/.*/
 commands:
   setup-aws-ecr:
-    description: "Install aws cli and log docker in ECR"
+    description: 'Install aws cli and log docker in ECR'
     steps:
       - run:
           name: Install AWS CLI
