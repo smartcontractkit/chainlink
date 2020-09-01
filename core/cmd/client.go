@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	logpkg "github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -30,7 +30,14 @@ var (
 	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
 	// and no API credentials have been provided
 	ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
+
+	logger *logpkg.Logger
 )
+
+func init() {
+	cfg := orm.NewConfig()
+	logger = cfg.CreateProductionLogger()
+}
 
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
