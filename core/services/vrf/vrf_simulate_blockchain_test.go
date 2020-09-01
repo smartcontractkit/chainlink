@@ -3,9 +3,7 @@ package vrf_test
 import (
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -137,20 +135,13 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	// Check that a log from a different address is rejected. (The node will only
 	// ever see this situation if the ethereum.FilterQuery for this job breaks,
 	// but it's hard to test that without a full integration test.)
+	// So instead, we're submitting a new request with a bad address,
+	// then we check that no new runs are recorded for that job.
 	badAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	badRequestlog := cltest.NewRandomnessRequestLog(t, *r, badAddress, 1)
 	logs <- badRequestlog
-	expectedLogTemplate := `log received from address %s, but expect logs from %s`
-	expectedLog := fmt.Sprintf(expectedLogTemplate, badAddress.String(),
-		coordinator.rootContractAddress.String())
-	millisecondsWaited := 0
-	expectedLogDeadline := 200
-	for !strings.Contains(cltest.MemoryLogTestingOnly().String(), expectedLog) &&
-		millisecondsWaited < expectedLogDeadline {
-		time.Sleep(time.Millisecond)
-		millisecondsWaited += 1
-		if millisecondsWaited >= expectedLogDeadline {
-			assert.Fail(t, "message about log with bad source address not found")
-		}
-	}
+	cltest.WaitForRuns(t, j, app.Store, 1)
+	afterRuns, err := app.Store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, len(runs[0].TaskRuns), len(afterRuns[0].TaskRuns))
 }
