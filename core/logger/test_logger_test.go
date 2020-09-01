@@ -1,4 +1,4 @@
-package cltest
+package logger
 
 import (
 	"testing"
