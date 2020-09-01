@@ -25,7 +25,6 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -549,7 +548,7 @@ func (c Config) CertFile() string {
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func (c Config) CreateProductionLogger() *zap.Logger {
+func (c Config) CreateProductionLogger() *logger.Logger {
 	return logger.CreateProductionLogger(
 		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }

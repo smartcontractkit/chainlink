@@ -5,11 +5,11 @@ import (
 	"net/url"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
-	"go.uber.org/zap"
 )
 
 // ConfigReader represents just the read side of the config
@@ -75,7 +75,7 @@ type ConfigReader interface {
 	tlsDir() string
 	KeyFile() string
 	CertFile() string
-	CreateProductionLogger() *zap.Logger
+	CreateProductionLogger() *logger.Logger
 	SessionSecret() ([]byte, error)
 	SessionOptions() sessions.Options
 }
