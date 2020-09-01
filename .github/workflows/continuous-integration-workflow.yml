@@ -7,6 +7,9 @@ env:
 
 jobs:
   core:
+    strategy:
+      matrix:
+        cmd: ['go_core_tests', 'go_core_race_tests']
     name: Core Tests
     runs-on: self-hosted
     container: smartcontract/builder:1.0.34
@@ -54,7 +57,7 @@ jobs:
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
-        run: ./tools/bin/go_core_tests
+        run: ./tools/bin/${{ matrix.cmd }}
 
   rust:
     name: Rust
