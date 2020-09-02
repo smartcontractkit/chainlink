@@ -217,14 +217,6 @@ jobs:
   build-chainlink:
     name: Build chainlink image
     runs-on: self-hosted
-    needs:
-      - core
-      - geth
-      - parity
-      - styleguide
-      - json-api-client
-      - operator-ui
-      - rust
     strategy:
       matrix:
         dockerfile: [core/chainlink.Dockerfile, core/chainlink-sgx.Dockerfile]
