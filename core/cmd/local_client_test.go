@@ -323,6 +323,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetStore").Return(store)
 	app.On("Stop").Return(nil)
 	ethClient := new(mocks.Client)
+	ethClient.On("Dial", mock.Anything).Return(nil)
 	store.EthClient = ethClient
 
 	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
