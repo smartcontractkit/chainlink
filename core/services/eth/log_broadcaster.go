@@ -44,7 +44,7 @@ type LogListener interface {
 
 type ormInterface interface {
 	HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error)
-	MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID) error
+	MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error
 }
 
 type logBroadcaster struct {
@@ -121,7 +121,7 @@ func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
 
 func (lb *logBroadcast) MarkConsumed() error {
 	rawLog := lb.log.RawLog()
-	return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.consumerID)
+	return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.consumerID, rawLog.BlockNumber)
 }
 
 // A `registration` represents a LogListener's subscription to the logs of a
