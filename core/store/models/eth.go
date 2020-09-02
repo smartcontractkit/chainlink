@@ -32,8 +32,9 @@ const (
 	EthTxUnconfirmed = EthTxState("unconfirmed")
 	EthTxConfirmed   = EthTxState("confirmed")
 
-	EthTxAttemptInProgress = EthTxAttemptState("in_progress")
-	EthTxAttemptBroadcast  = EthTxAttemptState("broadcast")
+	EthTxAttemptInProgress      = EthTxAttemptState("in_progress")
+	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")
+	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
 )
 
 type EthTaskRunTx struct {
