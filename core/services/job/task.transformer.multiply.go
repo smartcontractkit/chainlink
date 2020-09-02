@@ -3,26 +3,27 @@ package job
 import (
 	"encoding/json"
 
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type MultiplyTransformer struct {
-	BaseTransformer
+	BaseTask
 	Times decimal.Decimal `json:"times" gorm:"type:text;not null"`
 }
 
-var (
-	_ Transformer   = (*MultiplyTransformer)(nil)
-	_ PipelineStage = (*MultiplyTransformer)(nil)
-)
+var _ Task = (*MultiplyTransformer)(nil)
 
-func (t *MultiplyTransformer) Transform(input interface{}) (out interface{}, err error) {
-	defer func() { t.notifiee.OnEndStage(t, out, err) }()
-	t.notifiee.OnBeginStage(t, input)
+func (t *MultiplyTransformer) Run(inputs []Result) (out interface{}, err error) {
+	if len(inputs) != 1 {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "MultiplyTransformer requires a single input")
+	} else if inputs[0].Error != nil {
+		return nil, inputs[0].Error
+	}
 
-	value, err := utils.ToDecimal(input)
+	value, err := utils.ToDecimal(inputs[0].Value)
 	if err != nil {
 		return nil, err
 	}

@@ -10,27 +10,27 @@ import (
 )
 
 type JSONParseTransformer struct {
-	BaseTransformer
+	BaseTask
 	Path JSONPath `json:"path" gorm:"type:jsonb"`
 }
 
-var (
-	_ Transformer   = (*JSONParseTransformer)(nil)
-	_ PipelineStage = (*JSONParseTransformer)(nil)
-)
+var _ Task = (*JSONParseTransformer)(nil)
 
-func (t *JSONParseTransformer) Transform(input interface{}) (out interface{}, err error) {
-	defer func() { t.notifiee.OnEndStage(t, out, err) }()
-	t.notifiee.OnBeginStage(t, input)
+func (t *JSONParseTransformer) Run(inputs []Result) (out interface{}, err error) {
+	if len(inputs) != 1 {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "JSONParseTransformer requires a single input")
+	} else if inputs[0].Error != nil {
+		return nil, inputs[0].Error
+	}
 
 	var bs []byte
-	switch v := input.(type) {
+	switch v := inputs[0].Value.(type) {
 	case []byte:
 		bs = v
 	case string:
 		bs = []byte(v)
 	default:
-		return nil, errors.Errorf("JSONParseTransformer does not accept inputs of type %T", input)
+		return nil, errors.Errorf("JSONParseTransformer does not accept inputs of type %T", inputs[0].Value)
 	}
 
 	var decoded interface{}
