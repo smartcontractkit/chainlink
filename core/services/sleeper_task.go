@@ -65,3 +65,7 @@ func (s *sleeperTask) workerLoop() {
 		s.worker.Work()
 	}
 }
+
+type SleeperTaskFuncWorker func()
+
+func (fn SleeperTaskFuncWorker) Work() { fn() }

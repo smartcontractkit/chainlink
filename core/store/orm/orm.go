@@ -1477,74 +1477,30 @@ func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID u
     `, aggregator, roundID, jobRunID).Error
 }
 
-// func (orm *ORM) CreateOffchainReportingJobSpec(spec *offchainreporting.JobSpec) error {
-// 	orm.MustEnsureAdvisoryLock()
+func (orm *ORM) CreateOffchainReportingJobSpec(spec *offchainreporting.JobSpec) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.DB.Create(spec).Error
+}
 
-// 	p2pBootstrapNodesJSON, err := json.Marshal(spec.P2PBootstrapNodes)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	observationSourceJSON, err := json.Marshal(spec.ObservationSource)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if spec.ID == (models.ID{}) {
-// 		spec.ID = *models.NewID()
-// 	}
-// 	err = orm.DB.Exec(`
-//         INSERT INTO offchain_reporting_job_specs (
-//             id, contract_address, p2p_node_id, p2p_bootstrap_nodes, key_bundle,
-//             monitoring_endpoint, node_address, observation_timeout
-//         ) VALUES (
-//             ?, ?, ?, ?, ?, ?, ?, ?, ?
-//         )
-//     `, spec.ID, spec.ContractAddress, spec.P2PNodeID, p2pBootstrapNodesJSON, spec.KeyBundle,
-// 		spec.MonitoringEndpoint, spec.NodeAddress, spec.ObservationTimeout).
-// 		Error
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
+func (orm *ORM) FindOffchainReportingJobSpec(jobID models.ID) (offchainreporting.JobSpec, error) {
+	orm.MustEnsureAdvisoryLock()
+	var returnedSpec offchainreporting.JobSpecDBRow
+	err := orm.DB.Debug().
+		Set("gorm:auto_preload", true).
+		Find(&returnedSpec, "job_id = ?", jobID).Error
+	if err != nil {
+		return offchainreporting.JobSpec{}, err
+	}
 
-// func (orm *ORM) FindOffchainReportingJobSpec(id models.ID) (offchainreporting.JobSpec, error) {
-// 	orm.MustEnsureAdvisoryLock()
+	js := returnedSpec.JobSpec
+	js.ObservationSource = job.UnwrapFetchersFromDB(returnedSpec.ObservationSource)[0]
+	return js, nil
+}
 
-// 	var spec offchainreporting.JobSpec
-// 	p2pBootstrapNodesJSON := []byte{}
-// 	observationSourceJSON := []byte{}
-
-// 	err := orm.DB.Exec(`
-//         SELECT j.contract_address, j.p2p_node_id, j.p2p_bootstrap_nodes, j.key_bundle,
-//             j.monitoring_endpoint, j.node_address, j.observation_timeout, j.observation_source,
-//             f.id, f.type, f.params
-//         FROM offchain_reporting_job_specs
-//         LEFT JOIN fetchers ON f.job_id = j.id
-//         WHERE id = ?
-//     `, id).
-// 		Scan(&spec.ContractAddress, &spec.P2PNodeID, &p2pBootstrapNodesJSON, &spec.KeyBundle,
-// 			&spec.MonitoringEndpoint, &spec.NodeAddress, &spec.ObservationTimeout, &observationSourceJSON).
-// 		Error
-// 	if err != nil {
-// 		return offchainreporting.JobSpec{}, err
-// 	}
-// 	err = json.Unmarshal(p2pBootstrapNodesJSON, &spec.P2PBootstrapNodes)
-// 	if err != nil {
-// 		return offchainreporting.JobSpec{}, err
-// 	}
-// 	err = json.Unmarshal(observationSourceJSON, &spec.ObservationSource)
-// 	if err != nil {
-// 		return offchainreporting.JobSpec{}, err
-// 	}
-// 	return spec, nil
-// }
-
-// func (orm *ORM) DeleteOffchainReportingJobSpec(id models.ID) error {
-// 	orm.MustEnsureAdvisoryLock()
-// 	return orm.DB.Exec(`
-//         DELETE FROM offchain_reporting_job_specs WHERE id = ?
-//     `, id).Error
-// }
+func (orm *ORM) DeleteOffchainReportingJobSpec(id models.ID) error {
+	orm.MustEnsureAdvisoryLock()
+	return orm.DB.Delete(offchainreporting.JobSpec{UUID: &id}).Error
+}
 
 // func (orm *ORM) FindOffchainReportingPersistentState(jobID models.ID, groupID ocrtypes.GroupID) (offchainreporting.PersistentState, error) {
 // 	orm.MustEnsureAdvisoryLock()

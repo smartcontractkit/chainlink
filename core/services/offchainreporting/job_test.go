@@ -26,7 +26,7 @@ func TestJobSpec_FetchFromDB(t *testing.T) {
 	jobID := models.NewID()
 
 	jobSpec := &offchainreporting.JobSpec{
-		JobSpecID: jobID,
+		UUID: jobID,
 		ObservationSource: &job.MedianFetcher{
 			Fetchers: []job.Fetcher{
 				&job.HttpFetcher{
@@ -62,21 +62,8 @@ func TestJobSpec_FetchFromDB(t *testing.T) {
 
 		var returnedSpec offchainreporting.JobSpecDBRow
 		err := db.Debug().
-			// Set("gorm:auto_preload", true).
-			Preload("ObservationSource").
-			Preload("ObservationSource.HttpFetcher").
-			Preload("ObservationSource.HttpFetcher.Transformers").
-			Preload("ObservationSource.HttpFetcher.Transformers.MultiplyTransformer").
-			Preload("ObservationSource.HttpFetcher.Transformers.JSONParseTransformer").
-			Preload("ObservationSource.BridgeFetcher").
-			Preload("ObservationSource.BridgeFetcher.Transformers").
-			Preload("ObservationSource.BridgeFetcher.Transformers.MultiplyTransformer").
-			Preload("ObservationSource.BridgeFetcher.Transformers.JSONParseTransformer").
-			Preload("ObservationSource.MedianFetcher").
-			Preload("ObservationSource.MedianFetcher.Transformers").
-			Preload("ObservationSource.MedianFetcher.Transformers.MultiplyTransformer").
-			Preload("ObservationSource.MedianFetcher.Transformers.JSONParseTransformer").
-			Find(&returnedSpec, "job_spec_id = ?", jobSpec.JobSpecID).Error
+			Set("gorm:auto_preload", true).
+			Find(&returnedSpec, "job_id = ?", jobSpec.JobID()).Error
 		require.NoError(t, err)
 		js := returnedSpec.JobSpec
 		js.ObservationSource = job.UnwrapFetchersFromDB(returnedSpec.ObservationSource)[0]

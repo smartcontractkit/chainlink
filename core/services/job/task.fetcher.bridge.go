@@ -12,11 +12,10 @@ import (
 )
 
 type BridgeFetcher struct {
-	BaseFetcher
+	BaseTask
 
-	BridgeName   string          `json:"name"`
-	RequestData  HttpRequestData `json:"requestData" gorm:"type:jsonb"`
-	Transformers Transformers    `json:"transformPipeline,omitempty" gorm:"-"`
+	BridgeName  string          `json:"name"`
+	RequestData HttpRequestData `json:"requestData" gorm:"type:jsonb"`
 
 	ORM                BridgeFetcherORM `json:"-" gorm:"-"`
 	defaultHTTPTimeout models.Duration
@@ -26,9 +25,10 @@ type BridgeFetcherORM interface {
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
 
-func (f *BridgeFetcher) Fetch() (out interface{}, err error) {
-	defer func() { f.notifiee.OnEndStage(f, out, err) }()
-	f.notifiee.OnBeginStage(f, nil)
+func (f *BridgeFetcher) Run(inputs []Result) (out interface{}, err error) {
+	if len(inputs) > 0 {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "BridgeFetcher requires 0 inputs")
+	}
 
 	url, err := f.getBridgeURLFromName()
 	if err != nil {
@@ -48,18 +48,12 @@ func (f *BridgeFetcher) Fetch() (out interface{}, err error) {
 	if err != nil {
 		return nil, err
 	}
-
 	logger.Debugw(
 		fmt.Sprintf("Fetched answer", result, url.String()),
 		"answer", result,
 		"url", url.String(),
 	)
-	return f.Transformers.Transform(result)
-}
-
-func (f *BridgeFetcher) SetNotifiee(n Notifiee) {
-	f.notifiee = n
-	f.Transformers.SetNotifiee(n)
+	return result, nil
 }
 
 func (f BridgeFetcher) MarshalJSON() ([]byte, error) {
