@@ -10,18 +10,20 @@ import (
 // already consumed a particular log. This record can be used to prevent consumers
 // from re-processing duplicate logs
 type LogConsumption struct {
-	ID        uint
-	BlockHash common.Hash
-	LogIndex  uint
-	JobID     *ID
-	CreatedAt time.Time
+	ID          uint
+	BlockHash   common.Hash
+	LogIndex    uint
+	JobID       *ID
+	BlockNumber uint64
+	CreatedAt   time.Time
 }
 
 // NewLogConsumption creates a new LogConsumption
-func NewLogConsumption(blockHash common.Hash, logIndex uint, jobID *ID) LogConsumption {
+func NewLogConsumption(blockHash common.Hash, logIndex uint, jobID *ID, blockNumber uint64) LogConsumption {
 	return LogConsumption{
-		BlockHash: blockHash,
-		LogIndex:  logIndex,
-		JobID:     jobID,
+		BlockHash:   blockHash,
+		LogIndex:    logIndex,
+		JobID:       jobID,
+		BlockNumber: blockNumber,
 	}
 }

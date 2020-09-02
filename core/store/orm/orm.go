@@ -1352,9 +1352,9 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 }
 
 // MarkLogConsumed creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID) error {
+func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
 	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID)
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
