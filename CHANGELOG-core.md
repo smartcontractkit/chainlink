@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.14] - 2020-09-02
+
+## Changed
+
+- Fix for gas bumper
+- Fix for broadcast-transactions function
+
 ## [0.8.13] - 2020-08-31
 
 ## Changed
