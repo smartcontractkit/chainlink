@@ -11,7 +11,7 @@ import { BasicConsumerFactory } from '../../ethers/v0.4/BasicConsumerFactory'
 import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
 import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
-import { OperatorFactory } from '../../ethers/dev_v0.7/OperatorFactory'
+import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const getterSetterFactory = new GetterSetterFactory()
@@ -922,5 +922,15 @@ describe('Operator', () => {
         })
       })
     })
+  })
+
+  describe('#foreward', () => {
+    describe('when called by an unauthorized node', () => {
+      it.only('reverts', async () => {
+        await operator.foreward()
+      })
+    })
+
+    describe('when called by an authorized node', () => {})
   })
 })
