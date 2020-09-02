@@ -954,6 +954,112 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
+func TestEthConfirmer_BumpGasWhereNecessary_WhenOutOfEth(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	// Use the real KeyStore loaded from database fixtures
+	store.KeyStore.Unlock(cltest.Password)
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+	currentHead := int64(30)
+	oldEnough := int64(19)
+	nonce := int64(0)
+
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce)
+	nonce++
+	attempt1_1 := etx.EthTxAttempts[0]
+	attempt1_1.BroadcastBeforeBlockNum = &oldEnough
+	require.NoError(t, store.DB.Save(&attempt1_1).Error)
+	var attempt1_2 models.EthTxAttempt
+	var err error
+
+	insufficientEthError := errors.New("insufficient funds for gas * price + value")
+
+	t.Run("saves attempt with state 'insufficient_eth' if eth node returns this error", func(t *testing.T) {
+		expectedBumpedGasPrice := big.NewInt(25000000000)
+		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
+		})).Return(insufficientEthError).Once()
+
+		// Do the thing
+		require.NoError(t, ec.BumpGasWhereNecessary(context.TODO(), currentHead))
+
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		require.Len(t, etx.EthTxAttempts, 2)
+		require.Equal(t, attempt1_1.ID, etx.EthTxAttempts[0].ID)
+
+		// Got the new attempt
+		attempt1_2 = etx.EthTxAttempts[1]
+		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
+		assert.Equal(t, models.EthTxAttemptInsufficientEth, attempt1_2.State)
+		assert.Nil(t, attempt1_2.BroadcastBeforeBlockNum)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("does not bump gas when previous error was 'out of eth', instead resubmits existing transaction", func(t *testing.T) {
+		expectedBumpedGasPrice := big.NewInt(25000000000)
+		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
+		})).Return(insufficientEthError).Once()
+
+		// Do the thing
+		require.NoError(t, ec.BumpGasWhereNecessary(context.TODO(), currentHead))
+
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		// New attempt was NOT created
+		require.Len(t, etx.EthTxAttempts, 2)
+
+		// The attempt is still "out of eth"
+		attempt1_2 = etx.EthTxAttempts[1]
+		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
+		assert.Equal(t, models.EthTxAttemptInsufficientEth, attempt1_2.State)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
+		expectedBumpedGasPrice := big.NewInt(25000000000)
+		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
+		})).Return(nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.BumpGasWhereNecessary(context.TODO(), currentHead))
+
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		// New attempt was NOT created
+		require.Len(t, etx.EthTxAttempts, 2)
+
+		// Attempt is now 'broadcast'
+		attempt1_2 = etx.EthTxAttempts[1]
+		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
+		assert.Equal(t, models.EthTxAttemptBroadcast, attempt1_2.State)
+
+		ethClient.AssertExpectations(t)
+	})
+}
+
 func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Parallel()
 

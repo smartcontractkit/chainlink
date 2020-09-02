@@ -37,6 +37,7 @@ var (
 	parAlreadyImported      = "Transaction with the same hash was already imported."
 	parOld                  = "Transaction nonce is too low. Try incrementing the nonce."
 	parInsufficientGasPrice = regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price")
+	parInsufficientEth      = regexp.MustCompile("^(Insufficient funds. The account you tried to send transaction from does not have enough funds.|Insufficient balance for transaction.)")
 
 	// Fatal
 	parInsufficientGas  = regexp.MustCompile("^Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction")
@@ -73,6 +74,20 @@ func (s *sendError) IsTerminallyUnderpriced() bool {
 
 func (s *sendError) IsTemporarilyUnderpriced() bool {
 	return s != nil && s.err != nil && s.Error() == parLimitReached
+}
+
+func (s *sendError) IsInsufficientEth() bool {
+	if s == nil || s.err == nil {
+		return false
+	}
+	switch s.Error() {
+	// Geth
+	case "insufficient funds for transfer", "insufficient funds for gas * price + value", "insufficient balance for transfer":
+		return true
+	default:
+		// Parity
+		return parInsufficientEth.MatchString(s.Error())
+	}
 }
 
 func NewFatalSendError(s string) *sendError {
