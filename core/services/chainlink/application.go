@@ -166,7 +166,6 @@ func (app *ChainlinkApplication) Start() error {
 
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
-		err,
 		app.Store.Start(),
 		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
