@@ -2,11 +2,11 @@ pragma solidity 0.7.0;
 
 import "./LinkTokenReceiver.sol";
 import "./Owned.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
-import "./interfaces/OracleInterface.sol";
-import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/WithdrawalInterface.sol";
-import "./vendor/SafeMath.sol";
+import "../interfaces/ChainlinkRequestInterface.sol";
+import "../interfaces/OracleInterface.sol";
+import "../interfaces/LinkTokenInterface.sol";
+import "../interfaces/WithdrawalInterface.sol";
+import "../vendor/SafeMath.sol";
 
 /**
  * @title The Chainlink Operator contract
@@ -264,6 +264,12 @@ contract Operator is
     returns (address)
   {
     return address(s_LinkToken);
+  }
+
+  function foreward()
+    public
+  {
+
   }
 
   // MODIFIERS
