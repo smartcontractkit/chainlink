@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -239,6 +240,11 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 	}()
 	store := app.GetStore()
+
+	err = store.EthClient.Dial(context.TODO())
+	if err != nil {
+		return err
+	}
 
 	pwd, err := passwordFromFile(c.String("password"))
 	if err != nil {
