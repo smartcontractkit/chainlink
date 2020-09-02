@@ -52,6 +52,7 @@ describe('Operator', () => {
     matchers.publicAbi(operatorFactory, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
+      'foreward',
       'fulfillOracleRequest',
       'getAuthorizationStatus',
       'getChainlinkToken',
