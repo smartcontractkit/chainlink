@@ -40,6 +40,7 @@ type ConfigReader interface {
 	EthMaxGasPriceWei() *big.Int
 	EthFinalityDepth() uint
 	EthHeadTrackerHistoryDepth() uint
+	EthHeadTrackerMaxBufferSize() uint
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
 	GasUpdaterBlockDelay() uint16
