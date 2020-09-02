@@ -33,14 +33,12 @@ describe('state/ducks/aggregator/reducers', () => {
   describe('FETCH_ORACLE_NODES_SUCCESS', () => {
     it('indexes oracle nodes by oracleAddress', () => {
       const oracleNodeA: OracleNode = {
-        address: '-',
         oracleAddress: 'A',
         nodeAddress: ['C'],
         name: 'Fiews',
         networkId: 1,
       }
       const oracleNodeB: OracleNode = {
-        address: '-',
         oracleAddress: 'B',
         nodeAddress: ['D'],
         name: 'LinkPool',

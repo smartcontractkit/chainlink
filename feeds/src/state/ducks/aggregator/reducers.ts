@@ -34,9 +34,9 @@ export interface State {
   config: null | any
   loadingOracleNodes: boolean
   errorOracleNodes?: string
-  oracleNodes: Record<OracleNode['address'], OracleNode>
+  oracleNodes: Record<OracleNode['oracleAddress'], OracleNode>
   contractAddress: null | any
-  oracleList: Array<OracleNode['address']> | any
+  oracleList: Array<OracleNode['oracleAddress']> | any
   latestAnswer: null | any
   latestCompletedAnswerId: null | any
   pendingAnswerId: null | any
@@ -139,7 +139,6 @@ const reducer: Reducer<State, AggregatorActionTypes> = (
 
     case FETCH_ORACLE_NODES_SUCCESS: {
       const oracleNodes = Object.fromEntries(
-        // action.payload.map(n => [n.address, n]),
         action.payload.map(n => [n.oracleAddress, n]),
       )
 
