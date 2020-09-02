@@ -288,6 +288,7 @@ func FindEthTxsRequiringNewAttempt(db *gorm.DB, blockNum int64, gasBumpThreshold
 			return db.Order("eth_tx_attempts.gas_price DESC")
 		}).
 		Joins("LEFT JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id "+
+			"AND eth_tx_attempts.state != 'insufficient_eth' "+
 			"AND (broadcast_before_block_num > ? OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')", blockNum-gasBumpThreshold).
 		Order("nonce ASC").
 		Where("eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL").
@@ -299,7 +300,14 @@ func FindEthTxsRequiringNewAttempt(db *gorm.DB, blockNum int64, gasBumpThreshold
 func (ec *ethConfirmer) newAttemptWithGasBump(etx models.EthTx) (attempt models.EthTxAttempt, err error) {
 	var bumpedGasPrice *big.Int
 	if len(etx.EthTxAttempts) > 0 {
-		previousGasPrice := etx.EthTxAttempts[0].GasPrice
+		previousAttempt := etx.EthTxAttempts[0]
+		if previousAttempt.State == models.EthTxAttemptInsufficientEth {
+			// Do not create a new attempt if we ran out of eth last time since bumping gas is pointless
+			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
+			previousAttempt.State = models.EthTxAttemptInProgress
+			return previousAttempt, nil
+		}
+		previousGasPrice := previousAttempt.GasPrice
 		bumpedGasPrice, err = BumpGas(ec.config, previousGasPrice.ToInt())
 		if err != nil {
 			return attempt, errors.Wrapf(err, "could not create newAttemptWithGasBump")
@@ -447,7 +455,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		// In this case the simplest and most robust way to recover is to ignore
 		// this attempt and wait until the next bump threshold is reached in
 		// order to bump again.
-		logger.Errorf("replacement transaction underpriced at %v wei for eth_tx %v. "+
+		logger.Errorf("EthConfirmer: replacement transaction underpriced at %v wei for eth_tx %v. "+
 			"Eth node returned error: '%s'. "+
 			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
@@ -455,6 +463,15 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 
 		// Assume success and hand off to the next cycle.
 		sendError = nil
+	}
+
+	if sendError.IsInsufficientEth() {
+		logger.Errorf("EthConfirmer: EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
+			"The eth node returned %s. "+
+			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
+			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
+		)
+		return saveInsufficientEthAttempt(ec.store.DB, &attempt)
 	}
 
 	if sendError == nil {
@@ -516,6 +533,15 @@ func saveSentAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error {
 	}
 	attempt.State = models.EthTxAttemptBroadcast
 	return errors.Wrap(db.Save(attempt).Error, "saveSentAttempt failed")
+}
+
+func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error {
+	if !(attempt.State == models.EthTxAttemptInProgress || attempt.State == models.EthTxAttemptInsufficientEth) {
+		return errors.New("expected state to be either in_progress or insufficient_eth")
+	}
+	attempt.State = models.EthTxAttemptInsufficientEth
+	return errors.Wrap(db.Save(attempt).Error, "saveInsufficientEthAttempt failed")
+
 }
 
 // EnsureConfirmedTransactionsInLongestChain finds all confirmed eth_txes up to the depth

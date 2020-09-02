@@ -72,6 +72,22 @@ func TestBulletproofTxManager_Errors(t *testing.T) {
 	err = bulletprooftxmanager.NewSendError("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
 	assert.False(t, err.IsTemporarilyUnderpriced())
 
+	// IsInsufficientEth
+	// Geth
+	err = bulletprooftxmanager.NewSendError("insufficient funds for transfer")
+	assert.True(t, err.IsInsufficientEth())
+	err = bulletprooftxmanager.NewSendError("insufficient funds for gas * price + value")
+	assert.True(t, err.IsInsufficientEth())
+	err = bulletprooftxmanager.NewSendError("insufficient balance for transfer")
+	assert.True(t, err.IsInsufficientEth())
+	// Parity
+	err = bulletprooftxmanager.NewSendError("Insufficient balance for transaction. Balance=100.25, Cost=200.50")
+	assert.True(t, err.IsInsufficientEth())
+	err = bulletprooftxmanager.NewSendError("Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.")
+	assert.True(t, err.IsInsufficientEth())
+	// Nil
+	err = bulletprooftxmanager.SendError(nil)
+	assert.False(t, err.IsInsufficientEth())
 }
 
 func TestBulletproofTxManager_Errors_Fatal(t *testing.T) {
