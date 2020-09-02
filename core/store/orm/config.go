@@ -314,11 +314,19 @@ func (c Config) EthFinalityDepth() uint {
 	return c.viper.GetUint(EnvVarName("EthFinalityDepth"))
 }
 
-// EthHeadTrackerBlocksToKeep is the number of heads to keep in the `heads` database table.
+// EthHeadTrackerHistoryDepth is the number of heads to keep in the `heads` database table.
 // This number should be at least as large as `EthFinalityDepth`.
 // There may be a small performance penalty to setting this to something very large (10,000+)
 func (c Config) EthHeadTrackerHistoryDepth() uint {
 	return c.viper.GetUint(EnvVarName("EthHeadTrackerHistoryDepth"))
+}
+
+// EthHeadTrackerMaxBufferSize is the maximum number of heads that may be
+// buffered in front of the head tracker before older heads start to be
+// dropped. You may think of it as something like the maximum permittable "lag"
+// for the head tracker before we start dropping heads to keep up.
+func (c Config) EthHeadTrackerMaxBufferSize() uint {
+	return c.viper.GetUint(EnvVarName("EthHeadTrackerMaxBufferSize"))
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.

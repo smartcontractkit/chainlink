@@ -38,6 +38,7 @@ type ConfigSchema struct {
 	EthMaxGasPriceWei                uint64          `env:"ETH_MAX_GAS_PRICE_WEI" default:"5000000000000"`
 	EthFinalityDepth                 uint            `env:"ETH_FINALITY_DEPTH" default:"50"`
 	EthHeadTrackerHistoryDepth       uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH" default:"100"`
+	EthHeadTrackerMaxBufferSize      uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
 	EthBalanceMonitorBlockDelay      uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY" default:"1"`
 	EthereumURL                      string          `env:"ETH_URL" default:"ws://localhost:8546"`
 	EthereumDisabled                 bool            `env:"ETH_DISABLED" default:"false"`
