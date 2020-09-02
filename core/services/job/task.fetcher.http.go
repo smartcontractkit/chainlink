@@ -24,7 +24,7 @@ import (
 )
 
 type HttpFetcher struct {
-	BaseFetcher
+	BaseTask
 
 	Method                         string          `json:"method"`
 	URL                            models.WebURL   `json:"url"`
@@ -33,7 +33,6 @@ type HttpFetcher struct {
 	QueryParams                    QueryParameters `json:"queryParams,omitempty" gorm:"type:jsonb"`
 	RequestData                    HttpRequestData `json:"body,omitempty" gorm:"type:jsonb"`
 	AllowUnrestrictedNetworkAccess bool            `json:"-"`
-	Transformers                   Transformers    `json:"transformPipeline,omitempty" gorm:"-"`
 
 	defaultHTTPTimeout     models.Duration
 	defaultMaxHTTPAttempts uint
@@ -47,9 +46,10 @@ type httpRequestConfig struct {
 	allowUnrestrictedNetworkAccess bool
 }
 
-func (f *HttpFetcher) Fetch() (out interface{}, err error) {
-	defer func() { f.notifiee.OnEndStage(f, out, err) }()
-	f.notifiee.OnBeginStage(f, nil)
+func (f *HttpFetcher) Run(inputs []Result) (out interface{}, err error) {
+	if len(inputs) > 0 {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "HttpFetcher requires 0 inputs")
+	}
 
 	var contentType string
 	if f.Method == "POST" {
@@ -80,16 +80,7 @@ func (f *HttpFetcher) Fetch() (out interface{}, err error) {
 		false,
 	}
 	httpConfig.allowUnrestrictedNetworkAccess = f.AllowUnrestrictedNetworkAccess
-	result, err := sendRequest(request, httpConfig)
-	if err != nil {
-		return nil, err
-	}
-	return f.Transformers.Transform(result)
-}
-
-func (f *HttpFetcher) SetNotifiee(n Notifiee) {
-	f.notifiee = n
-	f.Transformers.SetNotifiee(n)
+	return sendRequest(request, httpConfig)
 }
 
 func (f HttpFetcher) MarshalJSON() ([]byte, error) {
