@@ -6,7 +6,7 @@ pragma solidity ^0.6.0;
  */
 contract Owned {
 
-  address payable public owner;
+  address public owner;
   address private pendingOwner;
 
   event OwnershipTransferRequested(
