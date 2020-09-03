@@ -29,11 +29,18 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	setLogger(zl)
+	SetLogger(&Logger{
+		SugaredLogger: zl.Sugar(),
+	})
 }
 
-// setLogger sets the internal logger to the given input.
-func setLogger(zl *zap.Logger) {
+// SetLogger sets the internal logger to the given input.
+//
+// DEPRECATED this method is deprecated because it leads to race conditions.
+// Instead, you should fork the logger.Default instance to create a new logger
+// for your module.
+// Eg: logger.Default.Named("<my-package-name>")
+func SetLogger(newLogger *Logger) {
 	if Default != nil {
 		defer func() {
 			if err := Default.Sync(); err != nil {
@@ -46,9 +53,7 @@ func setLogger(zl *zap.Logger) {
 			}
 		}()
 	}
-	Default = &Logger{
-		SugaredLogger: zl.Sugar(),
-	}
+	Default = newLogger
 }
 
 // Infow logs an info message and any additional given information.
