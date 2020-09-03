@@ -82,7 +82,7 @@ func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	lvl := logLevelFromEnv()
-	logger.SetLogger(CreateTestLogger(lvl))
+	logger.SetLogger(logger.CreateTestLogger(lvl))
 	// Register txdb as dialect wrapping postgres
 	// See: DialectTransactionWrappedPostgres
 	config := orm.NewConfig()
