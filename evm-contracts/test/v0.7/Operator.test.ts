@@ -6,7 +6,8 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
+import { ethers, utils } from 'ethers'
+import { ContractReceipt } from 'ethers/contract'
 import { BasicConsumerFactory } from '../../ethers/v0.4/BasicConsumerFactory'
 import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
@@ -347,7 +348,7 @@ describe('Operator', () => {
 
       describe('when called by an authorized node', () => {
         it('raises an error if the request ID does not exist', async () => {
-          request.requestId = ethers.utils.formatBytes32String('DOESNOTEXIST')
+          request.requestId = utils.formatBytes32String('DOESNOTEXIST')
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.oracleNode)
@@ -926,11 +927,55 @@ describe('Operator', () => {
 
   describe('#foreward', () => {
     describe('when called by an unauthorized node', () => {
-      it.only('reverts', async () => {
-        await operator.foreward()
+      it('reverts', async () => {
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .foreward(ethers.constants.AddressZero, [])
+        })
       })
     })
 
-    describe('when called by an authorized node', () => {})
+    describe('when called by an authorized node', () => {
+      describe('when attempting to foreward to the link token', () => {
+        it('reverts', async () => {
+          await matchers.evmRevert(async () => {
+            await operator.connect(roles.oracleNode).foreward(link.address, [])
+          })
+        })
+      })
+
+      describe('when forewarding to any other address', () => {
+        const bytes = utils.hexlify(utils.randomBytes(100))
+        const payload = getterSetterFactory.interface.functions.setBytes.encode(
+          [bytes],
+        )
+        let mock: contract.Instance<GetterSetterFactory>
+        let receipt: ContractReceipt
+
+        beforeEach(async () => {
+          mock = await getterSetterFactory
+            .connect(roles.defaultAccount)
+            .deploy()
+          const tx = await operator
+            .connect(roles.oracleNode)
+            .foreward(mock.address, payload)
+          receipt = await tx.wait()
+        })
+
+        it('forewards the data', async () => {
+          assert.equal(await mock.getBytes(), bytes)
+        })
+
+        it('perceives the message is sent by the Operator', async () => {
+          const log: any = receipt.logs?.[0]
+          const logData = mock.interface.events.SetBytes.decode(
+            log.data,
+            log.topics,
+          )
+          assert.equal(utils.getAddress(logData.from), operator.address)
+        })
+      })
+    })
   })
 })
