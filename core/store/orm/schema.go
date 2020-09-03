@@ -14,13 +14,13 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
-	AllowOrigins                     string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
+	// AllowOrigins                     string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	BlockBackfillDepth               string          `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BridgeResponseURL                url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                          big.Int         `env:"ETH_CHAIN_ID" default:"1"`
 	ClientNodeURL                    string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseTimeout                  models.Duration `env:"DATABASE_TIMEOUT" default:"500ms"`
-	DatabaseURL                      string          `env:"DATABASE_URL"`
+	// DatabaseTimeout                  models.Duration `env:"DATABASE_TIMEOUT" default:"500ms"`
+	// DatabaseURL                      string          `env:"DATABASE_URL"`
 	DefaultHTTPLimit                 int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	DefaultHTTPTimeout               models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	Dev                              bool            `env:"CHAINLINK_DEV" default:"false"`
@@ -46,18 +46,18 @@ type ConfigSchema struct {
 	GasUpdaterTransactionPercentile  uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled                bool            `env:"GAS_UPDATER_ENABLED" default:"false"`
 	JSONConsole                      bool            `env:"JSON_CONSOLE" default:"false"`
-	LinkContractAddress              string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
+	// LinkContractAddress              string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                      *url.URL        `env:"EXPLORER_URL"`
 	ExplorerAccessKey                string          `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret                   string          `env:"EXPLORER_SECRET"`
-	LogLevel                         LogLevel        `env:"LOG_LEVEL" default:"info"`
+	// LogLevel                         LogLevel        `env:"LOG_LEVEL" default:"info"`
 	LogToDisk                        bool            `env:"LOG_TO_DISK" default:"true"`
 	LogSQLStatements                 bool            `env:"LOG_SQL" default:"false"`
 	LogSQLMigrations                 bool            `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	DefaultMaxHTTPAttempts           uint            `env:"MAX_HTTP_ATTEMPTS" default:"5"`
 	MigrateDatabase                  bool            `env:"MIGRATE_DATABASE" default:"true"`
 	MinIncomingConfirmations         uint32          `env:"MIN_INCOMING_CONFIRMATIONS" default:"3"`
-	MinRequiredOutgoingConfirmations uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
+	// MinRequiredOutgoingConfirmations uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment           assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration         uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
 	MaxRPCCallsPerSecond             uint64          `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
@@ -66,14 +66,32 @@ type ConfigSchema struct {
 	ReaperExpiration                 models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                  int64           `env:"REPLAY_FROM_BLOCK" default:"-1"`
 	RootDir                          string          `env:"ROOT" default:"~/.chainlink"`
-	SecureCookies                    bool            `env:"SECURE_COOKIES" default:"true"`
+	// SecureCookies                    bool            `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                   models.Duration `env:"SESSION_TIMEOUT" default:"15m"`
 	TLSCertPath                      string          `env:"TLS_CERT_PATH" `
 	TLSHost                          string          `env:"CHAINLINK_TLS_HOST" `
 	TLSKeyPath                       string          `env:"TLS_KEY_PATH" `
-	TLSPort                          uint16          `env:"CHAINLINK_TLS_PORT" default:"6689"`
+	// TLSPort                          uint16          `env:"CHAINLINK_TLS_PORT" default:"6689"`
 	TLSRedirect                      bool            `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 	TxAttemptLimit                   uint16          `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
+
+	// ====================================================================================================================================================================
+
+	DatabaseURL                      string          `env:"DATABASE_URL" default:"postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable"`
+	AllowOrigins                     string          `env:"ALLOW_ORIGINS" default:"*"`
+	TLSPort                          uint16          `env:"CHAINLINK_TLS_PORT" default:"0"`
+	SecureCookies                    bool            `env:"SECURE_COOKIES" default:"false"`
+	MinRequiredOutgoingConfirmations uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"2"`
+	LogLevel                         LogLevel        `env:"LOG_LEVEL" default:"debug"`
+	LinkContractAddress              string          `env:"LINK_CONTRACT_ADDRESS" default:"0x20fe562d797a42dcb3399062ae9546cd06f63280"`
+	DatabaseTimeout                  models.Duration `env:"DATABASE_TIMEOUT" default:"0"`
+
+	// ====================================================================================================================================================================
+
+	IritaURL     string `env:"IRITA_URL" default:"http://localhost:26657"`
+	IritaChainID string `env:"IRITA_CHAIN_ID" default:"irita-hub"`
+	IritaKeyDao  string `env:"IRITA_KEY_DAO" default:"~/.chainlink/.iritakeys"`
+	IritaKeyName string `env:"IRITA_KEY_NAME" default:"provider"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field

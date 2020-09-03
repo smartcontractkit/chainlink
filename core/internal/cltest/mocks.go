@@ -705,6 +705,10 @@ func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
 	return nil
 }
 
+func (a CallbackAuthenticator) AuthenticateIritaKey(store *store.Store) error {
+	return nil
+}
+
 var _ cmd.KeyStoreAuthenticator = CallbackAuthenticator{}
 
 // BlockedRunner is a Runner that blocks until its channel is posted to

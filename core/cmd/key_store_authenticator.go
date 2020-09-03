@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/irita"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -14,6 +15,7 @@ import (
 type KeyStoreAuthenticator interface {
 	Authenticate(*store.Store, string) (string, error)
 	AuthenticateVRFKey(*store.Store, string) error
+	AuthenticateIritaKey(store *store.Store) error
 }
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -33,6 +35,20 @@ func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, pwd s
 		return auth.authenticationPrompt(store)
 	} else {
 		return "", errors.New("No password provided")
+	}
+}
+
+func (auth TerminalKeyStoreAuthenticator) AuthenticateIritaKey(store *store.Store) error {
+	if auth.Prompter.IsTerminal() {
+		for {
+			// phrase := auth.Prompter.PasswordPrompt(fmt.Sprintf("Enter Password For %s:", store.Config.IritaKeyName()))
+			// return irita.SetPassword(store.Config, phrase)
+
+			// TEST
+			return irita.SetPassword(store.Config, "12345678")
+		}
+	} else {
+		return errors.New("No password provided")
 	}
 }
 
@@ -57,7 +73,11 @@ func checkPassword(store *store.Store, phrase string) error {
 
 func (auth TerminalKeyStoreAuthenticator) promptAndCheckPasswordLoop(store *store.Store) string {
 	for {
-		phrase := auth.Prompter.PasswordPrompt("Enter Password:")
+		// phrase := auth.Prompter.PasswordPrompt("Enter Password:")
+
+		// TEST
+		phrase := "12345678"
+
 		if checkPassword(store, phrase) == nil {
 			return phrase
 		}

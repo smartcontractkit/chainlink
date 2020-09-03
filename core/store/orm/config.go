@@ -513,6 +513,22 @@ func (c Config) TLSRedirect() bool {
 	return c.viper.GetBool(EnvVarName("TLSRedirect"))
 }
 
+func (c Config) IritaURL() string {
+	return c.viper.GetString(EnvVarName("IritaURL"))
+}
+
+func (c Config) IritaChainID() string {
+	return c.viper.GetString(EnvVarName("IritaChainID"))
+}
+
+func (c Config) IritaKeyDao() string {
+	return c.viper.GetString(EnvVarName("IritaKeyDao"))
+}
+
+func (c Config) IritaKeyName() string {
+	return c.viper.GetString(EnvVarName("IritaKeyName"))
+}
+
 // KeysDir returns the path of the keys directory (used for keystore files).
 func (c Config) KeysDir() string {
 	return filepath.Join(c.RootDir(), "tempkeys")

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/irita"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -39,6 +40,7 @@ type Store struct {
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *VRFKeyStore
 	TxManager      TxManager
+	TxManagerIrita TxManagerIrita
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
 	closeOnce      *sync.Once
@@ -79,15 +81,17 @@ func newStoreWithKeyStore(
 	}
 	keyStore := keyStoreGenerator()
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
+	txManagerIrita := NewIritaTxManager(irita.GetClient(config))
 
 	store := &Store{
-		Clock:     utils.Clock{},
-		Config:    config,
-		KeyStore:  keyStore,
-		ORM:       orm,
-		TxManager: txManager,
-		EthClient: ethClient,
-		closeOnce: &sync.Once{},
+		Clock:          utils.Clock{},
+		Config:         config,
+		KeyStore:       keyStore,
+		ORM:            orm,
+		TxManager:      txManager,
+		TxManagerIrita: txManagerIrita,
+		EthClient:      ethClient,
+		closeOnce:      &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store

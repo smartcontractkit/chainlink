@@ -69,6 +69,10 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
+	if err := cli.KeyStoreAuthenticator.AuthenticateIritaKey(store); err != nil {
+		return cli.errorOut(fmt.Errorf("error authenticating irita keystore: %+v", err))
+	}
+
 	if len(c.String("vrfpassword")) != 0 {
 		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {

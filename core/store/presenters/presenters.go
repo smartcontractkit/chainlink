@@ -397,6 +397,14 @@ func initiatorParams(i Initiator) (interface{}, error) {
 			i.Precision, i.PollTimer, i.IdleTimer}, nil
 	case models.InitiatorRandomnessLog:
 		return struct{ Address common.Address }{i.Address}, nil
+	case models.InitiatorIritaLog:
+		return struct {
+			ServiceName     string `json:"serviceName"`
+			ServiceProvider string `json:"serviceProvider"`
+		}{
+			i.IritaServiceName,
+			i.IritaServiceProvider,
+		}, nil
 	default:
 		return nil, fmt.Errorf("cannot marshal unsupported initiator type '%v'", i.Type)
 	}

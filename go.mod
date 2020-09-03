@@ -7,6 +7,7 @@ require (
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/aristanetworks/goarista v0.0.0-20190204200901-2166578f3448 // indirect
+	github.com/bianjieai/irita-sdk-go v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boj/redistore v0.0.0-20160128113310-fc113767cd6b // indirect
@@ -26,7 +27,6 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.6.0
 	github.com/gobuffalo/packr v1.30.1
-	github.com/golang/mock v1.4.4
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
@@ -40,12 +40,10 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.1
-	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/rs/cors v1.6.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/spf13/afero v1.2.1 // indirect
@@ -64,9 +62,10 @@ require (
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/text v0.3.3
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20200414032229-332987a829c3 // indirect
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/guregu/null.v3 v3.5.0
 )
+
+replace github.com/tendermint/tendermint => github.com/bianjieai/tendermint v0.33.4-irita-200703

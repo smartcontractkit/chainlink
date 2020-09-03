@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/irita"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -72,6 +73,7 @@ type ChainlinkApplication struct {
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
+	IritaServiceTracker      *services.IritaServiceTracker
 }
 
 // NewApplication initializes a new store if one is not already
@@ -101,6 +103,8 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
+	iritaServiceTracker := services.NewIritaServiceTracker(irita.GetClient(config), store, runManager)
+
 	app := &ChainlinkApplication{
 		JobSubscriber:            jobSubscriber,
 		GasUpdater:               gasUpdater,
@@ -116,6 +120,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
+		IritaServiceTracker:      iritaServiceTracker,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
@@ -159,14 +164,16 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	err := app.Store.EthClient.Dial(context.TODO())
-	if err != nil {
-		return err
-	}
+	/*
+		err := app.Store.EthClient.Dial(context.TODO())
+		if err != nil {
+			return err
+		}
+	*/
 
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
-		err,
+		// err,
 		app.Store.Start(),
 		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
@@ -179,9 +186,10 @@ func (app *ChainlinkApplication) Start() error {
 		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
 		// which leads to writes of JobRuns RunStatus to the db.
 		// https://www.pivotaltracker.com/story/show/162230780
-		app.HeadTracker.Start(),
+		// app.HeadTracker.Start(),
 
 		app.Scheduler.Start(),
+		app.IritaServiceTracker.Start(),
 	)
 }
 
@@ -210,6 +218,7 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		merr = multierr.Append(merr, app.Store.Close())
+		app.IritaServiceTracker.Stop()
 	})
 	return merr
 }
@@ -238,6 +247,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	app.Scheduler.AddJob(job)
+	app.IritaServiceTracker.AddJob(job)
 
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
 	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
@@ -247,6 +257,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 // ArchiveJob silences the job from the system, preventing future job runs.
 func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 	_ = app.JobSubscriber.RemoveJob(ID)
+	_ = app.IritaServiceTracker.RemoveJob(ID)
 	app.FluxMonitor.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
 }
@@ -260,6 +271,7 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	}
 
 	app.Scheduler.AddJob(sa.JobSpec)
+	app.IritaServiceTracker.AddJob(sa.JobSpec)
 
 	// XXX: Add mechanism to asynchronously communicate when a job spec has
 	// an ethereum interaction error.

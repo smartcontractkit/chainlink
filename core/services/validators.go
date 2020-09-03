@@ -125,6 +125,8 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 		return nil
 	case models.InitiatorRandomnessLog:
 		return validateRandomnessLogInitiator(i, j)
+	case models.InitiatorIritaLog:
+		return nil
 	default:
 		return models.NewJSONAPIErrorsWith(fmt.Sprintf("type %v does not exist", i.Type))
 	}

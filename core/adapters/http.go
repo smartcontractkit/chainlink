@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -48,7 +49,7 @@ func (hga *HTTPGet) TaskType() models.TaskType {
 // Perform ensures that the adapter's URL responds to a GET request without
 // errors and returns the response body as the "value" field of the result.
 func (hga *HTTPGet) Perform(input models.RunInput, store *store.Store) models.RunOutput {
-	request, err := hga.GetRequest()
+	request, err := hga.GetRequest(input)
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}
@@ -66,12 +67,17 @@ func (hga *HTTPGet) GetURL() string {
 }
 
 // GetRequest returns the HTTP request including query parameters and headers
-func (hga *HTTPGet) GetRequest() (*http.Request, error) {
+func (hga *HTTPGet) GetRequest(input models.RunInput) (*http.Request, error) {
 	request, err := http.NewRequest("GET", hga.GetURL(), nil)
 	if err != nil {
 		return nil, err
 	}
-	appendExtendedPath(request, hga.ExtendedPath)
+	if strpkg.GetServiceMemory()[input.JobRunID().String()] != nil {
+		extendedPath := strings.Split(input.Result().String(), "/")
+		appendExtendedPath(request, extendedPath)
+	} else {
+		appendExtendedPath(request, hga.ExtendedPath)
+	}
 	appendQueryParams(request, hga.QueryParams)
 	setHeaders(request, hga.Headers, "")
 	return request, nil

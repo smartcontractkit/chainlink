@@ -396,7 +396,7 @@ func TestQueryParameters_Success(t *testing.T) {
 				URL:         cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
-			requestGET, _ := hga.GetRequest()
+			requestGET, _ := hga.GetRequest(models.RunInput{})
 			assert.Equal(t, test.expectedURL, requestGET.URL.String())
 			assert.Equal(t, test.expectedParams, hga.QueryParams)
 			requestPOST, _ := hpa.GetRequest("")
@@ -461,7 +461,7 @@ func TestQueryParameters_Error(t *testing.T) {
 				URL:         cltest.WebURL(t, test.startingUrl),
 				QueryParams: qp,
 			}
-			requestGET, _ := hga.GetRequest()
+			requestGET, _ := hga.GetRequest(models.RunInput{})
 			assert.Equal(t, test.expectedURL, requestGET.URL.String())
 			assert.Equal(t, test.expectedParams, hga.QueryParams)
 			requestPOST, _ := hpa.GetRequest("")
@@ -567,7 +567,7 @@ func TestExtendedPath_Success(t *testing.T) {
 				URL:          cltest.WebURL(t, test.startingUrl),
 				ExtendedPath: ep,
 			}
-			requestGET, _ := hga.GetRequest()
+			requestGET, _ := hga.GetRequest(models.RunInput{})
 			assert.Equal(t, test.expectedURL, requestGET.URL.String())
 			assert.Equal(t, test.expectedPath, hga.ExtendedPath)
 			requestPOST, _ := hpa.GetRequest("")
@@ -611,7 +611,7 @@ func TestExtendedPath_Error(t *testing.T) {
 				URL:          cltest.WebURL(t, test.startingUrl),
 				ExtendedPath: ep,
 			}
-			requestGET, _ := hga.GetRequest()
+			requestGET, _ := hga.GetRequest(models.RunInput{})
 			assert.Equal(t, test.expectedURL, requestGET.URL.String())
 			assert.Equal(t, test.expectedPath, hga.ExtendedPath)
 			requestPOST, _ := hpa.GetRequest("")
@@ -703,7 +703,7 @@ func TestHTTP_BuildingURL(t *testing.T) {
 				QueryParams:  qp,
 				ExtendedPath: ep,
 			}
-			requestGET, _ := hga.GetRequest()
+			requestGET, _ := hga.GetRequest(models.RunInput{})
 			assert.Equal(t, test.expectedURL, requestGET.URL.String())
 			requestPOST, _ := hpa.GetRequest("")
 			assert.Equal(t, test.expectedURL, requestPOST.URL.String())

@@ -184,6 +184,9 @@ const (
 	InitiatorFluxMonitor = "fluxmonitor"
 	// InitiatorRandomnessLog for tasks from a VRF specific contract
 	InitiatorRandomnessLog = "randomnesslog"
+
+	// InitiatorIritaLog for tasks in a job to use the Irita blockchain
+	InitiatorIritaLog = "iritalog"
 )
 
 // Initiator could be thought of as a trigger, defines how a Job can be
@@ -226,6 +229,9 @@ type InitiatorParams struct {
 	AbsoluteThreshold float32         `json:"absoluteThreshold" gorm:"type:float;not null"`
 	PollTimer         PollTimerConfig `json:"pollTimer,omitempty" gorm:"type:jsonb"`
 	IdleTimer         IdleTimerConfig `json:"idleTimer,omitempty" gorm:"type:jsonb"`
+
+	IritaServiceName     string `json:"serviceName,omitempty"`
+	IritaServiceProvider string `json:"serviceProvider,omitempty"`
 }
 
 type PollTimerConfig struct {

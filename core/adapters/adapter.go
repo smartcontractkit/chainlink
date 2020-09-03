@@ -51,6 +51,12 @@ var (
 	TaskTypeCompare = models.MustNewTaskType("compare")
 	// TaskTypeQuotient is the identifier for the Quotient adapter.
 	TaskTypeQuotient = models.MustNewTaskType("quotient")
+	// TaskTypeIritaServiceInput is the identifier for the IritaServiceInput adapter.
+	TaskTypeIritaServiceInput = models.MustNewTaskType("iritaserviceinput")
+	// TaskTypeIritaServiceOutput is the identifier for the IritaServiceOutput adapter.
+	TaskTypeIritaServiceOutput = models.MustNewTaskType("iritaserviceoutput")
+	// TaskTypeIritaTx is the identifier for the IritaTx adapter.
+	TaskTypeIritaTx = models.MustNewTaskType("iritatx")
 )
 
 // BaseAdapter is the minimum interface required to create an adapter. Only core
@@ -153,6 +159,12 @@ func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
 		return &Compare{}
 	case TaskTypeQuotient:
 		return &Quotient{}
+	case TaskTypeIritaServiceInput:
+		return &IritaServiceInput{}
+	case TaskTypeIritaServiceOutput:
+		return &IritaServiceOutput{}
+	case TaskTypeIritaTx:
+		return &IritaTx{}
 	default:
 		return nil
 	}
