@@ -266,10 +266,13 @@ contract Operator is
     return address(s_LinkToken);
   }
 
-  function foreward()
+  function foreward(address _to, bytes calldata _data)
     public
+    onlyAuthorizedNode()
   {
-
+    require(_to != address(s_LinkToken), "Cannot use #foreward to send messages to Link token");
+    (bool status,) = _to.call(_data);
+    require(status, "Forwarded call failed.");
   }
 
   // MODIFIERS
