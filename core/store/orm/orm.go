@@ -1556,7 +1556,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
 	}
 
-	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
+	db.SetLogger(newOrmLogWrapper(logger.Default))
 
 	if err := dbutil.SetTimezone(db); err != nil {
 		return nil, err
