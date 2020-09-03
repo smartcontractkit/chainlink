@@ -119,7 +119,7 @@ NODE_ENV=true yarn truffle test
 
 ## Development
 
-Note: Contracts in `src/dev_v0.7` are under active development and not yet stable.
+Note: Contracts in `src/v0.7/dev` are under active development and not yet stable.
 Please use them for testing and development only.
 
 ```bash
@@ -153,7 +153,7 @@ $ yarn wsrun @chainlink/contracts test
 ## Contributing
 
 Contributions are welcome! Please refer to
-[Chainlink's contributing guidelines](./docs/CONTRIBUTING.md) for detailed 
+[Chainlink's contributing guidelines](./docs/CONTRIBUTING.md) for detailed
 contribution information.
 
 Thank you!
