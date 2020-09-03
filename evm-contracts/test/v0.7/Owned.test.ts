@@ -6,7 +6,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { OwnedTestHelperFactory } from '../../ethers/dev_v0.7/OwnedTestHelperFactory'
+import { OwnedTestHelperFactory } from '../../ethers/v0.7/OwnedTestHelperFactory'
 
 const ownedTestHelperFactory = new OwnedTestHelperFactory()
 const provider = setup.provider()
