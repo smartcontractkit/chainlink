@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -145,7 +146,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		coordinator.rootContractAddress.String())
 	millisecondsWaited := 0
 	expectedLogDeadline := 200
-	for !strings.Contains(cltest.MemoryLogTestingOnly().String(), expectedLog) &&
+	for !strings.Contains(logger.MemoryLogTestingOnly().String(), expectedLog) &&
 		millisecondsWaited < expectedLogDeadline {
 		time.Sleep(time.Millisecond)
 		millisecondsWaited += 1
