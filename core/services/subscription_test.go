@@ -293,11 +293,11 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 		wantFromBlock       *big.Int
 	}{
 		{"head < ReplayFromBlock, no initr fromBlock", 5, nil, big.NewInt(10)},
-		{"head > ReplayFromBlock, no initr fromBlock", 14, nil, big.NewInt(10)},
+		{"head > ReplayFromBlock, no initr fromBlock", 14, nil, big.NewInt(15)},
 		{"head < ReplayFromBlock, initr fromBlock > ReplayFromBlock", 5, utils.NewBig(big.NewInt(12)), big.NewInt(12)},
 		{"head < ReplayFromBlock, initr fromBlock < ReplayFromBlock", 5, utils.NewBig(big.NewInt(8)), big.NewInt(10)},
-		{"head > ReplayFromBlock, initr fromBlock > ReplayFromBlock", 14, utils.NewBig(big.NewInt(12)), big.NewInt(12)},
-		{"head > ReplayFromBlock, initr fromBlock < ReplayFromBlock", 14, utils.NewBig(big.NewInt(8)), big.NewInt(10)},
+		{"head > ReplayFromBlock, initr fromBlock > ReplayFromBlock", 14, utils.NewBig(big.NewInt(12)), big.NewInt(15)},
+		{"head > ReplayFromBlock, initr fromBlock < ReplayFromBlock", 14, utils.NewBig(big.NewInt(8)), big.NewInt(15)},
 	}
 
 	for _, test := range cases {
@@ -356,7 +356,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 		wantFromBlock *big.Int
 	}{
 		{"head < ReplayFromBlock", 5, big.NewInt(10)},
-		{"head > ReplayFromBlock", 14, big.NewInt(10)},
+		{"head > ReplayFromBlock", 14, big.NewInt(15)},
 	}
 
 	for _, test := range cases {
