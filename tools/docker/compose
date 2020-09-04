@@ -37,7 +37,7 @@ clean_docker() {
 
 # Executed before command line args are parsed
 pre_hook() {
-  if [ "$CI" ]; then
+  if [ "$CI" ] && [ -z "$CI_SKIP_PRE_HOOK" ]; then
     # If this script is running in CI, clean up our state before running tests
     clean_docker
   fi
@@ -93,6 +93,9 @@ clean)
   ;;
 logs)
   $base logs -f ${@:2}
+  ;;
+logs:test:save)
+  save_test_logs
   ;;
 cld)
   $dev build
