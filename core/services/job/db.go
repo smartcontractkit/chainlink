@@ -13,69 +13,84 @@ type (
 
 		InputTasks []*TaskDBRow `gorm:"many2many:task_dag"`
 
-		HttpFetcher          *HttpFetcherDBRow          `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		BridgeFetcher        *BridgeFetcherDBRow        `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		MedianFetcher        *MedianFetcherDBRow        `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		MultiplyTransformer  *MultiplyTransformerDBRow  `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		JSONParseTransformer *JSONParseTransformerDBRow `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		HTTPTask      *HTTPTaskDBRow      `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		BridgeTask    *BridgeTaskDBRow    `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		MedianTask    *MedianTaskDBRow    `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		MultiplyTask  *MultiplyTaskDBRow  `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		JSONParseTask *JSONParseTaskDBRow `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
 	}
 
-	HttpFetcherDBRow struct {
-		TaskID       uint64
-		CreatedAt    time.Time
-		UpdatedAt    time.Time
-		*HttpFetcher `gorm:"embedded;"`
+	HTTPTaskDBRow struct {
+		TaskID    uint64
+		CreatedAt time.Time
+		UpdatedAt time.Time
+		*HTTPTask `gorm:"embedded;"`
 	}
 
-	BridgeFetcherDBRow struct {
+	BridgeTaskDBRow struct {
+		TaskID      uint64
+		CreatedAt   time.Time
+		UpdatedAt   time.Time
+		*BridgeTask `gorm:"embedded;"`
+	}
+
+	MedianTaskDBRow struct {
+		TaskID      uint64
+		CreatedAt   time.Time
+		UpdatedAt   time.Time
+		*MedianTask `gorm:"embedded;"`
+	}
+
+	MultiplyTaskDBRow struct {
+		TaskID        uint64
+		CreatedAt     time.Time
+		UpdatedAt     time.Time
+		*MultiplyTask `gorm:"embedded;"`
+	}
+
+	JSONParseTaskDBRow struct {
 		TaskID         uint64
 		CreatedAt      time.Time
 		UpdatedAt      time.Time
-		*BridgeFetcher `gorm:"embedded;"`
-	}
-
-	MedianFetcherDBRow struct {
-		TaskID         uint64
-		CreatedAt      time.Time
-		UpdatedAt      time.Time
-		*MedianFetcher `gorm:"embedded;"`
-	}
-
-	MultiplyTransformerDBRow struct {
-		TaskID               uint64
-		CreatedAt            time.Time
-		UpdatedAt            time.Time
-		*MultiplyTransformer `gorm:"embedded;"`
-	}
-
-	JSONParseTransformerDBRow struct {
-		TaskID                uint64
-		CreatedAt             time.Time
-		UpdatedAt             time.Time
-		*JSONParseTransformer `gorm:"embedded;"`
+		*JSONParseTask `gorm:"embedded;"`
 	}
 )
 
-func (TaskDBRow) TableName() string                 { return "tasks" }
-func (HttpFetcherDBRow) TableName() string          { return "http_fetchers" }
-func (BridgeFetcherDBRow) TableName() string        { return "bridge_fetchers" }
-func (MedianFetcherDBRow) TableName() string        { return "median_fetchers" }
-func (MultiplyTransformerDBRow) TableName() string  { return "multiply_transformers" }
-func (JSONParseTransformerDBRow) TableName() string { return "jsonparse_transformers" }
+func (TaskDBRow) TableName() string          { return "tasks" }
+func (HTTPTaskDBRow) TableName() string      { return "tasks_http" }
+func (BridgeTaskDBRow) TableName() string    { return "tasks_bridge" }
+func (MedianTaskDBRow) TableName() string    { return "tasks_median" }
+func (MultiplyTaskDBRow) TableName() string  { return "tasks_multiply" }
+func (JSONParseTaskDBRow) TableName() string { return "tasks_jsonparse" }
 
 func (t TaskDBRow) Task() Task {
-	if t.BridgeFetcher != nil {
-		return t.BridgeFetcher.BridgeFetcher
-	} else if t.HttpFetcher != nil {
-		return t.HttpFetcher.HttpFetcher
-	} else if t.MedianFetcher != nil {
-		return t.MedianFetcher.MedianFetcher
-	} else if t.MultiplyTransformer != nil {
-		return t.MultiplyTransformer.MultiplyTransformer
-	} else if t.JSONParseTransformer != nil {
-		return t.JSONParseTransformer.JSONParseTransformer
+	if t.HTTPTask != nil {
+		return t.HTTPTask.HTTPTask
+	} else if t.BridgeTask != nil {
+		return t.BridgeTask.BridgeTask
+	} else if t.MedianTask != nil {
+		return t.MedianTask.MedianTask
+	} else if t.MultiplyTask != nil {
+		return t.MultiplyTask.MultiplyTask
+	} else if t.JSONParseTask != nil {
+		return t.JSONParseTask.JSONParseTask
 	}
 	return nil
+}
+
+func (t *TaskDBRow) SetTask(task Task) {
+	switch x := task.(type) {
+	case *HTTPTask:
+		t.HTTPTask = &HTTPTaskDBRow{HTTPTask: x}
+	case *BridgeTask:
+		t.BridgeTask = &BridgeTaskDBRow{BridgeTask: x}
+	case *MedianTask:
+		t.MedianTask = &MedianTaskDBRow{MedianTask: x}
+	case *MultiplyTask:
+		t.MultiplyTask = &MultiplyTaskDBRow{MultiplyTask: x}
+	case *JSONParseTask:
+		t.JSONParseTask = &JSONParseTaskDBRow{JSONParseTask: x}
+	}
 }
 
 func WrapTasksForDB(tasks ...Task) []*TaskDBRow {
@@ -84,23 +99,23 @@ func WrapTasksForDB(tasks ...Task) []*TaskDBRow {
 		inputTaskRows := WrapTasksForDB(task.InputTasks()...)
 
 		switch t := task.(type) {
-		case *HttpFetcher:
-			dbRows = append(dbRows, &TaskDBRow{HttpFetcher: &HttpFetcherDBRow{HttpFetcher: t}, InputTasks: inputTaskRows})
-		case *BridgeFetcher:
-			dbRows = append(dbRows, &TaskDBRow{BridgeFetcher: &BridgeFetcherDBRow{BridgeFetcher: t}, InputTasks: inputTaskRows})
-		case *MedianFetcher:
-			dbRows = append(dbRows, &TaskDBRow{MedianFetcher: &MedianFetcherDBRow{MedianFetcher: t}, InputTasks: inputTaskRows})
-		case *MultiplyTransformer:
-			dbRows = append(dbRows, &TaskDBRow{MultiplyTransformer: &MultiplyTransformerDBRow{MultiplyTransformer: t}, InputTasks: inputTaskRows})
-		case *JSONParseTransformer:
-			dbRows = append(dbRows, &TaskDBRow{JSONParseTransformer: &JSONParseTransformerDBRow{JSONParseTransformer: t}, InputTasks: inputTaskRows})
+		case *HTTPTask:
+			dbRows = append(dbRows, &TaskDBRow{HTTPTask: &HTTPTaskDBRow{HTTPTask: t}, InputTasks: inputTaskRows})
+		case *BridgeTask:
+			dbRows = append(dbRows, &TaskDBRow{BridgeTask: &BridgeTaskDBRow{BridgeTask: t}, InputTasks: inputTaskRows})
+		case *MedianTask:
+			dbRows = append(dbRows, &TaskDBRow{MedianTask: &MedianTaskDBRow{MedianTask: t}, InputTasks: inputTaskRows})
+		case *MultiplyTask:
+			dbRows = append(dbRows, &TaskDBRow{MultiplyTask: &MultiplyTaskDBRow{MultiplyTask: t}, InputTasks: inputTaskRows})
+		case *JSONParseTask:
+			dbRows = append(dbRows, &TaskDBRow{JSONParseTask: &JSONParseTaskDBRow{JSONParseTask: t}, InputTasks: inputTaskRows})
 		}
 	}
 	return dbRows
 }
 
-func UnwrapTasksFromDB(rows ...*TaskDBRow) Tasks {
-	var tasks Tasks
+func UnwrapTasksFromDB(rows ...*TaskDBRow) []Task {
+	var tasks []Task
 	for _, row := range rows {
 		if row.Task() == nil {
 			logger.Warnw("TaskDBRow has nil task",

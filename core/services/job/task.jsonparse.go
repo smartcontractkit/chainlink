@@ -9,16 +9,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-type JSONParseTransformer struct {
+type JSONParseTask struct {
 	BaseTask
 	Path JSONPath `json:"path" gorm:"type:jsonb"`
 }
 
-var _ Task = (*JSONParseTransformer)(nil)
+var _ Task = (*JSONParseTask)(nil)
 
-func (t *JSONParseTransformer) Run(inputs []Result) (out interface{}, err error) {
+func (t *JSONParseTask) Run(inputs []Result) (out interface{}, err error) {
 	if len(inputs) != 1 {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "JSONParseTransformer requires a single input")
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "JSONParseTask requires a single input")
 	} else if inputs[0].Error != nil {
 		return nil, inputs[0].Error
 	}
@@ -30,7 +30,7 @@ func (t *JSONParseTransformer) Run(inputs []Result) (out interface{}, err error)
 	case string:
 		bs = []byte(v)
 	default:
-		return nil, errors.Errorf("JSONParseTransformer does not accept inputs of type %T", inputs[0].Value)
+		return nil, errors.Errorf("JSONParseTask does not accept inputs of type %T", inputs[0].Value)
 	}
 
 	var decoded interface{}
@@ -72,18 +72,6 @@ func (t *JSONParseTransformer) Run(inputs []Result) (out interface{}, err error)
 		}
 	}
 	return decoded, nil
-}
-
-func (t JSONParseTransformer) MarshalJSON() ([]byte, error) {
-	type preventInfiniteRecursion JSONParseTransformer
-	type transformerWithType struct {
-		Type TransformerType `json:"type"`
-		preventInfiniteRecursion
-	}
-	return json.Marshal(transformerWithType{
-		TransformerTypeJSONParse,
-		preventInfiniteRecursion(t),
-	})
 }
 
 type JSONPath []string
