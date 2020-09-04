@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	// "github.com/pkg/errors"
+	"github.com/BurntSushi/toml"
 
 	// "github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -21,16 +22,16 @@ import (
 const JobType job.JobType = "offchainreporting"
 
 type JobSpec struct {
-	JID                *models.ID         `json:"jobID"              gorm:"not null;column:job_id"`
-	ContractAddress    common.Address     `json:"contractAddress"    gorm:"not null"`
-	P2PNodeID          string             `json:"p2pNodeID"          gorm:"not null"`
-	P2PBootstrapNodes  []P2PBootstrapNode `json:"p2pBootstrapNodes"  gorm:"not null;type:jsonb"`
-	KeyBundle          string             `json:"keyBundle"          gorm:"not null"`
-	MonitoringEndpoint string             `json:"monitoringEndpoint" gorm:"not null"`
-	NodeAddress        common.Address     `json:"nodeAddress"        gorm:"not null"`
-	ObservationTimeout time.Duration      `json:"observationTimeout" gorm:"not null"`
-	ObservationSource  job.Fetcher        `json:"observationSource"  gorm:"-"`
-	LogLevel           ocrtypes.LogLevel  `json:"logLevel,omitempty"`
+	JID                *models.ID         `toml:"jobID"              gorm:"not null;column:job_id"`
+	ContractAddress    common.Address     `toml:"contractAddress"    gorm:"not null"`
+	P2PNodeID          string             `toml:"p2pNodeID"          gorm:"not null"`
+	P2PBootstrapNodes  []P2PBootstrapNode `toml:"p2pBootstrapNodes"  gorm:"not null;type:jsonb"`
+	KeyBundle          string             `toml:"keyBundle"          gorm:"not null"`
+	MonitoringEndpoint string             `toml:"monitoringEndpoint" gorm:"not null"`
+	NodeAddress        common.Address     `toml:"nodeAddress"        gorm:"not null"`
+	ObservationTimeout time.Duration      `toml:"observationTimeout" gorm:"not null"`
+	ObservationSource  job.TaskDAG        `toml:"observationSource"  gorm:"-"`
+	LogLevel           ocrtypes.LogLevel  `toml:"logLevel,omitempty"`
 }
 
 // JobSpec conforms to the job.JobSpec interface
@@ -44,45 +45,24 @@ func (spec JobSpec) JobType() job.JobType {
 	return JobType
 }
 
-func (spec *JobSpec) UnmarshalJSON(bs []byte) error {
-	if spec == nil {
-		*spec = JobSpec{}
-	}
-
-	err := json.Unmarshal(bs, spec)
-	if err != nil {
-		return err
-	}
-
-	var obsSrc struct {
-		ObservationSource json.RawMessage `json:"observationSource"`
-	}
-	err = json.Unmarshal(bs, &obsSrc)
-	if err != nil {
-		return err
-	}
-	fetcher, err := job.UnmarshalTaskJSON([]byte(obsSrc.ObservationSource))
-	if err != nil {
-		return err
-	}
-	spec.ObservationSource = fetcher
-	return nil
+func (spec JobSpec) Tasks() []Task {
+	return spec.ObservationSource.Tasks()
 }
 
 type P2PBootstrapNode struct {
-	PeerID    string `json:"peerID"`
-	Multiaddr string `json:"multiAddr"`
+	PeerID    string `toml:"peerID"`
+	Multiaddr string `toml:"multiAddr"`
 }
 
 // func (n *P2PBootstrapNode) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), n) }
 // func (n P2PBootstrapNode) Value() (driver.Value, error)  { return json.Marshal(n) }
 
 type JobSpecDBRow struct {
-	ID                uint64 `gorm:"primary_key;not null;auto_increment"`
-	JobSpec           `gorm:"embedded;"`
-	ObservationSource job.FetcherDBRow `gorm:"preload:true;polymorphic:Parent;save_association:true;association_autoupdate:true;association_autocreate:true;not null"`
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID        uint64 `gorm:"primary_key;not null;auto_increment"`
+	JobSpec   `gorm:"embedded;"`
+	Tasks     []job.TaskDBRow `gorm:"preload:true;polymorphic:Parent;save_association:true;association_autoupdate:true;association_autocreate:true;not null"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (spec JobSpecDBRow) TableName() string {
@@ -90,10 +70,9 @@ func (spec JobSpecDBRow) TableName() string {
 }
 
 func (spec JobSpec) ForDB() *JobSpecDBRow {
-	fetcher := job.WrapFetchersForDB(spec.ObservationSource)[0]
 	return &JobSpecDBRow{
-		JobSpec:           spec,
-		ObservationSource: fetcher,
+		JobSpec: spec,
+		Tasks:   job.WrapTasksForDB(spec.Tasks()...),
 	}
 }
 

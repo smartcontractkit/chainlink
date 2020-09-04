@@ -45,7 +45,7 @@ type (
 	JobSpecToJobServiceFunc func(jobSpec JobSpec) ([]JobService, error)
 
 	SpawnerORM interface {
-		UnclaimedJobs() error
+		UnclaimedJobs() ([]JobSpec, error)
 		UpsertErrorFor(jobID *models.ID, err string)
 	}
 )
@@ -53,7 +53,7 @@ type (
 func NewSpawner(orm SpawnerORM) *spawner {
 	return &spawner{
 		orm:                 orm,
-		jobServiceFactories: make(map[string]JobSpecToJobServiceFunc),
+		jobServiceFactories: make(map[JobType]JobSpecToJobServiceFunc),
 		jobServices:         make(map[models.ID]JobService),
 		chStopJob:           make(chan models.ID),
 		chStop:              make(chan struct{}),
@@ -85,7 +85,7 @@ func (js *spawner) runLoop() {
 			return
 		case jobID := <-js.chStopJob:
 			js.stopJobService(jobID)
-		case <-ticker:
+		case <-ticker.C:
 			js.startUnclaimedJobServices()
 		}
 	}

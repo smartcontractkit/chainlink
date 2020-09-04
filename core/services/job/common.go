@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type (
@@ -12,6 +14,7 @@ type (
 	JobSpec interface {
 		JobID() *models.ID
 		JobType() JobType
+		Tasks() []Task
 	}
 
 	JobService interface {
@@ -32,70 +35,29 @@ var (
 
 type TaskType string
 
-var (
-	TaskTypeHttpFetcher          TaskType = "http"
-	TaskTypeBridgeFetcher        TaskType = "bridge"
-	TaskTypeMedianFetcher        TaskType = "median"
-	TaskTypeMultiplyTransformer  TaskType = "multiply"
-	TaskTypeJSONParseTransformer TaskType = "jsonparse"
+const (
+	TaskTypeHTTP      TaskType = "http"
+	TaskTypeBridge    TaskType = "bridge"
+	TaskTypeMedian    TaskType = "median"
+	TaskTypeMultiply  TaskType = "multiply"
+	TaskTypeJSONParse TaskType = "jsonparse"
 )
 
-func UnmarshalTaskJSON(bs []byte) (_ Task, err error) {
-	var header struct {
-		Type TaskType `json:"type"`
-	}
-	err = json.Unmarshal(bs, &header)
-	if err != nil {
-		return nil, err
-	}
-
-	var task Task
-	switch header.Type {
-	case TaskTypeBridgeFetcher:
-		var bridgeFetcher BridgeFetcher
-		err = json.Unmarshal(bs, &bridgeFetcher)
-		if err != nil {
-			return nil, err
-		}
-		task = &bridgeFetcher
-
-	case TaskTypeHttpFetcher:
-		var httpFetcher HttpFetcher
-		err = json.Unmarshal(bs, &httpFetcher)
-		if err != nil {
-			return nil, err
-		}
-		task = &httpFetcher
-
-	case TaskTypeMedianFetcher:
-		var medianFetcher MedianFetcher
-		err = json.Unmarshal(bs, &medianFetcher)
-		if err != nil {
-			return nil, err
-		}
-		task = &medianFetcher
-
-	case TaskTypeJSONParseTransformer:
-		var jsonTransformer JSONParseTransformer
-		err = json.Unmarshal(bs, &jsonTransformer)
-		if err != nil {
-			return err
-		}
-		task = &jsonTransformer
-
-	case TaskTypeMultiplyTransformer:
-		var multiplyTransformer MultiplyTransformer
-		err = json.Unmarshal(bs, &multiplyTransformer)
-		if err != nil {
-			return err
-		}
-		task = &multiplyTransformer
-
+func NewTaskByType(taskType TaskType) (Task, error) {
+	switch taskType {
+	case TaskTypeHTTP:
+		return &HTTPTask{}, nil
+	case TaskTypeBridge:
+		return &BridgeTask{}, nil
+	case TaskTypeMedian:
+		return &MedianTask{}, nil
+	case TaskTypeJSONParse:
+		return &JSONParseTask{}, nil
+	case TaskTypeMultiply:
+		return &MultiplyTask{}, nil
 	default:
-		return nil, errors.New("unknown fetcher type")
+		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
-
-	return fetcher, nil
 }
 
 type BaseTask struct {

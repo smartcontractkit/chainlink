@@ -1,13 +1,13 @@
 package job
 
 import (
-	"encoding/json"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
+	// "github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type Runner interface {
@@ -17,10 +17,10 @@ type Runner interface {
 }
 
 type runner struct {
-	processTasks services.SleeperTask
-	orm          RunnerORM
-	chStop       chan struct{}
-	chDone       chan struct{}
+	// processTasks services.SleeperTask
+	orm    RunnerORM
+	chStop chan struct{}
+	chDone chan struct{}
 }
 
 type RunnerORM interface {
@@ -29,7 +29,8 @@ type RunnerORM interface {
 	LockFirstIncompleteTaskRunWithCompletedParents() (TaskRun, func(), error)
 	MarkTaskRunCompleted(taskRunID uint64, output interface{}, err error) error
 	OutputTaskRunsForTaskRun(taskRunID uint64) ([]TaskRun, error)
-	AllTaskRunsCompleted(jobSpecID models.ID) (bool, error)
+	AllTaskRunsCompleted(jobRunID uint64) (bool, error)
+	MarkJobRunCompleted(jobRunID uint64)
 }
 
 type JobRun struct {
@@ -54,12 +55,11 @@ type TaskRun struct {
 
 func NewRunner(orm RunnerORM) *runner {
 	r := &runner{
-		orm:                        orm,
-		unclaimedJobsSubscriptions: make(map[JobType]chan<- JobSpec),
-		chStop:                     make(chan struct{}),
-		chDone:                     make(chan struct{}),
+		orm:    orm,
+		chStop: make(chan struct{}),
+		chDone: make(chan struct{}),
 	}
-	r.processTasks = services.NewSleeperTask(services.SleeperTaskFuncWorker(r.processIncompleteTaskRuns))
+	// r.processTasks = services.NewSleeperTask(services.SleeperTaskFuncWorker(r.processIncompleteTaskRuns))
 	return r
 }
 
@@ -74,7 +74,7 @@ func (r *runner) Start() {
 			select {
 			case <-r.chStop:
 				return
-			case <-ticker:
+			case <-ticker.C:
 				r.processIncompleteTaskRuns()
 			}
 		}
@@ -92,21 +92,25 @@ func (r *runner) CreateJobRun(id models.ID) error {
 		return err
 	}
 
-	jobRun := JobRun{
-		JobSpecID:   id,
-		JobSpecType: jobSpec.JobType(),
+	jobRun := &JobRun{
+		JobSpecID:   &id,
+		JobSpecType: string(jobSpec.JobType()),
 	}
 
-	for _, task := range jobSpec.Tasks {
-		jobRun.TaskRuns = append(jobRun.TaskRuns, TaskRun{
-			TaskID:   task.TaskID(),
-			TaskType: task.TaskType(),
-		})
+	// for _, task := range jobSpec.Tasks() {
+	// 	jobRun.TaskRuns = append(jobRun.TaskRuns, TaskRun{
+	// 		TaskID:   task.TaskID(),
+	// 		TaskType: task.TaskType(),
+	// 	})
+	// }
+
+	err = r.orm.CreateJobRun(jobRun)
+	if err != nil {
+		return err
 	}
 
-	r.orm.CreateJobRun(&jobRun)
-
-	r.processTasks.WakeUp()
+	// r.processTasks.WakeUp()
+	return nil
 }
 
 type Result struct {
@@ -121,11 +125,13 @@ func (r *runner) processIncompleteTaskRuns() {
 		// LEFT JOIN task_runs AS parent ON join.parent_id = parent.id
 		// WHERE t.id = ? AND parent.completed = true
 		taskRun, unlock, err := r.orm.LockFirstIncompleteTaskRunWithCompletedParents()
-		if errors.Cause(err) == Err404 {
-			// All task runs complete
-			break
-		} else if err != nil {
-			return err
+		// if errors.Cause(err) == Err404 {
+		// 	// All task runs complete
+		// 	break
+		// } else
+		if err != nil {
+			logger.Errorf("error fetching task runs: %v", err)
+			return
 		}
 		defer unlock()
 
@@ -133,11 +139,11 @@ func (r *runner) processIncompleteTaskRuns() {
 		for i, parent := range taskRun.InputTaskRuns {
 			inputs[i] = Result{
 				Value: parent.Output.Value,
-				Error: parent.Error,
+				Error: errors.New(parent.Error),
 			}
 		}
 
-		output, err := taskRun.Task.Run(inputs)
+		output, err := taskRun.Task.Task().Run(inputs)
 		if err != nil {
 			logger.Errorf("error in task run %v:", err)
 		}
@@ -152,20 +158,29 @@ func (r *runner) processIncompleteTaskRuns() {
 		//     job run in the DB to reflect this.
 		outputTaskRuns, err := r.orm.OutputTaskRunsForTaskRun(taskRun.ID)
 		if err != nil {
-			return nil, err
+			logger.Errorw("error fetching output task runs",
+				"jobRunID", taskRun.JobRunID,
+				"taskRunID", taskRun.ID,
+				"error", err,
+			)
+			return
 		}
 		if len(outputTaskRuns) == 0 {
 			// SELECT j.num_outputs as num_outputs, COUNT(t.id) as num_finished_task_runs
 			//   FROM job_runs AS j
 			//   LEFT JOIN task_runs AS t ON j.id = t.job_run_id
 			//   WHERE j.id = ? AND t.completed = true
-			jobRunCompleted, err := r.orm.AllTaskRunsCompleted(taskRun.JobID)
+			jobRunCompleted, err := r.orm.AllTaskRunsCompleted(taskRun.JobRunID)
 			if err != nil {
-				return nil, err
+				logger.Errorw("error checking job completion status",
+					"taskRunID", taskRun.ID,
+					"error", err,
+				)
+				return
 			}
 
 			if jobRunCompleted {
-				r.orm.MarkJobRunCompleted(taskRun.JobID)
+				r.orm.MarkJobRunCompleted(taskRun.JobRunID)
 			}
 		}
 	}
