@@ -36,7 +36,7 @@ require (
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/lib/pq v1.8.0
-	github.com/libp2p/go-libp2p-core v0.6.0
+	github.com/libp2p/go-libp2p-core v0.7.0
 	github.com/libp2p/go-libp2p-peer v0.2.0
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
