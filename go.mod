@@ -28,7 +28,7 @@ require (
 	github.com/gobuffalo/packr v1.30.1
 	github.com/golang/mock v1.4.4
 	github.com/gorilla/securecookie v1.1.1
-	github.com/gorilla/sessions v1.2.0
+	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/guregu/null v3.5.0+incompatible
 	github.com/ipfs/go-datastore v0.4.4
