@@ -1800,6 +1800,11 @@ func TestORM_UpsertErrorFor_Happy(t *testing.T) {
 			jse, err := store.FindJobSpecError(test.jobID, test.description)
 			require.NoError(t, err)
 			require.Equal(t, test.expectedOccurrences, jse.Occurrences)
+			if test.expectedOccurrences > 1 {
+				require.True(t, jse.CreatedAt.Before(jse.UpdatedAt))
+			} else {
+				require.Equal(t, jse.CreatedAt, jse.UpdatedAt)
+			}
 		})
 	}
 }
