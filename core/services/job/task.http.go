@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jpillora/backoff"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -26,13 +26,13 @@ import (
 type HTTPTask struct {
 	BaseTask
 
-	Method                         string          `dot:"method"`
-	URL                            models.WebURL   `dot:"url"`
-	ExtendedPath                   ExtendedPath    `dot:"extendedPath" gorm:"type:jsonb"`
-	Headers                        Header          `dot:"headers"      gorm:"type:jsonb"`
-	QueryParams                    QueryParameters `dot:"queryParams"  gorm:"type:jsonb"`
-	RequestData                    HttpRequestData `dot:"requestData"  gorm:"type:jsonb"`
-	AllowUnrestrictedNetworkAccess bool            `dot:"-"`
+	Method                         string
+	URL                            models.WebURL
+	ExtendedPath                   ExtendedPath    `gorm:"type:jsonb"`
+	Headers                        Header          `gorm:"type:jsonb"`
+	QueryParams                    QueryParameters `gorm:"type:jsonb"`
+	RequestData                    HttpRequestData `gorm:"type:jsonb"`
+	AllowUnrestrictedNetworkAccess bool
 
 	defaultHTTPTimeout     models.Duration
 	defaultMaxHTTPAttempts uint
