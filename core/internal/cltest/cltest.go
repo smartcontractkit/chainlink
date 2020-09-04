@@ -40,6 +40,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
@@ -1052,7 +1053,7 @@ func BlockWithTransactions(gasPrices ...int64) *types.Block {
 	for i, gasPrice := range gasPrices {
 		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
-	return types.NewBlock(&types.Header{}, txs, nil, nil)
+	return types.NewBlock(&types.Header{}, txs, nil, nil, new(trie.Trie))
 }
 
 // GetAccountAddress returns Address of the account in the keystore of the passed in store
