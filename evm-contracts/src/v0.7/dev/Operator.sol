@@ -27,7 +27,7 @@ contract Operator is
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
 
-  LinkTokenInterface internal s_LinkToken;
+  LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => bytes32) private s_commitments;
   mapping(address => bool) private s_authorizedNodes;
   uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
@@ -56,7 +56,7 @@ contract Operator is
   constructor(address link)
     Owned()
   {
-    s_LinkToken = LinkTokenInterface(link); // external but already deployed and unalterable
+    linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
   /**
@@ -199,7 +199,7 @@ contract Operator is
     hasAvailableFunds(amount)
   {
     s_withdrawableTokens = s_withdrawableTokens.sub(amount);
-    assert(s_LinkToken.transfer(recipient, amount));
+    assert(linkToken.transfer(recipient, amount));
   }
 
   /**
@@ -249,7 +249,7 @@ contract Operator is
     delete s_commitments[requestId];
     emit CancelOracleRequest(requestId);
 
-    assert(s_LinkToken.transfer(msg.sender, payment));
+    assert(linkToken.transfer(msg.sender, payment));
   }
 
   /**
@@ -263,14 +263,14 @@ contract Operator is
     override
     returns (address)
   {
-    return address(s_LinkToken);
+    return address(linkToken);
   }
 
-  function foreward(address _to, bytes calldata _data)
+  function forward(address _to, bytes calldata _data)
     public
     onlyAuthorizedNode()
   {
-    require(_to != address(s_LinkToken), "Cannot use #foreward to send messages to Link token");
+    require(_to != address(linkToken), "Cannot use #forward to send messages to Link token");
     (bool status,) = _to.call(_data);
     require(status, "Forwarded call failed.");
   }
@@ -299,7 +299,7 @@ contract Operator is
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
   modifier onlyAuthorizedNode() {
-    require(s_authorizedNodes[msg.sender] || msg.sender == owner, "Not an authorized node to fulfill requests");
+    require(s_authorizedNodes[msg.sender], "Not an authorized node to fulfill requests");
     _;
   }
 
@@ -308,7 +308,7 @@ contract Operator is
    * @param to The callback address
    */
   modifier checkCallbackAddress(address to) {
-    require(to != address(s_LinkToken), "Cannot callback to LINK");
+    require(to != address(linkToken), "Cannot callback to LINK");
     _;
   }
 
