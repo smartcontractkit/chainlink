@@ -74,13 +74,12 @@ jobs:
           EXITCODE=$?
           cat ./output.txt | grep "\-\-\- FAIL"
           echo "Exit code: $EXITCODE"
-          if [[ $EXITCODE == 1 ]]; then
-              echo "Encountered test failures."
-              exit 1
-          else
+          if [[ $EXITCODE == 0 ]]; then
               echo "All tests passed!"
-              exit 0
+          else
+              echo "Encountered test failures. Please see the output.txt artifact for details."
           fi
+          exit $EXITCODE
       - store_artifacts:
           path: ./output.txt
 
