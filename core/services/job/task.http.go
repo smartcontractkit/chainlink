@@ -16,23 +16,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jpillora/backoff"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/jpillora/backoff"
 )
 
-type HttpFetcher struct {
+type HTTPTask struct {
 	BaseTask
 
-	Method                         string          `json:"method"`
-	URL                            models.WebURL   `json:"url"`
-	ExtendedPath                   ExtendedPath    `json:"extendedPath,omitempty" gorm:"type:jsonb"`
-	Headers                        Header          `json:"headers,omitempty" gorm:"type:jsonb"`
-	QueryParams                    QueryParameters `json:"queryParams,omitempty" gorm:"type:jsonb"`
-	RequestData                    HttpRequestData `json:"body,omitempty" gorm:"type:jsonb"`
-	AllowUnrestrictedNetworkAccess bool            `json:"-"`
+	Method                         string          `dot:"method"`
+	URL                            models.WebURL   `dot:"url"`
+	ExtendedPath                   ExtendedPath    `dot:"extendedPath" gorm:"type:jsonb"`
+	Headers                        Header          `dot:"headers"      gorm:"type:jsonb"`
+	QueryParams                    QueryParameters `dot:"queryParams"  gorm:"type:jsonb"`
+	RequestData                    HttpRequestData `dot:"requestData"  gorm:"type:jsonb"`
+	AllowUnrestrictedNetworkAccess bool            `dot:"-"`
 
 	defaultHTTPTimeout     models.Duration
 	defaultMaxHTTPAttempts uint
@@ -46,9 +46,9 @@ type httpRequestConfig struct {
 	allowUnrestrictedNetworkAccess bool
 }
 
-func (f *HttpFetcher) Run(inputs []Result) (out interface{}, err error) {
+func (f *HTTPTask) Run(inputs []Result) (out interface{}, err error) {
 	if len(inputs) > 0 {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "HttpFetcher requires 0 inputs")
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")
 	}
 
 	var contentType string
@@ -81,18 +81,6 @@ func (f *HttpFetcher) Run(inputs []Result) (out interface{}, err error) {
 	}
 	httpConfig.allowUnrestrictedNetworkAccess = f.AllowUnrestrictedNetworkAccess
 	return sendRequest(request, httpConfig)
-}
-
-func (f HttpFetcher) MarshalJSON() ([]byte, error) {
-	type preventInfiniteRecursion HttpFetcher
-	type fetcherWithType struct {
-		Type FetcherType `json:"type"`
-		preventInfiniteRecursion
-	}
-	return json.Marshal(fetcherWithType{
-		FetcherTypeHttp,
-		preventInfiniteRecursion(f),
-	})
 }
 
 func appendExtendedPath(request *http.Request, extPath ExtendedPath) {

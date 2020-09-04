@@ -1,7 +1,6 @@
 package job
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -11,23 +10,23 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type BridgeFetcher struct {
+type BridgeTask struct {
 	BaseTask
 
 	BridgeName  string          `json:"name"`
 	RequestData HttpRequestData `json:"requestData" gorm:"type:jsonb"`
 
-	ORM                BridgeFetcherORM `json:"-" gorm:"-"`
+	ORM                BridgeTaskORM `json:"-" gorm:"-"`
 	defaultHTTPTimeout models.Duration
 }
 
-type BridgeFetcherORM interface {
+type BridgeTaskORM interface {
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
 
-func (f *BridgeFetcher) Run(inputs []Result) (out interface{}, err error) {
+func (f *BridgeTask) Run(inputs []Result) (out interface{}, err error) {
 	if len(inputs) > 0 {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "BridgeFetcher requires 0 inputs")
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")
 	}
 
 	url, err := f.getBridgeURLFromName()
@@ -44,7 +43,7 @@ func (f *BridgeFetcher) Run(inputs []Result) (out interface{}, err error) {
 	// between flux monitor polling requests and http/bridge adapters
 	f.RequestData["id"] = models.NewID()
 
-	result, err := (&HttpFetcher{URL: models.WebURL(url), Method: "POST", RequestData: f.RequestData}).Fetch()
+	result, err := (&HTTPTask{URL: models.WebURL(url), Method: "POST", RequestData: f.RequestData}).Fetch()
 	if err != nil {
 		return nil, err
 	}
@@ -56,17 +55,7 @@ func (f *BridgeFetcher) Run(inputs []Result) (out interface{}, err error) {
 	return result, nil
 }
 
-func (f BridgeFetcher) MarshalJSON() ([]byte, error) {
-	type preventInfiniteRecursion BridgeFetcher
-	type fetcherWithType struct {
-		Type FetcherType `json:"type"`
-		preventInfiniteRecursion
-	}
-	f2 := fetcherWithType{FetcherTypeBridge, preventInfiniteRecursion(f)}
-	return json.Marshal(f2)
-}
-
-func (f BridgeFetcher) getBridgeURLFromName() (url.URL, error) {
+func (f BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	task := models.TaskType(f.BridgeName)
 	bridge, err := f.ORM.FindBridge(task)
 	if err != nil {

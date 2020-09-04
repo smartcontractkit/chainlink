@@ -1,7 +1,6 @@
 package job
 
 import (
-	"encoding/json"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -12,11 +11,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type MedianFetcher struct {
+type MedianTask struct {
 	BaseTask
 }
 
-func (f *MedianFetcher) Run(inputs []Result) (out interface{}, err error) {
+func (f *MedianTask) Run(inputs []Result) (out interface{}, err error) {
 	answers := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -50,14 +49,4 @@ func (f *MedianFetcher) Run(inputs []Result) (out interface{}, err error) {
 	}
 	median := answers[k].Add(answers[k-1]).Div(decimal.NewFromInt(2))
 	return median, nil
-}
-
-func (f MedianFetcher) MarshalJSON() ([]byte, error) {
-	type preventInfiniteRecursion MedianFetcher
-	type fetcherWithType struct {
-		Type FetcherType `json:"type"`
-		preventInfiniteRecursion
-	}
-	f2 := fetcherWithType{FetcherTypeMedian, preventInfiniteRecursion(f)}
-	return json.Marshal(f2)
 }
