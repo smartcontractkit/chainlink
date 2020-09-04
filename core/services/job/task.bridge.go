@@ -1,10 +1,10 @@
 package job
 
 import (
-	"fmt"
 	"net/url"
 
 	// "github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -13,11 +13,11 @@ import (
 type BridgeTask struct {
 	BaseTask
 
-	BridgeName  string          `json:"name"`
-	RequestData HttpRequestData `json:"requestData" gorm:"type:jsonb"`
+	Name        string
+	RequestData HttpRequestData `gorm:"type:jsonb"`
 
-	ORM                BridgeTaskORM `json:"-" gorm:"-"`
-	defaultHTTPTimeout models.Duration
+	ORM                BridgeTaskORM   `gorm:"-"`
+	defaultHTTPTimeout models.Duration `gorm:"-"`
 }
 
 type BridgeTaskORM interface {
@@ -43,12 +43,11 @@ func (f *BridgeTask) Run(inputs []Result) (out interface{}, err error) {
 	// between flux monitor polling requests and http/bridge adapters
 	f.RequestData["id"] = models.NewID()
 
-	result, err := (&HTTPTask{URL: models.WebURL(url), Method: "POST", RequestData: f.RequestData}).Fetch()
+	result, err := (&HTTPTask{URL: models.WebURL(url), Method: "POST", RequestData: f.RequestData}).Run(inputs)
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugw(
-		fmt.Sprintf("Fetched answer", result, url.String()),
+	logger.Debugw("Bridge: fetched answer",
 		"answer", result,
 		"url", url.String(),
 	)
@@ -56,7 +55,7 @@ func (f *BridgeTask) Run(inputs []Result) (out interface{}, err error) {
 }
 
 func (f BridgeTask) getBridgeURLFromName() (url.URL, error) {
-	task := models.TaskType(f.BridgeName)
+	task := models.TaskType(f.Name)
 	bridge, err := f.ORM.FindBridge(task)
 	if err != nil {
 		return url.URL{}, err
