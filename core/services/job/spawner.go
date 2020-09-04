@@ -36,7 +36,7 @@ type (
 		orm                   SpawnerORM
 		jobServiceFactories   map[JobType]JobSpecToJobServiceFunc
 		jobServiceFactoriesMu sync.RWMutex
-		jobServices           map[models.ID]JobService
+		jobServices           map[models.ID][]JobService
 		chStopJob             chan models.ID
 		chStop                chan struct{}
 		chDone                chan struct{}
@@ -54,7 +54,7 @@ func NewSpawner(orm SpawnerORM) *spawner {
 	return &spawner{
 		orm:                 orm,
 		jobServiceFactories: make(map[JobType]JobSpecToJobServiceFunc),
-		jobServices:         make(map[models.ID]JobService),
+		jobServices:         make(map[models.ID][]JobService),
 		chStopJob:           make(chan models.ID),
 		chStop:              make(chan struct{}),
 		chDone:              make(chan struct{}),
@@ -133,6 +133,7 @@ func (js *spawner) startJobService(jobSpec JobSpec) error {
 		}
 		js.jobServices[*jobSpec.JobID()] = append(js.jobServices[*jobSpec.JobID()], service)
 	}
+	return nil
 }
 
 func (js *spawner) stopAllJobServices() {
@@ -146,8 +147,7 @@ func (js *spawner) stopJobService(jobID models.ID) {
 		err := service.Stop()
 		if err != nil {
 			logger.Errorw("error stopping job",
-				"job type", jobSpec.JobType(),
-				"job id", jobSpec.JobID(),
+				"job id", jobID,
 				"error", err,
 			)
 		}
@@ -166,7 +166,7 @@ func (js *spawner) StopJob(id *models.ID) {
 	}
 }
 
-func (js *spawner) RegisterJobType(jobType string, factory JobSpecToJobServiceFunc) {
+func (js *spawner) RegisterJobType(jobType JobType, factory JobSpecToJobServiceFunc) {
 	js.jobServiceFactoriesMu.Lock()
 	defer js.jobServiceFactoriesMu.Unlock()
 

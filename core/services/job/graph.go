@@ -1,12 +1,19 @@
 package job
 
 import (
+	"encoding/json"
+	"net/url"
+	"reflect"
+
 	"github.com/mitchellh/mapstructure"
+	"github.com/shopspring/decimal"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type TaskDAG struct {
@@ -28,7 +35,7 @@ func (g *TaskDAG) UnmarshalText(bs []byte) error {
 }
 
 func (g *TaskDAG) HasCycles() bool {
-	return len(topo.DirectedCyclesIn(g)) == 0
+	return len(topo.DirectedCyclesIn(g)) > 0
 }
 
 func (g *TaskDAG) Tasks() ([]Task, error) {
@@ -51,8 +58,32 @@ func (g *TaskDAG) Tasks() ([]Task, error) {
 		}
 
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-			DecodeHook: mapstructure.StringToSliceHookFunc(","),
-			Result:     task,
+			DecodeHook: mapstructure.ComposeDecodeHookFunc(
+				mapstructure.StringToSliceHookFunc(","),
+				func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+					switch f {
+					case reflect.TypeOf(""):
+						switch t {
+						case reflect.TypeOf(models.WebURL{}):
+							u, err := url.Parse(data.(string))
+							if err != nil {
+								return nil, err
+							}
+							return models.WebURL(*u), nil
+
+						case reflect.TypeOf(HttpRequestData{}):
+							var m map[string]interface{}
+							err := json.Unmarshal([]byte(data.(string)), &m)
+							return HttpRequestData(m), err
+
+						case reflect.TypeOf(decimal.Decimal{}):
+							return decimal.NewFromString(data.(string))
+						}
+					}
+					return data, nil
+				},
+			),
+			Result: task,
 		})
 		if err != nil {
 			return nil, err
