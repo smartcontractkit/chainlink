@@ -1,12 +1,17 @@
 package job
 
 import (
+	"database/sql"
+	"encoding/json"
+	"sync"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	// "github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -23,14 +28,12 @@ type runner struct {
 	chDone chan struct{}
 }
 
+// FIXME: This interface probably needs rethinking
 type RunnerORM interface {
 	JobSpec(id models.ID) (JobSpec, error)
 	CreateJobRun(jobRun *JobRun) error
-	LockFirstIncompleteTaskRunWithCompletedParents() (TaskRun, func(), error)
-	MarkTaskRunCompleted(taskRunID uint64, output interface{}, err error) error
-	OutputTaskRunsForTaskRun(taskRunID uint64) ([]TaskRun, error)
-	AllTaskRunsCompleted(jobRunID uint64) (bool, error)
-	MarkJobRunCompleted(jobRunID uint64)
+	NextTaskRunForExecution(func(*gorm.DB, TaskRun) error) error
+	MarkTaskRunCompleted(tx *gorm.DB, taskRunID uint64, output sql.Scanner, err error) error
 }
 
 type JobRun struct {
@@ -45,12 +48,11 @@ type TaskRun struct {
 	ID       uint64 `gorm:"primary_key;auto_increment;not null"`
 	JobRunID uint64
 
-	Output    *JSONSerializable `gorm:"type:jsonb"`
-	Error     string
-	Completed bool `gorm:"not null;default:false"`
+	Output *JSONSerializable `gorm:"type:jsonb"`
+	Error  string
 
 	Task          *TaskDBRow `json:"-"`
-	InputTaskRuns []TaskRun  `json:"-" gorm:"-"`
+	InputTaskRuns []TaskRun  `json:"-" gorm:"many2many:q_task_run_edges;joinForeignKey:q_child_id;JoinReferences:q_parent_id"`
 }
 
 func NewRunner(orm RunnerORM) *runner {
@@ -118,70 +120,90 @@ type Result struct {
 	Error error
 }
 
-func (r *runner) processIncompleteTaskRuns() {
+// NOTE: This could potentially run on another machine in the cluster
+func (r *runner) processIncompleteTaskRuns() error {
 	for {
-		// SELECT * FROM task_runs t
-		// LEFT JOIN task_runs_join_table AS join ON t.id = join.child_id
-		// LEFT JOIN task_runs AS parent ON join.parent_id = parent.id
-		// WHERE t.id = ? AND parent.completed = true
-		taskRun, unlock, err := r.orm.LockFirstIncompleteTaskRunWithCompletedParents()
-		// if errors.Cause(err) == Err404 {
-		// 	// All task runs complete
-		// 	break
-		// } else
-		if err != nil {
-			logger.Errorf("error fetching task runs: %v", err)
-			return
-		}
-		defer unlock()
+			jobRunID = taskRun.JobRunID
 
-		inputs := make([]Result, len(taskRun.InputTaskRuns))
-		for i, parent := range taskRun.InputTaskRuns {
-			inputs[i] = Result{
-				Value: parent.Output.Value,
-				Error: errors.New(parent.Error),
+			inputs := make([]Result, len(taskRun.InputTaskRuns))
+			for i, parent := range taskRun.InputTaskRuns {
+				inputs[i] = Result{
+					Value: parent.Output.Value,
+					Error: parent.Error,
+				}
 			}
-		}
 
-		output, err := taskRun.Task.Task().Run(inputs)
-		if err != nil {
-			logger.Errorf("error in task run %v:", err)
-		}
-
-		r.orm.MarkTaskRunCompleted(taskRun.ID, output, err)
-
-		// If this task has no children, it's an output task.
-		// If it's an output task, it might be the last remaining output task.
-		// If there's a chance that it's the last output task, we need to check
-		//     for job run completion.
-		// If we find that the job run has completed, we need to update the
-		//     job run in the DB to reflect this.
-		outputTaskRuns, err := r.orm.OutputTaskRunsForTaskRun(taskRun.ID)
-		if err != nil {
-			logger.Errorw("error fetching output task runs",
-				"jobRunID", taskRun.JobRunID,
-				"taskRunID", taskRun.ID,
-				"error", err,
-			)
-			return
-		}
-		if len(outputTaskRuns) == 0 {
-			// SELECT j.num_outputs as num_outputs, COUNT(t.id) as num_finished_task_runs
-			//   FROM job_runs AS j
-			//   LEFT JOIN task_runs AS t ON j.id = t.job_run_id
-			//   WHERE j.id = ? AND t.completed = true
-			jobRunCompleted, err := r.orm.AllTaskRunsCompleted(taskRun.JobRunID)
+			output, err := taskRun.Task.Run(inputs)
 			if err != nil {
-				logger.Errorw("error checking job completion status",
-					"taskRunID", taskRun.ID,
-					"error", err,
-				)
-				return
+				logger.Errorf("error in task run %v:", err)
 			}
 
-			if jobRunCompleted {
-				r.orm.MarkJobRunCompleted(taskRun.JobRunID)
+			err = r.orm.MarkTaskRunCompleted(tx, taskRun.ID, output, err)
+			if err != nil {
+				return errors.Wrap(err, "could not mark task run completed")
 			}
+		})
+		if errors.Cause(err) == gorm.ErrRecordNotFound {
+			// All task runs complete
+			break
+		} else if err != nil {
+			return err
+		}
+
+		// XXX: An example of a completion notification could be as follows
+		err = r.orm.NotifyCompletion(jobRunID)
+
+		if err != nil {
+			return err
 		}
 	}
+}
+
+type runnerORM struct {
+	orm *orm.ORM
+}
+
+func (r *runnerORM) JobSpec(id models.ID) (j JobSpec, err error) {
+	err = r.orm.First(&j, id)
+	return j, err
+}
+
+func (r *runnerORM) CreateJobRun(jobRun *JobRun) error {
+	return r.orm.Create(jobRun)
+}
+
+func (r *runnerORM) NextTaskRunForExecution(f func(*gorm.DB, TaskRun) error) error {
+	return r.orm.Transaction(func(tx *gorm.DB) error {
+		var taskRun TaskRun
+		// NOTE: Convert to join preloads with gormv2
+		err := tx.Table("q_task_runs AS child").
+			Set("gorm:query_option", "FOR UPDATE OF child SKIP LOCKED").
+			Joins("LEFT JOIN q_task_run_edges AS edge ON child.id = edge.child_id").
+			Joins("LEFT JOIN q_task_runs AS parent ON parent.id = edge.parent_id").
+			Where("parent.id IS NULL OR parent.completed = true").
+			Preload("Task").
+			Preload("InputTaskRuns").
+			Order("id ASC").
+			First(&taskRun)
+		if err != nil {
+			return errors.Wrap(err, "error finding next task run")
+		}
+		return f(tx, taskRun)
+	})
+}
+
+func (r *runnerORM) MarkTaskRunCompleted(tx *gorm.DB, taskRunID uint64, output sql.Scanner, err error) error {
+	return tx.Exec(`UPDATE q_task_runs SET completed = true, output = ?, error = ? WHERE id = ?`, output, err, taskRunID).Error
+}
+
+func (r *runnerORM) NotifyCompletion(jobRunID int64) error {
+	return r.orm.DB.Exec(`
+	$$
+	BEGIN
+		IF (SELECT bool_and(q_task_runs.error IS NOT NULL OR q_task_runs.output IS NOT NULL) FROM q_job_runs JOIN q_task_runs ON q_task_runs.q_job_run_id = q_job_runs.id WHERE q_job_runs.id = $1)
+			PERFORM pg_notify('q_job_run_completed', $1::text);
+		END IF;
+	END;
+	$$ LANGUAGE plpgsql;
+	)`, jobRunID).Error
 }

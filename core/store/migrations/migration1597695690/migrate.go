@@ -9,7 +9,49 @@ import (
 
 // Migrate creates the offchain_reporting_job_specs table
 func Migrate(tx *gorm.DB) error {
-	// return tx.Exec(`
+	// type TaskRun struct {
+	//     ID       uint64 `gorm:"primary_key;auto_increment;not null"`
+	//     JobRunID uint64
+
+	//     Output    *JSONSerializable `gorm:"type:jsonb"`
+	//     Error     string
+	//     Completed bool `gorm:"not null;default:false"`
+
+	//     Task          *TaskDBRow `json:"-"`
+	//     InputTaskRuns []TaskRun  `json:"-" gorm:"-"`
+	// }
+	return tx.Exec(`
+		-- TODO: Consider renaming to pipeline_runs or something?
+		CREATE TABLE q_job_runs (
+			id BIGSERIAL PRIMARY KEY,
+			q_job_spec_id BIGINT NOT NULL REFERENCES q_job_specs (id)
+		);
+
+		CREATE TABLE q_task_runs (
+			id BIGSERIAL PRIMARY KEY,
+			q_job_run_id BIGINT NOT NULL REFERENCES q_job_runs (id),
+			output JSONB,
+			error TEXT, -- TODO: Actually should probabl reference errors instead?
+			q_task_id BIGINT NOT NULL REFERENCES q_tasks (id),
+			CONSTRAINT chk_q_task_run_fsm CHECK (
+				error IS NULL AND output IS NULL
+				OR
+				error IS NULL AND output IS NOT NULL
+				OR
+				output IS NULL AND error IS NOT NULL
+			)
+		);
+
+		-- TODO: indexes for q_task_runs
+
+		CREATE TABLE q_task_run_edges (
+			parent_id BIGINT NOT NULL REFERENCES q_task_runs (id),
+			child_id BIGINT NOT NULL REFERENCES q_task_runs (id),
+			PRIMARY KEY(child_id, parent_id)
+		);
+
+		CREATE INDEX idx_q_task_run_edges ON q_task_run_edges (parent_id);
+	`)
 	// 	CREATE TABLE ocrv1_oracles (
 	// 		id BIGSERIAL PRIMARY KEY,
 	// 		observation_timeout interval NOT NULL,
