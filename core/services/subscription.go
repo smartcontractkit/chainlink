@@ -40,8 +40,12 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 
 	nextHead := head.NextInt() // Exclude current block from subscription
 	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
-		replayFromBlockBN := big.NewInt(replayFromBlock)
-		nextHead = replayFromBlockBN
+		if replayFromBlock >= nextHead.Int64() {
+			logger.Infof("StartJobSubscription: Next head was supposed to be %v but ReplayFromBlock flag manually overrides to %v, will subscribe from blocknum %v", nextHead, replayFromBlock, replayFromBlock)
+			replayFromBlockBN := big.NewInt(replayFromBlock)
+			nextHead = replayFromBlockBN
+		}
+		logger.Warnf("StartJobSubscription: ReplayFromBlock was set to %v which is older than the next head of %v, will subscribe from blocknum %v", replayFromBlock, nextHead, nextHead)
 	}
 
 	for _, initr := range initrs {
