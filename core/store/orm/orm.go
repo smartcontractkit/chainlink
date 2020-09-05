@@ -347,7 +347,7 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 		Set(
 			"gorm:insert_option",
 			`ON CONFLICT (job_spec_id, description)
-			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1`,
+			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1, updated_at = excluded.updated_at`,
 		).
 		Create(&jse).
 		Error
