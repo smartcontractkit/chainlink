@@ -41,11 +41,8 @@ func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, pwd s
 func (auth TerminalKeyStoreAuthenticator) AuthenticateIritaKey(store *store.Store) error {
 	if auth.Prompter.IsTerminal() {
 		for {
-			// phrase := auth.Prompter.PasswordPrompt(fmt.Sprintf("Enter Password For %s:", store.Config.IritaKeyName()))
-			// return irita.SetPassword(store.Config, phrase)
-
-			// TEST
-			return irita.SetPassword(store.Config, "12345678")
+			phrase := auth.Prompter.PasswordPrompt(fmt.Sprintf("Enter Password For %s:", store.Config.IritaKeyName()))
+			return irita.SetPassword(store.Config, phrase)
 		}
 	} else {
 		return errors.New("No password provided")
@@ -73,11 +70,7 @@ func checkPassword(store *store.Store, phrase string) error {
 
 func (auth TerminalKeyStoreAuthenticator) promptAndCheckPasswordLoop(store *store.Store) string {
 	for {
-		// phrase := auth.Prompter.PasswordPrompt("Enter Password:")
-
-		// TEST
-		phrase := "12345678"
-
+		phrase := auth.Prompter.PasswordPrompt("Enter Password:")
 		if checkPassword(store, phrase) == nil {
 			return phrase
 		}
