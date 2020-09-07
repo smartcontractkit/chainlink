@@ -2450,6 +2450,13 @@
     call-me-maybe "^1.0.1"
     glob-to-regexp "^0.3.0"
 
+"@node-rs/helper@^0.4.0":
+  version "0.4.0"
+  resolved "https://registry.npmjs.org/@node-rs/helper/-/helper-0.4.0.tgz#deec7d95aafa90535980a51cbd5336b8bbefe93a"
+  integrity sha512-fSyHEXmlt/FueKqAYiGFCnkohnQBMQwUr6VYPeZEeVBAzQzhioS1WaRe2fSpOuRKIimCQEvxhQ6fwsYxYakfGA==
+  dependencies:
+    tslib "^2.0.1"
+
 "@nodelib/fs.scandir@2.1.3":
   version "2.1.3"
   resolved "https://registry.npmjs.org/@nodelib/fs.scandir/-/fs.scandir-2.1.3.tgz#3a582bdb53804c6ba6d146579c46e52130cf4a3b"
@@ -3206,6 +3213,39 @@
     "@svgr/plugin-jsx" "^4.3.3"
     "@svgr/plugin-svgo" "^4.3.1"
     loader-utils "^1.2.3"
+
+"@swc-node/core-darwin@^0.7.2":
+  version "0.7.2"
+  resolved "https://registry.npmjs.org/@swc-node/core-darwin/-/core-darwin-0.7.2.tgz#7475605b8f7fd02dae8973c85ac25bc27caf1c0a"
+  integrity sha512-WyeviZGhP/glgEsH1QHjrwmLyaXTUl8Tzn+LiDdglKLwkVd2fWhhLA0PADHfwEaQmXnxEX+PlEl2Ybysn6ibSg==
+
+"@swc-node/core-linux@^0.7.2":
+  version "0.7.2"
+  resolved "https://registry.npmjs.org/@swc-node/core-linux/-/core-linux-0.7.2.tgz#ac05546b4154269c4884595798dce78fdd839185"
+  integrity sha512-LbOO+D7iZSeEz7jcWOTH/7wHcvnqjhaF5Ma/3Mt68ZxFHZFFYhaq6gwsPVQ5YgI3o3lS+FrKsSP3oWjhWhCceA==
+
+"@swc-node/core-win32@^0.7.2":
+  version "0.7.2"
+  resolved "https://registry.npmjs.org/@swc-node/core-win32/-/core-win32-0.7.2.tgz#4a3b1f6332888075edf2f43b75b4ad610ce18306"
+  integrity sha512-4ZSMJ5ndFw339wgFvTT/tUYaNiLBrjFxf2hXKAZ4mR1BQ8BCwHPP8wZLZTErA3MSk9Ezg+uekEfY+QEd+FPaDQ==
+
+"@swc-node/core@^0.7.2":
+  version "0.7.2"
+  resolved "https://registry.npmjs.org/@swc-node/core/-/core-0.7.2.tgz#e7054cfa8c6181558d31b75a9738e6db6575d17e"
+  integrity sha512-g9kZl0kRmTTHHbH3K09nXjx6CaowOzcNfNKdEjLbxKUewNv196EAyJxZwXisOdB5Gx+y1g7sqcBKNG/OPu1hlw==
+  dependencies:
+    "@node-rs/helper" "^0.4.0"
+  optionalDependencies:
+    "@swc-node/core-darwin" "^0.7.2"
+    "@swc-node/core-linux" "^0.7.2"
+    "@swc-node/core-win32" "^0.7.2"
+
+"@swc-node/jest@^0.3.4":
+  version "0.3.4"
+  resolved "https://registry.npmjs.org/@swc-node/jest/-/jest-0.3.4.tgz#d125a0794853e0f07e8c96f49a246716dc94f3fa"
+  integrity sha512-PUiAVzpiPfQ9f80MdaOF0dFn0VDysunV9QARLlYPEeBNFSyj/rkQe17NrmaxcTLkyEr7QcSHL+17gb8NvdPchw==
+  dependencies:
+    "@swc-node/core" "^0.7.2"
 
 "@szmarczak/http-timer@^1.1.2":
   version "1.1.2"
@@ -9825,9 +9865,9 @@ dot-case@^3.0.3:
     tslib "^1.10.0"
 
 dot-prop@^4.1.1, dot-prop@^5.1.1:
-  version "5.2.0"
-  resolved "https://registry.npmjs.org/dot-prop/-/dot-prop-5.2.0.tgz#c34ecc29556dc45f1f4c22697b6f4904e0cc4fcb"
-  integrity sha512-uEUyaDKoSQ1M4Oq8l45hSE26SnTxL6snNnqvK/VWx5wJhmff5z0FUVJDKDanor/6w3kzE3i7XZOk+7wC0EXr1A==
+  version "5.3.0"
+  resolved "https://registry.npmjs.org/dot-prop/-/dot-prop-5.3.0.tgz#90ccce708cd9cd82cc4dc8c3ddd9abdd55b20e88"
+  integrity sha512-QM8q3zDe58hqUqjraQOmzZ1LIH9SWQJTlEKCH4kJ2oQvLZk7RbQXvtDM2XEq3fwkV9CCvvH4LA0AV+ogFsBM2Q==
   dependencies:
     is-obj "^2.0.0"
 
@@ -16459,9 +16499,9 @@ lodash.values@^4.3.0:
   integrity sha1-o6bCsOvsxcLLocF+bmIP6BtT00c=
 
 lodash@4.17.14, lodash@4.17.15, "lodash@>=3.5 <5", lodash@^4.15.0, lodash@^4.16.3, lodash@^4.16.5, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.19, lodash@^4.17.2, lodash@^4.17.4, lodash@^4.17.5, lodash@^4.17.9:
-  version "4.17.19"
-  resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.19.tgz#e48ddedbe30b3321783c5b4301fbd353bc1e4a4b"
-  integrity sha512-JNvd8XER9GQX0v2qJgsaN/mzFCNA5BRe/j8JN9d+tWyGLSodKQHKFicdwNYzWwI3wjRnaKPsGj1XkBjx/F96DQ==
+  version "4.17.20"
+  resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.20.tgz#b44a9b6297bcb698f1c51a3545a2b3b368d59c52"
+  integrity sha512-PlhdFcillOINfeV7Ni6oF1TAEayyZBoZ8bcshTHqOYJYlrqzRK5hagpagky5o4HfCzzd1TRkXPMFq6cKk9rGmA==
 
 log-symbols@2.2.0, log-symbols@^2.1.0:
   version "2.2.0"
@@ -24077,6 +24117,11 @@ tslib@^1, tslib@^1.10.0, tslib@^1.11.1, tslib@^1.8.1, tslib@^1.9.0, tslib@^1.9.3
   version "1.11.1"
   resolved "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz#eb15d128827fbee2841549e171f45ed338ac7e35"
   integrity sha512-aZW88SY8kQbU7gpV19lN24LtXh/yD4ZZg6qieAJDDg+YBsJcSmLGK9QpnUjAKVG/xefmvJGd1WUmfpT/g6AJGA==
+
+tslib@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.npmjs.org/tslib/-/tslib-2.0.1.tgz#410eb0d113e5b6356490eec749603725b021b43e"
+  integrity sha512-SgIkNheinmEBgx1IUNirK0TUD4X9yjjBRTqqjggWCU3pUEqIk3/Uwl3yRixYKT6WjQuGiwDv4NomL3wqRCj+CQ==
 
 tsutils@^3.17.1:
   version "3.17.1"

@@ -19,11 +19,11 @@
   "devDependencies": {
     "@chainlink/belt": "0.0.1",
     "@chainlink/test-helpers": "0.0.5",
+    "@swc-node/jest": "^0.3.4",
     "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
     "ethers": "^4.0.45",
     "jest": "^25.1.0",
-    "ts-jest": "^25.2.0",
     "typescript": "^3.7.5"
   },
   "files": [

@@ -1,5 +1,4 @@
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   testRunner: 'jest-circus/runner',
   testPathIgnorePatterns: ['/node_modules/', 'dist/'],
@@ -9,4 +8,7 @@ module.exports = {
     },
   },
   extraGlobals: ['Math'],
+  transform: {
+    '^.+\\.(t|j)sx?$': ['@swc-node/jest'],
+  },
 }
