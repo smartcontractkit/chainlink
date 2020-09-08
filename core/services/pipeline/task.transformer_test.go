@@ -1,4 +1,4 @@
-package job_test
+package pipeline_test
 
 // import (
 // 	"testing"
@@ -6,7 +6,7 @@ package job_test
 // 	"github.com/shopspring/decimal"
 // 	"github.com/stretchr/testify/require"
 
-// 	"github.com/smartcontractkit/chainlink/core/services/job"
+// 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 // )
 
 // func TestJSONParseTask(t *testing.T) {

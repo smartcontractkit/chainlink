@@ -26,15 +26,14 @@ const PipelineType pipeline.Type = "offchainreporting"
 type OracleSpec struct {
 	JID                *models.ID         `toml:"jobID"              gorm:"not null;column:job_id"`
 	ContractAddress    common.Address     `toml:"contractAddress"    gorm:"not null"`
-	P2PPeerID          string             `toml:"p2pPeerID"          gorm:"not null"`
-	P2PBootstrapPeers  []P2PBootstrapPeer `toml:"p2pBootstrapPeers"  gorm:"not null;type:jsonb"`
+	P2PNodeID          string             `toml:"p2pNodeID"          gorm:"not null"`
+	P2PBootstrapNodes  []P2PBootstrapNode `toml:"p2pBootstrapNodes"  gorm:"not null;type:jsonb"`
 	KeyBundle          string             `toml:"keyBundle"          gorm:"not null"`
 	MonitoringEndpoint string             `toml:"monitoringEndpoint" gorm:"not null"`
-	TransmitterAddress common.Address     `toml:"transmitterAddress"        gorm:"not null"`
+	NodeAddress        common.Address     `toml:"nodeAddress"        gorm:"not null"`
 	ObservationTimeout time.Duration      `toml:"observationTimeout" gorm:"not null"`
-	// XXX: Isn't this represented effectively by the pipeline spec?
-	ObservationSource pipeline.TaskDAG  `toml:"observationSource"  gorm:"-"`
-	LogLevel          ocrtypes.LogLevel `toml:"logLevel,omitempty"`
+	ObservationSource  pipeline.TaskDAG   `toml:"observationSource"  gorm:"-"`
+	LogLevel           ocrtypes.LogLevel  `toml:"logLevel,omitempty"`
 }
 
 // PipelineSpec conforms to the pipeline.Spec interface
@@ -52,7 +51,7 @@ func (spec JobSpec) Tasks() []Task {
 	return spec.ObservationSource.Tasks()
 }
 
-type P2PBootstrapPeer struct {
+type P2PBootstrapNode struct {
 	PeerID    string `toml:"peerID"`
 	Multiaddr string `toml:"multiAddr"`
 }

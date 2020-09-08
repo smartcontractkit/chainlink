@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	job "github.com/smartcontractkit/chainlink/core/services/job"
+	job "github.com/smartcontractkit/chainlink/core/services/pipeline"
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"

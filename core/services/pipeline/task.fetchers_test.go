@@ -1,4 +1,4 @@
-package job_test
+package pipeline_test
 
 // import (
 // 	"encoding/json"
@@ -7,7 +7,7 @@ package job_test
 // 	"github.com/shopspring/decimal"
 // 	"github.com/stretchr/testify/require"
 
-// 	"github.com/smartcontractkit/chainlink/core/services/job"
+// 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 // )
 
 // func TestFetchers_UnmarshalJSON(t *testing.T) {
